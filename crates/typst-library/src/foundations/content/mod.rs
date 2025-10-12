@@ -13,8 +13,10 @@ pub use typst_macros::elem;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
-use std::iter::{self, Sum};
+use std::iter::{self, Once, Sum};
 use std::ops::{Add, AddAssign, ControlFlow};
+use std::slice::{Iter, IterMut};
+use std::vec::IntoIter as VecIntoIter;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
@@ -443,6 +445,31 @@ impl Content {
         }
         ControlFlow::Continue(())
     }
+
+    /// Returns an immutable iterator over the content.
+    ///
+    /// If the content is a sequence, this iterates over its children.
+    /// Otherwise, it iterates over the content itself exactly once.
+    pub fn iter(&self) -> ContentIter<'_> {
+        if let Some(sequence) = self.to_packed::<SequenceElem>() {
+            ContentIter::Sequence(sequence.children.iter())
+        } else {
+            ContentIter::Single(iter::once(self))
+        }
+    }
+
+    /// Returns a mutable iterator over the content.
+    ///
+    /// If the content is a sequence, this iterates over its children.
+    /// Otherwise, it iterates over the content itself exactly once.
+    pub fn iter_mut(&mut self) -> ContentIterMut<'_> {
+        if self.is::<SequenceElem>() {
+            let sequence = self.to_packed_mut::<SequenceElem>().unwrap();
+            ContentIterMut::Sequence(sequence.children.iter_mut())
+        } else {
+            ContentIterMut::Single(iter::once(self))
+        }
+    }
 }
 
 impl Content {
@@ -703,6 +730,12 @@ impl Serialize for Content {
     }
 }
 
+impl FromIterator<Content> for Content {
+    fn from_iter<T: IntoIterator<Item = Content>>(iter: T) -> Self {
+        Self::sequence(iter)
+    }
+}
+
 /// A sequence of content.
 #[elem(Debug, Repr)]
 pub struct SequenceElem {
@@ -775,5 +808,124 @@ impl Repr for StyledElem {
 impl<T: NativeElement> IntoValue for T {
     fn into_value(self) -> Value {
         Value::Content(self.pack())
+    }
+}
+
+/// An immutable iterator over content.
+///
+/// See [`Content::iter`].
+#[derive(Debug, Clone)]
+pub enum ContentIter<'a> {
+    Sequence(Iter<'a, Content>),
+    Single(Once<&'a Content>),
+}
+
+impl<'a> Iterator for ContentIter<'a> {
+    type Item = &'a Content;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Sequence(iter) => iter.next(),
+            Self::Single(iter) => iter.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Sequence(iter) => iter.size_hint(),
+            Self::Single(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for ContentIter<'a> {}
+
+impl<'a> IntoIterator for &'a Content {
+    type Item = &'a Content;
+    type IntoIter = ContentIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// A mutable iterator over content.
+///
+/// See [`Content::iter_mut`].
+#[derive(Debug)]
+pub enum ContentIterMut<'a> {
+    Sequence(IterMut<'a, Content>),
+    Single(Once<&'a mut Content>),
+}
+
+impl<'a> Iterator for ContentIterMut<'a> {
+    type Item = &'a mut Content;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Sequence(iter) => iter.next(),
+            Self::Single(iter) => iter.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Sequence(iter) => iter.size_hint(),
+            Self::Single(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for ContentIterMut<'a> {}
+
+impl<'a> IntoIterator for &'a mut Content {
+    type Item = &'a mut Content;
+    type IntoIter = ContentIterMut<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+/// An owning iterator over content.
+///
+/// See [`Content::into_iter`].
+#[derive(Debug)]
+pub enum ContentIntoIter {
+    Sequence(VecIntoIter<Content>),
+    Single(Once<Content>),
+}
+
+impl Iterator for ContentIntoIter {
+    type Item = Content;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Sequence(iter) => iter.next(),
+            Self::Single(iter) => iter.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Sequence(iter) => iter.size_hint(),
+            Self::Single(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl ExactSizeIterator for ContentIntoIter {}
+
+impl IntoIterator for Content {
+    type Item = Content;
+    type IntoIter = ContentIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.into_packed::<SequenceElem>() {
+            Ok(packed_sequence) => {
+                ContentIntoIter::Sequence(packed_sequence.unpack().children.into_iter())
+            }
+            Err(not_a_sequence) => ContentIntoIter::Single(iter::once(not_a_sequence)),
+        }
     }
 }

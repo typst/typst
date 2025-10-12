@@ -1,6 +1,9 @@
-use crate::foundations::{Content, Packed, elem};
+use typst_utils::default_math_class;
+use unicode_math_class::MathClass;
+
+use crate::foundations::{Content, Packed, StyleChain, elem};
 use crate::layout::{Length, Rel};
-use crate::math::{EquationElem, Mathy};
+use crate::math::{EquationElem, MathSize, Mathy};
 
 /// A base with optional attachments.
 ///
@@ -154,4 +157,55 @@ pub struct StretchElem {
     /// its attachments.
     #[default(Rel::one())]
     pub size: Rel<Length>,
+}
+
+/// Describes in which situation a frame should use limits for attachments.
+#[derive(Debug, Copy, Clone)]
+pub enum Limits {
+    /// Always scripts.
+    Never,
+    /// Display limits only in `display` math.
+    Display,
+    /// Always limits.
+    Always,
+}
+
+impl Limits {
+    /// The default limit configuration if the given character is the base.
+    pub fn for_char(c: char) -> Self {
+        match default_math_class(c) {
+            Some(MathClass::Large) => {
+                if is_integral_char(c) {
+                    Limits::Never
+                } else {
+                    Limits::Display
+                }
+            }
+            Some(MathClass::Relation) => Limits::Always,
+            _ => Limits::Never,
+        }
+    }
+
+    /// The default limit configuration for a math class.
+    pub fn for_class(class: MathClass) -> Self {
+        match class {
+            MathClass::Large => Self::Display,
+            MathClass::Relation => Self::Always,
+            _ => Self::Never,
+        }
+    }
+
+    /// Whether limits should be displayed in this context.
+    pub fn active(&self, styles: StyleChain) -> bool {
+        match self {
+            Self::Always => true,
+            Self::Display => styles.get(EquationElem::size) == MathSize::Display,
+            Self::Never => false,
+        }
+    }
+}
+
+/// Determines if the character is one of a variety of integral signs.
+fn is_integral_char(c: char) -> bool {
+    ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }

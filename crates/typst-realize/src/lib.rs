@@ -20,7 +20,7 @@ use typst_library::foundations::{
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{
-    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+    Locatable, Location, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -1362,6 +1362,7 @@ fn visit_regex_match<'a>(
 fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
     let mut state = SpaceState::Destructive;
     let mut k = start;
+    let mut loc = None;
 
     // We do one pass over the elements, backshifting everything as necessary
     // when a space collapses. The variable `i` is our cursor in the original
@@ -1371,7 +1372,14 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         let (content, styles) = buf[i];
 
         // Determine the next state.
-        if content.is::<TagElem>() {
+        if let Some(elem) = content.to_packed::<TagElem>() {
+            // Remove spaces around block equations.
+            if extract_block_equation_loc(elem, &mut loc) {
+                destruct_space(buf, &mut k, &mut state);
+            } else if matching_equation_end(elem, &mut loc) {
+                state = SpaceState::Destructive;
+            }
+
             // Nothing to do.
         } else if content.is::<SpaceElem>() {
             if state != SpaceState::Supportive {
@@ -1408,6 +1416,32 @@ fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
         *end -= 1;
     }
     *state = SpaceState::Destructive;
+}
+
+/// Checks if the given tag is a start tag for an equation. If it is, then puts
+/// its location in `loc`.
+fn extract_block_equation_loc(tag: &TagElem, loc: &mut Option<Location>) -> bool {
+    if let Tag::Start(child, ..) = &tag.tag
+        && let Some(elem) = child.to_packed::<EquationElem>()
+        && elem.block.as_option().unwrap_or_default()
+    {
+        *loc = elem.location();
+        return true;
+    }
+    false
+}
+
+/// Checks if the given tag is an end tag with location matching `loc`. If it
+/// is, then sets `loc` to `None`.
+fn matching_equation_end(tag: &TagElem, loc: &mut Option<Location>) -> bool {
+    if let Some(eq_loc) = loc
+        && let Tag::End(tag_loc, ..) = &tag.tag
+        && *tag_loc == *eq_loc
+    {
+        *loc = None;
+        return true;
+    }
+    false
 }
 
 /// Finds the first non-detached span in the list.
