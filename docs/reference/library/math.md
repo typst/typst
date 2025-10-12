@@ -86,13 +86,57 @@ $ (3x + y) / 7 &= 9 && "given" \
 ```
 
 # Math fonts
-You can set the math font by with a [show-set rule]($styling/#show-rules) as
-demonstrated below. Note that only special OpenType math fonts are suitable for
-typesetting maths.
+The default math font is `New Computer Modern Math`. As demonstrated below, you
+can tweak it with [show-set rules]($styling/#show-rules). The rule's selector
+can be the general `{math.equation}`, specific [symbols](#symbols) and texts, or
+[math functions](#function-calls) like `{math.op}`. In addition to the
+[`font`]($text.font), the rule can also change OpenType [features]($text.features)
+including [stylistic sets]($text.stylistic-set).
 
-```example
+```example:"Change the overall math font"
 #show math.equation: set text(font: "Fira Math")
 $ sum_(i in NN) 1 + i $
+```
+
+```example:"Change the font for a specific character"
+#show "{": set text(font: "STIX Two Math", fill: maroon)
+$ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
+```
+
+```example:"Change the font for a range of characters"
+#show math.equation: set text(font: (
+  (name: "Noto Sans Math", covers: regex("[𝐴-𝑍]")),
+  "New Computer Modern Math",
+))
+$ 2A + B = C. $
+```
+
+```example:"Configure OpenType features"
+#show math.equation: set text(
+  // Prefer upright integrals (ss02) and small capitals (ss05)
+  stylistic-set: (2, 5),
+  // Use a slashed circle for ∅, replacing the default slashed zero
+  features: ("cv01",),
+)
+// These features are defined by New Computer Modern Math.
+// Other fonts may not support them or map them to different features.
+
+$ integral f dif x, a inter bb(N) = nothing. $
+```
+
+Note that typesetting maths involves complex positioning and spacing, requiring
+a specially designed OpenType math font. Typst will take the first font without
+any [`covers`]($text.font) as the base font, and extract typographic metrics for
+maths from it. If you have to use non-math fonts for certain glyphs, specify a
+coverage.
+
+```example
+#show math.equation: set text(font: (
+  (name: "New Computer Modern Math", covers: "latin-in-cjk"),
+  (name: "Noto Serif CJK SC", covers: regex(".")),
+  "New Computer Modern Math",
+))
+$ a' star b = b' star a. "（“乘法”交换律）" $
 ```
 
 # Math module
