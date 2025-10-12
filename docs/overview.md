@@ -15,4 +15,4 @@ introduces Typst through a practical use case and a comprehensive reference that
 explains all of Typst's concepts and features.
 
 We also invite you to join the community we're building around Typst. Typst is
-still a very young project, so your feedback is more than valuable.
+still a very young project, so your feedback is extremely valuable.
