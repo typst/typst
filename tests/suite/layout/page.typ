@@ -66,7 +66,7 @@
 // Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
-#page(width: 40pt, fill: auto, margin: (top: 10pt, rest: 4.762pt))[Hi]
+#page(width: 40pt, fill: auto, margin: (top: 10pt, rest: auto))[Hi]
 
 --- page-fill-none paged ---
 // Test disabling page fill.

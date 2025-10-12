@@ -4,11 +4,11 @@ use std::str::FromStr;
 
 use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart, Value, cast,
-    elem,
+    Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue, IntoValue,
+    NativeElement, Reflect, Set, Smart, Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -152,7 +152,7 @@ pub struct PageElem {
     /// ```
     #[fold]
     #[ghost]
-    pub margin: Smart<Margin>,
+    pub margin: Smart<Margin<Smart<Rel<Length>>>>,
 
     /// The page's bleed margin.
     ///
@@ -191,7 +191,7 @@ pub struct PageElem {
     /// )
     /// ```
     #[ghost]
-    pub bleed: Margin,
+    pub bleed: Margin<Rel<Length>>,
 
     /// On which side the pages will be bound.
     ///
@@ -566,22 +566,22 @@ impl Page {
 
 /// Specification of the page's margins.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margin {
+pub struct Margin<T: PartialEq> {
     /// The margins for each side.
-    pub sides: Sides<Option<Rel<Length>>>,
+    pub sides: Sides<Option<T>>,
     /// Whether to swap `left` and `right` to make them `inside` and `outside`
     /// (when to swap depends on the binding).
     pub two_sided: Option<bool>,
 }
 
-impl Margin {
+impl<T: Clone + PartialEq> Margin<T> {
     /// Create an instance with four equal components.
-    pub fn splat(value: Option<Rel<Length>>) -> Self {
+    pub fn splat(value: Option<T>) -> Self {
         Self { sides: Sides::splat(value), two_sided: None }
     }
 }
 
-impl Fold for Margin {
+impl<T: Fold + PartialEq> Fold for Margin<T> {
     fn fold(self, outer: Self) -> Self {
         Margin {
             sides: self.sides.fold(outer.sides),
@@ -590,17 +590,31 @@ impl Fold for Margin {
     }
 }
 
-cast! {
-    Margin,
-    self => {
+impl<T: Reflect + PartialEq> Reflect for Margin<T> {
+    fn input() -> CastInfo {
+        T::input() + Dict::input()
+    }
+    fn output() -> CastInfo {
+        Self::input()
+    }
+    fn castable(value: &Value) -> bool {
+        T::castable(value) || Dict::castable(value)
+    }
+}
+
+impl<T: IntoValue + PartialEq> IntoValue for Margin<T> {
+    fn into_value(self) -> Value {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform()
-            && let Some(left) = self.sides.left {
-                return left.into_value();
-            }
+        if !two_sided
+            && self.sides.is_uniform()
+            && let Some(left) = self.sides.left
+        {
+            return left.into_value();
+        }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Option<Rel<Length>>| {
+
+        let mut handle = |key: &str, component: Option<T>| {
             if let Some(c) = component {
                 dict.insert(key.into(), c.into_value());
             }
@@ -617,49 +631,63 @@ cast! {
         }
 
         Value::Dict(dict)
-    },
-    v: Rel<Length> => Self::splat(Some(v)),
-    mut dict: Dict => {
-        let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+    }
+}
 
-        let rest = take("rest")?;
-        let x = take("x")?.or(rest);
-        let y = take("y")?.or(rest);
-        let top = take("top")?.or(y);
-        let bottom = take("bottom")?.or(y);
-        let outside = take("outside")?;
-        let inside = take("inside")?;
-        let left = take("left")?;
-        let right = take("right")?;
-
-        let implicitly_two_sided = outside.is_some() || inside.is_some();
-        let implicitly_not_two_sided = left.is_some() || right.is_some();
-        if implicitly_two_sided && implicitly_not_two_sided {
-            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
+impl<T: Reflect + FromValue + Copy + PartialEq> FromValue for Margin<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if T::castable(&value) {
+            let v = T::from_value(value)?;
+            return Ok(Self::splat(Some(v)));
         }
 
-        // - If 'implicitly_two_sided' is false here, then
-        //   'implicitly_not_two_sided' will be guaranteed to be true
-        //    due to the previous two 'if' conditions.
-        // - If both are false, this means that this margin change does not
-        //   affect lateral margins, and thus shouldn't make a difference on
-        //   the 'two_sided' attribute of this margin.
-        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
-            .then_some(implicitly_two_sided);
+        if Dict::castable(&value) {
+            let mut dict = Dict::from_value(value)?;
+            let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
-        dict.finish(&[
-            "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
-        ])?;
+            let rest = take("rest")?;
+            let x = take("x")?.or(rest);
+            let y = take("y")?.or(rest);
+            let top = take("top")?.or(y);
+            let bottom = take("bottom")?.or(y);
+            let outside = take("outside")?;
+            let inside = take("inside")?;
+            let left = take("left")?;
+            let right = take("right")?;
 
-        Margin {
-            sides: Sides {
-                left: inside.or(left).or(x),
-                top,
-                right: outside.or(right).or(x),
-                bottom,
-            },
-            two_sided,
+            let implicitly_two_sided = outside.is_some() || inside.is_some();
+            let implicitly_not_two_sided = left.is_some() || right.is_some();
+            if implicitly_two_sided && implicitly_not_two_sided {
+                bail!(
+                    "`inside` and `outside` are mutually exclusive with `left` and `right`"
+                );
+            }
+
+            // - If 'implicitly_two_sided' is false here, then
+            //   'implicitly_not_two_sided' will be guaranteed to be true
+            //    due to the previous two 'if' conditions.
+            // - If both are false, this means that this margin change does not
+            //   affect lateral margins, and thus shouldn't make a difference on
+            //   the 'two_sided' attribute of this margin.
+            let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
+                .then_some(implicitly_two_sided);
+
+            dict.finish(&[
+                "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
+            ])?;
+
+            return Ok(Margin {
+                sides: Sides {
+                    left: inside.or(left).or(x),
+                    top,
+                    right: outside.or(right).or(x),
+                    bottom,
+                },
+                two_sided,
+            });
         }
+
+        Err(Self::error(&value))
     }
 }
 
