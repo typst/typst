@@ -86,6 +86,8 @@ pub struct CompileConfig {
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
     pub server: Option<HtmlServer>,
+    /// Image render options
+    pub image_render_options: ImageRenderOptions,
 }
 
 impl CompileConfig {
@@ -216,6 +218,8 @@ impl CompileConfig {
             _ => {}
         }
 
+        let image_render_options = ImageRenderOptions { render_bleed: args.render_bleed };
+
         Ok(Self {
             warnings,
             watching: watch.is_some(),
@@ -234,6 +238,7 @@ impl CompileConfig {
             deps_format,
             #[cfg(feature = "http-server")]
             server,
+            image_render_options,
         })
     }
 }
@@ -346,12 +351,20 @@ fn export_paged(
         OutputFormat::Pdf => {
             export_pdf(document, config).map(|()| vec![config.output.clone()])
         }
-        OutputFormat::Png => {
-            export_image(document, config, ImageExportFormat::Png).at(Span::detached())
-        }
-        OutputFormat::Svg => {
-            export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
-        }
+        OutputFormat::Png => export_image(
+            document,
+            config,
+            ImageExportFormat::Png,
+            config.image_render_options,
+        )
+        .at(Span::detached()),
+        OutputFormat::Svg => export_image(
+            document,
+            config,
+            ImageExportFormat::Svg,
+            config.image_render_options,
+        )
+        .at(Span::detached()),
         OutputFormat::Html => unreachable!(),
     }
 }
@@ -410,11 +423,18 @@ enum ImageExportFormat {
     Svg,
 }
 
+/// Render options image formats
+#[derive(Copy, Clone, Default)]
+pub struct ImageRenderOptions {
+    pub render_bleed: bool,
+}
+
 /// Export to one or multiple images.
 fn export_image(
     document: &PagedDocument,
     config: &CompileConfig,
     fmt: ImageExportFormat,
+    opt: ImageRenderOptions,
 ) -> StrResult<Vec<Output>> {
     // Determine whether we have indexable templates in output
     let can_handle_multiple = match config.output {
@@ -479,7 +499,7 @@ fn export_image(
                 Output::Stdout => Output::Stdout,
             };
 
-            export_image_page(config, page, &output, fmt)?;
+            export_image_page(config, page, &output, fmt, opt)?;
             Ok(output)
         })
         .collect::<StrResult<Vec<Output>>>()
@@ -520,10 +540,15 @@ fn export_image_page(
     page: &Page,
     output: &Output,
     fmt: ImageExportFormat,
+    opt: ImageRenderOptions,
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(page, config.ppi / 72.0);
+            let opts = typst_render::Options {
+                pixel_per_pt: config.ppi / 72.0,
+                render_bleed: opt.render_bleed,
+            };
+            let pixmap = typst_render::render(page, opts);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
@@ -532,7 +557,8 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let svg = typst_svg::svg(page);
+            let opts = typst_svg::Options { render_bleed: opt.render_bleed };
+            let svg = typst_svg::svg(page, opts);
             output
                 .write(svg.as_bytes())
                 .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;

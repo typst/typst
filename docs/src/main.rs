@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use clap::Parser;
 use typst::layout::PagedDocument;
 use typst_docs::{Html, Resolver, provide};
-use typst_render::render;
+use typst_render::{Options, render};
 
 #[derive(Debug)]
 struct CliResolver<'a> {
@@ -48,7 +48,7 @@ impl Resolver for CliResolver<'_> {
         }
         .iter()
         .map(|(page, filename, alt)| {
-            let pixmap = render(page, 2.0);
+            let pixmap = render(page, Options { pixel_per_pt: 2.0, render_bleed: false });
             let path = self.assets_dir.join(filename);
             pixmap.save_png(path.as_path()).expect("save png");
             eprintln!("Generated example image {path:?}");

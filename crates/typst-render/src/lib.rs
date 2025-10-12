@@ -7,22 +7,33 @@ mod text;
 
 use tiny_skia as sk;
 use typst_library::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Size,
-    Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Sides,
+    Size, Transform,
 };
 use typst_library::visualize::{Color, Geometry, Paint};
+
+/// Render options image formats
+#[derive(Clone, Copy)]
+pub struct Options {
+    pub pixel_per_pt: f32,
+    pub render_bleed: bool,
+}
 
 /// Export a page into a raster image.
 ///
 /// This renders the page at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
-    let size = page.frame.size();
+pub fn render(page: &Page, opts: Options) -> sk::Pixmap {
+    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
+
+    let size = page.frame.size() + bleed.sum_by_axis();
+    let pixel_per_pt = opts.pixel_per_pt;
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
+
     let state = State::new(size, ts, pixel_per_pt);
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
@@ -31,10 +42,12 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
         if let Paint::Solid(color) = fill {
             canvas.fill(paint::to_sk_color(color));
         } else {
-            let rect = Geometry::Rect(page.frame.size()).filled(fill);
+            let rect = Geometry::Rect(size).filled(fill);
             shape::render_shape(&mut canvas, state, &rect);
         }
     }
+
+    let state = state.pre_translate(Point { x: bleed.left, y: bleed.top });
 
     render_frame(&mut canvas, state, &page.frame);
 
@@ -44,14 +57,13 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 /// Export a document with potentially multiple pages into a single raster image.
 pub fn render_merged(
     document: &PagedDocument,
-    pixel_per_pt: f32,
+    opts: Options,
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> =
-        document.pages.iter().map(|page| render(page, pixel_per_pt)).collect();
+    let pixmaps: Vec<_> = document.pages.iter().map(|page| render(page, opts)).collect();
 
-    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
+    let gap = (opts.pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
         + gap * pixmaps.len().saturating_sub(1) as u32;
