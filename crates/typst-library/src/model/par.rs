@@ -670,7 +670,11 @@ impl From<FirstLineIndent> for Dict {
 impl Fold for FirstLineIndent {
     fn fold(self, new: Self) -> Self {
         Self {
-            amount: if new.amount != Length::default() { new.amount } else { self.amount },
+            amount: if new.amount != Length::default() {
+                new.amount
+            } else {
+                self.amount
+            },
             all: if new.all != bool::default() { new.all } else { self.all },
         }
     }
