@@ -412,6 +412,7 @@ pub struct ParElem {
     ///
     /// Even the first one.
     /// ```
+    #[fold]
     pub first_line_indent: FirstLineIndent,
 
     /// The indent that all but the first line of a paragraph should have.
@@ -642,8 +643,16 @@ cast! {
     self => Value::Dict(self.into()),
     amount: Length => Self { amount, all: false },
     mut dict: Dict => {
-        let amount = dict.take("amount")?.cast()?;
-        let all = dict.take("all").ok().map(|v| v.cast()).transpose()?.unwrap_or(false);
+        let amount = dict.take("amount")
+            .ok()
+            .map(|v| v.cast())
+            .transpose()?
+            .unwrap_or_else(Length::default);
+        let all = dict.take("all")
+            .ok()
+            .map(|v| v.cast())
+            .transpose()?
+            .unwrap_or(false);
         dict.finish(&["amount", "all"])?;
         Self { amount, all }
     },
@@ -654,6 +663,15 @@ impl From<FirstLineIndent> for Dict {
         dict! {
             "amount" => indent.amount,
             "all" => indent.all,
+        }
+    }
+}
+
+impl Fold for FirstLineIndent {
+    fn fold(self, new: Self) -> Self {
+        Self {
+            amount: if new.amount != Length::default() { new.amount } else { self.amount },
+            all: if new.all != bool::default() { new.all } else { self.all },
         }
     }
 }
