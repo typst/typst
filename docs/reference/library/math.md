@@ -111,8 +111,8 @@ a priority list of font family descriptor. In the example below, the font
 [regex] are [mathematical alphanumeric symbols](https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols)
 defined in the Unicode standard, instead of the regular `A` and `Z` in ASCII.
 Besides, some characters do not belong to this Unicode block for historic
-reasons, making it harder to match other ranges. For example, `[𝑎-𝑧]` does not
-match `ℎ` and the dotless `𝚤` and `𝚥`.
+reasons, making it harder to match other ranges. For example, `{regex("[𝑎-𝑧]")}`
+does not match `ℎ` and the dotless `𝚤` and `𝚥`.
 
 ```example:"Change the font for a range of characters"
 #show math.equation: set text(font: (
