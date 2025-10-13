@@ -33,23 +33,21 @@ use typst_library::model::{
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
-    HighlightElem, OverlineElem, RawElem, RawLine, ScriptKind, StrikeElem, SubElem,
-    SuperElem, UnderlineElem,
+    HighlightElem, OverlineElem, RawElem, RawLine, StrikeElem, SubElem, SuperElem,
+    UnderlineElem,
 };
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
+use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::groups::{
     BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
 };
-use crate::tags::tree::text::{Script, TextAttr, TextDeco, TextDecoKind};
+use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
-use crate::tags::util::{
-    ArtifactKindExt, PropertyOptRef, PropertyValCloned, PropertyValCopied,
-};
-use crate::tags::{GroupId, util};
+use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
@@ -484,24 +482,17 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(_emph) = elem.to_packed::<EmphElem>() {
         push_text_attr(tree, elem, TextAttr::Emph)
     } else if let Some(sub) = elem.to_packed::<SubElem>() {
-        let script = Script::new(ScriptKind::Sub, sub.baseline.val(), sub.size.val());
-        push_text_attr(tree, elem, TextAttr::Script(script))
+        push_text_attr(tree, elem, TextAttr::SubScript(sub.clone()))
     } else if let Some(sup) = elem.to_packed::<SuperElem>() {
-        let script = Script::new(ScriptKind::Super, sup.baseline.val(), sup.size.val());
-        push_text_attr(tree, elem, TextAttr::Script(script))
+        push_text_attr(tree, elem, TextAttr::SuperScript(sup.clone()))
     } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
-        let paint = highlight.fill.opt_ref();
-        let color = paint.and_then(util::paint_to_color);
-        push_text_attr(tree, elem, TextAttr::Highlight(color))
+        push_text_attr(tree, elem, TextAttr::Highlight(highlight.clone()))
     } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
-        let deco = TextDeco::new(TextDecoKind::Underline, underline.stroke.val_cloned());
-        push_text_attr(tree, elem, TextAttr::Deco(deco))
+        push_text_attr(tree, elem, TextAttr::Underline(underline.clone()))
     } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
-        let deco = TextDeco::new(TextDecoKind::Overline, overline.stroke.val_cloned());
-        push_text_attr(tree, elem, TextAttr::Deco(deco))
+        push_text_attr(tree, elem, TextAttr::Overline(overline.clone()))
     } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
-        let deco = TextDeco::new(TextDecoKind::Strike, strike.stroke.val_cloned());
-        push_text_attr(tree, elem, TextAttr::Deco(deco))
+        push_text_attr(tree, elem, TextAttr::Strike(strike.clone()))
     } else {
         no_progress(tree)
     }

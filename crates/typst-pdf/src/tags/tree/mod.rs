@@ -348,8 +348,8 @@ fn open_group(
     if let Some(bbox) = &group.kind.bbox() {
         state.bbox_stack.push(*bbox);
     }
-    if let GroupKind::TextAttr(attr) = group.kind {
-        state.text_attrs.push(id, attr);
+    if let GroupKind::TextAttr(attr) = &group.kind {
+        state.text_attrs.push(id, attr.clone());
     }
 }
 
@@ -371,8 +371,8 @@ fn open_multiple_groups<'a>(
         if let Some(bbox) = group.kind.bbox() {
             state.bbox_stack.insert(bbox_start, bbox);
         }
-        if let GroupKind::TextAttr(attr) = group.kind {
-            state.text_attrs.insert(text_attr_start, id, attr);
+        if let GroupKind::TextAttr(attr) = &group.kind {
+            state.text_attrs.insert(text_attr_start, id, attr.clone());
         }
     }
 

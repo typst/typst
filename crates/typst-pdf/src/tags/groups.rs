@@ -184,7 +184,7 @@ impl Groups {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
             GroupKind::Par(_) => GroupKind::Par(None),
-            GroupKind::TextAttr(attr) => GroupKind::TextAttr(*attr),
+            GroupKind::TextAttr(attr) => GroupKind::TextAttr(attr.clone()),
             GroupKind::Standard(old, _) => {
                 let tag = self.tags.get(*old).clone();
                 let new = self.tags.push(tag);
@@ -445,7 +445,6 @@ pub enum GroupKind {
     /// contains no children. This can happen when there are overlapping tags
     /// and a pragraph is split up.
     Par(Option<Locale>),
-    // PERF: This increases the size of `GroupKind` from 40 to 56.
     TextAttr(TextAttr),
     Transparent,
     Standard(TagId, Option<Locale>),

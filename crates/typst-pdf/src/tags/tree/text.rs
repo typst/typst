@@ -1,12 +1,16 @@
 use krilla::tagging::{LineHeight, NaiveRgbColor, TextDecorationType};
 use typst_library::diag::{SourceDiagnostic, error};
-use typst_library::foundations::Smart;
+use typst_library::foundations::{Content, Packed, Smart};
 use typst_library::layout::{Abs, Length};
-use typst_library::text::{Font, ScriptKind, TextItem, TextSize};
+use typst_library::text::{
+    HighlightElem, OverlineElem, ScriptKind, StrikeElem, SubElem, SuperElem, TextItem,
+    TextSize, UnderlineElem,
+};
 use typst_library::visualize::Stroke;
 
 use crate::PdfOptions;
 use crate::tags::tree::Tree;
+use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 use crate::tags::{GroupId, util};
 use crate::util::AbsExt;
 
@@ -44,78 +48,16 @@ impl TextAttrs {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TextAttr {
     Strong,
     Emph,
-    Script(Script),
-    Highlight(Option<NaiveRgbColor>),
-    Deco(TextDeco),
-}
-
-/// Sub- or super-script.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Script {
-    kind: ScriptKind,
-    baseline_shift: Smart<Length>,
-    lineheight: Smart<TextSize>,
-}
-
-impl Script {
-    pub fn new(
-        kind: ScriptKind,
-        baseline_shift: Smart<Length>,
-        lineheight: Smart<TextSize>,
-    ) -> Self {
-        Self { kind, baseline_shift, lineheight }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TextDeco {
-    kind: TextDecoKind,
-    stroke: TextDecoStroke,
-}
-
-impl TextDeco {
-    pub fn new(kind: TextDecoKind, stroke: Smart<Stroke>) -> Self {
-        let stroke = TextDecoStroke::from(stroke);
-        Self { kind, stroke }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum TextDecoKind {
-    Underline,
-    Overline,
-    Strike,
-}
-
-impl TextDecoKind {
-    pub fn to_krilla(self) -> TextDecorationType {
-        match self {
-            TextDecoKind::Underline => TextDecorationType::Underline,
-            TextDecoKind::Overline => TextDecorationType::Overline,
-            TextDecoKind::Strike => TextDecorationType::LineThrough,
-        }
-    }
-}
-
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-struct TextDecoStroke {
-    color: Option<NaiveRgbColor>,
-    thickness: Option<Length>,
-}
-
-impl TextDecoStroke {
-    fn from(stroke: Smart<Stroke>) -> Self {
-        let Smart::Custom(stroke) = stroke else {
-            return TextDecoStroke::default();
-        };
-        let color = stroke.paint.custom().as_ref().and_then(util::paint_to_color);
-        let thickness = stroke.thickness.custom();
-        TextDecoStroke { color, thickness }
-    }
+    SuperScript(Packed<SuperElem>),
+    SubScript(Packed<SubElem>),
+    Highlight(Packed<HighlightElem>),
+    Underline(Packed<UnderlineElem>),
+    Overline(Packed<OverlineElem>),
+    Strike(Packed<StrikeElem>),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -155,6 +97,23 @@ pub struct ResolvedTextDeco {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum TextDecoKind {
+    Underline,
+    Overline,
+    Strike,
+}
+
+impl TextDecoKind {
+    pub fn to_krilla(self) -> TextDecorationType {
+        match self {
+            TextDecoKind::Underline => TextDecorationType::Underline,
+            TextDecoKind::Overline => TextDecorationType::Overline,
+            TextDecoKind::Strike => TextDecorationType::LineThrough,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct TextParams {
     pub font_index: u32,
     pub size: Abs,
@@ -182,8 +141,7 @@ pub fn resolve_text_attrs(
         return attrs;
     }
 
-    let (attrs, error) =
-        compute_attrs(tree, options, &tree.state.text_attrs.items, &text.font, text.size);
+    let (attrs, error) = compute_attrs(options, &tree.state.text_attrs.items, text);
 
     tree.errors.extend(error);
 
@@ -192,68 +150,70 @@ pub fn resolve_text_attrs(
 }
 
 fn compute_attrs(
-    tree: &Tree,
     options: &PdfOptions,
     items: &[(GroupId, TextAttr)],
-    font: &Font,
-    size: Abs,
+    text: &TextItem,
 ) -> (ResolvedTextAttrs, Option<SourceDiagnostic>) {
     let mut attrs = ResolvedTextAttrs::EMPTY;
-    let mut resolved_deco: Option<(GroupId, ResolvedTextDeco)> = None;
+    let mut resolved_deco: Option<(&Content, ResolvedTextDeco)> = None;
     let mut err = None;
-    for (id, attr) in items.iter().rev() {
-        match *attr {
+    for (_, attr) in items.iter().rev() {
+        match attr {
             TextAttr::Strong => {
                 attrs.strong.get_or_insert(true);
             }
             TextAttr::Emph => {
                 attrs.emph.get_or_insert(true);
             }
-            TextAttr::Script(script) => {
+            TextAttr::SubScript(sub) => {
                 attrs.script.get_or_insert_with(|| {
-                    // TODO: The `typographic` setting is ignored for now.
-                    // Is it better to be accurate regarding the layouting, and
-                    // thus don't write any baseline shift and lineheight when
-                    // a typographic sub/super script glyph is used? Or should
-                    // we always write the shift so the sub/super script can be
-                    // picked up by AT?
-                    let script_metrics = script.kind.read_metrics(font.metrics());
-                    // NOTE: The user provided baseline_shift needs to be inverted.
-                    let baseline_shift = (script.baseline_shift.map(|s| -s.at(size)))
-                        .unwrap_or_else(|| script_metrics.vertical_offset.at(size));
-                    let lineheight = (script.lineheight.map(|s| s.0.at(size)))
-                        .unwrap_or_else(|| script_metrics.height.at(size));
-
-                    ResolvedScript {
-                        baseline_shift: baseline_shift.to_f32(),
-                        lineheight: LineHeight::Custom(lineheight.to_f32()),
-                    }
+                    let kind = ScriptKind::Sub;
+                    compute_script(text, kind, sub.baseline.val(), sub.size.val())
                 });
             }
-            TextAttr::Highlight(color) => {
+            TextAttr::SuperScript(sub) => {
+                attrs.script.get_or_insert_with(|| {
+                    let kind = ScriptKind::Super;
+                    compute_script(text, kind, sub.baseline.val(), sub.size.val())
+                });
+            }
+            TextAttr::Highlight(highlight) => {
+                let paint = highlight.fill.opt_ref();
+                let color = paint.and_then(util::paint_to_color);
                 attrs.background.get_or_insert(color);
             }
-            TextAttr::Deco(TextDeco { kind, stroke }) => {
-                // PDF can only represent one text decoration style at a time.
-                // If PDF/UA-1 is enforced throw an error.
-                if let Some((id, deco)) = resolved_deco
-                    && deco.kind != kind
-                    && options.is_pdf_ua()
-                    && err.is_none()
-                {
-                    let validator = options.standards.config.validator().as_str();
-                    let span = tree.groups.get(id).span;
-                    err = Some(error!(
-                        span,
-                        "{validator} error: cannot combine underline, overline, or strike"
-                    ));
-                }
-
-                resolved_deco.get_or_insert_with(|| {
-                    let thickness = stroke.thickness.map(|t| t.at(size).to_f32());
-                    let deco = ResolvedTextDeco { kind, color: stroke.color, thickness };
-                    (*id, deco)
-                });
+            TextAttr::Underline(underline) => {
+                compute_deco(
+                    &mut resolved_deco,
+                    &mut err,
+                    options,
+                    text,
+                    underline.pack_ref(),
+                    TextDecoKind::Underline,
+                    underline.stroke.val_cloned(),
+                );
+            }
+            TextAttr::Overline(overline) => {
+                compute_deco(
+                    &mut resolved_deco,
+                    &mut err,
+                    options,
+                    text,
+                    overline.pack_ref(),
+                    TextDecoKind::Overline,
+                    overline.stroke.val_cloned(),
+                );
+            }
+            TextAttr::Strike(strike) => {
+                compute_deco(
+                    &mut resolved_deco,
+                    &mut err,
+                    options,
+                    text,
+                    strike.pack_ref(),
+                    TextDecoKind::Strike,
+                    strike.stroke.val_cloned(),
+                );
             }
         }
     }
@@ -261,4 +221,64 @@ fn compute_attrs(
     attrs.deco = resolved_deco.map(|(_, d)| d);
 
     (attrs, err)
+}
+
+fn compute_script(
+    text: &TextItem,
+    kind: ScriptKind,
+    baseline_shift: Smart<Length>,
+    lineheight: Smart<TextSize>,
+) -> ResolvedScript {
+    // TODO: The `typographic` setting is ignored for now.
+    // Is it better to be accurate regarding the layouting, and
+    // thus don't write any baseline shift and lineheight when
+    // a typographic sub/super script glyph is used? Or should
+    // we always write the shift so the sub/super script can be
+    // picked up by AT?
+    let script_metrics = kind.read_metrics(text.font.metrics());
+    // NOTE: The user provided baseline_shift needs to be inverted.
+    let baseline_shift = (baseline_shift.map(|s| -s.at(text.size)))
+        .unwrap_or_else(|| script_metrics.vertical_offset.at(text.size));
+    let lineheight = (lineheight.map(|s| s.0.at(text.size)))
+        .unwrap_or_else(|| script_metrics.height.at(text.size));
+
+    ResolvedScript {
+        baseline_shift: baseline_shift.to_f32(),
+        lineheight: LineHeight::Custom(lineheight.to_f32()),
+    }
+}
+
+fn compute_deco<'a>(
+    resolved: &mut Option<(&'a Content, ResolvedTextDeco)>,
+    err: &mut Option<SourceDiagnostic>,
+    options: &PdfOptions,
+    text: &TextItem,
+    elem: &'a Content,
+    kind: TextDecoKind,
+    stroke: Smart<Stroke>,
+) {
+    match resolved {
+        Some((elem, deco)) => {
+            // PDF can only represent one text decoration style at a time.
+            // If PDF/UA-1 is enforced throw an error.
+            if err.is_none() && deco.kind != kind && options.is_pdf_ua() {
+                let validator = options.standards.config.validator().as_str();
+                let span = elem.span();
+                *err = Some(error!(
+                    span,
+                    "{validator} error: cannot combine underline, overline, or strike"
+                ));
+            }
+        }
+        None => {
+            let color = (stroke.as_ref().custom())
+                .and_then(|s| s.paint.as_ref().custom())
+                .and_then(util::paint_to_color);
+            let thickness = (stroke.as_ref().custom())
+                .and_then(|s| s.thickness.custom())
+                .map(|t| t.at(text.size).to_f32());
+            let deco = ResolvedTextDeco { kind, color, thickness };
+            *resolved = Some((elem, deco));
+        }
+    }
 }
