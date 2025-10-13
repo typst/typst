@@ -283,3 +283,20 @@ The following:
   // Error: 3-50 cannot create grid with infinite width
   grid(gutter: infinite-length, columns: 2)[A][B]
 })
+
+--- issue-7103-wrong-state-calculation ---
+#set page(paper: "a10")
+
+#let st = state("st", 0)
+
+#let fn() = {
+  st.update(i => i + 1)
+  lorem(11)
+  st.update(i => i - 1)
+}
+
+#grid(fn())
+
+#fn()
+
+Result: #context st.get()
