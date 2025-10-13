@@ -101,6 +101,11 @@ impl Groups {
         self.list.push(Group::new(parent, span, kind))
     }
 
+    /// Create a new weak group, not associated with any location.
+    pub fn new_weak(&mut self, parent: GroupId, span: Span, kind: GroupKind) -> GroupId {
+        self.list.push(Group::weak(parent, span, kind))
+    }
+
     /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
     pub fn breakable(&self, kind: &GroupKind) -> BreakOpportunity {
         use BreakOpportunity::*;
