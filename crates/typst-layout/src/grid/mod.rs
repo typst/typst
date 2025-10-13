@@ -57,7 +57,7 @@ pub fn layout_cell(
     if let Some((elem, loc, key)) = tags
         && let Some((first, remainder)) = frames.split_first_mut()
     {
-        let flags = TagFlags { introspectable: false, tagged: true };
+        let flags = TagFlags { introspectable: true, tagged: true };
         first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
         first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
 
