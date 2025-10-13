@@ -61,6 +61,17 @@ Hello *#x*
 // Error: 19-24 expected boolean, found integer
 #set text(red) if 1 + 2
 
+--- set-shadowed-builtin ---
+#let text = "foo"
+// Error: 6-10 expected function, found string
+// Hint: 6-10 use `std.text` to access the shadowed standard library function
+#set text(fill: red)
+
+--- set-shadowed-builtin-with-std ---
+#let text = "bar"
+#set std.text(fill: red)
+#text
+
 --- set-in-expr ---
 // Error: 12-26 set is only allowed directly in code and content blocks
 #{ let x = set text(blue) }
