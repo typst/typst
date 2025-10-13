@@ -6,7 +6,7 @@ use typst_library::layout::BlockElem;
 use typst_library::model::ParElem;
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Eval, Vm};
+use crate::{binding::hint_if_shadowed_std, Eval, Vm};
 
 impl Eval for ast::SetRule<'_> {
     type Output = Styles;
@@ -18,16 +18,17 @@ impl Eval for ast::SetRule<'_> {
             return Ok(Styles::new());
         }
 
-        let target = self.target();
-        let target = target
+        let target_expr = self.target();
+        let target = target_expr
             .eval(vm)?
             .cast::<Func>()
+            .map_err(|err| hint_if_shadowed_std(vm, &target_expr, err))
             .and_then(|func| {
                 func.element().ok_or_else(|| {
                     "only element functions can be used in set rules".into()
                 })
             })
-            .at(target.span())?;
+            .at(target_expr.span())?;
         let args = self.args().eval(vm)?.spanned(self.span());
         Ok(target.set(&mut vm.engine, args)?.spanned(self.span()).liftable())
     }
@@ -39,7 +40,12 @@ impl Eval for ast::ShowRule<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let selector = self
             .selector()
-            .map(|sel| sel.eval(vm)?.cast::<ShowableSelector>().at(sel.span()))
+            .map(|sel| {
+                sel.eval(vm)?
+                    .cast::<ShowableSelector>()
+                    .map_err(|err| hint_if_shadowed_std(vm, &sel, err))
+                    .at(sel.span())
+            })
             .transpose()?
             .map(|selector| selector.0);
 
