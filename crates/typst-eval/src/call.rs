@@ -2,8 +2,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::World;
 use typst_library::diag::{
-    At, HintedStrResult, SourceDiagnostic, SourceResult, Trace, Tracepoint,
-    bail, error,
+    At, HintedStrResult, SourceDiagnostic, SourceResult, Trace, Tracepoint, bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -17,8 +16,8 @@ use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::LazyHash;
 
-use crate::{Access, Eval, FlowEvent, Route, Vm, call_method_mut, is_mutating_method};
 use crate::binding::hint_if_shadowed_std;
+use crate::{Access, Eval, FlowEvent, Route, Vm, call_method_mut, is_mutating_method};
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
