@@ -89,9 +89,7 @@ $ (3x + y) / 7 &= 9 && "given" \
 The default math font is `New Computer Modern Math`. As demonstrated below, you
 can tweak it with [show-set rules]($styling/#show-rules). The rule's selector
 can be the general `{math.equation}`, specific [symbols](#symbols) and texts, or
-[math functions](#function-calls) like `{math.op}`. In addition to the
-[`font`]($text.font), the rule can also change OpenType [features]($text.features)
-including [stylistic sets]($text.stylistic-set).
+[math functions](#function-calls) like `{math.op}`.
 
 ```example:"Change the overall math font"
 #show math.equation: set text(font: "Fira Math")
@@ -106,6 +104,16 @@ $ sum_(i in NN) 1 + i $
 $ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
 ```
 
+As in the regular text layout, the [`font`]($text.font) parameter also accepts
+a priority list of font family descriptor. In the example below, the font
+`Noto Sans Math` covers capital serif italic letters, and the default font
+`New Computer Modern Math` covers the others. The letters `𝐴` and `𝑍` in the
+[regex] are [mathematical alphanumeric symbols](https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols)
+defined in the Unicode standard, instead of the regular `A` and `Z` in ASCII.
+Besides, some characters do not belong to this Unicode block for historic
+reasons, making it harder to match other ranges. For example, `[𝑎-𝑧]` does not
+match `ℎ` and the dotless `𝚤` and `𝚥`.
+
 ```example:"Change the font for a range of characters"
 #show math.equation: set text(font: (
   (name: "Noto Sans Math", covers: regex("[𝐴-𝑍]")),
@@ -114,12 +122,9 @@ $ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
 $ 2A + B = C. $
 ```
 
-In the above example, the [regex] `[𝐴-𝑍]` matches capital serif italic
-[mathematical alphanumeric symbols](https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols)
-defined in the Unicode standard. They are not the regular `A` and `Z` in ASCII.
-Also, some characters do not belong to this Unicode block for historic reasons,
-making it harder to match other ranges. For example, `[𝑎-𝑧]` does not match `ℎ`
-and the dotless `𝚤` and `𝚥`.
+In addition to [`font`]($text.font), the rule can also change OpenType
+[features]($text.features) including [stylistic sets]($text.stylistic-set) and
+character variants.
 
 ```example:"Configure OpenType features"
 #show math.equation: set text(
@@ -135,10 +140,11 @@ $ integral f dif x, a inter bb(N) = nothing. $
 ```
 
 Note that typesetting maths involves complex positioning and spacing, requiring
-a specially designed OpenType math font. Typst will take the first font without
-any [`covers`]($text.font) as the base font, and extract typographic metrics for
-maths from it. If you have to use non-math fonts for certain glyphs, specify a
-coverage.
+a specially designed [OpenType math font](https://learn.microsoft.com/typography/opentype/spec/math).
+Typst will take the first font without any [`covers`]($text.font) as the base
+font, and extract typographic metrics for maths from it. If you have to use
+non-math fonts for certain glyphs, specify a coverage to tell Typst select the
+base from other fonts.
 
 ```example
 #show math.equation: set text(font: (
