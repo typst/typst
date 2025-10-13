@@ -526,52 +526,44 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
     let m = p.marker();
     let start = p.current_start();
 
-    if p.at(SyntaxKind::Dot) {
+    let mut arg_kind = None;
+
+    if p.at(SyntaxKind::Dot)
+        && let Some(spread) = p.lexer.maybe_math_spread_arg(start)
+    {
         // Parses a spread argument: `..args`.
-        if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
-            p.token.node = spread;
-            p.eat();
-            let m_arg = p.marker();
-            // TODO: Refactor to combine with the other call to `math_exprs`.
-            let count =
-                math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
-            if count == 0 {
-                let dots = vec![
-                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
-                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
-                ];
-                p[m] = SyntaxNode::inner(SyntaxKind::Math, dots);
-            } else {
-                if count > 1 {
-                    p.wrap(m_arg, SyntaxKind::Math);
-                }
-                p.wrap(m, SyntaxKind::Spread);
-            }
-            return true;
-        }
-    }
-
-    let mut positional = true;
-    if p.at_set(syntax_set!(MathText, MathIdent, Underscore)) {
+        arg_kind = Some(SyntaxKind::Spread);
+        p.token.node = spread;
+        p.eat();
+    } else if p.at_set(syntax_set!(MathText, MathIdent, Underscore))
+        && let Some(named) = p.lexer.maybe_math_named_arg(start)
+    {
         // Parses a named argument: `thickness: #12pt`.
-        if let Some(named) = p.lexer.maybe_math_named_arg(start) {
-            p.token.node = named;
-            let text = p.current_text();
-            p.eat();
-            p.convert_and_eat(SyntaxKind::Colon);
-            if !seen.insert(text) {
-                p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
-            }
-            positional = false;
+        arg_kind = Some(SyntaxKind::Named);
+        p.token.node = named;
+        let text = p.current_text();
+        p.eat();
+        p.convert_and_eat(SyntaxKind::Colon);
+        if !seen.insert(text) {
+            p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
         }
     }
 
-    // Parses a normal positional argument.
+    // Parses the argument itself.
     let arg = p.marker();
     let count = math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
-    if count == 0 {
-        // Named argument requires a value.
-        if !positional {
+
+    if count == 0 && arg_kind == Some(SyntaxKind::Spread) {
+        // A spread arg with no following expression converts back to two dots.
+        arg_kind = None;
+        let dots = vec![
+            SyntaxNode::leaf(SyntaxKind::MathText, "."),
+            SyntaxNode::leaf(SyntaxKind::MathText, "."),
+        ];
+        p[m] = SyntaxNode::inner(SyntaxKind::Math, dots);
+    } else if count == 0 {
+        // Named arguments require a value.
+        if arg_kind == Some(SyntaxKind::Named) {
             p.expected("expression");
         }
 
@@ -583,21 +575,21 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
         // - Correct:   [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
         // - Incorrect: [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
         p.flush_trivia();
-    }
 
-    // Wrap math function arguments to join adjacent math content or create an
-    // empty 'Math' node for when we have 0 args. We don't wrap when
-    // `count == 1`, since wrapping would change the type of the expression
-    // from potentially non-content to content. Ex: `$ func(#12pt) $` would
-    // change the type from size to content if wrapped.
-    if count != 1 {
+        // Wrap to create an empty Math node.
+        p.wrap(arg, SyntaxKind::Math);
+    } else if count > 1 {
+        // Multiple adjacent expressions need to wrap as a Math element.
         p.wrap(arg, SyntaxKind::Math);
     }
+    // We don't wrap when `count == 1`, since wrapping would change the type of
+    // the expression from potentially non-content to content.
+    // Ex: `$ func(#12pt) $` would change the type from size to content.
 
-    if !positional {
-        p.wrap(m, SyntaxKind::Named);
+    if let Some(kind) = arg_kind {
+        p.wrap(m, kind);
     }
-    positional
+    arg_kind != Some(SyntaxKind::Named)
 }
 
 /// Parses the contents of a code block.
