@@ -717,9 +717,11 @@ impl Lexer<'_> {
         let cursor = self.s.cursor();
         self.s.jump(start);
         if self.s.eat_if("..") {
-            // Check that neither a space nor a dot follows the spread syntax.
-            // A dot would clash with the `...` math shorthand.
-            if !self.space_or_end() && !self.s.at('.') {
+            // We only infer a spread operator if it is not followed by:
+            // - a space/trivia/end
+            // - a dot (this would clash with the `...` math shorthand)
+            // - an end of arg character: `,`, `;`, ')', `$` (spreads nothing)
+            if !self.space_or_end() && !self.s.at(['.', ',', ';', ')', '$']) {
                 let node = SyntaxNode::leaf(SyntaxKind::Dots, self.s.from(start));
                 return Some(node);
             }
