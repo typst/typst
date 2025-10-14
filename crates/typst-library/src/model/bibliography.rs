@@ -26,8 +26,8 @@ use crate::diag::{
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain, Styles,
+    Bytes, cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
+    OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles,
     Synthesize, Value, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
@@ -119,7 +119,7 @@ pub struct BibliographyElem {
     #[default(false)]
     pub full: bool,
 
-    pub scope: Smart<OneOrMultiple<Label>>,
+    pub scope: Smart<BibliographyScope>,
 
     /// The bibliography style.
     ///
@@ -173,7 +173,6 @@ impl BibliographyElem {
 
     /// Find all bibliography keys.
     pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
-        println!("find");
         let mut vec = vec![];
         for elem in introspector.query(&Self::ELEM.select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
@@ -182,7 +181,6 @@ impl BibliographyElem {
                 vec.push((key, detail))
             }
         }
-        println!("vec {:?}",vec);
         vec
     }
 }
@@ -225,6 +223,25 @@ impl ShowSet for Packed<BibliographyElem> {
 
 impl LocalName for Packed<BibliographyElem> {
     const KEY: &'static str = "bibliography";
+}
+
+// Scope for a bibliography
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum BibliographyScope {
+    /// A pattern with prefix, numbering, lower / upper case and suffix.
+    Labels(OneOrMultiple<Label>),
+    /// A closure mapping from an item's number to content.
+    Selector(Selector),
+}
+
+cast! {
+    BibliographyScope,
+    self => match self {
+        Self::Labels(labels) => labels.into_value(),
+        Self::Selector(selector) => selector.into_value(),
+    },
+    v: OneOrMultiple<Label> => Self::Labels(v),
+    v: Selector => Self::Selector(v),
 }
 
 /// A loaded bibliography.
@@ -547,7 +564,7 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
-    pub works: FxHashMap<Location, IndivWorks>
+    pub works: FxHashMap<Span, IndivWorks>
 }
 
 pub struct IndivWorks {
@@ -585,7 +602,7 @@ impl Works {
         styles: StyleChain,
     ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
         self.works
-            .get(&elem.location().unwrap())
+            .get(&elem.span())
             .unwrap()
             .references
             .as_deref()
@@ -606,7 +623,7 @@ impl Works {
         elem: &Packed<BibliographyElem>,
     ) -> bool {
         self.works
-            .get(&elem.location().unwrap())
+            .get(&elem.span())
             .unwrap()
             .hanging_indent
     }
@@ -621,10 +638,10 @@ struct Generator<'a> {
     /// The document's bibliographies.
     bibliographies: Vec<Packed<BibliographyElem>>,
     /// The document's citation groups.
-    groups: EcoVec<Content>,
+    groups: FxHashMap<Span,EcoVec<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
-    infos: FxHashMap<Location,Vec<GroupInfo>>,
+    infos: FxHashMap<Span,Vec<GroupInfo>>,
     /// Citations with unresolved keys.
     failures: FxHashMap<Location, SourceResult<Content>>,
 }
@@ -661,7 +678,24 @@ impl<'a> Generator<'a> {
         introspector: Tracked<Introspector>,
     ) -> StrResult<Self> {
         let bibliographies = BibliographyElem::find(introspector)?;
-        let groups = introspector.query(&CiteGroup::ELEM.select());
+        let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
+        let mut groups = FxHashMap::default();
+        for bibliography in &bibliographies {
+            let bibliography_scope = &bibliography.scope.as_option().clone().unwrap();
+            let bibliography_groups = match bibliography_scope {
+                Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => citation_groups_all.clone().into_iter().filter( |group| {
+                        group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
+                    }
+                    ).collect(),
+                Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
+                    introspector.query(&CiteGroup::ELEM.select().and(vec![bibliography_selector.clone()]))
+                },
+                Smart::Auto => citation_groups_all.clone(),
+            };
+            println!("{:?}",bibliography_groups);
+            groups.insert(bibliography.span(), bibliography_groups);
+        }
+        ;
         Ok(Self {
             routines,
             world,
@@ -684,22 +718,13 @@ impl<'a> Generator<'a> {
             let bibliography_style =
                 &bibliography.style.get_ref(StyleChain::default()).derived;
             let database = &bibliography.sources.derived;
-            let bibliography_location = bibliography.location().unwrap();
+            let bibliography_span = bibliography.span();
 
             // Process all citation groups.
-            let bibliography_scope = &bibliography.scope.as_option().clone().unwrap();
-            for elem in &self.groups {
+            for elem in self.groups.get(&bibliography_span).unwrap() {
                 let group = elem.to_packed::<CiteGroup>().unwrap();
                 let location = elem.location().unwrap();
                 let children = &group.children;
-
-                // Skip events which are not in this bibliography
-                if let Smart::Custom(bibliography_labels) = bibliography_scope {
-                    if !children.iter().all(|child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
-                    {
-                        continue;
-                    }
-                }
 
                 // Groups should never be empty.
                 let Some(first) = children.first() else { continue };
@@ -758,7 +783,7 @@ impl<'a> Generator<'a> {
                     Smart::Custom(style) => style.derived.get(),
                 };
 
-                self.infos.entry(bibliography_location).or_insert(vec![]).push(GroupInfo {
+                self.infos.entry(bibliography_span).or_insert(vec![]).push(GroupInfo {
                     location,
                     subinfos,
                     span: first.span(),
@@ -809,7 +834,7 @@ impl<'a> Generator<'a> {
             let references = self.display_references(rendered_indiv,bibliography)?;
             let hanging_indent =
                 rendered_indiv.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-            works.insert(bibliography.location().unwrap(), IndivWorks { references, hanging_indent });
+            works.insert(bibliography.span(), IndivWorks { references, hanging_indent });
         }
         Ok(Works { citations, works })
     }
@@ -823,7 +848,6 @@ impl<'a> Generator<'a> {
         let mut output = std::mem::take(&mut self.failures);
 
         for (source_bibliography,rendered_indiv) in self.bibliographies.clone().iter().zip(rendered) {
-            println!("rendered {:?}",rendered_indiv);
             // Determine for each citation key where in the bibliography it is,
             // so that we can link there.
             let mut links = FxHashMap::default();
@@ -834,8 +858,7 @@ impl<'a> Generator<'a> {
                 }
             }
 
-            println!("info keys {:?} location {:?}",self.infos.keys(),&source_bibliography.location().unwrap());
-            if let Some(infos) = self.infos.get(&source_bibliography.location().unwrap()) {
+            if let Some(infos) = self.infos.get(&source_bibliography.span()) {
                 for (info, citation) in infos.iter().zip(&rendered_indiv.citations) {
                     let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
                     let link = |i: usize| {
@@ -885,7 +908,7 @@ impl<'a> Generator<'a> {
         // Determine for each citation key where it first occurred, so that we
         // can link there.
         let mut first_occurrences = FxHashMap::default();
-        if let Some(infos) = self.infos.get(&location) {
+        if let Some(infos) = self.infos.get(&bibliography.span()) {
             for info in infos {
                 for subinfo in &info.subinfos {
                     let key = subinfo.key.resolve();
