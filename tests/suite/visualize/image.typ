@@ -12,6 +12,14 @@
 --- image-jpg-html-base64 html ---
 #image("/assets/images/f2t.jpg", alt: "The letter F")
 
+--- image-sizing-html-css html ---
+#image("/assets/images/f2t.jpg", width: 50%, alt: "width: 50%")
+#image("/assets/images/f2t.jpg", width: 100pt, alt: "width: 100pt")
+#image("/assets/images/f2t.jpg", width: 30% + 50pt, alt: "width: calc(30% + 50pt)")
+#image("/assets/images/f2t.jpg", height: 75%, alt: "height: 75%")
+#image("/assets/images/f2t.jpg", height: 80pt, alt: "height: 80pt")  
+#image("/assets/images/f2t.jpg", height: 20% + 40pt, alt: "height: calc(20% + 40pt)")
+
 --- image-sizing ---
 // Test configuring the size and fitting behaviour of images.
 
