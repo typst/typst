@@ -97,7 +97,7 @@ pub fn cal(
 /// Typst, you could then define your own version of `scr` like in the example
 /// below.
 ///
-/// ```example:"Creating a custom `scr` function using stylistic set 1"
+/// ```example:"Recreation using stylistic set 1"
 /// #let scr(it) = text(
 ///   stylistic-set: 1,
 ///   $cal(it)$,
