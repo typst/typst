@@ -34,7 +34,7 @@ use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
     LinkElem, Url,
 };
 use crate::routines::Routines;
@@ -683,16 +683,27 @@ impl<'a> Generator<'a> {
         for bibliography in &bibliographies {
             let bibliography_scope = &bibliography.scope.as_option().clone().unwrap();
             let bibliography_groups = match bibliography_scope {
-                Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => citation_groups_all.clone().into_iter().filter( |group| {
-                        group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
-                    }
-                    ).collect(),
+                Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
+                    citation_groups_all
+                        .clone()
+                        .into_iter()
+                        .filter(|group| {
+                            group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
+                        })
+                        .collect()
+                },
                 Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
-                    introspector.query(&CiteGroup::ELEM.select().and(vec![bibliography_selector.clone()]))
+                    let selection: Vec<Packed<CiteElem>> = introspector.query(bibliography_selector).into_iter().map(|element| { element.to_packed::<CiteElem>().unwrap().clone()}).collect();
+                    citation_groups_all
+                        .clone()
+                        .into_iter()
+                        .filter(|group| {
+                            group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { selection.contains(&child)})
+                        })
+                        .collect()
                 },
                 Smart::Auto => citation_groups_all.clone(),
             };
-            println!("{:?}",bibliography_groups);
             groups.insert(bibliography.span(), bibliography_groups);
         }
         ;
