@@ -4,7 +4,7 @@ use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::GridCell;
+use typst_library::layout::{GridCell, Inherit};
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Locale;
@@ -15,7 +15,7 @@ use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
 use crate::tags::resolve::TagNode;
-use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
 use crate::tags::util::{self, Id, IdVec};
 
 pub type GroupId = Id<Group>;
@@ -108,7 +108,7 @@ impl Groups {
             GroupKind::Root(..) => Never,
             GroupKind::Artifact(..) => Always(BreakPriority::Span),
             GroupKind::LogicalParent(..) => Never,
-            GroupKind::LogicalChild => Never,
+            GroupKind::LogicalChild(..) => Never,
             GroupKind::Outline(..) => Never,
             GroupKind::OutlineEntry(..) => Never,
             GroupKind::Table(..) => Never,
@@ -130,6 +130,7 @@ impl Groups {
             GroupKind::CodeBlock(..) => Never,
             GroupKind::CodeBlockLine(..) => Never,
             GroupKind::Par(..) => NoPdfUa(BreakPriority::Par),
+            GroupKind::TextAttr(_) => Always(BreakPriority::TextAttr),
             GroupKind::Transparent => Never,
             GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
                 TagKind::Part(_) => Never,
@@ -183,6 +184,7 @@ impl Groups {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
             GroupKind::Par(_) => GroupKind::Par(None),
+            GroupKind::TextAttr(attr) => GroupKind::TextAttr(attr.clone()),
             GroupKind::Standard(old, _) => {
                 let tag = self.tags.get(*old).clone();
                 let new = self.tags.push(tag);
@@ -190,7 +192,7 @@ impl Groups {
             }
             GroupKind::Root(..)
             | GroupKind::LogicalParent(..)
-            | GroupKind::LogicalChild
+            | GroupKind::LogicalChild(..)
             | GroupKind::Outline(..)
             | GroupKind::OutlineEntry(..)
             | GroupKind::Table(..)
@@ -241,6 +243,7 @@ impl BreakOpportunity {
 pub enum BreakPriority {
     Par,
     Span,
+    TextAttr,
     Artifact,
 }
 
@@ -290,7 +293,16 @@ impl Groups {
     /// Check whether the child's [`Group::parent`] is either the `parent` or an
     /// ancestor of the `parent`.
     fn check_ancestor(&self, parent: GroupId, child: GroupId) -> bool {
-        let ancestor = self.get(child).parent;
+        let group = self.get(child);
+
+        // Logical children that don't inherit their parent's styles have their
+        // parent set to the the original location they appeared in the tree,
+        // but will be inserted into the correct logical parent.
+        if let GroupKind::LogicalChild(Inherit::No, _) = group.kind {
+            return true;
+        }
+
+        let ancestor = group.parent;
         let mut current = parent;
         while current != GroupId::INVALID {
             if current == ancestor {
@@ -400,7 +412,7 @@ pub enum GroupKind {
     Root(Option<Locale>),
     Artifact(ArtifactType),
     LogicalParent(Content),
-    LogicalChild,
+    LogicalChild(Inherit, GroupId),
     Outline(OutlineId, Option<Locale>),
     OutlineEntry(Packed<OutlineEntry>, Option<Locale>),
     Table(TableId, BBoxId, Option<Locale>),
@@ -433,6 +445,7 @@ pub enum GroupKind {
     /// contains no children. This can happen when there are overlapping tags
     /// and a pragraph is split up.
     Par(Option<Locale>),
+    TextAttr(TextAttr),
     Transparent,
     Standard(TagId, Option<Locale>),
 }
@@ -454,10 +467,10 @@ impl InternalGridCellKind {
 impl std::fmt::Debug for GroupKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.pad(match self {
-            Self::Root(_) => "Root",
-            Self::Artifact(_) => "Artifact",
-            Self::LogicalParent(_) => "LogicalParent",
-            Self::LogicalChild => "LogicalChild",
+            Self::Root(..) => "Root",
+            Self::Artifact(..) => "Artifact",
+            Self::LogicalParent(..) => "LogicalParent",
+            Self::LogicalChild(..) => "LogicalChild",
             Self::Outline(..) => "Outline",
             Self::OutlineEntry(..) => "OutlineEntry",
             Self::Table(..) => "Table",
@@ -479,6 +492,7 @@ impl std::fmt::Debug for GroupKind {
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
             Self::Par(..) => "Par",
+            Self::TextAttr(..) => "TextAttr",
             Self::Transparent => "Transparent",
             Self::Standard(..) => "Standard",
         })
@@ -492,6 +506,13 @@ impl GroupKind {
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
+    }
+
+    pub fn is_grid_layout_cell(&self) -> bool {
+        matches!(
+            self,
+            Self::TableCell(..) | Self::GridCell(..) | Self::InternalGridCell(..)
+        )
     }
 
     pub fn as_artifact(&self) -> Option<ArtifactType> {
@@ -534,7 +555,7 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
@@ -556,6 +577,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
             GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
@@ -566,7 +588,7 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
@@ -588,6 +610,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
             GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })

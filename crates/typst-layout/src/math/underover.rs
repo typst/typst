@@ -290,7 +290,7 @@ fn layout_underoverspreader(
     let body = body.into_fragment(styles);
     let mut glyph =
         ctx.layout_into_fragment(&SymbolElem::packed(c).spanned(span), styles)?;
-    glyph.stretch_horizontal(ctx, body.width());
+    glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
     let mut rows = vec![];
     let baseline = match position {

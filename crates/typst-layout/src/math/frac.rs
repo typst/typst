@@ -132,7 +132,7 @@ fn layout_vertical_frac_like(
 
         let mut left =
             ctx.layout_into_fragment(&SymbolElem::packed('(').spanned(span), styles)?;
-        left.stretch_vertical(ctx, height - short_fall);
+        left.stretch_vertical(ctx, height, short_fall);
         left.center_on_axis();
         ctx.push(left);
 
@@ -140,7 +140,7 @@ fn layout_vertical_frac_like(
 
         let mut right =
             ctx.layout_into_fragment(&SymbolElem::packed(')').spanned(span), styles)?;
-        right.stretch_vertical(ctx, height - short_fall);
+        right.stretch_vertical(ctx, height, short_fall);
         right.center_on_axis();
         ctx.push(right);
     } else {
@@ -236,7 +236,7 @@ fn layout_skewed_frac(
     // Build the slash glyph to calculate its size
     let mut slash_frag =
         ctx.layout_into_fragment(&SymbolElem::packed('\u{2044}').spanned(span), styles)?;
-    slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
+    slash_frag.stretch_vertical(ctx, fraction_height, short_fall);
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
 
