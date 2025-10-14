@@ -229,5 +229,6 @@ could call it directly at the top level of a module, the whole module and its
 exports could change over the course of multiple compiler iterations, which
 would not be desirable.
 
-[^1]: Currently, all show rules provide styling context, but only show rules on
-      [locatable]($location/#locatable) elements provide a location context.
+[^1]: Currently, all show rules provide [style context](#style-context), but
+      only show rules on [locatable]($location/#locatable) elements provide a
+      [location context](#location-context).
