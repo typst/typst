@@ -397,7 +397,7 @@ impl IntrospectorBuilder {
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
                         self.discover_in_frame(&mut nested, &group.frame, page, ts);
-                        self.register_insertion(parent, nested);
+                        self.register_insertion(parent.location, nested);
                     } else {
                         self.discover_in_frame(sink, &group.frame, page, ts);
                     }
