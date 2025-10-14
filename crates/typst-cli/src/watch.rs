@@ -10,7 +10,7 @@ use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use rustc_hash::{FxHashMap, FxHashSet};
 use same_file::is_same_file;
-use typst::diag::{StrResult, bail, warning};
+use typst::diag::{HintedStrResult, StrResult, bail, warning};
 use typst::syntax::Span;
 use typst::utils::format_duration;
 
@@ -21,7 +21,7 @@ use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
-pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
+pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
     let Output::Path(output) = &config.output else {

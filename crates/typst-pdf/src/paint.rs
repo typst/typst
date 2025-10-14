@@ -1,4 +1,4 @@
-//! Convert paint types from typst to krilla.
+//! Convert paint types from Typst to krilla.
 
 use krilla::color::{self, cmyk, luma, rgb};
 use krilla::num::NormalizedF32;
@@ -16,6 +16,7 @@ use typst_library::visualize::{
 use typst_utils::Numeric;
 
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
+use crate::tags;
 use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 
 pub(crate) fn convert_fill(
@@ -127,8 +128,10 @@ fn convert_pattern(
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
-    let mut fc = FrameContext::new(pattern.frame().size());
-    handle_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
+    tags::tiling(gc, &mut surface, |gc, surface| {
+        let mut fc = FrameContext::new(None, pattern.frame().size());
+        handle_frame(&mut fc, pattern.frame(), None, surface, gc)
+    })?;
     surface.finish();
     let stream = stream_builder.finish();
     let pattern = Pattern {
@@ -225,7 +228,7 @@ fn convert_gradient(
                     Abs::pt(cx as f64),
                     Abs::pt(cy as f64),
                 ))
-                // Default start point in krilla and typst are at the opposite side, so we need
+                // Default start point in krilla and Typst are at the opposite side, so we need
                 // to flip it horizontally.
                 .pre_concat(Transform::scale_at(
                     -Ratio::one(),

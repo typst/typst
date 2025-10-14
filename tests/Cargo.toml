@@ -39,6 +39,7 @@ typst-library = { workspace = true, optional = true }
 typst-pdf = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
 typst-svg = { workspace = true, optional = true }
+bitflags = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

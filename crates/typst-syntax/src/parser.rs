@@ -384,10 +384,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
@@ -647,7 +647,7 @@ fn code_expr(p: &mut Parser) {
 }
 
 /// Parses a code expression with at least the given precedence.
-fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
+fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     let m = p.marker();
     if !atomic && p.at_set(set::UNARY_OP) {
         let op = ast::UnOp::from_kind(p.current()).unwrap();
@@ -1572,7 +1572,7 @@ struct Token {
 }
 
 /// Information about newlines in a group of trivia.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 struct Newline {
     /// The column of the start of the next token in its line.
     column: Option<usize>,
@@ -1581,7 +1581,7 @@ struct Newline {
 }
 
 /// How to proceed with parsing when at a newline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum AtNewline {
     /// Continue at newlines.
     Continue,

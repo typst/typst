@@ -1,6 +1,6 @@
 // Test hyperlinking.
 
---- link-basic render html ---
+--- link-basic render html pdftags ---
 // Link syntax.
 https://example.com/
 
@@ -189,8 +189,12 @@ Text <hey>
 // Error: 2-20 label `<hey>` occurs multiple times in the document
 #link(<hey>)[Nope.]
 
+--- link-empty-url ---
+// Error: 7-9 URL must not be empty
+#link("")[Empty]
+
 --- link-empty-block ---
-#link("", block(height: 10pt, width: 100%))
+#link("https://example.com", block(height: 10pt, width: 100%))
 
 --- issue-758-link-repeat ---
 #let url = "https://typst.org/"

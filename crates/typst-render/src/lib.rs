@@ -79,7 +79,7 @@ pub fn render_merged(
 }
 
 /// Additional metadata carried through the rendering process.
-#[derive(Clone, Copy, Default)]
+#[derive(Default, Copy, Clone)]
 struct State<'a> {
     /// The transform of the current item.
     transform: sk::Transform,

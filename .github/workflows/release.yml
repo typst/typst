@@ -86,3 +86,4 @@ jobs:
         allowUpdates: true
         omitNameDuringUpdate: true
         omitBodyDuringUpdate: true
+        omitPrereleaseDuringUpdate: true

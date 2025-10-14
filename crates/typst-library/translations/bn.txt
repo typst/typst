@@ -1,0 +1,11 @@
+figure = ছবি/নকশা
+table = সারনী
+# equation =
+bibliography = তথ্যবিবরণ
+# heading =
+outline = সূচীপত্র
+# raw =
+page = পৃষ্ঠা
+# footnote =
+# email =
+# telephone =

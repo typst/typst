@@ -1,0 +1,11 @@
+figure = ሥዕል
+table = ሰንጠረዥ
+# equation =
+bibliography = ቢዋ መጽሃፍት
+# heading =
+outline = ይዘት
+# raw =
+page = ገጽ
+# footnote =
+# email =
+# telephone =

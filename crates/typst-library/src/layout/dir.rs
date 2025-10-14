@@ -53,10 +53,10 @@ impl Dir {
     /// Returns a direction from a starting point.
     ///
     /// ```example
-    /// direction.from(left) \
-    /// direction.from(right) \
-    /// direction.from(top) \
-    /// direction.from(bottom)
+    /// #direction.from(left) \
+    /// #direction.from(right) \
+    /// #direction.from(top) \
+    /// #direction.from(bottom)
     /// ```
     #[func]
     pub const fn from(side: Side) -> Dir {
@@ -71,10 +71,10 @@ impl Dir {
     /// Returns a direction from an end point.
     ///
     /// ```example
-    /// direction.to(left) \
-    /// direction.to(right) \
-    /// direction.to(top) \
-    /// direction.to(bottom)
+    /// #direction.to(left) \
+    /// #direction.to(right) \
+    /// #direction.to(top) \
+    /// #direction.to(bottom)
     /// ```
     #[func]
     pub const fn to(side: Side) -> Dir {

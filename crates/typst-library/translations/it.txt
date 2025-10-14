@@ -6,3 +6,6 @@ heading = Sezione
 outline = Indice
 raw = Codice
 page = pag.
+footnote = Nota
+email = E-mail
+telephone = Telefono

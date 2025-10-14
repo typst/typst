@@ -13,8 +13,10 @@ use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat, RasterImage,
 };
 use typst_syntax::Span;
+use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
+use crate::tags;
 use crate::util::{SizeExt, TransformExt};
 
 #[typst_macros::time(name = "handle image")]
@@ -28,19 +30,23 @@ pub(crate) fn handle_image(
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());
     surface.set_location(span.into_raw());
+    let mut surface = defer(surface, |s| {
+        s.pop();
+        s.reset_location();
+    });
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
-    if let Some(alt) = image.alt() {
-        surface.start_alt_text(alt);
-    }
-
     gc.image_spans.insert(span);
+
+    let mut handle = tags::image(gc, fc, &mut surface, image, size);
+    let surface = handle.surface();
 
     match image.kind() {
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
             surface.push_transform(&exif_transform.to_krilla());
+            let mut surface = defer(surface, |s| s.pop());
 
             let image = match convert_raster(raster.clone(), interpolate) {
                 None => bail!(span, "failed to process image"),
@@ -51,27 +57,25 @@ pub(crate) fn handle_image(
                 gc.image_to_spans.insert(image.clone(), span);
             }
 
-            surface.draw_image(image, new_size.to_krilla());
-            surface.pop();
+            if let Some(size) = new_size.to_krilla() {
+                surface.draw_image(image, size);
+            }
         }
         ImageKind::Svg(svg) => {
-            surface.draw_svg(
-                svg.tree(),
-                size.to_krilla(),
-                SvgSettings { embed_text: true, ..Default::default() },
-            );
+            if let Some(size) = size.to_krilla() {
+                surface.draw_svg(
+                    svg.tree(),
+                    size,
+                    SvgSettings { embed_text: true, ..Default::default() },
+                );
+            }
         }
         ImageKind::Pdf(pdf) => {
-            surface.draw_pdf_page(&convert_pdf(pdf), size.to_krilla(), pdf.page_index())
+            if let Some(size) = size.to_krilla() {
+                surface.draw_pdf_page(&convert_pdf(pdf), size, pdf.page_index());
+            }
         }
     }
-
-    if image.alt().is_some() {
-        surface.end_alt_text();
-    }
-
-    surface.pop();
-    surface.reset_location();
 
     Ok(())
 }
@@ -210,6 +214,13 @@ fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
 }
 
 fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
+    // For JPEGs, we want to apply the EXIF orientation as a transformation
+    // because we don't recode them. For other formats, the transform is already
+    // baked into the dynamic image data.
+    if image.format() != RasterFormat::Exchange(ExchangeFormat::Jpg) {
+        return (Transform::identity(), size);
+    }
+
     let base = |hp: bool, vp: bool, mut base_ts: Transform, size: Size| {
         if hp {
             // Flip horizontally in-place.
@@ -245,9 +256,9 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
         Some(3) => no_flipping(true, true),
         Some(4) => no_flipping(false, true),
         Some(5) => with_flipping(false, false),
-        Some(6) => with_flipping(true, false),
+        Some(6) => with_flipping(false, true),
         Some(7) => with_flipping(true, true),
-        Some(8) => with_flipping(false, true),
+        Some(8) => with_flipping(true, false),
         _ => no_flipping(false, false),
     }
 }

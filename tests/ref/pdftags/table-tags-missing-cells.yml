@@ -1,0 +1,124 @@
+- Tag: Table
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:   76.350
+    bottom:  96.820
+  /BorderColor: #000000
+  /BorderThickness:   1.000
+  /K:
+    - Tag: THead
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TH
+              /Id: "U1x0y0"
+              /Scope: Column
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=0
+            - Tag: TH
+              /Id: "U1x1y0"
+              /Scope: Column
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=1
+            - Tag: TH
+              /Id: "U1x2y0"
+              /Scope: Column
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=2
+        - Tag: TR
+          /K:
+            - Tag: TH
+              /Id: "U1x0y1"
+              /Scope: Column
+              /Headers: ["U1x0y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=3
+            - Tag: TH
+              /Id: "U1x1y1"
+              /Scope: Column
+              /Headers: ["U1x1y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=4
+            - Tag: TH
+              /Id: "U1x2y1"
+              /Scope: Column
+              /Headers: ["U1x2y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=5
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y1"]
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: ["U1x1y1"]
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: ["U1x2y1"]
+              /BorderStyle: Solid
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TH
+              /Id: "U1x0y3"
+              /Scope: Column
+              /Headers: ["U1x0y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=6
+            - Tag: TH
+              /Id: "U1x1y3"
+              /Scope: Column
+              /Headers: ["U1x1y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=7
+            - Tag: TH
+              /Id: "U1x2y3"
+              /Scope: Column
+              /Headers: ["U1x2y0"]
+              /BorderStyle: Solid
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y3"]
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: ["U1x1y3"]
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: ["U1x2y3"]
+              /BorderStyle: Solid
+    - Tag: TFoot
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y3"]
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: ["U1x1y3"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=8
+            - Tag: TD
+              /Headers: ["U1x2y3"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=9

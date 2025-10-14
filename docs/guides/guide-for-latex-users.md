@@ -488,6 +488,7 @@ and their corresponding Typst functions.
 | csquotes                        | Set the [`text`]($text.lang) language and type `["]` or `[']` |
 | caption                         | [`figure`] function                        |
 | enumitem                        | [`list`], [`enum`], [`terms`] functions    |
+| nicefrac                        | [`frac.style`]($math.frac.style) property  |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
 its own [package ecosystem]($universe) where the community share its creations

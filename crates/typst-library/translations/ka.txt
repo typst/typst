@@ -1,0 +1,11 @@
+figure = სურ.
+table = ცხრ.
+# equation =
+bibliography = ლიტერატურა
+# heading =
+outline = შინაარსი
+# raw =
+page = გვ.
+# footnote =
+# email =
+# telephone =

@@ -1,0 +1,17 @@
+- Tag: Figure
+  /Alt: "alt text"
+  /Placement: Block
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:  110.500
+    bottom:  76.332
+  /K:
+    - Tag: Link
+      /K:
+        - Annotation: page=0 index=0
+        - Content: page=0 mcid=0
+    - Content: page=0 mcid=1
+    - Content: page=0 mcid=2
+    - Content: page=0 mcid=3

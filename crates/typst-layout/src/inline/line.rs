@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
-use typst_library::introspection::{SplitLocator, Tag};
+use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
@@ -11,6 +11,7 @@ use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
+use crate::inline::shaping::Adjustability;
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -184,6 +185,9 @@ pub fn line<'a>(
     // Use the trimmed range for robust boundary checks.
     adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
 
+    // Deal with stretchability of glyphs at the end of the line.
+    adjust_glyph_stretch_at_line_end(p, &mut items);
+
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
 
@@ -349,6 +353,22 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items
     {
         adjust_cj_at_line_end(p, items);
     }
+}
+
+/// Remove stretchability from the last glyph in the line to avoid trailing
+/// space after a glyph due to glyph-level justification.
+fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
+    let glyph_limits = &p.config.justification_limits.tracking();
+    if glyph_limits.min.is_zero() && glyph_limits.max.is_zero() {
+        return;
+    }
+
+    // This is not perfect (ignores clusters and is not particularly fast), but
+    // it is good enough for now. The adjustability handling in general needs a
+    // cleanup.
+    let Some(shaped) = items.trailing_text_mut() else { return };
+    let Some(glyph) = shaped.glyphs.to_mut().last_mut() else { return };
+    glyph.adjustability = Adjustability::default();
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
@@ -643,8 +663,9 @@ fn add_par_line_marker(
     // line's general baseline. However, the line number will still need to
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
-    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack())));
-    output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
+    let flags = TagFlags { introspectable: false, tagged: false };
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
+    output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
 /// How much a character should hang into the end margin.

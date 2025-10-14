@@ -231,3 +231,31 @@
     For example, `#emoji.face` produces the 😀 emoji. If you frequently use
     certain emojis, you can also import them from the `emoji` module (`[#import
     emoji: face]`) to use them without the `emoji.` prefix.
+
+- name: typed
+  title: Typed HTML
+  category: html
+  path: ["html"]
+  details: |
+    A typed layer over raw HTML elements.
+
+    The `html` module provides a typed layer over the raw [`html.elem`] function
+    that allows you to conveniently create HTML elements. HTML attributes are
+    exposed as function parameters that accept Typst types and automatically
+    take care of converting those into the appropriate HTML.
+
+    Some parameters are common to all typed HTML functions. These are listed at
+    the bottom in the [Global Attributes](#global-attributes) section instead of
+    explicitly on each element for readability.
+
+    # Example
+    ```typ
+    #html.video(
+      controls: true,
+      width: 1280,
+      height: 720,
+      src: "sunrise.mp4",
+    )[
+      Your browser does not support the video tag.
+    ]
+    ```

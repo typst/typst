@@ -91,6 +91,22 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
+--- raw-syntaxes-invalid-sublime-syntax ---
+// Prevent test parser from failing on "^---" line.
+#let sublime-syntax = ```yaml
+%YAML 1.2
+```.text + "\n---\n" + ```yaml
+name: lang
+file_extensions:
+  - a
+scope: source
+contexts:
+  main:
+    - match: '\'
+```.text
+
+// Error: 35-56 failed to parse syntax (Error while compiling regex '/': Parsing error at position 0: Backslash without following character)
+#raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
 --- raw-theme ---
 // Test code highlighting with custom theme.
@@ -215,7 +231,7 @@ box[]
 hello.world
 hello.world()
 hello.my.world()
-f_(zeta(x)), f_(zeta(x))/1
+f_zeta(x), f_zeta(x)/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
@@ -225,6 +241,15 @@ emph(hello.my().world())
 #hello.world()
 #box[]
 ```
+
+--- raw-highlight-typm-extra ---
+// Math highlighting for strings, alignments, shorthands, and named args.
+#set page(width: auto)
+```typm
+"string" - + * ::= & \
+|=> & [|define(x: #y, x::= y)|]
+```
+
 --- raw-highlight-rust ---
 #set page(width: auto)
 
@@ -642,6 +667,20 @@ if true {
 	f()	// typc
 }
 ```
+
+--- issue-6961-tab-crlf-raw-indent ---
+#let snippet = (
+  ```
+  A
+    BC
+    D
+  ```
+)
+
+#raw(
+  snippet.text.replace("  ", "\t").replace("\n", "\r\n"),
+  block: true,
+)
 
 --- issue-4662-math-mode-language-for-raw ---
 // Test lang: "typm" syntax highlighting without enclosing dollar signs

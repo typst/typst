@@ -350,7 +350,7 @@ impl<'a> ImageResolver<'a> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
         let href = href.strip_prefix("file://").unwrap_or(href);
 
-        // Do not accept absolute hrefs. They would be parsed in typst in a way
+        // Do not accept absolute hrefs. They would be parsed in Typst in a way
         // that is not compatible with their interpretation in the SVG standard.
         if href.starts_with("/") {
             return Err("absolute paths are not allowed".into());

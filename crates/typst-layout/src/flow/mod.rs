@@ -26,6 +26,7 @@ use typst_library::layout::{
     Regions, Rel, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
+use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::TextElem;
 use typst_utils::{NonZeroExt, Numeric};
@@ -255,7 +256,9 @@ fn configuration<'x>(
             ColumnConfig { count, width, gutter, dir }
         },
         footnote: FootnoteConfig {
-            separator: shared.get_cloned(FootnoteEntry::separator),
+            separator: shared
+                .get_cloned(FootnoteEntry::separator)
+                .artifact(ArtifactKind::Other),
             clearance: shared.resolve(FootnoteEntry::clearance),
             gap: shared.resolve(FootnoteEntry::gap),
             expand: regions.expand.x,

@@ -1,0 +1,11 @@
+figure = ఆకృతి
+table = పట్టిక
+# equation =
+bibliography = గ్రంథాల జాబితా
+# heading =
+outline = విషయాలు
+# raw =
+page = పేజి
+# footnote =
+# email =
+# telephone =

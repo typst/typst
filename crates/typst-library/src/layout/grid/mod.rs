@@ -11,8 +11,10 @@ use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
-    Resolve, Smart, StyleChain, Value, cast, elem, scope,
+    Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
+use crate::introspection::Tagged;
+use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
@@ -28,13 +30,12 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// While the grid and table elements work very similarly, they are intended for
 /// different use cases and carry different semantics. The grid element is
-/// intended for presentational and layout purposes, while the
-/// [`{table}`]($table) element is intended for, in broad terms, presenting
-/// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow. Set and show rules on one of these elements do not
-/// affect the other.
+/// intended for presentational and layout purposes, while the [`table`] element
+/// is intended for, in broad terms, presenting multiple related data points.
+/// Set and show rules on one of these elements do not affect the other. Refer
+/// to the [Accessibility Section]($grid/#accessibility) to learn how grids and
+/// tables are presented to users of Assistive Technology (AT) like screen
+/// readers.
 ///
 /// # Sizing the tracks { #track-size }
 ///
@@ -106,7 +107,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Styling the grid { #styling }
 /// The grid and table elements work similarly. For a hands-on explanation,
-/// refer to the [Table Guide]($guides/table-guide/#fills); for a quick overview,
+/// refer to the [Table Guide]($guides/tables/#fills); for a quick overview,
 /// continue reading.
 ///
 /// The grid's appearance can be customized through different parameters. These
@@ -168,7 +169,18 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope)]
+///
+/// # Accessibility
+/// Grids do not carry any special semantics. Assistive Technology (AT) does not
+/// offer the ability to navigate two-dimensionally by cell in grids. If you
+/// want to present tabular data, use the [`table`] element instead.
+///
+/// AT will read the grid cells in their semantic order. Usually, this is the
+/// order in which you passed them to the grid. However, if you manually
+/// positioned them using [`grid.cell`'s `x` and `y` arguments]($grid.cell.x),
+/// cells will be read row by row, from left to right (in left-to-right
+/// documents). A cell will be read when its position is first reached.
+#[elem(scope, Synthesize, Tagged)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -289,7 +301,7 @@ pub struct GridElem {
     ///
     /// See the [styling section](#styling) above for more details.
     ///
-    /// ```example
+    /// ```example:"Passing a function to set a stroke based on position"
     /// #set page(width: 420pt)
     /// #set text(number-type: "old-style")
     /// #show grid.cell.where(y: 0): set text(size: 1.3em)
@@ -323,7 +335,7 @@ pub struct GridElem {
     /// )
     /// ```
     ///
-    /// ```example
+    /// ```example:"Folding the stroke dictionary"
     /// #set page(height: 13em, width: 26em)
     ///
     /// #let cv(..jobs) = grid(
@@ -333,7 +345,7 @@ pub struct GridElem {
     ///     (right: (
     ///       paint: luma(180),
     ///       thickness: 1.5pt,
-    ///       dash: "dotted"
+    ///       dash: "dotted",
     ///     ))
     ///   },
     ///   grid.header(grid.cell(colspan: 2)[
@@ -392,6 +404,10 @@ pub struct GridElem {
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
+
     /// The contents of the grid cells, plus any extra grid lines specified with
     /// the [`grid.hline`] and [`grid.vline`] elements.
     ///
@@ -418,6 +434,18 @@ impl GridElem {
     type GridFooter;
 }
 
+impl Synthesize for Packed<GridElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = grid_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
+}
+
 /// Track sizing definitions.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct TrackSizings(pub SmallVec<[Sizing; 4]>);
@@ -431,7 +459,7 @@ cast! {
 }
 
 /// Any child of a grid element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridChild {
     Header(Packed<GridHeader>),
     Footer(Packed<GridFooter>),
@@ -475,7 +503,7 @@ impl TryFrom<Content> for GridChild {
 }
 
 /// A grid item, which is the basic unit of grid specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridItem {
     HLine(Packed<GridHLine>),
     VLine(Packed<GridVLine>),
@@ -824,6 +852,10 @@ pub struct GridCell {
     /// The cell's [stroke]($grid.stroke) override.
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is

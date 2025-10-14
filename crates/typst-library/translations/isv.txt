@@ -1,0 +1,11 @@
+figure = Ilustracija
+table = Tabela
+# equation =
+bibliography = Bibliografija
+# heading =
+outline = Sodržanje
+# raw =
+page = Stranica
+# footnote =
+# email =
+# telephone =

@@ -1,5 +1,5 @@
-use crate::foundations::{Cast, Content, Packed, Smart, elem, scope};
-use crate::introspection::{Locatable, Unqueriable};
+use crate::foundations::{Cast, Content, Smart, elem, scope};
+use crate::introspection::{Locatable, Tagged, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content relatively to its parent container.
@@ -65,7 +65,13 @@ use crate::layout::{Alignment, Em, Length, Rel};
 ///
 /// The zero-width weak spacing serves to discard spaces between the function
 /// call and the next word.
-#[elem(scope, Locatable, Unqueriable)]
+///
+/// # Accessibility
+/// Assistive Technology (AT) will always read the placed element at the point
+/// where it logically appears in the document, regardless of where this
+/// function physically moved it. Put its markup where it would make the most
+/// sense in the reading order.
+#[elem(scope, Unqueriable, Locatable, Tagged)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -84,7 +90,7 @@ pub struct PlaceElem {
     /// this reason, the figure function has a mirrored [`scope`
     /// parameter]($figure.scope). Nonetheless, it can also be more generally
     /// useful to break out of the columns. A typical example would be to
-    /// [create a single-column title section]($guides/page-setup-guide/#columns)
+    /// [create a single-column title section]($guides/page-setup/#columns)
     /// in a two-column document.
     ///
     /// Note that parent-scoped placement is currently only supported if `float`
@@ -161,10 +167,6 @@ pub struct PlaceElem {
     #[required]
     pub body: Content,
 }
-
-/// `PlaceElem` must be locatable to support logical ordering of floats, but I
-/// do not want to expose `query(place)` for now.
-impl Unqueriable for Packed<PlaceElem> {}
 
 #[scope]
 impl PlaceElem {

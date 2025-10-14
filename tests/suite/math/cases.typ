@@ -13,7 +13,7 @@ $ f(x, y) := cases(
 $ x = cases(1, 2) $
 
 --- math-cases-delim ---
-#set math.cases(delim: sym.angle.l)
+#set math.cases(delim: sym.chevron.l)
 $ cases(a, b, c) $
 
 --- math-cases-linebreaks ---

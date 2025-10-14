@@ -429,7 +429,7 @@ This is never reached.
 
 --- import-from-package-required-compiler-version ---
 // Test too high required compiler version.
-// Error: 9-29 package requires typst 1.0.0 or newer (current version is VERSION)
+// Error: 9-29 package requires Typst 1.0.0 or newer (current version is VERSION)
 #import "@test/future:0.1.0": future
 
 --- import-from-package-namespace-invalid-1 ---

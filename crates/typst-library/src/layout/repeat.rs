@@ -1,4 +1,5 @@
 use crate::foundations::{Content, elem};
+use crate::introspection::Tagged;
 use crate::layout::Length;
 
 /// Repeats content to the available space.
@@ -22,7 +23,12 @@ use crate::layout::Length;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem]
+///
+/// # Accessibility
+/// Repeated content is automatically marked as an [artifact]($pdf.artifact) and
+/// hidden from Assistive Technology (AT). Do not use this function to create
+/// content that contributes to the meaning of your document.
+#[elem(Tagged)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]

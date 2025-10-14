@@ -6,3 +6,6 @@ heading = Sadaļa
 outline = Saturs
 raw = Saraksts
 page = lpp.
+# footnote =
+# email =
+# telephone =

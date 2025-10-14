@@ -1,0 +1,50 @@
+lang: "nl"
+---
+- Tag: P
+  /K:
+    - Content: page=0 mcid=0
+- Tag: L
+  /Lang: "es-CO"
+  /Numbering: Circle
+  /K:
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=1
+        - Tag: LBody
+          /Lang: "de"
+          /K:
+            - Tag: P
+              /K:
+                - Content: page=0 mcid=2
+    - Tag: L
+      /Numbering: Circle
+      /K:
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+              /K:
+                - Content: page=0 mcid=3
+            - Tag: LBody
+              /Lang: "de-AT"
+              /K:
+                - Content: page=0 mcid=4
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+              /K:
+                - Content: page=0 mcid=5
+            - Tag: LBody
+              /Lang: "de"
+              /K:
+                - Content: page=0 mcid=6
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=7
+        - Tag: LBody
+          /Lang: "de"
+          /K:
+            - Content: page=0 mcid=8

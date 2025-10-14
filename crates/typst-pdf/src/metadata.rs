@@ -1,17 +1,18 @@
-use ecow::EcoString;
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
-use typst_library::text::Lang;
+use typst_library::text::Locale;
 
 use crate::convert::GlobalContext;
 
-pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
+pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
 
-    let lang = gc.languages.iter().max_by_key(|&(_, &count)| count).map(|(&l, _)| l);
+    // Always write a language, PDF/UA-1 implicitly requires a document language
+    // so the metadata and outline entries have an applicable language.
+    let lang = doc_lang.unwrap_or(Locale::DEFAULT);
 
-    let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
+    let dir = if lang.lang.dir() == Dir::RTL {
         TextDirection::RightToLeft
     } else {
         TextDirection::LeftToRight
@@ -19,38 +20,23 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
 
     let mut metadata = Metadata::new()
         .creator(creator)
-        .keywords(gc.document.info.keywords.iter().map(EcoString::to_string).collect())
-        .authors(gc.document.info.author.iter().map(EcoString::to_string).collect());
-
-    if let Some(lang) = lang {
-        metadata = metadata.language(lang.as_str().to_string());
-    }
+        .keywords(gc.document.info.keywords.iter().map(Into::into).collect())
+        .authors(gc.document.info.author.iter().map(Into::into).collect())
+        .language(lang.rfc_3066().to_string());
 
     if let Some(title) = &gc.document.info.title {
         metadata = metadata.title(title.to_string());
     }
 
-    if let Some(subject) = &gc.document.info.description {
-        metadata = metadata.subject(subject.to_string());
+    if let Some(description) = &gc.document.info.description {
+        metadata = metadata.description(description.to_string());
     }
 
     if let Some(ident) = gc.options.ident.custom() {
         metadata = metadata.document_id(ident.to_string());
     }
 
-    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
-    // (2) If the `document.date` is set to `auto` or not set, try to use the
-    //     date from the options.
-    // (3) Otherwise, we don't write date metadata.
-    let (date, tz) = match (gc.document.info.date, gc.options.timestamp) {
-        (Smart::Custom(date), _) => (date, None),
-        (Smart::Auto, Some(timestamp)) => {
-            (Some(timestamp.datetime), Some(timestamp.timezone))
-        }
-        _ => (None, None),
-    };
-
-    if let Some(date) = date.and_then(|d| convert_date(d, tz)) {
+    if let Some(date) = creation_date(gc) {
         metadata = metadata.creation_date(date);
     }
 
@@ -59,10 +45,17 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     metadata
 }
 
-fn convert_date(
-    datetime: Datetime,
-    tz: Option<Timezone>,
-) -> Option<krilla::metadata::DateTime> {
+/// (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+/// (2) If the `document.date` is set to `auto` or not set, try to use the
+///     date from the options.
+/// (3) Otherwise, we don't write date metadata.
+pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
+    let (datetime, tz) = match (gc.document.info.date, gc.options.timestamp) {
+        (Smart::Custom(Some(date)), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => (timestamp.datetime, Some(timestamp.timezone)),
+        _ => return None,
+    };
+
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut kd = krilla::metadata::DateTime::new(year);
@@ -99,7 +92,7 @@ fn convert_date(
 }
 
 /// A timestamp with timezone information.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 pub struct Timestamp {
     /// The datetime of the timestamp.
     pub(crate) datetime: Datetime,
@@ -134,7 +127,7 @@ impl Timestamp {
 }
 
 /// A timezone.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Timezone {
     /// The UTC timezone.
     UTC,

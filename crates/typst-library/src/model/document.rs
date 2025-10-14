@@ -6,6 +6,7 @@ use crate::foundations::{
     Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
     Value, cast, elem,
 };
+use crate::text::{Locale, TextElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -25,8 +26,12 @@ use crate::foundations::{
 /// document. Instead, it is embedded in the compiled PDF file.
 #[elem(Construct)]
 pub struct DocumentElem {
-    /// The document's title. This is often rendered as the title of the
-    /// PDF viewer window.
+    /// The document's title. This is rendered as the title of the PDF viewer
+    /// window or the browser tab of the page.
+    ///
+    /// Adding a title is important for accessibility, as it makes it easier to
+    /// navigate to your document and identify it among other open documents.
+    /// When exporting to PDF/UA, a title is required.
     ///
     /// While this can be arbitrary content, PDF viewers only support plain text
     /// titles, so the conversion might be lossy.
@@ -101,6 +106,12 @@ pub struct DocumentInfo {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
+    /// The document's language, set from the first top-level set rule, e.g.
+    ///
+    /// ```typc
+    /// set text(lang: "...", region: "...")
+    /// ```
+    pub locale: Smart<Locale>,
 }
 
 impl DocumentInfo {
@@ -130,5 +141,22 @@ impl DocumentInfo {
         if styles.has(DocumentElem::date) {
             self.date = chain.get(DocumentElem::date);
         }
+    }
+
+    /// Populate this document info with locale details from the given styles.
+    pub fn populate_locale(&mut self, styles: &Styles) {
+        if self.locale.is_custom() {
+            return;
+        }
+
+        let chain = StyleChain::new(styles);
+        let mut locale: Option<Locale> = None;
+        if styles.has(TextElem::lang) {
+            locale.get_or_insert_default().lang = chain.get(TextElem::lang);
+        }
+        if styles.has(TextElem::region) {
+            locale.get_or_insert_default().region = chain.get(TextElem::region);
+        }
+        self.locale = Smart::from(locale);
     }
 }

@@ -443,6 +443,14 @@ impl Array {
     /// The returned array consists of `(index, value)` pairs in the form of
     /// length-2 arrays. These can be [destructured]($scripting/#bindings) with
     /// a let binding or for loop.
+    ///
+    /// ```example
+    /// #for (i, value) in ("A", "B", "C").enumerate() {
+    ///   [#i: #value \ ]
+    /// }
+    ///
+    /// #("A", "B", "C").enumerate(start: 1)
+    /// ```
     #[func]
     pub fn enumerate(
         self,
@@ -563,6 +571,11 @@ impl Array {
     }
 
     /// Folds all items into a single value using an accumulator function.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4)
+    /// #array.fold(0, (acc, x) => acc + x)
+    /// ```
     #[func]
     pub fn fold(
         self,
@@ -679,6 +692,10 @@ impl Array {
     }
 
     /// Split the array at occurrences of the specified value.
+    ///
+    /// ```example
+    /// #(1, 1, 2, 3, 2, 4, 5).split(2)
+    /// ```
     #[func]
     pub fn split(
         &self,
@@ -734,6 +751,10 @@ impl Array {
 
     /// Returns an array with a copy of the separator value placed between
     /// adjacent elements.
+    ///
+    /// ```example
+    /// #("A", "B", "C").intersperse("-")
+    /// ```
     #[func]
     pub fn intersperse(
         self,
@@ -977,7 +998,7 @@ impl Array {
     /// element of each duplicate is kept.
     ///
     /// ```example
-    /// #(1, 1, 2, 3, 1).dedup()
+    /// #(3, 3, 1, 2, 3).dedup()
     /// ```
     #[func(title = "Deduplicate")]
     pub fn dedup(
@@ -1067,6 +1088,11 @@ impl Array {
     /// For arrays with at least one element, this is the same as [`array.fold`]
     /// with the first element of the array as the initial accumulator value,
     /// folding every subsequent element into it.
+    ///
+    /// ```example
+    /// #let array = (2, 1, 4, 3)
+    /// #array.reduce((acc, x) => calc.max(acc, x))
+    /// ```
     #[func]
     pub fn reduce(
         self,

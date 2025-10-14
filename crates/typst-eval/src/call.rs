@@ -7,8 +7,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, Content, Context, Func, NativeElement, Scope,
-    Scopes, SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
+    NativeElement, Scope, Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -154,7 +154,7 @@ impl Eval for ast::Closure<'_> {
 
         // Define the closure.
         let closure = Closure {
-            node: self.to_untyped().clone(),
+            node: ClosureNode::Closure(self.to_untyped().clone()),
             defaults,
             captured,
             num_pos_params: self
@@ -183,9 +183,15 @@ pub fn eval_closure(
     context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
-    let (name, params, body) = match closure.node.cast::<ast::Closure>() {
-        Some(node) => (node.name(), node.params(), node.body()),
-        None => (None, ast::Params::default(), closure.node.cast().unwrap()),
+    let (name, params, body) = match closure.node {
+        ClosureNode::Closure(ref node) => {
+            let closure =
+                node.cast::<ast::Closure>().expect("node to be an `ast::Closure`");
+            (closure.name(), closure.params(), closure.body())
+        }
+        ClosureNode::Context(ref node) => {
+            (None, ast::Params::default(), node.cast().unwrap())
+        }
     };
 
     // Don't leak the scopes from the call site. Instead, we use the scope

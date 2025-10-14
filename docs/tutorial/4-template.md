@@ -12,6 +12,127 @@ you created in the previous chapter and turn it into a reusable template. In
 this chapter you will learn how to create a template that you and your team can
 use with just one show rule. Let's get started!
 
+## Reusing data with variables { #variables }
+In the past chapters, most of the content of the document was entered by hand.
+In the third chapter, we used the `document` element and context to cut down on
+repetition and only enter the title once. But in practice, there may be many
+more things that occur multiple times in your document. There are multiple good
+reasons to just define these repeated values once:
+
+1. It makes changing them later easier
+2. It allows you to quickly find all instances where you used something
+3. It makes it easy to be consistent throughout
+4. For long or hard-to-enter repeated segments, a shorter variable name is often
+   more convenient to type
+
+If you were using a conventional word processor, you might resort to using a
+placeholder value that you can later search for. In Typst, however, you can
+instead use variables to safely store content and reuse it across your whole
+document through a variable name.
+
+The technique of using context to reproduce an element's property we have
+learned earlier is not always the most appropriate for this: Typst's built-in
+elements focus on semantic properties like the title and description of a
+document, or things that directly relate to typesetting, like the text size.
+
+For our example, we want to take a look at Typst's pronunciation. One of the
+best ways to transcribe pronunciation is the International Phonetic Alphabet
+(IPA). But because it uses characters not found on common keyboards, typing IPA
+repeatedly can become cumbersome. So let's instead define a variable that we can
+reference multiple times.
+
+```typ
+#let ipa = [taɪpst]
+```
+
+Here, we use a new keyword, `{let}`, to indicate a variable definition. Then,
+we put the name of our variable, in this case, `ipa`. Finally, we type an equals
+sign and the value of our variable. It is enclosed in square brackets because
+it is content, mirroring how you would call a function accepting content. In
+other words, this syntax mirrors the phrase _"Let the variable `ipa` have the
+value `{[taɪpst]}`."_
+
+Now, we can use the variable in our document:
+
+```example
+#let ipa = [taɪpst]
+
+The canonical way to
+pronounce Typst is #ipa.
+
+#table(
+  columns: (1fr, 1fr),
+  [Name], [Typst],
+  [Pronunciation], ipa,
+)
+```
+
+In the example, you can see that the variable can be used both in markup
+(prefixed with a `#`) and in a function call (by just typing its name). Of
+course, we can change the value of the variable and all its occurrences will
+automatically change with it. Let's make it a bit clearer what is IPA and what
+is normal prose by rendering IPA in italics. We are also using slashes which, by
+convention, often enclose IPA.
+
+```example
+#let ipa = text(
+  style: "italic",
+<<< )[/taɪpst/]
+>>> box[/taɪpst/])
+
+The canonical way to
+pronounce Typst is #ipa.
+
+#table(
+  columns: (1fr, 1fr),
+  [Name], [Typst],
+  [Pronunciation], ipa,
+)
+```
+
+Here, we called the text function and assigned its _return value_ to the
+variable. When you call a function, it processes its arguments and then yields
+another value (often content). So far in this tutorial, we called most
+functions directly in markup, like this: `[#text(fill: red)[CRIMSON!]]`. This
+call to the text function returns the red text as a return value. Because we
+placed it in markup, its return value just immediately got inserted into the
+content we wrote. With variables, we can instead store it to use it later or
+compose it with other values.
+
+Variables are not limited to storing content: they can store any data type Typst
+knows about. Throughout this tutorial, you made use of many data types when you
+passed them to Typst's built-in functions. Here is an example assigning each of
+them to a variable:
+
+```typ
+// Content with markup inside
+#let blind-text = [_Lorem ipsum_ dolor sit amet]
+
+// Unformatted strings
+#let funny-font = "MS Comic Sans"
+
+// Absolute lengths (see also pt, in, ...)
+#let mile = 160934cm
+
+// Lengths relative to the font size
+#let double-space = 2em
+
+// Ratios
+#let progress = 80%
+
+// Integer numbers
+#let answer = 42
+
+// Booleans
+#let truth = false
+
+// Horizontal and vertical alignment
+#let focus = center
+```
+
+In this chapter of the tutorial, you will leverage variables and your own
+functions to build templates that can be reused across multiple documents.
+
 ## A toy template { #toy-template }
 In Typst, templates are functions in which you can wrap your whole document. To
 learn how to do that, let's first review how to write your very own functions.
@@ -23,9 +144,17 @@ They can do anything you want them to, so why not go a bit crazy?
 You are #amazed[beautiful]!
 ```
 
-This function takes a single argument, `term`, and returns a content block with
-the `term` surrounded by sparkles. We also put the whole thing in a box so that
-the term we are amazed by cannot be separated from its sparkles by a line break.
+Comparing this against the previous section, you may have noticed that this
+looks a lot like a variable definition using `{let}`. This instinct is correct:
+Functions are just another data type. Here, we are defining the variable
+`amazed`, assigning it a function that takes a single argument, `term`, and
+returns content with the `term` surrounded by sparkles. We also put the whole
+thing in a [`box`] so that the term we are amazed by cannot be separated from
+its sparkles by a line break. The special function definition syntax makes the
+definition shorter and more readable, but you can also use the regular variable
+definition syntax (see [the scripting reference]($scripting/#bindings) for
+details). After its definition, we are able to call the function just like all
+built-in functions.
 
 Many functions that come with Typst have optional named parameters. Our
 functions can also have them. Let's add a parameter to our function that lets us
@@ -111,22 +240,20 @@ previous chapter.
 
   // Heading show rules.
 <<<   ...
->>> show heading.where(
->>>   level: 1
->>> ): it => block(width: 100%)[
->>>   #set align(center)
->>>   #set text(13pt, weight: "regular")
->>>   #smallcaps(it.body)
->>> ]
+>>> show heading.where(level: 1): set align(center)
+>>> show heading.where(level: 1): set text(size: 13pt, weight: "regular")
+>>> show heading.where(level: 1): smallcaps
 >>>
->>> show heading.where(
->>>   level: 2
->>> ): it => text(
+>>> show heading.where(level: 2): set text(
 >>>   size: 11pt,
 >>>   weight: "regular",
 >>>   style: "italic",
->>>   it.body + [.],
 >>> )
+>>> show heading.where(
+>>>   level: 2
+>>> ): it => {
+>>>   it.body + [.]
+>>> }
 
   doc
 }
@@ -179,8 +306,8 @@ to work like this:
 ```typ
 #show: doc => conf(
   title: [
-    A fluid dynamic model for
-    glacier flow
+    A Fluid Dynamic Model for
+    Glacier Flow
   ],
   authors: (
     (
@@ -233,7 +360,6 @@ The resulting template function looks like this:
 
 ```typ
 #let conf(
-  title: none,
   authors: (),
   abstract: [],
   doc,
@@ -248,11 +374,7 @@ The resulting template function looks like this:
     scope: "parent",
     clearance: 2em,
     {
-      text(
-        17pt,
-        weight: "bold",
-        title,
-      )
+      title()
 
       let count = authors.len()
       let ncols = calc.min(count, 3)
@@ -296,7 +418,6 @@ call.
 
 ```example:single
 >>> #let conf(
->>>   title: none,
 >>>   authors: (),
 >>>   abstract: [],
 >>>   doc,
@@ -306,21 +427,31 @@ call.
 >>>     margin: auto,
 >>>     header: align(
 >>>       right + horizon,
->>>       title
+>>>       context document.title,
 >>>     ),
 >>>     numbering: "1",
 >>>     columns: 2,
 >>>   )
 >>>   set par(justify: true)
 >>>   set text(font: "Libertinus Serif", 11pt)
+>>>   show title: set text(size: 17pt)
+>>>   show title: set align(center)
+>>>   show title: set block(below: 1.2em)
 >>>
+>>>   show heading.where(level: 1): set align(center)
+>>>   show heading.where(level: 1): set text(size: 13pt, weight: "regular")
+>>>   show heading.where(level: 1): smallcaps
+>>>
+>>>   show heading.where(level: 2): set text(
+>>>     size: 11pt,
+>>>     weight: "regular",
+>>>     style: "italic",
+>>>   )
 >>>   show heading.where(
->>>     level: 1
->>>   ): it => block(width: 100%)[
->>>     #set align(center)
->>>     #set text(13pt, weight: "regular")
->>>     #smallcaps(it.body)
->>>   ]
+>>>     level: 2
+>>>   ): it => {
+>>>     it.body + [.]
+>>>   }
 >>>
 >>>   show heading.where(
 >>>     level: 2
@@ -337,11 +468,7 @@ call.
 >>>     scope: "parent",
 >>>     clearance: 2em,
 >>>     {
->>>       text(
->>>         17pt,
->>>         weight: "bold",
->>>         title,
->>>       )
+>>>       title()
 >>>
 >>>       let count = authors.len()
 >>>       let ncols = calc.min(count, 3)
@@ -365,11 +492,13 @@ call.
 >>>   doc
 >>> }
 <<< #import "conf.typ": conf
+
+#set document(title: [
+  A Fluid Dynamic Model for
+  Glacier Flow
+])
+
 #show: conf.with(
-  title: [
-    A fluid dynamic model for
-    glacier flow
-  ],
   authors: (
     (
       name: "Theresa Tungsten",
