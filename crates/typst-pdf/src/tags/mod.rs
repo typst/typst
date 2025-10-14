@@ -3,22 +3,14 @@ use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
 use typst_library::diag::SourceResult;
-use typst_library::foundations::Content;
-use typst_library::introspection::Location;
-use typst_library::layout::{PagedDocument, Point, Rect, Size};
-use typst_library::model::{EmphElem, StrongElem};
-use typst_library::text::{
-    HighlightElem, Locale, OverlineElem, ScriptKind, StrikeElem, SubElem, SuperElem,
-    TextItem, UnderlineElem,
-};
+use typst_library::layout::{FrameParent, PagedDocument, Point, Rect, Size};
+use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
-use crate::tags::text::{TextAttr, TextDecoKind};
 use crate::tags::tree::Tree;
-use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use crate::tags::context::{AnnotationId, Tags};
 pub use crate::tags::groups::GroupId;
@@ -27,7 +19,6 @@ pub use crate::tags::resolve::resolve;
 mod context;
 mod groups;
 mod resolve;
-mod text;
 mod tree;
 mod util;
 
@@ -40,71 +31,26 @@ pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags
     Ok(Tags::new(tree))
 }
 
-pub fn handle_start(
-    gc: &mut GlobalContext,
-    surface: &mut Surface,
-    elem: &Content,
-) -> SourceResult<()> {
+pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface) {
     if disabled(gc) {
-        return Ok(());
+        return;
     }
 
     tree::step_start_tag(&mut gc.tags.tree, surface);
-
-    if let Some(_strong) = elem.to_packed::<StrongElem>() {
-        gc.tags.text_attrs.push(elem, TextAttr::Strong);
-    } else if let Some(_emph) = elem.to_packed::<EmphElem>() {
-        gc.tags.text_attrs.push(elem, TextAttr::Emph);
-    } else if let Some(sub) = elem.to_packed::<SubElem>() {
-        let baseline_shift = sub.baseline.val();
-        let lineheight = sub.size.val();
-        let kind = ScriptKind::Sub;
-        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
-    } else if let Some(sup) = elem.to_packed::<SuperElem>() {
-        let baseline_shift = sup.baseline.val();
-        let lineheight = sup.size.val();
-        let kind = ScriptKind::Super;
-        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
-    } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
-        let paint = highlight.fill.opt_ref();
-        gc.tags.text_attrs.push_highlight(elem, paint);
-    } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
-        let kind = TextDecoKind::Underline;
-        let stroke = underline.stroke.val_cloned();
-        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
-    } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
-        let kind = TextDecoKind::Overline;
-        let stroke = overline.stroke.val_cloned();
-        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
-    } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
-        let kind = TextDecoKind::Strike;
-        let stroke = strike.stroke.val_cloned();
-        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
-    }
-
-    Ok(())
 }
 
-pub fn handle_end(
-    gc: &mut GlobalContext,
-    surface: &mut Surface,
-    loc: Location,
-) -> SourceResult<()> {
+pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
     if disabled(gc) {
-        return Ok(());
+        return;
     }
 
     tree::step_end_tag(&mut gc.tags.tree, surface);
-
-    gc.tags.text_attrs.pop(loc);
-
-    Ok(())
 }
 
 pub fn group<T>(
     gc: &mut GlobalContext,
     surface: &mut Surface,
-    parent: Option<Location>,
+    parent: Option<FrameParent>,
     group_fn: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) || parent.is_none() {
@@ -239,7 +185,7 @@ pub fn text<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    let attrs = gc.tags.text_attrs.resolve(text);
+    let attrs = tree::resolve_text_attrs(&mut gc.tags.tree, gc.options, text);
 
     let lang = {
         let locale = Locale::new(text.lang, text.region);

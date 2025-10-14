@@ -8,8 +8,8 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, OuterHAlignment,
-    PlacementScope, Point, Region, Regions, Rel, Size,
+    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
+    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
@@ -613,7 +613,7 @@ fn layout_footnote(
     )
     .map(|mut fragment| {
         for frame in &mut fragment {
-            frame.set_parent(loc);
+            frame.set_parent(FrameParent::new(loc, Inherit::No));
         }
         fragment
     })

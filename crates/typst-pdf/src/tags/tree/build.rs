@@ -14,6 +14,7 @@
 
 use std::num::NonZeroU16;
 
+use ecow::EcoVec;
 use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
@@ -21,17 +22,20 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Content;
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    Frame, FrameItem, GridCell, GridElem, GroupItem, HideElem, PagedDocument, PlaceElem,
-    RepeatElem,
+    Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
+    PagedDocument, PlaceElem, RepeatElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell,
-    TableElem, TermsElem, TitleElem,
+    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
-use typst_library::text::{RawElem, RawLine};
+use typst_library::text::{
+    HighlightElem, OverlineElem, RawElem, RawLine, StrikeElem, SubElem, SuperElem,
+    UnderlineElem,
+};
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
@@ -41,6 +45,7 @@ use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCt
 use crate::tags::groups::{
     BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
 };
+use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 
@@ -100,6 +105,7 @@ impl<'a> TreeBuilder<'a> {
             groups: self.groups,
             ctx: self.ctx,
             logical_children: self.logical_children,
+            errors: EcoVec::new(),
         }
     }
 
@@ -195,7 +201,18 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         }
 
         for child in children.iter() {
-            tree.groups.get_mut(*child).parent = located.id;
+            let child = tree.groups.get_mut(*child);
+
+            let GroupKind::LogicalChild(inherit, logical_parent) = &mut child.kind else {
+                unreachable!()
+            };
+            *logical_parent = located.id;
+
+            // Move the child into its logical parent, so artifact, bbox, and
+            // text attributes are inherited.
+            if *inherit == Inherit::Yes {
+                child.parent = located.id;
+            }
         }
     }
 
@@ -240,39 +257,55 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 /// - footnote entries [`FootnoteEntry`]
 /// - broken table/grid cells [`TableCell`]/[`GridCell`]
 fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<()> {
-    let Some(parent_loc) = group.parent else {
+    let Some(parent) = group.parent else {
         return visit_frame(tree, &group.frame);
     };
 
+    // Push the logical child.
     let prev = tree.current();
-
-    let id = tree.groups.new_virtual(
-        GroupId::INVALID,
-        Span::detached(),
-        GroupKind::LogicalChild,
-    );
-    tree.logical_children.entry(parent_loc).or_default().push(id);
-
     let stack_idx = tree.stack.len();
+    let id = push_logical_child(tree, parent);
+    tree.progressions.push(id);
+
+    // Handle the group frame.
+    visit_frame(tree, &group.frame)?;
+
+    // Pop logical child.
+    pop_logical_child(tree, parent, stack_idx);
+    tree.progressions.push(prev);
+
+    Ok(())
+}
+
+fn push_logical_child(tree: &mut TreeBuilder, parent: FrameParent) -> GroupId {
+    let id = tree.groups.new_virtual(
+        match parent.inherit {
+            Inherit::Yes => GroupId::INVALID,
+            Inherit::No => tree.current(),
+        },
+        Span::detached(),
+        GroupKind::LogicalChild(parent.inherit, GroupId::INVALID),
+    );
+
+    tree.logical_children.entry(parent.location).or_default().push(id);
+
     push_stack_entry(tree, None, id);
-    if let Some(stack) = tree.unfinished_stacks.remove(&parent_loc) {
+    if let Some(stack) = tree.unfinished_stacks.remove(&parent.location) {
         tree.stack.extend(stack);
     }
     // Move to the top of the stack, including the pushed on unfinished stack.
-    tree.progressions.push(tree.stack.last().unwrap().id);
+    tree.stack.last().unwrap().id
+}
 
-    visit_frame(tree, &group.frame)?;
-
+fn pop_logical_child(tree: &mut TreeBuilder, parent: FrameParent, stack_idx: usize) {
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-        tree.unfinished_stacks.insert(parent_loc, stack);
+        tree.unfinished_stacks.insert(parent.location, stack);
         tree.unfinished.push(Unfinished {
             prog_idx: tree.progressions.len() as u32,
-            group_to_close: id,
+            group_to_close: tree.stack[stack_idx].id,
         });
     }
     tree.stack.pop().expect("stack entry");
-    tree.progressions.push(prev);
-    Ok(())
 }
 
 fn visit_start_tag(tree: &mut TreeBuilder, elem: &Content) {
@@ -287,6 +320,7 @@ fn visit_end_tag(tree: &mut TreeBuilder, loc: Location) -> SourceResult<()> {
 }
 
 fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
+    // Artifacts
     #[allow(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
@@ -295,6 +329,8 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         push_artifact(tree, elem, kind.to_krilla())
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
+
+    // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
@@ -439,6 +475,24 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         } else {
             no_progress(tree)
         }
+
+    // Text attributes
+    } else if let Some(_strong) = elem.to_packed::<StrongElem>() {
+        push_text_attr(tree, elem, TextAttr::Strong)
+    } else if let Some(_emph) = elem.to_packed::<EmphElem>() {
+        push_text_attr(tree, elem, TextAttr::Emph)
+    } else if let Some(sub) = elem.to_packed::<SubElem>() {
+        push_text_attr(tree, elem, TextAttr::SubScript(sub.clone()))
+    } else if let Some(sup) = elem.to_packed::<SuperElem>() {
+        push_text_attr(tree, elem, TextAttr::SuperScript(sup.clone()))
+    } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
+        push_text_attr(tree, elem, TextAttr::Highlight(highlight.clone()))
+    } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
+        push_text_attr(tree, elem, TextAttr::Underline(underline.clone()))
+    } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
+        push_text_attr(tree, elem, TextAttr::Overline(overline.clone()))
+    } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
+        push_text_attr(tree, elem, TextAttr::Strike(strike.clone()))
     } else {
         no_progress(tree)
     }
@@ -451,6 +505,14 @@ fn no_progress(tree: &TreeBuilder) -> GroupId {
 fn push_tag(tree: &mut TreeBuilder, elem: &Content, tag: impl Into<TagKind>) -> GroupId {
     let id = tree.groups.tags.push(tag.into());
     push_stack(tree, elem, GroupKind::Standard(id, None))
+}
+
+fn push_text_attr(tree: &mut TreeBuilder, elem: &Content, attr: TextAttr) -> GroupId {
+    let loc = elem.location().expect("elem to be locatable");
+    let span = elem.span();
+    let parent = tree.current();
+    let id = tree.groups.new_virtual(parent, span, GroupKind::TextAttr(attr));
+    push_stack_entry(tree, Some(loc), id)
 }
 
 fn push_stack(tree: &mut TreeBuilder, elem: &Content, kind: GroupKind) -> GroupId {
@@ -501,12 +563,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if matches!(
-        outer.kind,
-        GroupKind::TableCell(..)
-            | GroupKind::GridCell(..)
-            | GroupKind::InternalGridCell(..)
-    ) {
+    if outer.kind.is_grid_layout_cell() {
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
             tree.unfinished_stacks.insert(loc, stack);
             tree.unfinished.push(Unfinished {
