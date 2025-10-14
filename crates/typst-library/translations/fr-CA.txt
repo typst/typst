@@ -1,11 +1,1 @@
-figure = Fig.
-table = Tableau
-equation = Équation
-bibliography = Bibliographie
-heading = Chapitre
-outline = Table des matières
-raw = Liste
-page = page
-footnote = Note
 email = Courriel
-telephone = Téléphone
