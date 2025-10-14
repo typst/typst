@@ -53,7 +53,7 @@ pub fn layout_accent(
     // in many cases.
     let width = elem.size.resolve(styles).relative_to(base.width());
     let short_fall = ACCENT_SHORT_FALL.at(size);
-    accent.stretch_horizontal(ctx, width - short_fall);
+    accent.stretch_horizontal(ctx, width, short_fall);
     let accent_attach = accent.accent_attach().0;
     let accent = accent.into_frame();
 
