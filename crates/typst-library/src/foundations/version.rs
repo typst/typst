@@ -72,6 +72,15 @@ impl Version {
     /// #version((1, 2, 3, 4)) \
     /// #version((1, 2), 3)
     /// ```
+    ///
+    /// As a practical use case, it allows comparing current version
+    /// ([`{sys.version}`]($version)) to a specific one.
+    ///
+    /// // This will have to be updated in the future to keep true and false.
+    /// ```example
+    /// #sys.version > version(0, 13, 0)
+    /// #sys.version > version(1, 13, 0)
+    /// ```
     #[func(constructor)]
     pub fn construct(
         /// The components of the version (array arguments are flattened)
