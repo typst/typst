@@ -25,12 +25,12 @@
 
 --- assert-ne-fail ---
 // Test failing assertions.
-// Error: 2-19 inequality assertion failed: value 11 was equal to 11
+// Error: 2-19 distinctness assertion failed: value 11 was equal to 11
 #assert.ne(11, 11)
 
 --- assert-ne-fail-message ---
 // Test failing assertions.
-// Error: 2-57 inequality assertion failed: must be different from 11
+// Error: 2-57 distinctness assertion failed: must be different from 11
 #assert.ne(11, 11, message: "must be different from 11")
 
 --- assert-success ---
