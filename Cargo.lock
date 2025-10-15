@@ -3060,7 +3060,10 @@ dependencies = [
  "libfuzzer-sys",
  "typst",
  "typst-assets",
+ "typst-html",
+ "typst-pdf",
  "typst-render",
+ "typst-svg",
  "typst-syntax",
 ]
 
