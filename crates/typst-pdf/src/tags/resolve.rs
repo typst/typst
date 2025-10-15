@@ -157,8 +157,10 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
+    children.finish();
+
     // Omit the weak group if it is empty.
-    if group.weak && children.num_inserted == 0 {
+    if group.weak && nodes.is_empty() {
         return;
     }
 
@@ -175,8 +177,6 @@ fn resolve_group_node(
             _ => (),
         }
     }
-
-    children.finish();
 
     if rs.options.is_pdf_ua() {
         validate_children(rs, &tag, &nodes);
@@ -341,7 +341,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
 struct Accumulator<'a> {
     nesting: ElementKind,
     buf: &'a mut Vec<Node>,
-    num_inserted: usize,
     // Whether the last node is a `Span` used to wrap marked content sequences
     // inside a grouping element. Groupings element may not contain marked
     // content sequences directly.
@@ -356,12 +355,11 @@ impl std::ops::Drop for Accumulator<'_> {
 
 impl<'a> Accumulator<'a> {
     fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, num_inserted: 0, grouping_span: None }
+        Self { nesting, buf, grouping_span: None }
     }
 
     fn push_buf(&mut self, node: Node) {
         self.buf.push(node);
-        self.num_inserted += 1;
     }
 
     fn push_grouping_span(&mut self) {

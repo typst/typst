@@ -443,8 +443,6 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
         push_tag(tree, elem, Tag::Hn(level, Some(name)))
-    } else if let Some(_) = elem.to_packed::<ParElem>() {
-        push_stack(tree, elem, GroupKind::Par(None))
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
         push_stack(tree, elem, GroupKind::LogicalParent(elem.clone()))
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
@@ -475,6 +473,12 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         } else {
             no_progress(tree)
         }
+    } else if let Some(_) = elem.to_packed::<ParElem>() {
+        let loc = elem.location().expect("elem to be locatable");
+        let span = elem.span();
+        let parent = tree.current();
+        let id = tree.groups.new_weak(parent, span, GroupKind::Par(None));
+        push_stack_entry(tree, Some(loc), id)
 
     // Text attributes
     } else if let Some(_strong) = elem.to_packed::<StrongElem>() {
