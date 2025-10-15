@@ -78,8 +78,8 @@ impl Version {
     ///
     /// // This will have to be updated in the future to keep true and false.
     /// ```example
-    /// #sys.version > version(0, 13, 0)
-    /// #sys.version > version(1, 13, 0)
+    /// #(sys.version > version(0, 13, 0))
+    /// #(sys.version > version(1, 13, 0))
     /// ```
     #[func(constructor)]
     pub fn construct(
