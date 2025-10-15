@@ -236,10 +236,10 @@ impl assert {
     ) -> StrResult<NoneValue> {
         if left == right {
             if let Some(message) = message {
-                bail!("inequality assertion failed: {message}");
+                bail!("distinctness assertion failed: {message}");
             } else {
                 bail!(
-                    "inequality assertion failed: value {} was equal to {}",
+                    "distinctness assertion failed: value {} was equal to {}",
                     left.repr(),
                     right.repr()
                 );
