@@ -309,7 +309,7 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
         .pack()
         .styled(HtmlElem::role.set(Some("doc-noteref".into())));
 
-    // Indicates the presence of a default footnote rule to emit a warning when
+    // Indicates the presence of a default footnote rule to emit an error when
     // no footnote container is available.
     let marker = FootnoteMarker::new().pack().spanned(span);
 
