@@ -689,7 +689,7 @@ fn convert_error(
         ValidationError::NoDocumentTitle => error!(
             Span::detached(),
             "{prefix} missing document title";
-            hint: "set the title of the document"
+            hint: "set the title with `set document(title: [...])`"
         ),
         ValidationError::MissingDocumentDate => error!(
             Span::detached(),
