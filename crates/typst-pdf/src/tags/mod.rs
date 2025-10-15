@@ -1,4 +1,5 @@
 use krilla::configure::Validator;
+use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
@@ -129,14 +130,15 @@ pub fn add_link_annotations(
     annotations: impl IntoIterator<Item = LinkAnnotation>,
 ) {
     for a in annotations.into_iter() {
-        let annotation = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new_with_quad_points(
-                a.quad_points,
-                a.target,
-            ),
-            a.alt,
-        )
-        .with_location(Some(a.span.into_raw()));
+        let link_annotation = if let [rect] = a.rects.as_slice() {
+            krilla::annotation::LinkAnnotation::new(*rect, a.target)
+        } else {
+            let quads = a.rects.iter().map(|r| kg::Quadrilateral::from(*r)).collect();
+            krilla::annotation::LinkAnnotation::new_with_quad_points(quads, a.target)
+        };
+
+        let annotation = krilla::annotation::Annotation::new_link(link_annotation, a.alt)
+            .with_location(Some(a.span.into_raw()));
 
         if let LinkAnnotationKind::Tagged(annot_id) = a.kind {
             let identifier = page.add_tagged_annotation(annotation);
