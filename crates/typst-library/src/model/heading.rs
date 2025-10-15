@@ -72,7 +72,7 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// element of which there should be only one per document.
 ///
 /// For this reason, in HTML export, a [`title`] element will turn into an
-/// `<h1>` and headings turn into `<h2> and lower (a level 1 heading thus turns
+/// `<h1>` and headings turn into `<h2>` and lower (a level 1 heading thus turns
 /// into `<h2>`, a level 2 heading into `<h3>`, etc).
 #[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
