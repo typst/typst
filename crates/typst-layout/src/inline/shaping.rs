@@ -904,8 +904,8 @@ fn shape_segment<'a>(
         buffer.set_script(script)
     }
     buffer.set_direction(match ctx.dir {
-        Dir::LTR => rustybuzz::Direction::LeftToRight,
-        Dir::RTL => rustybuzz::Direction::RightToLeft,
+        Dir::LTR => rustybuzz::Direction::TopToBottom,
+        Dir::RTL => rustybuzz::Direction::TopToBottom,
         _ => unimplemented!("vertical text layout"),
     });
     buffer.guess_segment_properties();
