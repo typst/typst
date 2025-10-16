@@ -138,10 +138,15 @@ pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
 
     // Table layouting ensures that there are no overlapping cells, and that
     // any gaps left by the user are filled with empty cells.
-    // A show rule, can prevent the table from being laid out, in which case
-    // all cells will be missing, in that case just return whatever contents
-    // that were generated in the show rule.
-    if table_ctx.cells.iter().all(GridEntry::is_missing) {
+    // A show rule, can prevent the table from being properly laid out, in which
+    // case cells will be missing.
+    if table_ctx.cells.is_empty() || table_ctx.cells.iter().any(GridEntry::is_missing) {
+        // Insert all children, so the content is included in the tag tree,
+        // otherwise krilla might panic.
+        for cell in table_ctx.cells.iter().filter_map(GridEntry::as_cell) {
+            tree.groups.push_group(table, cell.id);
+        }
+
         return;
     }
 
@@ -155,6 +160,7 @@ pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
     let gen_row_groups = {
         let mut uniform_rows = true;
         let mut has_header_or_footer = false;
+        let mut has_body = false;
         'outer: for (row, row_kind) in
             table_ctx.cells.rows().zip(table_ctx.row_kinds.iter_mut())
         {
@@ -180,9 +186,10 @@ pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
             *row_kind = first_kind;
 
             has_header_or_footer |= *row_kind != TableCellKind::Data;
+            has_body |= *row_kind == TableCellKind::Data;
         }
 
-        uniform_rows && has_header_or_footer
+        uniform_rows && has_header_or_footer && has_body
     };
 
     // Compute the headers attribute column-wise.
@@ -282,9 +289,12 @@ pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
     for (row, y) in table_ctx.cells.rows_mut().zip(0..) {
         let parent = if gen_row_groups {
             let row_kind = table_ctx.row_kinds[y as usize];
-            if chunk_id == GroupId::INVALID || !should_group_rows(chunk_kind, row_kind) {
+            let is_first = chunk_id == GroupId::INVALID;
+            if is_first || !should_group_rows(chunk_kind, row_kind) {
                 let tag: TagKind = match row_kind {
-                    TableCellKind::Header(..) => Tag::THead.into(),
+                    // Only one `THead` group at the start of the table is permitted.
+                    TableCellKind::Header(..) if is_first => Tag::THead.into(),
+                    TableCellKind::Header(..) => Tag::TBody.into(),
                     TableCellKind::Footer => Tag::TFoot.into(),
                     TableCellKind::Data => Tag::TBody.into(),
                 };

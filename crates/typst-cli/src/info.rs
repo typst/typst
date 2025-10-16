@@ -44,8 +44,38 @@ struct Build {
     /// The commit this binary was compiled with.
     commit: &'static str,
 
+    /// The platform this binary was compiled for.
+    platform: Platform,
+
     /// Compile time settings.
     settings: Settings,
+}
+
+/// The platform this binary was compiled for.
+#[derive(Serialize)]
+#[serde(rename_all = "kebab-case")]
+struct Platform {
+    /// Operating system this binary was compiled for.
+    os: &'static str,
+
+    /// The instruction set architecture this binary was compiled for.
+    arch: &'static str,
+}
+
+impl Platform {
+    /// Create a new platform using compile time constants.
+    const fn new() -> Self {
+        Self {
+            os: std::env::consts::OS,
+            arch: std::env::consts::ARCH,
+        }
+    }
+}
+
+impl Default for Platform {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Compile time settings.
@@ -65,7 +95,7 @@ impl Settings {
         let Self { self_update, http_server } = self;
 
         [
-            ("self-update", self_update, "Update typst via `typst update`"),
+            ("self-update", self_update, "Update Typst via `typst update`"),
             ("http-server", http_server, "Serve HTML via `typst watch`"),
         ]
         .into_iter()
@@ -155,6 +185,7 @@ struct Environment {
     typst_features: Option<String>,
     typst_font_paths: Option<String>,
     typst_ignore_system_fonts: Option<String>,
+    typst_ignore_embedded_fonts: Option<String>,
     typst_package_cache_path: Option<String>,
     typst_package_path: Option<String>,
     typst_root: Option<String>,
@@ -182,6 +213,7 @@ impl Environment {
             typst_features,
             typst_font_paths,
             typst_ignore_system_fonts,
+            typst_ignore_embedded_fonts,
             typst_package_cache_path,
             typst_package_path,
             typst_root,
@@ -223,6 +255,7 @@ impl Environment {
             ("TYPST_FEATURES", typst_features),
             ("TYPST_FONT_PATHS", typst_font_paths),
             ("TYPST_IGNORE_SYSTEM_FONTS", typst_ignore_system_fonts),
+            ("TYPST_IGNORE_EMBEDDED_FONTS", typst_ignore_embedded_fonts),
             ("TYPST_PACKAGE_CACHE_PATH", typst_package_cache_path),
             ("TYPST_PACKAGE_PATH", typst_package_path),
             ("TYPST_ROOT", typst_root),
@@ -280,10 +313,17 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         .map(PathBuf::from)
         .collect::<_>();
 
+    let boolish = |v: &String| {
+        // This is only an error if `v` is not valid UTF-8, which it
+        // always is.
+        FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
+    };
+
     let value = Info {
         version: crate::typst_version(),
         build: Build {
             commit: crate::typst_commit_sha(),
+            platform: Platform::new(),
             settings: Settings {
                 self_update: cfg!(feature = "self-update"),
                 http_server: cfg!(feature = "http-server"),
@@ -295,13 +335,13 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
             system: !env
                 .typst_ignore_system_fonts
                 .as_ref()
-                .and_then(|v| {
-                    // This is only an error if `v` is not valid UTF-8, which it
-                    // always is.
-                    FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
-                })
-                .unwrap_or_default(),
-            embedded: true,
+                .and_then(boolish)
+                .unwrap_or(false),
+            embedded: !env
+                .typst_ignore_embedded_fonts
+                .as_ref()
+                .and_then(boolish)
+                .unwrap_or(false),
         },
         packages: Packages {
             package_path: env
@@ -350,6 +390,7 @@ fn get_vars() -> StrResult<Environment> {
         typst_features: get_var("TYPST_FEATURES")?,
         typst_font_paths: get_var("TYPST_FONT_PATHS")?,
         typst_ignore_system_fonts: get_var("TYPST_IGNORE_SYSTEM_FONTS")?,
+        typst_ignore_embedded_fonts: get_var("TYPST_IGNORE_EMBEDDED_FONTS")?,
         typst_package_cache_path: get_var("TYPST_PACKAGE_CACHE_PATH")?,
         typst_package_path: get_var("TYPST_PACKAGE_PATH")?,
         typst_root: get_var("TYPST_ROOT")?,
@@ -495,6 +536,10 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
     write_value_simple(&mut out, value.build.commit, None)?;
+    write!(out, ", ")?;
+    write_value_simple(&mut out, value.build.platform.os, None)?;
+    write!(out, " on ")?;
+    write_value_simple(&mut out, value.build.platform.arch, None)?;
     writeln!(out, ")\n")?;
 
     writeln!(out, "Build settings")?;

@@ -13,6 +13,7 @@ use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat, RasterImage,
 };
 use typst_syntax::Span;
+use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::tags;
@@ -29,18 +30,23 @@ pub(crate) fn handle_image(
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());
     surface.set_location(span.into_raw());
+    let mut surface = defer(surface, |s| {
+        s.pop();
+        s.reset_location();
+    });
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
     gc.image_spans.insert(span);
 
-    let mut handle = tags::image(gc, fc, surface, image, size);
+    let mut handle = tags::image(gc, fc, &mut surface, image, size);
     let surface = handle.surface();
 
     match image.kind() {
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
             surface.push_transform(&exif_transform.to_krilla());
+            let mut surface = defer(surface, |s| s.pop());
 
             let image = match convert_raster(raster.clone(), interpolate) {
                 None => bail!(span, "failed to process image"),
@@ -54,8 +60,6 @@ pub(crate) fn handle_image(
             if let Some(size) = new_size.to_krilla() {
                 surface.draw_image(image, size);
             }
-
-            surface.pop();
         }
         ImageKind::Svg(svg) => {
             if let Some(size) = size.to_krilla() {
@@ -72,9 +76,6 @@ pub(crate) fn handle_image(
             }
         }
     }
-
-    surface.pop();
-    surface.reset_location();
 
     Ok(())
 }

@@ -413,8 +413,9 @@ dependencies = [
 
 [[package]]
 name = "codex"
-version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=e3b4652#e3b4652d1143061c392b7897ff5faafef1550ffc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9589e1effc5cacbea347899645c654158b03b2053d24bb426fd3128ced6e423c"
 
 [[package]]
 name = "color-print"
@@ -995,6 +996,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hayro-svg"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8c673304cec6e0dfd3b4f71fccecd45646899aa70279b62d3f933842abc4ac5"
+dependencies = [
+ "base64",
+ "hayro-interpret",
+ "image",
+ "kurbo 0.12.0",
+ "siphasher",
+ "xmlwriter",
+]
+
+[[package]]
 name = "hayro-syntax"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1422,8 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=7c8605a#7c8605a3292c800b276e957dd43d77ca1b36bcd0"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "199be5f63da6e19b71051fd5276258a8e55449ac48e2e7492c68238f38ca9f3b"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1452,8 +1468,9 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=7c8605a#7c8605a3292c800b276e957dd43d77ca1b36bcd0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d3eec075c9507dfdbfb4b9bc3b2aeac074ed422b61bcfd93517616d6b3d19c3"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2531,9 +2548,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04dc19736151f35336d325007ac991178d504a119863a2fcb3758cdb5e52c50d"
+checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slotmap"
@@ -2989,7 +3006,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-dev-assets?rev=11b35ff#11b35ff4cb655d46fd40ba80018c361d42e60af5"
+source = "git+https://github.com/typst/typst-dev-assets?rev=5bb5393#5bb539377906613fab7994b3601e475eee794ada"
 
 [[package]]
 name = "typst-docs"
@@ -3000,6 +3017,7 @@ dependencies = [
  "ecow",
  "heck",
  "pulldown-cmark",
+ "regex",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -3281,6 +3299,7 @@ dependencies = [
  "ecow",
  "flate2",
  "hayro",
+ "hayro-svg",
  "image",
  "rustc-hash",
  "ttf-parser",

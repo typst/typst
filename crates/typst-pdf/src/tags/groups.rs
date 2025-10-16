@@ -4,19 +4,18 @@ use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::GridCell;
+use typst_library::layout::{GridCell, Inherit};
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
-use crate::PdfOptions;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
 use crate::tags::resolve::TagNode;
-use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
 use crate::tags::util::{self, Id, IdVec};
 
 pub type GroupId = Id<Group>;
@@ -54,10 +53,6 @@ impl Groups {
     #[cfg_attr(debug_assertions, track_caller)]
     pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
         self.list.get_mut(id)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Group> {
-        self.list.iter()
     }
 
     /// See [`util::propagate_lang`].
@@ -106,82 +101,86 @@ impl Groups {
         self.list.push(Group::new(parent, span, kind))
     }
 
+    /// Create a new weak group, not associated with any location.
+    pub fn new_weak(&mut self, parent: GroupId, span: Span, kind: GroupKind) -> GroupId {
+        self.list.push(Group::weak(parent, span, kind))
+    }
+
     /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
-    pub fn breakable(
-        &self,
-        kind: &GroupKind,
-        options: &PdfOptions,
-    ) -> Option<BreakPriority> {
-        let no_pdf_ua = !options.is_pdf_ua();
+    pub fn breakable(&self, kind: &GroupKind) -> BreakOpportunity {
+        use BreakOpportunity::*;
         match kind {
-            GroupKind::Root(..) => None,
-            GroupKind::Artifact(..) => Some(BreakPriority::Span),
-            GroupKind::LogicalParent(..) => None,
-            GroupKind::LogicalChild => None,
-            GroupKind::Outline(..) => None,
-            GroupKind::OutlineEntry(..) => None,
-            GroupKind::Table(..) => None,
-            GroupKind::TableCell(..) => None,
-            GroupKind::Grid(..) => None,
-            GroupKind::GridCell(..) => None,
-            GroupKind::List(..) => None,
-            GroupKind::ListItemLabel(..) => None,
-            GroupKind::ListItemBody(..) => None,
-            GroupKind::TermsItemLabel(..) => None,
-            GroupKind::TermsItemBody(..) => None,
-            GroupKind::BibEntry(..) => None,
-            GroupKind::Figure(..) => None,
-            GroupKind::FigureCaption(..) => None,
-            GroupKind::Image(..) => None,
-            GroupKind::Formula(..) => None,
-            GroupKind::Link(..) => no_pdf_ua.then_some(BreakPriority::Span),
-            GroupKind::CodeBlock(..) => None,
-            GroupKind::CodeBlockLine(..) => None,
-            GroupKind::Par(..) => no_pdf_ua.then_some(BreakPriority::Par),
+            GroupKind::Root(..) => Never,
+            GroupKind::Artifact(..) => Always(BreakPriority::Span),
+            GroupKind::LogicalParent(..) => Never,
+            GroupKind::LogicalChild(..) => Never,
+            GroupKind::Outline(..) => Never,
+            GroupKind::OutlineEntry(..) => Never,
+            GroupKind::Table(..) => Never,
+            GroupKind::TableCell(..) => Never,
+            GroupKind::Grid(..) => Never,
+            GroupKind::GridCell(..) => Never,
+            GroupKind::InternalGridCell(..) => Never,
+            GroupKind::List(..) => Never,
+            GroupKind::ListItemLabel(..) => Never,
+            GroupKind::ListItemBody(..) => Never,
+            GroupKind::TermsItemLabel(..) => Never,
+            GroupKind::TermsItemBody(..) => Never,
+            GroupKind::BibEntry(..) => Never,
+            GroupKind::Figure(..) => Never,
+            GroupKind::FigureCaption(..) => Never,
+            GroupKind::Image(..) => Never,
+            GroupKind::Formula(..) => Never,
+            GroupKind::Link(..) => NoPdfUa(BreakPriority::Span),
+            GroupKind::CodeBlock(..) => Never,
+            GroupKind::CodeBlockLine(..) => Never,
+            GroupKind::Par(..) => NoPdfUa(BreakPriority::Par),
+            GroupKind::TextAttr(_) => Always(BreakPriority::TextAttr),
+            GroupKind::Transparent => Never,
             GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
-                TagKind::Part(_) => None,
-                TagKind::Article(_) => None,
-                TagKind::Section(_) => None,
-                TagKind::Div(_) => None,
-                TagKind::BlockQuote(_) => None,
-                TagKind::Caption(_) => None,
-                TagKind::TOC(_) => None,
-                TagKind::TOCI(_) => None,
-                TagKind::Index(_) => None,
-                TagKind::P(_) => no_pdf_ua.then_some(BreakPriority::Par),
-                TagKind::Hn(_) => None,
-                TagKind::L(_) => None,
-                TagKind::LI(_) => None,
-                TagKind::Lbl(_) => None,
-                TagKind::LBody(_) => None,
-                TagKind::Table(_) => None,
-                TagKind::TR(_) => None,
-                TagKind::TH(_) => None,
-                TagKind::TD(_) => None,
-                TagKind::THead(_) => None,
-                TagKind::TBody(_) => None,
-                TagKind::TFoot(_) => None,
-                TagKind::Span(_) => Some(BreakPriority::Span),
-                TagKind::InlineQuote(_) => None,
-                TagKind::Note(_) => None,
-                TagKind::Reference(_) => no_pdf_ua.then_some(BreakPriority::Span),
-                TagKind::BibEntry(_) => None,
-                TagKind::Code(_) => no_pdf_ua.then_some(BreakPriority::Span),
-                TagKind::Link(_) => no_pdf_ua.then_some(BreakPriority::Span),
-                TagKind::Annot(_) => None,
-                TagKind::Figure(_) => None,
-                TagKind::Formula(_) => None,
-                TagKind::NonStruct(_) => None,
-                TagKind::Datetime(_) => None,
-                TagKind::Terms(_) => None,
-                TagKind::Title(_) => None,
-                TagKind::Strong(_) => Some(BreakPriority::Span),
-                TagKind::Em(_) => Some(BreakPriority::Span),
+                TagKind::Part(_) => Never,
+                TagKind::Article(_) => Never,
+                TagKind::Section(_) => Never,
+                TagKind::Div(_) => Never,
+                TagKind::BlockQuote(_) => Never,
+                TagKind::Caption(_) => Never,
+                TagKind::TOC(_) => Never,
+                TagKind::TOCI(_) => Never,
+                TagKind::Index(_) => Never,
+                TagKind::P(_) => NoPdfUa(BreakPriority::Par),
+                TagKind::Hn(_) => Never,
+                TagKind::L(_) => Never,
+                TagKind::LI(_) => Never,
+                TagKind::Lbl(_) => Never,
+                TagKind::LBody(_) => Never,
+                TagKind::Table(_) => Never,
+                TagKind::TR(_) => Never,
+                TagKind::TH(_) => Never,
+                TagKind::TD(_) => Never,
+                TagKind::THead(_) => Never,
+                TagKind::TBody(_) => Never,
+                TagKind::TFoot(_) => Never,
+                TagKind::Span(_) => Always(BreakPriority::Span),
+                TagKind::InlineQuote(_) => Never,
+                TagKind::Note(_) => Never,
+                TagKind::Reference(_) => NoPdfUa(BreakPriority::Span),
+                TagKind::BibEntry(_) => Never,
+                TagKind::Code(_) => NoPdfUa(BreakPriority::Span),
+                TagKind::Link(_) => NoPdfUa(BreakPriority::Span),
+                TagKind::Annot(_) => Never,
+                TagKind::Figure(_) => Never,
+                TagKind::Formula(_) => Never,
+                TagKind::NonStruct(_) => Never,
+                TagKind::Datetime(_) => Never,
+                TagKind::Terms(_) => Never,
+                TagKind::Title(_) => Never,
+                TagKind::Strong(_) => Always(BreakPriority::Span),
+                TagKind::Em(_) => Always(BreakPriority::Span),
             },
         }
     }
 
-    /// NOTE: this needs to be kept in sync with [`GroupKind::is_breakable`].
+    /// NOTE: this needs to be kept in sync with [`Groups::breakable`].
     pub fn break_group(&mut self, id: GroupId, new_parent: GroupId) -> GroupId {
         let group = self.get(id);
         let span = group.span;
@@ -190,6 +189,7 @@ impl Groups {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
             GroupKind::Par(_) => GroupKind::Par(None),
+            GroupKind::TextAttr(attr) => GroupKind::TextAttr(attr.clone()),
             GroupKind::Standard(old, _) => {
                 let tag = self.tags.get(*old).clone();
                 let new = self.tags.push(tag);
@@ -197,13 +197,14 @@ impl Groups {
             }
             GroupKind::Root(..)
             | GroupKind::LogicalParent(..)
-            | GroupKind::LogicalChild
+            | GroupKind::LogicalChild(..)
             | GroupKind::Outline(..)
             | GroupKind::OutlineEntry(..)
             | GroupKind::Table(..)
             | GroupKind::TableCell(..)
             | GroupKind::Grid(..)
             | GroupKind::GridCell(..)
+            | GroupKind::InternalGridCell(..)
             | GroupKind::List(..)
             | GroupKind::ListItemLabel(..)
             | GroupKind::ListItemBody(..)
@@ -215,9 +216,31 @@ impl Groups {
             | GroupKind::Image(..)
             | GroupKind::Formula(..)
             | GroupKind::CodeBlock(..)
-            | GroupKind::CodeBlockLine(..) => unreachable!(),
+            | GroupKind::CodeBlockLine(..)
+            | GroupKind::Transparent => unreachable!(),
         };
         self.list.push(Group::weak(new_parent, span, new_kind))
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum BreakOpportunity {
+    /// The group is unbreakable.
+    Never,
+    /// The group can only be broken, when
+    NoPdfUa(BreakPriority),
+    /// The group can always be broken.
+    Always(BreakPriority),
+}
+
+impl BreakOpportunity {
+    pub fn get(self, is_pdf_ua: bool) -> Option<BreakPriority> {
+        match self {
+            BreakOpportunity::Never => None,
+            BreakOpportunity::NoPdfUa(p) if !is_pdf_ua => Some(p),
+            BreakOpportunity::NoPdfUa(_) => None,
+            BreakOpportunity::Always(p) => Some(p),
+        }
     }
 }
 
@@ -225,6 +248,7 @@ impl Groups {
 pub enum BreakPriority {
     Par,
     Span,
+    TextAttr,
     Artifact,
 }
 
@@ -274,7 +298,16 @@ impl Groups {
     /// Check whether the child's [`Group::parent`] is either the `parent` or an
     /// ancestor of the `parent`.
     fn check_ancestor(&self, parent: GroupId, child: GroupId) -> bool {
-        let ancestor = self.get(child).parent;
+        let group = self.get(child);
+
+        // Logical children that don't inherit their parent's styles have their
+        // parent set to the the original location they appeared in the tree,
+        // but will be inserted into the correct logical parent.
+        if let GroupKind::LogicalChild(Inherit::No, _) = group.kind {
+            return true;
+        }
+
+        let ancestor = group.parent;
         let mut current = parent;
         while current != GroupId::INVALID {
             if current == ancestor {
@@ -384,13 +417,19 @@ pub enum GroupKind {
     Root(Option<Locale>),
     Artifact(ArtifactType),
     LogicalParent(Content),
-    LogicalChild,
+    LogicalChild(Inherit, GroupId),
     Outline(OutlineId, Option<Locale>),
     OutlineEntry(Packed<OutlineEntry>, Option<Locale>),
     Table(TableId, BBoxId, Option<Locale>),
     TableCell(Packed<TableCell>, TagId, Option<Locale>),
     Grid(GridId, Option<Locale>),
     GridCell(Packed<GridCell>, Option<Locale>),
+    /// Grid cells can be split up across multiple pages, and contained tag
+    /// structure might also be split up across these multiple regions, this
+    /// needs to be handled when the logical tree is built using the
+    /// `unfinished_stacks` map. Even when a grid is used internally, or the
+    /// cell is repeated and thus marked as an artifact.
+    InternalGridCell(InternalGridCellKind),
     List(ListId, ListNumbering, Option<Locale>),
     ListItemLabel(Option<Locale>),
     ListItemBody(Option<Locale>),
@@ -411,22 +450,39 @@ pub enum GroupKind {
     /// contains no children. This can happen when there are overlapping tags
     /// and a pragraph is split up.
     Par(Option<Locale>),
+    TextAttr(TextAttr),
+    Transparent,
     Standard(TagId, Option<Locale>),
+}
+
+pub enum InternalGridCellKind {
+    Transparent,
+    Artifact(ArtifactType),
+}
+
+impl InternalGridCellKind {
+    pub fn to_kind(&self) -> GroupKind {
+        match self {
+            InternalGridCellKind::Transparent => GroupKind::Transparent,
+            InternalGridCellKind::Artifact(ty) => GroupKind::Artifact(*ty),
+        }
+    }
 }
 
 impl std::fmt::Debug for GroupKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.pad(match self {
-            Self::Root(_) => "Root",
-            Self::Artifact(_) => "Artifact",
-            Self::LogicalParent(_) => "LogicalParent",
-            Self::LogicalChild => "LogicalChild",
+            Self::Root(..) => "Root",
+            Self::Artifact(..) => "Artifact",
+            Self::LogicalParent(..) => "LogicalParent",
+            Self::LogicalChild(..) => "LogicalChild",
             Self::Outline(..) => "Outline",
             Self::OutlineEntry(..) => "OutlineEntry",
             Self::Table(..) => "Table",
             Self::TableCell(..) => "TableCell",
             Self::Grid(..) => "Grid",
             Self::GridCell(..) => "GridCell",
+            Self::InternalGridCell(..) => "InternalGridCell",
             Self::List(..) => "List",
             Self::ListItemLabel(..) => "ListItemLabel",
             Self::ListItemBody(..) => "ListItemBody",
@@ -441,6 +497,8 @@ impl std::fmt::Debug for GroupKind {
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
             Self::Par(..) => "Par",
+            Self::TextAttr(..) => "TextAttr",
+            Self::Transparent => "Transparent",
             Self::Standard(..) => "Standard",
         })
     }
@@ -448,23 +506,42 @@ impl std::fmt::Debug for GroupKind {
 
 impl GroupKind {
     pub fn is_artifact(&self) -> bool {
-        matches!(self, Self::Artifact(_))
+        self.as_artifact().is_some()
     }
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
     }
 
-    pub fn as_artifact(&self) -> Option<ArtifactType> {
-        if let Self::Artifact(v) = self { Some(*v) } else { None }
+    pub fn is_grid_layout_cell(&self) -> bool {
+        matches!(
+            self,
+            Self::TableCell(..) | Self::GridCell(..) | Self::InternalGridCell(..)
+        )
     }
 
-    pub fn as_list(&self) -> Option<ListId> {
-        if let Self::List(v, ..) = self { Some(*v) } else { None }
+    pub fn as_artifact(&self) -> Option<ArtifactType> {
+        match *self {
+            GroupKind::Artifact(ty) => Some(ty),
+            GroupKind::InternalGridCell(InternalGridCellKind::Artifact(ty)) => Some(ty),
+            _ => None,
+        }
     }
 
     pub fn as_link(&self) -> Option<&Packed<LinkMarker>> {
         if let Self::Link(v, ..) = self { Some(v) } else { None }
+    }
+
+    pub fn as_table(&self) -> Option<TableId> {
+        if let Self::Table(id, ..) = self { Some(*id) } else { None }
+    }
+
+    pub fn as_grid(&self) -> Option<GridId> {
+        if let Self::Grid(id, ..) = self { Some(*id) } else { None }
+    }
+
+    pub fn as_list(&self) -> Option<ListId> {
+        if let Self::List(id, ..) = self { Some(*id) } else { None }
     }
 
     pub fn bbox(&self) -> Option<BBoxId> {
@@ -483,13 +560,14 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
+            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -504,6 +582,8 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
+            GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
     }
@@ -513,13 +593,14 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
+            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -534,6 +615,8 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
+            GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
     }

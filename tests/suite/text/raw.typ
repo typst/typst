@@ -231,7 +231,7 @@ box[]
 hello.world
 hello.world()
 hello.my.world()
-f_(zeta(x)), f_(zeta(x))/1
+f_zeta(x), f_zeta(x)/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
@@ -241,6 +241,15 @@ emph(hello.my().world())
 #hello.world()
 #box[]
 ```
+
+--- raw-highlight-typm-extra ---
+// Math highlighting for strings, alignments, shorthands, and named args.
+#set page(width: auto)
+```typm
+"string" - + * ::= & \
+|=> & [|define(x: #y, x::= y)|]
+```
+
 --- raw-highlight-rust ---
 #set page(width: auto)
 

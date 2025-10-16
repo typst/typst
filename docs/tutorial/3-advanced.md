@@ -54,8 +54,8 @@ Let's start by writing some set rules for the document.
 >>> margin: auto,
   paper: "us-letter",
   header: align(right)[
-    A fluid dynamic model for
-    glacier flow
+    A Fluid Dynamic Model for
+    Glacier Flow
   ],
   numbering: "1",
 )
@@ -85,31 +85,80 @@ surrounded by parentheses. And we could even have provided a completely custom
 function here to format things to our liking.
 
 ## Creating a title and abstract { #title-and-abstract }
-Now, let's add a title and an abstract. We'll start with the title. We center
-align it and increase its font weight by enclosing it in `[*stars*]`.
+Now, let's add a title and an abstract. We'll start with the title. Typst comes
+with a [`title`] function. Let's start by providing our title as an argument:
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
 >>> #set text(font: "Libertinus Serif", 11pt)
-#align(center, text(17pt)[
-  *A fluid dynamic model
-  for glacier flow*
-])
+#title[
+  A Fluid Dynamic Model
+  for Glacier Flow
+]
 ```
 
-This looks right. We used the `text` function to override the previous text
-set rule locally, increasing the size to 17pt for the function's argument. Let's
-also add the author list: Since we are writing this paper together with our
-supervisor, we'll add our own and their name.
+You can see that the title is already boldfaced and has some space around it.
+However, it is left-aligned and not exactly 17pt large. Hence, we need to adjust
+its appearance. The title function does not come with any arguments for
+font or text size we could set. Instead, these properties are defined on the
+`text` and `align` functions.
+
+<div class="info-box">
+
+What is the difference between what the `title` function inserted and the
+headings we produced with equals signs?
+
+Headings, even first-level headings, can appear multiple times in your document
+whereas a title only appears once, usually at the beginning. Differentiating
+between the two helps Typst make your document accessible for users of
+Assistive Technology such as screen readers.
+</div>
+
+When we want to customize the properties of some element inside of another kind
+of element, we can use show-set rules. First, we use `show` to select which
+element we want to customize. We call this a _selector._ Then, we type a colon.
+Next, we write the set rule that should apply to elements matching the selector.
+Summarized, the syntax looks like this:
+
+```typ
+#show your-selector: set some-element(/* ... */)
+```
+
+Let's recall: We want to center-align the title and make it 17pt large. Hence,
+we need two show-set rules:
+
+- One with the selector `title` and the rule `{set text(size: 17pt)}`
+- One with the selector `title` and the rule `{set align(center)}`
+
+Our example now looks like this:
+
+```example
+>>> #set page(width: 300pt, margin: 30pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
+#show title: set text(size: 17pt)
+#show title: set align(center)
+
+#title[
+  A Fluid Dynamic Model
+  for Glacier Flow
+]
+```
+
+This looks right. Let's also add the author list: Since we are writing this
+paper together with our supervisor, we'll add our own and their name.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
->>> #align(center, text(17pt)[
->>>   *A fluid dynamic model
->>>   for glacier flow*
->>> ])
+>>> #show title: set text(size: 17pt)
+>>> #show title: set align(center)
+>>>
+>>> #title[
+>>>   A Fluid Dynamic Model
+>>>   for Glacier Flow
+>>> ]
+
 #grid(
   columns: (1fr, 1fr),
   align(center)[
@@ -137,26 +186,70 @@ column. The grid takes an arbitrary number of content arguments specifying the
 cells. Rows are added automatically, but they can also be manually sized with
 the `rows` argument.
 
-Now, let's add the abstract. Remember that the conference wants the abstract to
-be set ragged and centered.
+Looking at the authors and the title, they are a bit too close together. You can
+address this by using another show-set rule to configure the space below the
+title. The title, the grid, paragraphs, and all other elements that Typst
+arranges from the top to the bottom of the page are called _blocks._ Each block
+is controlled by the [`block`] function. It controls behaviors like their
+distance and whether a block can contain a page break. That means that we can
+write another show-set rule that selects the title to set the block spacing:
+
+```example
+>>> #set page(width: 300pt, margin: 30pt)
+>>> #set text(font: "Libertinus Serif", 11pt)
+>>>
+#show title: set text(size: 17pt)
+#show title: set align(center)
+#show title: set block(below: 1.2em)
+
+#title[
+  A Fluid Dynamic Model
+  for Glacier Flow
+]
+
+#grid(
+<<<   // ...
+>>>   columns: (1fr, 1fr),
+>>>   align(center)[
+>>>     Therese Tungsten \
+>>>     Artos Institute \
+>>>     #link("mailto:tung@artos.edu")
+>>>   ],
+>>>   align(center)[
+>>>     Dr. John Doe \
+>>>     Artos Institute \
+>>>     #link("mailto:doe@artos.edu")
+>>>   ]
+)
+```
+
+With this show-set rule, we overrode the spacing below the title. We have used
+the `em` unit: It allows us to express lengths as multiples of the font size.
+Here, we used it to space the title and the author list exactly 1.2× the font
+size apart. Now, let's add the abstract. Remember that the conference wants the
+abstract to be set ragged and centered.
 
 ```example:0,0,612,317.5
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
 >>>   header: align(right + horizon)[
->>>     A fluid dynamic model for
->>>     glacier flow
+>>>     A Fluid Dynamic Model for
+>>>     Glacier Flow
 >>>   ],
 >>>   numbering: "1",
 >>> )
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
->>> #align(center, text(17pt)[
->>>   *A fluid dynamic model
->>>   for glacier flow*
->>> ])
+>>> #show title: set text(size: 17pt)
+>>> #show title: set align(center)
+>>> #show title: set block(below: 1.2em)
+>>>
+>>> #title[
+>>>   A Fluid Dynamic Model
+>>>   for Glacier Flow
+>>> ]
 >>>
 >>> #grid(
 >>>   columns: (1fr, 1fr),
@@ -188,15 +281,40 @@ affect the remainder of the document even though it was specified after the
 first set rule because content blocks _scope_ styling. Anything set within a
 content block will only affect the content within that block.
 
-Another tweak could be to save the paper title in a variable, so that we do not
-have to type it twice, for header and title. We can do that with the `{let}`
-keyword:
+Another tweak could be to remove the duplication between the header and the
+title element's argument. Since they share the title, it would be convenient to
+store it in a place designed to hold metadata about the document. We would then
+need a way to retrieve the title in both places. The `document` element can help
+us with the former: By using it in a set rule, we can store document metadata
+like title, description, and keywords.
+
+```typ
+#set document(title: [A Fluid Dynamic Model for Glacier Flow])
+```
+
+When exporting a PDF, the title set here will appear in the title bar of your
+PDF reader. Your operating system will also use this title to make the file
+retrievable with search. Last but not least, it contributes to making your
+document more accessible and is required if you choose to comply with PDF/UA, a
+PDF standard focused on accessibility.
+
+Now, we need a way to retrieve the value we set in the main title and the
+header. Because the `title` function is designed to work together with the
+`document` element, calling it with no arguments will just print the title. For
+the header, we will need to be more explicit: Because Typst has no way of
+knowing that we want to insert the title there, we will need to tell it to do so
+manually.
+
+Using _context,_ we can retrieve the contents of any values we have set on
+elements before. When we use the `{context}` keyword, we can access any property
+of any element, including the document element's title property. Its use looks
+like this:
 
 ```example:single
-#let title = [
-  A fluid dynamic model
-  for glacier flow
-]
+#set document(title: [
+  A Fluid Dynamic Model
+  for Glacier Flow
+])
 
 <<< ...
 
@@ -205,7 +323,9 @@ keyword:
 >>> margin: auto,
   header: align(
     right + horizon,
-    title
+    // Retrieve the document
+    // element's title property.
+    context document.title,
   ),
 <<<   ...
 >>> numbering: "1",
@@ -213,9 +333,11 @@ keyword:
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 
-#align(center, text(17pt)[
-  *#title*
-])
+>>> #show title: set text(size: 17pt)
+>>>
+>>> #show title: set align(center)
+>>> #show title: set block(below: 1.2em)
+#title()
 
 <<< ...
 
@@ -242,9 +364,47 @@ keyword:
 >>> #lorem(600)
 ```
 
-After we bound the content to the `title` variable, we can use it in functions
-and also within markup (prefixed by `#`, like functions). This way, if we decide
-on another title, we can easily change it in one place.
+First, notice how we called the title function with empty, round
+parentheses. Because no argument was passed, it defaulted to what we set for the
+document element above. The distinction between empty round and empty square
+brackets is important: While empty round brackets show that you are passing
+nothing, empty square brackets mean that you are passing one argument: an empty
+content block. If called that way, the title would have no visible content.
+
+Next, take a look at the header. Instead of the title in square parentheses, we
+used the context keyword to access the document title. This inserted exactly
+what we set above. The role of context is not limited to accessing properties:
+With it, you can check if some elements are present in the document, measure the
+physical dimensions of others, and more. Using context, you can build powerful
+templates that react to the preferences of the end-user.
+
+<div class="info-box">
+
+<details>
+<summary>
+Why is the context keyword required to access element properties?
+</summary>
+
+Normally, when we access a variable, we know exactly what its value is going to
+be:
+
+- The variable could be a constant built into Typst, like `[#sym.pi]`
+- The variable could be defined by an argument
+- The variable could be defined or overwritten in the current scope
+
+However, sometimes, that's not enough. In this chapter of the tutorial, we have
+inserted a page header with the title. Even though we pass only one piece of
+content for the header, we may want different pages to have different headers.
+For example, we may want to print the chapter name or use the page number. When
+we use context, we can write a single context block that tells Typst to take a
+look at where it's inserted, look for the last heading, the current page number,
+or anything else, and go from there. That means that the same context block,
+inserted on different pages, can produce different output.
+
+For more information, read up on context [in its docs]($context) after
+completing this tutorial.
+</details>
+</div>
 
 ## Adding columns and headings { #columns-and-headings }
 The paper above unfortunately looks like a wall of lead. To fix that, let's add
@@ -272,23 +432,23 @@ content in its container:
 ```
 
 If we hadn't used `{place}` here, the square would be in its own line, but here
-it overlaps the few lines of text following it. Likewise, that text acts like as
-if there was no square. To change this behavior, we can pass the argument
+it overlaps the few lines of text following it. Likewise, that text acts as if
+there was no square. To change this behavior, we can pass the argument
 `{float: true}` to ensure that the space taken up by the placed item at the top
 or bottom of the page is not occupied by any other content.
 
 ```example:single
->>> #let title = [
->>>   A fluid dynamic model
->>>   for glacier flow
->>> ]
+>>> #set document(title: [
+>>>   A Fluid Dynamic Model
+>>>   for Glacier Flow
+>>> ])
 >>>
 #set page(
 >>> margin: auto,
   paper: "us-letter",
   header: align(
     right + horizon,
-    title
+    context document.title,
   ),
   numbering: "1",
   columns: 2,
@@ -302,11 +462,11 @@ or bottom of the page is not occupied by any other content.
   scope: "parent",
   clearance: 2em,
 )[
->>> #text(
->>>   17pt,
->>>   weight: "bold",
->>>   title,
->>> )
+>>> #show title: set text(size: 17pt)
+>>> #show title: set align(center)
+>>> #show title: set block(below: 1.2em)
+>>>
+>>> #title()
 >>>
 >>> #grid(
 >>>   columns: (1fr, 1fr),
@@ -342,32 +502,38 @@ function. We can also remove the explicit `{align(center, ..)}` calls around the
 various parts since they inherit the center alignment from the placement.
 
 Now there is only one thing left to do: Style our headings. We need to make them
-centered and use small capitals. Because the `heading` function does not offer
-a way to set any of that, we need to write our own heading show rule.
+centered and use small capitals. These properties are not available on the
+`heading` function, so we will need to write a few show-set rules and a show
+rule:
+
+- A show-set rule to make headings center-aligned
+- A show-set rule to make headings 13pt large and use the regular weight
+- A show rule to wrap the headings in a call to the `smallcaps` function
 
 ```example:50,250,265,270
->>> #let title = [
->>>   A fluid dynamic model
->>>   for glacier flow
->>> ]
+>>> #set document(title: [
+>>>   A Fluid Dynamic Model
+>>>   for Glacier Flow
+>>> ])
 >>>
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
 >>>   header: align(
 >>>     right + horizon,
->>>     title
+>>>     context document.title,
 >>>   ),
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
-#show heading: it => [
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #block(smallcaps(it.body))
-]
+#show heading: set align(center)
+#show heading: set text(
+  size: 13pt,
+  weight: "regular",
+)
+#show heading: smallcaps
 
 <<< ...
 >>> #place(
@@ -376,11 +542,11 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #text(
->>>     17pt,
->>>     weight: "bold",
->>>     title,
->>>   )
+>>>   #show title: set text(size: 17pt)
+>>>   #show title: set align(center)
+>>>   #show title: set block(below: 1.2em)
+>>>
+>>>   #title()
 >>>
 >>>   #grid(
 >>>     columns: (1fr, 1fr),
@@ -411,33 +577,31 @@ a way to set any of that, we need to write our own heading show rule.
 >>> #lorem(45)
 ```
 
-This looks great! We used a show rule that applies to all headings. We give it a
-function that gets passed the heading as a parameter. That parameter can be used
-as content but it also has some fields like `title`, `numbers`, and `level` from
-which we can compose a custom look. Here, we are center-aligning, setting the
-font weight to `{"regular"}` because headings are bold by default, and use the
-[`smallcaps`] function to render the heading's title in small capitals.
+This looks great! We used show rules that apply to all headings. In the final
+show rule, we applied the `smallcaps` function to the complete heading. As we
+will see in the next example, we can also provide a custom rule to completely
+override the default look of headings.
 
 The only remaining problem is that all headings look the same now. The
-"Motivation" and "Problem Statement" subsections ought to be italic run in
-headers, but right now, they look indistinguishable from the section headings. We
-can fix that by using a `where` selector on our set rule: This is a
-[method]($scripting/#methods) we can call on headings (and other
-elements) that allows us to filter them by their level. We can use it to
-differentiate between section and subsection headings:
+"Motivation" and "Problem Statement" subsections ought to be italic run-in
+headers, but right now, they look indistinguishable from the section headings.
+We can fix that by using a `where` selector on our show rule: This is a
+[method]($scripting/#methods) we can call on headings (and other elements) that
+allows us to filter them by their properties. We can use it to differentiate
+between section and subsection headings:
 
 ```example:50,250,265,245
->>> #let title = [
->>>   A fluid dynamic model
->>>   for glacier flow
->>> ]
+>>> #set document(title: [
+>>>   A Fluid Dynamic Model
+>>>   for Glacier Flow
+>>> ])
 >>>
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
 >>>   header: align(
 >>>     right + horizon,
->>>     title
+>>>     context document.title,
 >>>   ),
 >>>   numbering: "1",
 >>>   columns: 2,
@@ -445,22 +609,18 @@ differentiate between section and subsection headings:
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
-#show heading.where(
-  level: 1
-): it => block(width: 100%)[
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #smallcaps(it.body)
-]
+#show heading.where(level: 1): set align(center)
+#show heading.where(level: 1): set text(size: 13pt, weight: "regular")
+#show heading.where(level: 1): smallcaps
 
-#show heading.where(
-  level: 2
-): it => text(
+#show heading.where(level: 2): set text(
   size: 11pt,
   weight: "regular",
   style: "italic",
-  it.body + [.],
 )
+#show heading.where(level: 2): it => {
+  it.body + [.]
+}
 >>>
 >>> #place(
 >>>   top + center,
@@ -468,11 +628,11 @@ differentiate between section and subsection headings:
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #text(
->>>     17pt,
->>>     weight: "bold",
->>>     title,
->>>   )
+>>>   #show title: set text(size: 17pt)
+>>>   #show title: set align(center)
+>>>   #show title: set block(below: 1.2em)
+>>>
+>>>   #title()
 >>>
 >>>   #grid(
 >>>     columns: (1fr, 1fr),
@@ -501,9 +661,28 @@ differentiate between section and subsection headings:
 >>> #lorem(45)
 ```
 
-This looks great! We wrote two show rules that each selectively apply to the
-first and second level headings. We used a `where` selector to filter the
-headings by their level. We then rendered the subsection headings as run-ins. We
+In this example, we first scope our previous rules to first-level headings by
+using `{.where(level: 1)}` to make the selector more specific. Then, we add a
+show-set rule for the second heading level. Finally, we need a show rule with a
+custom function: Headings enclose their contents with a block by default. This
+has the effect that the heading gets its own line. However, we want it to run
+into the text, so we need to provide our own show rule to get rid of this block.
+
+We provide the rule with a function that takes the heading as a parameter.
+This parameter is conventionally called `it`, but can have another name. The
+parameter can be used as content and will just display the whole default
+heading. Alternatively, when we want to build our own heading instead, we can
+use its fields like `body`, `numbering`, and `level` to compose a custom look.
+Here, we are just printing the body of the heading with a trailing dot and leave
+out the block that the built-in show rule produces. Note that this heading will
+no longer react to set rules for heading numbering and similar because we did
+not explicitly use `it.numbering` in the show rule. If you are writing show
+rules like this and want the document to remain customizable, you will need to
+take these fields into account.
+
+This looks great! We wrote show rules that selectively apply to the first and
+second level headings. We used a `where` selector to filter the headings by
+their level. We then rendered the subsection headings as run-ins. We
 also automatically add a period to the end of the subsection headings.
 
 Let's review the conference's style guide:
@@ -529,11 +708,12 @@ the conference! The finished paper looks like this:
 >
 
 ## Review
-You have now learned how to create headers and footers, how to use functions and
-scopes to locally override styles, how to create more complex layouts with the
-[`grid`] function and how to write show rules for individual functions, and the
-whole document. You also learned how to use the
-[`where` selector]($styling/#show-rules) to filter the headings by their level.
+You have now learned how to create titles, headers, and footers, how to use
+functions, show-set rules, and scopes to locally override styles, how to create
+more complex layouts with the [`grid`] function, how to access element
+properties with context, and how to write show rules for individual functions,
+and the whole document. You also learned how to use the [`where`
+selector]($styling/#show-rules) to filter the headings by their level.
 
 The paper was a great success! You've met a lot of like-minded researchers at
 the conference and are planning a project which you hope to publish at the same

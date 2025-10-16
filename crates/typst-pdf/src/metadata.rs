@@ -28,8 +28,8 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
         metadata = metadata.title(title.to_string());
     }
 
-    if let Some(subject) = &gc.document.info.description {
-        metadata = metadata.subject(subject.to_string());
+    if let Some(description) = &gc.document.info.description {
+        metadata = metadata.description(description.to_string());
     }
 
     if let Some(ident) = gc.options.ident.custom() {

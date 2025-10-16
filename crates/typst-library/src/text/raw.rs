@@ -141,7 +141,7 @@ pub struct RawElem {
     /// You can also use raw blocks creatively to create custom syntaxes for
     /// your automations.
     ///
-    /// ````example
+    /// ````example:"Implementing a DSL using raw and show rules"
     /// // Parse numbers in raw blocks with the
     /// // `mydsl` tag and sum them up.
     /// #show raw.where(lang: "mydsl"): it => {
@@ -705,7 +705,7 @@ impl PlainText for Packed<RawLine> {
     }
 }
 
-/// Wrapper struct for the state required to highlight typst code.
+/// Wrapper struct for the state required to highlight Typst code.
 struct ThemedHighlighter<'a> {
     /// The code being highlighted.
     code: &'a str,

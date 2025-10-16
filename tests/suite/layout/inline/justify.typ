@@ -92,6 +92,104 @@ int main() {
 }
 ```
 
+--- justify-limits-glyph-shrink-only ---
+#set text(hyphenate: false, overhang: false)
+#set par(
+  justify: true,
+  justification-limits: (
+    spacing: (min: 100%, max: 100%),
+    tracking: (min: -0.1em, max: 0em)
+  )
+)
+
+#block(fill: aqua.lighten(50%), width: 100%, lorem(10))
+
+--- justify-limits-glyph-grow-only ---
+#set text(hyphenate: false, overhang: false)
+#set par(
+  justify: true,
+  justification-limits: (
+    spacing: (min: 100%, max: 100%),
+    tracking: (min: 0em, max: 0.5em)
+  )
+)
+
+#block(fill: aqua.lighten(50%), width: 100%, lorem(10))
+
+--- justify-limits-tight-overstretch ---
+#set par(justify: true)
+#set text(hyphenate: false)
+#let with-limits(..args, body) = {
+  set par(justification-limits: args.named())
+  body
+}
+
+#let it = lorem(3) + linebreak(justify: true)
+#let spacer = box(width: 1fr, height: 5pt, fill: aqua)
+
+// Default cost => Spaces are stretched, glyphs are not.
+#it
+
+// No adjustments allowed => Spaces are still stretched, but incur
+// very high cost while doing so.
+#with-limits(
+  spacing: (min: 100%, max: 100%),
+  tracking: (min: 0em, max: 0em),
+  it
+)
+
+// Slight tracking is allowed => Spaces are still stretched
+// because just tracking is not enough.
+#with-limits(
+  spacing: (min: 100%, max: 100%),
+  tracking: (min: 0em, max: 0.05em),
+  it
+)
+
+// A ton of tracking is allowed => No space stretching occurs
+// anymore.
+#with-limits(
+  spacing: (min: 100%, max: 150%),
+  tracking: (min: 0em, max: 5em),
+  it
+)
+
+// Test folding against default.
+#{
+  set par(justification-limits: (tracking: (min: 0em, max: 5em)))
+  it
+}
+
+// Test folding against a custom value.
+#{
+  set par(justification-limits: (tracking: (min: 0em, max: 5em)))
+  set par(justification-limits: (spacing: (min: 100%, max: 100%)))
+  it
+}
+
+--- justify-limits-tracking-wrong-type ---
+// Error: 1:32-4:2 `min` value of `tracking` is invalid (expected length, found ratio)
+#set par(justification-limits: (
+  spacing: (min: 100%, max: 100%),
+  tracking: (min: 90%, max: 110%),
+))
+
+--- justify-limits-tracking-min-positive ---
+// Error: 32-65 `min` value of `tracking` is invalid (length must be negative or zero)
+#set par(justification-limits: (tracking: (min: 1em, max: -1em)))
+
+--- justify-limits-tracking-max-negative ---
+// Error: 32-66 `max` value of `tracking` is invalid (length must be positive or zero)
+#set par(justification-limits: (tracking: (min: -1em, max: -1em)))
+
+--- justify-limits-spacing-max-negative ---
+// Error: 32-78 `max` value of `spacing` is invalid (length must be positive or zero)
+#set par(justification-limits: (spacing: (min: 100% - 10pt, max: 120% - 1pt)))
+
+--- justify-limits-spacing-ratio-negative ---
+// Error: 32-76 `min` value of `spacing` is invalid (ratio must be positive)
+#set par(justification-limits: (spacing: (min: -50% - 1pt, max: 50% + 1pt)))
+
 --- justify-chinese ---
 // In Chinese typography, line length should be multiples of the character size
 // and the line ends should be aligned with each other. Most Chinese

@@ -43,6 +43,12 @@ use crate::text::{LocalName, TextElem};
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
 /// default via `{show link: set text(hyphenate: true)}`.
 ///
+/// # Accessibility
+/// The destination of a link should be clear from the link text itself, or at
+/// least from the text immediately surrounding it. In PDF export, Typst will
+/// automatically generate a tooltip description for links based on their
+/// destination. For links to URLs, the URL itself will be used as the tooltip.
+///
 /// # Links in HTML export
 /// In HTML export, a link to a [label] or [location] will be turned into a
 /// fragment link to a named anchor point. To support this, targets without an
@@ -302,6 +308,8 @@ impl Url {
         let url = url.into();
         if url.len() > 8000 {
             bail!("URL is too long")
+        } else if url.is_empty() {
+            bail!("URL must not be empty")
         }
         Ok(Self(url))
     }
@@ -365,7 +373,7 @@ impl Construct for DirectLinkElem {
     }
 }
 
-/// An element that wraps all conent that is [`Content::linked`] to a
+/// An element that wraps all content that is [`Content::linked`] to a
 /// destination.
 #[elem(Tagged, Construct)]
 pub struct LinkMarker {

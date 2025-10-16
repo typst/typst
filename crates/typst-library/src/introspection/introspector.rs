@@ -397,7 +397,7 @@ impl IntrospectorBuilder {
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
                         self.discover_in_frame(&mut nested, &group.frame, page, ts);
-                        self.register_insertion(parent, nested);
+                        self.register_insertion(parent.location, nested);
                     } else {
                         self.discover_in_frame(sink, &group.frame, page, ts);
                     }
@@ -423,7 +423,7 @@ impl IntrospectorBuilder {
     ) {
         match tag {
             Tag::Start(elem, flags) => {
-                if flags.locatable || flags.labelled {
+                if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
                         sink.push((elem.clone(), position));
@@ -431,7 +431,7 @@ impl IntrospectorBuilder {
                 }
             }
             Tag::End(loc, key, flags) => {
-                if flags.locatable || flags.labelled {
+                if flags.introspectable {
                     self.keys.insert(*key, *loc);
                 }
             }

@@ -1,4 +1,10 @@
+// This module is imported both from the `typst-cli` crate itself
+// and from its build script. In this module, you can only import from crates
+// that are both runtime and build dependencies of this crate, or else
+// Rust will give a confusing error message about a missing crate.
+
 use std::fmt::{self, Display, Formatter};
+use std::io::Write;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -295,8 +301,22 @@ pub struct CompileArgs {
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
-    #[clap(long = "make-deps", value_name = "PATH")]
+    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
     pub make_deps: Option<PathBuf>,
+
+    /// File path to which a list of current compilation's dependencies will be
+    /// written. Use `-` to write to stdout.
+    #[clap(
+        long,
+        value_name = "PATH",
+        value_parser = output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
+    pub deps: Option<Output>,
+
+    /// File format to use for dependencies.
+    #[clap(long, default_value_t)]
+    pub deps_format: DepsFormat,
 
     /// Processing arguments.
     #[clap(flatten)]
@@ -406,6 +426,11 @@ pub struct FontArgs {
     /// `--font-path`.
     #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
     pub ignore_system_fonts: bool,
+
+    /// Ensures fonts embedded into Typst won't be considered.
+    #[cfg(feature = "embed-fonts")]
+    #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
+    pub ignore_embedded_fonts: bool,
 }
 
 /// Arguments for the HTTP server.
@@ -468,11 +493,52 @@ pub enum Output {
     Path(PathBuf),
 }
 
+impl Output {
+    /// Write data to the output.
+    pub fn write(&self, buffer: &[u8]) -> std::io::Result<()> {
+        match self {
+            Output::Stdout => std::io::stdout().write_all(buffer),
+            Output::Path(path) => std::fs::write(path, buffer),
+        }
+    }
+
+    /// Open the output for writing.
+    pub fn open(&self) -> std::io::Result<OpenOutput<'_>> {
+        match self {
+            Self::Stdout => Ok(OpenOutput::Stdout(std::io::stdout().lock())),
+            Self::Path(path) => std::fs::File::create(path).map(OpenOutput::File),
+        }
+    }
+}
+
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Output::Stdout => f.pad("stdout"),
             Output::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
+/// A step-by-step writable version of [`Output`].
+#[derive(Debug)]
+pub enum OpenOutput<'a> {
+    Stdout(std::io::StdoutLock<'a>),
+    File(std::fs::File),
+}
+
+impl Write for OpenOutput<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            OpenOutput::Stdout(v) => v.write(buf),
+            OpenOutput::File(v) => v.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            OpenOutput::Stdout(v) => v.flush(),
+            OpenOutput::File(v) => v.flush(),
         }
     }
 }
@@ -487,6 +553,20 @@ pub enum OutputFormat {
 }
 
 display_possible_values!(OutputFormat);
+
+/// Which format to use for a generated dependency file.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum DepsFormat {
+    /// Encodes as JSON, failing for non-Unicode paths.
+    #[default]
+    Json,
+    /// Separates paths with NULL bytes and can express all paths.
+    Zero,
+    /// Emits in Make format, omitting inexpressible paths.
+    Make,
+}
+
+display_possible_values!(DepsFormat);
 
 /// The target to compile for.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
@@ -529,7 +609,7 @@ pub enum PdfStandard {
     /// PDF 1.5.
     #[value(name = "1.5")]
     V_1_5,
-    /// PDF 1.5.
+    /// PDF 1.6.
     #[value(name = "1.6")]
     V_1_6,
     /// PDF 1.7.
@@ -541,18 +621,27 @@ pub enum PdfStandard {
     /// PDF/A-1b.
     #[value(name = "a-1b")]
     A_1b,
+    /// PDF/A-1a.
+    #[value(name = "a-1a")]
+    A_1a,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
     /// PDF/A-2u.
     #[value(name = "a-2u")]
     A_2u,
+    /// PDF/A-2a.
+    #[value(name = "a-2a")]
+    A_2a,
     /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
     /// PDF/A-3u.
     #[value(name = "a-3u")]
     A_3u,
+    /// PDF/A-3a.
+    #[value(name = "a-3a")]
+    A_3a,
     /// PDF/A-4.
     #[value(name = "a-4")]
     A_4,

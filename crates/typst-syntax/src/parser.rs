@@ -384,10 +384,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
@@ -531,8 +531,22 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
         if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
             p.token.node = spread;
             p.eat();
-            math_expr(p);
-            p.wrap(m, SyntaxKind::Spread);
+            let m_arg = p.marker();
+            // TODO: Refactor to combine with the other call to `math_exprs`.
+            let count =
+                math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
+            if count == 0 {
+                let dots = vec![
+                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
+                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
+                ];
+                p[m] = SyntaxNode::inner(SyntaxKind::Math, dots);
+            } else {
+                if count > 1 {
+                    p.wrap(m_arg, SyntaxKind::Math);
+                }
+                p.wrap(m, SyntaxKind::Spread);
+            }
             return true;
         }
     }

@@ -10,7 +10,8 @@ use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
-use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
+use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
     TextElem, TextItem, families, features, is_default_ignorable, language, variant,
@@ -226,13 +227,43 @@ impl ShapedGlyph {
             || self.c.is_ascii_digit()
     }
 
-    pub fn base_adjustability(&self, style: CjkPunctStyle) -> Adjustability {
+    /// The amount by which the glyph's advance width is allowed to be shrunk or
+    /// stretched to improve justification.
+    pub fn base_adjustability(
+        &self,
+        style: CjkPunctStyle,
+        limits: &JustificationLimits,
+        font_size: Abs,
+        stretchable: bool,
+    ) -> Adjustability {
         let width = self.x_advance;
+
+        // Do not ever shrink away more than three quarters of the glyph. As the
+        // width approaches zero, justification gets increasingly expensive and
+        // if negative it may not terminate.
+        let limited = |v: Em| v.min(width * 0.75);
+
         if self.is_space() {
+            // To a space, both the spacing and tracking limits apply, just like
+            // `text.tracking` and `text.spacing` both apply to spaces.
+            let max = limits.spacing().max + limits.tracking().max;
+            let min = limits.spacing().min + limits.tracking().min;
             Adjustability {
-                // The number for spaces is from Knuth-Plass' paper
-                stretchability: (Em::zero(), width / 2.0),
-                shrinkability: (Em::zero(), width / 3.0),
+                stretchability: (
+                    Em::zero(),
+                    (max - Rel::one())
+                        .map(|length| Em::from_length(length, font_size))
+                        .relative_to(width)
+                        .max(Em::zero()),
+                ),
+                shrinkability: (
+                    Em::zero(),
+                    limited(
+                        (Rel::one() - min)
+                            .map(|length| Em::from_length(length, font_size))
+                            .relative_to(width),
+                    ),
+                ),
             }
         } else if self.is_cjk_left_aligned_punctuation(style) {
             Adjustability {
@@ -248,6 +279,17 @@ impl ShapedGlyph {
             Adjustability {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (width / 4.0, width / 4.0),
+            }
+        } else if stretchable {
+            Adjustability {
+                stretchability: (
+                    Em::zero(),
+                    Em::from_length(limits.tracking().max, font_size).max(Em::zero()),
+                ),
+                shrinkability: (
+                    Em::zero(),
+                    limited(Em::from_length(-limits.tracking().min, font_size)),
+                ),
             }
         } else {
             Adjustability::default()
@@ -1176,9 +1218,18 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
+    let limits = ctx.styles.get(ParElem::justification_limits);
+    let font_size = ctx.size;
 
-    for glyph in &mut ctx.glyphs {
-        glyph.adjustability = glyph.base_adjustability(style);
+    let mut glyphs = ctx.glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        // Do not apply adjustability to a glyph if there is another one in the
+        // same cluster.
+        let stretchable =
+            glyphs.peek().is_none_or(|next| glyph.range.start != next.range.start);
+
+        glyph.adjustability =
+            glyph.base_adjustability(style, &limits, font_size, stretchable);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();

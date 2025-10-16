@@ -124,9 +124,11 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
-        let fonts = Fonts::searcher()
-            .include_system_fonts(!world_args.font.ignore_system_fonts)
-            .search_with(&world_args.font.font_paths);
+        let mut fonts = Fonts::searcher();
+        fonts.include_system_fonts(!world_args.font.ignore_system_fonts);
+        #[cfg(feature = "embed-fonts")]
+        fonts.include_embedded_fonts(!world_args.font.ignore_embedded_fonts);
+        let fonts = fonts.search_with(&world_args.font.font_paths);
 
         let now = match world_args.creation_timestamp {
             Some(time) => Now::Fixed(time),

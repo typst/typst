@@ -1,15 +1,16 @@
 use std::num::NonZeroU16;
 
+use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
-use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 
@@ -33,6 +34,7 @@ struct Resolver<'a> {
     annotations: &'a mut Annotations,
     last_heading_level: Option<NonZeroU16>,
     flatten: bool,
+    errors: EcoVec<SourceDiagnostic>,
 }
 
 impl<'a> Resolver<'a> {
@@ -63,13 +65,18 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         annotations: &mut gc.tags.annotations,
         last_heading_level: None,
         flatten: false,
+        errors: std::mem::take(&mut gc.tags.tree.errors),
     };
 
     let mut children = Vec::with_capacity(root.nodes().len());
     let mut accum = Accumulator::new(ElementKind::Grouping, &mut children);
 
     for child in root.nodes().iter() {
-        resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child)?;
+        resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
+    }
+
+    if !resolver.errors.is_empty() {
+        return Err(resolver.errors);
     }
 
     accum.finish();
@@ -83,10 +90,10 @@ fn resolve_node(
     parent_bbox: &mut Option<BBoxCtx>,
     accum: &mut Accumulator,
     node: &TagNode,
-) -> SourceResult<()> {
+) {
     match &node {
         TagNode::Group(id) => {
-            resolve_group_node(rs, parent_lang, parent_bbox, accum, *id)?;
+            resolve_group_node(rs, parent_lang, parent_bbox, accum, *id);
         }
         TagNode::Leaf(identifier) => {
             accum.push(Node::Leaf(*identifier));
@@ -98,7 +105,6 @@ fn resolve_node(
             resolve_text(accum, attrs, ids);
         }
     }
-    Ok(())
 }
 
 fn resolve_group_node(
@@ -107,10 +113,10 @@ fn resolve_group_node(
     mut parent_bbox: &mut Option<BBoxCtx>,
     accum: &mut Accumulator,
     id: GroupId,
-) -> SourceResult<()> {
+) {
     let group = rs.groups.get(id);
 
-    let tag = build_group_tag(rs, group)?;
+    let tag = build_group_tag(rs, group);
     let mut lang = group.kind.lang().filter(|_| tag.is_some());
     let mut bbox = rs.ctx.bbox(&group.kind).cloned();
     let mut nodes = Vec::new();
@@ -125,7 +131,7 @@ fn resolve_group_node(
     // won't be ingested by AT anyway, but would still have to comply with all
     // rules, which can be annoying.
     let flatten = tag.as_ref().is_some_and(|t| t.alt_text().is_some());
-    rs.with_flatten(flatten, |rs| -> SourceResult<()> {
+    rs.with_flatten(flatten, |rs| {
         let lang = lang.as_mut().unwrap_or(parent_lang);
         let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
 
@@ -138,11 +144,10 @@ fn resolve_group_node(
         } else {
             children.buf.reserve(group.nodes().len());
             for child in group.nodes().iter() {
-                resolve_node(rs, lang, bbox, &mut children, child)?;
+                resolve_node(rs, lang, bbox, &mut children, child);
             }
         }
-        Ok(())
-    })?;
+    });
 
     // Try to propagate the group's language to the parent tag.
     let lang = util::propagate_lang(parent_lang, lang.flatten());
@@ -152,14 +157,16 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
+    children.finish();
+
     // Omit the weak group if it is empty.
-    if group.weak && children.num_inserted == 0 {
-        return Ok(());
+    if group.weak && nodes.is_empty() {
+        return;
     }
 
     // If this isn't a tagged group the children we're directly inserted into
     // the parent.
-    let Some(mut tag) = tag else { return Ok(()) };
+    let Some(mut tag) = tag else { return };
 
     tag.set_lang(lang.map(|l| l.rfc_3066().to_string()));
     if let Some(bbox) = bbox {
@@ -171,10 +178,11 @@ fn resolve_group_node(
         }
     }
 
-    children.finish();
-    accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
+    if rs.options.is_pdf_ua() {
+        validate_children(rs, &tag, &nodes);
+    }
 
-    Ok(())
+    accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
 }
 
 fn resolve_text(
@@ -253,28 +261,28 @@ fn resolve_artifact_node(
     }
 }
 
-fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagKind>> {
+fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     let tag = match &group.kind {
         GroupKind::Root(_) => unreachable!(),
-        GroupKind::Artifact(_) => return Ok(None),
-        GroupKind::LogicalParent(_) => return Ok(None),
-        GroupKind::LogicalChild => return Ok(None),
+        GroupKind::Artifact(_) => return None,
+        GroupKind::LogicalParent(_) => return None,
+        GroupKind::LogicalChild(_, _) => return None,
         GroupKind::Outline(_, _) => Tag::TOC.into(),
         GroupKind::OutlineEntry(_, _) => Tag::TOCI.into(),
         GroupKind::Table(id, _, _) => rs.ctx.tables.get(*id).build_tag(),
         GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
         GroupKind::Grid(_, _) => Tag::Div.into(),
         GroupKind::GridCell(_, _) => Tag::Div.into(),
+        GroupKind::InternalGridCell(_) => {
+            unreachable!("should be swapped out in `close_group`")
+        }
         GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
         GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
         GroupKind::ListItemBody(_) => Tag::LBody.into(),
         GroupKind::TermsItemLabel(_) => Tag::Lbl.into(),
         GroupKind::TermsItemBody(_, _) => Tag::LBody.into(),
         GroupKind::BibEntry(_) => Tag::BibEntry.into(),
-        GroupKind::Figure(id, _, _) => {
-            let Some(tag) = rs.ctx.figures.get(*id).build_tag() else { return Ok(None) };
-            tag
-        }
+        GroupKind::Figure(id, _, _) => rs.ctx.figures.get(*id).build_tag()?,
         GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
         GroupKind::Image(image, _, _) => {
             let alt = image.alt.opt_ref().map(Into::into);
@@ -291,13 +299,15 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
         }
         GroupKind::CodeBlockLine(_) => Tag::P.into(),
         GroupKind::Par(_) => Tag::P.into(),
+        GroupKind::TextAttr(_) => return None,
+        GroupKind::Transparent => return None,
         GroupKind::Standard(tag, _) => rs.tags.take(*tag),
     };
 
     let tag = tag.with_location(Some(group.span.into_raw()));
 
     if rs.flatten && !group.kind.is_link() {
-        return Ok(None);
+        return None;
     }
 
     // Check that no heading levels were skipped.
@@ -308,27 +318,29 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
             let span = to_span(tag.as_any().location);
             let validator = rs.options.standards.config.validator().as_str();
             if rs.last_heading_level.is_none() {
-                bail!(span, "{validator} error: the first heading must be of level 1");
+                rs.errors.push(error!(
+                    span,
+                    "{validator} error: the first heading must be of level 1"
+                ));
             } else {
-                bail!(
+                rs.errors.push(error!(
                     span,
                     "{validator} error: skipped from heading level \
                      {prev_level} to {next_level}";
                     hint: "heading levels must be consecutive"
-                );
+                ));
             }
         }
 
         rs.last_heading_level = Some(next_level);
     }
 
-    Ok(Some(tag))
+    Some(tag)
 }
 
 struct Accumulator<'a> {
     nesting: ElementKind,
     buf: &'a mut Vec<Node>,
-    num_inserted: usize,
     // Whether the last node is a `Span` used to wrap marked content sequences
     // inside a grouping element. Groupings element may not contain marked
     // content sequences directly.
@@ -343,12 +355,11 @@ impl std::ops::Drop for Accumulator<'_> {
 
 impl<'a> Accumulator<'a> {
     fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, num_inserted: 0, grouping_span: None }
+        Self { nesting, buf, grouping_span: None }
     }
 
     fn push_buf(&mut self, node: Node) {
         self.buf.push(node);
-        self.num_inserted += 1;
     }
 
     fn push_grouping_span(&mut self) {
@@ -444,5 +455,132 @@ fn element_kind(tag: &TagKind) -> ElementKind {
         TagKind::Title(_) => ElementKind::Block,
         // Mapped to `Span`.
         TagKind::Strong(_) | TagKind::Em(_) => ElementKind::Inline,
+    }
+}
+
+fn validate_children(rs: &mut Resolver, tag: &TagKind, children: &[Node]) {
+    match tag {
+        TagKind::TOC(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(child, TagKind::TOC(_) | TagKind::TOCI(_))
+        }),
+        TagKind::TOCI(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(
+                child,
+                TagKind::TOC(_)
+                    | TagKind::Reference(_)
+                    | TagKind::NonStruct(_)
+                    | TagKind::P(_)
+                    | TagKind::Lbl(_)
+            )
+        }),
+        TagKind::L(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(child, TagKind::Caption(_) | TagKind::L(_) | TagKind::LI(_))
+        }),
+        TagKind::LI(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(child, TagKind::Lbl(_) | TagKind::LBody(_))
+        }),
+        TagKind::Table(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(
+                child,
+                TagKind::Caption(_)
+                    | TagKind::THead(_)
+                    | TagKind::TBody(_)
+                    | TagKind::TFoot(_)
+                    | TagKind::TR(_)
+            )
+        }),
+        TagKind::THead(_) | TagKind::TBody(_) | TagKind::TFoot(_) => {
+            validate_children_groups(rs, tag, children, |child| {
+                matches!(child, TagKind::TR(_))
+            })
+        }
+        TagKind::TR(_) => validate_children_groups(rs, tag, children, |child| {
+            matches!(child, TagKind::TD(_) | TagKind::TH(_))
+        }),
+        _ => (),
+    }
+}
+
+fn validate_children_groups(
+    rs: &mut Resolver,
+    parent: &TagKind,
+    children: &[Node],
+    is_valid: impl Fn(&TagKind) -> bool,
+) {
+    let parent_span = to_span(parent.location());
+
+    let mut contains_leaf_nodes = false;
+    for node in children {
+        let Node::Group(child) = node else {
+            contains_leaf_nodes = true;
+            continue;
+        };
+
+        if !is_valid(&child.tag) {
+            let validator = rs.options.standards.config.validator().as_str();
+            let span = to_span(child.tag.location()).or(parent_span);
+            let parent = tag_name(parent);
+            let child = tag_name(&child.tag);
+            rs.errors.push(error!(
+                span,
+                "{validator} error: invalid {parent} structure";
+                hint: "{parent} may not contain {child}";
+                hint: "this is probably caused by a show rule"
+            ));
+        }
+    }
+
+    if contains_leaf_nodes {
+        let validator = rs.options.standards.config.validator().as_str();
+        let parent = tag_name(parent);
+        rs.errors.push(error!(
+            parent_span,
+            "{validator} error: invalid {parent} structure";
+            hint: "{parent} may not contain marked content directly";
+            hint: "this is probably caused by a show rule"
+        ));
+    }
+}
+
+fn tag_name(tag: &TagKind) -> &'static str {
+    match tag {
+        TagKind::Part(_) => "part (Part)",
+        TagKind::Article(_) => "article (Art)",
+        TagKind::Section(_) => "section (Section)",
+        TagKind::Div(_) => "division (Div)",
+        TagKind::BlockQuote(_) => "block quote (BlockQuote)",
+        TagKind::Caption(_) => "caption (Caption)",
+        TagKind::TOC(_) => "outline (TOC)",
+        TagKind::TOCI(_) => "outline entry (TOCI)",
+        TagKind::Index(_) => "index (Index)",
+        TagKind::P(_) => "paragraph (P)",
+        TagKind::Hn(_) => "heading (Hn)",
+        TagKind::L(_) => "list (L)",
+        TagKind::LI(_) => "list item (LI)",
+        TagKind::Lbl(_) => "label (Lbl)",
+        TagKind::LBody(_) => "list body (LBody)",
+        TagKind::Table(_) => "table (Table)",
+        TagKind::TR(_) => "table row (TR)",
+        TagKind::TH(_) => "table header cell (TH)",
+        TagKind::TD(_) => "table data cell (TD)",
+        TagKind::THead(_) => "table header (THead)",
+        TagKind::TBody(_) => "table body (TBody)",
+        TagKind::TFoot(_) => "table footer (TFoot)",
+        TagKind::Span(_) => "span (Span)",
+        TagKind::InlineQuote(_) => "inline quote (Quote)",
+        TagKind::Note(_) => "note (Note)",
+        TagKind::Reference(_) => "reference (Reference)",
+        TagKind::BibEntry(_) => "bibliography entry (BibEntry)",
+        TagKind::Code(_) => "raw text (Code)",
+        TagKind::Link(_) => "link (Link)",
+        TagKind::Annot(_) => "annotation (Annot)",
+        TagKind::Figure(_) => "figure (Figure)",
+        TagKind::Formula(_) => "equation (Formula)",
+        TagKind::NonStruct(_) => "non structural element (NonStruct)",
+        TagKind::Datetime(_) => "date time (Span)",
+        TagKind::Terms(_) => "terms (P)",
+        TagKind::Title(_) => "title (Title)",
+        TagKind::Strong(_) => "strong (Strong/Span)",
+        TagKind::Em(_) => "emph (Em/Span)",
     }
 }

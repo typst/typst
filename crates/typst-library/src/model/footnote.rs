@@ -51,6 +51,11 @@ use crate::visualize::{LineElem, Stroke};
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
+/// # Accessibility
+/// Footnotes will be read by Assistive Technology (AT) immediately after the
+/// spot in the text where they are referenced, just like how they appear in
+/// markup.
+///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(scope, Locatable, Tagged, Count)]
 pub struct FootnoteElem {
@@ -325,3 +330,10 @@ cast! {
     FootnoteElem,
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
 }
+
+/// This is an empty element inserted by the HTML footnote rule to indicate the
+/// presence of the default footnote rule. It's only used by the error in
+/// `FootnoteContainer::unsupported_with_custom_dom` and could be removed if
+/// that's not needed anymore.
+#[elem(Locatable)]
+pub struct FootnoteMarker {}

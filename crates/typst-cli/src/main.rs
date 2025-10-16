@@ -1,6 +1,7 @@
 mod args;
 mod compile;
 mod completions;
+mod deps;
 mod download;
 mod fonts;
 mod greet;
@@ -59,6 +60,9 @@ fn main() -> ExitCode {
     if let Err(msg) = res {
         set_failed();
         print_error(msg.message()).expect("failed to print error");
+        for hint in msg.hints() {
+            print_hint(hint).expect("failed to print hint");
+        }
     }
 
     EXIT.with(|cell| cell.get())
@@ -104,6 +108,18 @@ fn print_error(msg: &str) -> io::Result<()> {
     let mut output = terminal::out();
     output.set_color(&styles.header_error)?;
     write!(output, "error")?;
+
+    output.reset()?;
+    writeln!(output, ": {msg}")
+}
+
+/// Print an application-level hint (independent from a source file).
+fn print_hint(msg: &str) -> io::Result<()> {
+    let styles = term::Styles::default();
+
+    let mut output = terminal::out();
+    output.set_color(&styles.header_help)?;
+    write!(output, "hint")?;
 
     output.reset()?;
     writeln!(output, ": {msg}")

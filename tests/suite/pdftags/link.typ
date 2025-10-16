@@ -47,15 +47,6 @@ A random location <somewhere>
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- link-tags-place-within-artifact pdftags ---
-// Error: 2:4-4:4 PDF/UA-1 error: PDF artifacts may not contain links
-// Hint: 2:4-4:4 references, citations, and footnotes are also considered links in PDF
-#pdf.artifact[
-  #link("tel:123")[
-    #place(float: true, top + left, rect(fill: red))
-  ]
-]
-
 --- link-tags-with-parbreak-error pdftags ---
 // Error: 7-69 PDF/UA-1 error: invalid document structure, this element's PDF tag would be split up
 // Hint: 7-69 this is probably caused by paragraph grouping

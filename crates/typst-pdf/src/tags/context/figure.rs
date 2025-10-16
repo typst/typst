@@ -18,8 +18,8 @@ pub struct FigureCtx {
 
 /// Which tag should be used to represent this figure in the PDF tag tree.
 ///
-/// There is a fundamental mismatch between typst figures and PDF figures.
-/// In typst a figure is used to group some illustrative content, optionally give
+/// There is a fundamental mismatch between Typst figures and PDF figures.
+/// In Typst a figure is used to group some illustrative content, optionally give
 /// it a caption, and often reference it by labelling it.
 /// In PDF a figure is more comparable to an image, and in PDF/UA it *must* have
 /// an alternative description. This alternative description *must* describe the

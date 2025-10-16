@@ -19,7 +19,7 @@ use crate::layout::{Length, Ratio, Rel};
 /// [pagebreaks]($pagebreak), [footnotes]($footnote), and [line
 /// numbers]($par.line) will continue to work as expected. For more information,
 /// also read the [relevant part of the page setup
-/// guide]($guides/page-setup-guide/#columns).
+/// guide]($guides/page-setup/#columns).
 ///
 /// # Breaking out of columns { #breaking-out }
 /// To temporarily break out of columns (e.g. for a paper's title), use

@@ -91,7 +91,7 @@ fn setup<'a>(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
-        enable_tagging: !options.disable_tags,
+        enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
     };
 
@@ -264,7 +264,7 @@ impl FrameContext {
     }
 }
 
-/// Globally needed context for converting a typst document.
+/// Globally needed context for converting a Typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
     pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,
@@ -341,14 +341,14 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
-            FrameItem::Tag(Tag::Start(elem, flags)) => {
+            FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
-                    tags::handle_start(gc, surface, elem)?
+                    tags::handle_start(gc, surface);
                 }
             }
-            FrameItem::Tag(Tag::End(loc, _, flags)) => {
+            FrameItem::Tag(Tag::End(_, _, flags)) => {
                 if flags.tagged {
-                    tags::handle_end(gc, surface, *loc)?
+                    tags::handle_end(gc, surface);
                 }
             }
         }
@@ -385,13 +385,13 @@ pub(crate) fn handle_group(
             surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
         }
 
-        handle_frame(fc, &group.frame, None, surface, gc)?;
+        let res = handle_frame(fc, &group.frame, None, surface, gc);
 
         if clip_path.is_some() {
             surface.pop();
         }
 
-        Ok(())
+        res
     })?;
 
     fc.pop();
@@ -540,33 +540,30 @@ fn convert_error(
             display_font(gc.fonts_backward.get(f).unwrap());
             hint: "try using a different font"
         ),
-        ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
-            if let Some(c) = c {
-                let msg = if loc.is_some() {
-                    "the PDF contains text with"
-                } else {
-                    "the text contains"
-                };
-                error!(
-                    to_span(*loc),
-                    "{prefix} {msg} the disallowed codepoint `{}`",
-                    c.repr()
-                )
+        ValidationError::NoCodepointMapping(_, _, loc) => {
+            let msg = if loc.is_some() {
+                "the text was not mapped to a code point"
             } else {
-                // I think this code path is in theory unreachable,
-                // but just to be safe.
-                let msg = if loc.is_some() {
-                    "the PDF contains text with missing codepoints"
-                } else {
-                    "the text was not mapped to a code point"
-                };
-                error!(
-                    to_span(*loc),
-                    "{prefix} {msg}";
-                    hint: "for complex scripts like Arabic, it might not be \
-                           possible to produce a compliant document"
-                )
-            }
+                "the PDF contains text with missing codepoints"
+            };
+            error!(
+                to_span(*loc),
+                "{prefix} {msg}";
+                hint: "for complex scripts like Arabic, it might not be \
+                       possible to produce a compliant document"
+            )
+        }
+        ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
+            let msg = if loc.is_some() {
+                "the text contains"
+            } else {
+                "the PDF contains text with"
+            };
+            error!(
+                to_span(*loc),
+                "{prefix} {msg} the disallowed codepoint `{}`",
+                c.repr()
+            )
         }
         ValidationError::UnicodePrivateArea(_, _, c, loc) => {
             let msg = if loc.is_some() { "the PDF" } else { "the text" };
@@ -692,7 +689,7 @@ fn convert_error(
         ValidationError::NoDocumentTitle => error!(
             Span::detached(),
             "{prefix} missing document title";
-            hint: "set the title of the document"
+            hint: "set the title with `set document(title: [...])`"
         ),
         ValidationError::MissingDocumentDate => error!(
             Span::detached(),

@@ -69,7 +69,7 @@
             - Tag: TD
               /Headers: ["U1x2y1"]
               /BorderStyle: Solid
-    - Tag: THead
+    - Tag: TBody
       /K:
         - Tag: TR
           /K:

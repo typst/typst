@@ -161,7 +161,7 @@ pub fn layout_symbol(
                         .math()
                         .display_operator_min_height
                         .at(glyph.item.size);
-                    glyph.stretch_vertical(ctx, height);
+                    glyph.stretch_vertical(ctx, height, Abs::zero());
                 };
                 // TeXbook p 155. Large operators are always vertically centered on
                 // the axis.

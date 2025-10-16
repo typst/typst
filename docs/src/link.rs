@@ -1,3 +1,4 @@
+use regex::Regex;
 use typst::diag::{StrResult, bail};
 use typst::foundations::{Binding, Func, Type};
 
@@ -9,7 +10,17 @@ pub fn resolve(link: &str, base: &str) -> StrResult<String> {
         return Ok(link.to_string());
     }
 
-    let (head, tail) = split_link(link)?;
+    if let Some(cap) =
+        typst_utils::singleton!(Regex, Regex::new(r"^\$((\w+)\/(\w+))?#(\d+)$").unwrap())
+            .captures(link)
+    {
+        let org = cap.get(2).map(|m| m.as_str()).unwrap_or("typst");
+        let repo = cap.get(3).map(|m| m.as_str()).unwrap_or("typst");
+        let nr = &cap[4];
+        return Ok(format!("https://github.com/{org}/{repo}/issues/{nr}"));
+    }
+
+    let (head, tail) = split_link(link);
     let mut route = match resolve_known(head, base) {
         Some(route) => route,
         None => resolve_definition(head, base)?,
@@ -28,10 +39,10 @@ pub fn resolve(link: &str, base: &str) -> StrResult<String> {
 }
 
 /// Split a link at the first slash.
-fn split_link(link: &str) -> StrResult<(&str, &str)> {
+fn split_link(link: &str) -> (&str, &str) {
     let first = link.split('/').next().unwrap_or(link);
     let rest = link[first.len()..].trim_start_matches('/');
-    Ok((first, rest))
+    (first, rest)
 }
 
 /// Resolve a `$` link head to a known destination.
