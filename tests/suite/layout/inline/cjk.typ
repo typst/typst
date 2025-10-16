@@ -101,3 +101,11 @@ abc字\
 测a试
 
 测#context [a]试
+
+--- issue-7113-cjk-latin-spacing-in-sup ---
+
+孔乙己#super[1]与上大人#super[2]。
+
+孔乙己#super[A]与上大人#super[B]。
+
+时间#footnote[有空白]

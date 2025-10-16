@@ -1,4 +1,5 @@
 use typst_library::layout::{Dir, Em};
+use typst_library::text::TextElem;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
@@ -134,6 +135,15 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             continue;
         };
 
+        // Check if this text is a superscript or subscript.
+        // The `shift_settings` property is only set by `#super[]` and `#sub[]`
+        // elements (and citations in note style which use superscripts).
+        let is_sup_or_sub_script = text.styles.get(TextElem::shift_settings).is_some();
+        if is_sup_or_sub_script {
+            prev = None;
+            continue;
+        }
+
         // Since we only call this function in [`prepare`], we can assume that
         // the Cow is owned, and `to_mut` can be called without overhead.
         debug_assert!(text.glyphs.is_owned());
@@ -141,10 +151,15 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
 
         while let Some(glyph) = glyphs.next() {
             let next = glyphs.peek().map(|n| n as _).or_else(|| {
-                items
-                    .peek()
-                    .and_then(|(_, i)| i.text())
-                    .and_then(|shaped| shaped.glyphs.first())
+                let (_, next_item) = items.peek()?;
+                let next_text = next_item.text()?;
+
+                let next_is_script =
+                    next_text.styles.get(TextElem::shift_settings).is_some();
+                if next_is_script {
+                    return None;
+                }
+                next_text.glyphs.first()
             });
 
             // Case 1: CJ followed by a Latin character
