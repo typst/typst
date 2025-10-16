@@ -106,6 +106,6 @@ abc字\
 
 孔乙己#super[1]与上大人#super[2]。
 
-孔乙己#super[A]与上大人#super[B]。
+孔乙己#super[A应保留spacing]与上大人#super[B]。
 
 时间#footnote[有空白]

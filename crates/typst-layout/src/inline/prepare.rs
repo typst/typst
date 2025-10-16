@@ -129,6 +129,8 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
         .peekable();
 
     let mut prev: Option<&ShapedGlyph> = None;
+    let mut prev_was_sup_or_sub = false;
+
     while let Some((_, item)) = items.next() {
         let Some(text) = item.text_mut() else {
             prev = None;
@@ -139,9 +141,12 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
         // The `shift_settings` property is only set by `#super[]` and `#sub[]`
         // elements (and citations in note style which use superscripts).
         let is_sup_or_sub_script = text.styles.get(TextElem::shift_settings).is_some();
-        if is_sup_or_sub_script {
+
+        // Reset prev when crossing into a super/subscript from normal text
+        // to avoid adding spacing between the preceding text and the super/subscript.
+        // But don't reset if we're staying within a super/subscript.
+        if is_sup_or_sub_script && !prev_was_sup_or_sub {
             prev = None;
-            continue;
         }
 
         // Since we only call this function in [`prepare`], we can assume that
@@ -154,9 +159,10 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 let (_, next_item) = items.peek()?;
                 let next_text = next_item.text()?;
 
+                // Only skip super/subscript boundary if we're not currently in one
                 let next_is_script =
                     next_text.styles.get(TextElem::shift_settings).is_some();
-                if next_is_script {
+                if next_is_script && !is_sup_or_sub_script {
                     return None;
                 }
                 next_text.glyphs.first()
@@ -178,5 +184,21 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
 
             prev = Some(glyph);
         }
+
+        // Reset prev when exiting a super/subscript to avoid adding spacing
+        // between the super/subscript and the following text.
+        // But don't reset if we're staying within a super/subscript.
+        if is_sup_or_sub_script
+            && items.peek().map_or(true, |(_, next_item)| {
+                next_item
+                    .text()
+                    .and_then(|t| t.styles.get(TextElem::shift_settings))
+                    .is_none()
+            })
+        {
+            prev = None;
+        }
+
+        prev_was_sup_or_sub = is_sup_or_sub_script;
     }
 }
