@@ -189,7 +189,7 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
         // between the super/subscript and the following text.
         // But don't reset if we're staying within a super/subscript.
         if is_sup_or_sub_script
-            && items.peek().map_or(true, |(_, next_item)| {
+            && items.peek().is_none_or(|(_, next_item)| {
                 next_item
                     .text()
                     .and_then(|t| t.styles.get(TextElem::shift_settings))
