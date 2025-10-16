@@ -358,16 +358,22 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
     }
 
     // Create entries for all footnotes in the document.
-    let items = notes.into_iter().map(|note| {
+    let items = notes.into_iter().filter_map(|note| {
         let note = note.into_packed::<FootnoteElem>().unwrap();
+        if note.is_ref() {
+            return None;
+        }
+
         let loc = note.location().unwrap();
         let span = note.span();
-        HtmlElem::new(tag::li)
-            .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
-            .with_parent(loc)
-            .pack()
-            .located(loc.variant(1))
-            .spanned(span)
+        Some(
+            HtmlElem::new(tag::li)
+                .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
+                .with_parent(loc)
+                .pack()
+                .located(loc.variant(1))
+                .spanned(span),
+        )
     });
 
     // There can be multiple footnotes in a container, so they semantically

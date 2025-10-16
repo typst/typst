@@ -232,7 +232,7 @@ A reference to it @fn
 // Error: 2-16 footnote cannot reference itself
 #footnote(<fn>) <fn>
 
---- footnote-ref-multiple ---
+--- footnote-ref-multiple render html ---
 // Multiple footnotes are refs
 First #footnote[A]<fn1> \
 Second #footnote[B]<fn2> \
