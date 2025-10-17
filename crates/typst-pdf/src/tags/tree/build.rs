@@ -13,13 +13,14 @@
 //! [`FrameItem::parent`]: typst_library::layout::FrameItem
 
 use std::num::NonZeroU16;
+use std::ops::ControlFlow;
 
 use ecow::EcoVec;
 use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::Content;
+use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
+use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
@@ -62,6 +63,7 @@ pub struct TreeBuilder<'a> {
     groups: Groups,
     ctx: Ctx,
     logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
+    errors: EcoVec<SourceDiagnostic>,
 
     stack: TagStack,
     /// Currently only used for table/grid cells that are broken across multiple
@@ -87,6 +89,7 @@ impl<'a> TreeBuilder<'a> {
             groups,
             ctx: Ctx::new(),
             logical_children: FxHashMap::default(),
+            errors: EcoVec::new(),
 
             stack: TagStack::new(),
             unfinished_stacks: FxHashMap::default(),
@@ -105,7 +108,7 @@ impl<'a> TreeBuilder<'a> {
             groups: self.groups,
             ctx: self.ctx,
             logical_children: self.logical_children,
-            errors: EcoVec::new(),
+            errors: self.errors,
         }
     }
 
@@ -441,8 +444,27 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         push_stack(tree, elem, kind)
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
-        let name = heading.body.plain_text().to_string();
-        push_tag(tree, elem, Tag::Hn(level, Some(name)))
+        let title = heading.body.plain_text().to_string();
+        if title.is_empty() && tree.options.is_pdf_ua() {
+            let contains_context = heading.body.traverse(&mut |c| {
+                if c.is::<ContextElem>() {
+                    return ControlFlow::Break(());
+                }
+                ControlFlow::Continue(())
+            });
+            let validator = tree.options.standards.config.validator().as_str();
+            tree.errors.push(if contains_context.is_break() {
+                error!(
+                    heading.span(),
+                    "{validator} error: heading title could not be determined";
+                    hint: "this seems to be caused by a context expression within the heading";
+                    hint: "consider wrapping the entire heading in a context expression instead"
+                )
+            } else {
+                error!(heading.span(), "{validator} error: heading title is empty")
+            });
+        }
+        push_tag(tree, elem, Tag::Hn(level, Some(title)))
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
         push_stack(tree, elem, GroupKind::LogicalParent(elem.clone()))
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
