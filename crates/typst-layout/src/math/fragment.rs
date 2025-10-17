@@ -808,16 +808,22 @@ fn assemble(
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
         }
-        let (x, y) = match axis {
-            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero()),
-            Axis::Y => (Em::zero(), Em::from_abs(advance, base.item.size)),
+        let (x_advance, y_advance, y_offset) = match axis {
+            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero(), Em::zero()),
+            Axis::Y => (
+                Em::zero(),
+                Em::from_abs(advance, base.item.size),
+                ascent_descent(&base.item.font, part.glyph_id)
+                    .map(|x| x.1)
+                    .unwrap_or_default(),
+            ),
         };
         glyphs.push(Glyph {
             id: part.glyph_id.0,
-            x_advance: x,
+            x_advance,
             x_offset: Em::zero(),
-            y_advance: y,
-            y_offset: Em::zero(),
+            y_advance,
+            y_offset,
             ..base.item.glyphs[0].clone()
         });
     }
