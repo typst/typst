@@ -643,6 +643,11 @@ pub struct TextElem {
     /// #set text(ligatures: false)
     /// A fine ligature.
     /// ```
+    ///
+    /// Note that some programming fonts exploit other OpenType font features
+    /// to implement “ligatures,” including the contextual alternates (`calt`)
+    /// feature, which is also enabled by default. Use the general
+    /// [`features`]($text.features) parameter to control such features.
     #[default(true)]
     #[ghost]
     pub ligatures: bool,
@@ -721,10 +726,18 @@ pub struct TextElem {
     /// - If given a dictionary mapping to numbers, sets the features
     ///   identified by the keys to the values.
     ///
-    /// ```example
+    /// ```example:"Give an array of strings"
     /// // Enable the `frac` feature manually.
     /// #set text(features: ("frac",))
     /// 1/2
+    /// ```
+    ///
+    /// ```example:"Give a dictionary mapping to numbers"
+    /// #set text(font: "Cascadia Code")
+    /// =>
+    /// // Disable the contextual alternates (`calt`) feature.
+    /// #set text(features: (calt: 0))
+    /// =>
     /// ```
     #[fold]
     #[ghost]
