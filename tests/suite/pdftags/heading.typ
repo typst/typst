@@ -27,3 +27,13 @@
 === Level 3
 = Level 1
 == Level 2
+
+--- heading-tags-empty pdftags ---
+// Error: 1-2 PDF/UA-1 error: heading title is empty
+=
+
+--- heading-tags-context-body pdftags ---
+// Error: 2-32 PDF/UA-1 error: heading title is empty
+// Hint: 2-32 this seems to be caused by a context expression
+// Hint: 2-32 consider wrapping the entire heading in a context expression
+#heading(context [Hello there])
