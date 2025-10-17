@@ -1,0 +1,26 @@
+- Tag: Div
+  /K:
+    - Tag: Caption
+      /K:
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=2
+    - Tag: Caption
+      /K:
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=3
+            - Content: page=0 mcid=4
+    - Tag: Div
+      /Placement: Block
+      /K:
+        - Tag: Figure
+          /Alt: "A tiger"
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=0
+        - Tag: P
+          /K:
+            - Content: page=0 mcid=1

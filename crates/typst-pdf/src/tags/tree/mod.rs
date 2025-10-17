@@ -543,7 +543,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         GroupKind::FigureCaption(..) => {
             if let GroupKind::Figure(figure, ..) = tree.groups.get(semantic_parent).kind {
                 let figure_ctx = tree.ctx.figures.get_mut(figure);
-                figure_ctx.caption = Some(id);
+                figure_ctx.captions.push(id);
             } else {
                 tree.groups.push_group(direct_parent, id);
             }
