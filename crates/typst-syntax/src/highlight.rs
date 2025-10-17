@@ -179,7 +179,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
         SyntaxKind::MathRoot => None,
-        SyntaxKind::MathPrimes => None,
+        SyntaxKind::MathPrimes => Some(Tag::MathOperator),
 
         SyntaxKind::Hash => highlight_hash(node),
         SyntaxKind::LeftBrace => Some(Tag::Punctuation),
@@ -207,7 +207,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
             _ => Tag::Operator,
         }),
         SyntaxKind::Hat => Some(Tag::MathOperator),
-        SyntaxKind::Prime => Some(Tag::MathOperator),
         SyntaxKind::Dot => Some(Tag::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,
@@ -226,6 +225,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Dots => Some(Tag::Operator),
         SyntaxKind::Arrow => Some(Tag::Operator),
         SyntaxKind::Root => Some(Tag::MathOperator),
+        SyntaxKind::Bang => None,
 
         SyntaxKind::Not => Some(Tag::Keyword),
         SyntaxKind::And => Some(Tag::Keyword),
