@@ -35,8 +35,9 @@ $ cal(P)_i (X) * cal(C)_1 $
 
 --- math-font-warning ---
 #show math.equation: set text(font: "Libertinus Serif")
-// Warning: 1-14 current font is not designed for math
-// Hint: 1-14 rendering may be poor
+// Warning: 1-14 the current base math font is Libertinus Serif, but it is not designed for math
+// Hint: 1-14 to avoid poor rendering, use a math font instead
+// Hint: 1-14 to use it only for specific characters, specify the covers
 $ x + y = z $
 
 --- math-font-error ---
