@@ -33,7 +33,7 @@
 =
 
 --- heading-tags-context-body pdftags ---
-// Error: 2-32 PDF/UA-1 error: heading title is empty
-// Hint: 2-32 this seems to be caused by a context expression
-// Hint: 2-32 consider wrapping the entire heading in a context expression
+// Error: 2-32 PDF/UA-1 error: heading title could not be determined
+// Hint: 2-32 this seems to be caused by a context expression within the heading
+// Hint: 2-32 consider wrapping the entire heading in a context expression instead
 #heading(context [Hello there])
