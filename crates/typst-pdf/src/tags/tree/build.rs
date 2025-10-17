@@ -456,9 +456,9 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             tree.errors.push(if contains_context.is_break() {
                 error!(
                     heading.span(),
-                    "{validator} error: heading title is empty";
-                    hint: "this seems to be caused by a context expression";
-                    hint: "consider wrapping the entire heading in a context expression"
+                    "{validator} error: heading title could not be determined";
+                    hint: "this seems to be caused by a context expression within the heading";
+                    hint: "consider wrapping the entire heading in a context expression instead"
                 )
             } else {
                 error!(heading.span(), "{validator} error: heading title is empty")
