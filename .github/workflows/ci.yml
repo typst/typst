@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt install -y gcc-multilib libssl-dev:i386 pkg-config:i386
+          sudo apt install -y gcc-multilib g++-multilib libssl-dev:i386 pkg-config:i386
       - uses: dtolnay/rust-toolchain@1.89.0
         with:
           targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
