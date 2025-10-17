@@ -89,11 +89,6 @@ impl<'a> Glyphs<'a> {
         Self { inner: Cow::Owned(glyphs), kept: 0..len }
     }
 
-    /// Whether this glyph collection is using the owned representation.
-    pub fn is_owned(&self) -> bool {
-        matches!(self.inner, Cow::Owned(_))
-    }
-
     /// Clone the internal glyph data to make it modifiable. Should be avoided
     /// if possible on potentially borrowed glyphs as it can be expensive
     /// (benchmarks have shown ~10% slowdown on a text-heavy document if no
