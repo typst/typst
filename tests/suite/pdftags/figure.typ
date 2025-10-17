@@ -82,3 +82,9 @@ Ein Paragraph.
 #figure[
   #rect(fill: red)
 ]
+
+--- figure-tags-additional-caption-inside-body pdftags nopdfua ---
+#figure(caption: [The real caption])[
+  #image(alt: "A tiger", "/assets/images/tiger.jpg"),
+  #figure.caption[Additional caption]
+]
