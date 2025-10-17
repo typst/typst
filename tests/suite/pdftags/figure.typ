@@ -88,3 +88,16 @@ Ein Paragraph.
   #image(alt: "A tiger", "/assets/images/tiger.jpg"),
   #figure.caption[Additional caption]
 ]
+
+--- figure-tags-additional-caption-inside-table pdftags ---
+// Error: 7:4-7:38 PDF/UA-1 error: invalid table (Table) structure
+// Hint: 7:4-7:38 table (Table) may not contain multiple caption (Caption)
+// Hint: 7:4-7:38 this is probably caused by a show rule
+#figure(caption: [The real caption])[
+  #table(
+    columns: 2,
+    [A], [B],
+    [C], [D],
+  )
+  #figure.caption[Additional caption]
+]
