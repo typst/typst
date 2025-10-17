@@ -1,5 +1,6 @@
 use either::Either;
 use typst_library::layout::{Dir, Em};
+use typst_library::text::TextElem;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
@@ -127,23 +128,30 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
         .iter_mut()
         .filter(|(_, item)| !matches!(item, Item::Tag(_)))
         .flat_map(|(_, item)| match item {
-            Item::Text(text) => Either::Left(
+            Item::Text(text) => Either::Left({
+                // Check whether the text is normal, sub- or superscript. At
+                // boundaries between these three, we do not want to insert
+                // CJK-Latin-Spacing.
+                let shift =
+                    text.styles.get_ref(TextElem::shift_settings).map(|shift| shift.kind);
+
                 // Since we only call this function in [`prepare`], we can
                 // assume that the Cow is owned, and `to_mut` can be called
                 // without overhead.
-                text.glyphs.to_mut().iter_mut().map(Some),
-            ),
+                text.glyphs.to_mut().iter_mut().map(move |g| Some((g, shift)))
+            }),
             _ => Either::Right(std::iter::once(None)),
         })
         .peekable();
 
-    let mut prev: Option<&mut ShapedGlyph> = None;
+    let mut prev: Option<(&mut ShapedGlyph, _)> = None;
     while let Some(mut item) = iter.next() {
-        if let Some(glyph) = &mut item {
+        if let Some((glyph, shift)) = &mut item {
             // Case 1: CJ followed by a Latin character
             if glyph.is_cj_script()
-                && let Some(Some(next_glyph)) = iter.peek()
+                && let Some(Some((next_glyph, next_shift))) = iter.peek()
                 && next_glyph.is_letter_or_number()
+                && *shift == *next_shift
             {
                 // The spacing defaults to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
@@ -152,8 +160,9 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
 
             // Case 2: Latin followed by a CJ character
             if glyph.is_cj_script()
-                && let Some(prev_glyph) = prev
+                && let Some((prev_glyph, prev_shift)) = prev
                 && prev_glyph.is_letter_or_number()
+                && *shift == prev_shift
             {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
