@@ -1,5 +1,6 @@
 use krilla::tagging::TagKind;
 use krilla::tagging::{self as kt, Tag};
+use smallvec::SmallVec;
 use typst_library::foundations::Packed;
 use typst_library::model::FigureElem;
 
@@ -12,7 +13,7 @@ use crate::tags::util::PropertyOptRef;
 #[derive(Debug, Clone, PartialEq)]
 pub struct FigureCtx {
     pub elem: Packed<FigureElem>,
-    pub caption: Option<GroupId>,
+    pub captions: SmallVec<[GroupId; 1]>,
     pub tag_kind: FigureTagKind,
 }
 
@@ -41,7 +42,7 @@ impl FigureCtx {
     pub fn new(elem: Packed<FigureElem>) -> Self {
         Self {
             elem,
-            caption: None,
+            captions: SmallVec::new(),
             tag_kind: FigureTagKind::default(),
         }
     }
@@ -64,7 +65,7 @@ impl FigureCtx {
 pub fn build_figure(
     tree: &mut Tree,
     figure_id: FigureId,
-    mut parent: GroupId,
+    parent: GroupId,
     figure: GroupId,
 ) {
     let figure_ctx = tree.ctx.figures.get_mut(figure_id);
@@ -82,7 +83,7 @@ pub fn build_figure(
                 tree.groups.get_mut(figure).pop_node();
 
                 // Move the caption inside the table.
-                if let Some(caption) = figure_ctx.caption {
+                for caption in std::mem::take(&mut figure_ctx.captions) {
                     tree.groups.get_mut(caption).parent = table;
                     tree.groups.prepend_group(table, caption);
                 }
@@ -110,10 +111,14 @@ pub fn build_figure(
 
     // If the figure has a caption wrap the caption and the figures in
     // an enclosing element.
-    if let Some(caption) = figure_ctx.caption {
+    let mut parent = parent;
+    if !figure_ctx.captions.is_empty() {
         parent = tree.groups.push_tag(parent, Tag::Div);
-        tree.groups.get_mut(caption).parent = parent;
-        tree.groups.push_group(parent, caption);
+
+        for &caption in figure_ctx.captions.iter() {
+            tree.groups.get_mut(caption).parent = parent;
+            tree.groups.push_group(parent, caption);
+        }
     }
 
     tree.groups.push_group(parent, figure);
