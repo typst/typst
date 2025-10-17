@@ -813,6 +813,16 @@ fn assemble(
             Axis::Y => (
                 Em::zero(),
                 Em::from_abs(advance, base.item.size),
+                // Glyph parts used in vertical assemblies are typically aligned
+                // at the vertical origin. This way, they combine properly when
+                // drawn consecutively, as required by the MATH table spec.
+                //
+                // However, in some fonts, they aren't. To still have them align
+                // properly, we are vertically offsetting such glyphs by their
+                // bounding-box computed descent. (Positive descent means that
+                // a glyph extends below the baseline and then we must move it
+                // up for it to align properly. `y_advance` is Y-up, so that
+                // matches up.)
                 ascent_descent(&base.item.font, part.glyph_id)
                     .map(|x| x.1)
                     .unwrap_or_default(),
