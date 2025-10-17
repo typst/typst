@@ -20,7 +20,7 @@ use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
-use typst_library::foundations::{Content, ContextElem, NativeElement};
+use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
