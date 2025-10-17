@@ -362,41 +362,49 @@ impl<'a> ShapedText<'a> {
             let glyphs: Vec<Glyph> = group
                 .iter()
                 .map(|shaped: &ShapedGlyph| {
-                    let adjustability_left = if justification_ratio < 0.0 {
-                        shaped.shrinkability().0
-                    } else {
-                        shaped.stretchability().0
-                    };
-                    let adjustability_right = if justification_ratio < 0.0 {
-                        shaped.shrinkability().1
-                    } else {
-                        shaped.stretchability().1
-                    };
+                    // Whether the glyph is _not_ trimmed end-of-line
+                    // whitespace. Trimmed whitespace has its advance width and
+                    // offset zeroed out and is not taken into account for
+                    // justification.
+                    let kept = self.glyphs.kept.contains(&i);
 
-                    let justification_left = adjustability_left * justification_ratio;
-                    let mut justification_right =
-                        adjustability_right * justification_ratio;
-                    if shaped.is_justifiable() {
-                        justification_right +=
-                            Em::from_abs(extra_justification, glyph_size)
-                    }
+                    let (x_advance, x_offset) = if kept {
+                        let adjustability_left = if justification_ratio < 0.0 {
+                            shaped.shrinkability().0
+                        } else {
+                            shaped.stretchability().0
+                        };
+                        let adjustability_right = if justification_ratio < 0.0 {
+                            shaped.shrinkability().1
+                        } else {
+                            shaped.stretchability().1
+                        };
 
-                    frame.size_mut().x += justification_left.at(glyph_size)
-                        + justification_right.at(glyph_size);
+                        let justification_left = adjustability_left * justification_ratio;
+                        let mut justification_right =
+                            adjustability_right * justification_ratio;
+                        if shaped.is_justifiable() {
+                            justification_right +=
+                                Em::from_abs(extra_justification, glyph_size)
+                        }
+
+                        frame.size_mut().x += justification_left.at(glyph_size)
+                            + justification_right.at(glyph_size);
+
+                        (
+                            shaped.x_advance + justification_left + justification_right,
+                            shaped.x_offset + justification_left,
+                        )
+                    } else {
+                        (Em::zero(), Em::zero())
+                    };
+                    i += 1;
 
                     // We may not be able to reach the offset completely if
                     // it exceeds u16, but better to have a roughly correct
                     // span offset than nothing.
                     let mut span = spans.span_at(shaped.range.start);
                     span.1 = span.1.saturating_add(span_offset.saturating_as());
-
-                    // Zero out the advance if the glyph was trimmed.
-                    let x_advance = if self.glyphs.kept.contains(&i) {
-                        shaped.x_advance + justification_left + justification_right
-                    } else {
-                        Em::zero()
-                    };
-                    i += 1;
 
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
@@ -419,7 +427,7 @@ impl<'a> ShapedText<'a> {
                     Glyph {
                         id: shaped.glyph_id,
                         x_advance,
-                        x_offset: shaped.x_offset + justification_left,
+                        x_offset,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
                         range: (shaped.range.start - range.start).saturating_as()
