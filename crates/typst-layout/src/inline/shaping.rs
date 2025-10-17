@@ -384,12 +384,6 @@ impl<'a> ShapedText<'a> {
                     frame.size_mut().x += justification_left.at(glyph_size)
                         + justification_right.at(glyph_size);
 
-                    // We may not be able to reach the offset completely if
-                    // it exceeds u16, but better to have a roughly correct
-                    // span offset than nothing.
-                    let mut span = spans.span_at(shaped.range.start);
-                    span.1 = span.1.saturating_add(span_offset.saturating_as());
-
                     // Zero out the advance if the glyph was trimmed.
                     let x_advance = if self.glyphs.kept.contains(&i) {
                         shaped.x_advance + justification_left + justification_right
@@ -397,6 +391,14 @@ impl<'a> ShapedText<'a> {
                         Em::zero()
                     };
                     i += 1;
+
+                    let x_offset = shaped.x_offset + justification_left;
+
+                    // We may not be able to reach the offset completely if
+                    // it exceeds u16, but better to have a roughly correct
+                    // span offset than nothing.
+                    let mut span = spans.span_at(shaped.range.start);
+                    span.1 = span.1.saturating_add(span_offset.saturating_as());
 
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
@@ -419,7 +421,7 @@ impl<'a> ShapedText<'a> {
                     Glyph {
                         id: shaped.glyph_id,
                         x_advance,
-                        x_offset: shaped.x_offset + justification_left,
+                        x_offset,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
                         range: (shaped.range.start - range.start).saturating_as()
