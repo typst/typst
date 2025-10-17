@@ -362,8 +362,13 @@ impl<'a> ShapedText<'a> {
             let glyphs: Vec<Glyph> = group
                 .iter()
                 .map(|shaped: &ShapedGlyph| {
-                    // Zero out the advance if the glyph was trimmed.
-                    let (x_advance, x_offset) = if self.glyphs.kept.contains(&i) {
+                    // Whether the glyph is _not_ trimmed end-of-line
+                    // whitespace. Trimmed whitespace has its advance width and
+                    // offset zeroed out and is not taken into account for
+                    // justification.
+                    let kept = self.glyphs.kept.contains(&i);
+
+                    let (x_advance, x_offset) = if kept {
                         let adjustability_left = if justification_ratio < 0.0 {
                             shaped.shrinkability().0
                         } else {
