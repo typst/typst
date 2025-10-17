@@ -362,37 +362,38 @@ impl<'a> ShapedText<'a> {
             let glyphs: Vec<Glyph> = group
                 .iter()
                 .map(|shaped: &ShapedGlyph| {
-                    let adjustability_left = if justification_ratio < 0.0 {
-                        shaped.shrinkability().0
-                    } else {
-                        shaped.stretchability().0
-                    };
-                    let adjustability_right = if justification_ratio < 0.0 {
-                        shaped.shrinkability().1
-                    } else {
-                        shaped.stretchability().1
-                    };
-
-                    let justification_left = adjustability_left * justification_ratio;
-                    let mut justification_right =
-                        adjustability_right * justification_ratio;
-                    if shaped.is_justifiable() {
-                        justification_right +=
-                            Em::from_abs(extra_justification, glyph_size)
-                    }
-
-                    frame.size_mut().x += justification_left.at(glyph_size)
-                        + justification_right.at(glyph_size);
-
                     // Zero out the advance if the glyph was trimmed.
-                    let x_advance = if self.glyphs.kept.contains(&i) {
-                        shaped.x_advance + justification_left + justification_right
+                    let (x_advance, x_offset) = if self.glyphs.kept.contains(&i) {
+                        let adjustability_left = if justification_ratio < 0.0 {
+                            shaped.shrinkability().0
+                        } else {
+                            shaped.stretchability().0
+                        };
+                        let adjustability_right = if justification_ratio < 0.0 {
+                            shaped.shrinkability().1
+                        } else {
+                            shaped.stretchability().1
+                        };
+
+                        let justification_left = adjustability_left * justification_ratio;
+                        let mut justification_right =
+                            adjustability_right * justification_ratio;
+                        if shaped.is_justifiable() {
+                            justification_right +=
+                                Em::from_abs(extra_justification, glyph_size)
+                        }
+
+                        frame.size_mut().x += justification_left.at(glyph_size)
+                            + justification_right.at(glyph_size);
+
+                        (
+                            shaped.x_advance + justification_left + justification_right,
+                            shaped.x_offset + justification_left,
+                        )
                     } else {
-                        Em::zero()
+                        (Em::zero(), Em::zero())
                     };
                     i += 1;
-
-                    let x_offset = shaped.x_offset + justification_left;
 
                     // We may not be able to reach the offset completely if
                     // it exceeds u16, but better to have a roughly correct
