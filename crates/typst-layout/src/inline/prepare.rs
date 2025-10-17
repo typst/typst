@@ -1,3 +1,4 @@
+use either::Either;
 use typst_library::layout::{Dir, Em};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
@@ -122,46 +123,43 @@ pub fn prepare<'a>(
 /// Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition
 /// in Horizontal Written Mode
 fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
-    let mut items = items
+    let mut iter = items
         .iter_mut()
-        .filter(|(_, x)| !matches!(x, Item::Tag(_)))
+        .filter(|(_, item)| !matches!(item, Item::Tag(_)))
+        .flat_map(|(_, item)| match item {
+            Item::Text(text) => Either::Left(
+                // Since we only call this function in [`prepare`], we can
+                // assume that the Cow is owned, and `to_mut` can be called
+                // without overhead.
+                text.glyphs.to_mut().iter_mut().map(Some),
+            ),
+            _ => Either::Right(std::iter::once(None)),
+        })
         .peekable();
 
-    let mut prev: Option<&ShapedGlyph> = None;
-    while let Some((_, item)) = items.next() {
-        let Some(text) = item.text_mut() else {
-            prev = None;
-            continue;
-        };
-
-        // Since we only call this function in [`prepare`], we can assume that
-        // the Cow is owned, and `to_mut` can be called without overhead.
-        debug_assert!(text.glyphs.is_owned());
-        let mut glyphs = text.glyphs.to_mut().iter_mut().peekable();
-
-        while let Some(glyph) = glyphs.next() {
-            let next = glyphs.peek().map(|n| n as _).or_else(|| {
-                items
-                    .peek()
-                    .and_then(|(_, i)| i.text())
-                    .and_then(|shaped| shaped.glyphs.first())
-            });
-
+    let mut prev: Option<&mut ShapedGlyph> = None;
+    while let Some(mut item) = iter.next() {
+        if let Some(glyph) = &mut item {
             // Case 1: CJ followed by a Latin character
-            if glyph.is_cj_script() && next.is_some_and(|g| g.is_letter_or_number()) {
-                // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
+            if glyph.is_cj_script()
+                && let Some(Some(next_glyph)) = iter.peek()
+                && next_glyph.is_letter_or_number()
+            {
+                // The spacing defaults to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
             }
 
             // Case 2: Latin followed by a CJ character
-            if glyph.is_cj_script() && prev.is_some_and(|g| g.is_letter_or_number()) {
+            if glyph.is_cj_script()
+                && let Some(prev_glyph) = prev
+                && prev_glyph.is_letter_or_number()
+            {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
             }
-
-            prev = Some(glyph);
         }
+        prev = item;
     }
 }
