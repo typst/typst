@@ -447,7 +447,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let title = heading.body.plain_text().to_string();
         if title.is_empty() && tree.options.is_pdf_ua() {
             let contains_context = heading.body.traverse(&mut |c| {
-                if c.elem() == ContextElem::ELEM {
+                if c.is::<ContextElem>() {
                     return ControlFlow::Break(());
                 }
                 ControlFlow::Continue(())
