@@ -401,6 +401,56 @@ pub fn tanh(
     value.tanh()
 }
 
+/// Calculates the inverse hyperbolic sine of a number.
+///
+/// ```example
+/// #calc.asinh(0) \
+/// #calc.asinh(1)
+/// ```
+#[func(title = "Arsinh")]
+pub fn asinh(
+    /// The number whose inverse hyperbolic sine to calculate.
+    value: Num,
+) -> Angle {
+    Angle::rad(value.float().asinh())
+}
+
+/// Calculates the inverse hyperbolic cosine of a number.
+///
+/// ```example
+/// #calc.acosh(1) \
+/// #calc.acosh(2.5)
+/// ```
+#[func(title = "Arcosh")]
+pub fn acosh(
+    /// The number whose inverse hyperbolic cosine to calculate. Must be greater than or equal to 1.
+    value: Spanned<Num>,
+) -> SourceResult<Angle> {
+    let val = value.v.float();
+    if val < 1.0 {
+        bail!(value.span, "value must be greater than or equal to 1");
+    }
+    Ok(Angle::rad(val.acosh()))
+}
+
+/// Calculates the inverse hyperbolic tangent of a number.
+///
+/// ```example
+/// #calc.atanh(0) \
+/// #calc.atanh(0.5)
+/// ```
+#[func(title = "Artanh")]
+pub fn atanh(
+    /// The number whose inverse hyperbolic tangent to calculate. Must be between -1 and 1 (exclusive).
+    value: Spanned<Num>,
+) -> SourceResult<Angle> {
+    let val = value.v.float();
+    if val <= -1.0 || val >= 1.0 {
+        bail!(value.span, "value must be between -1 and 1 (exclusive)");
+    }
+    Ok(Angle::rad(val.atanh()))
+}
+
 /// Calculates the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
