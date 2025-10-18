@@ -723,9 +723,12 @@ impl<'a> Generator<'a> {
             LazyLock::new(hayagriva::archive::locales);
 
         let mut rendered = vec![];
+        // Keeps track of the number of citation to offset it correctly
+        let mut citation_count = 0;
 
         for bibliography in &self.bibliographies {
             let mut driver = BibliographyDriver::new();
+            driver.citation_number_offset = Some(citation_count);
             let bibliography_style =
                 &bibliography.style.get_ref(StyleChain::default()).derived;
             let database = &bibliography.sources.derived;
@@ -833,6 +836,7 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
+            citation_count += rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
         }
         rendered
     }
