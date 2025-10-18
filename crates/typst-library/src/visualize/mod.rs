@@ -2,6 +2,7 @@
 
 mod color;
 mod curve;
+mod diagram;
 mod gradient;
 mod image;
 mod line;
@@ -14,6 +15,7 @@ mod tiling;
 
 pub use self::color::*;
 pub use self::curve::*;
+pub use self::diagram::*;
 pub use self::gradient::*;
 pub use self::image::*;
 pub use self::line::*;
@@ -42,6 +44,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
     global.define_elem::<CurveElem>();
+    global.define_elem::<DiagramElem>();
     global.define("path", Element::of::<PathElem>()).deprecated(
         Deprecation::new()
             .with_message("the `path` function is deprecated, use `curve` instead"),
