@@ -6,7 +6,7 @@ specialized [packages]($universe) for your use case.
 
 # Diagrams
 
-Create diagrams using Mermaid or PlantUML syntax directly in your documents.
+Create diagrams using Mermaid or PlantUML syntax directly in your documents. Currently returns placeholder SVGs.
 
 ```example
 #diagram(
@@ -22,10 +22,7 @@ Create diagrams using Mermaid or PlantUML syntax directly in your documents.
 )
 ```
 
-To use diagrams, you need to install the required tools:
-
-- **Mermaid CLI**: `npm install -g @mermaid-js/mermaid-cli`
-- **PlantUML**: `brew install plantuml` (macOS) or `sudo apt-get install plantuml` (Ubuntu)
+**Note**: Full diagram rendering support will be added in future versions. Currently, all diagrams render as placeholder SVGs.
 
 # Accessibility
 

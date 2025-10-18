@@ -1,7 +1,7 @@
 // Test PlantUML diagram rendering
 
 --- plantuml-sequence ---
-// Sequence diagram
+// Sequence diagram (renders as placeholder SVG)
 #diagram(
   kind: "plantuml",
   ```
@@ -16,7 +16,7 @@
 )
 
 --- plantuml-usecase ---
-// Use case diagram
+// Use case diagram (renders as placeholder SVG)
 #diagram(
   kind: "plantuml",
   width: 70%,

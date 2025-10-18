@@ -14,9 +14,13 @@ The `diagram` function allows you to create various types of diagrams using popu
 - **Mermaid**: Flowcharts, sequence diagrams, class diagrams, Gantt charts, and more
 - **PlantUML**: Sequence diagrams, use case diagrams, class diagrams, activity diagrams, and more
 
-## Installation Requirements
+## Current Status
 
-Before using diagrams, you need to install the required tools:
+The diagram functionality is currently in development. It provides placeholder SVGs for both Mermaid and PlantUML diagrams. Full rendering support will be added in future versions.
+
+## Future Installation Requirements
+
+When full support is implemented, you will need:
 
 ### Mermaid CLI
 
@@ -67,9 +71,13 @@ choco install plantuml
 - **height** (optional): Diagram height (default: auto)
 - **alt** (optional): Alternative text for accessibility
 
-## Mermaid Examples
+## Examples
 
-### Flowchart
+**Note**: The following examples will currently render as placeholder SVGs. Full diagram rendering will be available in future versions.
+
+### Mermaid Examples
+
+#### Flowchart
 
 ```typst
 #diagram(
@@ -115,9 +123,9 @@ choco install plantuml
 )
 ```
 
-## PlantUML Examples
+### PlantUML Examples
 
-### Sequence Diagram
+#### Sequence Diagram
 
 ```typst
 #diagram(
@@ -213,37 +221,46 @@ Diagrams can be wrapped in `figure` to add captions and numbering:
 
 ## Troubleshooting
 
-### Error: "mermaid-cli (mmdc) not found"
+### Current Limitations
 
+Since the diagram functionality is in development:
+- All diagrams currently render as placeholder SVGs
+- No external tools are required at this time
+- Full rendering support will be added in future versions
+
+### Future Troubleshooting
+
+When full support is implemented, common issues may include:
+
+#### Error: "mermaid-cli (mmdc) not found"
 Make sure Mermaid CLI is installed:
 ```bash
 npm install -g @mermaid-js/mermaid-cli
 ```
 
-Check installation:
-```bash
-mmdc --version
-```
-
-### Error: "plantuml not found"
-
+#### Error: "plantuml not found"
 Make sure PlantUML is installed and available:
 ```bash
 plantuml -version
 ```
 
-### Encoding Issues
-
+#### Encoding Issues
 If you have problems with Cyrillic or other characters:
 - Ensure the Typst file is saved in UTF-8
 - Install required fonts for PlantUML
 
-## Limitations
+## Current Limitations
 
-- Diagrams are rendered in SVG format
-- Requires installation of external tools (mmdc, plantuml)
+- Diagrams are rendered as placeholder SVGs
+- Full diagram rendering is not yet implemented
 - Interactive diagram features are not supported
 - Rendering happens during compilation, not in real-time
+
+## Future Limitations
+
+When full support is implemented:
+- Diagrams will be rendered in SVG format
+- Will require installation of external tools (mmdc, plantuml)
 
 ## Resources
 

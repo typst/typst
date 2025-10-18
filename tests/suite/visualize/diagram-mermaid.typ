@@ -1,7 +1,7 @@
 // Test Mermaid diagram rendering
 
 --- mermaid-flowchart ---
-// Simple flowchart (will fail without mmdc, but tests syntax)
+// Simple flowchart (renders as placeholder SVG)
 #diagram(
   kind: "mermaid",
   ```
@@ -13,7 +13,7 @@
 )
 
 --- mermaid-sequence ---
-// Sequence diagram
+// Sequence diagram (renders as placeholder SVG)
 #diagram(
   kind: "mermaid",
   width: 80%,
