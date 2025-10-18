@@ -26,16 +26,16 @@ use crate::diag::{
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    Bytes, cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
+    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
     OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value, elem,
+    Synthesize, Value, cast, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
-    LinkElem, Url,
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
+    HeadingElem, LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -159,7 +159,10 @@ impl BibliographyElem {
             bail!("the document does not contain a bibliography");
         };
 
-        Ok(query.into_iter().map(|elem| {elem.to_packed::<Self>().unwrap().clone()}).collect())
+        Ok(query
+            .into_iter()
+            .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+            .collect())
     }
 
     /// Whether the bibliography contains the given key.
@@ -233,8 +236,7 @@ pub enum BibliographyScope {
     /// A selector for the desired Cite objects
     Selector(Selector),
     /// A heading level between which the citations should be selected
-    HeadingLevel(NonZeroUsize)
-
+    HeadingLevel(NonZeroUsize),
 }
 
 cast! {
@@ -569,7 +571,7 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
-    pub works: FxHashMap<Span, IndivWorks>
+    pub works: FxHashMap<Span, IndivWorks>,
 }
 
 pub struct IndivWorks {
@@ -623,23 +625,25 @@ impl Works {
             .at(elem.span())
     }
 
-    pub fn hanging_indent(
-        &self,
-        elem: &Packed<BibliographyElem>,
-    ) -> bool {
-        self.works
-            .get(&elem.span())
-            .unwrap()
-            .hanging_indent
+    pub fn hanging_indent(&self, elem: &Packed<BibliographyElem>) -> bool {
+        self.works.get(&elem.span()).unwrap().hanging_indent
     }
 }
 
 /// Filters cite groups based on their children
-fn filter_cite_groups<T: Fn(&Packed<CiteElem>) -> bool>(citation_groups: EcoVec<Content>, filter_function: T) -> EcoVec<Content> {
+fn filter_cite_groups<T: Fn(&Packed<CiteElem>) -> bool>(
+    citation_groups: EcoVec<Content>,
+    filter_function: T,
+) -> EcoVec<Content> {
     citation_groups
         .into_iter()
         .filter(|group| {
-            group.to_packed::<CiteGroup>().unwrap().children.iter().all(&filter_function)
+            group
+                .to_packed::<CiteGroup>()
+                .unwrap()
+                .children
+                .iter()
+                .all(&filter_function)
         })
         .collect()
 }
@@ -653,10 +657,10 @@ struct Generator<'a> {
     /// The document's bibliographies.
     bibliographies: Vec<Packed<BibliographyElem>>,
     /// The document's citation groups.
-    groups: FxHashMap<Span,EcoVec<Content>>,
+    groups: FxHashMap<Span, EcoVec<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
-    infos: FxHashMap<Span,Vec<GroupInfo>>,
+    infos: FxHashMap<Span, Vec<GroupInfo>>,
     /// Citations with unresolved keys.
     failures: FxHashMap<Location, SourceResult<Content>>,
 }
@@ -699,36 +703,111 @@ impl<'a> Generator<'a> {
             let bibliography_scope = &bibliography.scope.as_option().as_ref().unwrap();
             let bibliography_groups = match bibliography_scope {
                 Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
-                    filter_cite_groups(citation_groups_all.clone(), |child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
-                },
+                    filter_cite_groups(citation_groups_all.clone(), |child| {
+                        bibliography_labels.0.contains(&child.clone().unpack().key)
+                    })
+                }
                 Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
-                    let selection: Vec<Packed<CiteElem>> = introspector.query(bibliography_selector).into_iter().map(|element| { element.to_packed::<CiteElem>().unwrap().clone()}).collect();
-                    filter_cite_groups(citation_groups_all.clone(), |child| { selection.contains(&child)})
-                },
+                    let selection: Vec<Packed<CiteElem>> = introspector
+                        .query(bibliography_selector)
+                        .into_iter()
+                        .map(|element| element.to_packed::<CiteElem>().unwrap().clone())
+                        .collect();
+                    filter_cite_groups(citation_groups_all.clone(), |child| {
+                        selection.contains(&child)
+                    })
+                }
                 Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
                     let bibliography_location = bibliography.location().unwrap();
-                    let headings_before: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().before(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
+                    let headings_before: Vec<Packed<HeadingElem>> = introspector
+                        .query(
+                            &HeadingElem::ELEM
+                                .select()
+                                .before(bibliography_location.into(), false),
+                        )
+                        .iter()
+                        .map(|element| {
+                            element.to_packed::<HeadingElem>().unwrap().clone()
+                        })
+                        .filter(|heading| {
+                            heading
+                                .level
+                                .as_option()
+                                .unwrap()
+                                .map(NonZeroUsize::get)
+                                .unwrap_or(1)
+                                <= heading_level.get()
+                        })
+                        .collect();
                     // Bibliography may had a title which should be ignored for selection
-                    let after_skip = match bibliography.title.as_option().as_ref().unwrap() {
-                        Smart::Auto => 1,
-                        Smart::Custom(Some(_)) => 1,
-                        Smart::Custom(None) => 0,
-                    };
-                    let headings_after: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().after(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).skip(after_skip).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
-                    let selector = match (headings_before.last(), headings_after.first()) {
-                        (Some(first_heading_before), Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false).after(first_heading_before.location().unwrap().into(),false),
-                        (None, Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false),
-                        (Some(first_heading_before), None) => &CiteElem::ELEM.select().after(first_heading_before.location().unwrap().into(),false),
+                    let after_skip =
+                        match bibliography.title.as_option().as_ref().unwrap() {
+                            Smart::Auto => 1,
+                            Smart::Custom(Some(_)) => 1,
+                            Smart::Custom(None) => 0,
+                        };
+                    let headings_after: Vec<Packed<HeadingElem>> = introspector
+                        .query(
+                            &HeadingElem::ELEM
+                                .select()
+                                .after(bibliography_location.into(), false),
+                        )
+                        .iter()
+                        .map(|element| {
+                            element.to_packed::<HeadingElem>().unwrap().clone()
+                        })
+                        .skip(after_skip)
+                        .filter(|heading| {
+                            heading
+                                .level
+                                .as_option()
+                                .unwrap()
+                                .map(NonZeroUsize::get)
+                                .unwrap_or(1)
+                                <= heading_level.get()
+                        })
+                        .collect();
+                    let selector = match (headings_before.last(), headings_after.first())
+                    {
+                        (Some(first_heading_before), Some(first_heading_after)) => {
+                            &CiteElem::ELEM
+                                .select()
+                                .before(
+                                    first_heading_after.location().unwrap().into(),
+                                    false,
+                                )
+                                .after(
+                                    first_heading_before.location().unwrap().into(),
+                                    false,
+                                )
+                        }
+                        (None, Some(first_heading_after)) => {
+                            &CiteElem::ELEM.select().before(
+                                first_heading_after.location().unwrap().into(),
+                                false,
+                            )
+                        }
+                        (Some(first_heading_before), None) => {
+                            &CiteElem::ELEM.select().after(
+                                first_heading_before.location().unwrap().into(),
+                                false,
+                            )
+                        }
                         (None, None) => &CiteElem::ELEM.select(),
                     };
-                    let selection: Vec<Packed<CiteElem>> = introspector.query(selector).into_iter().map(|element| { element.to_packed::<CiteElem>().unwrap().clone()}).collect();
-                    filter_cite_groups(citation_groups_all.clone(), |child| { selection.contains(&child)})
-                },
+                    let selection: Vec<Packed<CiteElem>> = introspector
+                        .query(selector)
+                        .into_iter()
+                        .map(|element| element.to_packed::<CiteElem>().unwrap().clone())
+                        .collect();
+                    filter_cite_groups(citation_groups_all.clone(), |child| {
+                        selection.contains(&child)
+                    })
+                }
                 Smart::Auto => citation_groups_all.clone(),
             };
             groups.insert(bibliography.span(), bibliography_groups);
         }
-        ;
         Ok(Self {
             routines,
             world,
@@ -785,9 +864,9 @@ impl<'a> Generator<'a> {
                     let locator = supplement.as_ref().map(|c| {
                         SpecificLocator(
                             citationberg::taxonomy::Locator::Custom,
-                            hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
-                                c.clone(),
-                            )),
+                            hayagriva::LocatorPayload::Transparent(
+                                TransparentLocator::new(c.clone()),
+                            ),
                         )
                     });
 
@@ -800,13 +879,21 @@ impl<'a> Generator<'a> {
                         Some(CitationForm::Normal) => None,
                         Some(CitationForm::Prose) => Some(hayagriva::CitePurpose::Prose),
                         Some(CitationForm::Full) => Some(hayagriva::CitePurpose::Full),
-                        Some(CitationForm::Author) => Some(hayagriva::CitePurpose::Author),
+                        Some(CitationForm::Author) => {
+                            Some(hayagriva::CitePurpose::Author)
+                        }
                         Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
                     };
 
                     normal &= special_form.is_none();
                     subinfos.push(CiteInfo { key: child.key, supplement, hidden });
-                    items.push(CitationItem::new(entry, locator, None, hidden, special_form));
+                    items.push(CitationItem::new(
+                        entry,
+                        locator,
+                        None,
+                        hidden,
+                        special_form,
+                    ));
                 }
 
                 if !errors.is_empty() {
@@ -830,7 +917,10 @@ impl<'a> Generator<'a> {
                 driver.citation(CitationRequest::new(
                     items,
                     style,
-                    Some(locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten())),
+                    Some(locale(
+                        first.lang.unwrap_or(Lang::ENGLISH),
+                        first.region.flatten(),
+                    )),
                     &LOCALES,
                     None,
                 ));
@@ -858,7 +948,8 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
-            citation_count += rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
+            citation_count +=
+                rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
         }
         rendered
     }
@@ -867,8 +958,10 @@ impl<'a> Generator<'a> {
     fn display(&mut self, rendered: &Vec<hayagriva::Rendered>) -> StrResult<Works> {
         let mut works = FxHashMap::default();
         let citations = self.display_citations(rendered)?;
-        for (bibliography,rendered_indiv) in self.bibliographies.clone().iter().zip(rendered) {
-            let references = self.display_references(rendered_indiv,bibliography)?;
+        for (bibliography, rendered_indiv) in
+            self.bibliographies.clone().iter().zip(rendered)
+        {
+            let references = self.display_references(rendered_indiv, bibliography)?;
             let hanging_indent =
                 rendered_indiv.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
             works.insert(bibliography.span(), IndivWorks { references, hanging_indent });
@@ -881,10 +974,11 @@ impl<'a> Generator<'a> {
         &mut self,
         rendered: &Vec<hayagriva::Rendered>,
     ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
-
         let mut output = std::mem::take(&mut self.failures);
 
-        for (source_bibliography,rendered_indiv) in self.bibliographies.clone().iter().zip(rendered) {
+        for (source_bibliography, rendered_indiv) in
+            self.bibliographies.clone().iter().zip(rendered)
+        {
             // Determine for each citation key where in the bibliography it is,
             // so that we can link there.
             let mut links = FxHashMap::default();
@@ -913,8 +1007,11 @@ impl<'a> Generator<'a> {
                     let content = if info.subinfos.iter().all(|sub| sub.hidden) {
                         Content::empty()
                     } else {
-                        let mut content =
-                            renderer.display_elem_children(&citation.citation, None, true)?;
+                        let mut content = renderer.display_elem_children(
+                            &citation.citation,
+                            None,
+                            true,
+                        )?;
 
                         if info.footnote {
                             content = FootnoteElem::with_content(content).pack();
