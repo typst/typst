@@ -157,8 +157,10 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
+    children.finish();
+
     // Omit the weak group if it is empty.
-    if group.weak && children.num_inserted == 0 {
+    if group.weak && nodes.is_empty() {
         return;
     }
 
@@ -175,8 +177,6 @@ fn resolve_group_node(
             _ => (),
         }
     }
-
-    children.finish();
 
     if rs.options.is_pdf_ua() {
         validate_children(rs, &tag, &nodes);
@@ -341,7 +341,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
 struct Accumulator<'a> {
     nesting: ElementKind,
     buf: &'a mut Vec<Node>,
-    num_inserted: usize,
     // Whether the last node is a `Span` used to wrap marked content sequences
     // inside a grouping element. Groupings element may not contain marked
     // content sequences directly.
@@ -356,12 +355,11 @@ impl std::ops::Drop for Accumulator<'_> {
 
 impl<'a> Accumulator<'a> {
     fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, num_inserted: 0, grouping_span: None }
+        Self { nesting, buf, grouping_span: None }
     }
 
     fn push_buf(&mut self, node: Node) {
         self.buf.push(node);
-        self.num_inserted += 1;
     }
 
     fn push_grouping_span(&mut self) {
@@ -507,10 +505,11 @@ fn validate_children_groups(
     rs: &mut Resolver,
     parent: &TagKind,
     children: &[Node],
-    is_valid: impl Fn(&TagKind) -> bool,
+    mut is_valid: impl FnMut(&TagKind) -> bool,
 ) {
     let parent_span = to_span(parent.location());
 
+    let mut has_caption = false;
     let mut contains_leaf_nodes = false;
     for node in children {
         let Node::Group(child) = node else {
@@ -529,6 +528,22 @@ fn validate_children_groups(
                 hint: "{parent} may not contain {child}";
                 hint: "this is probably caused by a show rule"
             ));
+        }
+
+        if matches!(&child.tag, TagKind::Caption(_)) {
+            if has_caption {
+                let validator = rs.options.standards.config.validator().as_str();
+                let span = to_span(child.tag.location()).or(parent_span);
+                let parent = tag_name(parent);
+                let child = tag_name(&child.tag);
+                rs.errors.push(error!(
+                    span,
+                    "{validator} error: invalid {parent} structure";
+                    hint: "{parent} may not contain multiple {child}";
+                    hint: "this is probably caused by a show rule"
+                ));
+            }
+            has_caption = true;
         }
     }
 

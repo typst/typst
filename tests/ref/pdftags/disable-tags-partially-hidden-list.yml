@@ -19,8 +19,6 @@
           /K:
             - Content: page=0 mcid=3
         - Tag: LBody
-          /K:
-            - Tag: P
     - Tag: L
       /Numbering: Circle
       /K:

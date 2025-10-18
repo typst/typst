@@ -330,3 +330,10 @@ cast! {
     FootnoteElem,
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
 }
+
+/// This is an empty element inserted by the HTML footnote rule to indicate the
+/// presence of the default footnote rule. It's only used by the error in
+/// `FootnoteContainer::unsupported_with_custom_dom` and could be removed if
+/// that's not needed anymore.
+#[elem(Locatable)]
+pub struct FootnoteMarker {}
