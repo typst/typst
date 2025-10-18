@@ -696,7 +696,7 @@ impl<'a> Generator<'a> {
         let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
-            let bibliography_scope = &bibliography.scope.as_option().clone().unwrap();
+            let bibliography_scope = &bibliography.scope.as_option().as_ref().unwrap();
             let bibliography_groups = match bibliography_scope {
                 Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
                     filter_cite_groups(citation_groups_all.clone(), |child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
@@ -708,7 +708,13 @@ impl<'a> Generator<'a> {
                 Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
                     let bibliography_location = bibliography.location().unwrap();
                     let headings_before: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().before(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
-                    let headings_after: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().after(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
+                    // Bibliography may had a title which should be ignored for selection
+                    let after_skip = match bibliography.title.as_option().as_ref().unwrap() {
+                        Smart::Auto => 1,
+                        Smart::Custom(Some(_)) => 1,
+                        Smart::Custom(None) => 0,
+                    };
+                    let headings_after: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().after(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).skip(after_skip).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
                     let selector = match (headings_before.last(), headings_after.first()) {
                         (Some(first_heading_before), Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false).after(first_heading_before.location().unwrap().into(),false),
                         (None, Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false),
