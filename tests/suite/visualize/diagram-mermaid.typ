@@ -1,7 +1,7 @@
 // Test Mermaid diagram rendering
 
 --- mermaid-flowchart ---
-// Simple flowchart
+// Simple flowchart (will fail without mmdc, but tests syntax)
 #diagram(
   kind: "mermaid",
   ```

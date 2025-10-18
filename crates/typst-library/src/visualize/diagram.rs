@@ -146,6 +146,14 @@ impl Packed<DiagramElem> {
 
 /// Render a Mermaid diagram to SVG.
 fn render_mermaid(source: &str) -> StrResult<Bytes> {
+    // Check if mmdc is available first
+    if Command::new("mmdc").arg("--version").output().is_err() {
+        bail!(
+            "mermaid-cli (mmdc) not found. Please install it with: \
+            npm install -g @mermaid-js/mermaid-cli"
+        );
+    }
+
     // Create a temporary file for the Mermaid source
     let mut input_file = NamedTempFile::new()
         .map_err(|e| format!("failed to create temporary file: {}", e))?;
@@ -191,6 +199,14 @@ fn render_mermaid(source: &str) -> StrResult<Bytes> {
 
 /// Render a PlantUML diagram to SVG.
 fn render_plantuml(source: &str) -> StrResult<Bytes> {
+    // Check if plantuml is available first
+    if Command::new("plantuml").arg("-version").output().is_err() {
+        bail!(
+            "plantuml not found. Please install it from: \
+            https://plantuml.com/download"
+        );
+    }
+
     // Create a temporary file for the PlantUML source
     let mut input_file = NamedTempFile::new()
         .map_err(|e| format!("failed to create temporary file: {}", e))?;
