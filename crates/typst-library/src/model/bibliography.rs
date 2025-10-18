@@ -228,10 +228,13 @@ impl LocalName for Packed<BibliographyElem> {
 // Scope for a bibliography
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum BibliographyScope {
-    /// A pattern with prefix, numbering, lower / upper case and suffix.
+    /// A list of the labels corresponding to the wanted citations
     Labels(OneOrMultiple<Label>),
-    /// A closure mapping from an item's number to content.
+    /// A selector for the desired Cite objects
     Selector(Selector),
+    /// A heading level between which the citations should be selected
+    HeadingLevel(NonZeroUsize)
+
 }
 
 cast! {
@@ -239,9 +242,11 @@ cast! {
     self => match self {
         Self::Labels(labels) => labels.into_value(),
         Self::Selector(selector) => selector.into_value(),
+        Self::HeadingLevel(level) => level.into_value(),
     },
     v: OneOrMultiple<Label> => Self::Labels(v),
     v: Selector => Self::Selector(v),
+    v: NonZeroUsize => Self::HeadingLevel(v),
 }
 
 /// A loaded bibliography.
@@ -629,6 +634,16 @@ impl Works {
     }
 }
 
+/// Filters cite groups based on their children
+fn filter_cite_groups<T: Fn(&Packed<CiteElem>) -> bool>(citation_groups: EcoVec<Content>, filter_function: T) -> EcoVec<Content> {
+    citation_groups
+        .into_iter()
+        .filter(|group| {
+            group.to_packed::<CiteGroup>().unwrap().children.iter().all(&filter_function)
+        })
+        .collect()
+}
+
 /// Context for generating the bibliography.
 struct Generator<'a> {
     /// The routines that are used to evaluate mathematical material in citations.
@@ -684,23 +699,24 @@ impl<'a> Generator<'a> {
             let bibliography_scope = &bibliography.scope.as_option().clone().unwrap();
             let bibliography_groups = match bibliography_scope {
                 Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
-                    citation_groups_all
-                        .clone()
-                        .into_iter()
-                        .filter(|group| {
-                            group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
-                        })
-                        .collect()
+                    filter_cite_groups(citation_groups_all.clone(), |child| { bibliography_labels.0.contains(&child.clone().unpack().key)})
                 },
                 Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
                     let selection: Vec<Packed<CiteElem>> = introspector.query(bibliography_selector).into_iter().map(|element| { element.to_packed::<CiteElem>().unwrap().clone()}).collect();
-                    citation_groups_all
-                        .clone()
-                        .into_iter()
-                        .filter(|group| {
-                            group.to_packed::<CiteGroup>().unwrap().children.iter().all(|child| { selection.contains(&child)})
-                        })
-                        .collect()
+                    filter_cite_groups(citation_groups_all.clone(), |child| { selection.contains(&child)})
+                },
+                Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
+                    let bibliography_location = bibliography.location().unwrap();
+                    let headings_before: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().before(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
+                    let headings_after: Vec<Packed<HeadingElem>> = introspector.query(&HeadingElem::ELEM.select().after(bibliography_location.into(), false)).iter().map(|element| { element.to_packed::<HeadingElem>().unwrap().clone()}).filter(|heading| {heading.level.as_option().unwrap().map(NonZeroUsize::get).unwrap_or(1) <= heading_level.get()}).collect();
+                    let selector = match (headings_before.last(), headings_after.first()) {
+                        (Some(first_heading_before), Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false).after(first_heading_before.location().unwrap().into(),false),
+                        (None, Some(first_heading_after)) => &CiteElem::ELEM.select().before(first_heading_after.location().unwrap().into(),false),
+                        (Some(first_heading_before), None) => &CiteElem::ELEM.select().after(first_heading_before.location().unwrap().into(),false),
+                        (None, None) => &CiteElem::ELEM.select(),
+                    };
+                    let selection: Vec<Packed<CiteElem>> = introspector.query(selector).into_iter().map(|element| { element.to_packed::<CiteElem>().unwrap().clone()}).collect();
+                    filter_cite_groups(citation_groups_all.clone(), |child| { selection.contains(&child)})
                 },
                 Smart::Auto => citation_groups_all.clone(),
             };
