@@ -7,5 +7,5 @@ outline = Sumário
 raw = Listagem
 page = página
 footnote = Nota de rodapé
-email = Correio Eletrónico
+email = Correio Eletrônico
 telephone = Telefone

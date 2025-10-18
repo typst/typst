@@ -7,5 +7,5 @@ outline = Índice
 # raw = 
 # page = 
 # footnote = 
-# email = 
+email = Correio Eletrónico
 # telephone = 
