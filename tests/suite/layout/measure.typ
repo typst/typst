@@ -99,3 +99,10 @@
   assert(height > 4pt)
   assert(height < 5pt)
 }
+
+--- measure-html html ---
+#context {
+    let dims = measure(image("/assets/images/monkey.svg"))
+    test(dims.width, 36pt)
+    test(dims.height, 36pt)
+}
