@@ -69,7 +69,8 @@ fuzz_target!(|text: &str| {
     if let Ok(document) = typst::compile::<PagedDocument>(&world).output
         && let Some(page) = document.pages.first()
     {
-        std::hint::black_box(typst_render::render(page, 1.0));
+        let opts = typst_render::Options { pixel_per_pt: 1.0, render_bleed: false };
+        std::hint::black_box(typst_render::render(page, opts));
     }
     comemo::evict(10);
 });
