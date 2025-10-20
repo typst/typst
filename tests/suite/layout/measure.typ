@@ -102,7 +102,7 @@
 
 --- measure-html html ---
 #context {
-    let dims = measure(image("/assets/images/monkey.svg"))
-    test(dims.width, 36pt)
-    test(dims.height, 36pt)
+  let (width, height) = measure(image("/assets/images/monkey.svg"))
+  test(width, 36pt)
+  test(height, 36pt)
 }
