@@ -69,6 +69,7 @@ bitflags! {
         const PDFTAGS = 1 << 2;
         const LARGE = 1 << 3;
         const NOPDFUA = 1 << 4;
+        const NOCRASH = 1 << 5;
     }
 }
 
@@ -94,6 +95,7 @@ impl AttrFlags {
 pub struct Attrs {
     pub large: bool,
     pub pdf_ua: bool,
+    pub no_crash: bool,
     pub targets: Targets,
 }
 
@@ -366,6 +368,7 @@ impl<'a> Parser<'a> {
                 "render" => AttrFlags::RENDER,
                 "pdftags" => AttrFlags::PDFTAGS,
                 "nopdfua" => AttrFlags::NOPDFUA,
+                "nocrash" => AttrFlags::NOCRASH,
                 found => {
                     self.error(format!(
                         "expected attribute or closing ---, found `{found}`"
@@ -383,6 +386,7 @@ impl<'a> Parser<'a> {
         Attrs {
             large: parsed.contains(AttrFlags::LARGE),
             pdf_ua: !parsed.contains(AttrFlags::NOPDFUA),
+            no_crash: parsed.contains(AttrFlags::NOCRASH),
             targets: parsed.targets(),
         }
     }
