@@ -424,7 +424,7 @@ cast! {
     v: Value => Self::Set(v),
 }
 
-/// Executes a display of a state.
+/// Executes an update of a state.
 #[elem(Construct, Locatable)]
 pub struct StateUpdateElem {
     /// The key that identifies the state.

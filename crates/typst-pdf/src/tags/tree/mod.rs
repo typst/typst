@@ -1,20 +1,25 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
-use crate::tags::groups::{GroupKind, Groups, InternalGridCellKind};
+use crate::tags::groups::{Group, GroupKind, Groups, InternalGridCellKind};
 use crate::tags::tree::build::TreeBuilder;
+use crate::tags::tree::text::TextAttrs;
+use ecow::EcoVec;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
+use typst_library::diag::SourceDiagnostic;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
-use typst_library::layout::PagedDocument;
+use typst_library::layout::{Inherit, PagedDocument};
 use typst_library::model::LinkMarker;
 
 pub use build::build;
+pub use text::{ResolvedTextAttrs, TextAttr, resolve_text_attrs};
 
 mod build;
+mod text;
 
 pub struct Tree {
     /// Points at the current group in the `progressions` list.
@@ -30,6 +35,7 @@ pub struct Tree {
     pub groups: Groups,
     pub ctx: Ctx,
     logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
+    pub errors: EcoVec<SourceDiagnostic>,
 }
 
 impl Tree {
@@ -131,19 +137,28 @@ struct TraversalState {
     current_artifact: Option<(GroupId, ArtifactType)>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
     bbox_stack: Vec<BBoxId>,
+    /// The stack of text attributes.
+    text_attrs: TextAttrs,
 }
 
 impl TraversalState {
     fn new() -> Self {
-        Self { current_artifact: None, bbox_stack: Vec::new() }
+        Self {
+            current_artifact: None,
+            bbox_stack: Vec::new(),
+            text_attrs: TextAttrs::new(),
+        }
     }
 
-    fn pop_artifact(&mut self, id: GroupId) -> bool {
-        self.current_artifact.take_if(|(i, _)| *i == id).is_some()
-    }
-
-    fn pop_bbox(&mut self, id: BBoxId) {
-        self.bbox_stack.pop_if(|i| *i == id);
+    /// Update the traversal state when moving out of a group.
+    fn pop_group(&mut self, surface: &mut Surface, id: GroupId, group: &Group) {
+        if self.current_artifact.take_if(|(i, _)| *i == id).is_some() {
+            surface.end_tagged();
+        }
+        if let Some(id) = group.kind.bbox() {
+            self.bbox_stack.pop_if(|i| *i == id);
+        }
+        self.text_attrs.pop(id);
     }
 }
 
@@ -178,15 +193,7 @@ pub fn step_start_tag(tree: &mut Tree, surface: &mut Surface) {
     if let Some(brk) = consume_break(tree) {
         step_break(tree, surface, prev, next, brk);
     } else {
-        let next_group = tree.groups.get(next);
-        if tree.state.current_artifact.is_none()
-            && let Some(ty) = next_group.kind.as_artifact()
-        {
-            tree.state.current_artifact = Some((next, ty));
-            surface.start_tagged(ContentTag::Artifact(ty));
-        } else if let Some(id) = &next_group.kind.bbox() {
-            tree.state.bbox_stack.push(*id);
-        }
+        open_group(&tree.groups, &mut tree.state, surface, next);
     }
 }
 
@@ -196,6 +203,18 @@ pub fn step_end_tag(tree: &mut Tree, surface: &mut Surface) {
     if let Some(brk) = consume_break(tree) {
         step_break(tree, surface, prev, next, brk);
     } else if let Some(unfinished) = consume_unfinished(tree) {
+        // In logical children the whole traversal state is popped off the
+        // stack. For grid cells we're still in the same traversal state, so we
+        // need to update it accordingly. The groups can't be closed since they
+        // will be closed later, so we just update the state since we've still
+        // moved out of them.
+        let mut current = prev;
+        while current != unfinished.group_to_close {
+            let group = tree.groups.get(current);
+            tree.state.pop_group(surface, current, group);
+            current = group.parent;
+        }
+
         close_group(tree, surface, unfinished.group_to_close);
     } else {
         close_group(tree, surface, prev);
@@ -212,26 +231,20 @@ pub fn enter_logical_child(tree: &mut Tree, surface: &mut Surface) {
     }
 
     // Compute the traversal state for the new location in the tree and push it.
-    let mut current_artifact = None;
-    let mut bbox_stack = Vec::new();
-
+    let mut new_state = TraversalState::new();
     let mut current = next;
-    while current != GroupId::INVALID {
-        let group = tree.groups.get(current);
-        if let Some(ty) = group.kind.as_artifact() {
-            current_artifact = Some((current, ty));
-        } else if let Some(id) = group.kind.bbox() {
-            bbox_stack.insert(0, id);
+    let rev_iter = std::iter::from_fn(|| {
+        if current == GroupId::INVALID {
+            return None;
         }
+        let id = current;
+        let group = tree.groups.get(id);
         current = group.parent;
-    }
+        Some((id, group))
+    });
+    open_multiple_groups(&mut new_state, surface, rev_iter);
 
-    tree.state.push(TraversalState { current_artifact, bbox_stack });
-
-    // Reopen any artifact in the logical child.
-    if let Some(ty) = tree.parent_artifact() {
-        surface.start_tagged(ContentTag::Artifact(ty));
-    }
+    tree.state.push(new_state);
 }
 
 /// This moves back to the previous location in the tree.
@@ -298,30 +311,75 @@ fn step_break(
     next: GroupId,
     brk: Break,
 ) {
-    // Check the closed groups for artifacts and bounding boxes.
+    // Close groups.
     let mut current = prev;
     for _ in 0..brk.num_closed {
         current = close_group(tree, surface, current);
     }
 
-    // Check the opened groups for artifacts and bounding boxes.
-    let mut new_artifact = None;
-    let bbox_start = tree.state.bbox_stack.len();
-
+    // Open groups.
     let mut current = next;
-    for _ in 0..brk.num_opened {
-        let group = tree.groups.get(current);
-        if let Some(ty) = group.kind.as_artifact() {
-            new_artifact = Some((current, ty));
-        } else if let Some(id) = group.kind.bbox() {
-            tree.state.bbox_stack.insert(bbox_start, id);
-        }
+    let rev_iter = std::iter::from_fn(|| {
+        let id = current;
+        let group = tree.groups.get(id);
         current = group.parent;
+        Some((id, group))
+    });
+    open_multiple_groups(
+        &mut tree.state,
+        surface,
+        rev_iter.take(brk.num_opened as usize),
+    );
+}
+
+fn open_group(
+    groups: &Groups,
+    state: &mut TraversalState,
+    surface: &mut Surface,
+    id: GroupId,
+) {
+    let group = groups.get(id);
+    if state.current_artifact.is_none()
+        && let Some(ty) = group.kind.as_artifact()
+    {
+        state.current_artifact = Some((id, ty));
+        surface.start_tagged(ContentTag::Artifact(ty));
     }
-    if tree.state.current_artifact.is_none()
+    if let Some(bbox) = &group.kind.bbox() {
+        state.bbox_stack.push(*bbox);
+    }
+    if let GroupKind::TextAttr(attr) = &group.kind {
+        state.text_attrs.push(id, attr.clone());
+    }
+}
+
+/// Since the groups need to be opened in order, but we can only iterate the
+/// parent hierarchy from bottom to top, this cannot simply call [`open_group`].
+fn open_multiple_groups<'a>(
+    state: &mut TraversalState,
+    surface: &mut Surface,
+    rev_iter: impl Iterator<Item = (GroupId, &'a Group)>,
+) {
+    let mut new_artifact = None;
+    let bbox_start = state.bbox_stack.len();
+    let text_attr_start = state.text_attrs.len();
+
+    for (id, group) in rev_iter {
+        if let Some(ty) = group.kind.as_artifact() {
+            new_artifact = Some((id, ty));
+        }
+        if let Some(bbox) = group.kind.bbox() {
+            state.bbox_stack.insert(bbox_start, bbox);
+        }
+        if let GroupKind::TextAttr(attr) = &group.kind {
+            state.text_attrs.insert(text_attr_start, id, attr.clone());
+        }
+    }
+
+    if state.current_artifact.is_none()
         && let Some((_, ty)) = new_artifact
     {
-        tree.state.current_artifact = new_artifact;
+        state.current_artifact = new_artifact;
         surface.start_tagged(ContentTag::Artifact(ty));
     }
 }
@@ -331,12 +389,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
     let direct_parent = group.parent;
     let semantic_parent = semantic_parent(tree, direct_parent);
 
-    if let Some(id) = group.kind.bbox() {
-        tree.state.pop_bbox(id);
-    }
-    if tree.state.pop_artifact(id) {
-        surface.end_tagged();
-    }
+    tree.state.pop_group(surface, id, group);
 
     match &group.kind {
         GroupKind::Root(_) => unreachable!(),
@@ -352,12 +405,34 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
             tree.groups.push_group(direct_parent, id);
         }
-        GroupKind::LogicalChild => {
-            if let GroupKind::LogicalParent(_) = tree.groups.get(semantic_parent).kind {
-                // `GroupKind::LogicalParent` handles inserting of children at
-                // its end, see above.
-            } else {
+        GroupKind::LogicalChild(inherit, logical_parent) => {
+            // `GroupKind::LogicalParent` handles inserting of children at its
+            // end, see above. Children of table/grid cells are always ordered
+            // correctly and are treated a little bit differently
+            if tree.groups.get(semantic_parent).kind.is_grid_layout_cell() {
                 tree.groups.push_group(direct_parent, id);
+            } else if *inherit == Inherit::No {
+                let logical_parent_is_in_artifact = 'artifact: {
+                    let mut current = tree.groups.get(*logical_parent).parent;
+                    while current != GroupId::INVALID {
+                        let group = tree.groups.get(current);
+                        if group.kind.is_artifact() {
+                            break 'artifact true;
+                        }
+                        current = group.parent;
+                    }
+                    false
+                };
+
+                // If this logical child is of kind `LogicalChildKind::Insert`
+                // and not inside of an artifact, inserting it into a parent
+                // that is inside of an artifact would mean the content will be
+                // discarded. If that's the case, ignore the logical parent
+                // structure and insert it wherever it appeared in the frame
+                // tree.
+                if tree.parent_artifact().is_none() && logical_parent_is_in_artifact {
+                    tree.groups.push_group(direct_parent, id);
+                }
             }
         }
         GroupKind::Outline(..) => {
@@ -468,7 +543,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         GroupKind::FigureCaption(..) => {
             if let GroupKind::Figure(figure, ..) = tree.groups.get(semantic_parent).kind {
                 let figure_ctx = tree.ctx.figures.get_mut(figure);
-                figure_ctx.caption = Some(id);
+                figure_ctx.captions.push(id);
             } else {
                 tree.groups.push_group(direct_parent, id);
             }
@@ -494,6 +569,9 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Par(..) => {
+            tree.groups.push_group(direct_parent, id);
+        }
+        GroupKind::TextAttr(..) => {
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Transparent => {
@@ -532,6 +610,7 @@ fn semantic_parent(tree: &Tree, direct_parent: GroupId) -> GroupId {
             group.kind,
             GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
                 | GroupKind::Par(_)
+                | GroupKind::TextAttr(_)
                 | GroupKind::Transparent
         );
         if !non_semantic {

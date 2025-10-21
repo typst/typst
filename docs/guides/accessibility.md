@@ -116,7 +116,7 @@ This means that color must not be the only way you make information accessible t
 How can we improve the chart? First, make sure that no information is solely communicated through color use. One possible way to do this by adding a pattern to each bar. Then, we can help the user make out the boundaries of each segment by adding a high-contrast border. Then, our chart could look something like this:
 
 <div>
-<img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 50%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
+<img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
 This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
@@ -135,7 +135,7 @@ There are [tools to compare how much contrast a pair of colors has][wcag-contras
 
 | Content                                | AA Ratio | AAA Ratio |
 |----------------------------------------|---------:|----------:|
-| Large text (>=18pt or bold and >=14pt) | 3:1      | 4.5:1     |
+| Large text (≥18pt, or bold and ≥14pt)  | 3:1      | 4.5:1     |
 | Small text                             | 4.5:1    | 7:1       |
 | Non-text content                       | 3:1      | 3:1       |
 

@@ -216,15 +216,25 @@ impl MathFragment {
         }
     }
 
-    pub fn stretch_vertical(&mut self, ctx: &mut MathContext, height: Abs) {
+    pub fn stretch_vertical(
+        &mut self,
+        ctx: &mut MathContext,
+        height: Abs,
+        short_fall: Abs,
+    ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_vertical(ctx, height)
+            glyph.stretch_vertical(ctx, height, short_fall)
         }
     }
 
-    pub fn stretch_horizontal(&mut self, ctx: &mut MathContext, width: Abs) {
+    pub fn stretch_horizontal(
+        &mut self,
+        ctx: &mut MathContext,
+        width: Abs,
+        short_fall: Abs,
+    ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_horizontal(ctx, width)
+            glyph.stretch_horizontal(ctx, width, short_fall)
         }
     }
 
@@ -445,19 +455,35 @@ impl GlyphFragment {
     }
 
     /// Try to stretch a glyph to a desired height.
-    pub fn stretch_vertical(&mut self, ctx: &mut MathContext, height: Abs) {
-        self.stretch(ctx, height, Axis::Y)
+    pub fn stretch_vertical(
+        &mut self,
+        ctx: &mut MathContext,
+        height: Abs,
+        short_fall: Abs,
+    ) {
+        self.stretch(ctx, height, short_fall, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
-    pub fn stretch_horizontal(&mut self, ctx: &mut MathContext, width: Abs) {
-        self.stretch(ctx, width, Axis::X)
+    pub fn stretch_horizontal(
+        &mut self,
+        ctx: &mut MathContext,
+        width: Abs,
+        short_fall: Abs,
+    ) {
+        self.stretch(ctx, width, short_fall, Axis::X)
     }
 
     /// Try to stretch a glyph to a desired width or height.
     ///
     /// The resulting frame may not have the exact desired width or height.
-    pub fn stretch(&mut self, ctx: &mut MathContext, target: Abs, axis: Axis) {
+    pub fn stretch(
+        &mut self,
+        ctx: &mut MathContext,
+        target: Abs,
+        short_fall: Abs,
+        axis: Axis,
+    ) {
         self.reset_glyph();
 
         // If the base glyph is good enough, use it.
@@ -467,7 +493,8 @@ impl GlyphFragment {
             // glyph's width if it was added in `update_glyph`.
             advance -= self.italics_correction;
         }
-        if target <= advance {
+        let short_target = target - short_fall;
+        if short_target <= advance {
             return;
         }
 
@@ -482,13 +509,13 @@ impl GlyphFragment {
             best_id = variant.variant_glyph;
             best_advance =
                 self.item.font.to_em(variant.advance_measurement).at(self.item.size);
-            if target <= best_advance {
+            if short_target <= best_advance {
                 break;
             }
         }
 
         // This is either good or the best we've got.
-        if target <= best_advance || construction.assembly.is_none() {
+        if short_target <= best_advance || construction.assembly.is_none() {
             self.item.glyphs[0].id = best_id.0;
             self.item.glyphs[0].x_advance =
                 self.item.font.x_advance(best_id.0).unwrap_or_default();
@@ -781,16 +808,32 @@ fn assemble(
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
         }
-        let (x, y) = match axis {
-            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero()),
-            Axis::Y => (Em::zero(), Em::from_abs(advance, base.item.size)),
+        let (x_advance, y_advance, y_offset) = match axis {
+            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero(), Em::zero()),
+            Axis::Y => (
+                Em::zero(),
+                Em::from_abs(advance, base.item.size),
+                // Glyph parts used in vertical assemblies are typically aligned
+                // at the vertical origin. This way, they combine properly when
+                // drawn consecutively, as required by the MATH table spec.
+                //
+                // However, in some fonts, they aren't. To still have them align
+                // properly, we are vertically offsetting such glyphs by their
+                // bounding-box computed descent. (Positive descent means that
+                // a glyph extends below the baseline and then we must move it
+                // up for it to align properly. `y_advance` is Y-up, so that
+                // matches up.)
+                ascent_descent(&base.item.font, part.glyph_id)
+                    .map(|x| x.1)
+                    .unwrap_or_default(),
+            ),
         };
         glyphs.push(Glyph {
             id: part.glyph_id.0,
-            x_advance: x,
+            x_advance,
             x_offset: Em::zero(),
-            y_advance: y,
-            y_offset: Em::zero(),
+            y_advance,
+            y_offset,
             ..base.item.glyphs[0].clone()
         });
     }

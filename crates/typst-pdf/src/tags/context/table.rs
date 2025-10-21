@@ -140,7 +140,7 @@ pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
     // any gaps left by the user are filled with empty cells.
     // A show rule, can prevent the table from being properly laid out, in which
     // case cells will be missing.
-    if table_ctx.cells.iter().any(GridEntry::is_missing) {
+    if table_ctx.cells.is_empty() || table_ctx.cells.iter().any(GridEntry::is_missing) {
         // Insert all children, so the content is included in the tag tree,
         // otherwise krilla might panic.
         for cell in table_ctx.cells.iter().filter_map(GridEntry::as_cell) {

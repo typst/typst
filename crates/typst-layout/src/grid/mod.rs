@@ -10,7 +10,9 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, NativeElement, Packed, StyleChain};
 use typst_library::introspection::{Location, Locator, SplitLocator, Tag, TagFlags};
 use typst_library::layout::grid::resolve::Cell;
-use typst_library::layout::{Fragment, FrameItem, GridCell, GridElem, Point, Regions};
+use typst_library::layout::{
+    Fragment, FrameItem, FrameParent, GridCell, GridElem, Inherit, Point, Regions,
+};
 use typst_library::model::{TableCell, TableElem};
 
 use self::layouter::RowPiece;
@@ -57,12 +59,12 @@ pub fn layout_cell(
     if let Some((elem, loc, key)) = tags
         && let Some((first, remainder)) = frames.split_first_mut()
     {
-        let flags = TagFlags { introspectable: false, tagged: true };
+        let flags = TagFlags { introspectable: true, tagged: true };
         first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
         first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
 
         for frame in remainder.iter_mut() {
-            frame.set_parent(loc);
+            frame.set_parent(FrameParent::new(loc, Inherit::Yes));
         }
     }
 

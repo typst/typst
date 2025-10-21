@@ -15,9 +15,9 @@ use typst_library::layout::{
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
-    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem, LinkTarget,
+    ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -48,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
     rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_MARKER_RULE);
     rules.register(Html, FOOTNOTE_CONTAINER_RULE);
     rules.register(Html, FOOTNOTE_ENTRY_RULE);
     rules.register(Html, OUTLINE_RULE);
@@ -308,7 +309,11 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
         .pack()
         .styled(HtmlElem::role.set(Some("doc-noteref".into())));
 
-    Ok(HElem::hole().clone() + link)
+    // Indicates the presence of a default footnote rule to emit an error when
+    // no footnote container is available.
+    let marker = FootnoteMarker::new().pack().spanned(span);
+
+    Ok(HElem::hole().clone() + link + marker)
 };
 
 /// This is inserted at the end of the body to display footnotes. In the future,
@@ -325,23 +330,26 @@ impl FootnoteContainer {
 
     /// Fails with an error if there are footnotes.
     pub fn unsupported_with_custom_dom(engine: &Engine) -> SourceResult<()> {
-        let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
-        if notes.is_empty() {
+        let markers = engine.introspector.query(&FootnoteMarker::ELEM.select());
+        if markers.is_empty() {
             return Ok(());
         }
 
-        Err(notes
+        Err(markers
             .iter()
-            .map(|note| {
+            .map(|marker| {
                 error!(
-                    note.span(),
+                    marker.span(),
                     "footnotes are not currently supported in combination \
-                     with a custom `<html>` or `<body>` element"
+                     with a custom `<html>` or `<body>` element";
+                    hint: "you can still use footnotes with a custom footnote show rule"
                 )
             })
             .collect())
     }
 }
+
+const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
 const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
     let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
@@ -350,16 +358,22 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
     }
 
     // Create entries for all footnotes in the document.
-    let items = notes.into_iter().map(|note| {
+    let items = notes.into_iter().filter_map(|note| {
         let note = note.into_packed::<FootnoteElem>().unwrap();
+        if note.is_ref() {
+            return None;
+        }
+
         let loc = note.location().unwrap();
         let span = note.span();
-        HtmlElem::new(tag::li)
-            .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
-            .with_parent(loc)
-            .pack()
-            .located(loc.variant(1))
-            .spanned(span)
+        Some(
+            HtmlElem::new(tag::li)
+                .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
+                .with_parent(loc)
+                .pack()
+                .located(loc.variant(1))
+                .spanned(span),
+        )
     });
 
     // There can be multiple footnotes in a container, so they semantically

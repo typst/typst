@@ -3165,7 +3165,10 @@ dependencies = [
  "libfuzzer-sys",
  "typst",
  "typst-assets",
+ "typst-html",
+ "typst-pdf",
  "typst-render",
+ "typst-svg",
  "typst-syntax",
 ]
 
@@ -3238,6 +3241,7 @@ dependencies = [
  "codex",
  "comemo",
  "ecow",
+ "either",
  "hypher",
  "icu_properties 1.5.1",
  "icu_provider 1.5.0",

@@ -18,7 +18,6 @@
         - Tag: LBody
           /K:
             - Tag: P
-            - Tag: P
               /K:
                 - Content: page=0 mcid=2
     - Tag: LI

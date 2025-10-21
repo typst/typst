@@ -5,34 +5,34 @@
       /K:
         - Tag: Link
           /K:
+            - Annotation: page=0 index=0
             - Tag: Span
               /BaselineShift:   3.500
               /LineHeight:   6.000
               /K:
                 - Content: page=0 mcid=1
-            - Annotation: page=0 index=0
     - Tag: Note
       /K:
         - Tag: Lbl
           /K:
             - Tag: Link
               /K:
+                - Annotation: page=0 index=2
                 - Tag: Span
                   /BaselineShift:   2.975
                   /LineHeight:   5.100
                   /K:
                     - Content: page=0 mcid=5
-                - Annotation: page=0 index=2
         - Content: page=0 mcid=6
     - Content: page=0 mcid=2
     - Tag: Lbl
       /K:
         - Tag: Link
           /K:
+            - Annotation: page=0 index=1
             - Tag: Span
               /BaselineShift:   3.500
               /LineHeight:   6.000
               /K:
                 - Content: page=0 mcid=3
-            - Annotation: page=0 index=1
     - Content: page=0 mcid=4
