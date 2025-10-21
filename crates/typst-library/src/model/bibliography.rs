@@ -777,43 +777,24 @@ impl<'a> Generator<'a> {
                         })
                         .skip(after_skip)
                         .filter(|heading| {
-                            heading
-                                .level
-                                .get(StyleChain::default())
-                                .map(NonZeroUsize::get)
-                                .unwrap_or(1)
+                            heading.resolve_level(StyleChain::default()).get()
                                 <= heading_level.get()
                         })
                         .collect();
-                    let selector = match (headings_before.last(), headings_after.first())
-                    {
-                        (Some(first_heading_before), Some(first_heading_after)) => {
-                            &CiteGroup::ELEM
-                                .select()
-                                .before(
-                                    first_heading_after.location().unwrap().into(),
-                                    false,
-                                )
-                                .after(
-                                    first_heading_before.location().unwrap().into(),
-                                    false,
-                                )
-                        }
-                        (None, Some(first_heading_after)) => {
-                            &CiteGroup::ELEM.select().before(
-                                first_heading_after.location().unwrap().into(),
-                                false,
-                            )
-                        }
-                        (Some(first_heading_before), None) => {
-                            &CiteGroup::ELEM.select().after(
-                                first_heading_before.location().unwrap().into(),
-                                false,
-                            )
-                        }
-                        (None, None) => &CiteGroup::ELEM.select(),
-                    };
-                    introspector.query(selector)
+                    let mut selector = CiteGroup::ELEM.select();
+                    if let Some(first_heading_before) = headings_before.last() {
+                        selector = selector.after(
+                            first_heading_before.location().unwrap().into(),
+                            false,
+                        );
+                    }
+                    if let Some(first_heading_after) = headings_after.first() {
+                        selector = selector.before(
+                            first_heading_after.location().unwrap().into(),
+                            false,
+                        );
+                    }
+                    introspector.query(&selector)
                 }
                 Smart::Auto => citation_groups_all.clone(),
             };
