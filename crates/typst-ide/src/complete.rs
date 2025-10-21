@@ -11,6 +11,7 @@ use typst::foundations::{
 };
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
+use typst::syntax::package::PackageVersion;
 use typst::syntax::{
     FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
     is_ident,
@@ -1197,6 +1198,11 @@ impl<'a> CompletionContext<'a> {
         let mut packages: Vec<_> = self.world.packages().iter().collect();
         packages.sort_by_key(|(spec, _)| {
             (&spec.namespace, &spec.name, Reverse(spec.version))
+        });
+        let current = PackageVersion::compiler();
+        packages.retain(|(spec, _)| {
+            spec.compiler.map(|required| current.matches_ge(&required))
+                .unwrap_or(true)
         });
         if !all_versions {
             packages.dedup_by_key(|(spec, _)| (&spec.namespace, &spec.name));
