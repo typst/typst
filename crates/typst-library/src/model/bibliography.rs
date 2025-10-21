@@ -121,7 +121,7 @@ pub struct BibliographyElem {
 
     /// Defines the scope of the bibliography, when making a document with
     /// multiple bibliographies. The default will include citations from the
-    /// whole docuement.
+    /// whole document.
     ///
     /// This can be:
     /// - A list of labels corresponding to the citations that should be
@@ -132,6 +132,12 @@ pub struct BibliographyElem {
     /// - A selector of `cite` elements. The citations it selects will be
     ///   included in the bibliography.
     pub scope: Smart<BibliographyScope>,
+
+    /// When using multiple bibliographies in a single document, indicates
+    /// whether this bibliography should start numbering its citations after
+    /// the ones from previous bibliographies (`true`) or start at 1 (`false`).
+    #[default(true)]
+    pub shared_numbering: bool,
 
     /// The bibliography style.
     ///
@@ -836,7 +842,9 @@ impl<'a> Generator<'a> {
 
         for bibliography in &self.bibliographies {
             let mut driver = BibliographyDriver::new();
-            driver.citation_number_offset = Some(citation_count);
+            if bibliography.shared_numbering.as_option().unwrap() {
+                driver.citation_number_offset = Some(citation_count);
+            }
             let bibliography_style =
                 &bibliography.style.get_ref(StyleChain::default()).derived;
             let database = &bibliography.sources.derived;
@@ -956,8 +964,10 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
-            citation_count +=
-                rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
+            if bibliography.shared_numbering.as_option().unwrap() {
+                citation_count +=
+                    rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
+            }
         }
         rendered
     }
