@@ -720,7 +720,7 @@ impl<'a> Generator<'a> {
         let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
-            let bibliography_scope = &bibliography.scope.as_option().as_ref().unwrap();
+            let bibliography_scope = &bibliography.scope.get_ref(StyleChain::default());
             let bibliography_groups = match bibliography_scope {
                 Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
                     filter_cite_groups(citation_groups_all.clone(), |child| {
@@ -752,8 +752,7 @@ impl<'a> Generator<'a> {
                         .filter(|heading| {
                             heading
                                 .level
-                                .as_option()
-                                .unwrap()
+                                .get(StyleChain::default())
                                 .map(NonZeroUsize::get)
                                 .unwrap_or(1)
                                 <= heading_level.get()
@@ -761,7 +760,7 @@ impl<'a> Generator<'a> {
                         .collect();
                     // Bibliography may have a title which should be ignored for selection
                     let after_skip =
-                        match bibliography.title.as_option().as_ref().unwrap() {
+                        match bibliography.title.get_ref(StyleChain::default()) {
                             Smart::Auto => 1,
                             Smart::Custom(Some(_)) => 1,
                             Smart::Custom(None) => 0,
@@ -780,8 +779,7 @@ impl<'a> Generator<'a> {
                         .filter(|heading| {
                             heading
                                 .level
-                                .as_option()
-                                .unwrap()
+                                .get(StyleChain::default())
                                 .map(NonZeroUsize::get)
                                 .unwrap_or(1)
                                 <= heading_level.get()
@@ -842,7 +840,7 @@ impl<'a> Generator<'a> {
 
         for bibliography in &self.bibliographies {
             let mut driver = BibliographyDriver::new();
-            if bibliography.shared_numbering.as_option().unwrap() {
+            if bibliography.shared_numbering.get(StyleChain::default()) {
                 driver.citation_number_offset = Some(citation_count);
             }
             let bibliography_style =
@@ -964,7 +962,7 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
-            if bibliography.shared_numbering.as_option().unwrap() {
+            if bibliography.shared_numbering.get(StyleChain::default()) {
                 citation_count +=
                     rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
             }
