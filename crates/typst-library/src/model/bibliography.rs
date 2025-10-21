@@ -119,6 +119,18 @@ pub struct BibliographyElem {
     #[default(false)]
     pub full: bool,
 
+    /// Defines the scope of the bibliography, when making a document with
+    /// multiple bibliographies. The default will include citations from the
+    /// whole docuement.
+    ///
+    /// This can be:
+    /// - A list of labels corresponding to the citations that should be
+    ///   included within the bibliography.
+    /// - An integer indicating a heading level. Citations between the previous
+    ///   heading of that level (or of a higher level) and the next one will
+    ///   be included.
+    /// - A selector of `cite` elements. The citations it selects will be
+    ///   included in the bibliography.
     pub scope: Smart<BibliographyScope>,
 
     /// The bibliography style.
@@ -571,6 +583,7 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
+    /// Works for each bibliography
     pub works: FxHashMap<Span, IndivWorks>,
 }
 
@@ -656,10 +669,11 @@ struct Generator<'a> {
     world: Tracked<'a, dyn World + 'a>,
     /// The document's bibliographies.
     bibliographies: Vec<Packed<BibliographyElem>>,
-    /// The document's citation groups.
+    /// The document's citation groups for each bibliography.
     groups: FxHashMap<Span, EcoVec<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
+    /// Grouped by bibliography.
     infos: FxHashMap<Span, Vec<GroupInfo>>,
     /// Citations with unresolved keys.
     failures: FxHashMap<Location, SourceResult<Content>>,
