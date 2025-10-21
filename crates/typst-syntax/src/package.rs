@@ -230,6 +230,8 @@ pub struct PackageSpec {
     pub name: EcoString,
     /// The package's version.
     pub version: PackageVersion,
+    /// The compiler's minimal required version.
+    pub compiler: Option<VersionBound>,
 }
 
 impl PackageSpec {
@@ -249,7 +251,7 @@ impl FromStr for PackageSpec {
         let namespace = parse_namespace(&mut s)?.into();
         let name = parse_name(&mut s)?.into();
         let version = parse_version(&mut s)?;
-        Ok(Self { namespace, name, version })
+        Ok(Self { namespace, name, version, compiler: None })
     }
 }
 
@@ -281,6 +283,7 @@ impl VersionlessPackageSpec {
             namespace: self.namespace,
             name: self.name,
             version,
+            compiler: None,
         }
     }
 }
