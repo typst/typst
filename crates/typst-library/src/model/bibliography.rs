@@ -739,7 +739,7 @@ impl<'a> Generator<'a> {
                                 <= heading_level.get()
                         })
                         .collect();
-                    // Bibliography may had a title which should be ignored for selection
+                    // Bibliography may have a title which should be ignored for selection
                     let after_skip =
                         match bibliography.title.as_option().as_ref().unwrap() {
                             Smart::Auto => 1,
@@ -770,7 +770,7 @@ impl<'a> Generator<'a> {
                     let selector = match (headings_before.last(), headings_after.first())
                     {
                         (Some(first_heading_before), Some(first_heading_after)) => {
-                            &CiteElem::ELEM
+                            &CiteGroup::ELEM
                                 .select()
                                 .before(
                                     first_heading_after.location().unwrap().into(),
@@ -782,27 +782,20 @@ impl<'a> Generator<'a> {
                                 )
                         }
                         (None, Some(first_heading_after)) => {
-                            &CiteElem::ELEM.select().before(
+                            &CiteGroup::ELEM.select().before(
                                 first_heading_after.location().unwrap().into(),
                                 false,
                             )
                         }
                         (Some(first_heading_before), None) => {
-                            &CiteElem::ELEM.select().after(
+                            &CiteGroup::ELEM.select().after(
                                 first_heading_before.location().unwrap().into(),
                                 false,
                             )
                         }
-                        (None, None) => &CiteElem::ELEM.select(),
+                        (None, None) => &CiteGroup::ELEM.select(),
                     };
-                    let selection: Vec<Packed<CiteElem>> = introspector
-                        .query(selector)
-                        .into_iter()
-                        .map(|element| element.to_packed::<CiteElem>().unwrap().clone())
-                        .collect();
-                    filter_cite_groups(citation_groups_all.clone(), |child| {
-                        selection.contains(&child)
-                    })
+                    introspector.query(selector)
                 }
                 Smart::Auto => citation_groups_all.clone(),
             };
@@ -835,6 +828,7 @@ impl<'a> Generator<'a> {
             let database = &bibliography.sources.derived;
             let bibliography_span = bibliography.span();
 
+            // println!("{:?} {:?}",bibliography.title,self.groups.get(&bibliography_span).unwrap());
             // Process all citation groups.
             for elem in self.groups.get(&bibliography_span).unwrap() {
                 let group = elem.to_packed::<CiteGroup>().unwrap();
@@ -1019,7 +1013,7 @@ impl<'a> Generator<'a> {
 
                         content
                     };
-                    output.insert(info.location, Ok(content));
+                    output.entry(info.location).or_insert(Ok(content));
                 }
             }
         }
