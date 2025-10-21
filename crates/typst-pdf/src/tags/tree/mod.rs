@@ -202,20 +202,6 @@ pub fn step_end_tag(tree: &mut Tree, surface: &mut Surface) {
 
     if let Some(brk) = consume_break(tree) {
         step_break(tree, surface, prev, next, brk);
-    } else if let Some(unfinished) = consume_unfinished(tree) {
-        // In logical children the whole traversal state is popped off the
-        // stack. For grid cells we're still in the same traversal state, so we
-        // need to update it accordingly. The groups can't be closed since they
-        // will be closed later, so we just update the state since we've still
-        // moved out of them.
-        let mut current = prev;
-        while current != unfinished.group_to_close {
-            let group = tree.groups.get(current);
-            tree.state.pop_group(surface, current, group);
-            current = group.parent;
-        }
-
-        close_group(tree, surface, unfinished.group_to_close);
     } else {
         close_group(tree, surface, prev);
     }
@@ -406,12 +392,13 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::LogicalChild(inherit, logical_parent) => {
-            // `GroupKind::LogicalParent` handles inserting of children at its
-            // end, see above. Children of table/grid cells are always ordered
-            // correctly and are treated a little bit differently
-            if tree.groups.get(semantic_parent).kind.is_grid_layout_cell() {
-                tree.groups.push_group(direct_parent, id);
-            } else if *inherit == Inherit::No {
+            if *inherit == Inherit::No {
+                // If this logical child doesn't inherit its parent's styles and
+                // is not inside of an artifact, inserting it into a parent that
+                // is inside of an artifact would mean the content will be
+                // discarded. If that's the case, ignore the logical parent
+                // structure and insert it wherever it appeared in the frame
+                // tree.
                 let logical_parent_is_in_artifact = 'artifact: {
                     let mut current = tree.groups.get(*logical_parent).parent;
                     while current != GroupId::INVALID {
@@ -424,15 +411,17 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                     false
                 };
 
-                // If this logical child is of kind `LogicalChildKind::Insert`
-                // and not inside of an artifact, inserting it into a parent
-                // that is inside of an artifact would mean the content will be
-                // discarded. If that's the case, ignore the logical parent
-                // structure and insert it wherever it appeared in the frame
-                // tree.
                 if tree.parent_artifact().is_none() && logical_parent_is_in_artifact {
                     tree.groups.push_group(direct_parent, id);
                 }
+            } else if !matches!(
+                tree.groups.get(direct_parent).kind,
+                GroupKind::LogicalParent(_)
+            ) {
+                // `GroupKind::LogicalParent` handles inserting of children at its
+                // end, see above. Children of table/grid cells are always ordered
+                // correctly and are treated a little bit differently.
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Outline(..) => {

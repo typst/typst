@@ -521,13 +521,6 @@ impl GroupKind {
         matches!(self, Self::Link(..))
     }
 
-    pub fn is_grid_layout_cell(&self) -> bool {
-        matches!(
-            self,
-            Self::TableCell(..) | Self::GridCell(..) | Self::InternalGridCell(..)
-        )
-    }
-
     pub fn as_artifact(&self) -> Option<ArtifactType> {
         match *self {
             GroupKind::Artifact(ty) => Some(ty),
@@ -642,6 +635,8 @@ impl GroupKind {
             self,
             GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
                 | GroupKind::Transparent
+                | GroupKind::LogicalParent(..)
+                | GroupKind::LogicalChild(..)
                 | GroupKind::TextAttr(_)
                 | GroupKind::Par(_)
         )
