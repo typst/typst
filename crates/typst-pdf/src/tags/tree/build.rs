@@ -587,22 +587,8 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         return Ok(no_progress(tree));
     };
 
-    // Table/grid cells can only have overlapping tags if they are broken across
-    // multiple regions. In that case store the unfinished stack entries, and
-    // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if outer.kind.is_grid_layout_cell() {
-        if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-            tree.unfinished_stacks.insert(loc, stack);
-            tree.unfinished.push(Unfinished {
-                prog_idx: tree.progressions.len() as u32,
-                group_to_close: entry.id,
-            });
-        }
-        tree.stack.pop().unwrap();
-        return Ok(tree.parent());
-    }
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok, and how to do it.
