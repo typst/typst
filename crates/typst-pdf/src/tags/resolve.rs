@@ -3,6 +3,7 @@ use std::num::NonZeroU16;
 use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
+use smallvec::SmallVec;
 use typst_library::diag::{SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
 
@@ -509,7 +510,7 @@ fn validate_children_groups(
 ) {
     let parent_span = to_span(parent.location());
 
-    let mut has_caption = false;
+    let mut caption_spans = SmallVec::<[_; 3]>::new();
     let mut contains_leaf_nodes = false;
     for node in children {
         let Node::Group(child) = node else {
@@ -528,22 +529,28 @@ fn validate_children_groups(
                 hint: "{parent} may not contain {child}";
                 hint: "this is probably caused by a show rule"
             ));
+        } else if matches!(&child.tag, TagKind::Caption(_)) {
+            caption_spans.push(to_span(child.tag.location()));
         }
+    }
 
-        if matches!(&child.tag, TagKind::Caption(_)) {
-            if has_caption {
-                let validator = rs.options.standards.config.validator().as_str();
-                let span = to_span(child.tag.location()).or(parent_span);
-                let parent = tag_name(parent);
-                let child = tag_name(&child.tag);
-                rs.errors.push(error!(
-                    span,
-                    "{validator} error: invalid {parent} structure";
-                    hint: "{parent} may not contain multiple {child}";
-                    hint: "this is probably caused by a show rule"
-                ));
-            }
-            has_caption = true;
+    if caption_spans.len() > 1 {
+        let validator = rs.options.standards.config.validator().as_str();
+        let parent = tag_name(parent);
+        let child = tag_name(&Tag::Caption.into());
+
+        let caption_error = |span| {
+            error!(
+                span,
+                "{validator} error: invalid {parent} structure";
+                hint: "{parent} may not contain multiple {child} tags";
+                hint: "avoid manually calling `figure.caption`"
+            )
+        };
+        if caption_spans.iter().all(|s| !s.is_detached()) {
+            rs.errors.extend(caption_spans.into_iter().map(caption_error));
+        } else {
+            rs.errors.push(caption_error(parent_span));
         }
     }
 
