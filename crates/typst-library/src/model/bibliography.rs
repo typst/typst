@@ -649,24 +649,6 @@ impl Works {
     }
 }
 
-/// Filters cite groups based on their children
-fn filter_cite_groups<T: Fn(&Packed<CiteElem>) -> bool>(
-    citation_groups: EcoVec<Content>,
-    filter_function: T,
-) -> EcoVec<Content> {
-    citation_groups
-        .into_iter()
-        .filter(|group| {
-            group
-                .to_packed::<CiteGroup>()
-                .unwrap()
-                .children
-                .iter()
-                .all(&filter_function)
-        })
-        .collect()
-}
-
 /// Context for generating the bibliography.
 struct Generator<'a> {
     /// The routines that are used to evaluate mathematical material in citations.
@@ -723,19 +705,23 @@ impl<'a> Generator<'a> {
             let bibliography_scope = &bibliography.scope.get_ref(StyleChain::default());
             let bibliography_groups = match bibliography_scope {
                 Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
-                    filter_cite_groups(citation_groups_all.clone(), |child| {
-                        bibliography_labels.0.contains(&child.clone().unpack().key)
-                    })
+                    citation_groups_all
+                        .clone()
+                        .into_iter()
+                        .filter(|group| {
+                            group
+                                .to_packed::<CiteGroup>()
+                                .unwrap()
+                                .children
+                                .iter()
+                                .all(&(|child: &Packed<CiteElem>| {
+                                        bibliography_labels.0.contains(&child.clone().unpack().key)
+                                    }))
+                        })
+                        .collect()
                 }
                 Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
-                    let selection: Vec<Packed<CiteElem>> = introspector
-                        .query(bibliography_selector)
-                        .into_iter()
-                        .map(|element| element.to_packed::<CiteElem>().unwrap().clone())
-                        .collect();
-                    filter_cite_groups(citation_groups_all.clone(), |child| {
-                        selection.contains(&child)
-                    })
+                    introspector.query(&bibliography_selector.change_element(CiteGroup::ELEM))
                 }
                 Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
                     let bibliography_location = bibliography.location().unwrap();
