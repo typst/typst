@@ -386,8 +386,9 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
         let lang = figure.locale;
         let bbox = tree.ctx.new_bbox();
-        let id = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
-        push_group(tree, elem, GroupKind::Figure(id, bbox, lang))
+        let group_id = tree.groups.list.next_id();
+        let figure_id = tree.ctx.figures.push(FigureCtx::new(group_id, figure.clone()));
+        push_group(tree, elem, GroupKind::Figure(figure_id, bbox, lang))
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         let bbox = tree.ctx.new_bbox();
         push_group(tree, elem, GroupKind::FigureCaption(bbox, None))
@@ -400,9 +401,11 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let bbox = tree.ctx.new_bbox();
         push_group(tree, elem, GroupKind::Formula(equation.clone(), bbox, lang))
     } else if let Some(table) = elem.to_packed::<TableElem>() {
-        let id = tree.ctx.tables.push_with(|id| TableCtx::new(id, table.clone()));
+        let group_id = tree.groups.list.next_id();
+        let table_id = tree.ctx.tables.next_id();
+        tree.ctx.tables.push(TableCtx::new(group_id, table_id, table.clone()));
         let bbox = tree.ctx.new_bbox();
-        push_group(tree, elem, GroupKind::Table(id, bbox, None))
+        push_group(tree, elem, GroupKind::Table(table_id, bbox, None))
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         // Only repeated table headers and footer cells are laid out multiple
         // times. Mark duplicate headers as artifacts, since they have no
@@ -417,7 +420,8 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         };
         push_located(tree, elem, kind)
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
-        let id = tree.ctx.grids.push(GridCtx::new(grid));
+        let group_id = tree.groups.list.next_id();
+        let id = tree.ctx.grids.push(GridCtx::new(group_id, grid));
         push_group(tree, elem, GroupKind::Grid(id, None))
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // The grid cells are collected into a grid to ensure proper reading

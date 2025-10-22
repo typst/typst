@@ -1,6 +1,6 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
-use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
+use crate::tags::context::{BBoxCtx, BBoxId, Ctx};
 use crate::tags::groups::{Group, GroupKind, Groups, InternalGridCellKind};
 use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
@@ -401,7 +401,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             // Insert logical children when closing the logical parent, so they
             // are at the end of the group.
             if let Some(children) = tree.logical_children.get(&loc) {
-                tree.groups.extend_groups(id, children.iter().copied());
+                tree.groups.push_groups(id, children);
             }
             tree.groups.push_group(direct_parent, id);
         }
@@ -449,8 +449,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
-        GroupKind::Table(table, ..) => {
-            context::build_table(tree, *table, id);
+        GroupKind::Table(..) => {
             tree.groups.push_group(direct_parent, id);
         }
         &GroupKind::TableCell(ref cell, tag, _) => {
@@ -464,9 +463,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
-        GroupKind::Grid(grid, _) => {
-            let grid_ctx = tree.ctx.grids.get(*grid);
-            context::build_grid(grid_ctx, &mut tree.groups, id);
+        GroupKind::Grid(..) => {
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::GridCell(cell, _) => {
@@ -537,8 +534,16 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
+        GroupKind::FigureWrapper(..) => unreachable!("only generated below"),
         GroupKind::Figure(figure, ..) => {
-            context::build_figure(tree, *figure, direct_parent, id);
+            // Insert the wrapper.
+            let kind = GroupKind::FigureWrapper(*figure);
+            let wrapper = tree.groups.new_virtual(direct_parent, group.span, kind);
+            tree.groups.push_group(direct_parent, wrapper);
+
+            // Push the figure into the wrapper.
+            tree.groups.get_mut(id).parent = wrapper;
+            tree.groups.push_group(wrapper, id);
         }
         GroupKind::FigureCaption(..) => {
             if let GroupKind::Figure(figure, ..) = tree.groups.get(semantic_parent).kind {

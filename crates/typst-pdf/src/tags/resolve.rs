@@ -9,7 +9,7 @@ use typst_library::text::Locale;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
-use crate::tags::context::{Annotations, BBoxCtx, Ctx};
+use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
@@ -50,6 +50,10 @@ impl<'a> Resolver<'a> {
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
     gc.tags.tree.assert_finished_traversal();
+
+    if !disabled(gc) {
+        context::finish(&mut gc.tags.tree);
+    }
 
     let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
     let GroupKind::Root(mut doc_lang) = root.kind else { unreachable!() };
@@ -283,6 +287,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
         GroupKind::TermsItemLabel(_) => Tag::Lbl.into(),
         GroupKind::TermsItemBody(_, _) => Tag::LBody.into(),
         GroupKind::BibEntry(_) => Tag::BibEntry.into(),
+        GroupKind::FigureWrapper(id) => rs.ctx.figures.get(*id).build_wrapper_tag()?,
         GroupKind::Figure(id, _, _) => rs.ctx.figures.get(*id).build_tag()?,
         GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
         GroupKind::Image(image, _, _) => {
