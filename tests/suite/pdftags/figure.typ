@@ -90,14 +90,17 @@ Ein Paragraph.
 ]
 
 --- figure-tags-additional-caption-inside-table pdftags ---
-// Error: 7:4-7:38 PDF/UA-1 error: invalid table (Table) structure
-// Hint: 7:4-7:38 table (Table) may not contain multiple caption (Caption)
-// Hint: 7:4-7:38 this is probably caused by a show rule
+// Error: 19-35 PDF/UA-1 error: invalid table (Table) structure
+// Hint: 19-35 table (Table) may not contain multiple caption (Caption) tags
+// Hint: 19-35 avoid manually calling `figure.caption`
 #figure(caption: [The real caption])[
   #table(
     columns: 2,
     [A], [B],
     [C], [D],
   )
+// Error: 4-38 PDF/UA-1 error: invalid table (Table) structure
+// Hint: 4-38 table (Table) may not contain multiple caption (Caption) tags
+// Hint: 4-38 avoid manually calling `figure.caption`
   #figure.caption[Additional caption]
 ]
