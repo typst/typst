@@ -16,11 +16,28 @@ use crate::model::Numbering;
 /// element with the [`location()`]($content.location) method on content.
 ///
 /// # Locatable elements { #locatable }
-/// Currently, only a subset of element functions is locatable. Aside from
-/// headings and figures, this includes equations, references, quotes and all
-/// elements with an explicit label. As a result, you _can_ query for e.g.
-/// [`strong`] elements, but you will find only those that have an explicit
-/// label attached to them. This limitation will be resolved in the future.
+/// Elements that are automatically assigned a location are called _locatable._
+/// For efficiency reasons, not all elements are locatable.
+///
+/// - In the [Model category]($category/model), most elements are locatable.
+///   This is because semantic elements like [headings]($heading) and
+///   [figures]($figure) are often used with introspection.
+///
+/// - In the [Text category]($category/text), the [`raw`] element, and the
+///   decoration elements [`underline`], [`overline`], [`strike`], and
+///   [`highlight`] are locatable as these are also quite semantic in nature.
+///
+/// - In the [Introspection category]($category/introspection), the [`metadata`]
+///   element is locatable as being queried for is its primary purpose.
+///
+/// - In the other categories, most elements are not locatable. Exceptions are
+///   [`math.equation`] and [`image`].
+///
+/// To find out whether a specific element is locatable, you can try to
+/// [`query`] for it.
+///
+/// Note that you can still observe elements that are not locatable in queries
+/// through other means, for instance, when they have a label attached to them.
 #[ty(scope)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location(u128);

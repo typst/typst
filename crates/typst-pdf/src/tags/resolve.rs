@@ -505,10 +505,11 @@ fn validate_children_groups(
     rs: &mut Resolver,
     parent: &TagKind,
     children: &[Node],
-    is_valid: impl Fn(&TagKind) -> bool,
+    mut is_valid: impl FnMut(&TagKind) -> bool,
 ) {
     let parent_span = to_span(parent.location());
 
+    let mut has_caption = false;
     let mut contains_leaf_nodes = false;
     for node in children {
         let Node::Group(child) = node else {
@@ -527,6 +528,22 @@ fn validate_children_groups(
                 hint: "{parent} may not contain {child}";
                 hint: "this is probably caused by a show rule"
             ));
+        }
+
+        if matches!(&child.tag, TagKind::Caption(_)) {
+            if has_caption {
+                let validator = rs.options.standards.config.validator().as_str();
+                let span = to_span(child.tag.location()).or(parent_span);
+                let parent = tag_name(parent);
+                let child = tag_name(&child.tag);
+                rs.errors.push(error!(
+                    span,
+                    "{validator} error: invalid {parent} structure";
+                    hint: "{parent} may not contain multiple {child}";
+                    hint: "this is probably caused by a show rule"
+                ));
+            }
+            has_caption = true;
         }
     }
 
