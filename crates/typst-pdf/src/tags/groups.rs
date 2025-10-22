@@ -127,6 +127,7 @@ impl Groups {
             GroupKind::TermsItemLabel(..) => Never,
             GroupKind::TermsItemBody(..) => Never,
             GroupKind::BibEntry(..) => Never,
+            GroupKind::FigureWrapper(..) => Never,
             GroupKind::Figure(..) => Never,
             GroupKind::FigureCaption(..) => Never,
             GroupKind::Image(..) => Never,
@@ -211,6 +212,7 @@ impl Groups {
             | GroupKind::TermsItemLabel(..)
             | GroupKind::TermsItemBody(..)
             | GroupKind::BibEntry(..)
+            | GroupKind::FigureWrapper(..)
             | GroupKind::Figure(..)
             | GroupKind::FigureCaption(..)
             | GroupKind::Image(..)
@@ -268,11 +270,15 @@ impl Groups {
         id
     }
 
-    /// Prepend an existing group to the start of the parent.
+    /// Prepend multiple existing group to the start of the parent.
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn prepend_group(&mut self, parent: GroupId, child: GroupId) {
-        debug_assert!(self.check_ancestor(parent, child));
-        self.get_mut(parent).nodes.insert(0, TagNode::Group(child));
+    pub fn prepend_groups(&mut self, parent: GroupId, children: &[GroupId]) {
+        debug_assert!({
+            children.iter().all(|child| self.check_ancestor(parent, *child))
+        });
+        self.get_mut(parent)
+            .nodes
+            .splice(..0, children.iter().map(|id| TagNode::Group(*id)));
     }
 
     /// Append an existing group to the end of the parent.
@@ -284,15 +290,13 @@ impl Groups {
 
     /// Append multiple existing groups to the end of the parent.
     #[cfg_attr(debug_assertions, track_caller)]
-    pub fn extend_groups(
-        &mut self,
-        parent: GroupId,
-        children: impl ExactSizeIterator<Item = GroupId>,
-    ) {
-        self.get_mut(parent).nodes.reserve(children.len());
-        for child in children {
-            self.push_group(parent, child);
-        }
+    pub fn push_groups(&mut self, parent: GroupId, children: &[GroupId]) {
+        debug_assert!({
+            children.iter().all(|child| self.check_ancestor(parent, *child))
+        });
+        self.get_mut(parent)
+            .nodes
+            .extend(children.iter().map(|id| TagNode::Group(*id)));
     }
 
     /// Check whether the child's [`Group::parent`] is either the `parent` or an
@@ -436,6 +440,9 @@ pub enum GroupKind {
     TermsItemLabel(Option<Locale>),
     TermsItemBody(Option<GroupId>, Option<Locale>),
     BibEntry(Option<Locale>),
+    /// An wrapper element that enclosed the figure tag and its caption.
+    /// If there is no caption, this is omitted.
+    FigureWrapper(FigureId),
     Figure(FigureId, BBoxId, Option<Locale>),
     /// The figure caption has a bbox so marked content sequences won't expand
     /// the bbox of the parent figure group kind. The caption might be moved
@@ -489,6 +496,7 @@ impl std::fmt::Debug for GroupKind {
             Self::TermsItemLabel(..) => "TermsItemLabel",
             Self::TermsItemBody(..) => "TermsItemBody",
             Self::BibEntry(..) => "BibEntry",
+            Self::FigureWrapper(..) => "FigureWrapper",
             Self::Figure(..) => "Figure",
             Self::FigureCaption(..) => "FigureCaption",
             Self::Image(..) => "Image",
@@ -574,6 +582,7 @@ impl GroupKind {
             GroupKind::TermsItemLabel(lang) => lang,
             GroupKind::TermsItemBody(_, lang) => lang,
             GroupKind::BibEntry(lang) => lang,
+            GroupKind::FigureWrapper(_) => return None,
             GroupKind::Figure(_, _, lang) => lang,
             GroupKind::FigureCaption(_, lang) => lang,
             GroupKind::Image(_, _, lang) => lang,
@@ -607,6 +616,7 @@ impl GroupKind {
             GroupKind::TermsItemLabel(lang) => lang,
             GroupKind::TermsItemBody(_, lang) => lang,
             GroupKind::BibEntry(lang) => lang,
+            GroupKind::FigureWrapper(_) => return None,
             GroupKind::Figure(_, _, lang) => lang,
             GroupKind::FigureCaption(_, lang) => lang,
             GroupKind::Image(_, _, lang) => lang,
