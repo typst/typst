@@ -643,7 +643,10 @@ impl Lexer<'_> {
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                if self.s.from(start).graphemes(true).count() == 1 {
+                let (last_index, _) =
+                    self.s.from(start).grapheme_indices(true).next_back().unwrap();
+                if last_index == 0 {
+                    // If this was just a single grapheme.
                     SyntaxKind::MathText
                 } else {
                     let (kind, node) = self.math_ident_or_field(start);
