@@ -24,6 +24,7 @@ bumpalo = { workspace = true }
 codex = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+either = { workspace = true }
 hypher = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }

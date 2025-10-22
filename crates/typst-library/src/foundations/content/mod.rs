@@ -413,7 +413,7 @@ impl Content {
     }
 
     /// Traverse this content.
-    fn traverse<F, B>(&self, f: &mut F) -> ControlFlow<B>
+    pub fn traverse<F, B>(&self, f: &mut F) -> ControlFlow<B>
     where
         F: FnMut(Content) -> ControlFlow<B>,
     {
