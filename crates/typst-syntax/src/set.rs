@@ -63,7 +63,6 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Comma,
     Semicolon,
     RightParen,
-    Text,
     MathText,
     MathShorthand,
     Linebreak,
