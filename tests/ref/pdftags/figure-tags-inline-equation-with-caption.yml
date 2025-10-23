@@ -6,25 +6,22 @@
           /Placement: Block
           /K:
             - Content: page=0 mcid=8
-    - Tag: Div
-      /Placement: Block
+    - Tag: P
       /K:
-        - Tag: P
+        - Tag: Formula
+          /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
+          /BBox:
+            page: 0
+            left:    33.655
+            top:      8.552
+            right:   85.743
+            bottom:  17.660
           /K:
-            - Tag: Formula
-              /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
-              /BBox:
-                page: 0
-                left:    33.655
-                top:      8.552
-                right:   85.743
-                bottom:  17.660
-              /K:
-                - Content: page=0 mcid=0
-                - Content: page=0 mcid=1
-                - Content: page=0 mcid=2
-                - Content: page=0 mcid=3
-                - Content: page=0 mcid=4
-                - Content: page=0 mcid=5
-                - Content: page=0 mcid=6
-                - Content: page=0 mcid=7
+            - Content: page=0 mcid=0
+            - Content: page=0 mcid=1
+            - Content: page=0 mcid=2
+            - Content: page=0 mcid=3
+            - Content: page=0 mcid=4
+            - Content: page=0 mcid=5
+            - Content: page=0 mcid=6
+            - Content: page=0 mcid=7
