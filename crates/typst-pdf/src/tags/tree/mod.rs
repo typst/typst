@@ -1,7 +1,7 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{BBoxCtx, BBoxId, Ctx};
-use crate::tags::groups::{Group, GroupKind, Groups, InternalGridCellKind};
+use crate::tags::groups::{Group, GroupKind, Groups};
 use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
 use ecow::EcoVec;
@@ -607,18 +607,7 @@ fn semantic_parent(tree: &Tree, direct_parent: GroupId) -> GroupId {
     let mut parent = direct_parent;
     loop {
         let group = tree.groups.get(parent);
-        // While paragraphs, do have a semantic meaning, they are automatically
-        // generated and may interfere with other more strongly structured
-        // nesting groups. For example the `TermsItemLabel` might be wrapped by
-        // a paragraph, out of which it is moved into the parent `LI`.
-        let non_semantic = matches!(
-            group.kind,
-            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
-                | GroupKind::Par(_)
-                | GroupKind::TextAttr(_)
-                | GroupKind::Transparent
-        );
-        if !non_semantic {
+        if group.kind.is_semantic() {
             return parent;
         }
 

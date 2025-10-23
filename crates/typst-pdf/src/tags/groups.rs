@@ -630,4 +630,20 @@ impl GroupKind {
             GroupKind::Standard(_, lang) => lang,
         })
     }
+
+    /// Whether this group is a semantic parent or child group. Non-semantic
+    /// groups will be ignored when searching the tree hierarchy.
+    pub fn is_semantic(&self) -> bool {
+        // While paragraphs do have a semantic meaning, they are automatically
+        // generated and may interfere with other more strongly structured
+        // nesting groups. For example the `TermsItemLabel` might be wrapped by
+        // a paragraph, out of which it is moved into the parent `LI`.
+        !matches!(
+            self,
+            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
+                | GroupKind::Transparent
+                | GroupKind::TextAttr(_)
+                | GroupKind::Par(_)
+        )
+    }
 }
