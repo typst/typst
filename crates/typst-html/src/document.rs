@@ -177,7 +177,9 @@ fn root_element(output: OutputKind, info: &DocumentInfo) -> HtmlElement {
         OutputKind::Body(body) => body,
         OutputKind::Leaves(leaves) => HtmlElement::new(tag::body).with_children(leaves),
     };
-    HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()])
+    HtmlElement::new(tag::html)
+        .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066())
+        .with_children(eco_vec![head.into(), body.into()])
 }
 
 /// Generate a `<head>` element.
