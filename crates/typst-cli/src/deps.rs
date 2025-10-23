@@ -12,7 +12,7 @@ pub fn write_deps(
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
     match format {
-        DepsFormat::Json => write_deps_json(world, dest)?,
+        DepsFormat::Json => write_deps_json(world, dest, outputs)?,
         DepsFormat::Zero => write_deps_zero(world, dest)?,
         DepsFormat::Make => {
             if let Some(outputs) = outputs {
@@ -24,24 +24,55 @@ pub fn write_deps(
 }
 
 /// Writes dependencies in JSON format.
-fn write_deps_json(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
-    use serde::ser::{SerializeSeq, Serializer};
+fn write_deps_json(
+    world: &mut SystemWorld,
+    dest: &Output,
+    outputs: Option<&[Output]>,
+) -> io::Result<()> {
+    use serde::ser::{SerializeMap, Serializer};
 
     let dest = dest.open()?;
     let mut serializer = serde_json::Serializer::new(dest);
-    let mut seq = serializer.serialize_seq(None)?;
+    let mut map = serializer.serialize_map(Some(2))?;
 
-    for dep in relative_dependencies(world)? {
-        let string = dep.as_os_str().to_str().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("{dep:?} is not valid utf-8"),
-            )
-        })?;
-        seq.serialize_element(string)?;
+    // Build a Vector<String> of dependencies and add them as inputs to the JSON object.
+    let input_vec: Vec<String> = relative_dependencies(world)?
+        .map(|dep| {
+            dep.into_string().map_err(|dep| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Input {dep:?} is not valid utf-8"),
+                )
+            })
+        })
+        .collect::<io::Result<_>>()?;
+    map.serialize_entry("inputs", &input_vec)?;
+
+    // Build a Vector<String> of outputs and add them to the JSON object.
+    let mut output_vec: Vec<String> = Vec::new();
+    if let Some(outputs) = outputs {
+        for output in outputs {
+            match output {
+                Output::Path(path) => {
+                    output_vec.push(
+                        path.as_os_str()
+                            .to_str()
+                            .ok_or_else(|| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    format!("Output {path:?} is not valid utf-8"),
+                                )
+                            })?
+                            .to_owned(),
+                    );
+                }
+                Output::Stdout => {} // Skip stdout
+            }
+        }
     }
+    map.serialize_entry("outputs", &output_vec)?;
 
-    seq.end()?;
+    map.end()?;
     Ok(())
 }
 
