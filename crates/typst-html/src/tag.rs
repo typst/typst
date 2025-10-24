@@ -249,6 +249,7 @@ pub fn is_inline_by_default(tag: HtmlTag) -> bool {
             | self::sup
             | self::var
             | self::u
+            | self::mathml::math
     )
 }
 
@@ -267,5 +268,54 @@ pub fn is_tabular_by_default(tag: HtmlTag) -> bool {
             | self::caption
             | self::col
             | self::colgroup
+            | self::mathml::mtable
+            | self::mathml::mtr
+            | self::mathml::mtd
     )
+}
+
+/// Whether this is a foreign element which has a self-closing tag.
+pub fn is_foreign_self_closing(tag: HtmlTag) -> bool {
+    self::mathml::is_self_closing(tag)
+}
+
+/// Elements in the MathML namespace.
+/// (Only the ones defined in MathML Core at the moment.)
+pub mod mathml {
+    use super::HtmlTag;
+
+    pub const annotation: HtmlTag = HtmlTag::constant("annotation");
+    pub const annotation_xml: HtmlTag = HtmlTag::constant("annotation-xml");
+    pub const maction: HtmlTag = HtmlTag::constant("maction");
+    pub const math: HtmlTag = HtmlTag::constant("math");
+    pub const merror: HtmlTag = HtmlTag::constant("merror");
+    pub const mfrac: HtmlTag = HtmlTag::constant("mfrac");
+    pub const mi: HtmlTag = HtmlTag::constant("mi");
+    pub const mmultiscripts: HtmlTag = HtmlTag::constant("mmultiscripts");
+    pub const mn: HtmlTag = HtmlTag::constant("mn");
+    pub const mo: HtmlTag = HtmlTag::constant("mo");
+    pub const mover: HtmlTag = HtmlTag::constant("mover");
+    pub const mpadded: HtmlTag = HtmlTag::constant("mpadded");
+    pub const mphantom: HtmlTag = HtmlTag::constant("mphantom");
+    pub const mprescripts: HtmlTag = HtmlTag::constant("mprescripts");
+    pub const mroot: HtmlTag = HtmlTag::constant("mroot");
+    pub const mrow: HtmlTag = HtmlTag::constant("mrow");
+    pub const ms: HtmlTag = HtmlTag::constant("ms");
+    pub const mspace: HtmlTag = HtmlTag::constant("mspace");
+    pub const msqrt: HtmlTag = HtmlTag::constant("msqrt");
+    pub const mstyle: HtmlTag = HtmlTag::constant("mstyle");
+    pub const msub: HtmlTag = HtmlTag::constant("msub");
+    pub const msubsup: HtmlTag = HtmlTag::constant("msubsup");
+    pub const msup: HtmlTag = HtmlTag::constant("msup");
+    pub const mtable: HtmlTag = HtmlTag::constant("mtable");
+    pub const mtd: HtmlTag = HtmlTag::constant("mtd");
+    pub const mtext: HtmlTag = HtmlTag::constant("mtext");
+    pub const mtr: HtmlTag = HtmlTag::constant("mtr");
+    pub const munder: HtmlTag = HtmlTag::constant("munder");
+    pub const munderover: HtmlTag = HtmlTag::constant("munderover");
+    pub const semantics: HtmlTag = HtmlTag::constant("semantics");
+
+    pub fn is_self_closing(tag: HtmlTag) -> bool {
+        matches!(tag, self::mspace | self::mprescripts)
+    }
 }

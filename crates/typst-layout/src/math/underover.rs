@@ -2,7 +2,7 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use typst_library::math::{
-    OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
+    OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem, Position,
     UnderbraceElem, UnderbracketElem, UnderlineElem, UnderparenElem, UndershellElem,
 };
 use typst_library::text::TextElem;
@@ -18,12 +18,6 @@ const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
 const PAREN_GAP: Em = Em::new(0.25);
 const SHELL_GAP: Em = Em::new(0.25);
-
-/// A marker to distinguish under- and overlines.
-enum Position {
-    Under,
-    Over,
-}
 
 /// Lays out an [`UnderlineElem`].
 #[typst_macros::time(name = "math.underline", span = elem.span())]

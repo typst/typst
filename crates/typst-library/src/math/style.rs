@@ -1,6 +1,7 @@
 use codex::styling::MathVariant;
+use typst_utils::LazyHash;
 
-use crate::foundations::{Cast, Content, func};
+use crate::foundations::{Cast, Content, Style, StyleChain, func};
 use crate::math::EquationElem;
 
 /// Bold font style in math.
@@ -256,4 +257,40 @@ pub enum MathSize {
     Text,
     /// Math on its own line.
     Display,
+}
+
+/// Styles something as cramped.
+pub fn style_cramped() -> LazyHash<Style> {
+    EquationElem::cramped.set(true).wrap()
+}
+
+/// The style for subscripts in the current style.
+pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
+    [style_for_superscript(styles), EquationElem::cramped.set(true).wrap()]
+}
+
+/// The style for superscripts in the current style.
+pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display | MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
+}
+
+/// The style for numerators in the current style.
+pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display => MathSize::Text,
+            MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
+}
+
+/// The style for denominators in the current style.
+pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
+    [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
 }

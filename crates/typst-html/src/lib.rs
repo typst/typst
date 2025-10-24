@@ -9,6 +9,7 @@ mod dom;
 mod encode;
 mod fragment;
 mod link;
+mod mathml;
 mod rules;
 mod tag;
 mod typed;
@@ -108,6 +109,25 @@ impl HtmlElem {
         value: Option<impl Into<EcoString>>,
     ) -> Self {
         if let Some(value) = value { self.with_attr(attr, value) } else { self }
+    }
+
+    /// Add an attribute to the element.
+    pub fn push_attr(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
+        self.attrs
+            .as_option_mut()
+            .get_or_insert_with(Default::default)
+            .push(attr, value);
+    }
+
+    /// Adds the attribute to the element if value is not `None`.
+    pub fn push_optional_attr(
+        &mut self,
+        attr: HtmlAttr,
+        value: Option<impl Into<EcoString>>,
+    ) {
+        if let Some(value) = value {
+            self.push_attr(attr, value)
+        }
     }
 
     /// Adds CSS styles to an element.
