@@ -20,7 +20,7 @@ Text
 #html.elem("multi-word-component")[Hi]
 #html.elem("element-")[Hi]
 
---- html-elem-invalid ---
+--- html-elem-invalid render ---
 // Error: 12-24 the character "@" is not valid in a tag name
 #html.elem("my@element")
 

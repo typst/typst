@@ -1,17 +1,17 @@
 // Test context expressions.
 
---- context-body-atomic-in-markup ---
+--- context-body-atomic-in-markup render ---
 // Test that context body is parsed as atomic expression.
 #let c = [#context "hello".]
 #test(c.children.first().func(), (context none).func())
 #test(c.children.last(), [.])
 
---- context-element-constructor-forbidden ---
+--- context-element-constructor-forbidden render ---
 // Test that manual construction is forbidden.
 // Error: 2-25 cannot be constructed manually
 #(context none).func()()
 
---- context-in-show-rule ---
+--- context-in-show-rule render ---
 // Test that show rule establishes context.
 #set heading(numbering: "1.")
 #show heading: it => test(
@@ -22,7 +22,7 @@
 = Introduction <intro>
 = Background <back>
 
---- context-in-show-rule-query ---
+--- context-in-show-rule-query render ---
 // Test that show rule on non-locatable element allows `query`.
 // Error: 18-47 Assertion failed: 2 != 3
 #show emph: _ => test(query(heading).len(), 3)
@@ -31,13 +31,13 @@
 = Background
 *Hi* _there_
 
---- context-assign-to-captured-variable ---
+--- context-assign-to-captured-variable render ---
 // Test error when captured variable is assigned to.
 #let i = 0
 // Error: 11-12 variables from outside the context expression are read-only and cannot be modified
 #context (i = 1)
 
---- context-delayed-warning ---
+--- context-delayed-warning render ---
 // Ensure that the warning that triggers in the first layout iteration is not
 // surfaced since it goes away in the second one. Just like errors in show
 // rules.
@@ -50,6 +50,6 @@
   set text(font: fonts.at(n))
 }
 
---- context-body-is-closure ---
+--- context-body-is-closure render ---
 // Regression test since this used to be a hard crash.
 #(context (a: none) => {})

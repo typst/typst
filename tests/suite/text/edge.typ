@@ -1,6 +1,6 @@
 // Test top and bottom text edge.
 
---- text-edge ---
+--- text-edge render ---
 #set page(width: 160pt)
 #set text(size: 8pt)
 
@@ -28,14 +28,14 @@
 #try(4pt, -2pt)
 #try(1pt + 0.3em, -0.15em)
 
---- text-edge-bad-type ---
+--- text-edge-bad-type render ---
 // Error: 21-23 expected "ascender", "cap-height", "x-height", "baseline", "bounds", or length, found array
 #set text(top-edge: ())
 
---- text-edge-bad-value ---
+--- text-edge-bad-value render ---
 // Error: 24-26 expected "baseline", "descender", "bounds", or length
 #set text(bottom-edge: "")
 
---- text-edge-wrong-edge ---
+--- text-edge-wrong-edge render ---
 // Error: 24-36 expected "baseline", "descender", "bounds", or length
 #set text(bottom-edge: "cap-height")

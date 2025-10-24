@@ -1,4 +1,4 @@
---- gradient-linear-angled ---
+--- gradient-linear-angled render ---
 // Test gradients with direction.
 #set page(width: 90pt)
 #grid(
@@ -12,7 +12,7 @@
 )
 
 
---- gradient-linear-oklab ---
+--- gradient-linear-oklab render ---
 // The tests below test whether hue rotation works correctly.
 // Here we test in Oklab space for reference.
 #set page(
@@ -21,7 +21,7 @@
   fill: gradient.linear(red, purple, space: oklab)
 )
 
---- gradient-linear-oklch ---
+--- gradient-linear-oklch render ---
 // Test in OkLCH space.
 #set page(
   width: 100pt,
@@ -29,7 +29,7 @@
   fill: gradient.linear(red, purple, space: oklch)
 )
 
---- gradient-linear-hsv ---
+--- gradient-linear-hsv render ---
 // Test in HSV space.
 #set page(
   width: 100pt,
@@ -37,7 +37,7 @@
   fill: gradient.linear(red, purple, space: color.hsv)
 )
 
---- gradient-linear-hsl ---
+--- gradient-linear-hsl render ---
 // Test in HSL space.
 #set page(
   width: 100pt,
@@ -45,7 +45,7 @@
   fill: gradient.linear(red, purple, space: color.hsl)
 )
 
---- gradient-linear-relative-parent ---
+--- gradient-linear-relative-parent render ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
 #let grad = gradient.linear(red, blue, green, purple, relative: "parent")
@@ -60,7 +60,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-linear-relative-self ---
+--- gradient-linear-relative-self render ---
 // The image should look as if there are multiple gradients, one for each
 // rectangle.
 #let grad = gradient.linear(red, blue, green, purple, relative: "self")
@@ -75,7 +75,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-linear-relative-parent-block ---
+--- gradient-linear-relative-parent-block render ---
 // The image should look as if there are two nested gradients, one for the page
 // and one for a nested block. The rotated rectangles are not visible because
 // they are relative to the block.
@@ -98,7 +98,7 @@
   #place(bottom + center, rotate(45deg, my-rect))
 ]
 
---- gradient-linear-repeat-and-mirror-1 ---
+--- gradient-linear-repeat-and-mirror-1 render ---
 // Test repeated gradients.
 #rect(
   height: 40pt,
@@ -106,35 +106,35 @@
   fill: gradient.linear(..color.map.inferno).repeat(2, mirror: true)
 )
 
---- gradient-linear-repeat-and-mirror-2 ---
+--- gradient-linear-repeat-and-mirror-2 render ---
 #rect(
   height: 40pt,
   width: 100%,
   fill: gradient.linear(..color.map.rainbow).repeat(2, mirror: true),
 )
 
---- gradient-linear-repeat-and-mirror-3 ---
+--- gradient-linear-repeat-and-mirror-3 render ---
 #rect(
   height: 40pt,
   width: 100%,
   fill: gradient.linear(..color.map.rainbow).repeat(5, mirror: true)
 )
 
---- gradient-linear-sharp-and-repeat ---
+--- gradient-linear-sharp-and-repeat render ---
 #rect(
   height: 40pt,
   width: 100%,
   fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: false)
 )
 
---- gradient-linear-sharp-repeat-and-mirror ---
+--- gradient-linear-sharp-repeat-and-mirror render ---
 #rect(
   height: 40pt,
   width: 100%,
   fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: true)
 )
 
---- gradient-linear-sharp ---
+--- gradient-linear-sharp render ---
 #square(
   size: 100pt,
   fill: gradient.linear(..color.map.rainbow, space: color.hsl).sharp(10),
@@ -148,7 +148,7 @@
   fill: gradient.conic(..color.map.rainbow, space: color.hsl).sharp(10),
 )
 
---- gradient-linear-sharp-and-smooth ---
+--- gradient-linear-sharp-and-smooth render ---
 #square(
   size: 100pt,
   fill: gradient.linear(..color.map.rainbow, space: color.hsl).sharp(10, smoothness: 40%),
@@ -162,10 +162,10 @@
   fill: gradient.conic(..color.map.rainbow, space: color.hsl).sharp(10, smoothness: 40%),
 )
 
---- gradient-linear-stroke ---
+--- gradient-linear-stroke render ---
 #align(center + top, square(size: 50pt, fill: black, stroke: 5pt + gradient.linear(red, blue)))
 
---- gradient-fill-and-stroke ---
+--- gradient-fill-and-stroke render ---
 #align(
   center + bottom,
   square(
@@ -175,7 +175,7 @@
   )
 )
 
---- gradient-linear-stroke-relative-parent ---
+--- gradient-linear-stroke-relative-parent render ---
 // The image should look as if there is a single gradient that is being used for
 // both the circle stroke and the block fill.
 #align(
@@ -191,20 +191,20 @@
   )
 )
 
---- gradient-linear-line ---
+--- gradient-linear-line render ---
 // Test gradient on lines
 #set page(width: 100pt, height: 100pt)
 #line(length: 100%, stroke: 1pt + gradient.linear(red, blue))
 #line(length: 100%, angle: 10deg, stroke: 1pt + gradient.linear(red, blue))
 #line(length: 100%, angle: 10deg, stroke: 1pt + gradient.linear(red, blue, relative: "parent"))
 
---- gradient-radial-hsl ---
+--- gradient-radial-hsl render ---
 #square(
   size: 100pt,
   fill: gradient.radial(..color.map.rainbow, space: color.hsl),
 )
 
---- gradient-radial-center ---
+--- gradient-radial-center render ---
 #grid(
   columns: 2,
   square(
@@ -225,7 +225,7 @@
   ),
 )
 
---- gradient-radial-radius ---
+--- gradient-radial-radius render ---
 #square(
   size: 50pt,
   fill: gradient.radial(..color.map.rainbow, space: color.hsl, radius: 10%),
@@ -235,7 +235,7 @@
   fill: gradient.radial(..color.map.rainbow, space: color.hsl, radius: 72%),
 )
 
---- gradient-radial-focal-center-and-radius ---
+--- gradient-radial-focal-center-and-radius render ---
 #circle(
   radius: 25pt,
   fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (35%, 35%), focal-radius: 5%),
@@ -245,7 +245,7 @@
   fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (75%, 35%), focal-radius: 5%),
 )
 
---- gradient-radial-relative-parent ---
+--- gradient-radial-relative-parent render ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
 #let grad = gradient.radial(red, blue, green, purple, relative: "parent");
@@ -260,7 +260,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-radial-relative-self ---
+--- gradient-radial-relative-self render ---
 // The image should look as if there are multiple gradients, one for each
 // rectangle.
 #let grad = gradient.radial(red, blue, green, purple, relative: "self");
@@ -275,7 +275,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-radial-text ---
+--- gradient-radial-text render ---
 // Test that gradient fills on text.
 // The solid bar gradients are used to make sure that all transforms are
 // correct: if you can see the text through the bar, then the gradient is
@@ -285,31 +285,31 @@
 #set text(fill: gradient.radial(red, blue))
 #lorem(30)
 
---- gradient-conic ---
+--- gradient-conic render ---
 #square(
   size: 50pt,
   fill: gradient.conic(..color.map.rainbow, space: color.hsv),
 )
 
---- gradient-conic-center-shifted-1 ---
+--- gradient-conic-center-shifted-1 render ---
 #square(
   size: 50pt,
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, center: (10%, 10%)),
 )
 
---- gradient-conic-center-shifted-2 ---
+--- gradient-conic-center-shifted-2 render ---
 #square(
   size: 50pt,
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, center: (90%, 90%)),
 )
 
---- gradient-conic-angled ---
+--- gradient-conic-angled render ---
 #square(
   size: 50pt,
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, angle: 90deg),
 )
 
---- gradient-conic-oklab ---
+--- gradient-conic-oklab render ---
 // Test in Oklab space for reference.
 #set page(
   width: 100pt,
@@ -317,7 +317,7 @@
   fill: gradient.conic(red, purple, space: oklab)
 )
 
---- gradient-conic-oklch ---
+--- gradient-conic-oklch render ---
 // Test in OkLCH space.
 #set page(
   width: 100pt,
@@ -325,7 +325,7 @@
   fill: gradient.conic(red, purple, space: oklch)
 )
 
---- gradient-conic-hsv ---
+--- gradient-conic-hsv render ---
 // Test in HSV space.
 #set page(
   width: 100pt,
@@ -333,7 +333,7 @@
   fill: gradient.conic(red, purple, space: color.hsv)
 )
 
---- gradient-conic-hsl ---
+--- gradient-conic-hsl render ---
 // Test in HSL space.
 #set page(
   width: 100pt,
@@ -341,7 +341,7 @@
   fill: gradient.conic(red, purple, space: color.hsl)
 )
 
---- gradient-conic-relative-parent ---
+--- gradient-conic-relative-parent render ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
 #let grad = gradient.conic(red, blue, green, purple, relative: "parent");
@@ -356,7 +356,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-conic-relative-self ---
+--- gradient-conic-relative-self render ---
 // The image should look as if there are multiple gradients, one for each
 // rectangle.
 #let grad = gradient.conic(red, blue, green, purple, relative: "self");
@@ -371,7 +371,7 @@
 #place(top + right, my-rect)
 #place(bottom + center, rotate(45deg, my-rect))
 
---- gradient-conic-stroke ---
+--- gradient-conic-stroke render ---
 #align(
   center + bottom,
   square(
@@ -381,19 +381,19 @@
   )
 )
 
---- gradient-conic-text ---
+--- gradient-conic-text render ---
 #set page(width: 200pt, height: auto, margin: 10pt)
 #set par(justify: true)
 #set text(fill: gradient.conic(red, blue, angle: 45deg))
 #lorem(30)
 
---- gradient-text-bad-relative ---
+--- gradient-text-bad-relative render ---
 // Make sure they don't work when `relative: "self"`.
 // Hint: 17-61 make sure to set `relative: auto` on your text fill
 // Error: 17-61 gradients and tilings on text must be relative to the parent
 #set text(fill: gradient.linear(red, blue, relative: "self"))
 
---- gradient-text-global ---
+--- gradient-text-global render ---
 // Test that gradient fills on text work for globally defined gradients.
 #set page(width: 200pt, height: auto, margin: 10pt, background: {
   rect(width: 100%, height: 30pt, fill: gradient.linear(red, blue))
@@ -402,7 +402,7 @@
 #set text(fill: gradient.linear(red, blue))
 #lorem(30)
 
---- gradient-text-dir ---
+--- gradient-text-dir render ---
 // Sanity check that the direction works on text.
 #set page(width: 200pt, height: auto, margin: 10pt, background: {
   rect(height: 100%, width: 30pt, fill: gradient.linear(dir: btt, red, blue))
@@ -411,26 +411,26 @@
 #set text(fill: gradient.linear(dir: btt, red, blue))
 #lorem(30)
 
---- gradient-text-in-container ---
+--- gradient-text-in-container render ---
 // Test that gradient fills on text work for locally defined gradients.
 #set page(width: auto, height: auto, margin: 10pt)
 #show box: set text(fill: gradient.linear(..color.map.rainbow))
 Hello, #box[World]!
 
---- gradient-text-rotate ---
+--- gradient-text-rotate render ---
 // Test that gradients fills on text work with transforms.
 #set page(width: auto, height: auto, margin: 10pt)
 #show box: set text(fill: gradient.linear(..color.map.rainbow))
 #rotate(45deg, box[World])
 
---- gradient-text-decoration ---
+--- gradient-text-decoration render ---
 #set text(fill: gradient.linear(red, blue))
 
 Hello #underline[World]! \
 Hello #overline[World]! \
 Hello #strike[World]! \
 
---- gradient-transformed ---
+--- gradient-transformed render ---
 // Test whether gradients work well when they are contained within a transform.
 #let grad = gradient.linear(red, blue, green, purple, relative: "parent");
 #let my-rect = rect(width: 50pt, height: 50pt, fill: grad)
@@ -443,7 +443,7 @@ Hello #strike[World]! \
 #place(bottom + center, rotate(45deg, my-rect))
 #place(horizon + center, scale(x: 200%, y: 130%, rotate(45deg, my-rect)))
 
---- gradient-presets ---
+--- gradient-presets render ---
 // Test all gradient presets.
 #set page(width: 100pt, height: auto, margin: 0pt)
 #set text(fill: white, size: 18pt)
@@ -478,28 +478,28 @@ Hello #strike[World]! \
 
 // Test that gradients are applied correctly on equations.
 
---- gradient-math-cancel ---
+--- gradient-math-cancel render ---
 // Test on cancel
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 
 $ a dot cancel(5) = cancel(25) 5 x + cancel(5) 1 $
 
---- gradient-math-frac ---
+--- gradient-math-frac render ---
 // Test on frac
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 
 $ nabla dot bold(E) = frac(rho, epsilon_0) $
 
---- gradient-math-root ---
+--- gradient-math-root render ---
 // Test on root
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 
 $ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 
---- gradient-math-mat ---
+--- gradient-math-mat render ---
 // Test on matrix
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
@@ -510,7 +510,7 @@ $ A = mat(
   7, 8, 9
 ) $
 
---- gradient-math-underover ---
+--- gradient-math-underover render ---
 // Test on underover
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
@@ -518,7 +518,7 @@ $ A = mat(
 $ underline(X^2) $
 $ overline("hello, world!") $
 
---- gradient-math-dir ---
+--- gradient-math-dir render ---
 // Test a different direction
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow, dir: ttb))
 #show math.equation: box
@@ -531,7 +531,7 @@ $ A = mat(
 
 $ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 
---- gradient-math-misc ---
+--- gradient-math-misc render ---
 // Test miscellaneous
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
@@ -544,7 +544,7 @@ $ attach(
   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 ) $
 
---- gradient-math-radial ---
+--- gradient-math-radial render ---
 // Test radial gradient
 #show math.equation: set text(fill: gradient.radial(..color.map.rainbow, center: (30%, 30%)))
 #show math.equation: box
@@ -555,7 +555,7 @@ $ A = mat(
   7, 8, 9
 ) $
 
---- gradient-math-conic ---
+--- gradient-math-conic render ---
 // Test conic gradient
 #show math.equation: set text(fill: gradient.conic(red, blue, angle: 45deg))
 #show math.equation: box
@@ -567,21 +567,21 @@ $ A = mat(
 ) $
 
 
---- gradient-kind ---
+--- gradient-kind render ---
 // Test gradient functions.
 #test(gradient.linear(red, green, blue).kind(), gradient.linear)
 
---- gradient-stops ---
+--- gradient-stops render ---
 #test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
 
---- gradient-sample ---
+--- gradient-sample render ---
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
 #test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
 #test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
 
---- gradient-space ---
+--- gradient-space render ---
 #test(gradient.linear(red, green, space: rgb).space(), rgb)
 #test(gradient.linear(red, green, space: oklab).space(), oklab)
 #test(gradient.linear(red, green, space: oklch).space(), oklch)
@@ -591,19 +591,19 @@ $ A = mat(
 #test(gradient.linear(red, green, space: color.hsl).space(), color.hsl)
 #test(gradient.linear(red, green, space: color.hsv).space(), color.hsv)
 
---- gradient-relative ---
+--- gradient-relative render ---
 #test(gradient.linear(red, green, relative: "self").relative(), "self")
 #test(gradient.linear(red, green, relative: "parent").relative(), "parent")
 #test(gradient.linear(red, green).relative(), auto)
 
---- gradient-angle ---
+--- gradient-angle render ---
 #test(gradient.linear(red, green).angle(), 0deg)
 #test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
 #test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
 #test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
 #test(gradient.linear(red, green, dir: btt).angle(), 270deg)
 
---- gradient-repeat ---
+--- gradient-repeat render ---
 #test(
   gradient.linear(red, green, blue).repeat(2).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
@@ -613,7 +613,7 @@ $ A = mat(
   ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
 
---- issue-2902-gradient-oklch-panic ---
+--- issue-2902-gradient-oklch-panic render ---
 // Minimal reproduction of #2902
 #set page(width: 15cm, height: auto, margin: 1em)
 #set block(width: 100%, height: 1cm, above: 2pt)
@@ -623,7 +623,7 @@ $ A = mat(
 #block(fill: gradient.linear(..color.map.rainbow, space: oklch))
 #block(fill: gradient.linear(..color.map.plasma, space: oklch))
 
---- issue-2902-gradient-oklab-panic ---
+--- issue-2902-gradient-oklab-panic render ---
 #set page(width: 15cm, height: auto, margin: 1em)
 #set block(width: 100%, height: 1cm, above: 2pt)
 
@@ -632,7 +632,7 @@ $ A = mat(
 #block(fill: gradient.linear(..color.map.rainbow, space: oklab))
 #block(fill: gradient.linear(..color.map.plasma, space: oklab))
 
---- issue-gradient-cmyk-encode ---
+--- issue-gradient-cmyk-encode render ---
 // Test that CMYK works on gradients
 #set page(margin: 0pt, width: 100pt, height: auto)
 
@@ -659,7 +659,7 @@ $ A = mat(
   fill: gradient.linear(violet, blue, space: cmyk)
 )
 
---- issue-5819-gradient-repeat ---
+--- issue-5819-gradient-repeat render ---
 // Ensure the gradient constructor generates monotonic stops which can be fed
 // back into the gradient constructor itself.
 #let my-gradient = gradient.linear(red, blue).repeat(5)
@@ -667,7 +667,7 @@ $ A = mat(
 #let my-gradient2 = gradient.linear(red, blue).repeat(5, mirror: true)
 #let _ = gradient.linear(..my-gradient2.stops())
 
---- issue-6162-coincident-gradient-stops-export-png ---
+--- issue-6162-coincident-gradient-stops-export-png render ---
 // Ensure that multiple gradient stops with the same position
 // don't cause a panic.
 #rect(
@@ -693,5 +693,5 @@ $ A = mat(
   )
 )
 
---- issue-6680-gradient-linear-with-aspect-correction ---
+--- issue-6680-gradient-linear-with-aspect-correction render ---
 #set page(width: 200pt, height: auto, margin: 10pt, fill: gradient.linear(red, blue, angle: 45deg).sharp(2))

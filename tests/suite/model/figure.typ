@@ -23,14 +23,14 @@ We can clearly see that @fig-cylinder and
   caption: [The complex table.],
 ) <tab-complex>
 
---- figure-align ---
+--- figure-align render ---
 #show figure: set align(start)
 #figure(
   rect[This is \ left],
   caption: [Start-aligned]
 )
 
---- figure-table ---
+--- figure-table render ---
 // Testing figures with tables.
 #figure(
   table(
@@ -41,7 +41,7 @@ We can clearly see that @fig-cylinder and
   caption: "A table containing images."
 ) <fig-image-in-table>
 
---- figure-placement ---
+--- figure-placement render ---
 #set page(height: 160pt, columns: 2)
 #set place(clearance: 10pt)
 
@@ -77,12 +77,12 @@ We can clearly see that @fig-cylinder and
 
 #lines(15)
 
---- figure-scope-without-placement ---
+--- figure-scope-without-placement render ---
 // Error: 2-27 parent-scoped placement is only available for floating figures
 // Hint: 2-27 you can enable floating placement with `figure(placement: auto, ..)`
 #figure(scope: "parent")[]
 
---- figure-theorem ---
+--- figure-theorem render ---
 // Testing show rules with figures with a simple theorem display
 #show figure.where(kind: "theorem"): it => {
   set align(start)
@@ -141,14 +141,14 @@ We can clearly see that @fig-cylinder and
   caption: [Hello world in _rust_],
 )
 
---- figure-breakable ---
+--- figure-breakable render ---
 // Test breakable figures
 #set page(height: 6em)
 #show figure: set block(breakable: true)
 
 #figure(table[a][b][c][d][e], caption: [A table])
 
---- figure-caption-separator ---
+--- figure-caption-separator render ---
 // Test custom separator for figure caption
 #set figure.caption(separator: [ --- ])
 
@@ -157,7 +157,7 @@ We can clearly see that @fig-cylinder and
   caption: [The table with custom separator.],
 )
 
---- figure-caption-show ---
+--- figure-caption-show render ---
 // Test figure.caption element
 #show figure.caption: emph
 
@@ -166,7 +166,7 @@ We can clearly see that @fig-cylinder and
   caption: [Italicized],
 )
 
---- figure-caption-where-selector ---
+--- figure-caption-where-selector render ---
 // Test figure.caption element for specific figure kinds
 #show figure.caption.where(kind: table): underline
 
@@ -180,7 +180,7 @@ We can clearly see that @fig-cylinder and
   caption: [Underlined],
 )
 
---- figure-par ---
+--- figure-par render ---
 // Ensure that a figure body is considered a paragraph.
 #show par: highlight
 
@@ -191,7 +191,7 @@ We can clearly see that @fig-cylinder and
   caption: [A caption]
 )
 
---- figure-and-caption-show ---
+--- figure-and-caption-show render ---
 // Test creating custom figure and custom caption
 
 #let gap = 0.7em
@@ -223,14 +223,14 @@ We can clearly see that @fig-cylinder and
   supplement: [B],
 )
 
---- figure-caption-position ---
+--- figure-caption-position render ---
 #set figure.caption(position: top)
 
---- figure-caption-position-bad ---
+--- figure-caption-position-bad render ---
 // Error: 31-38 expected `top` or `bottom`, found horizon
 #set figure.caption(position: horizon)
 
---- figure-localization-fr ---
+--- figure-localization-fr render ---
 // Test French
 #set text(lang: "fr")
 #figure(
@@ -238,7 +238,7 @@ We can clearly see that @fig-cylinder and
   caption: [Un cercle.],
 )
 
---- figure-localization-zh ---
+--- figure-localization-zh render ---
 // Test Chinese
 #set text(lang: "zh")
 #figure(
@@ -246,7 +246,7 @@ We can clearly see that @fig-cylinder and
   caption: [一个矩形],
 )
 
---- figure-localization-ru ---
+--- figure-localization-ru render ---
 // Test Russian
 #set text(lang: "ru")
 
@@ -255,7 +255,7 @@ We can clearly see that @fig-cylinder and
     caption: [Пятиугольник],
 )
 
---- figure-localization-el ---
+--- figure-localization-el render ---
 // Test Greek
 #set text(lang: "el")
 #figure(
@@ -263,23 +263,23 @@ We can clearly see that @fig-cylinder and
   caption: [Ένας κύκλος.],
 )
 
---- issue-2165-figure-caption-panic ---
+--- issue-2165-figure-caption-panic render ---
 #figure.caption[]
 
---- issue-2328-figure-entry-panic ---
+--- issue-2328-figure-entry-panic render ---
 // Error: 4-43 footnote entry must have a location
 // Hint: 4-43 try using a query or a show rule to customize the footnote instead
 HI#footnote.entry(clearance: 2.5em)[There]
 
---- issue-2530-figure-caption-panic ---
+--- issue-2530-figure-caption-panic render ---
 #figure(caption: [test])[].caption
 
---- issue-3586-figure-caption-separator ---
+--- issue-3586-figure-caption-separator render ---
 // Test that figure caption separator is synthesized correctly.
 #show figure.caption: c => test(c.separator, [#": "])
 #figure(table[], caption: [This is a test caption])
 
---- issue-4966-figure-float-counter ---
+--- issue-4966-figure-float-counter render ---
 #let c = context counter(figure.where(kind: image)).display()
 #set align(center)
 

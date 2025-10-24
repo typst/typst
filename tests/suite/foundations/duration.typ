@@ -1,16 +1,16 @@
 // Test durations.
 
---- duration-negate ---
+--- duration-negate render ---
 // Test negating durations.
 #test(-duration(hours: 2), duration(hours: -2))
 
---- duration-add-and-subtract ---
+--- duration-add-and-subtract render ---
 // Test adding and subtracting durations.
 #test(duration(weeks: 1, hours: 1), duration(weeks: 1) + duration(hours: 1))
 #test(duration(weeks: 1, hours: -1), duration(weeks: 1) - duration(hours: 1))
 #test(duration(days: 6, hours: 23), duration(weeks: 1) - duration(hours: 1))
 
---- duration-add-and-subtract-dates ---
+--- duration-add-and-subtract-dates render ---
 // Test adding and subtracting durations and dates.
 #let d = datetime(day: 1, month: 1, year: 2000)
 #let d2 = datetime(day: 1, month: 2, year: 2000)
@@ -32,7 +32,7 @@
   datetime(day: 1, month: 1, year: 2001),
 )
 
---- duration-add-and-subtract-times ---
+--- duration-add-and-subtract-times render ---
 // Test adding and subtracting durations and times.
 #let a = datetime(hour: 12, minute: 0, second: 0)
 #test(a + duration(hours: 1, minutes: -60), datetime(hour: 12, minute: 0, second: 0))
@@ -50,7 +50,7 @@
   datetime(hour: 13, minute: 13, second: 13),
 )
 
---- duration-add-and-subtract-datetimes ---
+--- duration-add-and-subtract-datetimes render ---
 // Test adding and subtracting durations and datetimes.
 #test(
   datetime(day: 1, month: 1, year: 2000, hour: 12, minute: 0, second: 0)
@@ -64,7 +64,7 @@
   datetime(day: 10, month: 1, year: 2000, hour: 23, minute: 9, second: 50),
 )
 
---- duration-from-date-subtraction ---
+--- duration-from-date-subtraction render ---
 // Test subtracting dates.
 #let a = datetime(hour: 12, minute: 0, second: 0)
 #let b = datetime(day: 1, month: 1, year: 2000)
@@ -74,7 +74,7 @@
 #test(datetime(day: 1, month: 2, year: 2000) - b, duration(days: 31))
 #test(datetime(day: 15, month: 1, year: 2000) - b, duration(weeks: 2))
 
---- duration-multiply-with-number ---
+--- duration-multiply-with-number render ---
 // Test multiplying and dividing durations with numbers.
 #test(duration(minutes: 10) * 6, duration(hours: 1))
 #test(duration(minutes: 10) * 2, duration(minutes: 20))
@@ -82,13 +82,13 @@
 #test(duration(minutes: 10) / 2, duration(minutes: 5))
 #test(duration(minutes: 10) / 2.5, duration(minutes: 4))
 
---- duration-divide ---
+--- duration-divide render ---
 // Test dividing durations with durations
 #test(duration(minutes: 20) / duration(hours: 1), 1 / 3)
 #test(duration(minutes: 20) / duration(minutes: 10), 2)
 #test(duration(minutes: 20) / duration(minutes: 8), 2.5)
 
---- duration-compare ---
+--- duration-compare render ---
 // Test comparing durations
 #test(duration(minutes: 20) > duration(minutes: 10), true)
 #test(duration(minutes: 20) >= duration(minutes: 10), true)

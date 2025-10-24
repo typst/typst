@@ -1,6 +1,6 @@
 // Test sub- and superscript shifts.
 
---- sub-super ---
+--- sub-super render ---
 #let sq = box(square(size: 4pt))
 #table(
   columns: 3,
@@ -9,7 +9,7 @@
   [x#sub[1#sq]], [x#sub[5: #sq]], [x#sub(typographic: false)[2 #sq]],
 )
 
---- sub-super-typographic ---
+--- sub-super-typographic render ---
 #set text(size: 20pt)
 // Libertinus Serif supports "subs" and "sups" for `typo` and `sq`, but not for
 // `synth`.
@@ -19,7 +19,7 @@
 x#super(synth) x#super(typo) x#super(sq) \
 x#sub(synth) x#sub(typo) x#sub(sq)
 
---- sub-super-italic-compensation ---
+--- sub-super-italic-compensation render ---
 #set text(size: 20pt, style: "italic")
 // Libertinus Serif supports "subs" and "sups" for `typo`, but not for `synth`.
 #let synth = [1,2,3]
@@ -28,11 +28,11 @@ x#sub(synth) x#sub(typo) x#sub(sq)
 x#super(synth) x#super(typo) x#super(sq) \
 x#sub(synth) x#sub(typo) x#sub(sq)
 
---- sub-super-non-typographic ---
+--- sub-super-non-typographic render ---
 #set super(typographic: false, baseline: -0.25em, size: 0.7em)
 n#super[1], n#sub[2], ... n#super[N]
 
---- super-underline ---
+--- super-underline render ---
 #set underline(stroke: 0.5pt, offset: 0.15em)
 #set super(typographic: false)
 #underline[A#super[4]] B \
@@ -43,7 +43,7 @@ A #underline(super[4]) B \
 A#super[#underline[4]] B \
 A #underline(super[4]) B
 
---- super-highlight ---
+--- super-highlight render ---
 #set super(typographic: false)
 #highlight[A#super[4]] B \
 A#super[#highlight[4]] B \
@@ -53,18 +53,18 @@ A#super(highlight[4]) \
 A#super[#highlight[4]] B \
 A#super(highlight[4])
 
---- super-1em ---
+--- super-1em render ---
 #set text(size: 10pt)
 #super(context test(1em.to-absolute(), 10pt))
 
---- long-scripts ---
+--- long-scripts render ---
 |longscript| \
 |#super(typographic: true)[longscript]| \
 |#super(typographic: false)[longscript]| \
 |#sub(typographic: true)[longscript]| \
 |#sub(typographic: false)[longscript]|
 
---- script-metrics-bundled-fonts ---
+--- script-metrics-bundled-fonts render ---
 // Tests whether the script metrics are used properly by synthesizing
 // superscripts and subscripts for all bundled fonts.
 

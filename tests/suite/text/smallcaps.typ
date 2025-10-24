@@ -1,8 +1,8 @@
---- smallcaps ---
+--- smallcaps render ---
 // Test smallcaps.
 #smallcaps[Smallcaps]
 
---- smallcaps-show-rule ---
+--- smallcaps-show-rule render ---
 // There is no dedicated smallcaps font in typst-dev-assets, so we just use some
 // other font to test this show rule.
 #show smallcaps: set text(font: "PT Sans")

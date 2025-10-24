@@ -1,10 +1,10 @@
 // Test bullet lists.
 
---- list-basic ---
+--- list-basic render ---
 _Shopping list_
 #list[Apples][Potatoes][Juice]
 
---- list-nested ---
+--- list-nested render ---
 - First level.
 
   - Second level.
@@ -18,13 +18,13 @@ _Shopping list_
 
 - At the top.
 
---- list-content-block ---
+--- list-content-block render ---
 - Level 1
   - Level #[
 2 through content block
 ]
 
---- list-top-level-indent ---
+--- list-top-level-indent render ---
   - Top-level indent
 - is fine.
 
@@ -34,7 +34,7 @@ _Shopping list_
    - C
 - D
 
---- list-indent-trivia-nesting ---
+--- list-indent-trivia-nesting render ---
 // Test indent nesting behavior with odd trivia (comments and spaces). The
 // comments should _not_ affect the nesting. Only the final column matters.
 
@@ -77,7 +77,7 @@ _Shopping list_
 
 #test(indented, manual)
 
---- list-indent-bracket-nesting ---
+--- list-indent-bracket-nesting render ---
 // Test list indent nesting behavior when directly at a starting bracket.
 
 #let indented = {
@@ -120,42 +120,42 @@ _Shopping list_
 
 #test(indented, manual)
 
---- list-tabs ---
+--- list-tabs render ---
 // This works because tabs are used consistently.
 	- A with 1 tab
 		- B with 2 tabs
 
---- list-mixed-tabs-and-spaces ---
+--- list-mixed-tabs-and-spaces render ---
 // This doesn't work because of mixed tabs and spaces.
   - A with 2 spaces
 		- B with 2 tabs
 
---- list-syntax-edge-cases ---
+--- list-syntax-edge-cases render ---
 // Edge cases.
 -
 Not in list
 -Nope
 
---- list-marker-align-unaffected ---
+--- list-marker-align-unaffected render ---
 // Alignment shouldn't affect marker
 #set align(horizon)
 
 - ABCDEF\ GHIJKL\ MNOPQR
 
---- list-marker-dash ---
+--- list-marker-dash render ---
 // Test en-dash.
 #set list(marker: [--])
 - A
 - B
 
---- list-marker-cycle ---
+--- list-marker-cycle render ---
 // Test that items are cycled.
 #set list(marker: ([--], [•]))
 - A
   - B
     - C
 
---- list-marker-closure ---
+--- list-marker-closure render ---
 // Test function.
 #set list(marker: n => if n == 1 [--] else [•])
 - A
@@ -165,17 +165,17 @@ Not in list
     - E
 - F
 
---- list-marker-bare-hyphen ---
+--- list-marker-bare-hyphen render ---
 // Test that bare hyphen doesn't lead to cycles and crashes.
 #set list(marker: [-])
 - Bare hyphen is
 - a bad marker
 
---- list-marker-array-empty ---
+--- list-marker-array-empty render ---
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
 
---- list-attached ---
+--- list-attached render ---
 // Test basic attached list.
 Attached to:
 - the bottom
@@ -183,7 +183,7 @@ Attached to:
 
 Next paragraph.
 
---- list-attached-above-spacing ---
+--- list-attached-above-spacing render ---
 // Test that attached list isn't affected by block spacing.
 #show list: set block(above: 100pt)
 Hello
@@ -191,7 +191,7 @@ Hello
 World
 - B
 
---- list-non-attached-followed-by-attached ---
+--- list-non-attached-followed-by-attached render ---
 // Test non-attached list followed by attached list,
 // separated by only word.
 Hello
@@ -201,7 +201,7 @@ Hello
 World
 - B
 
---- list-tight-non-attached-tight ---
+--- list-tight-non-attached-tight render ---
 // Test non-attached tight list.
 #set block(spacing: 15pt)
 Hello
@@ -213,7 +213,7 @@ World
 
 More.
 
---- list-wide-cannot-attach ---
+--- list-wide-cannot-attach render ---
 // Test that wide lists cannot be ...
 #set par(spacing: 15pt)
 Hello
@@ -222,18 +222,18 @@ Hello
 - B
 World
 
---- list-wide-really-cannot-attach ---
+--- list-wide-really-cannot-attach render ---
 // ... even if forced to.
 Hello
 #list(tight: false)[A][B]
 World
 
---- list-items-context ---
+--- list-items-context render ---
 #context [+ A]
 #context [+ B]
 #context [+ C]
 
---- list-item-styling ---
+--- list-item-styling render ---
 - Hello
 #text(red)[- World]
 #text(green)[- What up?]
@@ -265,11 +265,11 @@ World
   - World // Paragraph because it's a wide list.
 ]
 
---- issue-2530-list-item-panic ---
+--- issue-2530-list-item-panic render ---
 // List item (pre-emptive)
 #list.item[Hello]
 
---- issue-1850-list-attach-spacing ---
+--- issue-1850-list-attach-spacing render ---
 // List attachment should only work with paragraphs, not other blocks.
 #set page(width: auto)
 #let part = box.with(stroke: 1pt, inset: 3pt)
@@ -289,7 +289,7 @@ World
   part($ x $ + parbreak() + parbreak() + list[A])
 }
 
---- issue-5503-list-in-align ---
+--- issue-5503-list-in-align render ---
 // `align` is block-level and should interrupt a list.
 #show list: [List]
 - a
@@ -297,7 +297,7 @@ World
 #align(right)[- i]
 - j
 
---- issue-5719-list-nested ---
+--- issue-5719-list-nested render ---
 // Lists can be immediately nested.
 - A
 - - B
@@ -305,7 +305,7 @@ World
 - = D
   E
 
---- issue-6242-tight-list-attach-spacing ---
+--- issue-6242-tight-list-attach-spacing render ---
 // Nested tight lists should be uniformly spaced when list spacing is set.
 #set list(spacing: 1.2em)
 - A

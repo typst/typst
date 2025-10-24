@@ -1,10 +1,10 @@
 // Test method calls.
 
---- method-whitespace ---
+--- method-whitespace render ---
 // Test whitespace around dot.
 #test( "Hi there" . split() , ("Hi", "there"))
 
---- method-mutating ---
+--- method-mutating render ---
 // Test mutating indexed value.
 #{
   let matrix = (((1,), (2,)), ((3,), (4,)))
@@ -12,7 +12,7 @@
   test(matrix, (((1,), (2,)), ((3, 5), (4,))))
 }
 
---- method-multiline ---
+--- method-multiline render ---
 // Test multiline chain in code block.
 #{
   let rewritten = "Hello. This is a sentence. And one more."
@@ -25,27 +25,27 @@
   test(rewritten, "Hello!\n This is a sentence!\n And one more!")
 }
 
---- method-unknown ---
+--- method-unknown render ---
 // Error: 2:10-2:13 type array has no method `fun`
 #let numbers = ()
 #numbers.fun()
 
---- method-unknown-but-field-exists ---
+--- method-unknown-but-field-exists render ---
 // Error: 2:4-2:10 element line has no method `stroke`
 // Hint: 2:4-2:10 did you mean to access the field `stroke`?
 #let l = line(stroke: red)
 #l.stroke()
 
---- method-mutate-on-temporary ---
+--- method-mutate-on-temporary render ---
 // Error: 2:2-2:43 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
 
---- assign-to-method-invalid ---
+--- assign-to-method-invalid render ---
 // Error: 2:3-2:19 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
 #(numbers.sorted() = 1)
 
---- method-mutate-on-std-constant ---
+--- method-mutate-on-std-constant render ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)

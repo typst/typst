@@ -1,12 +1,12 @@
---- math-primes ---
+--- math-primes render ---
 // Test dedicated syntax for primes
 $a'$, $a'''_b$, $'$, $'''''''$
 
---- math-primes-spaces ---
+--- math-primes-spaces render ---
 // Test spaces between
 $a' ' '$, $' ' '$, $a' '/b$
 
---- math-primes-complex ---
+--- math-primes-complex render ---
 // Test complex prime combinations
 $a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
 
@@ -18,11 +18,11 @@ $f_n'^a'$, $f^a'_n'$
 
 $ ∑'_S' $
 
---- math-primes-attach ---
+--- math-primes-attach render ---
 // Test attaching primes only
 $a' = a^', a_', a_'''^''^'$
 
---- math-primes-scripts ---
+--- math-primes-scripts render ---
 // Test primes always attaching as scripts
 $ x' $
 $ x^' $
@@ -32,7 +32,7 @@ $ attach(<, br: ') $
 $ op(<, limits: #true)' $
 $ limits(<)' $
 
---- math-primes-limits ---
+--- math-primes-limits render ---
 // Test forcefully attaching primes as limits
 $ attach(<, t: ') $
 $ <^' $
@@ -42,7 +42,7 @@ $ <_' $
 $ limits(x)^' $
 $ attach(limits(x), t: ') $
 
---- math-primes-after-code-expr ---
+--- math-primes-after-code-expr render ---
 // Test prime symbols after code mode.
 #let g = $f$
 #let gg = $f$
@@ -53,7 +53,7 @@ $
   gg'
 $
 
---- math-primes-with-superscript ---
+--- math-primes-with-superscript render ---
 // Test prime symbols don't raise the superscript position
 $
   sqrt(f)/f

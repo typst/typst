@@ -1,4 +1,4 @@
---- toml ---
+--- toml render ---
 // Test reading TOML data.
 #let data = toml("/assets/data/toml-types.toml")
 #test(data.string, "wonderful")
@@ -36,16 +36,16 @@
   second: 57,
 ))
 
---- toml-invalid ---
+--- toml-invalid render ---
 // Error: "/assets/data/bad.toml" 1:16-2:1 failed to parse TOML (expected `.`, `=`)
 #toml("/assets/data/bad.toml")
 
---- toml-decode-deprecated ---
+--- toml-decode-deprecated render ---
 // Warning: 15-21 `toml.decode` is deprecated, directly pass bytes to `toml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = toml.decode
 
---- toml-decode-integer ---
+--- toml-decode-integer render ---
 #import "edge-case.typ": representable-integer
 
 #for (name, source) in representable-integer {
@@ -57,7 +57,7 @@
   )
 }
 
---- toml-decode-integer-too-large ---
+--- toml-decode-integer-too-large render ---
 // If an integer cannot be represented losslessly, an error must be thrown.
 // https://toml.io/en/v1.0.0#integer
 
@@ -65,12 +65,12 @@
 // Error: 7-55 failed to parse TOML (number too large to fit in target type at 1:7)
 #toml(bytes("key = " + large-integer.i64-max-plus-one))
 
---- toml-decode-integer-too-small ---
+--- toml-decode-integer-too-small render ---
 #import "edge-case.typ": large-integer
 // Error: 7-56 failed to parse TOML (number too small to fit in target type at 1:7)
 #toml(bytes("key = " + large-integer.i64-min-minus-one))
 
---- toml-encode-any ---
+--- toml-encode-any render ---
 #import "edge-case.typ": special-types-for-human
 #for value in special-types-for-human {
   test(
@@ -79,10 +79,10 @@
   )
 }
 
---- toml-encode-non-table ---
+--- toml-encode-non-table render ---
 // Error: 14-15 expected dictionary, found integer
 #toml.encode(3)
 
---- toml-decode-non-table ---
+--- toml-decode-non-table render ---
 // Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
 #toml(bytes("3"))

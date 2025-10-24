@@ -1,6 +1,6 @@
 // Test counters.
 
---- counter-basic-1 ---
+--- counter-basic-1 render ---
 // Count with string key.
 #let mine = counter("mine!")
 
@@ -15,7 +15,7 @@ Second: #context mine.display("I")
 #mine.update(n => n * 2)
 #mine.step()
 
---- counter-basic-2 ---
+--- counter-basic-2 render ---
 // Test `counter`.
 #let c = counter("heading")
 #c.update(2)
@@ -24,7 +24,7 @@ Second: #context mine.display("I")
 #c.update(n => n - 3)
 #context test(c.at(here()), (1,))
 
---- counter-label ---
+--- counter-label render ---
 // Count labels.
 #let label = <heya>
 #let count = context counter(label).display()
@@ -33,7 +33,7 @@ Second: #context mine.display("I")
 #elem[hey, there!] #count \
 #elem[more here!] #count
 
---- counter-heading ---
+--- counter-heading render ---
 // Count headings.
 #set heading(numbering: "1.a.")
 #show heading: set text(10pt)
@@ -52,7 +52,7 @@ At Beta, it was #context {
   numbering(it.numbering, ..counter(heading).at(it.location()))
 }
 
---- counter-page ---
+--- counter-page render ---
 #set page(height: 50pt, margin: (bottom: 20pt, rest: 10pt))
 #lines(4)
 #set page(numbering: "(i)")
@@ -62,7 +62,7 @@ At Beta, it was #context {
 #counter(page).update(1)
 #lines(7)
 
---- counter-page-footer-before-set-page ---
+--- counter-page-footer-before-set-page render ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 A
 #pagebreak()
@@ -70,14 +70,14 @@ A
 #set page(fill: aqua)
 B
 
---- counter-page-header-before-set-page ---
+--- counter-page-header-before-set-page render ---
 #set page(numbering: "1", number-align: top + center, margin: (top: 20pt))
 A
 #counter(page).update(4)
 #set page(fill: aqua)
 B
 
---- counter-page-between-pages ---
+--- counter-page-between-pages render ---
 // The update happens conceptually between the pages.
 #set page(numbering: "1", margin: (bottom: 20pt))
 A
@@ -86,7 +86,7 @@ A
 #set page(number-align: top + center, margin: (top: 20pt, bottom: 10pt))
 B
 
---- counter-page-header-only-update ---
+--- counter-page-header-only-update render ---
 // Header should not be affected by default.
 // To affect it, put the counter update before the `set page`.
 #set page(
@@ -97,12 +97,12 @@ B
 
 #counter(page).update(5)
 
---- counter-page-footer-only-update ---
+--- counter-page-footer-only-update render ---
 // Footer should be affected by default.
 #set page(numbering: "1 / 1", margin: (bottom: 20pt))
 #counter(page).update(5)
 
---- counter-page-display ---
+--- counter-page-display render ---
 // Counter display should use numbering from style chain.
 #set page(
   numbering: "A",
@@ -110,7 +110,7 @@ B
   footer: context align(center, counter(page).display())
 )
 
---- counter-figure ---
+--- counter-figure render ---
 // Count figures.
 #figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]
 #figure(numbering: none, caption: [Four 'B's], kind: image, supplement: "Figure")[_BBBB!_]
@@ -118,14 +118,14 @@ B
 #counter(figure.where(kind: image)).update(n => n + 3)
 #figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]
 
---- counter-at-no-context ---
+--- counter-at-no-context render ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
 // Hint: 2-28 try wrapping this in a `context` expression
 // Hint: 2-28 the `context` expression should wrap everything that depends on this function
 #counter("key").at(<label>)
 
---- issue-2480-counter-reset ---
+--- issue-2480-counter-reset render ---
 #let q = counter("question")
 #let step-show =  q.step() + context q.display("1")
 #let g = grid(step-show, step-show, gutter: 2pt)
@@ -136,7 +136,7 @@ B
 #q.update(10)
 #g
 
---- issue-2480-counter-reset-2 ---
+--- issue-2480-counter-reset-2 render ---
 #set block(spacing: 3pt)
 #let c = counter("c")
 #let foo() = context {
@@ -153,7 +153,7 @@ B
 #block(foo())
 #foo()
 
---- issue-4626-counter-depth-skip ---
+--- issue-4626-counter-depth-skip render ---
 // When we step and skip a level, the levels should be filled with zeros, not
 // with ones.
 #let c = counter("c")
@@ -165,7 +165,7 @@ B
 #c.step(level: 3)
 #context test(c.get(), (1, 0, 1))
 
---- counter-huge ---
+--- counter-huge render ---
 // Test values greater than 32-bits
 #let c = counter("c")
 #c.update(100000000001)
@@ -175,7 +175,7 @@ B
 #c.update(n => n + 2)
 #context test(c.get(), (100000000004,))
 
---- counter-rtl ---
+--- counter-rtl render ---
 #set page(width: auto)
 #let c = counter("c")
 #let s = context c.display() + c.step()

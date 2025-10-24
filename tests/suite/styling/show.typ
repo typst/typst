@@ -1,6 +1,6 @@
 // Test show rules.
 
---- show-selector-basic ---
+--- show-selector-basic render ---
 // Override lists.
 #show list: it => "(" + it.children.map(v => v.body).join(", ") + ")"
 
@@ -10,13 +10,13 @@
 - D
 - E
 
---- show-selector-replace-and-show-set ---
+--- show-selector-replace-and-show-set render ---
 // Test full reset.
 #show heading: [B]
 #show heading: set text(size: 10pt, weight: 400)
 A #[= Heading] C
 
---- show-selector-discard ---
+--- show-selector-discard render ---
 // Test full removal.
 #show heading: none
 
@@ -24,7 +24,7 @@ Where is
 = There are no headings around here!
 my heading?
 
---- show-selector-realistic ---
+--- show-selector-realistic render ---
 // Test integrated example.
 #show heading: it => block({
   set text(10pt)
@@ -46,7 +46,7 @@ Some more text.
 = Task 2
 Another text.
 
---- show-in-show ---
+--- show-in-show render ---
 // Test set and show in code blocks.
 #show heading: it => {
   set text(red)
@@ -56,7 +56,7 @@ Another text.
 
 = Heading
 
---- show-nested-scopes ---
+--- show-nested-scopes render ---
 // Test that scoping works as expected.
 #{
   let world = [ World ]
@@ -73,37 +73,37 @@ Another text.
   world
 }
 
---- show-selector-replace ---
+--- show-selector-replace render ---
 #show heading: [1234]
 = Heading
 
---- show-unknown-field ---
+--- show-unknown-field render ---
 // Error: 25-29 heading does not have field "page"
 #show heading: it => it.page
 = Heading
 
---- show-text-element-discard ---
+--- show-text-element-discard render ---
 #show text: none
 Hey
 
---- show-selector-not-an-element-function ---
+--- show-selector-not-an-element-function render ---
 // Error: 7-12 only element functions can be used as selectors
 #show upper: it => {}
 
---- show-bad-replacement-type ---
+--- show-bad-replacement-type render ---
 // Error: 16-20 expected content or function, found integer
 #show heading: 1234
 = Heading
 
---- show-bad-selector-type ---
+--- show-bad-selector-type render ---
 // Error: 7-10 expected symbol, string, label, function, regex, or selector, found color
 #show red: []
 
---- show-selector-in-expression ---
+--- show-selector-in-expression render ---
 // Error: 7-25 show is only allowed directly in code and content blocks
 #(1 + show heading: none)
 
---- show-bare-basic ---
+--- show-bare-basic render ---
 #set page(height: 130pt)
 #set text(0.7em)
 
@@ -115,38 +115,38 @@ Hey
 #show: columns.with(2)
 #lines(16)
 
---- show-bare-content-block ---
+--- show-bare-content-block render ---
 // Test bare show in content block.
 A #[_B #show: c => [*#c*]; C_] D
 
---- show-bare-vs-set-text ---
+--- show-bare-vs-set-text render ---
 // Test style precedence.
 #set text(fill: eastern, size: 1.5em)
 #show: text.with(fill: forest)
 Forest
 
---- show-bare-replace-with-content ---
+--- show-bare-replace-with-content render ---
 #show: [Shown]
 Ignored
 
---- show-bare-in-expression ---
+--- show-bare-in-expression render ---
 // Error: 4-19 show is only allowed directly in code and content blocks
 #((show: body => 2) * body)
 
---- show-bare-missing-colon-closure ---
+--- show-bare-missing-colon-closure render ---
 // Error: 6 expected colon
 #show it => {}
 
---- show-bare-missing-colon ---
+--- show-bare-missing-colon render ---
 // Error: 6 expected colon
 #show it
 
---- show-recursive-identity ---
+--- show-recursive-identity render ---
 // Test basic identity.
 #show heading: it => it
 = Heading
 
---- show-multiple-rules ---
+--- show-multiple-rules render ---
 // Test more recipes down the chain.
 #show list: scale.with(origin: left, x: 80%)
 #show heading: []
@@ -156,7 +156,7 @@ Ignored
 - List
 = Nope
 
---- show-rule-in-function ---
+--- show-rule-in-function render ---
 // Test show rule in function.
 #let starwars(body) = {
   show list: it => block({
@@ -179,7 +179,7 @@ Ignored
 
 - Normal list
 
---- show-recursive-multiple ---
+--- show-recursive-multiple render ---
 // Test multi-recursion with nested lists.
 #set rect(inset: 3pt)
 #show list: rect.with(stroke: blue)
@@ -191,7 +191,7 @@ Ignored
   - List
 - Recursive!
 
---- show-selector-where ---
+--- show-selector-where render ---
 // Inline code.
 #show raw.where(block: false): box.with(
   radius: 2pt,
@@ -221,7 +221,7 @@ code!("it");
 You can use the ```rs *const T``` pointer or
 the ```rs &mut T``` reference.
 
---- show-set-where-override ---
+--- show-set-where-override render ---
 #show heading: set text(green)
 #show heading.where(level: 1): set text(red)
 #show heading.where(level: 2): set text(blue)
@@ -229,7 +229,7 @@ the ```rs &mut T``` reference.
 == Blue
 === Green
 
---- show-selector-or-elements-with-set ---
+--- show-selector-or-elements-with-set render ---
 // Looking forward to `heading.where(level: 1 | 2)` :)
 #show heading.where(level: 1).or(heading.where(level: 2)): set text(red)
 = L1
@@ -237,19 +237,19 @@ the ```rs &mut T``` reference.
 === L3
 ==== L4
 
---- show-selector-element-or-label ---
+--- show-selector-element-or-label render ---
 // Test element selector combined with label selector.
 #show selector(strong).or(<special>): highlight
 I am *strong*, I am _emphasized_, and I am #[special<special>].
 
---- show-selector-element-or-text ---
+--- show-selector-element-or-text render ---
 // Ensure that text selector cannot be nested in and/or. That's too complicated,
 // at least for now.
 
 // Error: 7-41 this selector cannot be used with show
 #show heading.where(level: 1).or("more"): set text(red)
 
---- show-delayed-error ---
+--- show-delayed-error render ---
 // Error: 21-34 panicked with: "hey1"
 #show heading: _ => panic("hey1")
 
@@ -259,7 +259,7 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 = Hello
 *strong*
 
---- issue-5690-oom-par-box ---
+--- issue-5690-oom-par-box render ---
 // Error: 3:6-5:1 maximum grouping depth exceeded
 #show par: box
 

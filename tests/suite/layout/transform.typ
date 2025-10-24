@@ -1,6 +1,6 @@
 // Test transformations.
 
---- transform-tex-logo ---
+--- transform-tex-logo render ---
 // Test creating the TeX and XeTeX logos.
 #let size = 11pt
 #let tex = {
@@ -27,20 +27,20 @@
 Neither #tex, \
 nor #xetex!
 
---- transform-rotate-and-scale ---
+--- transform-rotate-and-scale render ---
 // Test combination of scaling and rotation.
 #set page(height: 80pt)
 #align(center + horizon,
   rotate(20deg, scale(70%, image("/assets/images/tiger.jpg")))
 )
 
---- transform-rotate-origin ---
+--- transform-rotate-origin render ---
 // Test setting rotation origin.
 #rotate(10deg, origin: top + left,
   image("/assets/images/tiger.jpg", width: 50%)
 )
 
---- transform-scale-origin ---
+--- transform-scale-origin render ---
 // Test setting scaling origin.
 #let r = rect(width: 100pt, height: 10pt, fill: forest)
 #set page(height: 65pt)
@@ -48,7 +48,7 @@ nor #xetex!
 #box(scale(r, x: 50%, origin: center))
 #box(scale(r, x: 50%, y: 200%, origin: right + bottom))
 
---- transform-rotate ---
+--- transform-rotate render ---
 // Test that rotation impact layout.
 #set page(width: 200pt)
 #set rotate(reflow: true)
@@ -58,7 +58,7 @@ nor #xetex!
   one(angle * 1deg)
 }
 
---- transform-rotate-relative-sizing ---
+--- transform-rotate-relative-sizing render ---
 // Test relative sizing in rotated boxes.
 #set page(width: 200pt, height: 200pt)
 #set text(size: 32pt)
@@ -73,7 +73,7 @@ Hello #rotated[World]!\
 #set rotate(reflow: true)
 Hello #rotated[World]!
 
---- transform-scale ---
+--- transform-scale render ---
 // Test that scaling impacts layout.
 #set page(width: 200pt)
 #set text(size: 32pt)
@@ -89,7 +89,7 @@ Hello #scaled[World]!
 #set scale(reflow: true)
 Hello #scaled[World]!
 
---- transform-scale-relative-sizing ---
+--- transform-scale-relative-sizing render ---
 // Test relative sizing in scaled boxes.
 #set page(width: 200pt, height: 200pt)
 #set text(size: 32pt)
@@ -105,7 +105,7 @@ Hello #scaled[World]!\
 #set scale(reflow: true)
 Hello #scaled[World]!
 
---- transform-scale-abs-and-auto ---
+--- transform-scale-abs-and-auto render ---
 // Test scaling by absolute lengths and auto.
 #set page(width: 200pt, height: 200pt)
 #let cylinder = image("/assets/images/cylinder.svg")
@@ -116,7 +116,7 @@ Hello #scaled[World]!
 #scale(x: 100pt, y: auto, reflow: true, cylinder)
 #scale(x: 150%, y: auto, reflow: true, cylinder)
 
---- transform-skew ---
+--- transform-skew render ---
 // Test skewing along one axis.
 #set page(width: 100pt, height: 60pt)
 #set text(size: 12pt)
@@ -128,7 +128,7 @@ Hello #skewed[World]!
 #set skew(reflow: true)
 Hello #skewed[World]!
 
---- transform-skew-both-axes ---
+--- transform-skew-both-axes render ---
 // Test skewing along both axes.
 #set page(width: 100pt, height: 250pt)
 #set text(size: 12pt)
@@ -139,7 +139,7 @@ Hello #skewed[World]!
   skewed(angle * 1deg)
 }
 
---- transform-skew-origin ---
+--- transform-skew-origin render ---
 // Test setting skewing origin.
 #set page(width: 100pt, height:40pt)
 #set text(spacing: 20pt)
@@ -151,7 +151,7 @@ Hello #skewed[World]!
 #skew-square(top+right)
 #skew-square(horizon+right)
 
---- transform-skew-relative-sizing ---
+--- transform-skew-relative-sizing render ---
 // Test relative sizing in skewed boxes.
 #set page(width: 100pt, height: 60pt)
 #set text(size: 12pt)
@@ -166,7 +166,7 @@ Hello #skewed[World]!\
 #set skew(reflow: true)
 Hello #skewed[World]!
 
---- transform-combinations ---
+--- transform-combinations render ---
 #block[
   #rect(width: 10pt, height: 10pt)
   #block(inset: 10pt)[

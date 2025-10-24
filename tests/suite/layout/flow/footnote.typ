@@ -14,12 +14,12 @@ Second #footnote[A, #footnote[B, #footnote[C]]]
 Third #footnote[D, #footnote[E]] \
 Fourth #footnote[F]
 
---- footnote-nested-break-across-pages ---
+--- footnote-nested-break-across-pages render ---
 #set page(height: 80pt)
 A #footnote([I: ] + lines(6) + footnote[II])
 B #footnote[III]
 
---- footnote-entry ---
+--- footnote-entry render ---
 // Test customization.
 #show footnote: set text(red)
 #show footnote.entry: set text(8pt, style: "italic")
@@ -63,7 +63,7 @@ An "A" #footnote[A "B"]
 #show par: set smartquote(quotes: ("[", "]"))
 An "A" #footnote[A "B"]
 
---- footnote-break-across-pages ---
+--- footnote-break-across-pages render ---
 #set page(height: 200pt)
 
 #lines(2)
@@ -78,7 +78,7 @@ An "A" #footnote[A "B"]
 #lines(6)
 #footnote[V] // 5
 
---- footnote-break-across-pages-block ---
+--- footnote-break-across-pages-block render ---
 #set page(height: 100pt)
 #block[
   #lines(3) #footnote(lines(6, "1"))
@@ -86,7 +86,7 @@ An "A" #footnote[A "B"]
   #footnote[Z]
 ]
 
---- footnote-break-across-pages-float ---
+--- footnote-break-across-pages-float render ---
 #set page(height: 180pt)
 
 #lines(5)
@@ -102,7 +102,7 @@ An "A" #footnote[A "B"]
 
 #lines(5)
 
---- footnote-break-across-pages-nested ---
+--- footnote-break-across-pages-nested render ---
 #set page(height: 120pt)
 #block[
   #lines(4)
@@ -112,7 +112,7 @@ An "A" #footnote[A "B"]
   ]
 ]
 
---- footnote-in-columns ---
+--- footnote-in-columns render ---
 #set page(height: 120pt, columns: 2)
 
 #place(
@@ -129,7 +129,7 @@ An "A" #footnote[A "B"]
 #lines(2)
 #footnote(lines(2, "1"))
 
---- footnote-in-list ---
+--- footnote-in-list render ---
 #set page(height: 120pt)
 
 - A #footnote[a]
@@ -140,12 +140,12 @@ An "A" #footnote[A "B"]
 - F #footnote[f]
 - G #footnote[g]
 
---- footnote-block-at-end ---
+--- footnote-block-at-end render ---
 #set page(height: 50pt)
 A
 #block(footnote[hello])
 
---- footnote-block-fr ---
+--- footnote-block-fr render ---
 #set page(height: 110pt)
 A
 #block(width: 100%, height: 1fr, fill: aqua)[
@@ -153,7 +153,7 @@ A
 ]
 C
 
---- footnote-float-priority ---
+--- footnote-float-priority render ---
 #set page(height: 100pt)
 
 #lines(3)
@@ -174,7 +174,7 @@ C
 
 #lines(5)
 
---- footnote-in-caption ---
+--- footnote-in-caption render ---
 // Test footnote in caption.
 Read the docs #footnote[https://typst.app/docs]!
 #figure(
@@ -185,7 +185,7 @@ Read the docs #footnote[https://typst.app/docs]!
 )
 More #footnote[just for ...] footnotes #footnote[... testing. :)]
 
---- footnote-in-place ---
+--- footnote-in-place render ---
 A
 #place(top + right, footnote[A])
 #figure(
@@ -194,7 +194,7 @@ A
   rect(),
 )
 
---- footnote-duplicate ---
+--- footnote-duplicate render ---
 // Test duplicate footnotes.
 #let lang = footnote[Languages.]
 #let nums = footnote[Numbers.]
@@ -214,7 +214,7 @@ A
   [123], [A number #nums],
 )
 
---- footnote-invariant ---
+--- footnote-invariant render ---
 // Ensure that a footnote and the first line of its entry
 // always end up on the same page.
 #set page(height: 120pt)
@@ -223,12 +223,12 @@ A
 
 A #footnote(lines(6, "1"))
 
---- footnote-ref ---
+--- footnote-ref render ---
 // Test references to footnotes.
 A footnote #footnote[Hi]<fn> \
 A reference to it @fn
 
---- footnote-self-ref ---
+--- footnote-self-ref render ---
 // Error: 2-16 footnote cannot reference itself
 #footnote(<fn>) <fn>
 
@@ -243,31 +243,31 @@ Fourth ref @fn4 \
 Second ref @fn2 \
 Second ref again @fn2
 
---- footnote-ref-forward ---
+--- footnote-ref-forward render ---
 // Forward reference
 Usage @fn \
 Definition #footnote[Hi]<fn>
 
---- footnote-ref-in-footnote ---
+--- footnote-ref-in-footnote render ---
 // Footnote ref in footnote
 #footnote[Reference to next @fn]
 #footnote[Reference to myself @fn]<fn>
 #footnote[Reference to previous @fn]
 
---- footnote-styling ---
+--- footnote-styling render ---
 // Styling
 #show footnote: text.with(fill: red)
 Real #footnote[...]<fn> \
 Ref @fn
 
---- footnote-ref-call ---
+--- footnote-ref-call render ---
 // Footnote call with label
 #footnote(<fn>)
 #footnote[Hi]<fn>
 #ref(<fn>)
 #footnote(<fn>)
 
---- footnote-in-table ---
+--- footnote-in-table render ---
 // Test footnotes in tables. When the table spans multiple pages, the footnotes
 // will all be after the table, but it shouldn't create any empty pages.
 #set page(height: 100pt)
@@ -290,13 +290,13 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
---- footnote-multiple-in-one-line ---
+--- footnote-multiple-in-one-line render ---
 #set page(height: 100pt)
 #v(50pt)
 A #footnote[a]
 B #footnote[b]
 
---- issue-1433-footnote-in-list ---
+--- issue-1433-footnote-in-list render ---
 // Test that footnotes in lists do not produce extraneous page breaks. The list
 // layout itself does not currently react to the footnotes layout, weakening the
 // "footnote and its entry are on the same page" invariant somewhat, but at
@@ -307,27 +307,27 @@ B #footnote[b]
 - #footnote[1]
 - #footnote[2]
 
---- issue-footnotes-skip-first-page ---
+--- issue-footnotes-skip-first-page render ---
 // In this issue, we would get an empty page at the beginning because footnote
 // layout didn't properly check for in_last.
 #set page(height: 50pt)
 #footnote[A]
 #footnote[B]
 
---- issue-4454-footnote-ref-numbering ---
+--- issue-4454-footnote-ref-numbering render ---
 // Test that footnote references are numbered correctly.
 A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 
---- issue-5354-footnote-empty-frame-infinite-loop ---
+--- issue-5354-footnote-empty-frame-infinite-loop render ---
 // Test whether an empty footnote would cause infinite loop
 #show footnote.entry: it => {}
 #lorem(3) #footnote[A footnote]
 
---- issue-5256-multiple-footnotes-in-footnote ---
+--- issue-5256-multiple-footnotes-in-footnote render ---
 // Test whether all footnotes inside another footnote are listed.
 #footnote[#footnote[A]#footnote[B]#footnote[C]]
 
---- issue-5435-footnote-migration-in-floats ---
+--- issue-5435-footnote-migration-in-floats render ---
 // Test that a footnote should not prompt migration when in a float that was
 // queued to the next page (due to the float being too large), even if the
 // footnote does not fit, breaking the footnote invariant.
@@ -347,7 +347,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
   footnote[b]
 )
 
---- issue-5496-footnote-never-fits ---
+--- issue-5496-footnote-never-fits render ---
 // Test whether a footnote which is always too large would cause an infinite
 // loop.
 #set page(width: 20pt, height: 20pt)
@@ -355,7 +355,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 
 #footnote(text(size: 15pt)[a] * 100)
 
---- issue-5496-footnote-in-float-never-fits ---
+--- issue-5496-footnote-in-float-never-fits render ---
 // Test whether an overlarge footnote in a float also does not cause an
 // infinite loop.
 #set page(width: 20pt, height: 20pt)
@@ -366,7 +366,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
   footnote(text(size: 15pt)[a] * 100)
 )
 
---- issue-5496-footnote-never-fits-multiple ---
+--- issue-5496-footnote-never-fits-multiple render ---
 // Test whether multiple overlarge footnotes are properly split up across
 // pages.
 #set page(width: 20pt, height: 20pt)
@@ -382,7 +382,7 @@ B
 
 C
 
---- issue-5496-footnote-separator-never-fits ---
+--- issue-5496-footnote-separator-never-fits render ---
 // Test whether an overlarge footnote separator does not cause an infinite
 // loop and compiles.
 #set page(height: 2em)

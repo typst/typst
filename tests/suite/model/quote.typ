@@ -17,7 +17,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set text(lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
---- quote-block-spacing ---
+--- quote-block-spacing render ---
 // Spacing with other blocks
 #set quote(block: true)
 #set text(8pt)
@@ -26,7 +26,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #quote(lines(3))
 #lines(3)
 
---- quote-inline ---
+--- quote-inline render ---
 // Inline citation
 #set text(8pt)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
@@ -34,7 +34,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- quote-cite-format-label-or-numeric ---
+--- quote-cite-format-label-or-numeric render ---
 // Citation-format: label or numeric
 #set text(8pt)
 #set quote(block: true)
@@ -43,7 +43,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "ieee")
 
---- quote-cite-format-note ---
+--- quote-cite-format-note render ---
 // Citation-format: note
 #set text(8pt)
 #set quote(block: true)
@@ -52,7 +52,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- quote-cite-format-author-date ---
+--- quote-cite-format-author-date render ---
 // Citation-format: author-date or author
 #set text(8pt)
 #set quote(block: true)
@@ -61,7 +61,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "apa")
 
---- quote-nesting ---
+--- quote-nesting render ---
 // Test quote selection.
 #set page(width: auto)
 #set text(lang: "en")
@@ -82,7 +82,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #quote[Satz mit #quote[Zitat]] \
 #quote[A #quote[very #quote[nested]] quote]
 
---- quote-nesting-custom ---
+--- quote-nesting-custom render ---
 // With custom quotes.
 #set smartquote(quotes: (single: ("<", ">"), double: ("(", ")")))
 #quote[A #quote[nested] quote]
@@ -110,7 +110,7 @@ When you said that #quote[he surely meant that #quote[she intended to say #quote
   Compose papers faster
 ]
 
---- quote-par ---
+--- quote-par render ---
 // Ensure that an inline quote is part of a paragraph, but a block quote
 // does not result in paragraphs.
 #show par: highlight
@@ -121,5 +121,5 @@ An inline #quote[quote.]
   A block-level quote.
 ]
 
---- issue-5536-quote-inline-quotes-false ---
+--- issue-5536-quote-inline-quotes-false render ---
 Lorem #quote(block: false, quotes: false)[dolor].

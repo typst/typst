@@ -1,6 +1,6 @@
 // Test the `repeat` function.
 
---- repeat-basic ---
+--- repeat-basic render ---
 // Test multiple repeats.
 #let sections = (
   ("Introduction", 1),
@@ -15,20 +15,20 @@
   #section.at(0) #box(width: 1fr, repeat[.]) #section.at(1) \
 ]
 
---- repeat-dots-rtl ---
+--- repeat-dots-rtl render ---
 // Test dots with RTL.
 #set text(lang: "ar", font: ("Libertinus Serif", "Noto Sans Arabic"))
 مقدمة #box(width: 1fr, repeat[.]) 15
 
---- repeat-empty ---
+--- repeat-empty render ---
 // Test empty repeat.
 A #box(width: 1fr, repeat[]) B
 
---- repeat-unboxed ---
+--- repeat-unboxed render ---
 // Test unboxed repeat.
 #repeat(rect(width: 2em, height: 1em))
 
---- repeat-align-and-dir ---
+--- repeat-align-and-dir render ---
 // Test single repeat in both directions.
 A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 
@@ -38,21 +38,21 @@ A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 #set text(dir: rtl, font: "Noto Sans Arabic")
 ريجين#box(width: 1fr, repeat(rect(width: 4em, height: 0.7em)))سون
 
---- repeat-unrestricted ---
+--- repeat-unrestricted render ---
 // Error: 2:2-2:13 repeat with no size restrictions
 #set page(width: auto)
 #repeat(".")
 
---- repeat-gap ---
+--- repeat-gap render ---
 // Test repeat with custom gap.
 A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
 
---- repeat-no-justify ---
+--- repeat-no-justify render ---
 // Test repeat with disabled justification.
 #set repeat(justify: false)
 A#box(width: 1fr, repeat(rect(width: 2em, height: 1em), gap: 1em))B
 
---- repeat-no-justify-align ---
+--- repeat-no-justify-align render ---
 // Test repeat with alignment and disabled justification.
 #set repeat(justify: false)
 #set align(right)

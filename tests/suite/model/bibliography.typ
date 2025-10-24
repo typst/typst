@@ -15,7 +15,7 @@ See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distr
 @distress
 #bibliography("/assets/bib/works.bib", title: [My References])
 
---- bibliography-before-content ---
+--- bibliography-before-content render ---
 // Test unconventional order.
 #set page(width: 200pt)
 #bibliography(
@@ -40,11 +40,11 @@ And quark! @quark
 Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works_too.bib"))
 
---- bibliography-duplicate-key ---
+--- bibliography-duplicate-key render ---
 // Error: 15-65 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works.bib"))
 
---- bibliography-ordering ---
+--- bibliography-ordering render ---
 #set page(width: 300pt)
 
 @mcintosh_anxiety
@@ -52,17 +52,17 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 #bibliography("/assets/bib/works.bib")
 
---- bibliography-full ---
+--- bibliography-full render ---
 #set page(paper: "a6", height: auto)
 #bibliography("/assets/bib/works_too.bib", full: true)
 
---- bibliography-math ---
+--- bibliography-math render ---
 #set page(width: 200pt)
 
 @Zee04
 #bibliography("/assets/bib/works_too.bib", style: "mla")
 
---- bibliography-grid-par ---
+--- bibliography-grid-par render ---
 // Ensure that a grid-based bibliography does not produce paragraphs.
 #show par: highlight
 
@@ -71,7 +71,7 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 #bibliography("/assets/bib/works_too.bib")
 
---- bibliography-indent-par ---
+--- bibliography-indent-par render ---
 // Ensure that an indent-based bibliography does not produce paragraphs.
 #show par: highlight
 
@@ -80,11 +80,11 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 #bibliography("/assets/bib/works_too.bib", style: "mla")
 
---- bibliography-style-not-suitable ---
+--- bibliography-style-not-suitable render ---
 // Error: 2-62 CSL style "Alphanumeric" is not suitable for bibliographies
 #bibliography("/assets/bib/works.bib", style: "alphanumeric")
 
---- bibliography-empty-key ---
+--- bibliography-empty-key render ---
 #let src = ```yaml
 "":
   type: Book
@@ -92,7 +92,7 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 // Error: 15-30 bibliography contains entry with empty key
 #bibliography(bytes(src.text))
 
---- issue-4618-bibliography-set-heading-level ---
+--- issue-4618-bibliography-set-heading-level render ---
 // Test that the bibliography block's heading is set to 2 by the show rule,
 // and therefore should be rendered like a level-2 heading. Notably, this
 // bibliography heading should not be underlined.
@@ -105,12 +105,12 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 #bibliography("/assets/bib/works_too.bib")
 
---- bibliography-chicago-fullnotes-warning ---
+--- bibliography-chicago-fullnotes-warning render ---
 // Test warning for deprecated alias.
 // Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
---- bibliography-modern-humanities-research-association-warning ---
+--- bibliography-modern-humanities-research-association-warning render ---
 // Test warning for deprecated alias.
 // Warning: 47-87 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
