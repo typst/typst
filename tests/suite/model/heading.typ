@@ -1,6 +1,6 @@
 // Test headings.
 
---- heading-basic render ---
+--- heading-basic paged ---
 // Different number of equals signs.
 
 = Level 1
@@ -10,7 +10,7 @@
 // After three, it stops shrinking.
 =========== Level 11
 
---- heading-syntax-at-start ---
+--- heading-syntax-at-start paged ---
 // Heading vs. no heading.
 
 // Parsed as headings if at start of the context.
@@ -24,7 +24,7 @@ No = heading
 // Escaped.
 \= No heading
 
---- heading-block ---
+--- heading-block paged ---
 // Blocks can continue the heading.
 
 = #[This
@@ -35,7 +35,7 @@ multiline.
 = This
   is not.
 
---- heading-trailing-whitespace ---
+--- heading-trailing-whitespace paged ---
 // Whether headings contain trailing whitespace with or without comments/labels.
 // Labels are special cased to immediately end headings in the parser, but also
 // #strike[have unique whitespace behavior] Now their behavior is consistent!
@@ -64,7 +64,7 @@ multiline.
 // #strike[The first space attaches, but not the second] Now neither attaches!
 #test(join(head(join[h]))[ ][ ], [= h  /**/  <g>])
 
---- heading-leading-whitespace ---
+--- heading-leading-whitespace paged ---
 // Test that leading whitespace and comments don't matter.
 #test[= h][=        h]
 #test[= h][=   /**/  /**/   h]
@@ -72,7 +72,7 @@ multiline.
 comment spans lines
 */   h]
 
---- heading-show-where ---
+--- heading-show-where paged ---
 // Test styling.
 #show heading.where(level: 5): it => block(
   text(font: "Roboto", fill: eastern, it.body + [!])
@@ -82,7 +82,7 @@ comment spans lines
 ===== Heading 🌍
 #heading(level: 5)[Heading]
 
---- heading-offset render pdftags ---
+--- heading-offset paged pdftags ---
 // Test setting the starting offset.
 #set heading(numbering: "1.1")
 #show heading.where(level: 2): set text(blue)
@@ -97,43 +97,43 @@ comment spans lines
 = Fake level 2
 == Fake level 3
 
---- heading-hanging-indent-auto ---
+--- heading-hanging-indent-auto paged ---
 #set heading(numbering: "1.1.a.")
 = State of the Art
 
---- heading-hanging-indent-auto-center-align ---
+--- heading-hanging-indent-auto-center-align paged ---
 #set heading(numbering: "1.1.a.")
 #show heading: set align(center)
 = Center aligned
 
---- heading-hanging-indent-zero ---
+--- heading-hanging-indent-zero paged ---
 #set heading(numbering: "1.1.a.", hanging-indent: 0pt)
 = State of the Art
 
---- heading-hanging-indent-length ---
+--- heading-hanging-indent-length paged ---
 #set heading(numbering: "1.1.a.", hanging-indent: 2em)
 = State of the Art In Multi-Line
 
---- heading-offset-and-level ---
+--- heading-offset-and-level paged ---
 // Passing level directly still overrides all other set values
 #set heading(numbering: "1.1", offset: 1)
 #heading(level: 1)[Still level 1]
 
---- heading-syntax-edge-cases ---
+--- heading-syntax-edge-cases paged ---
 // Edge cases.
 #set heading(numbering: "1.")
 =
 Not in heading
 =Nope
 
---- heading-numbering-hint ---
+--- heading-numbering-hint paged ---
 = Heading <intro>
 
 // Error: 1:19-1:25 cannot reference heading without numbering
 // Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
 Cannot be used as @intro
 
---- heading-par ---
+--- heading-par paged ---
 // Ensure that heading text isn't considered a paragraph.
 #show par: highlight
 = Heading
@@ -159,6 +159,6 @@ Cannot be used as @intro
 // Hint: 1-16 you may want to restructure your document so that it doesn't contain deep headings
 ======= Level 7
 
---- issue-5719-heading-nested ---
+--- issue-5719-heading-nested paged ---
 // Headings may not be nested like this.
 = = A

@@ -3340,6 +3340,7 @@ dependencies = [
  "clap",
  "comemo",
  "ecow",
+ "indexmap 2.7.1",
  "oxipng",
  "parking_lot",
  "rayon",
@@ -3355,6 +3356,7 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "typst-syntax",
+ "typst-utils",
  "unscanny",
  "walkdir",
 ]

@@ -4,6 +4,7 @@ mod args;
 mod collect;
 mod custom;
 mod logger;
+mod output;
 mod run;
 mod world;
 
@@ -12,8 +13,9 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use clap::Parser;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
 use crate::collect::Test;
@@ -97,11 +99,13 @@ fn test() {
 
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
+    let hashes: [_; 2] = std::array::from_fn(|_| RwLock::new(FxHashMap::default()));
+
     let runner = |test: &Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
-            run::run(test)
+            run::run(&hashes, test)
         }
     };
 
@@ -128,12 +132,19 @@ fn test() {
         // to `typst::utils::Deferred` yielding.
         tests.iter().par_bridge().for_each(|test| {
             logger.lock().start(test);
-            let result = std::panic::catch_unwind(|| runner(test));
+
+            // This is in fact not formally unwind safe, but the code paths that
+            // hold a lock of the hashes are quite short and shouldn't panic.
+            let closure = std::panic::AssertUnwindSafe(|| runner(test));
+            let result = std::panic::catch_unwind(closure);
             logger.lock().end(test, result);
         });
 
         sender.send(()).unwrap();
     });
+
+    run::update_hash_refs::<output::Pdf>(&hashes);
+    run::update_hash_refs::<output::Svg>(&hashes);
 
     let passed = logger.into_inner().finish();
     if !passed {
