@@ -1,13 +1,16 @@
 use std::mem;
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::default_math_class;
+use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+
+// Picked by gut feeling.
+const MAX_DEPTH: usize = 256;
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -46,6 +49,9 @@ fn markup(p: &mut Parser, at_start: bool, wrap_trivia: bool, stop_set: SyntaxSet
 /// Parses a sequence of markup expressions.
 fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+
+    let Some(p) = &mut p.check_depth_until(stop_set) else { return };
+
     at_start |= p.had_newline();
     let mut nesting: usize = 0;
     // Keep going if we're at a nested right-bracket regardless of the stop set.
@@ -80,6 +86,8 @@ pub(super) fn reparse_markup(
 /// headings, strong/emph, lists/enums, etc. This is also the entry point for
 /// parsing math equations and embedded code expressions.
 fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     match p.current() {
         SyntaxKind::LeftBracket => {
             *nesting += 1;
@@ -224,6 +232,9 @@ fn math(p: &mut Parser, stop_set: SyntaxSet) {
 /// parsed.
 fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+
+    let Some(p) = &mut p.check_depth_until(stop_set) else { return 1 };
+
     let mut count = 0;
     while !p.at_set(stop_set) {
         if p.at_set(set::MATH_EXPR) {
@@ -244,6 +255,8 @@ fn math_expr(p: &mut Parser) {
 
 /// Parses a math expression with at least the given precedence.
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
@@ -610,6 +623,9 @@ fn code(p: &mut Parser, stop_set: SyntaxSet) {
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+
+    let Some(p) = &mut p.check_depth_until(stop_set) else { return };
+
     while !p.at_set(stop_set) {
         p.with_nl_mode(AtNewline::ContextualContinue, |p| {
             if !p.at_set(set::CODE_EXPR) {
@@ -662,6 +678,8 @@ fn code_expr(p: &mut Parser) {
 
 /// Parses a code expression with at least the given precedence.
 fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     let m = p.marker();
     if !atomic && p.at_set(set::UNARY_OP) {
         let op = ast::UnOp::from_kind(p.current()).unwrap();
@@ -1375,6 +1393,8 @@ fn pattern<'s>(
     seen: &mut FxHashSet<&'s str>,
     dupe: Option<&'s str>,
 ) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     match p.current() {
         SyntaxKind::Underscore => p.eat(),
         SyntaxKind::LeftParen => destructuring_or_parenthesized(p, reassignment, seen),
@@ -1563,6 +1583,8 @@ struct Parser<'s> {
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
     memo: MemoArena,
+    /// The current expression nesting depth.
+    depth: usize,
 }
 
 /// A single token returned from the lexer with a cached [`SyntaxKind`] and a
@@ -1672,6 +1694,7 @@ impl<'s> Parser<'s> {
             balanced: true,
             nodes,
             memo: Default::default(),
+            depth: 0,
         }
     }
 
@@ -1958,7 +1981,7 @@ struct PartialState {
 }
 
 /// The Memoization interface.
-impl Parser<'_> {
+impl<'s> Parser<'s> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
     fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
@@ -2087,5 +2110,67 @@ impl Parser<'_> {
             start -= 1;
         }
         self.nodes.drain(start..end);
+    }
+
+    /// Check if the maximum depth has been exceeded. If so, generate an error
+    /// and try to make a best effort recovery using the `stop_set` as a guide.
+    ///
+    /// This function isn't strictly necessary, but it is an optimization and
+    /// also generates nicer error messages.
+    fn check_depth_until(&mut self, stop_set: SyntaxSet) -> Option<&mut Self> {
+        if self.depth < MAX_DEPTH {
+            return Some(self);
+        }
+
+        self.depth_check_error(Some(stop_set));
+
+        None
+    }
+
+    /// Check if the maximum depth has been exceeded. If so, generate an error
+    /// and try to make a best effort recovery.
+    /// Otherwise increase the depth and return a handle that automatically
+    /// decreases it again when dropped.
+    fn increase_depth(&mut self) -> Option<impl DerefMut<Target = Self>> {
+        if self.depth < MAX_DEPTH {
+            self.depth += 1;
+            return Some(defer(self, |p| p.depth -= 1));
+        }
+
+        self.depth_check_error(None);
+
+        None
+    }
+
+    /// Generate an error for an exceeded maximum depth check.
+    ///
+    /// This function has to guarantee some sort of forward progress, otherwise
+    /// the parser might loop indefinitely. One token is eaten in all cases, if
+    /// that token is an opening delimiter, try to balance the opening and
+    /// closing grouping delimiters before continuing.
+    fn depth_check_error(&mut self, stop_set: Option<SyntaxSet>) {
+        let m = self.marker();
+
+        let mut balance: usize = 0;
+        let mut eat_balanced = |p: &mut Parser| -> bool {
+            if p.at_set(syntax_set!(LeftBracket, LeftBrace, LeftParen)) {
+                balance = balance.saturating_add(1);
+            } else if p.at_set(syntax_set!(RightBracket, RightBrace, RightParen)) {
+                balance = balance.saturating_sub(1);
+            }
+            p.eat();
+            balance == 0
+        };
+        self.with_nl_mode(AtNewline::Continue, |p| {
+            while {
+                let balanced = eat_balanced(p);
+                let at_stop = stop_set.is_none_or(|s| p.at_set(s));
+                !(balanced && at_stop || p.end())
+            } {}
+        });
+
+        self.wrap(m, SyntaxKind::Text);
+        let node = self.nodes.last_mut().unwrap();
+        node.convert_to_error("maximum parsing depth exceeded");
     }
 }

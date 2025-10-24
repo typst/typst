@@ -74,8 +74,10 @@ impl<'a> Runner<'a> {
             self.run_test::<Pdftags>();
         }
 
-        self.handle_not_emitted();
-        self.handle_not_annotated();
+        if !self.test.attrs.no_crash {
+            self.handle_not_emitted();
+            self.handle_not_annotated();
+        }
 
         self.result
     }
