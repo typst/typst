@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use bitflags::bitflags;
+use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_syntax::package::PackageVersion;
@@ -63,30 +63,9 @@ impl Display for FilePos {
 
 bitflags! {
     #[derive(Copy, Clone)]
-    struct AttrFlags: u8 {
-        const RENDER = 1 << 0;
-        const HTML = 1 << 1;
-        const PDFTAGS = 1 << 2;
-        const LARGE = 1 << 3;
-        const NOPDFUA = 1 << 4;
-    }
-}
-
-impl AttrFlags {
-    const NON_RENDER: Self = Self::HTML.union(Self::PDFTAGS);
-
-    pub fn targets(self) -> Targets {
-        let mut targets = Targets::empty();
-        if self.contains(Self::RENDER) || (self & Self::NON_RENDER).is_empty() {
-            targets |= Targets::RENDER;
-        }
-        if self.contains(Self::HTML) {
-            targets |= Targets::HTML;
-        }
-        if self.contains(Self::PDFTAGS) {
-            targets |= Targets::PDFTAGS;
-        }
-        targets
+    struct AttrFlags: u16 {
+        const LARGE = 1 << 0;
+        const NOPDFUA = 1 << 1;
     }
 }
 
@@ -94,25 +73,97 @@ impl AttrFlags {
 pub struct Attrs {
     pub large: bool,
     pub pdf_ua: bool,
-    pub targets: Targets,
+    pub stages: TestStages,
 }
+
+pub trait TestStage: Into<TestStages> + Display + Copy {}
 
 bitflags! {
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-    pub struct Targets: u8 {
-        const RENDER = 0x1;
-        const HTML = 0x2;
-        const PDFTAGS = 0x4;
+    pub struct TestStages: u8 {
+        const PAGED = 1 << 0;
+        const RENDER = 1 << 1;
+        const PDF = 1 << 2;
+        const PDFTAGS = 1 << 3;
+        const SVG =  1 << 4;
+        const HTML =  1 << 5;
+        const DIAGNOSTIC = 1 << 6;
     }
 }
 
-impl Targets {
+impl TestStages {
+    pub fn has_paged_target(&self) -> bool {
+        self.intersects(
+            Self::PAGED | Self::RENDER | Self::PDF | Self::PDFTAGS | Self::SVG,
+        )
+    }
+
+    pub fn has_html_target(&self) -> bool {
+        self.intersects(Self::HTML)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum TestTarget {
+    PAGED = TestStages::PAGED.bits(),
+    HTML = TestStages::HTML.bits(),
+}
+
+impl TestStage for TestTarget {}
+
+impl From<TestTarget> for TestStages {
+    fn from(value: TestTarget) -> Self {
+        TestStages::from_bits(value as u8).unwrap()
+    }
+}
+
+impl Display for TestTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TestTarget::PAGED => "paged",
+            TestTarget::HTML => "html",
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum TestOutput {
+    RENDER = TestStages::RENDER.bits(),
+    PDF = TestStages::PDF.bits(),
+    PDFTAGS = TestStages::PDFTAGS.bits(),
+    SVG = TestStages::SVG.bits(),
+    HTML = TestStages::HTML.bits(),
+}
+
+impl TestOutput {
     pub fn from_file_extension(ext: &str) -> Option<Self> {
         Some(match ext {
             "png" => Self::RENDER,
             "html" => Self::HTML,
             "yml" => Self::PDFTAGS,
             _ => return None,
+        })
+    }
+}
+
+impl TestStage for TestOutput {}
+
+impl From<TestOutput> for TestStages {
+    fn from(value: TestOutput) -> Self {
+        TestStages::from_bits(value as u8).unwrap()
+    }
+}
+
+impl Display for TestOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TestOutput::RENDER => "render",
+            TestOutput::PDF => "pdf",
+            TestOutput::PDFTAGS => "PDFTAGS",
+            TestOutput::SVG => "svg",
+            TestOutput::HTML => "html",
         })
     }
 }
@@ -222,9 +273,9 @@ impl Collector {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
-            let Some(file_target) = path.extension().and_then(|ext| {
+            let Some(test_output) = path.extension().and_then(|ext| {
                 let str = ext.to_str()?;
-                Targets::from_file_extension(str)
+                TestOutput::from_file_extension(str)
             }) else {
                 continue;
             };
@@ -240,7 +291,7 @@ impl Collector {
                 continue;
             };
 
-            if !attrs.targets.contains(file_target) {
+            if !attrs.stages.contains(test_output.into()) {
                 self.errors.push(TestParseError {
                     pos: FilePos::new(path, 0),
                     message: "dangling reference output".into(),
@@ -357,34 +408,48 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_attrs(&mut self) -> Attrs {
-        let mut parsed = AttrFlags::empty();
+        let mut flags = AttrFlags::empty();
+        let mut stages = TestStages::empty();
         while !self.s.eat_if("---") {
             let attr = self.s.eat_until(char::is_whitespace);
-            let flag = match attr {
-                "large" => AttrFlags::LARGE,
-                "html" => AttrFlags::HTML,
-                "render" => AttrFlags::RENDER,
-                "pdftags" => AttrFlags::PDFTAGS,
-                "nopdfua" => AttrFlags::NOPDFUA,
+            match attr {
+                "paged" => self.set_attr(attr, &mut stages, TestStages::PAGED),
+                "render" => self.set_attr(attr, &mut stages, TestStages::RENDER),
+                "pdf" => self.set_attr(attr, &mut stages, TestStages::PDF),
+                "pdftags" => self.set_attr(attr, &mut stages, TestStages::PDFTAGS),
+                "svg" => self.set_attr(attr, &mut stages, TestStages::SVG),
+                "html" => self.set_attr(attr, &mut stages, TestStages::HTML),
+                "diagnostic" => self.set_attr(attr, &mut stages, TestStages::DIAGNOSTIC),
+
+                "large" => self.set_attr(attr, &mut flags, AttrFlags::LARGE),
+                "nopdfua" => self.set_attr(attr, &mut flags, AttrFlags::NOPDFUA),
+
                 found => {
                     self.error(format!(
                         "expected attribute or closing ---, found `{found}`"
                     ));
                     break;
                 }
-            };
-            if parsed.contains(flag) {
-                self.error(format!("duplicate attribute `{attr}`"));
             }
-            parsed.insert(flag);
             self.s.eat_while(' ');
         }
 
-        Attrs {
-            large: parsed.contains(AttrFlags::LARGE),
-            pdf_ua: !parsed.contains(AttrFlags::NOPDFUA),
-            targets: parsed.targets(),
+        if stages.is_empty() {
+            self.error("tests must specify at least one target or output");
         }
+
+        Attrs {
+            large: flags.contains(AttrFlags::LARGE),
+            pdf_ua: !flags.contains(AttrFlags::NOPDFUA),
+            stages,
+        }
+    }
+
+    fn set_attr<F: Flags + Copy>(&mut self, attr: &str, flags: &mut F, flag: F) {
+        if flags.contains(flag) {
+            self.error(format!("duplicate attribute `{attr}`"));
+        }
+        flags.insert(flag);
     }
 
     /// Skips the preamble of a test.

@@ -9,6 +9,8 @@ mod logger;
 #[cfg(feature = "default")]
 mod custom;
 #[cfg(feature = "default")]
+mod output;
+#[cfg(feature = "default")]
 mod run;
 #[cfg(feature = "default")]
 mod world;
