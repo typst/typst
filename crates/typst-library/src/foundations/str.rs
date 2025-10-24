@@ -966,7 +966,7 @@ fn string_is_empty() -> EcoString {
 /// #"a,b;c".split(regex("[,;]"))
 ///
 /// // Works with show rules.
-/// #show regex("\d+"): set text(red)
+/// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
 /// ```
@@ -988,14 +988,17 @@ impl Regex {
     pub fn construct(
         /// The regular expression as a string.
         ///
-        /// Most regex escape sequences just work because they are not valid Typst
-        /// escape sequences. To produce regex escape sequences that are also valid in
-        /// Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
-        /// backslash, you would need to write `{regex("\\\\")}`.
+        /// Most regex escape sequences just work because they are not valid
+        /// Typst escape sequences (e.g., `\d`, `\b`). To produce regex escape
+        /// sequences that are also valid in Typst (e.g. `[\\]`), you need to
+        /// escape twice. Thus, to match a verbatim backslash, you would need to
+        /// write `{regex("\\\\")}`. To prevent undesired side effects, it's a
+        /// good practice to always escape the backslash in regex tokens that
+        /// use it.
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
+        /// `{regex(`\d+\.\d+\.\d+`.text)}`.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)
