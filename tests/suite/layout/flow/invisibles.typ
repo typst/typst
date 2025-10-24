@@ -1,7 +1,7 @@
 // Test out-of-flow items (place, counter updates, etc.) at the
 // beginning of a block not creating a frame just for them.
 
---- flow-first-region-no-item ---
+--- flow-first-region-no-item render ---
 // No item in the first region.
 #set page(height: 5cm, margin: 1cm)
 No item in the first region.
@@ -9,7 +9,7 @@ No item in the first region.
   #rect(height: 2cm, fill: gray)
 ]
 
---- flow-first-region-counter-update ---
+--- flow-first-region-counter-update render ---
 // Counter update in the first region.
 #set page(height: 5cm, margin: 1cm)
 Counter update.
@@ -18,7 +18,7 @@ Counter update.
   #rect(height: 2cm, fill: gray)
 ]
 
---- flow-first-region-placed ---
+--- flow-first-region-placed render ---
 // Placed item in the first region.
 #set page(height: 5cm, margin: 1cm)
 Placed item in the first region.
@@ -27,7 +27,7 @@ Placed item in the first region.
   #rect(height: 2cm, fill: gray)
 ]
 
---- flow-first-region-zero-sized-item ---
+--- flow-first-region-zero-sized-item render ---
 // In-flow item with size zero in the first region.
 #set page(height: 5cm, margin: 1cm)
 In-flow, zero-sized item.
@@ -38,7 +38,7 @@ In-flow, zero-sized item.
   #line(length: 100%)
 ]
 
---- flow-first-region-counter-update-and-placed ---
+--- flow-first-region-counter-update-and-placed render ---
 // Counter update and placed item in the first region.
 #set page(height: 5cm, margin: 1cm)
 Counter update + place.
@@ -48,7 +48,7 @@ Counter update + place.
   #rect(height: 2cm, fill: gray)
 ]
 
---- flow-first-region-counter-update-placed-and-line ---
+--- flow-first-region-counter-update-placed-and-line render ---
 // Mix-and-match all the previous ones.
 #set page(height: 5cm, margin: 1cm)
 Mix-and-match all the previous tests.

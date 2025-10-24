@@ -1,10 +1,10 @@
 // Test creating a header with the query function.
 
---- query-here ---
+--- query-here render ---
 // Test that `here()` yields the context element's location.
 #context test(query(here()).first().func(), (context none).func())
 
---- query-running-header ---
+--- query-running-header render ---
 #set page(
   paper: "a8",
   margin: (y: 1cm, x: 0.5cm),
@@ -32,7 +32,7 @@
 
 = Approach
 
---- query-list-of-figures ---
+--- query-list-of-figures render ---
 #set page(
   paper: "a8",
   numbering: "1 / 1",
@@ -72,7 +72,7 @@
   caption: [Tetrahedron],
 )
 
---- query-complex ---
+--- query-complex render ---
 = A
 == B
 #figure([Cat], kind: "cat", supplement: [Other])
@@ -202,7 +202,7 @@
   ([Frog], [GiraffeCat], [Iguana])
 )
 
---- issue-3726-query-show-set ---
+--- issue-3726-query-show-set render ---
 // Test that show rules apply to queried elements, i.e. that the content
 // returned from `query` isn't yet marked as prepared.
 #set heading(numbering: "1.")
@@ -218,7 +218,7 @@
 // from the original are retained.
 #context query(heading).join()
 
---- query-quote ---
+--- query-quote render ---
 // Test quoting a query.
 
 #quote[ABC] & #quote[EFG]
@@ -234,7 +234,7 @@
 
 #context query(<nop>).first()
 
---- issue-5117-query-order-place ---
+--- issue-5117-query-order-place render ---
 #let t(expected) = context {
   let elems = query(selector(metadata).after(here()))
   let val = elems.first().value

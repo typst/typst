@@ -1,6 +1,6 @@
 // Test implicit alignment math.
 
---- math-align-weird ---
+--- math-align-weird render ---
 // Test alignment step functions.
 #set page(width: 225pt)
 $
@@ -10,7 +10,7 @@ a &= c \
   &= x && "Even longer" \
 $
 
---- math-align-post-fix ---
+--- math-align-post-fix render ---
 // Test post-fix alignment.
 $
 & "right" \
@@ -18,7 +18,7 @@ $
 "left" \
 $
 
---- math-align-implicit ---
+--- math-align-implicit render ---
 // Test no alignment.
 $
 "right" \
@@ -26,14 +26,14 @@ $
 "left" \
 $
 
---- math-align-toggle ---
+--- math-align-toggle render ---
 // Test #460 equations.
 $
 a &=b & quad c&=d \
 e &=f & g&=h
 $
 
---- issue-3973-math-equation-align ---
+--- issue-3973-math-equation-align render ---
 // In this bug, the alignment set with "show math.equation: set align(...)"
 // overrides the left-right alternating behavior of alignment points.
 #let equations = [
