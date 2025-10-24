@@ -73,20 +73,13 @@ bitflags! {
 }
 
 impl AttrFlags {
-    const NON_RENDER: Self = Self::HTML.union(Self::PDFTAGS);
-
     pub fn targets(self) -> Targets {
-        let mut targets = Targets::empty();
-        if self.contains(Self::RENDER) || (self & Self::NON_RENDER).is_empty() {
-            targets |= Targets::RENDER;
-        }
-        if self.contains(Self::HTML) {
-            targets |= Targets::HTML;
-        }
-        if self.contains(Self::PDFTAGS) {
-            targets |= Targets::PDFTAGS;
-        }
-        targets
+        let targets = [
+            self.contains(Self::RENDER).then_some(Targets::RENDER),
+            self.contains(Self::HTML).then_some(Targets::HTML),
+            self.contains(Self::PDFTAGS).then_some(Targets::PDFTAGS),
+        ];
+        targets.into_iter().flatten().fold(Targets::empty(), Targets::union)
     }
 }
 
@@ -380,10 +373,15 @@ impl<'a> Parser<'a> {
             self.s.eat_while(' ');
         }
 
+        let targets = parsed.targets();
+        if targets.is_empty() {
+            self.error("tests must specify at least one target");
+        }
+
         Attrs {
             large: parsed.contains(AttrFlags::LARGE),
             pdf_ua: !parsed.contains(AttrFlags::NOPDFUA),
-            targets: parsed.targets(),
+            targets,
         }
     }
 
