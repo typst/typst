@@ -353,12 +353,14 @@ impl State {
 
     /// Updates the value of the state.
     ///
-    /// The update will be in effect at the position where the returned content
-    /// is inserted into the document. If you don't put the output into the
-    /// document, nothing happens! This would be the case, for example, if you
-    /// write `{let _ = state("key").update(7)}`. State updates are always
-    /// applied in layout order and in that case, Typst wouldn't know when to
-    /// update the state.
+    /// Returns an _invisible_ piece of content that doesn't affect document
+    /// layout (similar to [`metadata`]). The update will be in effect at the
+    /// position where the returned content is inserted into the document. If
+    /// you don't put the output into the document, nothing will happen! This
+    /// would be the case, for example, if you write
+    /// `{let _ = state("key").update(7)}`. State updates are always applied in
+    /// layout order and in that case, Typst wouldn't know when to update the
+    /// state.
     ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
     /// [`final`]($state.final), this function does not require [context].
