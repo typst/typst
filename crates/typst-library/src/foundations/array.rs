@@ -720,6 +720,7 @@ impl Array {
         last: Option<Value>,
         /// What to return if the array is empty.
         #[named]
+        #[default(None)]
         default: Option<Value>,
     ) -> StrResult<Value> {
         let len = self.0.len();
