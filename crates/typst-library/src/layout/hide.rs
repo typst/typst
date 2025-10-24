@@ -3,10 +3,11 @@ use crate::introspection::Tagged;
 
 /// Hides content without affecting layout.
 ///
-/// The `hide` function allows you to hide content while the layout still 'sees'
-/// it. This is useful to create whitespace that is exactly as large as some
+/// The `hide` function allows you to hide content while the layout still "sees"
+/// it. This is useful to create blank space that is exactly as large as some
 /// content. It may also be useful to redact content because its arguments are
-/// not included in the output.
+/// not included in the output, i.e., PDF (or other output formats) will _not_
+/// have any trace of the content that is passed to `hide`.
 ///
 /// # Example
 /// ```example
