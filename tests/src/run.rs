@@ -412,7 +412,7 @@ impl OutputType for PagedDocument {
     }
 
     fn ref_path(name: &str) -> PathBuf {
-        format!("{}/{}.png", crate::REF_PATH, name).into()
+        format!("{}/render/{}.png", crate::REF_PATH, name).into()
     }
 
     fn compile(world: &dyn World, _: &Test) -> Warned<SourceResult<Self>> {
