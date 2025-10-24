@@ -1,6 +1,6 @@
 // Test color modification methods.
 
---- color-mix ---
+--- color-mix paged ---
 // Compare both ways.
 #test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
@@ -37,7 +37,7 @@
 // Error: 6-51 cannot mix more than two colors in a hue-based space
 #rgb(color.mix(red, blue, white, space: color.hsl))
 
---- color-conversion ---
+--- color-conversion paged ---
 // Test color conversion method kinds
 #test(rgb(rgb(10, 20, 30)).space(), rgb)
 #test(color.linear-rgb(rgb(10, 20, 30)).space(), color.linear-rgb)
@@ -132,7 +132,7 @@
 #test-repr(oklch(luma(40)), oklch(27.68%, 0.0, 72.49deg, 100%))
 #test-repr(oklch(rgb(1, 2, 3)), oklch(8.23%, 0.008, 240.75deg, 100%))
 
---- color-spaces ---
+--- color-spaces paged ---
 // The different color spaces
 #let col = rgb(50%, 64%, 16%)
 #box(square(size: 9pt, fill: col))
@@ -145,14 +145,14 @@
 #box(square(size: 9pt, fill: color.hsl(col)))
 #box(square(size: 9pt, fill: color.hsv(col)))
 
---- color-space ---
+--- color-space paged ---
 // Test color kind method.
 #test(rgb(1, 2, 3, 4).space(), rgb)
 #test(cmyk(4%, 5%, 6%, 7%).space(), cmyk)
 #test(luma(40).space(), luma)
 #test(rgb(1, 2, 3, 4).space() != luma, true)
 
---- color-components ---
+--- color-components paged ---
 // Test color '.components()' without conversions
 
 #let test-components(col, ref, has-alpha: true) = {
@@ -181,57 +181,57 @@
 #test-components(color.hsv(10deg, 20%, 30%), (10deg, 20%, 30%, 100%))
 #test-components(color.hsl(10deg, 20%, 30%), (10deg, 20%, 30%, 100%))
 
---- color-luma ---
+--- color-luma paged ---
 // Test gray color conversion.
 #stack(dir: ltr, rect(fill: luma(0)), rect(fill: luma(80%)))
 
---- color-rgb-out-of-range ---
+--- color-rgb-out-of-range paged ---
 // Error for values that are out of range.
 // Error: 11-14 number must be between 0 and 255
 #test(rgb(-30, 15, 50))
 
---- color-rgb-bad-string ---
+--- color-rgb-bad-string paged ---
 // Error: 6-11 color string contains non-hexadecimal letters
 #rgb("lol")
 
---- color-rgb-missing-argument-red ---
+--- color-rgb-missing-argument-red paged ---
 // Error: 2-7 missing argument: red component
 #rgb()
 
---- color-rgb-missing-argument-blue ---
+--- color-rgb-missing-argument-blue paged ---
 // Error: 2-11 missing argument: blue component
 #rgb(0, 1)
 
---- color-rgb-bad-type ---
+--- color-rgb-bad-type paged ---
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
---- color-luma-unexpected-argument ---
+--- color-luma-unexpected-argument paged ---
 // Error: 10-20 unexpected argument: key
 #luma(1, key: "val")
 
---- color-mix-bad-amount-type ---
+--- color-mix-bad-amount-type paged ---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string
 #color.mix((red, "yes"), (green, "no"), (green, 10%))
 
---- color-mix-bad-value ---
+--- color-mix-bad-value paged ---
 // Error: 12-23 expected a color or color-weight pair
 #color.mix((red, 1, 2))
 
---- color-mix-bad-space-type ---
+--- color-mix-bad-space-type paged ---
 // Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
 #color.mix(red, green, space: "cyber")
 
---- color-mix-bad-space-value-1 ---
+--- color-mix-bad-space-value-1 paged ---
 // Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: image)
 
---- color-mix-bad-space-value-2 ---
+--- color-mix-bad-space-value-2 paged ---
 // Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: calc.round)
 
---- color-cmyk-ops ---
+--- color-cmyk-ops paged ---
 // Test CMYK color conversion.
 #let c = cmyk(50%, 64%, 16%, 17%)
 #stack(
@@ -249,12 +249,12 @@
   box(square(size: 9pt, fill: c.darken(x * 10%)))
 }
 
---- color-outside-srgb-gamut ---
+--- color-outside-srgb-gamut paged ---
 // Colors outside the sRGB gamut.
 #box(square(size: 9pt, fill: oklab(90%, -0.2, -0.1)))
 #box(square(size: 9pt, fill: oklch(50%, 0.5, 0deg)))
 
---- color-rotate-hue ---
+--- color-rotate-hue paged ---
 // Test hue rotation
 #let col = rgb(50%, 64%, 16%)
 
@@ -273,7 +273,7 @@
   box(square(size: 9pt, fill: rgb(col).rotate(x * 36deg, space: color.hsv)))
 }
 
---- color-saturation ---
+--- color-saturation paged ---
 // Test saturation
 #let col = color.hsl(180deg, 0%, 50%)
 #for x in range(0, 11) {
@@ -295,13 +295,13 @@
   box(square(size: 9pt, fill: col.desaturate(x * 10%)))
 }
 
---- color-luma-ops ---
+--- color-luma-ops paged ---
 // Test gray color modification.
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
 #test-repr(luma(80%).negate(space: luma), luma(20%))
 
---- color-transparentize ---
+--- color-transparentize paged ---
 // Test alpha modification.
 #test-repr(luma(100%, 100%).transparentize(50%), luma(100%, 50%))
 #test-repr(luma(100%, 100%).transparentize(75%), luma(100%, 25%))
@@ -310,18 +310,18 @@
 #test-repr(luma(100%, 40%).transparentize(-50%), luma(100%, 70%))
 #test-repr(luma(100%, 0%).transparentize(-100%), luma(100%, 100%))
 
---- color-opacify ---
+--- color-opacify paged ---
 #test-repr(luma(100%, 50%).opacify(50%), luma(100%, 75%))
 #test-repr(luma(100%, 20%).opacify(100%), luma(100%, 100%))
 #test-repr(luma(100%, 100%).opacify(250%), luma(100%, 100%))
 #test-repr(luma(100%, 50%).opacify(-50%), luma(100%, 25%))
 #test-repr(luma(100%, 0%).opacify(0%), luma(100%, 0%))
 
---- issue-color-mix-luma ---
+--- issue-color-mix-luma paged ---
 // When mixing luma colors, we accidentally used the wrong component.
 #rect(fill: gradient.linear(black, silver, space: luma))
 
---- issue-4361-transparency-leak ---
+--- issue-4361-transparency-leak paged ---
 // Ensure that transparency doesn't leak from shapes to images in PDF. The PNG
 // test doesn't validate it, but at least we can discover regressions on the PDF
 // output with a PDF comparison script.

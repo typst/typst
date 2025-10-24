@@ -23,10 +23,12 @@ typst-library = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
+typst-utils = { workspace = true }
 bitflags = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+indexmap = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }

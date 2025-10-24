@@ -1,6 +1,6 @@
 // Test CJK-specific features.
 
---- text-chinese-basic ---
+--- text-chinese-basic paged ---
 // Test basic Chinese text from Wikipedia.
 #set text(font: "Noto Serif CJK SC")
 
@@ -9,7 +9,7 @@
 节目于2007年5月23日在美国和加拿大首播，共计吸引了1400万美国观众收看
 本集加上插播广告一共也持续有两个小时
 
---- text-cjk-latin-spacing ---
+--- text-cjk-latin-spacing paged ---
 #set page(width: 50pt + 10pt, margin: (x: 5pt))
 #set text(lang: "zh", font: "Noto Serif CJK SC", cjk-latin-spacing: auto)
 #set par(justify: true)
@@ -24,7 +24,7 @@
 
 中文，中ab文a中，文ab中文
 
---- cjk-punctuation-adjustment-1 ---
+--- cjk-punctuation-adjustment-1 paged ---
 #set page(width: 15em)
 
 // In the following example, the space between 》！ and ？ should be squeezed.
@@ -43,13 +43,13 @@
 #set text(lang: "ja", font: "Noto Serif CJK JP")
 「本当に？」
 
---- cjk-punctuation-adjustment-2 ---
+--- cjk-punctuation-adjustment-2 paged ---
 #set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
 《书名〈章节〉》 // the space between 〉 and 》 should be squeezed
 
 〔茸毛〕：很细的毛 // the space between 〕 and ： should be squeezed
 
---- cjk-punctuation-adjustment-3 ---
+--- cjk-punctuation-adjustment-3 paged ---
 #set page(width: 21em)
 #set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
 
@@ -70,7 +70,7 @@
 
 参看1378页〖象形文字〗。（《现代汉语词典》修订本）
 
---- issue-2538-cjk-latin-spacing-before-linebreak ---
+--- issue-2538-cjk-latin-spacing-before-linebreak paged ---
 // Issue #2538
 #set text(cjk-latin-spacing: auto)
 
@@ -84,7 +84,7 @@ abc字#linebreak()
 abc字\
 母
 
---- issue-6539-cjk-latin-spacing-at-manual-linebreak ---
+--- issue-6539-cjk-latin-spacing-at-manual-linebreak paged ---
 // Issue #6539
 #set text(cjk-latin-spacing: auto)
 #set box(width: 2.3em, stroke: (x: green))
@@ -97,12 +97,12 @@ abc字\
 
 #box(align(end)[丁国T国])
 
---- issue-2650-cjk-latin-spacing-meta ---
+--- issue-2650-cjk-latin-spacing-meta paged ---
 测a试
 
 测#context [a]试
 
---- issue-7113-cjk-latin-spacing-shift ---
+--- issue-7113-cjk-latin-spacing-shift paged ---
 孔乙己#super[1]与上大人#super[2]。
 
 孔乙己#super[A应保留spacing]与上大人#super[B]。

@@ -1,6 +1,6 @@
 // Test lines.
 
---- line-basic ---
+--- line-basic paged ---
 #set page(height: 60pt)
 #box({
   set line(stroke: 0.75pt)
@@ -11,7 +11,7 @@
 
 #line(end: (70%, 50%))
 
---- line-positioning ---
+--- line-positioning paged ---
 // Test the angle argument and positioning.
 
 #set page(fill: rgb("0B1026"))
@@ -40,7 +40,7 @@
   ..((star(20pt, stroke: 0.5pt),) * 9)
 ))
 
---- line-stroke ---
+--- line-stroke paged ---
 // Some simple test lines
 #line(length: 60pt, stroke: red)
 #v(3pt)
@@ -52,7 +52,7 @@
 #v(3pt)
 #line(length: 60pt, stroke: (paint: red, thickness: 4pt, cap: "round"))
 
---- line-stroke-set ---
+--- line-stroke-set paged ---
 // Set rules with stroke
 #set line(stroke: (paint: red, thickness: 1pt, cap: "butt", dash: "dash-dotted"))
 #line(length: 60pt)
@@ -61,7 +61,7 @@
 #v(3pt)
 #line(length: 60pt, stroke: (dash: none))
 
---- line-stroke-dash ---
+--- line-stroke-dash paged ---
 // Dashing
 #line(length: 60pt, stroke: (paint: red, thickness: 1pt, dash: ("dot", 1pt)))
 #v(3pt)
@@ -73,25 +73,25 @@
 #v(3pt)
 #line(length: 60pt, stroke: (paint: red, thickness: 1pt, dash: (1pt, 3pt, 9pt)))
 
---- line-stroke-field-typo ---
+--- line-stroke-field-typo paged ---
 // Error: 29-56 unexpected key "thicknes", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #line(length: 60pt, stroke: (paint: red, thicknes: 1pt))
 
---- line-stroke-bad-dash-kind ---
+--- line-stroke-bad-dash-kind paged ---
 // Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, none, or auto
 #line(length: 60pt, stroke: (paint: red, dash: "dash"))
 
---- line-bad-point-array ---
+--- line-bad-point-array paged ---
 // Test errors.
 
 // Error: 12-19 array must contain exactly two items
 // Hint: 12-19 the first item determines the value for the X axis and the second item the value for the Y axis
 #line(end: (50pt,))
 
---- line-bad-point-component-type ---
+--- line-bad-point-component-type paged ---
 // Error: 14-26 expected relative length, found angle
 #line(start: (3deg, 10pt), length: 5cm)
 
---- line-infinite-length ---
+--- line-infinite-length paged ---
 // Error: 2-54 cannot create line with infinite length
 #line(start: (0pt, 0pt), end: (float.inf * 1pt, 0pt))

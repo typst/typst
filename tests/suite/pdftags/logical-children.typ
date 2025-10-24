@@ -65,7 +65,7 @@ Some other text.
 
 Some other text.
 
---- logical-children-tags-underline-around-place render pdftags ---
+--- logical-children-tags-underline-around-place paged pdftags ---
 #underline[
   Some text #place(float: true, bottom + right)[explanation].
 ]

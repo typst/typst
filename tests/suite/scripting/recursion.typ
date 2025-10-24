@@ -1,6 +1,6 @@
 // Test recursive function calls.
 
---- recursion-named ---
+--- recursion-named paged ---
 // Test with named function.
 #let fib(n) = {
   if n <= 2 {
@@ -12,43 +12,43 @@
 
 #test(fib(10), 55)
 
---- recursion-unnamed-invalid ---
+--- recursion-unnamed-invalid paged ---
 // Test with unnamed function.
 // Error: 17-18 unknown variable: f
 #let f = (n) => f(n - 1)
 #f(10)
 
---- recursion-named-returns-itself ---
+--- recursion-named-returns-itself paged ---
 // Test capturing with named function.
 #let f = 10
 #let f() = f
 #test(type(f()), function)
 
---- recursion-unnamed-does-not-return-itself ---
+--- recursion-unnamed-does-not-return-itself paged ---
 // Test capturing with unnamed function.
 #let f = 10
 #let f = () => f
 #test(type(f()), int)
 
---- recursion-shadowing ---
+--- recursion-shadowing paged ---
 // Test redefinition.
 #let f(x) = "hello"
 #let f(x) = if x != none { f(none) } else { "world" }
 #test(f(1), "world")
 
---- recursion-maximum-depth ---
+--- recursion-maximum-depth paged ---
 // Error: 15-21 maximum function call depth exceeded
 #let rec(n) = rec(n) + 1
 #rec(1)
 
---- recursion-via-include-in-layout ---
+--- recursion-via-include-in-layout paged ---
 // Test cyclic imports during layout.
 // Error: 2-38 maximum show rule depth exceeded
 // Hint: 2-38 maybe a show rule matches its own output
 // Hint: 2-38 maybe there are too deeply nested elements
 #layout(_ => include "recursion.typ")
 
---- recursion-show-math ---
+--- recursion-show-math paged ---
 // Test recursive show rules.
 // Error: 22-25 maximum show rule depth exceeded
 // Hint: 22-25 maybe a show rule matches its own output
@@ -56,7 +56,7 @@
 #show math.equation: $x$
 $ x $
 
---- recursion-show-math-realize ---
+--- recursion-show-math-realize paged ---
 // Error: 22-33 maximum show rule depth exceeded
 // Hint: 22-33 maybe a show rule matches its own output
 // Hint: 22-33 maybe there are too deeply nested elements

@@ -1,4 +1,4 @@
---- grid-headers render pdftags ---
+--- grid-headers paged pdftags ---
 #set page(width: auto, height: 12em)
 #table(
   columns: 5,
@@ -11,7 +11,7 @@
   ..range(0, 6).map(i => ([John \##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
 )
 
---- grid-headers-no-repeat ---
+--- grid-headers-no-repeat paged ---
 // Disable repetition
 #set page(width: auto, height: 12em)
 #table(
@@ -26,7 +26,7 @@
   ..range(0, 6).map(i => ([John \##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
 )
 
---- grid-headers-gutter ---
+--- grid-headers-gutter paged ---
 #set page(width: auto, height: 12em)
 #table(
   columns: 5,
@@ -40,7 +40,7 @@
   ..range(0, 6).map(i => ([John \##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
 )
 
---- grid-header-relative-row-sizes ---
+--- grid-header-relative-row-sizes paged ---
 // Relative lengths
 #set page(height: 10em)
 #table(
@@ -53,14 +53,14 @@
   [C]
 )
 
---- grid-header-cell-with-y ---
+--- grid-header-cell-with-y paged ---
 #grid(
   grid.cell(y: 1)[a],
   grid.header(grid.cell(y: 0)[b]),
   grid.cell(y: 2)[c]
 )
 
---- grid-header-cell-with-x ---
+--- grid-header-cell-with-x paged ---
 #grid(
   columns: 2,
   stroke: black,
@@ -70,7 +70,7 @@
   grid.cell(x: 1)[c]
 )
 
---- grid-header-last-child ---
+--- grid-header-last-child paged ---
 // When the header is the last grid child, it shouldn't include the gutter row
 // after it, because there is none.
 #grid(
@@ -82,7 +82,7 @@
   )
 )
 
---- grid-header-nested ---
+--- grid-header-nested paged ---
 #set page(height: 14em)
 #let t(n) = table(
   columns: 3,
@@ -100,7 +100,7 @@
   t(1)
 )
 
---- grid-header-hline-and-vline ---
+--- grid-header-hline-and-vline paged ---
 // Test line positioning in header
 #table(
   columns: 3,
@@ -117,27 +117,27 @@
   [e], [f]
 )
 
---- grid-header-not-at-first-row ---
+--- grid-header-not-at-first-row paged ---
 #grid(
   [a],
   grid.header([b])
 )
 
---- grid-header-not-at-first-row-two-columns ---
+--- grid-header-not-at-first-row-two-columns paged ---
 #grid(
   columns: 2,
   [a],
   grid.header([b])
 )
 
---- grid-header-multiple ---
+--- grid-header-multiple paged ---
 #grid(
   grid.header([a]),
   grid.header([b]),
   [a],
 )
 
---- grid-header-multiple-unordered ---
+--- grid-header-multiple-unordered paged ---
 #set page(height: 4em)
 #grid(
   grid.header(grid.cell(x: 0, y: 4)[y]),
@@ -150,7 +150,7 @@
   [f],
 )
 
---- grid-header-skip ---
+--- grid-header-skip paged ---
 #grid(
   columns: 2,
   [x], [y],
@@ -161,7 +161,7 @@
   [f], grid.cell(x: 1)[g]
 )
 
---- grid-header-skip-unordered ---
+--- grid-header-skip-unordered paged ---
 #grid(
   columns: 2,
   [a],
@@ -171,7 +171,7 @@
   [c]
 )
 
---- grid-header-rowbreak-auto-pos ---
+--- grid-header-rowbreak-auto-pos paged ---
 #grid(
   columns: 2,
   [x],
@@ -183,7 +183,7 @@
   [z],
 )
 
---- grid-header-rowbreak-fixed-pos ---
+--- grid-header-rowbreak-fixed-pos paged ---
 #grid(
   columns: 2,
   [z],
@@ -196,7 +196,7 @@
   [k]
 )
 
---- grid-header-rowbreak-mixed-pos ---
+--- grid-header-rowbreak-mixed-pos paged ---
 #grid(
   columns: 2,
   [a],
@@ -208,7 +208,7 @@
   [e]
 )
 
---- grid-header-rowbreak-auto-and-fixed-pos ---
+--- grid-header-rowbreak-auto-and-fixed-pos paged ---
 #grid(
   columns: 2,
   [a],
@@ -218,7 +218,7 @@
   [c]
 )
 
---- grid-header-too-large-non-repeating-orphan ---
+--- grid-header-too-large-non-repeating-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header(
@@ -228,7 +228,7 @@
   [b]
 )
 
---- grid-header-too-large-repeating-orphan ---
+--- grid-header-too-large-repeating-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header(
@@ -238,7 +238,7 @@
   [b]
 )
 
---- grid-header-too-large-repeating-orphan-with-footer ---
+--- grid-header-too-large-repeating-orphan-with-footer paged ---
 #set page(height: 8em)
 #grid(
   grid.header(
@@ -252,7 +252,7 @@
   )
 )
 
---- grid-header-too-large-repeating-orphan-not-at-first-row ---
+--- grid-header-too-large-repeating-orphan-not-at-first-row paged ---
 #set page(height: 8em)
 #grid(
   [b],
@@ -263,7 +263,7 @@
   [c],
 )
 
---- table-header-in-grid ---
+--- table-header-in-grid paged ---
 // Error: 2:3-2:20 cannot use `table.header` as a grid header
 // Hint: 2:3-2:20 use `grid.header` instead
 #grid(
@@ -271,7 +271,7 @@
   [a],
 )
 
---- grid-header-in-table ---
+--- grid-header-in-table paged ---
 // Error: 2:3-2:19 cannot use `grid.header` as a table header
 // Hint: 2:3-2:19 use `table.header` instead
 #table(
@@ -279,23 +279,23 @@
   [a],
 )
 
---- grid-header-in-grid-header ---
+--- grid-header-in-grid-header paged ---
 // Error: 14-28 cannot place a grid header within another header or footer
 #grid.header(grid.header[a])
 
---- table-header-in-grid-header ---
+--- table-header-in-grid-header paged ---
 // Error: 14-29 cannot place a table header within another header or footer
 #grid.header(table.header[a])
 
---- grid-header-in-table-header ---
+--- grid-header-in-table-header paged ---
 // Error: 15-29 cannot place a grid header within another header or footer
 #table.header(grid.header[a])
 
---- table-header-in-table-header ---
+--- table-header-in-table-header paged ---
 // Error: 15-30 cannot place a table header within another header or footer
 #table.header(table.header[a])
 
---- grid-header-block-with-fixed-height ---
+--- grid-header-block-with-fixed-height paged ---
 #set page(height: 15em)
 #table(
   rows: (auto, 2.5em, auto),
@@ -306,7 +306,7 @@
   block(width: 2em, height: 20em, fill: red)
 )
 
---- grid-header-and-rowspan-non-contiguous-1 ---
+--- grid-header-and-rowspan-non-contiguous-1 paged ---
 // Rowspan sizing algorithm doesn't do the best job at non-contiguous content
 // ATM.
 #set page(height: 15em)
@@ -320,7 +320,7 @@
   table.cell(rowspan: 3, lines(15))
 )
 
---- grid-header-and-rowspan-non-contiguous-2 ---
+--- grid-header-and-rowspan-non-contiguous-2 paged ---
 // Rowspan sizing algorithm doesn't do the best job at non-contiguous content
 // ATM.
 #set page(height: 15em)
@@ -335,7 +335,7 @@
   table.cell(rowspan: 3, lines(15))
 )
 
---- grid-header-and-rowspan-non-contiguous-3 ---
+--- grid-header-and-rowspan-non-contiguous-3 paged ---
 // This should look right
 #set page(height: 15em)
 
@@ -349,7 +349,7 @@
   table.cell(rowspan: 3, lines(15))
 )
 
---- grid-header-and-rowspan-contiguous-1 ---
+--- grid-header-and-rowspan-contiguous-1 paged ---
 // Block should occupy all space
 #set page(height: 15em)
 
@@ -364,7 +364,7 @@
   table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
 )
 
---- grid-header-and-rowspan-contiguous-2 ---
+--- grid-header-and-rowspan-contiguous-2 paged ---
 // Block should occupy all space
 #set page(height: 15em)
 
@@ -379,7 +379,7 @@
   table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
 )
 
---- grid-header-and-large-auto-contiguous ---
+--- grid-header-and-large-auto-contiguous paged ---
 // Block should occupy all space
 #set page(height: 15em)
 
@@ -394,7 +394,7 @@
   block(height: 2.5em + 2em + 20em, width: 100%, fill: red)
 )
 
---- grid-header-lack-of-space ---
+--- grid-header-lack-of-space paged ---
 // Test lack of space for header + text.
 #set page(height: 8em)
 
@@ -408,7 +408,7 @@
   table.cell(rowspan: 3, lorem(80))
 )
 
---- grid-header-orphan-prevention ---
+--- grid-header-orphan-prevention paged ---
 // Orphan header prevention test
 #set page(height: 12em)
 #v(8em)
@@ -421,7 +421,7 @@
   ..([Test], [Test], [Test]) * 20
 )
 
---- grid-header-non-repeating-orphan-prevention ---
+--- grid-header-non-repeating-orphan-prevention paged ---
 #set page(height: 5em)
 #v(2em)
 #grid(
@@ -432,7 +432,7 @@
   [d]
 )
 
---- grid-header-empty ---
+--- grid-header-empty paged ---
 // Empty header should just be a repeated blank row
 #set page(height: 12em)
 #table(
@@ -442,7 +442,7 @@
   ..range(0, 4).map(i => ([John \##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789])).flatten()
 )
 
---- grid-header-containing-rowspan ---
+--- grid-header-containing-rowspan paged ---
 // When a header has a rowspan with an empty row, it should be displayed
 // properly
 #set page(height: 10em)
@@ -460,7 +460,7 @@
 )
 #context count.display()
 
---- grid-header-no-expand-with-col-and-row-pos-cell ---
+--- grid-header-no-expand-with-col-and-row-pos-cell paged ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -473,7 +473,7 @@
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
 )
 
---- grid-header-no-expand-with-row-pos-cell ---
+--- grid-header-no-expand-with-row-pos-cell paged ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -486,7 +486,7 @@
   table.cell(y: 1, rowspan: 2, lorem(80))
 )
 
---- grid-nested-with-headers ---
+--- grid-nested-with-headers paged ---
 // Nested table with header should repeat both headers
 #set page(height: 10em)
 #table(
@@ -501,7 +501,7 @@
   )
 )
 
---- grid-nested-headers ---
+--- grid-nested-headers paged ---
 #set page(height: 12em)
 #table(
   table.header(
@@ -516,7 +516,7 @@
   [a\ b]
 )
 
---- grid-header-not-at-the-top ---
+--- grid-header-not-at-the-top paged ---
 #set page(height: 5em)
 #v(2em)
 #grid(
@@ -528,7 +528,7 @@
   [f],
 )
 
---- grid-header-replace ---
+--- grid-header-replace paged ---
 #set page(height: 5em)
 #v(1.5em)
 #grid(
@@ -541,7 +541,7 @@
   [f],
 )
 
---- grid-header-replace-orphan ---
+--- grid-header-replace-orphan paged ---
 #set page(height: 5em)
 #grid(
   grid.header[*Abc*],
@@ -553,7 +553,7 @@
   [f],
 )
 
---- grid-header-replace-doesnt-fit ---
+--- grid-header-replace-doesnt-fit paged ---
 #set page(height: 5em)
 #v(0.8em)
 #grid(
@@ -566,7 +566,7 @@
   [f],
 )
 
---- grid-header-stroke-edge-cases ---
+--- grid-header-stroke-edge-cases paged ---
 // Test header stroke priority edge case (last header row removed)
 #set page(height: 8em)
 #table(
@@ -579,7 +579,7 @@
   ..(table.cell(stroke: aqua)[d],) * 8,
 )
 
---- grid-header-hline-bottom ---
+--- grid-header-hline-bottom paged ---
 // Yellow line should be kept here
 #set text(6pt)
 #table(
@@ -592,7 +592,7 @@
   table.cell(rowspan: 2)[b]
 )
 
---- grid-header-hline-bottom-manually ---
+--- grid-header-hline-bottom-manually paged ---
 // Red line should be kept here
 #set page(height: 6em)
 #set text(6pt)
@@ -607,7 +607,7 @@
   table.cell(stroke: aqua)[b]
 )
 
---- grid-header-rowspan-base ---
+--- grid-header-rowspan-base paged ---
 #set page(height: 7em)
 #set text(6pt)
 #let full-block = block(width: 2em, height: 100%, fill: red)
@@ -620,7 +620,7 @@
   )
 )
 
---- grid-header-row-pos-cell-inside-conflicts-with-row-before ---
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -637,7 +637,7 @@
   )
 )
 
---- grid-header-row-pos-cell-inside-conflicts-with-row-before-after-first-empty-row ---
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before-after-first-empty-row paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -656,7 +656,7 @@
   )
 )
 
---- grid-header-auto-pos-cell-inside-conflicts-with-row-after ---
+--- grid-header-auto-pos-cell-inside-conflicts-with-row-after paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -671,7 +671,7 @@
   ),
 )
 
---- grid-header-row-pos-cell-inside-conflicts-with-row-after ---
+--- grid-header-row-pos-cell-inside-conflicts-with-row-after paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -686,7 +686,7 @@
   ),
 )
 
---- grid-header-collision-multiple-ordered ---
+--- grid-header-collision-multiple-ordered paged ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -699,7 +699,7 @@
   grid.header(grid.cell(x: 0, y: 4)[y]),
 )
 
---- grid-header-collision-multiple-unordered ---
+--- grid-header-collision-multiple-unordered paged ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -712,7 +712,7 @@
   grid.cell(x: 0, y: 3)[a]
 )
 
---- grid-header-collision-multiple-rowspan ---
+--- grid-header-collision-multiple-rowspan paged ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -725,7 +725,7 @@
   grid.cell(x: 0, y: 1, rowspan: 2)[a]
 )
 
---- issue-5359-column-override-stays-inside-header ---
+--- issue-5359-column-override-stays-inside-header paged ---
 #table(
   columns: 3,
   [Outside],
@@ -735,7 +735,7 @@
   ),
 )
 
---- issue-6666-auto-hlines-around-header ---
+--- issue-6666-auto-hlines-around-header paged ---
 #table(
 	columns: 2,
 	table.hline(stroke: 2pt + blue),

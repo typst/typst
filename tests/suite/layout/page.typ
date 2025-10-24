@@ -1,22 +1,22 @@
 // Test the page class.
 
---- page-call-empty ---
+--- page-call-empty paged ---
 // Just empty page.
 // Should result in auto-sized page, just like nothing.
 #page[]
 
---- page-call-styled-empty ---
+--- page-call-styled-empty paged ---
 // Just empty page with styles.
 // Should result in one conifer-colored A11 page.
 #page("a11", flipped: true, fill: conifer)[]
 
---- page-call-followed-by-pagebreak ---
+--- page-call-followed-by-pagebreak paged ---
 // Just page followed by pagebreak.
 // Should result in one forest-colored A11 page and one auto-sized page.
 #page("a11", flipped: true, fill: forest)[]
 #pagebreak()
 
---- page-set-forces-break ---
+--- page-set-forces-break paged ---
 // Set width and height.
 // Should result in one high and one wide page.
 #set page(width: 80pt, height: 80pt)
@@ -26,31 +26,31 @@
 // Flipped predefined paper.
 #[#set page(paper: "a11", flipped: true);Flipped A11]
 
---- page-set-in-container ---
+--- page-set-in-container paged ---
 #box[
   // Error: 4-18 page configuration is not allowed inside of containers
   #set page("a4")
 ]
 
---- page-set-empty ---
+--- page-set-empty paged ---
 // Empty with styles
 // Should result in one conifer-colored A11 page.
 #set page("a11", flipped: true, fill: conifer)
 
---- page-set-only-pagebreak ---
+--- page-set-only-pagebreak paged ---
 // Empty with styles and then pagebreak
 // Should result in two forest-colored pages.
 #set page(fill: forest)
 #pagebreak()
 
---- page-set-override-thrice ---
+--- page-set-override-thrice paged ---
 // Empty with multiple page styles.
 // Should result in a small white page.
 #set page("a4")
 #set page("a5")
 #set page(width: 1cm, height: 1cm)
 
---- page-set-override-and-mix ---
+--- page-set-override-and-mix paged ---
 // Empty with multiple page styles.
 // Should result in one eastern-colored A11 page.
 #set page("a4")
@@ -59,22 +59,22 @@
 #set text(font: "Roboto", white)
 #smallcaps[Typst]
 
---- page-large ---
+--- page-large paged ---
 #set page("a4")
 
---- page-fill ---
+--- page-fill paged ---
 // Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
 #page(width: 40pt, fill: auto, margin: (top: 10pt, rest: auto))[Hi]
 
---- page-fill-none ---
+--- page-fill-none paged ---
 // Test disabling page fill.
 // The PNG is filled with black anyway due to the test runner.
 #set page(fill: none)
 #rect(fill: green)
 
---- page-margin-uniform ---
+--- page-margin-uniform paged ---
 // Set all margins at once.
 #[
   #set page(height: 20pt, margin: 5pt)
@@ -82,7 +82,7 @@
   #place(bottom + right)[BR]
 ]
 
---- page-margin-individual ---
+--- page-margin-individual paged ---
 // Set individual margins.
 #set page(height: 40pt)
 #[#set page(margin: (left: 0pt)); #align(left)[Left]]
@@ -93,7 +93,7 @@
 // Ensure that specific margins override general margins.
 #[#set page(margin: (rest: 0pt, left: 20pt)); Overridden]
 
---- page-margin-inside-outside-override ---
+--- page-margin-inside-outside-override paged ---
 #set page(height: 100pt, margin: (inside: 30pt, outside: 20pt))
 #set par(justify: true)
 #set text(size: 8pt)
@@ -108,20 +108,20 @@
 = Introduction
 #lorem(35)
 
---- page-margin-inside ---
+--- page-margin-inside paged ---
 #set page(margin: (inside: 30pt))
 #rect(width: 100%)[Bound]
 #pagebreak()
 #rect(width: 100%)[Left]
 
---- page-margin-inside-with-binding ---
+--- page-margin-inside-with-binding paged ---
 // Test setting the binding explicitly.
 #set page(binding: right, margin: (inside: 30pt))
 #rect(width: 100%)[Bound]
 #pagebreak()
 #rect(width: 100%)[Right]
 
---- page-margin-binding-from-text-lang ---
+--- page-margin-binding-from-text-lang paged ---
 // Test setting the binding implicitly.
 #set page(margin: (inside: 30pt))
 #set text(lang: "he")
@@ -129,15 +129,15 @@
 #pagebreak()
 #rect(width: 100%)[Right]
 
---- page-margin-left-and-outside ---
+--- page-margin-left-and-outside paged ---
 // Error: 19-44 `inside` and `outside` are mutually exclusive with `left` and `right`
 #set page(margin: (left: 1cm, outside: 2cm))
 
---- page-margin-binding-bad ---
+--- page-margin-binding-bad paged ---
 // Error: 20-23 must be `left` or `right`
 #set page(binding: top)
 
---- page-marginals ---
+--- page-marginals paged ---
 #set page(
   paper: "a8",
   margin: (x: 15pt, y: 30pt),
@@ -157,7 +157,7 @@
 #set page(header: none, height: auto, margin: (top: 15pt, bottom: 25pt))
 Z
 
---- page-number-align-top-right ---
+--- page-number-align-top-right paged ---
 #set page(
   height: 100pt,
   margin: 30pt,
@@ -167,7 +167,7 @@ Z
 
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
---- page-number-align-bottom-left ---
+--- page-number-align-bottom-left paged ---
 #set page(
   height: 100pt,
   margin: 30pt,
@@ -177,11 +177,11 @@ Z
 
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
---- page-number-align-left-horizon ---
+--- page-number-align-left-horizon paged ---
 // Error: 25-39 expected `top` or `bottom`, found horizon
 #set page(number-align: left + horizon)
 
---- page-numbering-pdf-label ---
+--- page-numbering-pdf-label paged ---
 #set page(margin: (bottom: 20pt, rest: 10pt))
 #let filler = lines(7)
 
@@ -230,14 +230,14 @@ Z
 #counter(page).update(53)
 #filler
 
---- page-numbering-hint ---
+--- page-numbering-hint paged ---
 = Heading <intro>
 
 // Error: 1:21-1:47 cannot reference without page numbering
 // Hint: 1:21-1:47 you can enable page numbering with `#set page(numbering: "1")`
 Can not be used as #ref(<intro>, form: "page")
 
---- page-suppress-headers-and-footers ---
+--- page-suppress-headers-and-footers paged ---
 #set page(header: none, footer: none, numbering: "1")
 Look, ma, no page numbers!
 
@@ -246,7 +246,7 @@ Look, ma, no page numbers!
 #set page(header: auto, footer: auto)
 Default page numbers now.
 
---- page-numbering-huge ---
+--- page-numbering-huge paged ---
 #set page(margin: (bottom: 20pt, rest: 0pt))
 #let filler = lines(1)
 
@@ -256,36 +256,36 @@ Default page numbers now.
 #pagebreak()
 #pagebreak()
 
---- page-marginal-style-text-set ---
+--- page-marginal-style-text-set paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 #set text(red)
 Red
 
---- page-marginal-style-text-set-first ---
+--- page-marginal-style-text-set-first paged ---
 #set text(red)
 #set page(numbering: "1", margin: (bottom: 20pt))
 Red
 
---- page-marginal-style-text-call ---
+--- page-marginal-style-text-call paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 #text(red)[Red]
 
---- page-marginal-style-text-call-code ---
+--- page-marginal-style-text-call-code paged ---
 #{
   set page(numbering: "1", margin: (bottom: 20pt))
   text(red)[Red]
 }
 
---- page-marginal-style-text-call-around-page-call ---
+--- page-marginal-style-text-call-around-page-call paged ---
 #text(red, page(numbering: "1", margin: (bottom: 20pt))[Hello])
 
---- page-marginal-style-text-call-around-set-page ---
+--- page-marginal-style-text-call-around-set-page paged ---
 #text(red, {
   set page(numbering: "1", margin: (bottom: 20pt))
   text(style: "italic")[Hello]
 })
 
---- page-marginal-style-text-call-around-pagebreak ---
+--- page-marginal-style-text-call-around-pagebreak paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 A
 #text(red)[
@@ -293,11 +293,11 @@ A
   B
 ]
 
---- page-marginal-style-show-rule ---
+--- page-marginal-style-show-rule paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 = Introduction
 
---- page-marginal-style-show-rule-with-set-page ---
+--- page-marginal-style-show-rule-with-set-page paged ---
 #show heading: it => {
   set page(numbering: "1", margin: (bottom: 20pt))
   it
@@ -305,14 +305,14 @@ A
 
 = Introduction
 
---- page-marginal-style-show-rule-with-page-call ---
+--- page-marginal-style-show-rule-with-page-call paged ---
 #show heading: page.with(fill: aqua)
 
 A
 = Introduction
 B
 
---- page-marginal-style-show-rule-with-pagebreak ---
+--- page-marginal-style-show-rule-with-pagebreak paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 #show heading: it => {
   pagebreak(weak: true)
@@ -321,7 +321,7 @@ B
 
 = Introduction
 
---- page-marginal-style-context ---
+--- page-marginal-style-context paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 #show: it => context {
   set text(red)
@@ -329,7 +329,7 @@ B
 }
 Hi
 
---- page-marginal-style-shared-initial-interaction ---
+--- page-marginal-style-shared-initial-interaction paged ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 A
 #{
@@ -338,17 +338,17 @@ A
 }
 #text(fill: blue)[B]
 
---- page-marginal-style-empty ---
+--- page-marginal-style-empty paged ---
 #set text(red)
 #set page(numbering: "1", margin: (bottom: 20pt))
 
---- page-marginal-style-page-call ---
+--- page-marginal-style-page-call paged ---
 #page(numbering: "1", margin: (bottom: 20pt))[
   #set text(red)
   A
 ]
 
---- issue-2631-page-header-ordering ---
+--- issue-2631-page-header-ordering paged ---
 #set text(6pt)
 #show heading: set text(6pt, weight: "regular")
 #set page(
@@ -368,7 +368,7 @@ Hi
 #pagebreak()
 = Second
 
---- issue-4340-set-document-and-page ---
+--- issue-4340-set-document-and-page paged ---
 // Test custom page fields being applied on the last page
 // if the document has custom fields.
 #set document(author: "")
@@ -376,18 +376,18 @@ Hi
 text
 #pagebreak()
 
---- issue-2326-context-set-page ---
+--- issue-2326-context-set-page paged ---
 #context [
   #set page(fill: aqua)
   On page #here().page()
 ]
 
---- issue-3671-get-from-page-call ---
+--- issue-3671-get-from-page-call paged ---
 #set page(margin: 5pt)
 #context test(page.margin, 5pt)
 #page(margin: 10pt, context test(page.margin, 10pt))
 
---- issue-4363-set-page-after-tag ---
+--- issue-4363-set-page-after-tag paged ---
 #set page(fill: aqua)
 1
 #pagebreak()

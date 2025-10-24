@@ -1,20 +1,20 @@
 // Test that setting font features in math.equation has an effect.
 
---- math-font-fallback ---
+--- math-font-fallback paged ---
 // Test font fallback.
 $ よ and 🏳️‍🌈 $
 
---- math-text-color ---
+--- math-text-color paged ---
 // Test text properties.
 $text(#red, "time"^2) + sqrt("place")$
 
---- math-text-single-grapheme-cluster ---
+--- math-text-single-grapheme-cluster paged ---
 // Test that single graph clusters are considered a single character in math.
 $ 𝒟 𝒟︀ 𝒟︁ $
 #show math.equation: set text(font: "Noto Sans Math")
 $ 𝒟 𝒟︀ 𝒟︁ $
 
---- math-text-grapheme-cluster-fallback ---
+--- math-text-grapheme-cluster-fallback paged ---
 // Test fallback with grapheme clusters.
 #let bird = symbol("🐦‍⬛")
 #bird or 🐦‍⬛
@@ -27,7 +27,7 @@ $bird "or" 🐦‍⬛$
 // Hint: 1-16 rendering may be poor
 $bird "or" 🐦‍⬛$
 
---- math-font-features ---
+--- math-font-features paged ---
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
@@ -36,12 +36,12 @@ $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
---- math-font-features-switch ---
+--- math-font-features-switch paged ---
 #let scr(it) = text(stylistic-set: 1, $cal(it)$)
 $cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
 $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 
---- math-font-covers ---
+--- math-font-covers paged ---
 #show math.equation: set text(
   font: (
     // Ignore that this regex actually misses some of the script glyphs...
@@ -52,25 +52,25 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 )
 $ cal(P)_i (X) * cal(C)_1 $
 
---- math-font-warning ---
+--- math-font-warning paged ---
 #show math.equation: set text(font: "Libertinus Serif")
 // Warning: 1-14 current font is not designed for math
 // Hint: 1-14 rendering may be poor
 $ x + y = z $
 
---- math-font-error ---
+--- math-font-error paged ---
 // Warning: 37-54 unknown font family: libertinus math
 #show math.equation: set text(font: "Libertinus Math", fallback: false)
 // Error: 1-39 no font could be found
 $ brace.stroked.l -1 brace.stroked.r $
 
---- math-font-fallback-class ---
+--- math-font-fallback-class paged ---
 // Test that math class is preserved even when the result is a tofu.
 #show math.equation: set text(font: "Fira Math", fallback: false)
 $ brace.stroked.l -1 brace.stroked.r $
 $ lr(brace.stroked.l -1 brace.stroked.r) $
 
---- math-optical-size-nested-scripts ---
+--- math-optical-size-nested-scripts paged ---
 // Test transition from script to scriptscript.
 #[
 #set text(size:20pt)
@@ -78,7 +78,7 @@ $  e^(e^(e^(e))) $
 ]
 A large number: $e^(e^(e^(e)))$.
 
---- math-optical-size-primes ---
+--- math-optical-size-primes paged ---
 //  Test prime/double prime via scriptsize
 #let prime = [ \u{2032} ]
 #let dprime = [ \u{2033} ]
@@ -87,17 +87,17 @@ $ y^dprime-2y^prime + y = 0 $
 $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
 
---- math-optical-size-prime-large-operator ---
+--- math-optical-size-prime-large-operator paged ---
 // Test prime superscript on large symbol
 $ scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 
---- math-optical-size-frac-script-script ---
+--- math-optical-size-frac-script-script paged ---
 // Test script-script in a fraction.
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
 
---- math-par ---
+--- math-par paged ---
 // Ensure that math does not produce paragraphs.
 #show par: highlight
 $ a + "bc" + #[c] + #box[d] + #block[e] $

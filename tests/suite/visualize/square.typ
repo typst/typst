@@ -1,44 +1,44 @@
 // Test the `square` function.
 
---- square ---
+--- square paged ---
 // Default square.
 #box(square())
 #box(square[hey!])
 
---- square-auto-sized ---
+--- square-auto-sized paged ---
 // Test auto-sized square.
 #square(fill: eastern)[
   #set text(fill: white, weight: "bold")
   Typst
 ]
 
---- square-relatively-sized-child ---
+--- square-relatively-sized-child paged ---
 // Test relative-sized child.
 #square(fill: eastern)[
   #rect(width: 10pt, height: 5pt, fill: conifer)
   #rect(width: 40%, height: 5pt, stroke: conifer)
 ]
 
---- square-contents-overflow ---
+--- square-contents-overflow paged ---
 // Test text overflowing height.
 #set page(width: 75pt, height: 100pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
 ]
 
---- square-height-limited ---
+--- square-height-limited paged ---
 // Test that square does not overflow page.
 #set page(width: 100pt, height: 75pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
 ]
 
---- square-size-width-and-height ---
+--- square-size-width-and-height paged ---
 // Size wins over width and height.
 // Error: 09-20 unexpected argument: width
 #square(width: 10cm, height: 20cm, size: 1cm, fill: rgb("eb5278"))
 
---- square-relative-size ---
+--- square-relative-size paged ---
 // Test relative width and height and size that is smaller
 // than default size.
 #set page(width: 120pt, height: 70pt)
@@ -55,7 +55,7 @@
   ),
 )
 
---- square-circle-alignment ---
+--- square-circle-alignment paged ---
 // Test alignment in automatically sized square and circle.
 #set text(8pt)
 #box(square(inset: 4pt)[
@@ -63,7 +63,7 @@
 ])
 #box(circle(align(center + horizon, [Hey.])))
 
---- square-circle-overspecified ---
+--- square-circle-overspecified paged ---
 // Test that minimum wins if both width and height are given.
 #stack(
   dir: ltr,
@@ -72,38 +72,38 @@
   circle(width: 20%, height: 40pt),
 )
 
---- square-height-limited-stack ---
+--- square-height-limited-stack paged ---
 // Test square that is limited by region size.
 #set page(width: 20pt, height: 10pt, margin: 0pt)
 #stack(dir: ltr, square(fill: forest), square(fill: conifer))
 
---- square-no-overflow ---
+--- square-no-overflow paged ---
 // Test that square doesn't overflow due to its aspect ratio.
 #set page(width: 40pt, height: 25pt, margin: 5pt)
 #square()
 #square[Hello there]
 
---- square-overflow-forced-width ---
+--- square-overflow-forced-width paged ---
 // Test that a width-overflowing square is laid out regardless of the
 // presence of inner content.
 #set page(width: 60pt, height: 100pt)
 #square(width: 150%)
 #square(width: 150%)[Hello there]
 
---- square-overflow-forced-height ---
+--- square-overflow-forced-height paged ---
 // Test that a height-overflowing square is laid out regardless of the
 // presence of inner content.
 #set page(width: 120pt, height: 60pt)
 #square(height: 150%)
 #square(height: 150%)[Hello there]
 
---- square-size-relative-invalid ---
+--- square-size-relative-invalid paged ---
 // Size cannot be relative because we wouldn't know
 // relative to which axis.
 // Error: 15-18 expected length or auto, found ratio
 #square(size: 50%)
 
---- square-rect-rounded ---
+--- square-rect-rounded paged ---
 #set square(size: 20pt, stroke: 4pt)
 
 // no radius for non-rounded corners
@@ -154,12 +154,12 @@
   square(radius: 55%),
 )
 
---- square-base ---
+--- square-base paged ---
 // Test that square sets correct base for its content.
 #set page(height: 80pt)
 #square(width: 40%, rect(width: 60%, height: 80%))
 
---- square-size-beyond-default ---
+--- square-size-beyond-default paged ---
 // Test that setting a square's height beyond its default sizes it correctly.
 #square()
 #square(height: 60pt)

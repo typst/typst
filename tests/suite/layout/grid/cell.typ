@@ -1,6 +1,6 @@
 // Test basic styling using the grid.cell element.
 
---- grid-cell-override ---
+--- grid-cell-override paged ---
 // Cell override
 #grid(
   align: left,
@@ -18,7 +18,7 @@
   [H], grid.cell(fill: blue)[J]
 )
 
---- grid-cell-show ---
+--- grid-cell-show paged ---
 // Cell show rule
 #show grid.cell: it => [Zz]
 
@@ -35,7 +35,7 @@
   align(horizon)[G], [A\ A\ A]
 )
 
---- grid-cell-show-and-override ---
+--- grid-cell-show-and-override paged ---
 #show grid.cell: it => (it.align, it.fill)
 #grid(
   align: left,
@@ -45,7 +45,7 @@
   grid.cell(fill: aqua)[B],
 )
 
---- grid-cell-set ---
+--- grid-cell-set paged ---
 // Cell set rules
 #set grid.cell(align: center)
 #show grid.cell: it => (it.align, it.fill, it.inset)
@@ -58,7 +58,7 @@
   grid.cell(fill: aqua)[B],
 )
 
---- grid-cell-folding ---
+--- grid-cell-folding paged ---
 // Test folding per-cell properties (align and inset)
 #grid(
   columns: (1fr, 1fr),
@@ -70,7 +70,7 @@
   grid.cell(inset: (bottom: 0pt))[Bot], grid.cell(inset: (bottom: 0pt))[Bot]
 )
 
---- grid-cell-align-override ---
+--- grid-cell-align-override paged ---
 // Test overriding outside alignment
 #set align(bottom + right)
 #grid(
@@ -82,7 +82,7 @@
   grid.cell(align: left, fill: aqua)[BL], grid.cell(align: top, fill: red.lighten(50%))[TR]
 )
 
---- grid-cell-various-overrides ---
+--- grid-cell-various-overrides paged ---
 #grid(
   columns: 2,
   fill: red,
@@ -94,7 +94,7 @@
   [G], grid.cell(inset: 0pt)[H]
 )
 
---- grid-cell-show-emph ---
+--- grid-cell-show-emph paged ---
 #{
   show grid.cell: emph
   grid(
@@ -105,7 +105,7 @@
   )
 }
 
---- grid-cell-show-based-on-position ---
+--- grid-cell-show-based-on-position paged ---
 // Style based on position
 #{
   show grid.cell: it => {
@@ -127,12 +127,12 @@
   )
 }
 
---- table-cell-in-grid ---
+--- table-cell-in-grid paged ---
 // Error: 7-19 cannot use `table.cell` as a grid cell
 // Hint: 7-19 use `grid.cell` instead
 #grid(table.cell[])
 
---- issue-5723-grid-heading-numbering ---
+--- issue-5723-grid-heading-numbering paged ---
 #set heading(numbering: "1.1.")
 #set page(width: 150pt, height: 3.5cm)
 
@@ -158,7 +158,7 @@
   [= F]
 )
 
---- issue-7188-grid-counter-order ---
+--- issue-7188-grid-counter-order paged ---
 #set page(height: 1cm)
 
 #let word-numbering(body) = {
