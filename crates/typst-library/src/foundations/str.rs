@@ -998,7 +998,7 @@ impl Regex {
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// `{regex(`\d+\.\d+\.\d+`.text)}`.
+        /// ``{regex(`\d+\.\d+\.\d+`.text)}``.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)
