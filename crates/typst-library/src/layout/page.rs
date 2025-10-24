@@ -647,7 +647,7 @@ impl Binding {
         match self {
             // Left-bound must swap on even pages
             // (because it is correct on the first page).
-            Self::Left => number.get() % 2 == 0,
+            Self::Left => number.get().is_multiple_of(2),
             // Right-bound must swap on odd pages
             // (because it is wrong on the first page).
             Self::Right => number.get() % 2 == 1,
@@ -718,7 +718,7 @@ impl Parity {
     /// Whether the given number matches the parity.
     pub fn matches(self, number: usize) -> bool {
         match self {
-            Self::Even => number % 2 == 0,
+            Self::Even => number.is_multiple_of(2),
             Self::Odd => number % 2 == 1,
         }
     }
