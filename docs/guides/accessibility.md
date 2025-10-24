@@ -119,7 +119,9 @@ How can we improve the chart? First, make sure that no information is solely com
 <img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
-This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+
+You can check your design in the web app by using the built-in color blindness simulator. To use it, open the "View" menu and select the desired mode in the "Simulate color blindness" menu. You can also use other tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator] if you are not using our web app.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
