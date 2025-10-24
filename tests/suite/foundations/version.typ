@@ -1,6 +1,6 @@
 // Test versions.
 
---- version-constructor ---
+--- version-constructor render ---
 // Test version constructor.
 
 // Empty.
@@ -15,13 +15,13 @@
 // Mixed arguments.
 #test(version(1, (2, 3), 4, (5, 6), 7).at(5), 6)
 
---- version-equality ---
+--- version-equality render ---
 // Test equality of different-length versions
 #test(version(), version(0))
 #test(version(0), version(0, 0))
 #test(version(1, 2), version(1, 2, 0, 0, 0, 0))
 
---- version-at ---
+--- version-at render ---
 // Test `version.at`.
 
 // Non-negative index in bounds
@@ -36,12 +36,12 @@
 // Error: 2-22 component index out of bounds (index: -3, len: 2)
 #version(1, 2).at(-3)
 
---- version-fields ---
+--- version-fields render ---
 // Test version fields.
 #test(version(1, 2, 3).major, 1)
 #test(version(1, 2, 3).minor, 2)
 #test(version(1, 2, 3).patch, 3)
 
---- version-type ---
+--- version-type render ---
 // Test the type of `sys.version`
 #test(type(sys.version), version)

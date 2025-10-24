@@ -1,10 +1,10 @@
 // Test blind text.
 
---- lorem ---
+--- lorem render ---
 // Test basic call.
 #lorem(19)
 
---- lorem-pars ---
+--- lorem-pars render ---
 // Test custom paragraphs with user code.
 #set text(8pt)
 
@@ -27,6 +27,6 @@
   }
 }
 
---- lorem-missing-words ---
+--- lorem-missing-words render ---
 // Error: 2-9 missing argument: words
 #lorem()

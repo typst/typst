@@ -12,7 +12,7 @@
 = D
 == E
 
---- outline-indent-auto ---
+--- outline-indent-auto render ---
 #set heading(numbering: "I.i.")
 #set page(width: 150pt)
 #show heading: none
@@ -29,7 +29,7 @@
 == F
 === Aligned
 
---- outline-indent-auto-mixed-prefix ---
+--- outline-indent-auto-mixed-prefix render ---
 #show heading: none
 #show outline.entry.where(level: 1): strong
 
@@ -50,7 +50,7 @@
 ]
 = H
 
---- outline-indent-auto-mixed-prefix-short ---
+--- outline-indent-auto-mixed-prefix-short render ---
 #show heading: none
 
 #outline()
@@ -60,7 +60,7 @@
 #set heading(numbering: none)
 = B
 
---- outline-indent-auto-no-prefix ---
+--- outline-indent-auto-no-prefix render ---
 #show heading: none
 
 #outline()
@@ -72,7 +72,7 @@
 == D
 === E
 
---- outline-indent-zero ---
+--- outline-indent-zero render ---
 #set heading(numbering: "1.a.")
 #show heading: none
 
@@ -86,7 +86,7 @@
 == E
 = F
 
---- outline-indent-fixed ---
+--- outline-indent-fixed render ---
 #set heading(numbering: "1.a.")
 #show heading: none
 
@@ -100,7 +100,7 @@
 == E
 = F
 
---- outline-indent-func ---
+--- outline-indent-func render ---
 #set heading(numbering: "1.a.")
 #show heading: none
 
@@ -114,13 +114,13 @@
 == E
 = F
 
---- outline-indent-bad-type ---
+--- outline-indent-bad-type render ---
 // Error: 2-35 expected relative length, found dictionary
 #outline(indent: n => (a: "dict"))
 
 = Heading
 
---- outline-entry ---
+--- outline-entry render ---
 #set page(width: 150pt)
 #set heading(numbering: "1.")
 
@@ -137,7 +137,7 @@
 = Analysis
 == Setup
 
---- outline-entry-complex ---
+--- outline-entry-complex render ---
 #set page(width: 150pt, numbering: "I", margin: (bottom: 20pt))
 #set heading(numbering: "1.")
 
@@ -171,7 +171,7 @@
 == Middle heading
 === Lower heading
 
---- outline-entry-inner ---
+--- outline-entry-inner render ---
 #set heading(numbering: "1.")
 #show outline.entry: it => block(it.inner())
 #show heading: none
@@ -182,7 +182,7 @@
 = A
 = B
 
---- outline-heading-start-of-page ---
+--- outline-heading-start-of-page render ---
 #set page(width: 140pt, height: 200pt, margin: (bottom: 20pt), numbering: "1")
 #set heading(numbering: "(1/a)")
 #show heading.where(level: 1): set text(12pt)
@@ -208,7 +208,7 @@ A
 == F
 ==== G
 
---- outline-bookmark ---
+--- outline-bookmark render ---
 // Ensure that `bookmarked` option doesn't affect the outline
 #set heading(numbering: "(I)", bookmarked: false)
 #set outline.entry(fill: none)
@@ -217,12 +217,12 @@ A
 
 = A
 
---- outline-styled-text ---
+--- outline-styled-text render ---
 #outline(title: none)
 
 = #text(blue)[He]llo
 
---- outline-first-line-indent ---
+--- outline-first-line-indent render ---
 #set par(first-line-indent: 1.5em)
 #set heading(numbering: "1.1.a.")
 #show outline.entry.where(level: 1): strong
@@ -237,12 +237,12 @@ A
 = Analysis
 == Setup
 
---- outline-bad-element ---
+--- outline-bad-element render ---
 // Error: 2-27 cannot outline metadata
 #outline(target: metadata)
 #metadata("hello")
 
---- outline-par ---
+--- outline-par render ---
 // Ensure that an outline does not produce paragraphs.
 #show par: highlight
 
@@ -277,7 +277,7 @@ A
 #set text(lang: "de")
 #figure([C], caption: figure.caption(separator: " ~ ")[Das C])
 
---- issue-2048-outline-multiline ---
+--- issue-2048-outline-multiline render ---
 // Without the word joiner between the dots and the page number,
 // the page number would be alone in its line.
 #set page(width: 125pt)
@@ -289,18 +289,18 @@ A
 = A
 == This just fits here
 
---- issue-2530-outline-entry-panic-text ---
+--- issue-2530-outline-entry-panic-text render ---
 // Outline entry (pre-emptive)
 // Error: 2-27 cannot outline text
 #outline.entry(1, [Hello])
 
---- issue-2530-outline-entry-panic-heading ---
+--- issue-2530-outline-entry-panic-heading render ---
 // Outline entry (pre-emptive, improved error)
 // Error: 2-34 heading must have a location
 // Hint: 2-34 try using a show rule to customize the outline.entry instead
 #outline.entry(1, heading[Hello])
 
---- issue-4476-outline-rtl-title-ending-in-ltr-text ---
+--- issue-4476-outline-rtl-title-ending-in-ltr-text render ---
 #set text(lang: "he")
 #outline()
 
@@ -308,7 +308,7 @@ A
 = הוקוס Pocus
 = זוהי כותרת שתורגמה על ידי מחשב
 
---- issue-4859-outline-entry-show-set ---
+--- issue-4859-outline-entry-show-set render ---
 #set heading(numbering: "1.a.")
 #show outline.entry.where(level: 1): set outline.entry(fill: none)
 #show heading: none
@@ -318,7 +318,7 @@ A
 = A
 == B
 
---- issue-5176-outline-cjk-title ---
+--- issue-5176-outline-cjk-title render ---
 #set text(font: "Noto Serif CJK SC")
 #show heading: none
 

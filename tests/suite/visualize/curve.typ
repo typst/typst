@@ -1,6 +1,6 @@
 // Test curves.
 
---- curve-move-single ---
+--- curve-move-single render ---
 #curve(
   stroke: 5pt,
   curve.move((0pt,  30pt)),
@@ -9,7 +9,7 @@
   curve.close()
 )
 
---- curve-move-multiple-even-odd ---
+--- curve-move-multiple-even-odd render ---
 #curve(
   fill: yellow,
   stroke: yellow.darken(20%),
@@ -24,7 +24,7 @@
   curve.close(mode: "smooth"),
 )
 
---- curve-move-multiple-non-zero ---
+--- curve-move-multiple-non-zero render ---
 #curve(
   fill: yellow,
   stroke: yellow.darken(20%),
@@ -38,7 +38,7 @@
   curve.close(mode: "smooth"),
 )
 
---- curve-multiple-non-closed ---
+--- curve-multiple-non-closed render ---
 #curve(
   stroke: 2pt,
   curve.line((20pt, 0pt)),
@@ -48,7 +48,7 @@
   curve.line((20pt, 20pt)),
 )
 
---- curve-line ---
+--- curve-line render ---
 #curve(
   fill: purple,
   stroke: 3pt + purple.lighten(50%),
@@ -58,14 +58,14 @@
   curve.line((30pt, 0pt)),
 )
 
---- curve-quad-mirror ---
+--- curve-quad-mirror render ---
 #curve(
   stroke: 2pt,
   curve.quad((20pt, 40pt), (40pt, 40pt), relative: true),
   curve.quad(auto, (40pt, -40pt), relative: true),
 )
 
---- curve-cubic-mirror ---
+--- curve-cubic-mirror render ---
 #set page(height: 100pt)
 #curve(
   fill: red,
@@ -76,7 +76,7 @@
   curve.close(),
 )
 
---- curve-cubic-inflection ---
+--- curve-cubic-inflection render ---
 #set page(height: 120pt)
 #curve(
   fill: blue.lighten(80%),
@@ -88,7 +88,7 @@
   curve.close(mode: "straight")
 )
 
---- curve-close-smooth ---
+--- curve-close-smooth render ---
 #curve(
   fill: blue.lighten(80%),
   stroke: blue,
@@ -99,7 +99,7 @@
   curve.close(mode: "smooth")
 )
 
---- curve-close-straight ---
+--- curve-close-straight render ---
 #curve(
   fill: blue.lighten(80%),
   stroke: blue,
@@ -110,7 +110,7 @@
   curve.close(mode: "straight")
 )
 
---- curve-close-intersection ---
+--- curve-close-intersection render ---
 #curve(
   fill: yellow,
   stroke: black,
@@ -120,7 +120,7 @@
   curve.close(mode: "straight")
 )
 
---- curve-stroke-gradient ---
+--- curve-stroke-gradient render ---
 #set page(width: auto)
 #let down = curve.line((40pt, 40pt), relative: true)
 #let up = curve.line((40pt, -40pt), relative: true)
@@ -130,7 +130,7 @@
   down, up, down, up, down,
 )
 
---- curve-stroke-gradient-sharp ---
+--- curve-stroke-gradient-sharp render ---
 #set page(width: auto)
 #let down = curve.line((40pt, 40pt), relative: true)
 #let up = curve.line((40pt, -40pt), relative: true)
@@ -140,7 +140,7 @@
   down, up, down, up, down,
 )
 
---- curve-fill-rule ---
+--- curve-fill-rule render ---
 #stack(
   dir: ltr,
   curve(
@@ -165,11 +165,11 @@
   )
 )
 
---- curve-infinite-length ---
+--- curve-infinite-length render ---
 // Error: 2-67 cannot create curve with infinite size
 #curve(curve.move((0pt, 0pt)), curve.line((float.inf * 1pt, 0pt)))
 
---- issue-curve-in-sized-container ---
+--- issue-curve-in-sized-container render ---
 // Curves/Paths used to implement `LayoutMultiple` rather than `LayoutSingle`
 // without fulfilling the necessary contract of respecting region expansion.
 #block(

@@ -3,7 +3,7 @@
 --- table-empty render pdftags ---
 #table()
 
---- table-newlines ---
+--- table-newlines render ---
 #set page(height: 70pt)
 #set table(fill: (x, y) => if calc.even(x + y) { rgb("aaa") })
 
@@ -13,14 +13,14 @@
   [A], [B], [C], [], [], [D \ E \ F \ \ \ G], [H],
 )
 
---- table-fill-basic ---
+--- table-fill-basic render ---
 #table(columns: 3, stroke: none, fill: green, [A], [B], [C])
 
---- table-fill-bad ---
+--- table-fill-bad render ---
 // Error: 14-19 expected color, gradient, tiling, none, array, or function, found string
 #table(fill: "hey")
 
---- table-align-array ---
+--- table-align-array render ---
 // Test alignment with array.
 #table(
   columns: (1fr, 1fr, 1fr),
@@ -36,7 +36,7 @@
   [A], [B], [C]
 )
 
---- table-inset ---
+--- table-inset render ---
 // Test inset.
 #table(
   columns: 3,
@@ -83,7 +83,7 @@
   [A], [B], [C],
 )
 
---- table-inset-fold ---
+--- table-inset-fold render ---
 // Test inset folding
 #set table(inset: 10pt)
 #set table(inset: (left: 0pt))
@@ -94,7 +94,7 @@
   table.cell(inset: (top: 0pt))[a]
 )
 
---- table-gutters ---
+--- table-gutters render ---
 // Test interaction with gutters.
 #table(
   columns: (3em, 3em),
@@ -139,7 +139,7 @@
   [G], [H]
 )
 
---- table-contextual-measurement ---
+--- table-contextual-measurement render ---
 // Test that table cells with varying contextual results are properly
 // measured.
 #let c = counter("c")
@@ -152,7 +152,7 @@
   k, k, k,
 )
 
---- table-header-citation ---
+--- table-header-citation render ---
 #set page(height: 60pt)
 #table(
   table.header[@netwok],
@@ -163,7 +163,7 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- table-header-counter ---
+--- table-header-counter render ---
 #set page(height: 60pt)
 #let c = counter("c")
 #table(
@@ -172,7 +172,7 @@
   [A],
 )
 
---- table-header-footer-madness ---
+--- table-header-footer-madness render ---
 #set page(height: 100pt)
 #let c = counter("c")
 #let it = context c.get().first() * v(10pt)
@@ -188,7 +188,7 @@
   table.footer(it),
 )
 
---- table-cell-override ---
+--- table-cell-override render ---
 // Cell override
 #table(
   align: left,
@@ -205,7 +205,7 @@
   [H], table.cell(fill: blue)[J]
 )
 
---- table-cell-show ---
+--- table-cell-show render ---
 // Cell show rule
 #show table.cell: it => [Zz]
 
@@ -221,7 +221,7 @@
   align(horizon)[G], [A\ A\ A]
 )
 
---- table-cell-show-and-override ---
+--- table-cell-show-and-override render ---
 #show table.cell: it => (it.align, it.fill)
 #table(
   align: left,
@@ -231,7 +231,7 @@
   table.cell(fill: aqua)[B],
 )
 
---- table-cell-set ---
+--- table-cell-set render ---
 // Cell set rules
 #set table.cell(align: center)
 #show table.cell: it => (it.align, it.fill, it.inset)
@@ -244,7 +244,7 @@
   table.cell(fill: aqua)[B],
 )
 
---- table-cell-folding ---
+--- table-cell-folding render ---
 // Test folding per-cell properties (align and inset)
 #table(
   columns: (1fr, 1fr),
@@ -255,7 +255,7 @@
   table.cell(inset: (bottom: 0pt))[Bot], table.cell(inset: (bottom: 0pt))[Bot]
 )
 
---- table-cell-align-override ---
+--- table-cell-align-override render ---
 // Test overriding outside alignment
 #set align(bottom + right)
 #table(
@@ -267,7 +267,7 @@
   table.cell(align: left, fill: aqua)[BL], table.cell(align: top, fill: red.lighten(50%))[TR]
 )
 
---- table-cell-various-overrides ---
+--- table-cell-various-overrides render ---
 #table(
   columns: 2,
   fill: green,
@@ -278,7 +278,7 @@
   [M.], table.cell(inset: 0pt)[Player]
 )
 
---- table-cell-show-emph ---
+--- table-cell-show-emph render ---
 #{
   show table.cell: emph
   table(
@@ -288,7 +288,7 @@
   )
 }
 
---- table-cell-show-based-on-position ---
+--- table-cell-show-based-on-position render ---
 // Style based on position
 #{
   show table.cell: it => {
@@ -310,7 +310,7 @@
   )
 }
 
---- table-cell-par ---
+--- table-cell-par render ---
 // Ensure that table cells aren't considered paragraphs by default.
 #show par: highlight
 
@@ -321,12 +321,12 @@
   par[C],
 )
 
---- grid-cell-in-table ---
+--- grid-cell-in-table render ---
 // Error: 8-19 cannot use `grid.cell` as a table cell
 // Hint: 8-19 use `table.cell` instead
 #table(grid.cell[])
 
---- issue-183-table-lines ---
+--- issue-183-table-lines render ---
 // Ensure no empty lines before a table that doesn't fit into the first page.
 #set page(height: 50pt)
 
@@ -336,7 +336,7 @@ Hello
   [1], [2], [3], [4]
 )
 
---- issue-1388-table-row-missing ---
+--- issue-1388-table-row-missing render ---
 // Test that a table row isn't wrongly treated like a gutter row.
 #set page(height: 70pt)
 #table(

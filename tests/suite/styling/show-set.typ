@@ -1,6 +1,6 @@
 // Test show-set rules.
 
---- show-set-override ---
+--- show-set-override render ---
 // Test overriding show-set rules.
 #show strong: set text(red)
 Hello *World*
@@ -8,7 +8,7 @@ Hello *World*
 #show strong: set text(blue)
 Hello *World*
 
---- show-set-on-same-element ---
+--- show-set-on-same-element render ---
 // Test show-set rule on the same element.
 #set figure(supplement: [Default])
 #show figure.where(kind: table): set figure(supplement: [Tableau])
@@ -17,7 +17,7 @@ Hello *World*
   caption: [Four letters],
 )
 
---- show-set-same-element-and-order ---
+--- show-set-same-element-and-order render ---
 // Test both things at once.
 #show heading: set text(red)
 = Level 1
@@ -29,32 +29,32 @@ Hello *World*
 = Level 1
 == Level 2
 
---- show-set-same-element-matched-field ---
+--- show-set-same-element-matched-field render ---
 // Test setting the thing we just matched on.
 // This is quite cursed, but it works.
 #set heading(numbering: "(I)")
 #show heading.where(numbering: "(I)"): set heading(numbering: "1.")
 = Heading
 
---- show-set-same-element-synthesized-matched-field ---
+--- show-set-same-element-synthesized-matched-field render ---
 // Same thing, but even more cursed, because `kind` is synthesized.
 #show figure.where(kind: table): set figure(kind: raw)
 #figure(table[A], caption: [Code])
 
---- show-set-same-element-matching-interaction ---
+--- show-set-same-element-matching-interaction render ---
 // Test that show-set rules on the same element don't affect each other. This
 // could be implemented, but isn't as of yet.
 #show heading.where(level: 1): set heading(numbering: "(I)")
 #show heading.where(numbering: "(I)"): set text(red)
 = Heading
 
---- show-set-on-layoutable-element ---
+--- show-set-on-layoutable-element render ---
 // Test show-set rules on layoutable element to ensure it is realized
 // even though it implements `LayoutMultiple`.
 #show table: set text(red)
 #pad(table(columns: 4)[A][B][C][D])
 
---- show-function-order-with-set ---
+--- show-function-order-with-set render ---
 // These are both red because in the expanded form, `set text(red)` ends up
 // closer to the content than `set text(blue)`.
 #show strong: it => { set text(red); it }
@@ -63,7 +63,7 @@ Hello *World*
 #show strong: it => { set text(blue); it }
 Hello *World*
 
---- show-function-set-on-it ---
+--- show-function-set-on-it render ---
 // This doesn't have an effect. An element is materialized before any show
 // rules run.
 #show heading: it => { set heading(numbering: "(I)"); it }

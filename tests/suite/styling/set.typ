@@ -1,11 +1,11 @@
 // General tests for set.
 
---- set-instantiation-site ---
+--- set-instantiation-site render ---
 // Test that text is affected by instantiation-site bold.
 #let x = [World]
 Hello *#x*
 
---- set-instantiation-site-markup ---
+--- set-instantiation-site-markup render ---
 // Test that lists are affected by correct indents.
 #let fruit = [
   - Apple
@@ -18,7 +18,7 @@ Hello *#x*
  #fruit]
 - No more fruit
 
---- set-text-override ---
+--- set-text-override render ---
 // Test that block spacing and text style are respected from
 // the outside, but the more specific fill is respected.
 #set par(spacing: 4pt)
@@ -26,7 +26,7 @@ Hello *#x*
 #let x = [And the forest #parbreak() lay silent!]
 #text(fill: forest, x)
 
---- set-scoped-in-code-block ---
+--- set-scoped-in-code-block render ---
 // Test that scoping works as expected.
 #{
   if true {
@@ -36,7 +36,7 @@ Hello *#x*
   [Not blue]
 }
 
---- closure-path-resolve-in-layout-phase ---
+--- closure-path-resolve-in-layout-phase render ---
 // Test relative path resolving in layout phase.
 #let choice = ("monkey.svg", "rhino.png", "tiger.jpg")
 #set enum(numbering: n => {
@@ -48,7 +48,7 @@ Hello *#x*
 + Rhino
 + Tiger
 
---- set-if ---
+--- set-if render ---
 // Test conditional set.
 #show ref: it => {
   set text(red) if it.target == <unknown>
@@ -57,15 +57,15 @@ Hello *#x*
 
 @hello from the @unknown
 
---- set-if-bad-type ---
+--- set-if-bad-type render ---
 // Error: 19-24 expected boolean, found integer
 #set text(red) if 1 + 2
 
---- set-in-expr ---
+--- set-in-expr render ---
 // Error: 12-26 set is only allowed directly in code and content blocks
 #{ let x = set text(blue) }
 
---- set-bad-trivia ---
+--- set-bad-trivia render ---
 // Error cases parsing set rules with trivia between the function and args.
 // Error: 10 expected argument list
 #set page
@@ -80,13 +80,13 @@ Hello *#x*
 // This is fine though
 #set/**/page(numbering: "4")
 
---- set-vs-construct-1 ---
+--- set-vs-construct-1 render ---
 // Ensure that constructor styles aren't passed down the tree.
 // The inner list should have no extra indent.
 #set par(leading: 2pt)
 #list(body-indent: 20pt, [First], list[A][B])
 
---- set-vs-construct-2 ---
+--- set-vs-construct-2 render ---
 // Ensure that constructor styles win, but not over outer styles.
 // The outer paragraph should be right-aligned,
 // but the B should be center-aligned.
@@ -95,16 +95,16 @@ Hello *#x*
   #rect(width: 2cm, fill: conifer, inset: 4pt, list[A])
 ]
 
---- set-vs-construct-3 ---
+--- set-vs-construct-3 render ---
 // The inner rectangle should also be yellow here.
 // (and therefore invisible)
 #[#set rect(fill: yellow);#text(1em, rect(inset: 5pt, rect()))]
 
---- set-vs-construct-4 ---
+--- set-vs-construct-4 render ---
 // The inner rectangle should not be yellow here.
 A #box(rect(fill: yellow, inset: 5pt, rect())) B
 
---- show-set-vs-construct ---
+--- show-set-vs-construct render ---
 // The constructor property should still work
 // when there are recursive show rules.
 #show enum: set text(blue)

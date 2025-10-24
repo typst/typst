@@ -9,18 +9,18 @@ See @setup.
 == Setup <setup>
 As seen in @intro, we proceed.
 
---- ref-label-missing ---
+--- ref-label-missing render ---
 // Error: 1-5 label `<foo>` does not exist in the document
 @foo
 
---- ref-label-duplicate ---
+--- ref-label-duplicate render ---
 = First <foo>
 = Second <foo>
 
 // Error: 1-5 label `<foo>` occurs multiple times in the document
 @foo
 
---- ref-supplements ---
+--- ref-supplements render ---
 #set heading(numbering: "1.", supplement: [Chapter])
 #set math.equation(numbering: "(1)", supplement: [Eq.])
 
@@ -47,7 +47,7 @@ $ A = 1 $ <eq2>
 #set ref(supplement: none)
 @fig1, @fig2, @eq1, @eq2
 
---- ref-ambiguous ---
+--- ref-ambiguous render ---
 // Test ambiguous reference.
 = Introduction <arrgh>
 
@@ -56,7 +56,7 @@ $ A = 1 $ <eq2>
 @arrgh
 #bibliography("/assets/bib/works.bib")
 
---- ref-form-page ---
+--- ref-form-page render ---
 #set page(numbering: "1")
 
 Text <text> is on #ref(<text>, form: "page").
@@ -68,7 +68,7 @@ See #ref(<setup>, form: "page").
 Text seen on #ref(<text>, form: "page").
 Text seen on #ref(<text>, form: "page", supplement: "Page").
 
---- ref-form-page-unambiguous ---
+--- ref-form-page-unambiguous render ---
 // Test that page reference is not ambiguous.
 #set page(numbering: "1")
 
@@ -77,22 +77,22 @@ Text seen on #ref(<text>, form: "page", supplement: "Page").
 #ref(<arrgh>, form: "page")
 #bibliography("/assets/bib/works.bib")
 
---- ref-form-page-bibliography ---
+--- ref-form-page-bibliography render ---
 // Error: 2-28 label `<quark>` does not exist in the document
 #ref(<quark>, form: "page")
 #bibliography("/assets/bib/works.bib")
 
---- issue-4536-non-whitespace-before-ref ---
+--- issue-4536-non-whitespace-before-ref render ---
 // Test reference with non-whitespace before it.
 #figure[] <1>
 #test([(#ref(<1>))], [(@1)])
 
---- ref-to-empty-label-not-possible ---
+--- ref-to-empty-label-not-possible render ---
 // @ without any following label should just produce the symbol in the output
 // and not produce a reference to a label with an empty name.
 @
 
---- ref-function-empty-label ---
+--- ref-function-empty-label render ---
 // using ref() should also not be possible
 // Error: 6-7 unexpected less-than operator
 // Error: 7-8 unexpected greater-than operator

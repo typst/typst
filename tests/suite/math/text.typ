@@ -1,14 +1,14 @@
 // Test that setting font features in math.equation has an effect.
 
---- math-font-fallback ---
+--- math-font-fallback render ---
 // Test font fallback.
 $ よ and 🏳️‍🌈 $
 
---- math-text-color ---
+--- math-text-color render ---
 // Test text properties.
 $text(#red, "time"^2) + sqrt("place")$
 
---- math-font-features ---
+--- math-font-features render ---
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
@@ -17,12 +17,12 @@ $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
---- math-font-features-switch ---
+--- math-font-features-switch render ---
 #let scr(it) = text(stylistic-set: 1, $cal(it)$)
 $cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
 $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 
---- math-font-covers ---
+--- math-font-covers render ---
 #show math.equation: set text(
   font: (
     // Ignore that this regex actually misses some of the script glyphs...
@@ -33,25 +33,25 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 )
 $ cal(P)_i (X) * cal(C)_1 $
 
---- math-font-warning ---
+--- math-font-warning render ---
 #show math.equation: set text(font: "Libertinus Serif")
 // Warning: 1-14 current font is not designed for math
 // Hint: 1-14 rendering may be poor
 $ x + y = z $
 
---- math-font-error ---
+--- math-font-error render ---
 // Warning: 37-54 unknown font family: libertinus math
 #show math.equation: set text(font: "Libertinus Math", fallback: false)
 // Error: 1-39 no font could be found
 $ brace.stroked.l -1 brace.stroked.r $
 
---- math-font-fallback-class ---
+--- math-font-fallback-class render ---
 // Test that math class is preserved even when the result is a tofu.
 #show math.equation: set text(font: "Fira Math", fallback: false)
 $ brace.stroked.l -1 brace.stroked.r $
 $ lr(brace.stroked.l -1 brace.stroked.r) $
 
---- math-optical-size-nested-scripts ---
+--- math-optical-size-nested-scripts render ---
 // Test transition from script to scriptscript.
 #[
 #set text(size:20pt)
@@ -59,7 +59,7 @@ $  e^(e^(e^(e))) $
 ]
 A large number: $e^(e^(e^(e)))$.
 
---- math-optical-size-primes ---
+--- math-optical-size-primes render ---
 //  Test prime/double prime via scriptsize
 #let prime = [ \u{2032} ]
 #let dprime = [ \u{2033} ]
@@ -68,17 +68,17 @@ $ y^dprime-2y^prime + y = 0 $
 $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
 
---- math-optical-size-prime-large-operator ---
+--- math-optical-size-prime-large-operator render ---
 // Test prime superscript on large symbol
 $ scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 
---- math-optical-size-frac-script-script ---
+--- math-optical-size-frac-script-script render ---
 // Test script-script in a fraction.
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
 
---- math-par ---
+--- math-par render ---
 // Ensure that math does not produce paragraphs.
 #show par: highlight
 $ a + "bc" + #[c] + #box[d] + #block[e] $

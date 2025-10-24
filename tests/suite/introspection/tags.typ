@@ -1,4 +1,4 @@
---- tags-grouping ---
+--- tags-grouping render ---
 // Test how grouping rules handle tags at their edges. To observe this scenario,
 // we have a link at the start or end of a paragraph and see whether the two
 // nest correctly.
@@ -78,7 +78,7 @@
   "<p><a></a></p>"
 )
 
---- tags-textual ---
+--- tags-textual render ---
 // Ensure that tags and spaces aren't reordered in textual grouping.
 A#metadata(none)<a> #metadata(none)<b>#box[B]
 

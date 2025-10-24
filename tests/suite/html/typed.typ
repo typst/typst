@@ -143,11 +143,11 @@
 // Error: 21-28 expected "application/x-www-form-urlencoded", "multipart/form-data", or "text/plain"
 #html.form(enctype: "utf-8")
 
---- html-typed-or-invalid ---
+--- html-typed-or-invalid render ---
 // Error: 25-31 expected boolean or "mixed"
 #html.div(aria-checked: "nope")
 
---- html-typed-string-enum-or-array-invalid ---
+--- html-typed-string-enum-or-array-invalid render ---
 // Error: 27-33 expected array, "additions", "additions text", "all", "removals", or "text"
 // Error: 49-54 expected boolean or "mixed"
 #html.link(aria-relevant: "nope", aria-checked: "yes")

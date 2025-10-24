@@ -1,6 +1,6 @@
 // Test closures.
 
---- closure-without-params-non-atomic ---
+--- closure-without-params-non-atomic render ---
 // Don't parse closure directly in content.
 
 #let x = "x"
@@ -8,14 +8,14 @@
 // Should output `x => y`.
 #x => y
 
---- closure-without-captures ---
+--- closure-without-captures render ---
 // Basic closure without captures.
 #{
   let adder = (x, y) => x + y
   test(adder(2, 3), 5)
 }
 
---- closure-as-arg ---
+--- closure-as-arg render ---
 // Pass closure as argument and return closure.
 // Also uses shorthand syntax for a single argument.
 #{
@@ -26,7 +26,7 @@
   test(h(2), 5)
 }
 
---- closure-capture-from-popped-stack-frame ---
+--- closure-capture-from-popped-stack-frame render ---
 // Capture environment.
 #{
   let mark = "!"
@@ -44,7 +44,7 @@
   test(greet("Typst"), "Hi, Typst!")
 }
 
---- closure-shadows-outer-var ---
+--- closure-shadows-outer-var render ---
 // Redefined variable.
 #{
   let x = 1
@@ -55,7 +55,7 @@
   test(f(), 3)
 }
 
---- closure-shadows-outer-var-import ---
+--- closure-shadows-outer-var-import render ---
 // Import bindings.
 #{
   let b = "module.typ"
@@ -66,7 +66,7 @@
   test(f(), 1)
 }
 
---- closure-shadows-outer-var-for-loop ---
+--- closure-shadows-outer-var-for-loop render ---
 // For loop bindings.
 #{
   let v = (1, 2, 3)
@@ -78,7 +78,7 @@
   test(f(), 6)
 }
 
---- closure-let-basic ---
+--- closure-let-basic render ---
 // Let + closure bindings.
 #{
   let g = "hi"
@@ -89,7 +89,7 @@
   test(f(), "bye")
 }
 
---- closure-let-args ---
+--- closure-let-args render ---
 // Parameter bindings.
 #{
   let x = 5
@@ -101,7 +101,7 @@
   test(g()(8), 13)
 }
 
---- closure-bad-capture ---
+--- closure-bad-capture render ---
 // Don't leak environment.
 #{
   // Error: 16-17 unknown variable: x
@@ -110,7 +110,7 @@
   func()
 }
 
---- closure-missing-arg-positional ---
+--- closure-missing-arg-positional render ---
 // Too few arguments.
 #{
   let types(x, y) = "[" + str(type(x)) + ", " + str(type(y)) + "]"
@@ -120,7 +120,7 @@
   test(types("nope"), "[string, none]")
 }
 
---- closure-too-many-args-positional ---
+--- closure-too-many-args-positional render ---
 // Too many arguments.
 #{
   let f(x) = x + 1
@@ -129,7 +129,7 @@
   f(1, "two", () => x)
 }
 
---- closure-capture-in-lvalue ---
+--- closure-capture-in-lvalue render ---
 // Mutable method with capture in argument.
 #let x = "b"
 #let f() = {
@@ -139,7 +139,7 @@
 }
 #f()
 
---- closure-capture-mutate ---
+--- closure-capture-mutate render ---
 #let x = ()
 #let f() = {
   // Error: 3-4 variables from outside the function are read-only and cannot be modified
@@ -147,7 +147,7 @@
 }
 #f()
 
---- closure-named-args-basic ---
+--- closure-named-args-basic render ---
 // Named arguments.
 #{
   let greet(name, birthday: false) = {
@@ -161,7 +161,7 @@
   test(greet("Typst", whatever: 10))
 }
 
---- closure-args-sink ---
+--- closure-args-sink render ---
 // Parameter unpacking.
 #let f((a, b), ..c) = (a, b, c)
 #test(f((1, 2), 3, 4), (1, 2, (3, 4)))
@@ -178,45 +178,45 @@
 // Error: 10-16 expected pattern, found array
 #let f(..(a, b)) = none
 
---- closure-param-duplicate-positional ---
+--- closure-param-duplicate-positional render ---
 // Error: 11-12 duplicate parameter: x
 #let f(x, x) = none
 
---- closure-body-multiple-expressions ---
+--- closure-body-multiple-expressions render ---
 // Error: 21 expected comma
 // Error: 22-23 expected pattern, found integer
 // Error: 24-25 unexpected plus
 // Error: 26-27 expected pattern, found integer
 #let f = (x: () => 1 2 + 3) => 4
 
---- closure-param-duplicate-mixed ---
+--- closure-param-duplicate-mixed render ---
 // Error: 14-15 duplicate parameter: a
 // Error: 23-24 duplicate parameter: b
 // Error: 35-36 duplicate parameter: b
 #let f(a, b, a: none, b: none, c, b) = none
 
---- closure-param-duplicate-spread ---
+--- closure-param-duplicate-spread render ---
 // Error: 13-14 duplicate parameter: a
 #let f(a, ..a) = none
 
---- closure-pattern-bad-string ---
+--- closure-pattern-bad-string render ---
 // Error: 7-14 expected pattern, found string
 #((a, "named": b) => none)
 
---- closure-let-pattern-bad-string ---
+--- closure-let-pattern-bad-string render ---
 // Error: 10-15 expected pattern, found string
 #let foo("key": b) = key
 
---- closure-param-keyword ---
+--- closure-param-keyword render ---
 // Error: 10-14 expected pattern, found `none`
 // Hint: 10-14 keyword `none` is not allowed as an identifier; try `none_` instead
 #let foo(none: b) = key
 
---- closure-param-named-underscore ---
+--- closure-param-named-underscore render ---
 // Error: 10-11 expected identifier, found underscore
 #let foo(_: 3) = none
 
---- issue-non-atomic-closure ---
+--- issue-non-atomic-closure render ---
 // Ensure that we can't have non-atomic closures.
 #let x = 1
 #let c = [#(x) => (1, 2)]

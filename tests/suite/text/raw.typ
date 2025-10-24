@@ -1,19 +1,19 @@
 // Test raw blocks.
 
---- raw-empty ---
+--- raw-empty render ---
 // Empty raw block.
 Empty raw block:``.
 
---- raw-consecutive-single-backticks ---
+--- raw-consecutive-single-backticks render ---
 // No extra space.
 `A``B`
 
---- raw-typst-lang ---
+--- raw-typst-lang render ---
 // Typst syntax inside.
 ```typ #let x = 1``` \
 ```typ #f(1)```
 
---- raw-block-no-parbreaks ---
+--- raw-block-no-parbreaks render ---
 // Multiline block splits paragraphs.
 
 Text
@@ -22,13 +22,13 @@ fn code() {}
 ```
 Text
 
---- raw-more-backticks ---
+--- raw-more-backticks render ---
 // Lots of backticks inside.
 ````
 ```backticks```
 ````
 
---- raw-trimming ---
+--- raw-trimming render ---
 // Trimming.
 
 // Space between "rust" and "let" is trimmed.
@@ -41,18 +41,18 @@ The keyword ```rust let```.
 (``` trimmed ```) \
 (``` trimmed```) \
 
---- raw-single-backtick-lang ---
+--- raw-single-backtick-lang render ---
 // Single ticks should not have a language.
 `rust let`
 
---- raw-dedent-first-line ---
+--- raw-dedent-first-line render ---
 // First line is not dedented and leading space is still possible.
      ```   A
         B
        C
      ```
 
---- raw-dedent-empty-line ---
+--- raw-dedent-empty-line render ---
 // Do not take empty lines into account when computing dedent.
 ```
         A
@@ -60,7 +60,7 @@ The keyword ```rust let```.
         B
 ```
 
---- raw-dedent-last-line ---
+--- raw-dedent-last-line render ---
 // Take last line into account when computing dedent.
 ```
         A
@@ -68,7 +68,7 @@ The keyword ```rust let```.
         B
     ```
 
---- raw-tab-size ---
+--- raw-tab-size render ---
 #set raw(tab-size: 8)
 
 ```tsv
@@ -78,7 +78,7 @@ Year	Month	Day
 2002	3	10
 ```
 
---- raw-syntaxes ---
+--- raw-syntaxes render ---
 #set page(width: 180pt)
 #set text(6pt)
 #set raw(syntaxes: "/assets/syntaxes/SExpressions.sublime-syntax")
@@ -91,7 +91,7 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
---- raw-syntaxes-invalid-sublime-syntax ---
+--- raw-syntaxes-invalid-sublime-syntax render ---
 // Prevent test parser from failing on "^---" line.
 #let sublime-syntax = ```yaml
 %YAML 1.2
@@ -108,7 +108,7 @@ contexts:
 // Error: 35-56 failed to parse syntax (Error while compiling regex '/': Parsing error at position 0: Backslash without following character)
 #raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
---- raw-theme ---
+--- raw-theme render ---
 // Test code highlighting with custom theme.
 #set page(width: 180pt)
 #set text(6pt)
@@ -132,12 +132,12 @@ contexts:
 #show heading: emph
 ```
 
---- raw-show-set ---
+--- raw-show-set render ---
 // Text show rule
 #show raw: set text(font: "Roboto")
 `Roboto`
 
---- raw-align-default ---
+--- raw-align-default render ---
 // Text inside raw block should be unaffected by outer alignment by default.
 #set align(center)
 #set page(width: 180pt)
@@ -151,7 +151,7 @@ a = 342395823859823958329
 b = 324923
 ```
 
---- raw-align-specified ---
+--- raw-align-specified render ---
 // Text inside raw block should follow the specified alignment.
 #set page(width: 180pt)
 #set text(6pt)
@@ -163,11 +163,11 @@ b = 324923
   "#let f(x) = x\n#align(center, line(length: 1em))",
 ))
 
---- raw-align-invalid ---
+--- raw-align-invalid render ---
 // Error: 17-20 expected `start`, `left`, `center`, `right`, or `end`, found top
 #set raw(align: top)
 
---- raw-inline-multiline ---
+--- raw-inline-multiline render ---
 #set page(width: 180pt)
 #set text(6pt)
 #set raw(lang:"python")
@@ -182,7 +182,7 @@ for i in range(10):
   print(i)
 ` or otherwise e.g. `print(j)`, are colored properly.
 
---- raw-highlight-typ ---
+--- raw-highlight-typ render ---
 ```typ
 = Chapter 1
 #lorem(100)
@@ -191,7 +191,7 @@ for i in range(10):
 #show heading: emph
 ```
 
---- raw-highlight-typc ---
+--- raw-highlight-typc render ---
 #set page(width: auto)
 
 ```typ
@@ -220,7 +220,7 @@ for i in range(10):
 #if foo []
 ```
 
---- raw-highlight-typm ---
+--- raw-highlight-typm render ---
 #set page(width: auto)
 ```typm
 1 + 2/3
@@ -242,7 +242,7 @@ emph(hello.my().world())
 #box[]
 ```
 
---- raw-highlight-typm-extra ---
+--- raw-highlight-typm-extra render ---
 // Math highlighting for strings, alignments, shorthands, and named args.
 #set page(width: auto)
 ```typm
@@ -250,7 +250,7 @@ emph(hello.my().world())
 |=> & [|define(x: #y, x::= y)|]
 ```
 
---- raw-highlight-rust ---
+--- raw-highlight-rust render ---
 #set page(width: auto)
 
 ```rust
@@ -263,7 +263,7 @@ fn advance(state: State<'_>) -> State<'_> {
 }
 ```
 
---- raw-highlight-py ---
+--- raw-highlight-py render ---
 #set page(width: auto)
 
 ```py
@@ -273,7 +273,7 @@ def hi():
   print("Hi!")
 ```
 
---- raw-highlight-cpp ---
+--- raw-highlight-cpp render ---
 #set page(width: auto)
 
 ```cpp
@@ -284,7 +284,7 @@ int main() {
 }
 ```
 
---- raw-highlight-html ---
+--- raw-highlight-html render ---
 #set page(width: auto)
 
 ```html
@@ -305,7 +305,7 @@ int main() {
 </html>
 ```
 
---- raw-blocky ---
+--- raw-blocky render ---
 // Test various raw parsing edge cases.
 
 #let empty = (
@@ -524,7 +524,7 @@ This is ```typ *inline*```.
 --- raw-html-inline-spaces html ---
 This has `double  spaces  inside`, which should be kept.
 
---- raw-line ---
+--- raw-line render ---
 #set page(width: 200pt)
 
 ```rs
@@ -548,7 +548,7 @@ fn main() {
 }
 ```
 
---- raw-line-alternating-fill ---
+--- raw-line-alternating-fill render ---
 #set page(width: 200pt)
 #show raw: it => stack(dir: ttb, ..it.lines)
 #show raw.line: it => {
@@ -579,7 +579,7 @@ Hello, world!
 = A heading for good measure
 ```
 
---- raw-line-text-fill ---
+--- raw-line-text-fill render ---
 #set page(width: 200pt)
 #show raw.line: set text(fill: red)
 
@@ -596,7 +596,7 @@ print(x)
 print(y)
 ```
 
---- raw-line-scripting ---
+--- raw-line-scripting render ---
 
 // Test line extraction works.
 
@@ -631,12 +631,12 @@ print(x)
 print(y)
 ```
 
---- issue-3601-empty-raw ---
+--- issue-3601-empty-raw render ---
 // Test that empty raw block with `typ` language doesn't cause a crash.
 ```typ
 ```
 
---- raw-empty-lines ---
+--- raw-empty-lines render ---
 // Test raw with multiple empty lines.
 
 #show raw: block.with(width: 100%, fill: gray)
@@ -648,7 +648,7 @@ print(y)
 
 ```
 
---- issue-3841-tabs-in-raw-type-code ---
+--- issue-3841-tabs-in-raw-type-code render ---
 // Tab chars were not rendered in raw blocks with lang: "typ(c)"
 #raw("#if true {\n\tf()\t// typ\n}", lang: "typ")
 
@@ -668,7 +668,7 @@ if true {
 }
 ```
 
---- issue-6961-tab-crlf-raw-indent ---
+--- issue-6961-tab-crlf-raw-indent render ---
 #let snippet = (
   ```
   A
@@ -682,11 +682,11 @@ if true {
   block: true,
 )
 
---- issue-4662-math-mode-language-for-raw ---
+--- issue-4662-math-mode-language-for-raw render ---
 // Test lang: "typm" syntax highlighting without enclosing dollar signs
 #raw("pi^2", lang: "typm")
 
---- issue-2259-raw-color-overwrite ---
+--- issue-2259-raw-color-overwrite render ---
 // Test that the color of a raw block is not overwritten
 #show raw: set text(fill: blue)
 
@@ -698,7 +698,7 @@ fn main() {
 }
 ```
 
---- issue-3191-raw-justify ---
+--- issue-3191-raw-justify render ---
 // Raw blocks should not be justified by default.
 ```
 a b c --------------------
@@ -709,7 +709,7 @@ a b c --------------------
 a b c --------------------
 ```
 
---- issue-3191-raw-normal-paragraphs-still-shrink ---
+--- issue-3191-raw-normal-paragraphs-still-shrink render ---
 // In normal paragraphs, spaces should still be shrunk.
 // The first line here serves as a reference, while the second
 // uses non-breaking spaces to create an overflowing line
@@ -718,7 +718,7 @@ a b c --------------------
 
 ~~~~The~spaces~on~this~line~shrink
 
---- issue-3820-raw-space-when-end-with-backtick ---
+--- issue-3820-raw-space-when-end-with-backtick render ---
 ```typ
 `code`
 ```
@@ -727,7 +727,7 @@ a b c --------------------
   `code`
   ```
 
---- issue-5760-disable-cjk-latin-spacing-in-raw ---
+--- issue-5760-disable-cjk-latin-spacing-in-raw render ---
 
 ```typ
 #let hi = "你好world"
@@ -738,12 +738,12 @@ a b c --------------------
 #let hi = "你好world"
 ```
 
---- issue-6559-equality-between-raws ---
+--- issue-6559-equality-between-raws render ---
 
 #test(`foo`, `foo`)
 #assert.ne(`foo`, `bar`)
 
---- raw-theme-set-to-auto ---
+--- raw-theme-set-to-auto render ---
 ```typ
 #let hi = "Hello World"
 ```
@@ -758,13 +758,13 @@ a b c --------------------
 #let hi = "Hello World"
 ```
 
---- raw-theme-set-to-none ---
+--- raw-theme-set-to-none render ---
 #set raw(theme: none)
 ```typ
 #let foo = "bar"
 ```
 
---- raw-default-json-theme ---
+--- raw-default-json-theme render ---
 ```json
 {
   "foo": "bar",
@@ -782,7 +782,7 @@ a b c --------------------
 }
 ```
 
---- raw-default-yaml-theme ---
+--- raw-default-yaml-theme render ---
 ```yaml
 foo: bar
 test:
@@ -796,7 +796,7 @@ hi:
   What is this?: This is incredible text!
 ```
 
---- raw-unclosed ---
+--- raw-unclosed render ---
 // Test unterminated raw text.
 //
 // Note: This test should be the final one in the file because it messes up

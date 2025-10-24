@@ -1,6 +1,6 @@
 // Test enumerations.
 
---- enum-function-call ---
+--- enum-function-call render ---
 #enum[Embrace][Extend][Extinguish]
 
 --- enum-number-override-nested render pdftags ---
@@ -10,32 +10,32 @@
 
 + Second
 
---- enum-built-in-loop ---
+--- enum-built-in-loop render ---
 // Test automatic numbering in summed content.
 #for i in range(5) {
    [+ #numbering("I", 1 + i)]
 }
 
---- list-mix ---
+--- list-mix render ---
 // Mix of different lists
 - Bullet List
 + Numbered List
 / Term: List
 
---- enum-syntax-at-start ---
+--- enum-syntax-at-start render ---
 // In the line.
 1.2 \
 This is 0. \
 See 0.3. \
 
---- enum-syntax-edge-cases ---
+--- enum-syntax-edge-cases render ---
 // Edge cases.
 +
 Empty \
 +Nope \
 a + 0.
 
---- enum-syntax-number-length ---
+--- enum-syntax-number-length render ---
 // Ensure that indentation works from the beginning of a number, not the end.
 
 10. a
@@ -44,7 +44,7 @@ a + 0.
   13. d // indented past c
 14. e
 
---- enum-number-override ---
+--- enum-number-override render ---
 // Test item number overriding.
 1. first
 + second
@@ -56,11 +56,11 @@ a + 0.
    enum.item(5)[Fifth]
 )
 
---- enum-item-number-optional ---
+--- enum-item-number-optional render ---
 #enum.item[First]
 #enum.item[Second]
 
---- enum-numbering-pattern ---
+--- enum-numbering-pattern render ---
 // Test numbering pattern.
 #set enum(numbering: "(1.a.*)")
 + First
@@ -69,20 +69,20 @@ a + 0.
      + Deep
 + Normal
 
---- enum-numbering-full ---
+--- enum-numbering-full render ---
 // Test full numbering.
 #set enum(numbering: "1.a.", full: true)
 + First
   + Nested
 
---- enum-numbering-reversed ---
+--- enum-numbering-reversed render ---
 // Test reverse numbering.
 #set enum(reversed: true)
 + Coffee
 + Tea
 + Milk
 
---- enum-numbering-reversed-overridden ---
+--- enum-numbering-reversed-overridden render ---
 // Test reverse numbering with overridden numbers.
 #set enum(reversed: true)
 + A
@@ -92,7 +92,7 @@ a + 0.
 + E
 + F
 
---- enum-numbering-closure ---
+--- enum-numbering-closure render ---
 // Test numbering with closure.
 #enum(
   start: 3,
@@ -112,14 +112,14 @@ a + 0.
   [Ahead],
 )
 
---- enum-numbering-closure-nested ---
+--- enum-numbering-closure-nested render ---
 // Test numbering with closure and nested lists.
 #set enum(numbering: n => super[#n])
 + A
   + B
 + C
 
---- enum-numbering-closure-nested-complex ---
+--- enum-numbering-closure-nested-complex render ---
 // Test numbering with closure and nested lists.
 #set text(font: "New Computer Modern")
 #set enum(numbering: (..args) => math.mat(args.pos()), full: true)
@@ -130,20 +130,20 @@ a + 0.
 + E
 + F
 
---- enum-numbering-pattern-empty ---
+--- enum-numbering-pattern-empty render ---
 // Error: 22-24 invalid numbering pattern
 #set enum(numbering: "")
 
---- enum-numbering-pattern-invalid ---
+--- enum-numbering-pattern-invalid render ---
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
 
---- enum-numbering-huge ---
+--- enum-numbering-huge render ---
 // Test values greater than 32-bits
 100000000001. A
 +             B
 
---- enum-number-align-unaffected ---
+--- enum-number-align-unaffected render ---
 // Alignment shouldn't affect number
 #set align(horizon)
 
@@ -151,25 +151,25 @@ a + 0.
    + INNER\ INNER\ INNER
 + BACK\ HERE
 
---- enum-number-align-default ---
+--- enum-number-align-default render ---
 // Enum number alignment should be 'end' by default
 1. a
 10. b
 100. c
 
---- enum-number-align-specified ---
+--- enum-number-align-specified render ---
 #set enum(number-align: start)
 1.  a
 8.  b
 16. c
 
---- enum-number-align-2d ---
+--- enum-number-align-2d render ---
 #set enum(number-align: center + horizon)
 1.  #box(fill: teal, inset: 10pt )[a]
 8.  #box(fill: teal, inset: 10pt )[b]
 16. #box(fill: teal,inset: 10pt )[c]
 
---- enum-number-align-unfolded ---
+--- enum-number-align-unfolded render ---
 // Number align option should not be affected by the context.
 #set align(center)
 #set enum(number-align: start)
@@ -181,7 +181,7 @@ a + 0.
    32. g
    64. h
 
---- enum-number-align-values ---
+--- enum-number-align-values render ---
 // Test valid number align values (horizontal and vertical)
 #set enum(number-align: start)
 #set enum(number-align: end)
@@ -219,19 +219,19 @@ a + 0.
   + World // Paragraph because it's a wide enum
 ]
 
---- issue-2530-enum-item-panic ---
+--- issue-2530-enum-item-panic render ---
 // Enum item (pre-emptive)
 #enum.item(auto)[Hello]
 #enum.item(17)[Hello]
 
---- issue-5503-enum-in-align ---
+--- issue-5503-enum-in-align render ---
 // `align` is block-level and should interrupt an enum.
 + a
 + b
 #align(right)[+ c]
 + d
 
---- issue-5719-enum-nested ---
+--- issue-5719-enum-nested render ---
 // Enums can be immediately nested.
 1. A
 2. 1. B

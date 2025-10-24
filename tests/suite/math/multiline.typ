@@ -1,90 +1,90 @@
 // Test multiline math.
 
---- math-align-basic ---
+--- math-align-basic render ---
 // Test basic alignment.
 $ x &= x + y \
     &= x + 2z \
     &= sum x dot 2z $
 
---- math-align-wider-first-column ---
+--- math-align-wider-first-column render ---
 // Test text before first alignment point.
 $ x + 1 &= a^2 + b^2 \
       y &= a + b^2 \
       z &= alpha dot beta $
 
---- math-align-aligned-in-source ---
+--- math-align-aligned-in-source render ---
 // Test space between inner alignment points.
 $ a + b &= 2 + 3 &= 5 \
       b &= c     &= 3 $
 
---- math-align-cases ---
+--- math-align-cases render ---
 // Test in case distinction.
 $ f := cases(
   1 + 2 &"iff" &x,
   3     &"if"  &y,
 ) $
 
---- math-align-lines-mixed ---
+--- math-align-lines-mixed render ---
 // Test mixing lines with and some without alignment points.
 $ "abc" &= c \
    &= d + 1 \
    = x $
 
---- math-attach-subscript-multiline ---
+--- math-attach-subscript-multiline render ---
 // Test multiline subscript.
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $
 
---- math-multiline-no-trailing-linebreak ---
+--- math-multiline-no-trailing-linebreak render ---
 // Test no trailing line break.
 $
 "abc" &= c
 $
 No trailing line break.
 
---- math-multiline-trailing-linebreak ---
+--- math-multiline-trailing-linebreak render ---
 // Test single trailing line break.
 $
 "abc" &= c \
 $
 One trailing line break.
 
---- math-multiline-multiple-trailing-linebreaks ---
+--- math-multiline-multiple-trailing-linebreaks render ---
 // Test multiple trailing line breaks.
 $
 "abc" &= c \ \ \
 $
 Multiple trailing line breaks.
 
---- math-linebreaking-after-binop-and-rel ---
+--- math-linebreaking-after-binop-and-rel render ---
 // Basic breaking after binop, rel
 #let hrule(x) = box(line(length: x))
 #hrule(45pt)$e^(pi i)+1 = 0$\
 #hrule(55pt)$e^(pi i)+1 = 0$\
 #hrule(70pt)$e^(pi i)+1 = 0$
 
---- math-linebreaking-lr ---
+--- math-linebreaking-lr render ---
 // LR groups prevent linebreaking.
 #let hrule(x) = box(line(length: x))
 #hrule(76pt)$a+b$\
 #hrule(74pt)$(a+b)$\
 #hrule(74pt)$paren.l a+b paren.r$
 
---- math-linebreaking-multiline ---
+--- math-linebreaking-multiline render ---
 // Multiline yet inline does not linebreak
 #let hrule(x) = box(line(length: x))
 #hrule(80pt)$a + b \ c + d$\
 
---- math-linebreaking-trailing-linebreak ---
+--- math-linebreaking-trailing-linebreak render ---
 // A single linebreak at the end still counts as one line.
 #let hrule(x) = box(line(length: x))
 #hrule(60pt)$e^(pi i)+1 = 0\ $
 
---- math-linebreaking-in-box ---
+--- math-linebreaking-in-box render ---
 // Inline, in a box, doesn't linebreak.
 #let hrule(x) = box(line(length: x))
 #hrule(80pt)#box($a+b$)
 
---- math-linebreaking-between-consecutive-relations ---
+--- math-linebreaking-between-consecutive-relations render ---
 // A relation followed by a relation doesn't linebreak
 // so essentially `a < = b` can be broken to `a` and `< = b`, `a < =` and `b`
 // but never `a <` and `= b` because `< =` are consecutive relation that should
@@ -93,7 +93,7 @@ Multiple trailing line breaks.
 #hrule(70pt)$a < = b$\
 #hrule(78pt)$a < = b$
 
---- math-linebreaking-after-relation-without-space ---
+--- math-linebreaking-after-relation-without-space render ---
 // Line breaks can happen after a relation even if there is no
 // explicit space.
 #let hrule(x) = box(line(length: x))
@@ -105,12 +105,12 @@ Multiple trailing line breaks.
 #hrule(90pt)$<)$\
 #hrule(95pt)$<)$
 
---- math-linebreaking-empty ---
+--- math-linebreaking-empty render ---
 // Verify empty rows are handled ok.
 $ $\
 Nothing: $ $, just empty.
 
---- math-pagebreaking ---
+--- math-pagebreaking render ---
 // Test breaking of equations at page boundaries.
 #set page(height: 5em)
 #show math.equation: set block(breakable: true)
@@ -121,7 +121,7 @@ $ a &+ b + & c \
     &      & c && + d \
     &= 0 $
 
---- math-pagebreaking-numbered ---
+--- math-pagebreaking-numbered render ---
 // Test breaking of equations with numbering.
 #set page(height: 5em)
 #set math.equation(numbering: "1")
@@ -133,7 +133,7 @@ $ a &+ b + & c \
     &      & c && + d \
     &= 0 $
 
---- math-pagebreaking-single-line ---
+--- math-pagebreaking-single-line render ---
 // Test breaking of single line equations.
 #set page(height: 4em)
 #show math.equation: set block(breakable: true)
@@ -141,7 +141,7 @@ $ a &+ b + & c \
 Shouldn't overflow:
 $ a + b $
 
---- math-pagebreaking-single-line-numbered ---
+--- math-pagebreaking-single-line-numbered render ---
 // Test breaking of single line equations with numbering.
 #set page(height: 4em)
 #show math.equation: set block(breakable: true)
@@ -150,16 +150,16 @@ $ a + b $
 Shouldn't overflow:
 $ a + b $
 
---- issue-5113-pagebreaking-empty ---
+--- issue-5113-pagebreaking-empty render ---
 // Test empty breakable equations.
 #show math.equation: set block(breakable: true)
 #math.equation(block: true, [])
 
---- issue-1948-math-text-break ---
+--- issue-1948-math-text-break render ---
 // Test text with linebreaks in math.
 $ x := "a\nb\nc\nd\ne" $
 
---- issue-4829-math-pagebreaking-wrong-number ---
+--- issue-4829-math-pagebreaking-wrong-number render ---
 // Test numbering of empty regions of broken equations.
 #set page(height: 5em)
 #set math.equation(numbering: "1")

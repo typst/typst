@@ -1,10 +1,10 @@
 // Test the `rect` function.
 
---- rect ---
+--- rect render ---
 // Default rectangle.
 #rect()
 
---- rect-customization ---
+--- rect-customization render ---
 #set page(width: 150pt)
 
 // Fit to text.
@@ -46,7 +46,7 @@
 #set rect(stroke: (right: red))
 #rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
 
---- rect-stroke ---
+--- rect-stroke render ---
 // Rectangle strokes
 #rect(width: 20pt, height: 20pt, stroke: red)
 #v(3pt)
@@ -54,7 +54,7 @@
 #v(3pt)
 #rect(width: 20pt, height: 20pt, stroke: (thickness: 5pt, join: "round"))
 
---- rect-stroke-caps ---
+--- rect-stroke-caps render ---
 // Separated segments
 #rect(width: 20pt, height: 20pt, stroke: (
   left: (cap: "round", thickness: 5pt),
@@ -70,11 +70,11 @@
   left: (cap: "round", thickness: 5pt),
   top: (cap: "square", thickness: 7pt),
 ))
---- red-stroke-bad-type ---
+--- red-stroke-bad-type render ---
 // Error: 15-21 expected length, color, gradient, tiling, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
 
---- rect-fill-stroke ---
+--- rect-fill-stroke render ---
 #let variant = rect.with(width: 20pt, height: 10pt)
 #let items = for (i, item) in (
   variant(stroke: none),
@@ -99,16 +99,16 @@
   ..items,
 )
 
---- rect-radius-bad-key ---
+--- rect-radius-bad-key render ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #rect(radius: (left: 10pt, cake: 5pt))
 
---- issue-1825-rect-overflow ---
+--- issue-1825-rect-overflow render ---
 #set page(width: 17.8cm)
 #set par(justify: true)
 #rect(lorem(70))
 
---- issue-3264-rect-negative-dimensions ---
+--- issue-3264-rect-negative-dimensions render ---
 // Negative dimensions
 #rect(width: -1cm, fill: gradient.linear(red, blue))[Reverse left]
 
@@ -122,7 +122,7 @@
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
 
---- rect-size-beyond-default ---
+--- rect-size-beyond-default render ---
 // Test that setting a rectangle's height beyond its default sizes it correctly.
 #rect()
 #rect(height: 60pt)

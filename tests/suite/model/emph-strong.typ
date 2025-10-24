@@ -1,6 +1,6 @@
 // Test emph and strong.
 
---- emph-syntax ---
+--- emph-syntax render ---
 // Basic.
 _Emphasized and *strong* words!_
 
@@ -19,39 +19,39 @@ _Still #[
 
 ] emphasized._
 
---- emph-and-strong-call-in-word ---
+--- emph-and-strong-call-in-word render ---
 // Inside of words can still use the functions.
 P#strong[art]ly em#emph[phas]ized.
 
---- emph-empty-hint ---
+--- emph-empty-hint render ---
 // Warning: 1-3 no text within underscores
 // Hint: 1-3 using multiple consecutive underscores (e.g. __) has no additional effect
 __
 
---- emph-double-underscore-empty-hint ---
+--- emph-double-underscore-empty-hint render ---
 // Warning: 1-3 no text within underscores
 // Hint: 1-3 using multiple consecutive underscores (e.g. __) has no additional effect
 // Warning: 13-15 no text within underscores
 // Hint: 13-15 using multiple consecutive underscores (e.g. __) has no additional effect
 __not italic__
 
---- emph-unclosed ---
+--- emph-unclosed render ---
 // Error: 6-7 unclosed delimiter
 #box[_Scoped] to body.
 
---- emph-ends-at-parbreak ---
+--- emph-ends-at-parbreak render ---
 // Ends at paragraph break.
 // Error: 1-2 unclosed delimiter
 _Hello
 
 World
 
---- emph-strong-unclosed-nested ---
+--- emph-strong-unclosed-nested render ---
 // Error: 11-12 unclosed delimiter
 // Error: 3-4 unclosed delimiter
 #[_Cannot *be interleaved]
 
---- strong-delta ---
+--- strong-delta render ---
 // Adjusting the delta that strong applies on the weight.
 Normal
 
@@ -61,12 +61,12 @@ Normal
 #set strong(delta: 150)
 *Medium* and *#[*Bold*]*
 
---- strong-empty-hint ---
+--- strong-empty-hint render ---
 // Warning: 1-3 no text within stars
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect
 **
 
---- strong-double-star-empty-hint ---
+--- strong-double-star-empty-hint render ---
 // Warning: 1-3 no text within stars
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect
 // Warning: 11-13 no text within stars

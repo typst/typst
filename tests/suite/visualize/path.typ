@@ -1,6 +1,6 @@
 // Test paths.
 
---- path ---
+--- path render ---
 #set page(height: 300pt, width: 200pt)
 #table(
   columns: (1fr, 1fr),
@@ -65,28 +65,28 @@
   ),
 )
 
---- path-bad-vertex ---
+--- path-bad-vertex render ---
 // Error: 7-9 path vertex must have 1, 2, or 3 points
 // Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(())
 
---- path-bad-point-count ---
+--- path-bad-point-count render ---
 // Error: 7-47 path vertex must have 1, 2, or 3 points
 // Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(((0%, 0%), (0%, 0%), (0%, 0%), (0%, 0%)))
 
---- path-bad-point-array ---
+--- path-bad-point-array render ---
 // Error: 7-31 array must contain exactly two items
 // Hint: 7-31 the first item determines the value for the X axis and the second item the value for the Y axis
 // Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(((0%, 0%), (0%, 0%, 0%)))
 
---- path-infinite-length ---
+--- path-infinite-length render ---
 // Error: 2-42 cannot create path with infinite length
 // Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path((0pt, 0pt), (float.inf * 1pt, 0pt))
 
---- issue-path-in-sized-container ---
+--- issue-path-in-sized-container render ---
 // Paths used to implement `LayoutMultiple` rather than `LayoutSingle` without
 // fulfilling the necessary contract of respecting region expansion.
 #block(

@@ -1,4 +1,4 @@
---- grid-rowspan ---
+--- grid-rowspan render ---
 #grid(
   columns: 4,
   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
@@ -23,7 +23,7 @@
   [Left B], [Left B], table.cell(colspan: 2, rowspan: 3, fill: orange)[Wide and Long]
 )
 
---- grid-rowspan-gutter ---
+--- grid-rowspan-gutter render ---
 #grid(
   columns: 4,
   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
@@ -50,7 +50,7 @@
   [Left B], [Left B], table.cell(colspan: 2, rowspan: 3, fill: orange)[Wide and Long]
 )
 
---- grid-rowspan-fixed-size ---
+--- grid-rowspan-fixed-size render ---
 // Fixed-size rows
 #set page(height: 10em)
 #grid(
@@ -69,7 +69,7 @@
   [m], [n]
 )
 
---- grid-rowspan-cell-coordinates ---
+--- grid-rowspan-cell-coordinates render ---
 // Cell coordinate tests
 #set page(height: 10em)
 #show table.cell: it => [(#it.x, #it.y)]
@@ -91,7 +91,7 @@
   table.cell(colspan: 2)[b],
 )
 
---- grid-rowspan-over-auto-row ---
+--- grid-rowspan-over-auto-row render ---
 // Auto row expansion
 #set page(height: 10em)
 #grid(
@@ -106,7 +106,7 @@
   [d]
 )
 
---- grid-rowspan-excessive ---
+--- grid-rowspan-excessive render ---
 // Excessive rowspan (no gutter)
 #set page(height: 10em)
 #table(
@@ -118,7 +118,7 @@
   [b],
 )
 
---- grid-rowspan-excessive-gutter ---
+--- grid-rowspan-excessive-gutter render ---
 // Excessive rowspan (with gutter)
 #set page(height: 10em)
 #table(
@@ -131,7 +131,7 @@
   [b],
 )
 
---- grid-rowspan-over-fr-row-at-end ---
+--- grid-rowspan-over-fr-row-at-end render ---
 // Fractional rows
 // They cause the auto row to expand more than needed.
 #set page(height: 10em)
@@ -145,7 +145,7 @@
   [e], [f]
 )
 
---- grid-rowspan-over-fr-row-at-start ---
+--- grid-rowspan-over-fr-row-at-start render ---
 // Fractional rows
 #set page(height: 10em)
 #grid(
@@ -158,7 +158,7 @@
   [e], [f]
 )
 
---- grid-rowspan-cell-order ---
+--- grid-rowspan-cell-order render ---
 // Cell order
 #let count = counter("count")
 #show grid.cell: it => {
@@ -181,7 +181,7 @@
   [s], [t], [u]
 )
 
---- grid-rowspan-unbreakable-1 ---
+--- grid-rowspan-unbreakable-1 render ---
 #table(
     columns: 3,
     rows: (auto, auto, auto, 2em),
@@ -191,7 +191,7 @@
     [g]
 )
 
---- grid-rowspan-unbreakable-2 ---
+--- grid-rowspan-unbreakable-2 render ---
 // Test cell breakability
 #show grid.cell: it => {
   test(it.breakable, (it.x, it.y) != (0, 6) and (it.y in (2, 5, 6) or (it.x, it.y) in ((0, 1), (2, 3), (1, 7))))
@@ -211,7 +211,7 @@
   grid.cell(y: 7, breakable: false)[o], grid.cell(y: 7, breakable: true)[p], grid.cell(y: 7, breakable: auto)[q]
 )
 
---- grid-rowspan-in-all-columns-stroke ---
+--- grid-rowspan-in-all-columns-stroke render ---
 #table(
   columns: 2,
   table.cell(stroke: (bottom: red))[a], [b],
@@ -221,7 +221,7 @@
   [g]
 )
 
---- grid-rowspan-in-all-columns-stroke-gutter ---
+--- grid-rowspan-in-all-columns-stroke-gutter render ---
 #table(
   columns: 2,
   gutter: 3pt,
@@ -232,7 +232,7 @@
   [g]
 )
 
---- grid-rowspan-block-full-height ---
+--- grid-rowspan-block-full-height render ---
 // Block below shouldn't expand to the end of the page, but stay within its
 // rows' boundaries.
 #set page(height: 9em)
@@ -243,7 +243,7 @@
   [a]
 )
 
---- grid-rowspan-block-overflow ---
+--- grid-rowspan-block-overflow render ---
 #set page(height: 7em)
 #table(
   columns: 3,
@@ -254,7 +254,7 @@
 
 // Rowspan split tests
 
---- grid-rowspan-split-1 ---
+--- grid-rowspan-split-1 render ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -265,7 +265,7 @@
   [f]
 )
 
---- grid-rowspan-split-2 ---
+--- grid-rowspan-split-2 render ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -277,7 +277,7 @@
   [f]
 )
 
---- grid-rowspan-split-3 ---
+--- grid-rowspan-split-3 render ---
 #set page(height: 5em)
 #table(
   columns: 2,
@@ -288,7 +288,7 @@
   [a], [b],
 )
 
---- grid-rowspan-split-4 ---
+--- grid-rowspan-split-4 render ---
 #set page(height: 5em)
 #table(
   columns: 2,
@@ -300,7 +300,7 @@
   [a], [b],
 )
 
---- grid-rowspan-split-5 ---
+--- grid-rowspan-split-5 render ---
 #set page(height: 5em)
 #table(
   columns: 2,
@@ -311,7 +311,7 @@
   [a], [b],
 )
 
---- grid-rowspan-split-6 ---
+--- grid-rowspan-split-6 render ---
 #set page(height: 5em)
 #table(
   columns: 2,
@@ -323,7 +323,7 @@
   [a], [b],
 )
 
---- grid-rowspan-split-7 ---
+--- grid-rowspan-split-7 render ---
 #set page(height: 5em)
 #grid(
   columns: 2,
@@ -332,7 +332,7 @@
   grid.cell(rowspan: 5)[a\ b\ c\ d\ e]
 )
 
---- grid-rowspan-split-8 ---
+--- grid-rowspan-split-8 render ---
 #set page(height: 5em)
 #table(
   columns: 2,
@@ -344,7 +344,7 @@
 
 // Rowspan split without ending at the auto row
 
---- grid-rowspan-split-9 ---
+--- grid-rowspan-split-9 render ---
 #set page(height: 6em)
 #table(
   rows: (4em,) * 7 + (auto,) + (4em,) * 7,
@@ -356,7 +356,7 @@
   [] * 15
 )
 
---- grid-rowspan-split-10 ---
+--- grid-rowspan-split-10 render ---
 #set page(height: 6em)
 #table(
   rows: (4em,) * 7 + (auto,) + (4em,) * 7,
@@ -368,7 +368,7 @@
   [] * 15
 )
 
---- grid-rowspan-split-11 ---
+--- grid-rowspan-split-11 render ---
 #set page(height: 6em)
 #table(
   rows: (3em,) * 15,
@@ -382,7 +382,7 @@
 
 // Some splitting corner cases
 
---- grid-rowspan-split-12 ---
+--- grid-rowspan-split-12 render ---
 // Inside the larger rowspan's range, there's an unbreakable rowspan and a
 // breakable rowspan. This should work normally.
 // The auto row will also expand ignoring the last fractional row.
@@ -399,7 +399,7 @@
     [z]
 )
 
---- grid-rowspan-split-13 ---
+--- grid-rowspan-split-13 render ---
 // Inset moving to next region bug
 #set page(width: 10cm, height: 2.5cm, margin: 0.5cm)
 #set text(size: 11pt)
@@ -415,7 +415,7 @@
   [G],
 )
 
---- grid-rowspan-split-14 ---
+--- grid-rowspan-split-14 render ---
 // Second lorem must be sent to the next page, too big
 #set page(width: 10cm, height: 9cm, margin: 1cm)
 #set text(size: 11pt)
@@ -430,7 +430,7 @@
   [E],
 )
 
---- grid-rowspan-split-15 ---
+--- grid-rowspan-split-15 render ---
 // Auto row must expand properly in both cases
 #set text(10pt)
 #show table.cell: it => if it.x == 0 { it } else { layout(size => size.height) }
@@ -458,7 +458,7 @@
   [f]
 )
 
---- grid-rowspan-split-16 ---
+--- grid-rowspan-split-16 render ---
 // Expanding on unbreakable auto row
 #set page(height: 7em, margin: (bottom: 2em))
 #grid(
@@ -476,7 +476,7 @@
   [f], [g]
 )
 
---- grid-rowspan-split-17 ---
+--- grid-rowspan-split-17 render ---
 #show table.cell.where(x: 0): strong
 #show table.cell.where(y: 0): strong
 #set page(height: 13em)
@@ -489,6 +489,6 @@
   ..([123], [456], [789]) * 15
 )
 
---- issue-6399-grid-cell-rowspan-set-rule ---
+--- issue-6399-grid-cell-rowspan-set-rule render ---
 #set grid.cell(rowspan: 2)
 #grid(columns: 2, [hehe])

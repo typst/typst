@@ -1,6 +1,6 @@
 // Test the `place` function.
 
---- place-basic ---
+--- place-basic render ---
 #set page("a8")
 #place(bottom + center)[E]
 
@@ -21,7 +21,7 @@
   ]
 )
 
---- place-block-spacing ---
+--- place-block-spacing render ---
 // Test how the placed element interacts with paragraph spacing around it.
 #set page("a8", height: 60pt)
 
@@ -31,7 +31,7 @@ First
 
 Second
 
---- place-bottom-in-box ---
+--- place-bottom-in-box render ---
 #box(
   fill: aqua,
   width: 30pt,
@@ -41,7 +41,7 @@ Second
   )
 )
 
---- place-horizon-in-boxes ---
+--- place-horizon-in-boxes render ---
 #box(
   fill: aqua,
   width: 30pt,
@@ -55,7 +55,7 @@ Second
   }
 )
 
---- place-bottom-right-in-box ---
+--- place-bottom-right-in-box render ---
 #box(fill: aqua)[
   #place(bottom + right)[Hi]
   Hello World \
@@ -63,20 +63,20 @@ Second
   you?
 ]
 
---- place-top-left-in-box ---
+--- place-top-left-in-box render ---
 #box(fill: aqua)[
   #place(top + left, dx: 50%, dy: 50%)[Hi]
   #v(30pt)
   #line(length: 50pt)
 ]
 
---- place-float-flow-around ---
+--- place-float-flow-around render ---
 #set page(height: 80pt)
 #set place(float: true)
 #place(bottom + center, rect(height: 20pt))
 #lines(4)
 
---- place-float-queued ---
+--- place-float-queued render ---
 #set page(height: 180pt)
 #set figure(placement: auto)
 
@@ -86,7 +86,7 @@ Second
 A
 #figure(rect(), caption: [IV])
 
---- place-float-align-auto ---
+--- place-float-align-auto render ---
 #set page(height: 140pt)
 #set place(auto, float: true, clearance: 5pt)
 
@@ -96,12 +96,12 @@ A
 #place(rect[C])
 #place(rect[D])
 
---- place-float-delta ---
+--- place-float-delta render ---
 #place(top + center, float: true, dx: 10pt, rect[I])
 A
 #place(bottom + center, float: true, dx: -10pt, rect[II])
 
---- place-float-flow-size ---
+--- place-float-flow-size render ---
 #set page(width: auto, height: auto)
 #set place(float: true, clearance: 5pt)
 
@@ -112,12 +112,12 @@ A
 #align(center)[B]
 #place(bottom, scope: "parent", rect(height: 10pt))
 
---- place-float-flow-size-alone ---
+--- place-float-flow-size-alone render ---
 #set page(width: auto, height: auto)
 #set place(float: true, clearance: 5pt)
 #place(auto)[A]
 
---- place-float-fr ---
+--- place-float-fr render ---
 #set page(height: 120pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -132,7 +132,7 @@ B
 C
 #align(bottom)[D]
 
---- place-float-rel-sizing ---
+--- place-float-rel-sizing render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -147,13 +147,13 @@ C
 #rect(width: 100%, height: 30%)
 #rect(width: 100%, height: 30%)
 
---- place-float-block-backlog ---
+--- place-float-block-backlog render ---
 #set page(height: 100pt)
 #v(60pt)
 #place(top, float: true, rect())
 #list(.."ABCDEFGHIJ".clusters())
 
---- place-float-clearance-empty ---
+--- place-float-clearance-empty render ---
 // Check that we don't require space for clearance if there is no content.
 #set page(height: 100pt)
 #v(1fr)
@@ -165,7 +165,7 @@ C
   place(auto, float: true, block(width: 100%, height: 100%, fill: aqua))
 )
 
---- place-float-column-align-auto ---
+--- place-float-column-align-auto render ---
 #set page(height: 150pt, columns: 2)
 #set place(auto, float: true, clearance: 10pt)
 #set rect(width: 75%)
@@ -180,7 +180,7 @@ C
 #place(rect[V])
 #place(rect[VI])
 
---- place-float-column-queued ---
+--- place-float-column-queued render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 75%)
@@ -194,7 +194,7 @@ C
 
 #lines(3)
 
---- place-float-twocolumn ---
+--- place-float-twocolumn render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -209,7 +209,7 @@ C
 #v(1pt, weak: true)
 #block(width: 100%, height: 60pt, fill: aqua)
 
---- place-float-twocolumn-queued ---
+--- place-float-twocolumn-queued render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, scope: "parent", clearance: 10pt)
 #let t(align, fill) = place(top + align, rect(fill: fill, height: 25pt))
@@ -219,7 +219,7 @@ C
 #t(right, conifer)
 #lines(7)
 
---- place-float-twocolumn-align-auto ---
+--- place-float-twocolumn-align-auto render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -229,7 +229,7 @@ C
 #place(auto, scope: "parent", rect[II])  // Should end up `bottom`
 #lines(4)
 
---- place-float-twocolumn-fits ---
+--- place-float-twocolumn-fits render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -238,7 +238,7 @@ C
 #place(auto, scope: "parent", rect[I])
 #lines(12, "1")
 
---- place-float-twocolumn-fits-not ---
+--- place-float-twocolumn-fits-not render ---
 #set page(height: 100pt, columns: 2)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -247,7 +247,7 @@ C
 #place(auto, scope: "parent", rect[I])
 #lines(10, "1")
 
---- place-float-threecolumn ---
+--- place-float-threecolumn render ---
 #set page(height: 100pt, columns: 3)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -256,7 +256,7 @@ C
 #lines(21)
 #place(top + center, scope: "parent", rect[II])
 
---- place-float-threecolumn-block-backlog ---
+--- place-float-threecolumn-block-backlog render ---
 #set page(height: 100pt, columns: 3)
 #set place(float: true, clearance: 10pt)
 #set rect(width: 70%)
@@ -270,7 +270,7 @@ C
 #place(top, rect(height: 40%)[III])
 #block(fill: yellow, width: 100%, height: 60pt)
 
---- place-float-counter ---
+--- place-float-counter render ---
 #let c = counter("c")
 #let cd = context c.display()
 
@@ -300,28 +300,28 @@ C
 #cd
 #t(top, 12)
 
---- place-float-missing ---
+--- place-float-missing render ---
 // Error: 2-20 automatic positioning is only available for floating placement
 // Hint: 2-20 you can enable floating placement with `place(float: true, ..)`
 #place(auto)[Hello]
 
---- place-float-center-horizon ---
+--- place-float-center-horizon render ---
 // Error: 2-45 vertical floating placement must be `auto`, `top`, or `bottom`
 #place(center + horizon, float: true)[Hello]
 
---- place-float-horizon ---
+--- place-float-horizon render ---
 // Error: 2-36 vertical floating placement must be `auto`, `top`, or `bottom`
 #place(horizon, float: true)[Hello]
 
---- place-float-default ---
+--- place-float-default render ---
 // Error: 2-27 vertical floating placement must be `auto`, `top`, or `bottom`
 #place(float: true)[Hello]
 
---- place-float-right ---
+--- place-float-right render ---
 // Error: 2-34 vertical floating placement must be `auto`, `top`, or `bottom`
 #place(right, float: true)[Hello]
 
---- place-flush ---
+--- place-flush render ---
 #set page(height: 120pt)
 #let floater(align, height) = place(
   align,
@@ -336,7 +336,7 @@ A
 #place.flush()
 B // Should be on the second page.
 
---- place-flush-figure ---
+--- place-flush-figure render ---
 #set page(height: 120pt)
 #let floater(align, height, caption) = figure(
   placement: align,
@@ -351,21 +351,21 @@ A
 #place.flush()
 B // Should be on the second page.
 
---- issue-place-base ---
+--- issue-place-base render ---
 // Test that placement is relative to container and not itself.
 #set page(height: 80pt, margin: 0pt)
 #place(right, dx: -70%, dy: 20%, [First])
 #place(left, dx: 20%, dy: 60%, [Second])
 #place(center + horizon, dx: 25%, dy: 25%, [Third])
 
---- issue-1368-place-pagebreak ---
+--- issue-1368-place-pagebreak render ---
 // Test placing on an already full page.
 // It shouldn't result in a page break.
 #set page(height: 40pt)
 #block(height: 100%)
 #place(bottom + right)[Hello world]
 
---- issue-2199-place-spacing-bottom ---
+--- issue-2199-place-spacing-bottom render ---
 // Test that placed elements don't add extra block spacing.
 #show figure: set block(spacing: 4em)
 
@@ -373,14 +373,14 @@ Paragraph before float.
 #figure(rect(), placement: bottom)
 Paragraph after float.
 
---- issue-2199-place-spacing-default ---
+--- issue-2199-place-spacing-default render ---
 #show place: set block(spacing: 4em)
 
 Paragraph before place.
 #place(rect())
 Paragraph after place.
 
---- issue-2595-float-overlap ---
+--- issue-2595-float-overlap render ---
 #set page(height: 80pt)
 
 1

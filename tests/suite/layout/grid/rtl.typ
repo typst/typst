@@ -1,14 +1,14 @@
 // Test RTL grid.
 
---- list-rtl ---
+--- list-rtl render ---
 #set text(dir: rtl)
 - מימין לשמאל
 
---- grid-rtl ---
+--- grid-rtl render ---
 #set text(dir: rtl)
 #table(columns: 2)[A][B][C][D]
 
---- grid-rtl-colspan ---
+--- grid-rtl-colspan render ---
 // Test interaction between RTL and colspans
 #set text(dir: rtl)
 #grid(
@@ -42,7 +42,7 @@
   [10], grid.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
 
---- grid-rtl-colspan-stroke ---
+--- grid-rtl-colspan-stroke render ---
 #set text(dir: rtl)
 #table(
   columns: 4,
@@ -75,7 +75,7 @@
   [10], table.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
 
---- grid-rtl-multiple-regions ---
+--- grid-rtl-multiple-regions render ---
 // Test multiple regions
 #set page(height: 5em)
 #set text(dir: rtl)
@@ -89,7 +89,7 @@
   grid.cell(colspan: 4)[eeee e e e]
 )
 
---- grid-rtl-vline-position ---
+--- grid-rtl-vline-position render ---
 // Test left and right for vlines in RTL
 #set text(dir: rtl)
 #grid(
@@ -130,7 +130,7 @@
   grid.vline(stroke: 2pt, position: start)
 )
 
---- grid-rtl-vline-out-of-bounds ---
+--- grid-rtl-vline-out-of-bounds render ---
 // Error: 3:8-3:34 cannot place vertical line at the 'end' position of the end border (x = 1)
 // Hint: 3:8-3:34 set the line's position to 'start' or place it at a smaller 'x' index
 #set text(dir: rtl)
@@ -138,7 +138,7 @@
   [a], grid.vline(position: left)
 )
 
---- grid-rtl-complex ---
+--- grid-rtl-complex render ---
 #set text(dir: rtl)
 
 #grid(
@@ -166,7 +166,7 @@
   [Left B], [Left B], table.cell(colspan: 2, rowspan: 3, fill: orange)[Wide and Long]
 )
 
---- grid-rtl-rowspan ---
+--- grid-rtl-rowspan render ---
 #set page(height: 10em)
 #set text(dir: rtl)
 #table(
@@ -179,7 +179,7 @@
   [f]
 )
 
---- grid-rtl-header ---
+--- grid-rtl-header render ---
 // Headers
 #set page(height: 15em)
 #set text(dir: rtl)
@@ -194,7 +194,7 @@
   ..range(0, 10).map(i => ([\##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
 )
 
---- grid-rtl-counter ---
+--- grid-rtl-counter render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")
@@ -214,7 +214,7 @@
   ],
 )
 
---- grid-rtl-rowspan-counter-equal ---
+--- grid-rtl-rowspan-counter-equal render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")
@@ -234,7 +234,7 @@
   ]),
 )
 
---- grid-rtl-rowspan-counter-unequal-1 ---
+--- grid-rtl-rowspan-counter-unequal-1 render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")
@@ -259,7 +259,7 @@
   ]),
 )
 
---- grid-rtl-rowspan-counter-unequal-2 ---
+--- grid-rtl-rowspan-counter-unequal-2 render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")
@@ -284,7 +284,7 @@
   ]),
 )
 
---- grid-rtl-rowspan-counter-mixed-1 ---
+--- grid-rtl-rowspan-counter-mixed-1 render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")
@@ -309,7 +309,7 @@
   ],
 )
 
---- grid-rtl-rowspan-counter-mixed-2 ---
+--- grid-rtl-rowspan-counter-mixed-2 render ---
 // Test interaction between RTL and counters
 #set text(dir: rtl)
 #let test = counter("test")

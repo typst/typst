@@ -15,7 +15,7 @@
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "TW")
 #outline()
 
---- text-lang-hyphenate ---
+--- text-lang-hyphenate render ---
 // Ensure that setting the language does have effects.
 #set text(hyphenate: true)
 #grid(
@@ -25,7 +25,7 @@
   text(lang: "de")["Eingabeaufforderung"],
 )
 
---- text-lang-shaping ---
+--- text-lang-shaping render ---
 // Test that the language passed to the shaper has an effect.
 #set text(font: "Ubuntu")
 
@@ -37,7 +37,7 @@
 #text(lang: "uk")[Бб]
 #text(lang: "sr")[Бб]
 
---- text-lang-script-shaping ---
+--- text-lang-script-shaping render ---
 // Verify that writing script/language combination has an effect
 #{
   set text(size:20pt)
@@ -49,37 +49,37 @@
   [Ş ]
 }
 
---- text-script-bad-type ---
+--- text-script-bad-type render ---
 // Error: 19-23 expected string or auto, found none
 #set text(script: none)
 
---- text-script-bad-value ---
+--- text-script-bad-value render ---
 // Error: 19-23 expected three or four letter script code (ISO 15924 or 'math')
 #set text(script: "ab")
 
---- text-lang-bad-type ---
+--- text-lang-bad-type render ---
 // Error: 17-21 expected string, found none
 #set text(lang: none)
 
---- text-lang-bad-value ---
+--- text-lang-bad-value render ---
 // Error: 17-20 expected two or three letter language code (ISO 639-1/2/3)
 #set text(lang: "ӛ")
 
---- text-lang-bad-value-emoji ---
+--- text-lang-bad-value-emoji render ---
 // Error: 17-20 expected two or three letter language code (ISO 639-1/2/3)
 #set text(lang: "😃")
 
---- text-region-bad-value ---
+--- text-region-bad-value render ---
 // Error: 19-24 expected two letter region code (ISO 3166-1 alpha-2)
 #set text(region: "hey")
 
---- text-language-fallback-english ---
+--- text-language-fallback-english render ---
 #set text(lang: "qaa")
 #outline()
 #set text(lang: "qaa", region: "aa")
 #outline()
 
---- text-lang-hint-region-parameter ---
+--- text-lang-hint-region-parameter render ---
 // Error: 17-24 expected two or three letter language code (ISO 639-1/2/3)
 // Hint: 17-24 you should leave only "en" in the `lang` parameter and specify "gb" in the `region` parameter
 #set text(lang: "en-gb")

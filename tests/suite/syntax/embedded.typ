@@ -1,9 +1,9 @@
 // Test embedded expressions.
 
---- markup-expr-incomplete ---
+--- markup-expr-incomplete render ---
 // Error: 2-2 expected expression
 #
 
---- markup-expr-incomplete-followed-by-text ---
+--- markup-expr-incomplete-followed-by-text render ---
 // Error: 2-2 expected expression
 #  hello

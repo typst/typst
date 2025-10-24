@@ -1,6 +1,6 @@
 // Test lines.
 
---- stroke-constructor ---
+--- stroke-constructor render ---
 // Converting to stroke
 #test(stroke(red).paint, red)
 #test(stroke(red).thickness, auto)
@@ -15,11 +15,11 @@
 #test(stroke(cap: "round").thickness, auto)
 #test(stroke(cap: "round", thickness: auto).thickness, auto)
 
---- stroke-constructor-unknown-key ---
+--- stroke-constructor-unknown-key render ---
 // Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #stroke((foo: "bar"))
 
---- stroke-fields-simple ---
+--- stroke-fields-simple render ---
 // Test stroke fields for simple strokes.
 #test((1em + blue).paint, blue)
 #test((1em + blue).thickness, 1em)
@@ -28,7 +28,7 @@
 #test((1em + blue).dash, auto)
 #test((1em + blue).miter-limit, auto)
 
---- stroke-fields-complex ---
+--- stroke-fields-complex render ---
 // Test complex stroke fields.
 #let r1 = rect(stroke: (paint: cmyk(1%, 2%, 3%, 4%), thickness: 4em + 2pt, cap: "round", join: "bevel", miter-limit: 5.0, dash: none))
 #let r2 = rect(stroke: (paint: cmyk(1%, 2%, 3%, 4%), thickness: 4em + 2pt, cap: "round", join: "bevel", miter-limit: 5.0, dash: (3pt, "dot", 4em)))
@@ -46,7 +46,7 @@
 #test(s2.dash, (array: (3pt, "dot", 4em), phase: 0pt))
 #test(s3.dash, (array: (3pt, "dot", 4em), phase: 5em))
 
---- stroke-zero-thickness ---
+--- stroke-zero-thickness render ---
 // 0pt strokes must function exactly like 'none' strokes and not draw anything
 #rect(width: 10pt, height: 10pt, stroke: none)
 #rect(width: 10pt, height: 10pt, stroke: 0pt)
@@ -75,7 +75,7 @@
   curve.close()
 )
 
---- stroke-text ---
+--- stroke-text render ---
 #set text(size: 20pt)
 #set page(width: auto)
 #let v = [测试字体Test]
@@ -90,7 +90,7 @@
 
 #text(stroke: 1pt + gradient.linear(..color.map.rainbow), v)
 
---- stroke-folding ---
+--- stroke-folding render ---
 // Test stroke folding.
 #let sq(..args) = box(square(size: 10pt, ..args))
 
@@ -104,7 +104,7 @@
 #sq(fill: teal, stroke: blue)
 #sq(fill: teal, stroke: 2pt + blue)
 
---- stroke-composition ---
+--- stroke-composition render ---
 // Test stroke composition.
 #set square(stroke: 4pt)
 #set text(font: "Roboto")
@@ -156,7 +156,7 @@
 	square(radius: (top-left: 0pt, rest: 100pt)),
 )
 
---- issue-3700-deformed-stroke ---
+--- issue-3700-deformed-stroke render ---
 // Test shape fill & stroke for specific values that used to make the stroke
 // deformed.
 #rect(

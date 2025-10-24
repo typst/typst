@@ -7,13 +7,13 @@
   ([Two], [Second]),
 )
 
---- terms-built-in-loop ---
+--- terms-built-in-loop render ---
 // Test joining.
 #for word in lorem(4).split().map(s => s.trim(".")) [
   / #word: Latin stuff.
 ]
 
---- terms-multiline ---
+--- terms-multiline render ---
 // Test multiline.
 #set text(8pt)
 
@@ -24,7 +24,7 @@
 
   And healthy!
 
---- terms-style-change-interrupted ---
+--- terms-style-change-interrupted render ---
 // Test style change.
 #set text(8pt)
 / First list: #lorem(6)
@@ -32,13 +32,13 @@
 #set terms(hanging-indent: 30pt)
 / Second list: #lorem(5)
 
---- terms-rtl ---
+--- terms-rtl render ---
 // Test RTL.
 #set text(8pt, dir: rtl)
 
 / פרי: דבר טעים, אכיל. ומקור אנרגיה חשוב לצמחונים.
 
---- terms-grid ---
+--- terms-grid render ---
 // Test grid like show rule.
 #show terms: it => table(
   columns: 2,
@@ -50,12 +50,12 @@
 / BB: Two letters
 / CCC: Three letters
 
---- terms-syntax-edge-cases ---
+--- terms-syntax-edge-cases render ---
 / Term:
 Not in list
 /Nope
 
---- terms-missing-colon ---
+--- terms-missing-colon render ---
 // Error: 8 expected colon
 / Hello
 
@@ -87,7 +87,7 @@ Not in list
 ]
 
 
---- issue-1050-terms-indent ---
+--- issue-1050-terms-indent render ---
 #set page(width: 110pt)
 #set par(first-line-indent: 0.5cm)
 
@@ -100,18 +100,18 @@ Not in list
 / S: #lorem(5)
 / XXXL: #lorem(5)
 
---- issue-2530-term-item-panic ---
+--- issue-2530-term-item-panic render ---
 // Term item (pre-emptive)
 #terms.item[Hello][World!]
 
---- issue-5503-terms-in-align ---
+--- issue-5503-terms-in-align render ---
 // `align` is block-level and should interrupt a `terms`.
 #show terms: [Terms]
 / a: a
 #align(right)[/ i: i]
 / j: j
 
---- issue-5719-terms-nested ---
+--- issue-5719-terms-nested render ---
 // Term lists can be immediately nested.
 / Term A: 1
 / Term B: / Term C: 2

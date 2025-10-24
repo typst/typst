@@ -1,12 +1,12 @@
 // Test tilings.
 
---- tiling-line ---
+--- tiling-line render ---
 // Tests that simple tilings work.
 #set page(width: auto, height: auto, margin: 0pt)
 #let t = tiling(size: (10pt, 10pt), line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
 #rect(width: 50pt, height: 50pt, fill: t)
 
---- tiling-lines ---
+--- tiling-lines render ---
 #set page(width: auto, height: auto, margin: 0pt)
 
 #let t = tiling(size: (10pt, 10pt), {
@@ -18,7 +18,7 @@
 })
 #rect(width: 50pt, height: 50pt, fill: t)
 
---- tiling-relative-self ---
+--- tiling-relative-self render ---
 // Test with relative set to `"self"`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
   #set line(stroke: green)
@@ -34,7 +34,7 @@
   stroke: 1pt + green,
 )
 
---- tiling-relative-parent ---
+--- tiling-relative-parent render ---
 // Test with relative set to `"parent"`
 #let t(fill, ..args) = tiling(size: (30pt, 30pt), ..args)[
   #rect(width: 100%, height: 100%, fill: fill, stroke: none)
@@ -46,7 +46,7 @@
 
 #rect(fill: t(none, relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
 
---- tiling-small ---
+--- tiling-small render ---
 // Tests small tilings for pixel accuracy.
 #box(
   width: 8pt,
@@ -60,12 +60,12 @@
   fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black))
 )
 
---- tiling-zero-sized ---
+--- tiling-zero-sized render ---
 // Error: 15-52 tile size must be non-zero
 // Hint: 15-52 try setting the size manually
 #line(stroke: tiling(curve(curve.move((1em, 0pt)))))
 
---- tiling-spacing-negative ---
+--- tiling-spacing-negative render ---
 // Test with spacing set to `(-10pt, -10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
   #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
@@ -75,7 +75,7 @@
 
 #rect(fill: t(spacing: (-10pt, -10pt)), width: 100%, height: 100%, stroke: 1pt)
 
---- tiling-spacing-zero ---
+--- tiling-spacing-zero render ---
 // Test with spacing set to `(0pt, 0pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
   #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
@@ -85,7 +85,7 @@
 
 #rect(fill: t(spacing: (0pt, 0pt)), width: 100%, height: 100%, stroke: 1pt)
 
---- tiling-spacing-positive ---
+--- tiling-spacing-positive render ---
 // Test with spacing set to `(10pt, 10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
   #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
@@ -95,7 +95,7 @@
 
 #rect(fill: t(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)
 
---- tiling-stroke ---
+--- tiling-stroke render ---
 // Test tiling on strokes
 #align(
   center + top,
@@ -112,7 +112,7 @@
   )
 )
 
---- tiling-stroke-relative-parent ---
+--- tiling-stroke-relative-parent render ---
 // Test tiling on strokes with relative set to `"parent"`
 // The tiling on the circle should align with the tiling on the square.
 #align(
@@ -130,7 +130,7 @@
   )
 )
 
---- tiling-text ---
+--- tiling-text render ---
 // Test a tiling on some text. You shouldn't be able to see the text, if you can
 // then that means that the transform matrices are not being applied to the text
 // correctly.
@@ -157,7 +157,7 @@
   #lorem(10)
 ]))
 
---- tiling-pattern-compatibility ---
+--- tiling-pattern-compatibility render ---
 #set page(width: auto, height: auto, margin: 0pt)
 
 // Warning: 10-17 the name `pattern` is deprecated, use `tiling` instead

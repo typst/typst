@@ -1,6 +1,6 @@
 // Test return out of functions.
 
---- return-with-value ---
+--- return-with-value render ---
 // Test return with value.
 #let f(x) = {
   return x + 1
@@ -8,7 +8,7 @@
 
 #test(f(1), 2)
 
---- return-join ---
+--- return-join render ---
 // Test return with joining.
 
 #let f(x) = {
@@ -28,7 +28,7 @@
 #test(f(1), "ac")
 #test(f(2), "ad")
 
---- return-in-nested-content-block ---
+--- return-in-nested-content-block render ---
 // Test return with joining and content.
 
 #let f(text, caption: none) = {
@@ -43,7 +43,7 @@
 
 #f[My other figure]
 
---- return-outside-of-function ---
+--- return-outside-of-function render ---
 // Test return outside of function.
 
 #for x in range(5) {
@@ -51,7 +51,7 @@
   return
 }
 
---- return-in-first-arg ---
+--- return-in-first-arg render ---
 // Test that the expression is evaluated to the end.
 #let sum(..args) = {
   let s = 0
@@ -68,7 +68,7 @@
 
 #test(f(), 6)
 
---- return-in-content-block ---
+--- return-in-content-block render ---
 // Test value return from content.
 #let x = 3
 #let f() = [
@@ -79,14 +79,14 @@
 
 #test(f(), "nope")
 
---- return-semicolon-or-linebreak ---
+--- return-semicolon-or-linebreak render ---
 // Test rejection of extra value
 #let f() = [
   // Error: 16-16 expected semicolon or line break
   #return a + b Hello World
 ]
 
---- return-discard-content ---
+--- return-discard-content render ---
 // Test that discarding joined content is a warning.
 #let f() = {
   [Hello, World!]
@@ -97,7 +97,7 @@
 
 #test(f(), "nope")
 
---- return-discard-content-nested ---
+--- return-discard-content-nested render ---
 #let f() = {
   [Hello, World!]
   {
@@ -109,7 +109,7 @@
 
 #test(f(), "nope")
 
---- return-discard-state ---
+--- return-discard-state render ---
 // Test that discarding a joined content with state is special warning
 
 #let f() = {
@@ -123,7 +123,7 @@
 
 #test(f(), [ Hello ])
 
---- return-discard-loop ---
+--- return-discard-loop render ---
 // Test that return from within a control flow construct is not a warning.
 #let f1() = {
   state("hello").update("world")
@@ -143,7 +143,7 @@
 #test(f1(), "nope1")
 #test(f2(), "nope2")
 
---- return-no-discard ---
+--- return-no-discard render ---
 // Test that returning the joined content is not a warning.
 #let f() = {
   state("hello").update("world")
@@ -152,7 +152,7 @@
 
 #test(f(), state("hello").update("world"))
 
---- return-discard-not-content ---
+--- return-discard-not-content render ---
 // Test that non-content joined value is not a warning.
 #let f() = {
   (33,)
@@ -161,7 +161,7 @@
 
 #test(f(), (66, ))
 
---- return-discard-markup ---
+--- return-discard-markup render ---
 // Test that discarding markup is not a warning.
 #let f() = [
   hello

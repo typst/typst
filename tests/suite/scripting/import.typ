@@ -1,6 +1,6 @@
 // Test function and module imports.
 
---- import-basic ---
+--- import-basic render ---
 // Test basic syntax and semantics.
 
 // Test that this will be overwritten.
@@ -15,37 +15,37 @@
 // Stop at semicolon.
 #import "module.typ": a, c;bye
 
---- import-item-markup ---
+--- import-item-markup render ---
 // An item import.
 #import "module.typ": item
 #test(item(1, 2), 3)
 
---- import-item-in-code ---
+--- import-item-in-code render ---
 // Code mode
 #{
   import "module.typ": b
   test(b, 1)
 }
 
---- import-wildcard-in-markup ---
+--- import-wildcard-in-markup render ---
 // A wildcard import.
 #import "module.typ": *
 
 // It exists now!
 #test(d, 3)
 
---- import-item-renamed ---
+--- import-item-renamed render ---
 // A renamed item import.
 #import "module.typ": item as something
 #test(something(1, 2), 3)
 
---- import-items-renamed-mixed ---
+--- import-items-renamed-mixed render ---
 // Mixing renamed and not renamed items.
 #import "module.typ": fn, b as val, item as other
 #test(val, 1)
 #test(other(1, 2), 3)
 
---- import-nested-item ---
+--- import-nested-item render ---
 // Nested item imports.
 #import "modules/chap1.typ" as orig-chap1
 #import "modules/chap2.typ" as orig-chap2
@@ -55,7 +55,7 @@
 #test(name, "Peter")
 #test(othername, "Klaus")
 
---- import-items-parenthesized ---
+--- import-items-parenthesized render ---
 #import "module.typ": ()
 #import "module.typ": (a)
 #import "module.typ": (a, b)
@@ -66,7 +66,7 @@
 #test(c, 2)
 #test(d, 3)
 
---- import-items-parenthesized-multiline ---
+--- import-items-parenthesized-multiline render ---
 #import "module.typ": (
   a
 )
@@ -83,22 +83,22 @@
 #test(c, 2)
 #test(d, 3)
 
---- import-items-parenthesized-invalid ---
+--- import-items-parenthesized-invalid render ---
 // Error: 23-24 unclosed delimiter
 #import "module.typ": (a, b, c
 
---- import-items-parenthesized-invalid-2 ---
+--- import-items-parenthesized-invalid-2 render ---
 // Error: 23-24 unclosed delimiter
 #import "module.typ": (
 
---- import-items-parenthesized-invalid-3 ---
+--- import-items-parenthesized-invalid-3 render ---
 // Error: 23-24 unclosed delimiter
 #import "module.typ": (
   a, b,
   c,
 
 
---- import-from-function-scope ---
+--- import-from-function-scope render ---
 // Test importing from function scopes.
 
 #import enum: item
@@ -111,76 +111,76 @@
 #eq(10, 10)
 #ne(5, 6)
 
---- import-from-function-scope-item-renamed ---
+--- import-from-function-scope-item-renamed render ---
 // Test renaming items imported from function scopes.
 #import assert: eq as aseq
 #aseq(10, 10)
 
---- import-from-function-scope-nested-import ---
+--- import-from-function-scope-nested-import render ---
 // Test importing items from function scopes via nested import.
 #import std: grid.cell, table.cell as tcell
 #test(cell, grid.cell)
 #test(tcell, table.cell)
 
---- import-from-type-scope ---
+--- import-from-type-scope render ---
 // Test importing from a type's scope.
 #import array: zip
 #test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
 
---- import-from-type-scope-item-renamed ---
+--- import-from-type-scope-item-renamed render ---
 // Test importing from a type's scope with renaming.
 #import array: pop as renamed-pop
 #test(renamed-pop((1, 2)), 2)
 
---- import-from-type-scope-nested-import ---
+--- import-from-type-scope-nested-import render ---
 // Test importing from a type's scope with nested import.
 #import std: array.zip, array.pop as renamed-pop
 #test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
 #test(renamed-pop((1, 2)), 2)
 
---- import-from-file-bare ---
+--- import-from-file-bare render ---
 // A module import without items.
 #import "module.typ"
 #test(module.b, 1)
 #test(module.item(1, 2), 3)
 #test(module.push(2), 3)
 
---- import-from-file-bare-invalid ---
+--- import-from-file-bare-invalid render ---
 // Error: 9-33 module name would not be a valid identifier
 // Hint: 9-33 you can rename the import with `as`
 #import "modules/with space.typ"
 
---- import-from-file-bare-dynamic ---
+--- import-from-file-bare-dynamic render ---
 // Error: 9-26 dynamic import requires an explicit name
 // Hint: 9-26 you can name the import with `as`
 #import "mod" + "ule.typ"
 
---- import-from-var-bare ---
+--- import-from-var-bare render ---
 #let p = "module.typ"
 // Error: 9-10 dynamic import requires an explicit name
 // Hint: 9-10 you can name the import with `as`
 #import p
 #test(p.b, 1)
 
---- import-from-dict-field-bare ---
+--- import-from-dict-field-bare render ---
 #let d = (p: "module.typ")
 // Error: 9-12 dynamic import requires an explicit name
 // Hint: 9-12 you can name the import with `as`
 #import d.p
 #test(p.b, 1)
 
---- import-from-file-renamed-dynamic ---
+--- import-from-file-renamed-dynamic render ---
 #import "mod" + "ule.typ" as mod
 #test(mod.b, 1)
 
---- import-from-file-renamed ---
+--- import-from-file-renamed render ---
 // A renamed module import without items.
 #import "module.typ" as other
 #test(other.b, 1)
 #test(other.item(1, 2), 3)
 #test(other.push(2), 3)
 
---- import-from-file-items-renamed-mixed ---
+--- import-from-file-items-renamed-mixed render ---
 // Mixing renamed module and items.
 #import "module.typ" as newname: b as newval, item
 #test(newname.b, 1)
@@ -188,22 +188,22 @@
 #test(item(1, 2), 3)
 #test(newname.item(1, 2), 3)
 
---- import-from-function-scope-bare ---
+--- import-from-function-scope-bare render ---
 // Warning: 9-13 this import has no effect
 #import enum
 
---- import-from-function-scope-renamed ---
+--- import-from-function-scope-renamed render ---
 // Renamed module import with function scopes.
 #import enum as othernum
 #test(enum, othernum)
 
---- import-from-function-scope-renamed-twice ---
+--- import-from-function-scope-renamed-twice render ---
 // Mixing renamed module import from function with renamed item import.
 #import assert as asrt
 #import asrt: ne as asne
 #asne(1, 2)
 
---- import-from-module-bare ---
+--- import-from-module-bare render ---
 #import "modules/chap1.typ" as mymod
 // Warning: 9-14 this import has no effect
 #import mymod
@@ -211,16 +211,16 @@
 // Error: 2-7 unknown variable: chap1
 #chap1
 
---- import-module-nested ---
+--- import-module-nested render ---
 #import std.calc: pi
 #test(pi, calc.pi)
 
---- import-module-nested-bare ---
+--- import-module-nested-bare render ---
 #import "module.typ"
 #import module.chap2
 #test(chap2.name, "Peter")
 
---- import-module-item-name-mutating ---
+--- import-module-item-name-mutating render ---
 // Edge case for module access that isn't fixed.
 #import "module.typ"
 
@@ -231,15 +231,15 @@
 // Error: 2-11 cannot mutate a temporary value
 #(module,).at(0).push()
 
---- import-no-whitespace ---
+--- import-no-whitespace render ---
 // Who needs whitespace anyways?
 #import"module.typ":*
 
---- import-trailing-comma ---
+--- import-trailing-comma render ---
 // Allow the trailing comma.
 #import "module.typ": a, c,
 
---- import-source-field-access ---
+--- import-source-field-access render ---
 // Usual importing syntax also works for function scopes
 #let d = (e: enum)
 #import d.e
@@ -247,19 +247,19 @@
 #import d.e: item
 #item(2)[a]
 
---- import-item-rename-unnecessary ---
+--- import-item-rename-unnecessary render ---
 // Warning: 23-27 unnecessary import rename to same name
 #import enum: item as item
 
---- import-rename-unnecessary ---
+--- import-rename-unnecessary render ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum
 
---- import-rename-necessary ---
+--- import-rename-necessary render ---
 #import "module.typ" as module: a
 #test(module.a, a)
 
---- import-rename-unnecessary-mixed ---
+--- import-rename-unnecessary-mixed render ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum: item
 
@@ -267,86 +267,86 @@
 // Warning: 31-35 unnecessary import rename to same name
 #import enum as enum: item as item
 
---- import-item-rename-unnecessary-but-ok ---
+--- import-item-rename-unnecessary-but-ok render ---
 #import "modul" + "e.typ" as module
 #test(module.b, 1)
 
---- import-from-closure-invalid ---
+--- import-from-closure-invalid render ---
 // Can't import from closures.
 #let f(x) = x
 // Error: 9-10 cannot import from user-defined functions
 #import f: x
 
---- import-from-closure-renamed-invalid ---
+--- import-from-closure-renamed-invalid render ---
 // Can't import from closures, despite renaming.
 #let f(x) = x
 // Error: 9-10 cannot import from user-defined functions
 #import f as g
 
---- import-from-with-closure-invalid ---
+--- import-from-with-closure-invalid render ---
 // Can't import from closures, despite modifiers.
 #let f(x) = x
 // Error: 9-18 cannot import from user-defined functions
 #import f.with(5): x
 
---- import-from-with-closure-literal-invalid ---
+--- import-from-with-closure-literal-invalid render ---
 // Error: 9-18 cannot import from user-defined functions
 #import () => {5}: x
 
---- import-from-int-invalid ---
+--- import-from-int-invalid render ---
 // Error: 9-10 expected path, module, function, or type, found integer
 #import 5: something
 
---- import-from-int-renamed-invalid ---
+--- import-from-int-renamed-invalid render ---
 // Error: 9-10 expected path, module, function, or type, found integer
 #import 5 as x
 
---- import-from-string-invalid ---
+--- import-from-string-invalid render ---
 // Error: 9-11 failed to load file (is a directory)
 #import "": name
 
---- import-from-string-renamed-invalid ---
+--- import-from-string-renamed-invalid render ---
 // Error: 9-11 failed to load file (is a directory)
 #import "" as x
 
---- import-file-not-found-invalid ---
+--- import-file-not-found-invalid render ---
 // Error: 9-20 file not found (searched at tests/suite/scripting/lib/0.2.1)
 #import "lib/0.2.1"
 
---- import-file-not-found-renamed-invalid ---
+--- import-file-not-found-renamed-invalid render ---
 // Error: 9-20 file not found (searched at tests/suite/scripting/lib/0.2.1)
 #import "lib/0.2.1" as x
 
---- import-file-not-valid-utf-8 ---
+--- import-file-not-valid-utf-8 render ---
 // Some non-text stuff.
 // Error: 9-35 file is not valid utf-8
 #import "/assets/images/rhino.png"
 
---- import-item-not-found ---
+--- import-item-not-found render ---
 // Unresolved import.
 // Error: 23-35 unresolved import
 #import "module.typ": non_existing
 
---- import-cyclic ---
+--- import-cyclic render ---
 // Cyclic import of this very file.
 // Error: 9-23 cyclic import
 #import "./import.typ"
 
---- import-cyclic-in-other-file ---
+--- import-cyclic-in-other-file render ---
 // Cyclic import in other file.
 // Error: "tests/suite/scripting/modules/cycle2.typ" 2:9-2:21 cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.
 
---- import-renamed-old-name ---
+--- import-renamed-old-name render ---
 // Renaming does not import the old name (without items).
 #import "./modules/chap1.typ" as something
 #test(something.name, "Klaus")
 // Error: 7-12 unknown variable: chap1
 #test(chap1.name, "Klaus")
 
---- import-items-renamed-old-name ---
+--- import-items-renamed-old-name render ---
 // Renaming does not import the old name (with items).
 #import "./modules/chap1.typ" as something: name as other
 #test(other, "Klaus")
@@ -354,132 +354,132 @@ This is never reached.
 // Error: 7-12 unknown variable: chap1
 #test(chap1.b, "Klaus")
 
---- import-nested-invalid-type ---
+--- import-nested-invalid-type render ---
 // Error: 19-21 expected module, function, or type, found float
 #import std: calc.pi.something
 
---- import-incomplete ---
+--- import-incomplete render ---
 // Error: 8 expected expression
 #import
 
---- import-item-string-invalid ---
+--- import-item-string-invalid render ---
 // Error: 26-29 unexpected string
 #import "module.typ": a, "b", c
 
---- import-bad-token ---
+--- import-bad-token render ---
 // Error: 23-24 unexpected equals sign
 #import "module.typ": =
 
---- import-duplicate-comma ---
+--- import-duplicate-comma render ---
 // An additional trailing comma.
 // Error: 31-32 unexpected comma
 #import "module.typ": a, b, c,,
 
---- import-no-colon ---
+--- import-no-colon render ---
 // Error: 2:2 expected semicolon or line break
 #import "module.typ
 "stuff
 
---- import-bad-token-star ---
+--- import-bad-token-star render ---
 // A star in the list.
 // Error: 26-27 unexpected star
 #import "module.typ": a, *, b
 
---- import-item-after-star ---
+--- import-item-after-star render ---
 // An item after a star.
 // Error: 24 expected semicolon or line break
 #import "module.typ": *, a
 
---- import-bad-colon-in-items ---
+--- import-bad-colon-in-items render ---
 // Error: 14-15 unexpected colon
 // Error: 16-17 unexpected integer
 #import "": a: 1
 
---- import-incomplete-nested ---
+--- import-incomplete-nested render ---
 // Error: 15 expected identifier
 #import "": a.
 
---- import-wildcard-in-nested ---
+--- import-wildcard-in-nested render ---
 // Error: 15 expected identifier
 // Error: 15-16 unexpected star
 #import "": a.*
 
---- import-missing-comma ---
+--- import-missing-comma render ---
 // Error: 14 expected comma
 #import "": a b
 
---- import-from-package-bare ---
+--- import-from-package-bare render ---
 // Test import without items.
 #import "@test/adder:0.1.0"
 #test(adder.add(2, 8), 10)
 
---- import-from-package-dynamic ---
+--- import-from-package-dynamic render ---
 // Error: 9-33 dynamic import requires an explicit name
 // Hint: 9-33 you can name the import with `as`
 #import "@test/" + "adder:0.1.0"
 
---- import-from-package-renamed-dynamic ---
+--- import-from-package-renamed-dynamic render ---
 #import "@test/" + "adder:0.1.0" as adder
 #test(adder.add(2, 8), 10)
 
---- import-from-package-items ---
+--- import-from-package-items render ---
 // Test import with items.
 #import "@test/adder:0.1.0": add
 #test(add(2, 8), 10)
 
---- import-from-package-required-compiler-version ---
+--- import-from-package-required-compiler-version render ---
 // Test too high required compiler version.
 // Error: 9-29 package requires Typst 1.0.0 or newer (current version is VERSION)
 #import "@test/future:0.1.0": future
 
---- import-from-package-namespace-invalid-1 ---
+--- import-from-package-namespace-invalid-1 render ---
 // Error: 9-13 `@` is not a valid package namespace
 #import "@@": *
 
---- import-from-package-name-missing-1 ---
+--- import-from-package-name-missing-1 render ---
 // Error: 9-16 package specification is missing name
 #import "@heya": *
 
---- import-from-package-namespace-invalid-2 ---
+--- import-from-package-namespace-invalid-2 render ---
 // Error: 9-15 `123` is not a valid package namespace
 #import "@123": *
 
---- import-from-package-name-missing-2 ---
+--- import-from-package-name-missing-2 render ---
 // Error: 9-17 package specification is missing name
 #import "@test/": *
 
---- import-from-package-version-missing-1 ---
+--- import-from-package-version-missing-1 render ---
 // Error: 9-22 package specification is missing version
 #import "@test/mypkg": *
 
---- import-from-package-name-invalid ---
+--- import-from-package-name-invalid render ---
 // Error: 9-20 `$$$` is not a valid package name
 #import "@test/$$$": *
 
---- import-from-package-version-missing-2 ---
+--- import-from-package-version-missing-2 render ---
 // Error: 9-23 package specification is missing version
 #import "@test/mypkg:": *
 
---- import-from-package-version-missing-minor ---
+--- import-from-package-version-missing-minor render ---
 // Error: 9-24 version number is missing minor version
 #import "@test/mypkg:0": *
 
---- import-from-package-version-major-invalid-1 ---
+--- import-from-package-version-major-invalid-1 render ---
 // Error: 9-29 `latest` is not a valid major version
 #import "@test/mypkg:latest": *
 
---- import-from-package-version-major-invalid-2 ---
+--- import-from-package-version-major-invalid-2 render ---
 // Error: 9-29 `-3` is not a valid major version
 #import "@test/mypkg:-3.0.0": *
 
---- import-from-package-version-missing-patch-1 ---
+--- import-from-package-version-missing-patch-1 render ---
 // Error: 9-26 version number is missing patch version
 #import "@test/mypkg:0.3": *
 
---- import-from-package-version-missing-patch-2 ---
+--- import-from-package-version-missing-patch-2 render ---
 // Error: 9-27 version number is missing patch version
 #import "@test/mypkg:0.3.": *
 
---- import-from-file-package-lookalike ---
+--- import-from-file-package-lookalike render ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
