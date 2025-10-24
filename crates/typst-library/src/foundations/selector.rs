@@ -237,7 +237,12 @@ impl Repr for Selector {
                 if let Some(dict) = dict {
                     let dict = dict
                         .iter()
-                        .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
+                        .map(|(id, value)| {
+                            (
+                                elem.field_name(*id).unwrap_or("internal"),
+                                value.clone(),
+                            )
+                        })
                         .map(|(name, value)| (EcoString::from(name).into(), value))
                         .collect::<Dict>();
                     eco_format!("{}.where{}", elem.name(), dict.repr())

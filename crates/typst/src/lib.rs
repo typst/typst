@@ -186,7 +186,7 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 
 /// Adds useful hints when the main source file couldn't be read
 /// and returns the final diagnostic.
-fn hint_invalid_main_file(
+pub fn hint_invalid_main_file(
     world: Tracked<dyn World + '_>,
     file_error: FileError,
     input: FileId,

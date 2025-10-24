@@ -34,6 +34,11 @@ impl PdfDocument {
     pub fn num_pages(&self) -> usize {
         self.0.pdf.pages().len()
     }
+
+    /// Returns the raw bytes data of the PDF document.
+    pub fn data(&self) -> &Bytes {
+        &self.0.data
+    }
 }
 
 impl Hash for DocumentRepr {

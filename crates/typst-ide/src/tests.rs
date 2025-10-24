@@ -127,6 +127,7 @@ impl IdeWorld for TestWorld {
                 namespace: EcoString::inline("preview"),
                 name: EcoString::inline("example"),
                 version: PackageVersion { major: 0, minor: 1, patch: 0 },
+                compiler: None,
             },
             None,
         )];

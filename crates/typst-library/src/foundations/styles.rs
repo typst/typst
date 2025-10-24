@@ -975,10 +975,10 @@ impl Fold for Depth {
 
 #[cold]
 fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
+    let field_name = func.field_name(id).unwrap_or("internal");
     panic!(
-        "attempted to read a value of a different type than was written {}.{}: {:?}",
+        "attempted to read a value of a different type than was written {}.{field_name}: {:?}",
         func.name(),
-        func.field_name(id).unwrap(),
         value
     )
 }

@@ -78,6 +78,8 @@ struct Header {
 pub(super) struct Meta {
     /// An optional label attached to the element.
     pub label: Option<Label>,
+    /// The span where the label is attached.
+    pub labelled_at: Span,
     /// The element's location which identifies it in the laid-out output.
     pub location: Option<Location>,
     /// Manages the element during realization.
@@ -95,6 +97,7 @@ impl RawContent {
             data,
             Meta {
                 label: None,
+                labelled_at: Span::detached(),
                 location: None,
                 lifecycle: SmallBitSet::new(),
             },

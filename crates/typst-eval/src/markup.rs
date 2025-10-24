@@ -62,7 +62,7 @@ fn eval_markup<'a>(
                             ));
                         }
 
-                        *elem = std::mem::take(elem).labelled(label);
+                        *elem = std::mem::take(elem).labelled(label, expr.span());
                     } else {
                         vm.engine.sink.warn(warning!(
                             expr.span(),
