@@ -23,10 +23,14 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
+    let prep = typst::prepare(&world);
+    // TODO: Should this also look at `prep.defaults().format`?
     let Warned { output, warnings } = match command.target {
-        Target::Paged => typst::compile::<PagedDocument>(&world)
+        Target::Paged => prep
+            .compile::<PagedDocument>()
             .map(|output| output.map(|document| document.introspector)),
-        Target::Html => typst::compile::<HtmlDocument>(&world)
+        Target::Html => prep
+            .compile::<HtmlDocument>()
             .map(|output| output.map(|document| document.introspector)),
     };
 

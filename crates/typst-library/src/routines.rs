@@ -108,11 +108,15 @@ routines! {
 pub enum RealizationKind<'a> {
     /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
-    LayoutDocument { info: &'a mut DocumentInfo },
+    LayoutDocument {
+        info: &'a mut DocumentInfo,
+    },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    LayoutFragment { kind: &'a mut FragmentKind },
+    LayoutFragment {
+        kind: &'a mut FragmentKind,
+    },
     /// A nested realization in a paragraph (i.e. a `par`)
     LayoutPar,
     /// This the root realization for HTML. Requires a mutable reference to
@@ -122,13 +126,22 @@ pub enum RealizationKind<'a> {
     /// HTML element. It's used by the `PAR` grouping rules. This is slightly
     /// hacky and might be replaced by a mechanism to supply the grouping rules
     /// as a realization user.
-    HtmlDocument { info: &'a mut DocumentInfo, is_inline: fn(&Content) -> bool },
+    HtmlDocument {
+        info: &'a mut DocumentInfo,
+        is_inline: fn(&Content) -> bool,
+    },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    HtmlFragment { kind: &'a mut FragmentKind, is_inline: fn(&Content) -> bool },
+    HtmlFragment {
+        kind: &'a mut FragmentKind,
+        is_inline: fn(&Content) -> bool,
+    },
     /// A realization within math.
     Math,
+    SysDefaults {
+        info: &'a mut crate::foundations::sys::Defaults,
+    },
 }
 
 impl RealizationKind<'_> {

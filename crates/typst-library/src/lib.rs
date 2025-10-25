@@ -88,7 +88,7 @@ pub trait World: Send + Sync {
 
 macro_rules! world_impl {
     ($W:ident for $ptr:ty) => {
-        impl<$W: World> World for $ptr {
+        impl<$W: World + ?Sized> World for $ptr {
             fn library(&self) -> &LazyHash<Library> {
                 self.deref().library()
             }
@@ -123,6 +123,7 @@ macro_rules! world_impl {
 world_impl!(W for std::boxed::Box<W>);
 world_impl!(W for std::sync::Arc<W>);
 world_impl!(W for &W);
+world_impl!(W for &mut W);
 
 /// Helper methods on [`World`] implementations.
 pub trait WorldExt {
