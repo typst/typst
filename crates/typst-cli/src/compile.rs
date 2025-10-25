@@ -7,14 +7,15 @@ use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::WorldExt;
 use typst::diag::{
     At, HintedStrResult, HintedString, Severity, SourceDiagnostic, SourceResult,
     StrResult, Warned, bail,
 };
+use typst::foundations::sys::Defaults;
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Lines, Span};
+use typst::{Prepared, WorldExt};
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -36,11 +37,13 @@ type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
 pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<()> {
-    let mut config = CompileConfig::new(command)?;
+    // FIXME: This would already need the default features, but can't because it's needed to compute them.
     let mut world =
         SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
             .map_err(|err| eco_format!("{err}"))?;
-    timer.record(&mut world, |world| compile_once(world, &mut config))?
+    let prep = typst::prepare(&mut world);
+    let mut config = CompileConfig::new(command, prep.defaults())?;
+    timer.record(prep, |prep| compile_once(prep, &mut config))?
 }
 
 /// A preprocessed `CompileCommand`.
@@ -55,6 +58,8 @@ pub struct CompileConfig {
     pub output: Output,
     /// The format of the output file.
     pub output_format: OutputFormat,
+    /// Whether `self.output_format` comes from the given `Defaults`.
+    pub output_format_from_defaults: bool,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
     /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
@@ -84,13 +89,16 @@ pub struct CompileConfig {
 
 impl CompileConfig {
     /// Preprocess a `CompileCommand`, producing a compilation config.
-    pub fn new(command: &CompileCommand) -> HintedStrResult<Self> {
-        Self::new_impl(&command.args, None)
+    pub fn new(command: &CompileCommand, defaults: &Defaults) -> HintedStrResult<Self> {
+        Self::new_impl(&command.args, None, defaults)
     }
 
     /// Preprocess a `WatchCommand`, producing a compilation config.
-    pub fn watching(command: &WatchCommand) -> HintedStrResult<Self> {
-        Self::new_impl(&command.args, Some(command))
+    pub fn watching(
+        command: &WatchCommand,
+        defaults: &Defaults,
+    ) -> HintedStrResult<Self> {
+        Self::new_impl(&command.args, Some(command), defaults)
     }
 
     /// The shared implementation of [`CompileConfig::new`] and
@@ -98,10 +106,12 @@ impl CompileConfig {
     fn new_impl(
         args: &CompileArgs,
         watch: Option<&WatchCommand>,
+        defaults: &Defaults,
     ) -> HintedStrResult<Self> {
         let mut warnings = Vec::new();
         let input = args.input.clone();
 
+        let mut output_format_from_defaults = false;
         let output_format = if let Some(specified) = args.format {
             specified
         } else if let Some(Output::Path(output)) = &args.output {
@@ -117,7 +127,13 @@ impl CompileConfig {
                 ),
             }
         } else {
-            OutputFormat::Pdf
+            output_format_from_defaults = true;
+            match defaults.format {
+                typst::foundations::sys::Format::Pdf => OutputFormat::Pdf,
+                typst::foundations::sys::Format::Png => OutputFormat::Png,
+                typst::foundations::sys::Format::Svg => OutputFormat::Svg,
+                typst::foundations::sys::Format::Html => OutputFormat::Html,
+            }
         };
 
         let output = args.output.clone().unwrap_or_else(|| {
@@ -216,6 +232,7 @@ impl CompileConfig {
             input,
             output,
             output_format,
+            output_format_from_defaults,
             pages,
             pdf_standards,
             tagged,
@@ -237,7 +254,7 @@ impl CompileConfig {
 /// Returns whether it compiled without errors.
 #[typst_macros::time(name = "compile once")]
 pub fn compile_once(
-    world: &mut SystemWorld,
+    prep: Prepared<&mut SystemWorld>,
     config: &mut CompileConfig,
 ) -> HintedStrResult<()> {
     let start = std::time::Instant::now();
@@ -245,7 +262,8 @@ pub fn compile_once(
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, mut warnings } = compile_and_export(world, config);
+    let (world, Warned { output, mut warnings }) =
+        prep.with_reborrow(|prep| compile_and_export(prep, config));
 
     // Add static warnings (for deprecated CLI flags and such).
     for warning in config.warnings.iter() {
@@ -296,12 +314,12 @@ pub fn compile_once(
 
 /// Compile and then export the document.
 fn compile_and_export(
-    world: &mut SystemWorld,
+    prep: Prepared<&mut SystemWorld>,
     config: &mut CompileConfig,
 ) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
         OutputFormat::Html => {
-            let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
+            let Warned { output, warnings } = prep.compile::<HtmlDocument>();
             let result = output.and_then(|document| export_html(&document, config));
             Warned {
                 output: result.map(|()| vec![config.output.clone()]),
@@ -309,7 +327,7 @@ fn compile_and_export(
             }
         }
         _ => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
+            let Warned { output, warnings } = prep.compile::<PagedDocument>();
             let result = output.and_then(|document| export_paged(&document, config));
             Warned { output: result, warnings }
         }

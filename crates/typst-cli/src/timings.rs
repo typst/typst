@@ -2,9 +2,9 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use typst::World;
 use typst::diag::{HintedStrResult, bail};
 use typst::syntax::Span;
+use typst::{Prepared, World};
 
 use crate::args::{CliArguments, Command};
 use crate::world::SystemWorld;
@@ -41,11 +41,11 @@ impl Timer {
     /// Records all timings in `f` and writes them to disk.
     pub fn record<T>(
         &mut self,
-        world: &mut SystemWorld,
-        f: impl FnOnce(&mut SystemWorld) -> T,
+        prep: Prepared<&mut SystemWorld>,
+        f: impl FnOnce(Prepared<&mut SystemWorld>) -> T,
     ) -> HintedStrResult<T> {
         let Some(path) = &self.path else {
-            return Ok(f(world));
+            return Ok(f(prep));
         };
 
         typst_timing::clear();
@@ -64,7 +64,7 @@ impl Timer {
             path.as_path()
         };
 
-        let output = f(world);
+        let (world, output) = prep.with_reborrow(f);
         self.index += 1;
 
         let file =

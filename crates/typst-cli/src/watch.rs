@@ -22,7 +22,7 @@ use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
 pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
-    let mut config = CompileConfig::watching(command)?;
+    let mut config = CompileConfig::watching(command, &Default::default())?;
 
     let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
@@ -53,8 +53,14 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
         }
     };
 
+    let prep = typst::prepare(&mut world);
+    if config.output_format_from_defaults && prep.defaults().format != Default::default()
+    {
+        config = CompileConfig::watching(command, prep.defaults())?;
+    }
+
     // Perform initial compilation.
-    timer.record(&mut world, |world| compile_once(world, &mut config))??;
+    timer.record(prep, |prep| compile_once(prep, &mut config))??;
 
     // Print warning when trying to watch stdin.
     if matches!(&config.input, Input::Stdin) {
@@ -73,7 +79,8 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
         world.reset();
 
         // Recompile.
-        timer.record(&mut world, |world| compile_once(world, &mut config))??;
+        let prep = typst::prepare(&mut world);
+        timer.record(prep, |prep| compile_once(prep, &mut config))??;
 
         // Evict the cache.
         comemo::evict(10);

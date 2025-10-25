@@ -14,6 +14,7 @@ use comemo::Track;
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
+use typst_library::foundations::sys::DefaultsElem;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
@@ -56,6 +57,7 @@ pub fn realize<'a>(
             RealizationKind::HtmlDocument { .. } => HTML_DOCUMENT_RULES,
             RealizationKind::HtmlFragment { .. } => HTML_FRAGMENT_RULES,
             RealizationKind::Math => MATH_RULES,
+            RealizationKind::SysDefaults { .. } => &[],
         },
         sink: vec![],
         groupings: ArrayVec::new(),
@@ -593,7 +595,18 @@ fn visit_styled<'a>(
     let mut pagebreak = false;
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
-        if elem == DocumentElem::ELEM {
+        if elem == DefaultsElem::ELEM {
+            if let RealizationKind::SysDefaults { info } = &mut s.kind {
+                info.populate(&local);
+            } else if s.kind.as_document_mut().is_some() {
+                // do nothing
+            } else {
+                bail!(
+                    style.span(),
+                    "sys.defaults set rules are not allowed inside of containers"
+                );
+            }
+        } else if elem == DocumentElem::ELEM {
             if let Some(info) = s.kind.as_document_mut() {
                 info.populate(&local)
             } else {

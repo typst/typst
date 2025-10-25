@@ -32,6 +32,7 @@
 pub extern crate comemo;
 pub extern crate ecow;
 
+use typst_library::foundations::sys::Defaults;
 pub use typst_library::*;
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -48,7 +49,7 @@ use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
+use typst_library::foundations::{Content, NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::introspection::Introspector;
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
@@ -58,52 +59,85 @@ use typst_timing::{TimingScope, timed};
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
 
-/// Compile sources into a fully layouted document.
-///
-/// - Returns `Ok(document)` if there were no fatal errors.
-/// - Returns `Err(errors)` if there were fatal errors.
+pub struct Prepared<W> {
+    pub world: W,
+    sink: Sink,
+    defaults: Defaults,
+    output: SourceResult<Content>,
+}
+
 #[typst_macros::time]
-pub fn compile<D>(world: &dyn World) -> Warned<SourceResult<D>>
-where
-    D: Document,
-{
+pub fn prepare<W: World>(world: W) -> Prepared<W> {
     let mut sink = Sink::new();
-    let output = compile_impl::<D>(world.track(), Traced::default().track(), &mut sink)
+    let mut defaults = Defaults::default();
+    let output = prepare_output_impl(
+        (&world as &dyn World).track(),
+        Traced::default().track(),
+        &mut sink,
+        &mut defaults,
+    );
+    Prepared { world, sink, defaults, output }
+}
+
+impl<'a, W: World + ?Sized> Prepared<&'a mut W> {
+    pub fn with_reborrow<R>(
+        self,
+        f: impl FnOnce(Prepared<&mut W>) -> R,
+    ) -> (&'a mut W, R) {
+        let world = self.world;
+        let r = f(Prepared {
+            world: &mut *world,
+            sink: self.sink,
+            defaults: self.defaults,
+            output: self.output,
+        });
+        (world, r)
+    }
+}
+
+impl<W: World> Prepared<W> {
+    pub fn defaults(&self) -> &Defaults {
+        &self.defaults
+    }
+
+    /// Compile sources into a fully layouted document.
+    ///
+    /// - Returns `Ok(document)` if there were no fatal errors.
+    /// - Returns `Err(errors)` if there were fatal errors.
+    #[typst_macros::time]
+    pub fn compile<D: Document>(mut self) -> Warned<SourceResult<D>> {
+        let output = compile_impl::<D>(
+            (&self.world as &dyn World).track(),
+            Traced::default().track(),
+            &mut self.sink,
+            self.output,
+        )
         .map_err(deduplicate);
-    Warned { output, warnings: sink.warnings() }
+        Warned { output, warnings: self.sink.warnings() }
+    }
+
+    /// Compiles sources and returns all values and styles observed at the given
+    /// `span` during compilation.
+    #[typst_macros::time]
+    pub fn trace<D: Document>(mut self, span: Span) -> EcoVec<(Value, Option<Styles>)> {
+        compile_impl::<D>(
+            (&self.world as &dyn World).track(),
+            Traced::new(span).track(),
+            &mut self.sink,
+            self.output,
+        )
+        .ok();
+        self.sink.values()
+    }
 }
 
-/// Compiles sources and returns all values and styles observed at the given
-/// `span` during compilation.
-#[typst_macros::time]
-pub fn trace<D>(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)>
-where
-    D: Document,
-{
-    let mut sink = Sink::new();
-    let traced = Traced::new(span);
-    compile_impl::<D>(world.track(), traced.track(), &mut sink).ok();
-    sink.values()
-}
-
-/// The internal implementation of `compile` with a bit lower-level interface
-/// that is also used by `trace`.
-fn compile_impl<D: Document>(
+/// The internal implementation of `prepare`.
+fn prepare_output_impl(
     world: Tracked<dyn World + '_>,
     traced: Tracked<Traced>,
     sink: &mut Sink,
-) -> SourceResult<D> {
-    if D::TARGET == Target::Html {
-        warn_or_error_for_html(world, sink)?;
-    }
-
-    let library = world.library();
-    let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::TARGET).wrap();
-    let styles = base.chain(&target);
-    let empty_introspector = Introspector::default();
-
-    // Fetch the main source file once.
+    defaults: &mut Defaults,
+) -> SourceResult<Content> {
     let main = world.main();
     let main = world
         .source(main)
@@ -119,6 +153,58 @@ fn compile_impl<D: Document>(
         &main,
     )?
     .content();
+
+    let mut subsink = Sink::new();
+    let introspector = Introspector::default();
+    let mut engine = Engine {
+        world,
+        introspector: introspector.track(),
+        traced,
+        sink: subsink.track_mut(),
+        route: Route::default(),
+        routines: &ROUTINES,
+    };
+    let mut locator = crate::introspection::Locator::root().split();
+
+    (engine.routines.realize)(
+        crate::routines::RealizationKind::SysDefaults { info: defaults },
+        &mut engine,
+        &mut locator,
+        &Default::default(),
+        &content,
+        StyleChain::new(&world.library().styles),
+    )?;
+
+    sink.extend_from_sink(subsink);
+
+    // Promote delayed errors.
+    let delayed = sink.delayed();
+    if !delayed.is_empty() {
+        return Err(delayed);
+    }
+
+    Ok(content)
+}
+
+/// The internal implementation of `compile` with a bit lower-level interface
+/// that is also used by `trace`.
+fn compile_impl<D: Document>(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+    output: SourceResult<Content>,
+) -> SourceResult<D> {
+    if D::TARGET == Target::Html {
+        warn_or_error_for_html(world, sink)?;
+    }
+
+    let library = world.library();
+    let base = StyleChain::new(&library.styles);
+    let target = TargetElem::target.set(D::TARGET).wrap();
+    let styles = base.chain(&target);
+    let empty_introspector = Introspector::default();
+
+    let content = output?;
 
     let mut iter = 0;
     let mut subsink;
