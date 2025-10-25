@@ -79,6 +79,26 @@ pub fn prepare<W: World>(world: W) -> Prepared<W> {
     Prepared { world, sink, defaults, output }
 }
 
+/// Compile sources into a fully layouted document.
+///
+/// - Returns `Ok(document)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+pub fn compile<D>(world: &dyn World) -> Warned<SourceResult<D>>
+where
+    D: Document,
+{
+    prepare(world).compile()
+}
+
+/// Compiles sources and returns all values and styles observed at the given
+/// `span` during compilation.
+pub fn trace<D>(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)>
+where
+    D: Document,
+{
+    prepare(world).trace::<D>(span)
+}
+
 impl<'a, W: World + ?Sized> Prepared<&'a mut W> {
     pub fn with_reborrow<R>(
         self,
