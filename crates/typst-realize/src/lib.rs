@@ -609,6 +609,8 @@ fn visit_styled<'a>(
         } else if elem == DocumentElem::ELEM {
             if let Some(info) = s.kind.as_document_mut() {
                 info.populate(&local)
+            } else if let RealizationKind::SysDefaults { .. } = s.kind {
+                // do nothing
             } else {
                 bail!(
                     style.span(),
@@ -621,7 +623,11 @@ fn visit_styled<'a>(
                 info.populate_locale(&local)
             }
         } else if elem == PageElem::ELEM {
-            if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
+            if !matches!(
+                s.kind,
+                RealizationKind::LayoutDocument { .. }
+                    | RealizationKind::SysDefaults { .. }
+            ) {
                 bail!(
                     style.span(),
                     "page configuration is not allowed inside of containers"
