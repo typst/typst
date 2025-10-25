@@ -132,8 +132,45 @@ impl Symbol {
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
         match self.get() {
+            // Brackets & delimiters.
             "⌈" => Ok(crate::math::ceil::func()),
             "⌊" => Ok(crate::math::floor::func()),
+
+            "(" => Ok(crate::math::paren::func()),
+            "⟮" => Ok(crate::math::paren_flat::func()),
+            "⦇" => Ok(crate::math::paren_closed::func()),
+            "⦅" => Ok(crate::math::paren_stroked::func()),
+
+            "{" => Ok(crate::math::brace::func()),
+            "⦃" => Ok(crate::math::brace_stroked::func()),
+
+            "[" => Ok(crate::math::bracket::func()),
+            "⦍" => Ok(crate::math::bracket_top_tick::func()),
+            "⦏" => Ok(crate::math::bracket_bottom_tick::func()),
+            "⟦" => Ok(crate::math::bracket_stroked::func()),
+
+            "❲" => Ok(crate::math::shell::func()),
+            "⟬" => Ok(crate::math::shell_stroked::func()),
+            "⦗" => Ok(crate::math::shell_filled::func()),
+
+            "⟅" => Ok(crate::math::bag::func()),
+
+            "⎰" => Ok(crate::math::mustache::func()),
+            "⎱" => Ok(crate::math::mustache_rev::func()),
+
+            "⧘" => Ok(crate::math::fence::func()),
+            "⧚" => Ok(crate::math::fence_double::func()),
+
+            "⟨" => Ok(crate::math::chevron::func()),
+            "⧼" => Ok(crate::math::chevron_curly::func()),
+            "⦑" => Ok(crate::math::chevron_dot::func()),
+            "⦉" => Ok(crate::math::chevron_closed::func()),
+            "⟪" => Ok(crate::math::chevron_double::func()),
+
+            "⌜" => Ok(crate::math::corner_top::func()),
+            "⌞" => Ok(crate::math::corner_bottom::func()),
+
+            // Accents.
             "–" => Ok(crate::math::accent::dash::func()),
             "⋅" | "\u{0307}" => Ok(crate::math::accent::dot::func()),
             "¨" => Ok(crate::math::accent::dot_double::func()),
@@ -153,6 +190,7 @@ impl Symbol {
             "↔" => Ok(crate::math::accent::arrow_l_r::func()),
             "⇀" => Ok(crate::math::accent::harpoon::func()),
             "↼" => Ok(crate::math::accent::harpoon_lt::func()),
+
             _ => bail!("symbol {self} is not callable"),
         }
     }

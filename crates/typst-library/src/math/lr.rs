@@ -35,84 +35,101 @@ pub struct MidElem {
     pub body: Content,
 }
 
-/// Floors an expression.
-///
-/// ```example
-/// $ floor(x/2) $
-/// ```
-#[func]
-pub fn floor(
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[named]
-    size: Option<Rel<Length>>,
-    /// The expression to floor.
-    body: Content,
-) -> Content {
-    delimited(body, '⌊', '⌋', size)
+macro_rules! wrappers {
+    {$(
+        $( #[$meta:meta] )*
+        $vis:vis $name:ident:
+        $left:literal, $right:literal;
+    )*} => {$(
+        $( #[$meta] )*
+        #[func]
+        $vis fn $name(
+            /// The size of the brackets, relative to the height of the wrapped
+            /// content.
+            ///
+            /// Default: the current value of [`lr.size`]($math.lr.size).
+            #[named]
+            size: Option<Rel<Length>>,
+            /// The expression to wrap.
+            body: Content,
+        ) -> Content {
+            delimited(body, $left, $right, size)
+        }
+    )*}
 }
 
-/// Ceils an expression.
-///
-/// ```example
-/// $ ceil(x/2) $
-/// ```
-#[func]
-pub fn ceil(
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[named]
-    size: Option<Rel<Length>>,
-    /// The expression to ceil.
-    body: Content,
-) -> Content {
-    delimited(body, '⌈', '⌉', size)
-}
+wrappers! {
+    /// Floors an expression.
+    ///
+    /// ```example
+    /// $ floor(x/2) $
+    /// ```
+    pub floor: '⌊', '⌋';
 
-/// Rounds an expression.
-///
-/// ```example
-/// $ round(x/2) $
-/// ```
-#[func]
-pub fn round(
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[named]
-    size: Option<Rel<Length>>,
-    /// The expression to round.
-    body: Content,
-) -> Content {
-    delimited(body, '⌊', '⌉', size)
-}
+    /// Ceils an expression.
+    ///
+    /// ```example
+    /// $ ceil(x/2) $
+    /// ```
+    pub ceil: '⌈', '⌉';
 
-/// Takes the absolute value of an expression.
-///
-/// ```example
-/// $ abs(x/2) $
-/// ```
-#[func]
-pub fn abs(
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[named]
-    size: Option<Rel<Length>>,
-    /// The expression to take the absolute value of.
-    body: Content,
-) -> Content {
-    delimited(body, '|', '|', size)
-}
+    /// Rounds an expression.
+    ///
+    /// ```example
+    /// $ round(x/2) $
+    /// ```
+    pub round: '⌊', '⌉';
 
-/// Takes the norm of an expression.
-///
-/// ```example
-/// $ norm(x/2) $
-/// ```
-#[func]
-pub fn norm(
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[named]
-    size: Option<Rel<Length>>,
-    /// The expression to take the norm of.
-    body: Content,
-) -> Content {
-    delimited(body, '‖', '‖', size)
+    /// Takes the absolute value of an expression.
+    ///
+    /// ```example
+    /// $ abs(x/2) $
+    /// ```
+    pub abs: '|', '|';
+
+    /// Takes the norm of an expression.
+    ///
+    /// ```example
+    /// $ norm(vec(1, 2)) $
+    /// ```
+    pub norm: '‖', '‖';
+
+    // The following functions are not part of the public API. Instead, they are
+    // accessible as symbols.
+
+    pub paren: '(', ')';
+    pub paren_flat: '⟮', '⟯';
+    pub paren_closed: '⦇', '⦈';
+    pub paren_stroked: '⦅', '⦆';
+
+    pub brace: '{', '}';
+    pub brace_stroked: '⦃', '⦄';
+
+    pub bracket: '[', ']';
+    pub bracket_top_tick: '⦍', '⦐';
+    pub bracket_bottom_tick: '⦏', '⦎';
+    pub bracket_stroked: '⟦', '⟧';
+
+    pub shell: '❲', '❳';
+    pub shell_stroked: '⟬', '⟭';
+    pub shell_filled: '⦗', '⦘';
+
+    pub bag: '⟅', '⟆';
+
+    pub mustache: '⎰', '⎱';
+    pub mustache_rev: '⎱', '⎰';
+
+    pub fence: '⧘', '⧙';
+    pub fence_double: '⧚', '⧛';
+
+    pub chevron: '⟨', '⟩';
+    pub chevron_curly: '⧼', '⧽';
+    pub chevron_dot: '⦑', '⦒';
+    pub chevron_closed: '⦉', '⦊';
+    pub chevron_double: '⟪', '⟫';
+
+    pub corner_top: '⌜', '⌝';
+    pub corner_bottom: '⌞', '⌟';
 }
 
 fn delimited(
