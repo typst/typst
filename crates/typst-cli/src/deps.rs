@@ -1,6 +1,8 @@
 use std::ffi::OsString;
 use std::io::{self, Write};
 
+use serde::Serialize;
+
 use crate::args::{DepsFormat, Output};
 use crate::world::SystemWorld;
 
@@ -29,50 +31,47 @@ fn write_deps_json(
     dest: &Output,
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
-    use serde::ser::{SerializeMap, Serializer};
-
-    let dest = dest.open()?;
-    let mut serializer = serde_json::Serializer::new(dest);
-    let mut map = serializer.serialize_map(Some(2))?;
-
-    // Build a Vector<String> of dependencies and add them as inputs to the JSON object.
-    let input_vec: Vec<String> = relative_dependencies(world)?
+    let inputs = relative_dependencies(world)?
         .map(|dep| {
             dep.into_string().map_err(|dep| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("Input {dep:?} is not valid utf-8"),
+                    format!("input {dep:?} is not valid utf-8"),
                 )
             })
         })
-        .collect::<io::Result<_>>()?;
-    map.serialize_entry("inputs", &input_vec)?;
+        .collect::<Result<Vec<_>, _>>()?;
 
-    // Build a Vector<String> of outputs and add them to the JSON object.
-    let mut output_vec: Vec<String> = Vec::new();
+    let mut outputs2: Vec<String> = Vec::new();
     if let Some(outputs) = outputs {
         for output in outputs {
             match output {
                 Output::Path(path) => {
-                    output_vec.push(
+                    outputs2.push(
                         path.as_os_str()
                             .to_str()
                             .ok_or_else(|| {
                                 io::Error::new(
                                     io::ErrorKind::InvalidData,
-                                    format!("Output {path:?} is not valid utf-8"),
+                                    format!("output {path:?} is not valid utf-8"),
                                 )
                             })?
-                            .to_owned(),
+                            .to_string(),
                     );
                 }
                 Output::Stdout => {} // Skip stdout
             }
         }
     }
-    map.serialize_entry("outputs", &output_vec)?;
 
-    map.end()?;
+    #[derive(Serialize)]
+    struct Deps {
+        inputs: Vec<String>,
+        outputs: Vec<String>,
+    }
+
+    serde_json::to_writer(dest.open()?, &Deps { inputs, outputs: outputs2 })?;
+
     Ok(())
 }
 
