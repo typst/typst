@@ -14,7 +14,7 @@ pub fn write_deps(
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
     match format {
-        DepsFormat::Json => write_deps_json(world, dest)?,
+        DepsFormat::Json => write_deps_json(world, dest, outputs)?,
         DepsFormat::Zero => write_deps_zero(world, dest)?,
         DepsFormat::Make => {
             if let Some(outputs) = outputs {
@@ -26,24 +26,51 @@ pub fn write_deps(
 }
 
 /// Writes dependencies in JSON format.
-fn write_deps_json(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
+fn write_deps_json(
+    world: &mut SystemWorld,
+    dest: &Output,
+    outputs: Option<&[Output]>,
+) -> io::Result<()> {
     let inputs = relative_dependencies(world)?
         .map(|dep| {
             dep.into_string().map_err(|dep| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("{dep:?} is not valid utf-8"),
+                    format!("input {dep:?} is not valid utf-8"),
                 )
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    let mut outputs2: Vec<String> = Vec::new();
+    if let Some(outputs) = outputs {
+        for output in outputs {
+            match output {
+                Output::Path(path) => {
+                    outputs2.push(
+                        path.as_os_str()
+                            .to_str()
+                            .ok_or_else(|| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    format!("output {path:?} is not valid utf-8"),
+                                )
+                            })?
+                            .to_string(),
+                    );
+                }
+                Output::Stdout => {} // Skip stdout
+            }
+        }
+    }
+
     #[derive(Serialize)]
     struct Deps {
         inputs: Vec<String>,
+        outputs: Vec<String>,
     }
 
-    serde_json::to_writer(dest.open()?, &Deps { inputs })?;
+    serde_json::to_writer(dest.open()?, &Deps { inputs, outputs: outputs2 })?;
 
     Ok(())
 }
