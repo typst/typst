@@ -930,8 +930,9 @@ impl<'a> Generator<'a> {
                 locale_files: &LOCALES,
             }));
             if bibliography.shared_numbering.get(StyleChain::default()) {
-                citation_count +=
-                    rendered.last().unwrap().bibliography.as_ref().unwrap().items.len();
+                if let Some(bib) = rendered.last().unwrap().bibliography.as_ref() {
+                    citation_count += bib.items.len();
+                }
             }
         }
         rendered
