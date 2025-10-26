@@ -48,7 +48,8 @@ impl Resolver for CliResolver<'_> {
         }
         .iter()
         .map(|(page, filename, alt)| {
-            let pixmap = render(page, RenderOptions { pixel_per_pt: 2.0, render_bleed: false });
+            let pixmap =
+                render(page, RenderOptions { pixel_per_pt: 2.0, render_bleed: false });
             let path = self.assets_dir.join(filename);
             pixmap.save_png(path.as_path()).expect("save png");
             eprintln!("Generated example image {path:?}");
