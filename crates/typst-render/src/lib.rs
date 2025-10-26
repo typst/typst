@@ -14,9 +14,15 @@ use typst_library::visualize::{Color, Geometry, Paint};
 
 /// Render options image formats
 #[derive(Clone, Copy)]
-pub struct Options {
+pub struct RenderOptions {
     pub pixel_per_pt: f32,
     pub render_bleed: bool,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        Self { pixel_per_pt: 1.0, render_bleed: false }
+    }
 }
 
 /// Export a page into a raster image.
@@ -24,7 +30,7 @@ pub struct Options {
 /// This renders the page at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(page: &Page, opts: Options) -> sk::Pixmap {
+pub fn render(page: &Page, opts: RenderOptions) -> sk::Pixmap {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
 
     let size = page.frame.size() + bleed.sum_by_axis();
@@ -57,7 +63,7 @@ pub fn render(page: &Page, opts: Options) -> sk::Pixmap {
 /// Export a document with potentially multiple pages into a single raster image.
 pub fn render_merged(
     document: &PagedDocument,
-    opts: Options,
+    opts: RenderOptions,
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {

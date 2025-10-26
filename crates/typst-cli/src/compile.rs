@@ -544,7 +544,7 @@ fn export_image_page(
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let opts = typst_render::Options {
+            let opts = typst_render::RenderOptions {
                 pixel_per_pt: config.ppi / 72.0,
                 render_bleed: opt.render_bleed,
             };
@@ -557,7 +557,7 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let opts = typst_svg::Options { render_bleed: opt.render_bleed };
+            let opts = typst_svg::SvgOptions { render_bleed: opt.render_bleed };
             let svg = typst_svg::svg(page, opts);
             output
                 .write(svg.as_bytes())
