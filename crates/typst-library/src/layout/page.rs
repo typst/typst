@@ -54,7 +54,12 @@ pub struct PageElem {
     #[default(Paper::A4)]
     pub paper: Paper,
 
-    /// The width of the page.
+    /// The width of the final page, after any trims have been applied.
+    ///
+    /// In professional printing setups, this may be smaller than the sheet size
+    /// fed into the printer.
+    ///
+    /// See the `bleed` argument for details on how to set a trim or bleed area.
     ///
     /// ```example
     /// #set page(
@@ -75,7 +80,7 @@ pub struct PageElem {
     #[ghost]
     pub width: Smart<Length>,
 
-    /// The height of the page.
+    /// The height of the final page area, after any trims have been applied.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
     /// by inserting a [page break]($pagebreak) or by adding another non-empty
@@ -383,6 +388,11 @@ pub struct PageElem {
     /// This content will be placed behind the page's body. It can be
     /// used to place a background image or a watermark.
     ///
+    /// For convenience, [relative lengths]($relative) are resolved against the
+    /// page size including the page `bleed` when used in  background content.
+    /// For example, on a page that is `100mm` wide with a `5mm` bleed, a width
+    /// of `100%` is computed as `5mm + 100mm + 5mm`.
+    ///
     /// ```example
     /// #set page(background: rotate(24deg,
     ///   text(18pt, fill: rgb("FFCBC4"))[
@@ -400,6 +410,9 @@ pub struct PageElem {
     /// Content in the page's foreground.
     ///
     /// This content will overlay the page's body.
+    ///
+    /// Relative lengths are resolved against the page size including `bleed`,
+    /// following the same behavior as [background]($page.background).
     ///
     /// ```example
     /// #set page(foreground: text(24pt)[🤓])

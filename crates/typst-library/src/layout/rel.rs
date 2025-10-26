@@ -30,6 +30,12 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// #rect(width: 25% + 1cm)
 /// ```
 ///
+/// For contents on page [`background`]($page.background) and
+/// [`foreground`]($page.foreground), relative lengths are resolved against the
+/// page size including [bleed]($page.bleed). This semantic choice is made for
+/// convenience, as creating a proper bleed-aware background inherently requires
+/// extending it into the bleed area.
+///
 /// If you're trying to size an element so that it takes up the page's _full_
 /// width, you have a few options (this highly depends on your exact use case):
 ///
