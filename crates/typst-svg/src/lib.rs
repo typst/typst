@@ -24,14 +24,14 @@ use xmlwriter::XmlWriter;
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 
-#[derive(Clone, Copy)]
-pub struct Options {
+#[derive(Clone, Copy, Default)]
+pub struct SvgOptions {
     pub render_bleed: bool,
 }
 
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(page: &Page, opts: Options) -> String {
+pub fn svg(page: &Page, opts: SvgOptions) -> String {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
     let size = page.frame.size() + bleed.sum_by_axis();
 
