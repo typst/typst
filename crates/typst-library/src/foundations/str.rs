@@ -855,6 +855,8 @@ cast! {
     v: Str => Self::Str(v),
 }
 
+/// Similar to `Option<i64>`, but the default value casts to `10` rather than
+/// `none`, so that the right default value is documented.
 #[derive(Debug, Copy, Clone)]
 pub enum Base {
     Default,
