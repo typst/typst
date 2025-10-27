@@ -50,7 +50,7 @@ pub use crate::__format_str as format_str;
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
 /// zero-based and negative indices wrap around to the end of the string.
 ///
-/// You can convert a value to a string with this type's constructor.
+/// You can convert a value to a string with the `str` constructor.
 ///
 /// # Example
 /// ```example
