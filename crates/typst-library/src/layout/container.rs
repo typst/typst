@@ -31,10 +31,7 @@ use crate::visualize::{Paint, Stroke};
 pub struct BoxElem {
     /// The width of the box.
     ///
-    /// This can be a relative length. See the [its documentation]($relative)
-    /// for more details.
-    ///
-    /// Boxes can also have [fractional]($fraction) widths, as the example below
+    /// Boxes can have [fractional]($fraction) widths, as the example below
     /// demonstrates.
     ///
     /// _Note:_ Currently, only boxes and only their widths might be fractionally
@@ -47,9 +44,6 @@ pub struct BoxElem {
     pub width: Sizing,
 
     /// The height of the box.
-    ///
-    /// This can be a relative length. See the [its documentation]($relative)
-    /// for more details.
     pub height: Smart<Rel<Length>>,
 
     /// An amount to shift the box's baseline by.
@@ -234,9 +228,6 @@ pub enum InlineItem {
 pub struct BlockElem {
     /// The block's width.
     ///
-    /// This can be a relative length. See the [its documentation]($relative)
-    /// for more details.
-    ///
     /// ```example
     /// #set align(center)
     /// #block(
@@ -251,11 +242,6 @@ pub struct BlockElem {
     /// The block's height. When the height is larger than the remaining space
     /// on a page and [`breakable`]($block.breakable) is `{true}`, the
     /// block will continue on the next page with the remaining height.
-    ///
-    /// This can be a relative length. See the [its documentation]($relative)
-    /// for more details.
-    ///
-    /// Blocks can also have [fractional]($fraction) heights.
     ///
     /// ```example
     /// #set page(height: 80pt)
