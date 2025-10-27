@@ -2,10 +2,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
+use typst_utils::NonZeroExt;
 
 use crate::engine::Engine;
 use crate::foundations::{Repr, func, scope, ty};
-use crate::layout::Position;
+use crate::introspection::DocumentPosition;
+use crate::layout::{Point, Position};
 use crate::model::Numbering;
 
 /// Identifies an element in the document.
@@ -94,7 +96,12 @@ impl Location {
     /// Typst to skip unnecessary work.
     #[func]
     pub fn position(self, engine: &mut Engine) -> Position {
-        engine.introspector.position(self)
+        match engine.introspector.position(self) {
+            DocumentPosition::Paged(position) => position,
+            DocumentPosition::Html(_) => {
+                Position { page: NonZeroUsize::ONE, point: Point::zero() }
+            }
+        }
     }
 
     /// Returns the page numbering pattern of the page at this location. This
