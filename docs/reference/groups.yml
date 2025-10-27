@@ -251,11 +251,11 @@
     # Example
     ```typ
     #html.video(
-      controls: true,
-      width: 1280,
-      height: 720,
-      src: "sunrise.mp4",
+      controls: true,
+      width: 1280,
+      height: 720,
+      src: "sunrise.mp4",
     )[
-      Your browser does not support the video tag.
+      Your browser does not support the video tag.
     ]
     ```
