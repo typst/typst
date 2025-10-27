@@ -5,7 +5,9 @@ use typst_library::foundations::Packed;
 use typst_library::layout::resolve::CellGrid;
 use typst_library::layout::{GridCell, GridElem};
 
-use crate::tags::groups::{GroupId, Groups};
+use crate::tags::context::GridId;
+use crate::tags::groups::GroupId;
+use crate::tags::tree::Tree;
 use crate::tags::util::PropertyValCopied;
 
 pub(super) trait GridExt {
@@ -32,15 +34,16 @@ impl GridExt for CellGrid {
 
 #[derive(Debug)]
 pub struct GridCtx {
+    group_id: GroupId,
     cells: GridCells<()>,
 }
 
 impl GridCtx {
-    pub fn new(grid: &Packed<GridElem>) -> Self {
+    pub fn new(group_id: GroupId, grid: &Packed<GridElem>) -> Self {
         let grid = grid.grid.as_ref().unwrap();
         let width = grid.non_gutter_column_count();
         let height = grid.non_gutter_row_count();
-        Self { cells: GridCells::new(width, height) }
+        Self { group_id, cells: GridCells::new(width, height) }
     }
 
     pub fn insert(&mut self, cell: &Packed<GridCell>, id: GroupId) {
@@ -59,9 +62,10 @@ impl GridCtx {
     }
 }
 
-pub fn build_grid(grid_ctx: &GridCtx, groups: &mut Groups, grid_id: GroupId) {
+pub fn build_grid(tree: &mut Tree, grid_id: GridId) {
+    let grid_ctx = tree.ctx.grids.get_mut(grid_id);
     for cell in grid_ctx.cells.entries.iter().filter_map(GridEntry::as_cell) {
-        groups.push_group(grid_id, cell.id);
+        tree.groups.push_group(grid_ctx.group_id, cell.id);
     }
 }
 
@@ -77,6 +81,10 @@ impl<T: Clone> GridCells<T> {
             width,
             entries: vec![GridEntry::Missing; width * height],
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 
     pub fn width(&self) -> u32 {

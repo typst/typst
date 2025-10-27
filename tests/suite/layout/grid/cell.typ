@@ -131,3 +131,48 @@
 // Error: 7-19 cannot use `table.cell` as a grid cell
 // Hint: 7-19 use `grid.cell` instead
 #grid(table.cell[])
+
+--- issue-5723-grid-heading-numbering ---
+#set heading(numbering: "1.1.")
+#set page(width: 150pt, height: 3.5cm)
+
+#table(
+  columns: (1fr, 2fr),
+  [= A],
+  [= B],
+  [
+    = C
+    #lines(4)
+    = D
+  ],
+  table(
+    columns: (1fr, 1fr),
+    ..([
+      = X
+      #lines(2)
+      = Y
+      #lines(2)
+    ],) * 2
+  ),
+  [= E],
+  [= F]
+)
+
+--- issue-7188-grid-counter-order ---
+#set page(height: 1cm)
+
+#let word-numbering(body) = {
+  let num = counter("_linenumbered")
+  let word-label = <_word>
+  show word-label: _ => {
+    num.step()
+    box(width: 0pt, super(numbering("1", num.get().first())))
+  }
+  show regex("\w+\.?"): it => it + [#metadata(none)#word-label]
+  body
+}
+
+#grid(
+  columns: 1,
+  word-numbering(lorem(8))
+)

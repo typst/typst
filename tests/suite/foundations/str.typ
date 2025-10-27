@@ -61,9 +61,18 @@
 // Error: 17-19 base must be between 2 and 36
 #str(123, base: 99)
 
+--- str-constructor-unary ---
+// Error: 17-18 base must be between 2 and 36
+// Hint: 17-18 generate a unary representation with `"1" * 999`
+#str(999, base: 1)
+
 --- str-constructor-unsupported-base ---
 // Error: 18-19 base is only supported for integers
 #str(1.23, base: 2)
+
+--- str-constructor-unsupported-base-ten ---
+// Error: 18-20 base is only supported for integers
+#str(1.23, base: 10)
 
 --- str-from-and-to-unicode ---
 // Test the unicode function.
@@ -147,6 +156,10 @@
 #test("abc🏡def".slice(-3, -1), "de")
 #test("x🏡yz".slice(-2, count: 2), "yz")
 #test("x🏡yz".slice(-7, count: 7), "x🏡yz")
+
+--- string-slice-count-end ---
+// Error: 2-29 `end` and `count` are mutually exclusive
+#"abc".slice(0, 1, count: 2)
 
 --- string-slice-not-a-char-boundary ---
 // Error: 2-21 string index -1 is not a character boundary

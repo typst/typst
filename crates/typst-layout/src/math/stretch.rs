@@ -69,7 +69,7 @@ pub fn stretch_fragment(
 
     let relative_to_size = relative_to.unwrap_or_else(|| size.get(stretch_axis));
 
-    glyph.stretch(ctx, stretch.relative_to(relative_to_size) - short_fall, stretch_axis);
+    glyph.stretch(ctx, stretch.relative_to(relative_to_size), short_fall, stretch_axis);
 
     if stretch_axis == Axis::Y {
         glyph.center_on_axis();

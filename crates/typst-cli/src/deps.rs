@@ -1,6 +1,8 @@
 use std::ffi::OsString;
 use std::io::{self, Write};
 
+use serde::Serialize;
+
 use crate::args::{DepsFormat, Output};
 use crate::world::SystemWorld;
 
@@ -25,23 +27,24 @@ pub fn write_deps(
 
 /// Writes dependencies in JSON format.
 fn write_deps_json(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
-    use serde::ser::{SerializeSeq, Serializer};
+    let inputs = relative_dependencies(world)?
+        .map(|dep| {
+            dep.into_string().map_err(|dep| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{dep:?} is not valid utf-8"),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-    let dest = dest.open()?;
-    let mut serializer = serde_json::Serializer::new(dest);
-    let mut seq = serializer.serialize_seq(None)?;
-
-    for dep in relative_dependencies(world)? {
-        let string = dep.as_os_str().to_str().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("{dep:?} is not valid utf-8"),
-            )
-        })?;
-        seq.serialize_element(string)?;
+    #[derive(Serialize)]
+    struct Deps {
+        inputs: Vec<String>,
     }
 
-    seq.end()?;
+    serde_json::to_writer(dest.open()?, &Deps { inputs })?;
+
     Ok(())
 }
 

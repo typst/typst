@@ -48,8 +48,10 @@ The International Standards Organization (ISO) has published the base PDF
 standard and various standards that extend it to make PDFs more suitable for
 specific use-cases. By default, Typst exports PDF 1.7 files. Adobe Acrobat 8 and
 later as well as all other commonly used PDF viewers are compatible with this
-PDF version. Some features of Typst may not be available depending on the PDF
-standard you choose.
+PDF version.
+
+Some features of Typst may not be available depending on the PDF standard you
+choose. You currently cannot choose both PDF/A and PDF/UA at the same time.
 
 ## PDF versions
 Typst supports five different PDF versions: 1.4, 1.5, 1.6, 1.7 (default), and
@@ -149,7 +151,7 @@ PDF/A output profiles:
   automatically adds tags to help you reach this conformance level. Also pay
   attention to the Accessibility Sections throughout the reference and the
   [Accessibility Guide]($guides/accessibility) when targeting this conformance
-  level. Finally, PDF/A2-a forbids you from using code points in the [Unicode
+  level. Finally, PDF/A-2a forbids you from using code points in the [Unicode
   Private Use area](https://en.wikipedia.org/wiki/Private_Use_Areas). If you
   want to build an accessible file, also consider additionally targeting
   PDF/UA-1, which enables more automatic accessibility checks.
@@ -184,7 +186,7 @@ PDF/A output profiles:
 
 - **PDF/A-4e:** The _engineering_ conformance level that builds on the embedded
   files level A-4f. Files conforming to this level can contain 3D objects. Typst
-  does not support 3D content, so this is functionally equivalent to PDF/A4-f
+  does not support 3D content, so this is functionally equivalent to PDF/A-4f
   from a Typst perspective.
 
 If you want to target PDF/A but are unsure about which particular setting to
