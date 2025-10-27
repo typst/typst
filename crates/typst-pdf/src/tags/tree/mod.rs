@@ -471,11 +471,6 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
-        GroupKind::InternalGridCell(internal) => {
-            // Replace with the actual group kind.
-            tree.groups.get_mut(id).kind = internal.to_kind();
-            tree.groups.push_group(direct_parent, id);
-        }
         GroupKind::List(..) => {
             tree.groups.push_group(direct_parent, id);
         }

@@ -278,9 +278,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
         GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
         GroupKind::Grid(_, _) => Tag::Div.into(),
         GroupKind::GridCell(_, _) => Tag::Div.into(),
-        GroupKind::InternalGridCell(_) => {
-            unreachable!("should be swapped out in `close_group`")
-        }
         GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
         GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
         GroupKind::ListItemBody(_) => Tag::LBody.into(),
