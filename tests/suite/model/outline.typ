@@ -326,3 +326,8 @@ A
 
 = 测
 = 很
+
+--- issue-1880-duplicate-footnote ---
+#outline()
+
+= Heading#footnote[note]

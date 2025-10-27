@@ -1,3 +1,4 @@
+use std::mem;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -10,7 +11,8 @@ use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Packed,
-    Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
+    Resolve, SequenceElem, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope,
+    select_where,
 };
 use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink, Tagged,
@@ -20,7 +22,7 @@ use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
     RepeatElem, Sides,
 };
-use crate::model::{HeadingElem, NumberingPattern, ParElem, Refable};
+use crate::model::{FootnoteElem, HeadingElem, NumberingPattern, ParElem, Refable};
 use crate::pdf::PdfMarkerTag;
 use crate::text::{LocalName, SpaceElem, TextElem};
 
@@ -662,7 +664,7 @@ impl OutlineEntry {
     /// empty.
     #[func]
     pub fn body(&self) -> StrResult<Content> {
-        Ok(self.outlinable()?.body())
+        Ok(strip_footnotes(self.outlinable()?.body()).unwrap_or_default())
     }
 
     /// The page number of this entry's element, formatted with the numbering
@@ -846,5 +848,24 @@ pub(crate) struct PrefixInfo {
 impl Construct for PrefixInfo {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+fn strip_footnotes(content: Content) -> Option<Content> {
+    let Err(content) = content.into_packed::<FootnoteElem>() else {
+        return None;
+    };
+
+    match content.into_packed::<SequenceElem>() {
+        Ok(mut sequency) => Some(
+            SequenceElem::new(
+                mem::take(&mut sequency.children)
+                    .into_iter()
+                    .filter_map(strip_footnotes)
+                    .collect(),
+            )
+            .into(),
+        ),
+        Err(content) => Some(content),
     }
 }
