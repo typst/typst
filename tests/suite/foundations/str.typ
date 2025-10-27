@@ -61,6 +61,11 @@
 // Error: 17-19 base must be between 2 and 36
 #str(123, base: 99)
 
+--- str-constructor-unary ---
+// Error: 17-18 base must be between 2 and 36
+// Hint: 17-18 generate a unary representation with `"1" * 999`
+#str(999, base: 1)
+
 --- str-constructor-unsupported-base ---
 // Error: 18-19 base is only supported for integers
 #str(1.23, base: 2)

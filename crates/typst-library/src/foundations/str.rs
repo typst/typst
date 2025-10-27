@@ -165,6 +165,12 @@ impl Str {
                 s
             }
             ToStr::Int(n) => {
+                if base.v == 1 && n > 0 {
+                    bail!(
+                        base.span, "base must be between 2 and 36";
+                        hint: "generate a unary representation with `\"1\" * {}`", n
+                    );
+                }
                 if base.v < 2 || base.v > 36 {
                     bail!(base.span, "base must be between 2 and 36");
                 }
