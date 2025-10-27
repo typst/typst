@@ -432,8 +432,6 @@ fn wrap_args_in_math(
     Ok(Value::Content(formatted))
 }
 
-// ... hint_if_shadowed_std moved to `binding.rs`
-
 /// A visitor that determines which variables to capture for a closure.
 pub struct CapturesVisitor<'a> {
     external: Option<&'a Scopes<'a>>,
