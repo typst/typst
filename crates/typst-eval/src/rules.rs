@@ -6,7 +6,7 @@ use typst_library::layout::BlockElem;
 use typst_library::model::ParElem;
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Eval, Vm, binding::hint_if_shadowed_std};
+use crate::{Eval, Vm, hint_if_shadowed_std};
 
 impl Eval for ast::SetRule<'_> {
     type Output = Styles;

@@ -16,8 +16,10 @@ use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::LazyHash;
 
-use crate::binding::hint_if_shadowed_std;
-use crate::{Access, Eval, FlowEvent, Route, Vm, call_method_mut, is_mutating_method};
+use crate::{
+    Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
+    is_mutating_method,
+};
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;

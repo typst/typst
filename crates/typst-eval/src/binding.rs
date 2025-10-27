@@ -5,24 +5,6 @@ use typst_library::foundations::{Array, Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Access, Eval, Vm};
-use typst_library::diag::HintedString;
-
-/// Provide a hint if the callee is a shadowed standard library function.
-pub(crate) fn hint_if_shadowed_std(
-    vm: &mut Vm,
-    callee: &ast::Expr,
-    mut err: HintedString,
-) -> HintedString {
-    if let ast::Expr::Ident(ident) = callee {
-        let ident = ident.get();
-        if vm.scopes.check_std_shadowed(ident) {
-            err.hint(eco_format!(
-                "use `std.{ident}` to access the shadowed standard library function",
-            ));
-        }
-    }
-    err
-}
 
 impl Eval for ast::LetBinding<'_> {
     type Output = Value;
