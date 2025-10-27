@@ -644,8 +644,8 @@ pub struct TextElem {
     /// A fine ligature.
     /// ```
     ///
-    /// Note that some programming fonts exploit other OpenType font features
-    /// to implement “ligatures,” including the contextual alternates (`calt`)
+    /// Note that some programming fonts use other OpenType font features to
+    /// implement "ligatures," including the contextual alternates (`calt`)
     /// feature, which is also enabled by default. Use the general
     /// [`features`]($text.features) parameter to control such features.
     #[default(true)]
