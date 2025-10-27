@@ -34,7 +34,7 @@ use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
+    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
     HeadingElem, LinkElem, Url,
 };
 use crate::routines::Routines;
@@ -119,25 +119,20 @@ pub struct BibliographyElem {
     #[default(false)]
     pub full: bool,
 
-    /// Defines the scope of the bibliography, when making a document with
+    /// Defines the target of the bibliography, when making a document with
     /// multiple bibliographies. The default will include citations from the
     /// whole document.
     ///
     /// This can be:
-    /// - A list of labels corresponding to the citations that should be
-    ///   included within the bibliography.
-    /// - An integer indicating a heading level. Citations between the previous
-    ///   heading of that level (or of a higher level) and the next one will
-    ///   be included.
     /// - A selector of `cite` elements. The citations it selects will be
     ///   included in the bibliography.
-    pub scope: Smart<BibliographyScope>,
+    pub target: Smart<Selector>,
 
     /// When using multiple bibliographies in a single document, indicates
     /// whether this bibliography should start numbering its citations after
-    /// the ones from previous bibliographies (`true`) or start at 1 (`false`).
-    #[default(true)]
-    pub shared_numbering: bool,
+    /// the ones from previous bibliographies (`shared`) or start at 1 (`standalone`).
+    #[default("shared".into())]
+    pub kind: EcoString,
 
     /// The bibliography style.
     ///
@@ -244,29 +239,6 @@ impl ShowSet for Packed<BibliographyElem> {
 
 impl LocalName for Packed<BibliographyElem> {
     const KEY: &'static str = "bibliography";
-}
-
-// Scope for a bibliography
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum BibliographyScope {
-    /// A list of the labels corresponding to the wanted citations
-    Labels(OneOrMultiple<Label>),
-    /// A selector for the desired Cite objects
-    Selector(Selector),
-    /// A heading level between which the citations should be selected
-    HeadingLevel(NonZeroUsize),
-}
-
-cast! {
-    BibliographyScope,
-    self => match self {
-        Self::Labels(labels) => labels.into_value(),
-        Self::Selector(selector) => selector.into_value(),
-        Self::HeadingLevel(level) => level.into_value(),
-    },
-    v: OneOrMultiple<Label> => Self::Labels(v),
-    v: Selector => Self::Selector(v),
-    v: NonZeroUsize => Self::HeadingLevel(v),
 }
 
 /// A loaded bibliography.
@@ -702,86 +674,70 @@ impl<'a> Generator<'a> {
         let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
-            let bibliography_scope = &bibliography.scope.get_ref(StyleChain::default());
-            let bibliography_groups = match bibliography_scope {
-                Smart::Custom(BibliographyScope::Labels(bibliography_labels)) => {
-                    citation_groups_all
-                        .clone()
-                        .into_iter()
-                        .filter(|group| {
-                            group
-                                .to_packed::<CiteGroup>()
-                                .unwrap()
-                                .children
-                                .iter()
-                                .all(&(|child: &Packed<CiteElem>| {
-                                        bibliography_labels.0.contains(&child.clone().unpack().key)
-                                    }))
-                        })
-                        .collect()
-                }
-                Smart::Custom(BibliographyScope::Selector(bibliography_selector)) => {
+            let bibliography_target = &bibliography.target.get_ref(StyleChain::default());
+            let bibliography_groups = match bibliography_target {
+                Smart::Custom(bibliography_selector) => {
                     introspector.query(&bibliography_selector.change_element(CiteGroup::ELEM))
                 }
-                Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
-                    let bibliography_location = bibliography.location().unwrap();
-                    let headings_before: Vec<Packed<HeadingElem>> = introspector
-                        .query(
-                            &HeadingElem::ELEM
-                                .select()
-                                .before(bibliography_location.into(), false),
-                        )
-                        .iter()
-                        .map(|element| {
-                            element.to_packed::<HeadingElem>().unwrap().clone()
-                        })
-                        .filter(|heading| {
-                            heading
-                                .level
-                                .get(StyleChain::default())
-                                .map(NonZeroUsize::get)
-                                .unwrap_or(1)
-                                <= heading_level.get()
-                        })
-                        .collect();
-                    // Bibliography may have a title which should be ignored for selection
-                    let after_skip =
-                        match bibliography.title.get_ref(StyleChain::default()) {
-                            Smart::Auto => 1,
-                            Smart::Custom(Some(_)) => 1,
-                            Smart::Custom(None) => 0,
-                        };
-                    let headings_after: Vec<Packed<HeadingElem>> = introspector
-                        .query(
-                            &HeadingElem::ELEM
-                                .select()
-                                .after(bibliography_location.into(), false),
-                        )
-                        .iter()
-                        .map(|element| {
-                            element.to_packed::<HeadingElem>().unwrap().clone()
-                        })
-                        .skip(after_skip)
-                        .filter(|heading| {
-                            heading.resolve_level(StyleChain::default()).get()
-                                <= heading_level.get()
-                        })
-                        .collect();
-                    let mut selector = CiteGroup::ELEM.select();
-                    if let Some(first_heading_before) = headings_before.last() {
-                        selector = selector.after(
-                            first_heading_before.location().unwrap().into(),
-                            false,
-                        );
-                    }
-                    if let Some(first_heading_after) = headings_after.first() {
-                        selector = selector.before(
-                            first_heading_after.location().unwrap().into(),
-                            false,
-                        );
-                    }
-                    introspector.query(&selector)
-                }
+                // Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
+                //     let bibliography_location = bibliography.location().unwrap();
+                //     let headings_before: Vec<Packed<HeadingElem>> = introspector
+                //         .query(
+                //             &HeadingElem::ELEM
+                //                 .select()
+                //                 .before(bibliography_location.into(), false),
+                //         )
+                //         .iter()
+                //         .map(|element| {
+                //             element.to_packed::<HeadingElem>().unwrap().clone()
+                //         })
+                //         .filter(|heading| {
+                //             heading
+                //                 .level
+                //                 .get(StyleChain::default())
+                //                 .map(NonZeroUsize::get)
+                //                 .unwrap_or(1)
+                //                 <= heading_level.get()
+                //         })
+                //         .collect();
+                //     // Bibliography may have a title which should be ignored for selection
+                //     let after_skip =
+                //         match bibliography.title.get_ref(StyleChain::default()) {
+                //             Smart::Auto => 1,
+                //             Smart::Custom(Some(_)) => 1,
+                //             Smart::Custom(None) => 0,
+                //         };
+                //     let headings_after: Vec<Packed<HeadingElem>> = introspector
+                //         .query(
+                //             &HeadingElem::ELEM
+                //                 .select()
+                //                 .after(bibliography_location.into(), false),
+                //         )
+                //         .iter()
+                //         .map(|element| {
+                //             element.to_packed::<HeadingElem>().unwrap().clone()
+                //         })
+                //         .skip(after_skip)
+                //         .filter(|heading| {
+                //             heading.resolve_level(StyleChain::default()).get()
+                //                 <= heading_level.get()
+                //         })
+                //         .collect();
+                //     let mut selector = CiteGroup::ELEM.select();
+                //     if let Some(first_heading_before) = headings_before.last() {
+                //         selector = selector.after(
+                //             first_heading_before.location().unwrap().into(),
+                //             false,
+                //         );
+                //     }
+                //     if let Some(first_heading_after) = headings_after.first() {
+                //         selector = selector.before(
+                //             first_heading_after.location().unwrap().into(),
+                //             false,
+                //         );
+                //     }
+                //     introspector.query(&selector)
+                // }
                 Smart::Auto => citation_groups_all.clone(),
             };
             groups.insert(bibliography.span(), bibliography_groups);
@@ -807,7 +763,7 @@ impl<'a> Generator<'a> {
 
         for bibliography in &self.bibliographies {
             let mut driver = BibliographyDriver::new();
-            if bibliography.shared_numbering.get(StyleChain::default()) {
+            if bibliography.kind.get_ref(StyleChain::default()) == "shared" {
                 driver.citation_number_offset = Some(citation_count);
             }
             let bibliography_style =
@@ -815,7 +771,6 @@ impl<'a> Generator<'a> {
             let database = &bibliography.sources.derived;
             let bibliography_span = bibliography.span();
 
-            // println!("{:?} {:?}",bibliography.title,self.groups.get(&bibliography_span).unwrap());
             // Process all citation groups.
             for elem in self.groups.get(&bibliography_span).unwrap() {
                 let group = elem.to_packed::<CiteGroup>().unwrap();
@@ -929,7 +884,7 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
-            if bibliography.shared_numbering.get(StyleChain::default()) {
+            if bibliography.kind.get_ref(StyleChain::default()) == "shared" {
                 if let Some(bib) = rendered.last().unwrap().bibliography.as_ref() {
                     citation_count += bib.items.len();
                 }
