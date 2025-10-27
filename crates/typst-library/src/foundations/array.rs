@@ -286,6 +286,9 @@ impl Array {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
+        if end.is_some() && count.is_some() {
+            bail!("`end` and `count` are mutually exclusive");
+        }
         let start = self.locate(start, true)?;
         let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
