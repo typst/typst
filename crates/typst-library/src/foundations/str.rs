@@ -872,9 +872,7 @@ impl Base {
 
 cast! {
     Base,
-
     self => self.value().into_value(),
-
     v: i64 => Self::User(v),
 }
 
