@@ -154,27 +154,28 @@ impl Str {
         value: ToStr,
         /// The base (radix) to display integers in, between 2 and 36.
         #[named]
-        #[default(Spanned::new(10, Span::detached()))]
-        base: Spanned<i64>,
+        #[default(Spanned::new(Base::Default, Span::detached()))]
+        base: Spanned<Base>,
     ) -> SourceResult<Str> {
         Ok(match value {
             ToStr::Str(s) => {
-                if base.v != 10 {
+                if matches!(base.v, Base::User(_)) {
                     bail!(base.span, "base is only supported for integers");
                 }
                 s
             }
             ToStr::Int(n) => {
-                if base.v == 1 && n > 0 {
+                let b = base.v.value();
+                if b == 1 && n > 0 {
                     bail!(
                         base.span, "base must be between 2 and 36";
                         hint: "generate a unary representation with `\"1\" * {}`", n
                     );
                 }
-                if base.v < 2 || base.v > 36 {
+                if b < 2 || b > 36 {
                     bail!(base.span, "base must be between 2 and 36");
                 }
-                repr::format_int_with_base(n, base.v).into()
+                repr::format_int_with_base(n, b).into()
             }
         })
     }
@@ -852,6 +853,29 @@ cast! {
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Base {
+    Default,
+    User(i64),
+}
+
+impl Base {
+    fn value(self) -> i64 {
+        match self {
+            Self::Default => 10,
+            Self::User(b) => b,
+        }
+    }
+}
+
+cast! {
+    Base,
+
+    self => self.value().into_value(),
+
+    v: i64 => Self::User(v),
 }
 
 /// A Unicode normalization form.

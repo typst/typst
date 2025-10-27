@@ -70,6 +70,10 @@
 // Error: 18-19 base is only supported for integers
 #str(1.23, base: 2)
 
+--- str-constructor-unsupported-base-ten ---
+// Error: 18-20 base is only supported for integers
+#str(1.23, base: 10)
+
 --- str-from-and-to-unicode ---
 // Test the unicode function.
 #test(str.from-unicode(97), "a")
