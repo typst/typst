@@ -69,7 +69,7 @@ pub fn layout(
     /// displayed in the document.
     ///
     /// The container's size is given as a [dictionary] with the keys `width`
-    /// and `height`.
+    /// and `height`, both of type [`length`].
     ///
     /// This function is called once for each time the content returned by
     /// `layout` appears in the document. This makes it possible to generate
