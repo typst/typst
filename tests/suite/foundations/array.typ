@@ -230,6 +230,10 @@
 #test((1, 2, 3).slice(-3, 2), (1, 2))
 #test("ABCD".split("").slice(1, -1).join("-"), "A-B-C-D")
 
+--- array-slice-count-end ---
+// Error: 2-33 `end` and `count` are mutually exclusive
+#(1, 2, 3).slice(0, 1, count: 2)
+
 --- array-slice-out-of-bounds ---
 // Error: 2-30 array index out of bounds (index: 12, len: 10)
 #range(10).slice(9, count: 3)

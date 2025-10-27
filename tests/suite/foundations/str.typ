@@ -157,6 +157,10 @@
 #test("x🏡yz".slice(-2, count: 2), "yz")
 #test("x🏡yz".slice(-7, count: 7), "x🏡yz")
 
+--- string-slice-count-end ---
+// Error: 2-29 `end` and `count` are mutually exclusive
+#"abc".slice(0, 1, count: 2)
+
 --- string-slice-not-a-char-boundary ---
 // Error: 2-21 string index -1 is not a character boundary
 #"🏳️‍🌈".slice(0, -1)
