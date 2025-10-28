@@ -5,7 +5,6 @@ use std::ffi::OsStr;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
-use typst::Document;
 use typst::foundations::{
     AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
     StyleChain, Styles, Type, Value, fields_on, repr,
@@ -18,6 +17,7 @@ use typst::syntax::{
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
+use typst::{AsDocument, Document};
 use unscanny::Scanner;
 
 use crate::utils::{
@@ -36,16 +36,22 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items}
 /// Passing a `document` (from a previous compilation) is optional, but enhances
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
-pub fn autocomplete<D: Document + ?Sized>(
+pub fn autocomplete(
     world: &dyn IdeWorld,
-    document: Option<&D>,
+    document: Option<impl AsDocument>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
-    let mut ctx =
-        CompletionContext::new(world, document, source, &leaf, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(
+        world,
+        document.as_ref().map(|v| v.as_document()),
+        source,
+        &leaf,
+        cursor,
+        explicit,
+    )?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -103,12 +109,12 @@ pub enum CompletionKind {
 }
 
 /// Complete in comments. Or rather, don't!
-fn complete_comments<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_comments(ctx: &mut CompletionContext) -> bool {
     matches!(ctx.leaf.kind(), SyntaxKind::LineComment | SyntaxKind::BlockComment)
 }
 
 /// Complete in markup mode.
-fn complete_markup<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Bail if we aren't even in markup.
     if !matches!(
         ctx.leaf.parent_kind(),
@@ -192,7 +198,7 @@ fn complete_markup<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool
 
 /// Add completions for markup snippets.
 #[rustfmt::skip]
-fn markup_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
+fn markup_completions(ctx: &mut CompletionContext) {
     ctx.snippet_completion(
         "expression",
         "#${}",
@@ -291,7 +297,7 @@ fn markup_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
 }
 
 /// Complete in math mode.
-fn complete_math<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_math(ctx: &mut CompletionContext) -> bool {
     if !matches!(
         ctx.leaf.parent_kind(),
         Some(SyntaxKind::Equation)
@@ -338,7 +344,7 @@ fn complete_math<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
 
 /// Add completions for math snippets.
 #[rustfmt::skip]
-fn math_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
+fn math_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(true, |_| true);
 
     ctx.snippet_completion(
@@ -361,7 +367,7 @@ fn math_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
 }
 
 /// Complete field accesses.
-fn complete_field_accesses<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Used to determine whether trivia nodes are allowed before '.'.
     // During an inline expression in markup mode trivia nodes exit the inline expression.
     let in_markup: bool = matches!(
@@ -404,8 +410,8 @@ fn complete_field_accesses<D: Document + ?Sized>(ctx: &mut CompletionContext<D>)
 }
 
 /// Add completions for all fields on a value.
-fn field_access_completions<D: Document + ?Sized>(
-    ctx: &mut CompletionContext<D>,
+fn field_access_completions(
+    ctx: &mut CompletionContext,
     value: &Value,
     styles: &Option<Styles>,
 ) {
@@ -486,7 +492,7 @@ fn field_access_completions<D: Document + ?Sized>(
 }
 
 /// Complete half-finished labels.
-fn complete_open_labels<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
     if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
@@ -498,7 +504,7 @@ fn complete_open_labels<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) ->
 }
 
 /// Complete imports.
-fn complete_imports<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // In an import path for a file or package:
     // "#import "|",
     if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
@@ -550,8 +556,8 @@ fn complete_imports<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> boo
 }
 
 /// Add completions for all exports of a module.
-fn import_item_completions<'a, D: Document + ?Sized>(
-    ctx: &mut CompletionContext<'a, D>,
+fn import_item_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
     existing: ast::ImportItems<'a>,
     source: &LinkedNode,
 ) {
@@ -570,7 +576,7 @@ fn import_item_completions<'a, D: Document + ?Sized>(
 }
 
 /// Complete set and show rules.
-fn complete_rules<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_rules(ctx: &mut CompletionContext) -> bool {
     // We don't want to complete directly behind the keyword.
     if !ctx.leaf.kind().is_trivia() {
         return false;
@@ -606,7 +612,7 @@ fn complete_rules<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool 
 }
 
 /// Add completions for all functions from the global scope.
-fn set_rule_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
+fn set_rule_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(true, |value| {
         matches!(
             value,
@@ -619,7 +625,7 @@ fn set_rule_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
 }
 
 /// Add completions for selectors.
-fn show_rule_selector_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
+fn show_rule_selector_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(
         false,
         |value| matches!(value, Value::Func(func) if func.element().is_some()),
@@ -641,7 +647,7 @@ fn show_rule_selector_completions<D: Document + ?Sized>(ctx: &mut CompletionCont
 }
 
 /// Add completions for recipes.
-fn show_rule_recipe_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) {
+fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
     ctx.snippet_completion(
         "replacement",
         "[${content}]",
@@ -664,7 +670,7 @@ fn show_rule_recipe_completions<D: Document + ?Sized>(ctx: &mut CompletionContex
 }
 
 /// Complete call and set rule parameters.
-fn complete_params<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
     let (callee, set, args, args_linked) = if let Some(parent) = ctx.leaf.parent()
         && let Some(parent) = match parent.kind() {
@@ -729,8 +735,8 @@ fn complete_params<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool
 }
 
 /// Add completions for the parameters of a function.
-fn param_completions<'a, D: Document + ?Sized>(
-    ctx: &mut CompletionContext<'a, D>,
+fn param_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
     callee: ast::Expr<'a>,
     set: bool,
     args: ast::Args<'a>,
@@ -798,8 +804,8 @@ fn param_completions<'a, D: Document + ?Sized>(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions<'a, D: Document + ?Sized>(
-    ctx: &mut CompletionContext<'a, D>,
+fn named_param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
     callee: ast::Expr<'a>,
     name: &str,
 ) {
@@ -817,8 +823,8 @@ fn named_param_value_completions<'a, D: Document + ?Sized>(
 }
 
 /// Add completions for the values of a parameter.
-fn param_value_completions<'a, D: Document + ?Sized>(
-    ctx: &mut CompletionContext<'a, D>,
+fn param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
     func: &Func,
     param: &'a ParamInfo,
 ) {
@@ -860,8 +866,8 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
 }
 
 /// Resolve a callee expression to a global function.
-fn resolve_global_callee<'a, D: Document + ?Sized>(
-    ctx: &CompletionContext<'a, D>,
+fn resolve_global_callee<'a>(
+    ctx: &CompletionContext<'a>,
     callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
     let globals = globals(ctx.world, ctx.leaf);
@@ -883,7 +889,7 @@ fn resolve_global_callee<'a, D: Document + ?Sized>(
 }
 
 /// Complete in code mode.
-fn complete_code<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
+fn complete_code(ctx: &mut CompletionContext) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
         None | Some(SyntaxKind::Markup)
@@ -936,7 +942,7 @@ fn complete_code<D: Document + ?Sized>(ctx: &mut CompletionContext<D>) -> bool {
 
 /// Add completions for expression snippets.
 #[rustfmt::skip]
-fn code_completions<D: Document + ?Sized>(ctx: &mut CompletionContext<D>, hash: bool) {
+fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     if hash {
         ctx.scope_completions(true, |value| {
             // If we are in markup, ignore colors, directions, and alignments.
@@ -1108,9 +1114,9 @@ fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
 }
 
 /// Context for autocompletion.
-struct CompletionContext<'a, D: ?Sized> {
+struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
-    document: Box<Option<&'a D>>,
+    document: Option<&'a dyn Document>,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1122,14 +1128,11 @@ struct CompletionContext<'a, D: ?Sized> {
     seen_casts: FxHashSet<u128>,
 }
 
-impl<'a, D> CompletionContext<'a, D>
-where
-    D: Document + ?Sized,
-{
+impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn IdeWorld + 'a),
-        document: Option<&'a D>,
+        document: Option<&'a dyn Document>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
@@ -1138,7 +1141,7 @@ where
         let text = source.text();
         Some(Self {
             world,
-            document: Box::new(document),
+            document,
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1282,8 +1285,8 @@ where
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let Some(document) = *self.document else { return };
-        let (labels, split) = analyze_labels(document as _);
+        let Some(document) = self.document else { return };
+        let (labels, split) = analyze_labels(document);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');
@@ -1562,7 +1565,8 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::{Document, layout::PagedDocument};
+    use typst::AsDocument;
+    use typst::layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -1680,7 +1684,7 @@ mod tests {
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
-        doc: Option<&impl Document>,
+        doc: Option<impl AsDocument>,
         explicit: bool,
     ) -> Response {
         let world = world.acquire();
