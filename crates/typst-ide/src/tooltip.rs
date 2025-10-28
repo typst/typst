@@ -18,9 +18,9 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 /// Passing a `document` (from a previous compilation) is optional, but enhances
 /// the tooltips. Label tooltips, for instance, are only generated when the
 /// document is available.
-pub fn tooltip(
+pub fn tooltip<'a>(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    document: Option<impl AsDocument<'a>>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -170,7 +170,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(document: impl AsDocument, leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip<'a>(
+    document: impl AsDocument<'a>,
+    leaf: &LinkedNode,
+) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),

@@ -36,9 +36,9 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items}
 /// Passing a `document` (from a previous compilation) is optional, but enhances
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
-pub fn autocomplete(
+pub fn autocomplete<'a>(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    document: Option<impl AsDocument<'a>>,
     source: &Source,
     cursor: usize,
     explicit: bool,
@@ -46,7 +46,7 @@ pub fn autocomplete(
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
     let mut ctx = CompletionContext::new(
         world,
-        document.as_ref().map(|v| v.as_document()),
+        document.map(AsDocument::as_document),
         source,
         &leaf,
         cursor,
@@ -1681,10 +1681,10 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_with_doc(
+    fn test_with_doc<'a>(
         world: impl WorldLike,
         pos: impl FilePos,
-        doc: Option<impl AsDocument>,
+        doc: Option<impl AsDocument<'a>>,
         explicit: bool,
     ) -> Response {
         let world = world.acquire();

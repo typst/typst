@@ -72,8 +72,8 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 ///
 /// Note: When multiple labels in the document have the same identifier,
 /// this only returns the first one.
-pub fn analyze_labels(
-    document: impl AsDocument,
+pub fn analyze_labels<'a>(
+    document: impl AsDocument<'a>,
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let introspector = document.as_document().introspector();
 

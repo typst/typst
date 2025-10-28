@@ -283,19 +283,20 @@ impl Document for HtmlDocument {
     }
 }
 
-pub trait AsDocument {
-    fn as_document(&self) -> &dyn Document;
+pub trait AsDocument<'a> {
+    #[allow(clippy::wrong_self_convention)]
+    fn as_document(self) -> &'a dyn Document;
 }
 
-impl AsDocument for &dyn Document {
-    fn as_document(&self) -> &dyn Document {
-        *self
+impl<'a> AsDocument<'a> for &'a dyn Document {
+    fn as_document(self) -> &'a dyn Document {
+        self
     }
 }
 
-impl<D: Document> AsDocument for &D {
-    fn as_document(&self) -> &dyn Document {
-        *self
+impl<'a, D: Document> AsDocument<'a> for &'a D {
+    fn as_document(self) -> &'a dyn Document {
+        self
     }
 }
 
