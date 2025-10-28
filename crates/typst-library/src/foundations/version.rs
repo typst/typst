@@ -77,8 +77,9 @@ impl Version {
     /// ([`{sys.version}`]($version)) to a specific one.
     ///
     /// ```example
-    /// #(sys.version > version(0, 14, 0))
-    /// #(version(0, 15, 0) > version(1, 14, 0))
+    /// Current version: #sys.version \
+    /// #(sys.version > version(0, 14, 0)) \ // true
+    /// #(version(3, 2, 0) > version(4, 1, 0)) // false
     /// ```
     #[func(constructor)]
     pub fn construct(
