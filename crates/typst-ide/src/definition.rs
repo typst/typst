@@ -1,4 +1,4 @@
-use typst::Document;
+use typst::AsDocument;
 use typst::foundations::{Label, Selector, Value};
 use typst::syntax::{LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
@@ -25,7 +25,7 @@ pub enum Definition {
 /// when the document is available.
 pub fn definition(
     world: &dyn IdeWorld,
-    document: Option<&(impl Document + ?Sized)>,
+    document: Option<impl AsDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -75,7 +75,7 @@ pub fn definition(
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
                 .expect("unexpected empty reference");
             let selector = Selector::Label(label);
-            let elem = document?.introspector().query_first(&selector)?;
+            let elem = document?.as_document().introspector().query_first(&selector)?;
             return Some(Definition::Span(elem.span()));
         }
 

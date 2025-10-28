@@ -1,13 +1,13 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoVec;
-use typst::WorldExt;
 use typst::introspection::{HtmlPosition, InnerHtmlPosition};
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::utils::NonZeroExt;
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
+use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode};
 
 use crate::IdeWorld;
@@ -141,12 +141,14 @@ pub fn jump_from_click<D: JumpFromDocument>(
 }
 
 /// Determine where to jump to based on a click in a frame.
-pub fn jump_from_click_in_frame<D: typst::Document>(
+pub fn jump_from_click_in_frame(
     world: &dyn IdeWorld,
-    document: &D,
+    document: impl AsDocument,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
+    let document = document.as_document();
+
     // Try to find a link first.
     for (pos, item) in frame.items() {
         if let FrameItem::Link(dest, size) = item
