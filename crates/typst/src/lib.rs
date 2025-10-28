@@ -294,7 +294,24 @@ impl Document for HtmlDocument {
     }
 }
 
+/// A trait for accepting an arbitrary kind of document as input.
+///
+/// Can be used to accept a reference to
+/// - any kind of sized type that implements [`Document`], or
+/// - the trait object [`&dyn Document`].
+///
+/// Should be used as `impl AsDocument` rather than `&impl AsDocument`.
+///
+/// # Why is this needed?
+/// Unfortunately, `&impl Document` can't be turned into `&dyn Document` in a
+/// generic function. Directly accepting `&dyn Document` is of course also
+/// possible, but is less convenient, especially in cases where the document is
+/// optional.
+///
+/// See also
+/// <https://users.rust-lang.org/t/converting-from-generic-unsized-parameter-to-trait-object/72376>
 pub trait AsDocument {
+    /// Turns the reference into the trait object.
     fn as_document(&self) -> &dyn Document;
 }
 
