@@ -43,9 +43,7 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::groups::{
-    BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
-};
+use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
@@ -386,8 +384,9 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
         let lang = figure.locale;
         let bbox = tree.ctx.new_bbox();
-        let id = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
-        push_group(tree, elem, GroupKind::Figure(id, bbox, lang))
+        let group_id = tree.groups.list.next_id();
+        let figure_id = tree.ctx.figures.push(FigureCtx::new(group_id, figure.clone()));
+        push_group(tree, elem, GroupKind::Figure(figure_id, bbox, lang))
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         let bbox = tree.ctx.new_bbox();
         push_group(tree, elem, GroupKind::FigureCaption(bbox, None))
@@ -400,24 +399,26 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let bbox = tree.ctx.new_bbox();
         push_group(tree, elem, GroupKind::Formula(equation.clone(), bbox, lang))
     } else if let Some(table) = elem.to_packed::<TableElem>() {
-        let id = tree.ctx.tables.push_with(|id| TableCtx::new(id, table.clone()));
+        let group_id = tree.groups.list.next_id();
+        let table_id = tree.ctx.tables.next_id();
+        tree.ctx.tables.push(TableCtx::new(group_id, table_id, table.clone()));
         let bbox = tree.ctx.new_bbox();
-        push_group(tree, elem, GroupKind::Table(id, bbox, None))
+        push_group(tree, elem, GroupKind::Table(table_id, bbox, None))
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         // Only repeated table headers and footer cells are laid out multiple
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         let kind = if cell.is_repeated.val() {
-            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
-            GroupKind::InternalGridCell(artifact)
+            GroupKind::Artifact(ArtifactType::Other)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
             GroupKind::TableCell(cell.clone(), tag, None)
         };
         push_located(tree, elem, kind)
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
-        let id = tree.ctx.grids.push(GridCtx::new(grid));
+        let group_id = tree.groups.list.next_id();
+        let id = tree.ctx.grids.push(GridCtx::new(group_id, grid));
         push_group(tree, elem, GroupKind::Grid(id, None))
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // The grid cells are collected into a grid to ensure proper reading
@@ -426,14 +427,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let kind = if !matches!(tree.parent_kind(), GroupKind::Grid(..)) {
             // If there is no grid parent, this means a grid layouter is used
             // internally.
-            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
+            GroupKind::Transparent
         } else if cell.is_repeated.val() {
             // Only repeated grid headers and footer cells are laid out multiple
             // times. Mark duplicate headers as artifacts, since they have no
             // semantic meaning in the tag tree, which doesn't use page breaks
             // for it's semantic structure.
-            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
-            GroupKind::InternalGridCell(artifact)
+            GroupKind::Artifact(ArtifactType::Other)
         } else {
             GroupKind::GridCell(cell.clone(), None)
         };
@@ -583,22 +583,8 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         return Ok(no_progress(tree));
     };
 
-    // Table/grid cells can only have overlapping tags if they are broken across
-    // multiple regions. In that case store the unfinished stack entries, and
-    // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if outer.kind.is_grid_layout_cell() {
-        if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-            tree.unfinished_stacks.insert(loc, stack);
-            tree.unfinished.push(Unfinished {
-                prog_idx: tree.progressions.len() as u32,
-                group_to_close: entry.id,
-            });
-        }
-        tree.stack.pop().unwrap();
-        return Ok(tree.parent());
-    }
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok, and how to do it.

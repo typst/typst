@@ -262,14 +262,18 @@ impl FromValue for Value {
 
 impl<T: NativeElement + FromValue> FromValue for Packed<T> {
     fn from_value(mut value: Value) -> HintedStrResult<Self> {
+        let mut span = Span::detached();
         if let Value::Content(content) = value {
             match content.into_packed::<T>() {
                 Ok(packed) => return Ok(packed),
-                Err(content) => value = Value::Content(content),
+                Err(content) => {
+                    span = content.span();
+                    value = Value::Content(content)
+                }
             }
         }
         let val = T::from_value(value)?;
-        Ok(Packed::new(val))
+        Ok(Packed::new(val).spanned(span))
     }
 }
 

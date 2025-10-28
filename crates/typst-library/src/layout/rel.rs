@@ -59,8 +59,8 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// [floats]($float).
 ///
 /// A relative length has the following fields:
-/// - `length`: Its length component.
-/// - `ratio`: Its ratio component.
+/// - `length`: Its [length] component.
+/// - `ratio`: Its [ratio] component.
 ///
 /// ```example
 /// #(100% - 50pt).length \

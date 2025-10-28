@@ -119,7 +119,9 @@ How can we improve the chart? First, make sure that no information is solely com
 <img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
-This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+
+You can check your design in the web app by using the built-in color blindness simulator. To use it, open the "View" menu and select the desired mode in the "Simulate color blindness" menu. You can also use other tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator] if you are not using our web app.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
@@ -279,7 +281,7 @@ Typst can help you to assert that your document is accessible by checking it aga
 
 - **PDF/A-2a** and **PDF/A-3a:** Like the first part of PDF/A, these standards focus on creating files suitable for archival and long-term storage. Both of these standards target the newer PDF version 1.7 instead of PDF 1.4. Here too, the strictest conformance level A contains rules for accessibility. In addition to the rules in PDF/A-1a, these standards disallow the use of characters in the [Unicode Private Use Area][unic-pua] whose meaning is not universally defined. Improvements over PDF/A-1 include the ability to use transparency and better reflow. When choosing between these two parts of the PDF/A standard, choose PDF/A-2a unless you need to [attach]($pdf.attach) other files. Note that conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard.
 
-The [PDF reference page]($pdf/#pdf-standards) contains more information about each supported standard. To enable either PDF/UA, PDF/A-2a, or PDF/A-3a, use the [appropriate flag in the CLI]($pdf/#command-line) or use the export dropdown and click on PDF in the web app.
+The [PDF reference page]($pdf/#pdf-standards) contains more information about each supported standard. To enable either PDF/UA, PDF/A-2a, or PDF/A-3a, use the [appropriate flag in the CLI]($pdf/#command-line) or use the export dropdown and click on PDF in the web app. At the moment, you must choose between PDF/A and PDF/UA. For accessibility-focused documents, we recommend the latter.
 
 When you select one of these standards for PDF export, Typst will detect if you are in violation of their rules and fail the export with a descriptive error message. For the strictest accessibility check currently available, choose PDF/UA-1. Do not disable tagging unless you have a good reason, as tags provide a baseline of accessibility across all documents you export.
 

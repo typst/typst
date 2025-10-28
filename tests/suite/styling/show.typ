@@ -90,6 +90,18 @@ Hey
 // Error: 7-12 only element functions can be used as selectors
 #show upper: it => {}
 
+--- show-selector-shadowed-builtin ---
+#let heading = 0
+
+// Error: 7-14 expected symbol, string, label, function, regex, or selector, found integer
+// Hint: 7-14 use `std.heading` to access the shadowed standard library function
+#show heading: it => it
+
+--- show-selector-shadowed-builtin-with-std ---
+#let heading = "bar"
+#show std.heading: it => text(fill: red, it)
+= #heading
+
 --- show-bad-replacement-type ---
 // Error: 16-20 expected content or function, found integer
 #show heading: 1234

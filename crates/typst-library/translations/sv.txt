@@ -7,5 +7,5 @@ outline = Innehåll
 raw = Kodlistning
 page = sida
 footnote = Fotnot
-# email =
-# telephone =
+email = E-post
+telephone = Telefon
