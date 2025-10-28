@@ -362,6 +362,18 @@ impl State {
     /// associated with a location in the document. That is, only state updates
     /// that are _in the document_ update the said state.
     ///
+    /// Here is another way of looking at it. State is a part of your document,
+    /// it runs like a thread embedded in the document content. The value of a
+    /// state is the result of all state updates that happened in the document
+    /// up until that point. That’s why `state.update` returns an invisible
+    /// sliver of content that you need to return and include in the document —
+    /// a state update that is not "placed" in the document does not happen, and
+    /// "when" it happens is determined by where you place it. For example, only
+    /// figures that are placed into the document increase the value of the
+    /// figure counter. That’s also why you need context to read state, you need
+    /// to use the current document position to know where on the state’s
+    /// “thread” you are.
+    ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
     /// [`final`]($state.final), this function does not require [context].
     #[func]
