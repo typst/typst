@@ -10,7 +10,7 @@ use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 // Picked by gut feeling.
-const MAX_DEPTH: usize = 256;
+const MAX_DEPTH: u32 = 256;
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -49,8 +49,7 @@ fn markup(p: &mut Parser, at_start: bool, wrap_trivia: bool, stop_set: SyntaxSet
 /// Parses a sequence of markup expressions.
 fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
-
-    let Some(p) = &mut p.check_depth_until(stop_set) else { return };
+    let Some(p) = p.check_depth_until(stop_set) else { return };
 
     at_start |= p.had_newline();
     let mut nesting: usize = 0;
@@ -232,8 +231,7 @@ fn math(p: &mut Parser, stop_set: SyntaxSet) {
 /// parsed.
 fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
-
-    let Some(p) = &mut p.check_depth_until(stop_set) else { return 1 };
+    let Some(p) = p.check_depth_until(stop_set) else { return 1 };
 
     let mut count = 0;
     while !p.at_set(stop_set) {
@@ -623,8 +621,7 @@ fn code(p: &mut Parser, stop_set: SyntaxSet) {
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
-
-    let Some(p) = &mut p.check_depth_until(stop_set) else { return };
+    let Some(p) = p.check_depth_until(stop_set) else { return };
 
     while !p.at_set(stop_set) {
         p.with_nl_mode(AtNewline::ContextualContinue, |p| {
@@ -1584,7 +1581,7 @@ struct Parser<'s> {
     /// [`expr_with_paren`].
     memo: MemoArena,
     /// The current expression nesting depth.
-    depth: usize,
+    depth: u32,
 }
 
 /// A single token returned from the lexer with a cached [`SyntaxKind`] and a
@@ -1981,7 +1978,7 @@ struct PartialState {
 }
 
 /// The Memoization interface.
-impl<'s> Parser<'s> {
+impl Parser<'_> {
     /// Store the already parsed nodes and the parser state into the memo map by
     /// extending the arena and storing the extended range and a checkpoint.
     fn memoize_parsed_nodes(&mut self, key: MemoKey, prev_len: usize) {
@@ -2119,12 +2116,11 @@ impl Parser<'_> {
     /// also generates nicer error messages.
     fn check_depth_until(&mut self, stop_set: SyntaxSet) -> Option<&mut Self> {
         if self.depth < MAX_DEPTH {
-            return Some(self);
+            Some(self)
+        } else {
+            self.depth_check_error(Some(stop_set));
+            None
         }
-
-        self.depth_check_error(Some(stop_set));
-
-        None
     }
 
     /// Check if the maximum depth has been exceeded. If so, generate an error
@@ -2134,20 +2130,14 @@ impl Parser<'_> {
     fn increase_depth(&mut self) -> Option<impl DerefMut<Target = Self>> {
         if self.depth < MAX_DEPTH {
             self.depth += 1;
-            return Some(defer(self, |p| p.depth -= 1));
+            Some(defer(self, |p| p.depth -= 1))
+        } else {
+            self.depth_check_error(None);
+            None
         }
-
-        self.depth_check_error(None);
-
-        None
     }
 
     /// Generate an error for an exceeded maximum depth check.
-    ///
-    /// This function has to guarantee some sort of forward progress, otherwise
-    /// the parser might loop indefinitely. One token is eaten in all cases, if
-    /// that token is an opening delimiter, try to balance the opening and
-    /// closing grouping delimiters before continuing.
     fn depth_check_error(&mut self, stop_set: Option<SyntaxSet>) {
         let m = self.marker();
 
@@ -2161,12 +2151,19 @@ impl Parser<'_> {
             p.eat();
             balance == 0
         };
+
+        // This function has to guarantee some sort of forward progress,
+        // otherwise the parser might loop indefinitely. One token is eaten in
+        // all cases, if that token is an opening delimiter, try to balance the
+        // opening and closing grouping delimiters before continuing.
         self.with_nl_mode(AtNewline::Continue, |p| {
-            while {
+            loop {
                 let balanced = eat_balanced(p);
                 let at_stop = stop_set.is_none_or(|s| p.at_set(s));
-                !(balanced && at_stop || p.end())
-            } {}
+                if balanced && at_stop || p.end() {
+                    break;
+                }
+            }
         });
 
         self.wrap(m, SyntaxKind::Text);
