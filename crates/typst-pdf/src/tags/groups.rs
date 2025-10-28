@@ -120,7 +120,6 @@ impl Groups {
             GroupKind::TableCell(..) => Never,
             GroupKind::Grid(..) => Never,
             GroupKind::GridCell(..) => Never,
-            GroupKind::InternalGridCell(..) => Never,
             GroupKind::List(..) => Never,
             GroupKind::ListItemLabel(..) => Never,
             GroupKind::ListItemBody(..) => Never,
@@ -205,7 +204,6 @@ impl Groups {
             | GroupKind::TableCell(..)
             | GroupKind::Grid(..)
             | GroupKind::GridCell(..)
-            | GroupKind::InternalGridCell(..)
             | GroupKind::List(..)
             | GroupKind::ListItemLabel(..)
             | GroupKind::ListItemBody(..)
@@ -428,12 +426,6 @@ pub enum GroupKind {
     TableCell(Packed<TableCell>, TagId, Option<Locale>),
     Grid(GridId, Option<Locale>),
     GridCell(Packed<GridCell>, Option<Locale>),
-    /// Grid cells can be split up across multiple pages, and contained tag
-    /// structure might also be split up across these multiple regions, this
-    /// needs to be handled when the logical tree is built using the
-    /// `unfinished_stacks` map. Even when a grid is used internally, or the
-    /// cell is repeated and thus marked as an artifact.
-    InternalGridCell(InternalGridCellKind),
     List(ListId, ListNumbering, Option<Locale>),
     ListItemLabel(Option<Locale>),
     ListItemBody(Option<Locale>),
@@ -462,20 +454,6 @@ pub enum GroupKind {
     Standard(TagId, Option<Locale>),
 }
 
-pub enum InternalGridCellKind {
-    Transparent,
-    Artifact(ArtifactType),
-}
-
-impl InternalGridCellKind {
-    pub fn to_kind(&self) -> GroupKind {
-        match self {
-            InternalGridCellKind::Transparent => GroupKind::Transparent,
-            InternalGridCellKind::Artifact(ty) => GroupKind::Artifact(*ty),
-        }
-    }
-}
-
 impl std::fmt::Debug for GroupKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.pad(match self {
@@ -489,7 +467,6 @@ impl std::fmt::Debug for GroupKind {
             Self::TableCell(..) => "TableCell",
             Self::Grid(..) => "Grid",
             Self::GridCell(..) => "GridCell",
-            Self::InternalGridCell(..) => "InternalGridCell",
             Self::List(..) => "List",
             Self::ListItemLabel(..) => "ListItemLabel",
             Self::ListItemBody(..) => "ListItemBody",
@@ -524,7 +501,6 @@ impl GroupKind {
     pub fn as_artifact(&self) -> Option<ArtifactType> {
         match *self {
             GroupKind::Artifact(ty) => Some(ty),
-            GroupKind::InternalGridCell(InternalGridCellKind::Artifact(ty)) => Some(ty),
             _ => None,
         }
     }
@@ -568,7 +544,6 @@ impl GroupKind {
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
-            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -602,7 +577,6 @@ impl GroupKind {
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
-            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -633,8 +607,7 @@ impl GroupKind {
         // a paragraph, out of which it is moved into the parent `LI`.
         !matches!(
             self,
-            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
-                | GroupKind::Transparent
+            GroupKind::Transparent
                 | GroupKind::LogicalParent(..)
                 | GroupKind::LogicalChild(..)
                 | GroupKind::TextAttr(_)

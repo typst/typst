@@ -43,9 +43,7 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::groups::{
-    BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
-};
+use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
@@ -412,8 +410,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         let kind = if cell.is_repeated.val() {
-            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
-            GroupKind::InternalGridCell(artifact)
+            GroupKind::Artifact(ArtifactType::Other)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
             GroupKind::TableCell(cell.clone(), tag, None)
@@ -430,14 +427,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let kind = if !matches!(tree.parent_kind(), GroupKind::Grid(..)) {
             // If there is no grid parent, this means a grid layouter is used
             // internally.
-            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
+            GroupKind::Transparent
         } else if cell.is_repeated.val() {
             // Only repeated grid headers and footer cells are laid out multiple
             // times. Mark duplicate headers as artifacts, since they have no
             // semantic meaning in the tag tree, which doesn't use page breaks
             // for it's semantic structure.
-            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
-            GroupKind::InternalGridCell(artifact)
+            GroupKind::Artifact(ArtifactType::Other)
         } else {
             GroupKind::GridCell(cell.clone(), None)
         };
