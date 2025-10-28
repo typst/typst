@@ -294,6 +294,22 @@ impl Document for HtmlDocument {
     }
 }
 
+pub trait AsDocument {
+    fn as_document(&self) -> &dyn Document;
+}
+
+impl AsDocument for &dyn Document {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
+impl<D: Document> AsDocument for &D {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
 mod sealed {
     use typst_library::foundations::{Content, Target};
 
