@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use ecow::{EcoString, eco_format};
-use typst::Document;
+use typst::AsDocument;
 use typst::engine::Sink;
 use typst::foundations::{Binding, Capturer, CastInfo, Repr, Value, repr};
 use typst::layout::Length;
@@ -20,7 +20,7 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 /// document is available.
 pub fn tooltip(
     world: &dyn IdeWorld,
-    document: Option<&(impl Document + ?Sized)>,
+    document: Option<impl AsDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -170,10 +170,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip<D: Document + ?Sized>(
-    document: &D,
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+fn label_tooltip(document: impl AsDocument, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
