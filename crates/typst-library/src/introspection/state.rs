@@ -358,9 +358,9 @@ impl State {
     /// position where the returned content is inserted into the document. If
     /// you don't put the output into the document, nothing will happen! This
     /// would be the case, for example, if you write
-    /// `{let _ = state("key").update(7)}`. State updates are always applied in
-    /// layout order and in that case, Typst wouldn't know when to update the
-    /// state.
+    /// `{let _ = state("key").update(7)}`. Updates only happen if they are
+    /// associated with a location in the document. That is, only state updates
+    /// that are _in the document_ update the said state.
     ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
     /// [`final`]($state.final), this function does not require [context].
