@@ -28,14 +28,13 @@ use crate::engine::{Engine, Sink};
 use crate::foundations::{
     Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
     OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value, cast, elem,
+    Synthesize, Value, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem, LinkElem, Url
 };
 use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -165,7 +164,7 @@ pub struct BibliographyElem {
 }
 
 impl BibliographyElem {
-    /// Find the document's bibliography.
+    /// Find the document's bibliographies.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Vec<Packed<Self>>> {
         let query = introspector.query(&Self::ELEM.select());
         if query.len() == 0 {
@@ -177,6 +176,37 @@ impl BibliographyElem {
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect())
     }
+
+    #[comemo::memoize]
+    pub fn assign_citations(introspector: Tracked<Introspector>) -> FxHashMap<Span,Span> {
+        let bibliographies =
+            introspector
+            .query(&Self::ELEM.select())
+            .into_iter()
+            .map(|elem| elem.to_packed::<Self>().unwrap().clone());
+        let citations =
+            introspector
+            .query(&CiteElem::ELEM.select());
+
+        let mut citation_map: FxHashMap<Span,Span> = FxHashMap::default();
+
+        for bibliography in bibliographies {
+            let bibliography_target = &bibliography.target.get_ref(StyleChain::default());
+            let bibliography_span = bibliography.span();
+            let bibliography_citations = match bibliography_target {
+                Smart::Custom(bibliography_selector) => {
+                    introspector
+                    .query(&bibliography_selector)
+                },
+                Smart::Auto => citations.clone(),
+            };
+            for citation in bibliography_citations {
+                citation_map.entry(citation.span()).or_insert(bibliography_span);
+            }
+        }
+        citation_map
+    }
+
 
     /// Whether the bibliography contains the given key.
     pub fn has(engine: &Engine, key: Label) -> bool {
@@ -672,12 +702,22 @@ impl<'a> Generator<'a> {
     ) -> StrResult<Self> {
         let bibliographies = BibliographyElem::find(introspector)?;
         let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
+        let citation_map = BibliographyElem::assign_citations(introspector);
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
             let bibliography_target = &bibliography.target.get_ref(StyleChain::default());
+            let bibliography_span = bibliography.span();
             let bibliography_groups = match bibliography_target {
-                Smart::Custom(bibliography_selector) => {
-                    introspector.query(&bibliography_selector.change_element(CiteGroup::ELEM))
+                Smart::Custom(_) => {
+                    citation_groups_all
+                    .iter()
+                    .cloned()
+                    .filter(|group| {
+                        let cite_group = group.to_packed::<CiteGroup>().unwrap();
+                        let cite_group_bib_span = citation_map.get(&cite_group.children.first().unwrap().span()).unwrap();
+                        *cite_group_bib_span == bibliography_span
+                    })
+                    .collect()
                 }
                 // Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
                 //     let bibliography_location = bibliography.location().unwrap();
