@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use typst::World;
-use typst::diag::{SourceResult, Warned};
 use typst::foundations::Smart;
 use typst::introspection::{Location, Tag};
 use typst::layout::{Frame, FrameItem, PagedDocument};

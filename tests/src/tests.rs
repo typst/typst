@@ -148,6 +148,9 @@ fn test() {
         sender.send(()).unwrap();
     });
 
+    run::update_hash_refs::<output::Pdf>();
+    run::update_hash_refs::<output::Svg>();
+
     let passed = logger.into_inner().finish();
     if !passed {
         std::process::exit(1);

@@ -1,6 +1,12 @@
+use std::fmt::Display;
+use std::str::FromStr;
+
+use ecow::EcoString;
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
 use typst::Document;
-use typst::diag::SourceResult;
+use typst::diag::{SourceResult, StrResult, bail};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
@@ -8,7 +14,103 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 
 use crate::collect::{Test, TestOutput};
 
-pub struct Hash([u8; 40]);
+#[derive(Default)]
+pub struct HashedRefs {
+    pub changed: bool,
+    refs: IndexMap<EcoString, HashedRef, FxBuildHasher>,
+}
+
+impl HashedRefs {
+    pub fn get(&self, name: &str) -> Option<HashedRef> {
+        self.refs.get(name).copied()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.refs.is_empty()
+    }
+
+    pub fn remove(&mut self, name: &str) {
+        self.changed = true;
+        self.refs.shift_remove(name);
+    }
+
+    pub fn update(&mut self, name: EcoString, hashed_ref: HashedRef) {
+        self.changed = true;
+        self.refs.insert(name, hashed_ref);
+    }
+
+    pub fn sort(&mut self) {
+        if !self.refs.keys().is_sorted() {
+            self.changed = true;
+            self.refs.sort_keys();
+        }
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &EcoString> {
+        self.refs.keys()
+    }
+}
+
+impl Display for HashedRefs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (name, hash) in self.refs.iter() {
+            writeln!(f, "{hash} {name}")?;
+        }
+        Ok(())
+    }
+}
+
+impl FromStr for HashedRefs {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let refs = s
+            .lines()
+            .map(|line| {
+                let mut parts = line.split_whitespace();
+                let Some(hash) = parts.next() else {
+                    bail!("found empty line");
+                };
+                let hash = hash.parse()?;
+
+                let Some(name) = parts.next() else {
+                    bail!("missing test name");
+                };
+
+                if parts.next().is_some() {
+                    bail!("found trailing characters");
+                }
+
+                Ok((name.into(), hash))
+            })
+            .collect::<StrResult<IndexMap<_, _, _>>>()?;
+        Ok(HashedRefs { changed: false, refs })
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct HashedRef(u128);
+
+impl Display for HashedRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:032x}", self.0)
+    }
+}
+
+impl FromStr for HashedRef {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.len() == 32 {
+            bail!("invalid hash: hexadecimal length must be 32");
+        }
+        if !s.chars().all(|c| c.is_ascii_hexdigit()) {
+            bail!("invalid hash: not a valid hexadecimal digit");
+        }
+        let val = u128::from_str_radix(s, 16).unwrap();
+        Ok(HashedRef(val))
+    }
+}
 
 /// An output type we can test.
 pub trait OutputType: Sized {
@@ -17,10 +119,6 @@ pub trait OutputType: Sized {
     /// The type that represents live output.
     type Live;
 
-    /// The subdirectory in `ref` and `store`.
-    const DIR: &str;
-    /// The file extension for live output.
-    const EXTENSION: &str;
     /// The test output type.
     const OUTPUT: TestOutput;
 
@@ -45,8 +143,11 @@ pub trait FileOutputType: OutputType {
 }
 
 pub trait HashOutputType: OutputType {
+    /// The index into the [`crate::run::HASHES`] array.
+    const INDEX: usize;
+
     /// Produces the reference output from the live output.
-    fn make_hash(live: Self::Live) -> Hash;
+    fn make_hash(live: &Self::Live) -> HashedRef;
 }
 
 pub struct Render;
@@ -55,9 +156,7 @@ impl OutputType for Render {
     type Doc = PagedDocument;
     type Live = tiny_skia::Pixmap;
 
-    const DIR: &str = "render";
-    const EXTENSION: &str = "png";
-    const OUTPUT: TestOutput = TestOutput::RENDER;
+    const OUTPUT: TestOutput = TestOutput::Render;
 
     fn is_skippable(doc: &Self::Doc, _: &Self::Live) -> Result<bool, ()> {
         is_empty_paged_document(doc)
@@ -100,9 +199,7 @@ impl OutputType for Pdf {
     type Doc = PagedDocument;
     type Live = Vec<u8>;
 
-    const DIR: &str = "pdf";
-    const EXTENSION: &str = "pdf";
-    const OUTPUT: TestOutput = TestOutput::PDF;
+    const OUTPUT: TestOutput = TestOutput::Pdf;
 
     fn make_live(_: &Test, doc: &mut Self::Doc) -> SourceResult<Self::Live> {
         typst_pdf::pdf(doc, &PdfOptions::default())
@@ -114,8 +211,10 @@ impl OutputType for Pdf {
 }
 
 impl HashOutputType for Pdf {
-    fn make_hash(live: Self::Live) -> Hash {
-        todo!()
+    const INDEX: usize = 0;
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
     }
 }
 
@@ -125,9 +224,7 @@ impl OutputType for Pdftags {
     type Doc = PagedDocument;
     type Live = String;
 
-    const DIR: &str = "pdftags";
-    const EXTENSION: &str = "yml";
-    const OUTPUT: TestOutput = TestOutput::PDFTAGS;
+    const OUTPUT: TestOutput = TestOutput::Pdftags;
 
     fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
         Ok(live.is_empty())
@@ -143,7 +240,7 @@ impl OutputType for Pdftags {
             PdfStandards::default()
         };
         let options = PdfOptions { standards, ..Default::default() };
-        typst_pdf::pdf_tags(&doc, &options)
+        typst_pdf::pdf_tags(doc, &options)
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -167,9 +264,7 @@ impl OutputType for Svg {
     type Doc = PagedDocument;
     type Live = String;
 
-    const DIR: &str = "svg";
-    const EXTENSION: &str = "svg";
-    const OUTPUT: TestOutput = TestOutput::SVG;
+    const OUTPUT: TestOutput = TestOutput::Svg;
 
     fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
         Ok(live.is_empty())
@@ -185,8 +280,10 @@ impl OutputType for Svg {
 }
 
 impl HashOutputType for Svg {
-    fn make_hash(live: Self::Live) -> Hash {
-        todo!()
+    const INDEX: usize = 1;
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
     }
 }
 
@@ -196,9 +293,7 @@ impl OutputType for Html {
     type Doc = HtmlDocument;
     type Live = String;
 
-    const DIR: &str = "html";
-    const EXTENSION: &str = "html";
-    const OUTPUT: TestOutput = TestOutput::HTML;
+    const OUTPUT: TestOutput = TestOutput::Html;
 
     fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
         Ok(live.is_empty())
