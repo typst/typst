@@ -89,3 +89,15 @@ A#super(highlight[4])
 1#super[st], 2#super[nd], 3#super[rd].
 
 log#sub[2], log#sub[3], log#sub[variable].
+
+--- issue-7249-multiple-lookup-tables ---
+// We increase the font size to make sure the difference is visible in the
+// low-resolution reference image.
+#set text(font: "Source Serif 4", size: 1.5em)
+#set super(typographic: true)
+Foo#super[test] \
+Foo#super[test1] \
+Foo#super[(test)] \
+// Source Serif 4 does not support `sups` for backticks, so this should be
+// syntheszed.
+Foo#super[test\`]
