@@ -179,31 +179,94 @@ impl BibliographyElem {
 
     #[comemo::memoize]
     pub fn assign_citations(introspector: Tracked<Introspector>) -> FxHashMap<Span,Span> {
-        let bibliographies =
+        let bibliographies: Vec<Packed<Self>> =
             introspector
             .query(&Self::ELEM.select())
             .into_iter()
-            .map(|elem| elem.to_packed::<Self>().unwrap().clone());
+            .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+            .collect();
         let citations =
             introspector
             .query(&CiteElem::ELEM.select());
 
         let mut citation_map: FxHashMap<Span,Span> = FxHashMap::default();
 
-        for bibliography in bibliographies {
-            let bibliography_target = &bibliography.target.get_ref(StyleChain::default());
-            let bibliography_span = bibliography.span();
-            let bibliography_citations = match bibliography_target {
-                Smart::Custom(bibliography_selector) => {
-                    introspector
-                    .query(&bibliography_selector)
-                },
-                Smart::Auto => citations.clone(),
-            };
-            for citation in bibliography_citations {
-                citation_map.entry(citation.span()).or_insert(bibliography_span);
+        // First citations from bibliographies with selectors
+        for bibliography in &bibliographies {
+            if let Smart::Custom(bibliography_selector) = &bibliography.target.get_ref(StyleChain::default()) {
+                let bibliography_span = bibliography.span();
+                let bibliography_citations = introspector.query(&bibliography_selector);
+                for citation in bibliography_citations {
+                    citation_map.entry(citation.span()).or_insert(bibliography_span);
+                }
             }
         }
+
+        // Find the bibliography for the remaining citations. Priority order:
+        // 1. First following auto bibliography containing the label
+        // 2. First preceding auto bibliography containing the label
+        for citation in citations {
+            if !citation_map.contains_key(&citation.span()) {
+                let citation_key = citation.to_packed::<CiteElem>().unwrap().key;
+                let citation_location = citation.location().unwrap();
+                if let Some(next_bib) =
+                        introspector
+                        .query(&Self::ELEM.select().after(citation_location.into(), false))
+                        .into_iter()
+                        .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                        .filter(|bibliography| {
+                            bibliography.target.get_ref(StyleChain::default()).is_auto()
+                            && bibliography.sources.derived.has(citation_key)
+                        })
+                        .next()
+                {
+                    citation_map.entry(citation.span()).or_insert(next_bib.span());
+                }
+                if let Some(prev_bib) =
+                        introspector
+                        .query(&Self::ELEM.select().before(citation_location.into(), false))
+                        .into_iter()
+                        .rev()
+                        .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                        .filter(|bibliography| {
+                            bibliography.target.get_ref(StyleChain::default()).is_auto()
+                            && bibliography.sources.derived.has(citation_key)
+                        })
+                        .next()
+                {
+                    citation_map.entry(citation.span()).or_insert(prev_bib.span());
+                }
+            }
+
+        }
+        // for bibliography in bibliographies.rev() {
+        //     let headings_before: Vec<Packed<HeadingElem>> = introspector
+        //         .query(
+        //             &HeadingElem::ELEM
+        //             .select()
+        //             .before(bibliography_location.into(), false),
+        //         )
+        //         .iter()
+        //         .map(|element| {
+        //             element.to_packed::<HeadingElem>().unwrap().clone()
+        //         })
+        //     .filter(|heading| {
+        //         heading
+        //             .level
+        //             .get(StyleChain::default())
+        //             .map(NonZeroUsize::get)
+        //             .unwrap_or(1)
+        //             <= heading_level.get()
+        //     })
+        //     .collect();
+        //     if bibliography.target.get_ref(StyleChain::default()) == Smart::Auto {
+        //         let bibliography_span = bibliography.span();
+        //         for citation in bibliography_citations {
+        //             citation_map.entry(citation.span()).or_insert(bibliography_span);
+        //         }
+        //     }
+        // }
+
         citation_map
     }
 
@@ -705,81 +768,18 @@ impl<'a> Generator<'a> {
         let citation_map = BibliographyElem::assign_citations(introspector);
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
-            let bibliography_target = &bibliography.target.get_ref(StyleChain::default());
             let bibliography_span = bibliography.span();
-            let bibliography_groups = match bibliography_target {
-                Smart::Custom(_) => {
+            let bibliography_groups =
                     citation_groups_all
                     .iter()
                     .cloned()
                     .filter(|group| {
                         let cite_group = group.to_packed::<CiteGroup>().unwrap();
-                        let cite_group_bib_span = citation_map.get(&cite_group.children.first().unwrap().span()).unwrap();
-                        *cite_group_bib_span == bibliography_span
+                        citation_map
+                            .get(&cite_group.children.first().unwrap().span())
+                            .is_some_and(|span| *span == bibliography_span)
                     })
-                    .collect()
-                }
-                // Smart::Custom(BibliographyScope::HeadingLevel(heading_level)) => {
-                //     let bibliography_location = bibliography.location().unwrap();
-                //     let headings_before: Vec<Packed<HeadingElem>> = introspector
-                //         .query(
-                //             &HeadingElem::ELEM
-                //                 .select()
-                //                 .before(bibliography_location.into(), false),
-                //         )
-                //         .iter()
-                //         .map(|element| {
-                //             element.to_packed::<HeadingElem>().unwrap().clone()
-                //         })
-                //         .filter(|heading| {
-                //             heading
-                //                 .level
-                //                 .get(StyleChain::default())
-                //                 .map(NonZeroUsize::get)
-                //                 .unwrap_or(1)
-                //                 <= heading_level.get()
-                //         })
-                //         .collect();
-                //     // Bibliography may have a title which should be ignored for selection
-                //     let after_skip =
-                //         match bibliography.title.get_ref(StyleChain::default()) {
-                //             Smart::Auto => 1,
-                //             Smart::Custom(Some(_)) => 1,
-                //             Smart::Custom(None) => 0,
-                //         };
-                //     let headings_after: Vec<Packed<HeadingElem>> = introspector
-                //         .query(
-                //             &HeadingElem::ELEM
-                //                 .select()
-                //                 .after(bibliography_location.into(), false),
-                //         )
-                //         .iter()
-                //         .map(|element| {
-                //             element.to_packed::<HeadingElem>().unwrap().clone()
-                //         })
-                //         .skip(after_skip)
-                //         .filter(|heading| {
-                //             heading.resolve_level(StyleChain::default()).get()
-                //                 <= heading_level.get()
-                //         })
-                //         .collect();
-                //     let mut selector = CiteGroup::ELEM.select();
-                //     if let Some(first_heading_before) = headings_before.last() {
-                //         selector = selector.after(
-                //             first_heading_before.location().unwrap().into(),
-                //             false,
-                //         );
-                //     }
-                //     if let Some(first_heading_after) = headings_after.first() {
-                //         selector = selector.before(
-                //             first_heading_after.location().unwrap().into(),
-                //             false,
-                //         );
-                //     }
-                //     introspector.query(&selector)
-                // }
-                Smart::Auto => citation_groups_all.clone(),
-            };
+                    .collect();
             groups.insert(bibliography.span(), bibliography_groups);
         }
         Ok(Self {
