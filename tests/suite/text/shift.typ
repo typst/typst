@@ -99,5 +99,5 @@ Foo#super[test] \
 Foo#super[test1] \
 Foo#super[(test)] \
 // Source Serif 4 does not support `sups` for backticks, so this should be
-// syntheszed.
+// synthesized.
 Foo#super[test\`]
