@@ -1115,14 +1115,22 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Create and visit the citation group.
     let s = grouped.end();
 
-    // Separate children with different bibliography
+    // Separate children with different bibliographies
     let citation_map = BibliographyElem::assign_citations(s.engine.introspector);
     let mut map = HashMap::new();
+    let mut key_order: Vec<Span> = vec![];
     for child in children.clone() {
-        map.entry(citation_map.get(&child.span())).or_insert(vec![]).push(child);
+        if let Some(bib_span) = citation_map.get(&child.span()) {
+            let entry = map.entry(bib_span);
+            entry.or_insert_with(|| {
+                key_order.push(*bib_span);
+                vec![]
+            }).push(child);
+        }
     }
 
-    for sub_children in map.values() {
+    for key in key_order {
+        let sub_children = map.get(&key).unwrap();
         let span = Span::find(sub_children.iter().map(|c| c.span()));
         let elem = CiteGroup::new(sub_children.clone()).pack().spanned(span);
         visit(s, s.store(elem), trunk)?;
