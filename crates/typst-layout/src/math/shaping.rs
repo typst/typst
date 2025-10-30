@@ -115,7 +115,7 @@ impl Glyphs {
         self.updated = None;
     }
 
-    fn original(&self) -> &Vec<ShapedGlyph> {
+    fn original(&self) -> &[ShapedGlyph] {
         &self.original
     }
 }
@@ -213,7 +213,7 @@ fn shape_impl<'a>(
     let Some(font) = selection else {
         if let Some(font) = ctx.used.first().cloned() {
             // Shape tofus.
-            let add_glyph = |(_, _)| {
+            let add_glyph = |_| {
                 ctx.glyphs.push(ShapedGlyph {
                     id: 0,
                     x_advance: font.x_advance(0).unwrap_or_default(),
@@ -222,7 +222,7 @@ fn shape_impl<'a>(
                     y_offset: Em::zero(),
                 })
             };
-            text.char_indices().for_each(add_glyph);
+            text.chars().for_each(add_glyph);
             ctx.font = Some(font);
         }
         return;
