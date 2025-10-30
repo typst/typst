@@ -65,12 +65,21 @@ impl Version {
     ///
     /// It can have any number of components (even zero).
     ///
-    /// ```example
+    /// ```example:"Constructing versions"
     /// #version() \
     /// #version(1) \
     /// #version(1, 2, 3, 4) \
     /// #version((1, 2, 3, 4)) \
     /// #version((1, 2), 3)
+    /// ```
+    ///
+    /// As a practical use case, this allows comparing the current version
+    /// ([`{sys.version}`]($version)) to a specific one.
+    ///
+    /// ```example:"Comparing with the current version"
+    /// Current version: #sys.version \
+    /// #(sys.version >= version(0, 14, 0)) \
+    /// #(version(3, 2, 0) > version(4, 1, 0))
     /// ```
     #[func(constructor)]
     pub fn construct(
