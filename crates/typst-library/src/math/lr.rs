@@ -195,6 +195,8 @@ fn create_lr_func_data(
     right: EcoString,
     bump: &'static Bump,
 ) -> NativeFuncData {
+    let title = bump.alloc(format!("{left}{right} Left/Right"));
+    let docs = bump.alloc(format!("Wraps an expression in {left}{right}."));
     NativeFuncData {
         function: NativeFuncPtr(bump.alloc(
             move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
@@ -204,8 +206,8 @@ fn create_lr_func_data(
             },
         )),
         name: "(..) => ..",
-        title: "",
-        docs: "",
+        title,
+        docs,
         keywords: &[],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
