@@ -1,6 +1,6 @@
 // Test raw blocks.
 
---- raw-empty render ---
+--- raw-empty render pdf ---
 // Empty raw block.
 Empty raw block:``.
 
@@ -8,7 +8,7 @@ Empty raw block:``.
 // No extra space.
 `A``B`
 
---- raw-typst-lang render ---
+--- raw-typst-lang render pdf ---
 // Typst syntax inside.
 ```typ #let x = 1``` \
 ```typ #f(1)```
@@ -22,13 +22,13 @@ fn code() {}
 ```
 Text
 
---- raw-more-backticks render ---
+--- raw-more-backticks render pdf ---
 // Lots of backticks inside.
 ````
 ```backticks```
 ````
 
---- raw-trimming render ---
+--- raw-trimming render pdf svg ---
 // Trimming.
 
 // Space between "rust" and "let" is trimmed.
