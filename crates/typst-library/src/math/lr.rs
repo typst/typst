@@ -1,16 +1,18 @@
-use crate::engine::Engine;
-use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, NativeElement, NativeFunc, NativeFuncData,
-    NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
-};
-use crate::layout::{Length, Rel};
-use crate::math::Mathy;
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
 use bumpalo::Bump;
 use comemo::Tracked;
 use ecow::EcoString;
-use std::collections::HashMap;
-use std::sync::LazyLock;
-use typst_macros::func;
+
+use crate::engine::Engine;
+use crate::foundations::{
+    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFunc,
+    NativeFuncData, NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
+    func,
+};
+use crate::layout::{Length, Rel};
+use crate::math::Mathy;
 
 /// Scales delimiters.
 ///
@@ -54,7 +56,7 @@ pub struct MidElem {
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: the current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of [`lr.size`]($math.lr.size).
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to floor.
@@ -72,7 +74,7 @@ pub fn floor(
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: the current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of [`lr.size`]($math.lr.size).
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to ceil.
@@ -90,7 +92,7 @@ pub fn ceil(
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: the current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of [`lr.size`]($math.lr.size).
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to round.
@@ -108,7 +110,7 @@ pub fn round(
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: the current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of [`lr.size`]($math.lr.size).
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the absolute value of.
@@ -126,7 +128,7 @@ pub fn abs(
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: the current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of [`lr.size`]($math.lr.size).
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the norm of.
@@ -135,7 +137,7 @@ pub fn norm(
     delimited(body, '‖'.into(), '‖'.into(), size)
 }
 
-/// Gets the Left/Right wrapper function corresponding to a left parenthesis, if
+/// Gets the Left/Right wrapper function corresponding to a left delimiter, if
 /// any.
 pub fn get_lr_wrapper_func(left: &str) -> Option<Func> {
     match left {
@@ -145,45 +147,50 @@ pub fn get_lr_wrapper_func(left: &str) -> Option<Func> {
     }
 }
 
+/// The delimiter pairings supported for use as callable symbols.
+const DELIMS: &[(&str, &str)] = &[
+    ("(", ")"),
+    ("⟮", "⟯"),
+    ("⦇", "⦈"),
+    ("⦅", "⦆"),
+    ("⦓", "⦔"),
+    ("⦕", "⦖"),
+    ("{", "}"),
+    ("⦃", "⦄"),
+    ("[", "]"),
+    ("⦍", "⦐"),
+    ("⦏", "⦎"),
+    ("⟦", "⟧"),
+    ("⦋", "⦌"),
+    ("❲", "❳"),
+    ("⟬", "⟭"),
+    ("⦗", "⦘"),
+    ("⟅", "⟆"),
+    ("⎰", "⎱"),
+    ("⎱", "⎰"),
+    ("⧘", "⧙"),
+    ("⧚", "⧛"),
+    ("⟨", "⟩"),
+    ("⧼", "⧽"),
+    ("⦑", "⦒"),
+    ("⦉", "⦊"),
+    ("⟪", "⟫"),
+    ("⌜", "⌝"),
+    ("⌞", "⌟"),
+];
+
 /// Lazily created left/right wrapper functions.
 static FUNCS: LazyLock<HashMap<&'static str, NativeFuncData>> = LazyLock::new(|| {
     let bump = Box::leak(Box::new(Bump::new()));
-    [
-        ("(", ")"),
-        ("⟮", "⟯"),
-        ("⦇", "⦈"),
-        ("⦅", "⦆"),
-        ("⦓", "⦔"),
-        ("⦕", "⦖"),
-        ("{", "}"),
-        ("⦃", "⦄"),
-        ("[", "]"),
-        ("⦍", "⦐"),
-        ("⦏", "⦎"),
-        ("⟦", "⟧"),
-        ("⦋", "⦌"),
-        ("❲", "❳"),
-        ("⟬", "⟭"),
-        ("⦗", "⦘"),
-        ("⟅", "⟆"),
-        ("⎰", "⎱"),
-        ("⎱", "⎰"),
-        ("⧘", "⧙"),
-        ("⧚", "⧛"),
-        ("⟨", "⟩"),
-        ("⧼", "⧽"),
-        ("⦑", "⦒"),
-        ("⦉", "⦊"),
-        ("⟪", "⟫"),
-        ("⌜", "⌝"),
-        ("⌞", "⌟"),
-    ]
-    .into_iter()
-    .map(|(l, r)| (l, create_lr_func(l.into(), r.into(), bump)))
-    .collect()
+    DELIMS
+        .iter()
+        .copied()
+        .map(|(l, r)| (l, create_lr_func_data(l.into(), r.into(), bump)))
+        .collect()
 });
 
-fn create_lr_func(
+/// Creates metadata for an accent wrapper function.
+fn create_lr_func_data(
     left: EcoString,
     right: EcoString,
     bump: &'static Bump,
@@ -193,9 +200,7 @@ fn create_lr_func(
             move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
                 let size = args.named("size")?;
                 let body = args.expect("body")?;
-                args.take().finish()?;
-                let output = delimited(body, left.clone(), right.clone(), size);
-                ::typst_library::foundations::IntoResult::into_result(output, args.span)
+                Ok(delimited(body, left.clone(), right.clone(), size).into_value())
             },
         )),
         name: "(..) => ..",
@@ -204,39 +209,43 @@ fn create_lr_func(
         keywords: &[],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
-        params: LazyLock::new(&|| {
-            vec![
-                ParamInfo {
-                    name: "size",
-                    docs: "\
-                    The size of the brackets, relative to the height of the wrapped content.\n\
-                    \n\
-                    Default: the current value of [`lr.size`]($math.lr.size).",
-                    input: Rel::<Length>::input(),
-                    default: None,
-                    positional: false,
-                    named: true,
-                    variadic: false,
-                    required: false,
-                    settable: false,
-                },
-                ParamInfo {
-                    name: "body",
-                    docs: "The expression to wrap.",
-                    input: Content::input(),
-                    default: None,
-                    positional: true,
-                    named: false,
-                    variadic: false,
-                    required: true,
-                    settable: false,
-                },
-            ]
-        }),
+        params: LazyLock::new(&|| create_lr_param_info()),
         returns: LazyLock::new(&|| CastInfo::Type(Type::of::<Content>())),
     }
 }
 
+/// Creates parameter signature metadata for an L/R function.
+fn create_lr_param_info() -> Vec<ParamInfo> {
+    vec![
+        ParamInfo {
+            name: "size",
+            docs: "\
+            The size of the brackets, relative to the height of the wrapped content.\n\
+            \n\
+            Default: The current value of [`lr.size`]($math.lr.size).",
+            input: Rel::<Length>::input(),
+            default: None,
+            positional: false,
+            named: true,
+            variadic: false,
+            required: false,
+            settable: false,
+        },
+        ParamInfo {
+            name: "body",
+            docs: "The expression to wrap.",
+            input: Content::input(),
+            default: None,
+            positional: true,
+            named: false,
+            variadic: false,
+            required: true,
+            settable: false,
+        },
+    ]
+}
+
+/// Creates an L/R element with the given delimiters.
 fn delimited(
     body: Content,
     left: EcoString,
