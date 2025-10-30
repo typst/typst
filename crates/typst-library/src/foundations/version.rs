@@ -73,7 +73,7 @@ impl Version {
     /// #version((1, 2), 3)
     /// ```
     ///
-    /// As a practical use case, it allows comparing current version
+    /// As a practical use case, this allows comparing the current version
     /// ([`{sys.version}`]($version)) to a specific one.
     ///
     /// ```example
