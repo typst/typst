@@ -189,7 +189,7 @@ static FUNCS: LazyLock<HashMap<&'static str, NativeFuncData>> = LazyLock::new(||
         .collect()
 });
 
-/// Creates metadata for an accent wrapper function.
+/// Creates metadata for an L/R wrapper function.
 fn create_lr_func_data(
     left: EcoString,
     right: EcoString,
