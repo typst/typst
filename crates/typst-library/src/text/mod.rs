@@ -1445,9 +1445,18 @@ pub fn is_default_ignorable(c: char) -> bool {
     DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
 }
 
-/// Checks for font families that are not available.
+/// Warn if the requested font families are unavailable.
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
+    // We intend to warn if some codepoints cannot be rendered by any
+    // of the fonts listed. Some fonts may be restricted to cover only
+    // certain codepoints, but taking these restrictions into account
+    // is too complex; instead we ignore these restricted fonts --
+    // assuming that some codepoints will not match any of them. We
+    // warn if there is at least one unrestricted font and none of
+    // unrestricted fonts are available.
     let book = engine.world.book();
+    let mut found_available_font = false;
+    let mut missing = vec![];
     for family in &list.v {
         match book.select_family(family.as_str()).next() {
             Some(index) => {
@@ -1460,13 +1469,26 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                         "variable fonts are not currently supported and may render incorrectly";
                         hint: "try installing a static version of \"{}\" instead", family.as_str()
                     ))
+                };
+                if family.covers.is_none() {
+                    // we found at least one available font with no cover restriction
+                    found_available_font = true;
                 }
             }
-            None => engine.sink.warn(warning!(
+            None => missing.push(family.as_str()),
+        }
+    }
+    if !missing.is_empty() && !found_available_font {
+        if missing.len() == 1 {
+            engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
-                family.as_str(),
-            )),
+                missing.into_iter().next().unwrap(),
+            ))
+        } else {
+            engine
+                .sink
+                .warn(warning!(list.span, "unknown font families: {:?}", missing,))
         }
     }
 }
