@@ -177,13 +177,13 @@ impl<'a> Runner<'a> {
         doc: &Option<T::Doc>,
         save_live: bool,
     ) {
-        let save_ref = self.test.attrs.stages.contains(T::OUTPUT.into());
-        if !(save_ref || save_live) {
+        if !(save_live || self.test.attrs.stages.contains(T::OUTPUT.into())) {
             return;
         }
+
         let output = self.run_test::<T>(doc);
-        if save_ref {
-            self.check_file_output::<T>(output)
+        if self.test.attrs.save_ref(T::OUTPUT) {
+            self.check_file_ref::<T>(output)
         }
     }
 
@@ -192,13 +192,13 @@ impl<'a> Runner<'a> {
         doc: &Option<T::Doc>,
         save_live: bool,
     ) {
-        let save_ref = self.test.attrs.stages.contains(T::OUTPUT.into());
-        if !(save_ref || save_live) {
+        if !(save_live || self.test.attrs.stages.contains(T::OUTPUT.into())) {
             return;
         }
+
         let output = self.run_test::<T>(doc);
-        if save_ref {
-            self.check_hash_output::<T>(output)
+        if self.test.attrs.save_ref(T::OUTPUT) {
+            self.check_hash_ref::<T>(output)
         }
     }
 
@@ -241,10 +241,7 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_file_output<T: FileOutputType>(
-        &mut self,
-        output: Option<(T::Doc, T::Live)>,
-    ) {
+    fn check_file_ref<T: FileOutputType>(&mut self, output: Option<(T::Doc, T::Live)>) {
         let live_path = self.live_path::<T>();
         let ref_path = self.file_ref_path::<T>();
 
@@ -323,10 +320,7 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_hash_output<T: HashOutputType>(
-        &mut self,
-        output: Option<(T::Doc, T::Live)>,
-    ) {
+    fn check_hash_ref<T: HashOutputType>(&mut self, output: Option<(T::Doc, T::Live)>) {
         let live_path = self.live_path::<T>();
 
         let source_path = self.test.source.id().vpath();

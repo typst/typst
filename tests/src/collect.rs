@@ -69,6 +69,7 @@ bitflags! {
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
         const NOPDFUA = 1 << 1;
+        const DIAGNOSTIC = 1 << 2;
     }
 }
 
@@ -76,7 +77,14 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub pdf_ua: bool,
+    pub diagnostic: bool,
     pub stages: TestStages,
+}
+
+impl Attrs {
+    pub fn save_ref(&self, output: TestOutput) -> bool {
+        self.stages.contains(output.into()) && !self.diagnostic
+    }
 }
 
 pub trait TestStage: Into<TestStages> + Display + Copy {}
@@ -495,6 +503,12 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            if attrs.diagnostic && notes.is_empty() {
+                self.error(
+                    "`diagnostic` tests must specify at least one diagnostic note",
+                );
+            }
+
             self.collector.tests.push(Test { pos, name, source, notes, attrs });
         }
     }
@@ -514,6 +528,7 @@ impl<'a> Parser<'a> {
 
                 "large" => self.set_attr(attr, &mut flags, AttrFlags::LARGE),
                 "nopdfua" => self.set_attr(attr, &mut flags, AttrFlags::NOPDFUA),
+                "diagnostic" => self.set_attr(attr, &mut flags, AttrFlags::DIAGNOSTIC),
 
                 found => {
                     self.error(format!(
@@ -532,6 +547,7 @@ impl<'a> Parser<'a> {
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
             pdf_ua: !flags.contains(AttrFlags::NOPDFUA),
+            diagnostic: flags.contains(AttrFlags::DIAGNOSTIC),
             stages,
         }
     }
