@@ -10,7 +10,7 @@ use typst_library::text::{Font, FontFamily, FontVariant, Glyph, Lang, Region, Te
 use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 
-use crate::inline::create_shape_plan;
+use crate::inline::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 /// A text item in Math.
 ///
@@ -165,11 +165,6 @@ pub fn shape(
 /// Holds shaping results and metadata for shaping some text.
 struct ShapingContext<'a> {
     world: Tracked<'a, dyn World + 'a>,
-    /// Font families that have been used with unlimited coverage.
-    ///
-    /// These font families are considered exhausted and will not be used
-    /// again, even if they are declared again (e.g., during fallback after
-    /// normal selection).
     used: Vec<Font>,
     variant: FontVariant,
     features: Vec<rustybuzz::Feature>,
@@ -179,40 +174,36 @@ struct ShapingContext<'a> {
     font: Option<Font>,
 }
 
+impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
+    fn world(&self) -> Tracked<'a, dyn World + 'a> {
+        self.world
+    }
+
+    fn used(&mut self) -> &mut Vec<Font> {
+        &mut self.used
+    }
+
+    fn first(&self) -> Option<&Font> {
+        self.used.first()
+    }
+
+    fn variant(&self) -> FontVariant {
+        self.variant
+    }
+
+    fn fallback(&self) -> bool {
+        self.fallback
+    }
+}
+
 /// Shape text with font fallback using the `families` iterator.
 fn shape_impl<'a>(
-    ctx: &mut ShapingContext,
+    ctx: &mut ShapingContext<'a>,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {
-    // Find the next available family.
-    let book = ctx.world.book();
-    let mut selection = None;
-    let mut covers = None;
-    for family in families.by_ref() {
-        selection = book
-            .select(family.as_str(), ctx.variant)
-            .and_then(|id| ctx.world.font(id))
-            .filter(|font| !ctx.used.contains(font));
-        if selection.is_some() {
-            covers = family.covers();
-            break;
-        }
-    }
-
-    // Do font fallback if the families are exhausted and fallback is enabled.
-    if selection.is_none() && ctx.fallback {
-        let first = ctx.used.first().map(Font::info);
-        selection = book
-            .select_fallback(first, ctx.variant, text)
-            .and_then(|id| ctx.world.font(id))
-            .filter(|font| !ctx.used.contains(font))
-    }
-
-    // Extract the font id or shape notdef glyphs if we couldn't find any font.
-    let Some(font) = selection else {
-        if let Some(font) = ctx.used.first().cloned() {
-            // Shape tofus.
+    let Some((font, covers)) =
+        get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
             let add_glyph = |_| {
                 ctx.glyphs.push(ShapedGlyph {
                     id: 0,
@@ -224,14 +215,10 @@ fn shape_impl<'a>(
             };
             text.chars().for_each(add_glyph);
             ctx.font = Some(font);
-        }
+        })
+    else {
         return;
     };
-
-    // This font has been exhausted and will not be used again.
-    if covers.is_none() {
-        ctx.used.push(font.clone());
-    }
 
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
