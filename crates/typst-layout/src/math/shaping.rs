@@ -254,9 +254,11 @@ fn shape_impl<'a>(
     );
 
     let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
-    // Because we will only ever shape single grapheme clusters, we can assume
-    // that the output from the shaper is a single cluster that spans the
-    // entire range of the given text.
+    // Because we will only ever shape single grapheme clusters, we will
+    // (incorrectly) assume that the output from the shaper is a single cluster
+    // that spans the entire range of the given text. The only problem this
+    // could cause is the ranges for glyphs being incorrect in the final
+    // `TextItem`, which could then affect text extraction in PDF export.
 
     if buffer.glyph_infos().iter().any(|i| i.glyph_id == 0)
         || !covers.is_none_or(|cov| cov.is_match(text))
