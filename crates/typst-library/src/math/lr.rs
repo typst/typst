@@ -195,8 +195,9 @@ fn create_lr_func_data(
     right: EcoString,
     bump: &'static Bump,
 ) -> NativeFuncData {
-    let title = bump.alloc(format!("{left}{right} Left/Right"));
-    let docs = bump.alloc(format!("Wraps an expression in {left}{right}."));
+    let title = bumpalo::format!(in bump, "{}{} Left/Right", left, right).into_bump_str();
+    let docs = bumpalo::format!(in bump, "Wraps an expression in {}{}.", left, right)
+        .into_bump_str();
     NativeFuncData {
         function: NativeFuncPtr(bump.alloc(
             move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
