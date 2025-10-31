@@ -33,6 +33,11 @@ $ (dif y)/(dif x), dif/x, x/dif, dif/dif \
 // Test associativity.
 $ 1/2/3 = (1/2)/3 = 1/(2/3) $
 
+--- math-frac-tan-sin-cos ---
+// A nice simple example of a simple trig property.
+$ tan(x) = sin(x) / cos(x) \
+  tan x = (sin x) / (cos x) $
+
 --- math-frac-precedence ---
 // Test precedence.
 $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
@@ -41,6 +46,16 @@ $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
   +[x]/2, 1(x)/2, 2[x]/2, 🏳️‍🌈[x]/2 \
   (a)b/2, b(a)[b]/2 \
   n!/2, 5!/2, n !/2, 1/n!, 1/5! $
+
+--- math-frac-implicit-func ---
+// Test other precedence interactions with implicit function calls.
+$
+  f'(x) / f_pi{x} \
+  sin^2(x) / f_0(x) quad f!(x) / g^(-1)(x) \
+  a_\u{2a}[|x} / a_"2a"{x|] quad f_pi.alt{x} / f_#math.pi.alt{x} \
+  a(b)_c(d)^e(f) / g(h)'_i(j)' \
+  (x)'(x)'(x)' / (x)'(x)'(x)' \
+$
 
 --- math-frac-gap ---
 // Test that the gap above and below the fraction rule is correct.
