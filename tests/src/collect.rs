@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use bitflags::bitflags;
+use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_syntax::package::PackageVersion;
@@ -12,6 +12,9 @@ use typst_syntax::{
     FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
 };
 use unscanny::Scanner;
+
+use crate::output::HashedRefs;
+use crate::run::hashed_ref_path;
 
 /// Collects all tests from all files.
 ///
@@ -63,30 +66,10 @@ impl Display for FilePos {
 
 bitflags! {
     #[derive(Copy, Clone)]
-    struct AttrFlags: u8 {
-        const RENDER = 1 << 0;
-        const HTML = 1 << 1;
-        const PDFTAGS = 1 << 2;
-        const LARGE = 1 << 3;
-        const NOPDFUA = 1 << 4;
-    }
-}
-
-impl AttrFlags {
-    const NON_RENDER: Self = Self::HTML.union(Self::PDFTAGS);
-
-    pub fn targets(self) -> Targets {
-        let mut targets = Targets::empty();
-        if self.contains(Self::RENDER) || (self & Self::NON_RENDER).is_empty() {
-            targets |= Targets::RENDER;
-        }
-        if self.contains(Self::HTML) {
-            targets |= Targets::HTML;
-        }
-        if self.contains(Self::PDFTAGS) {
-            targets |= Targets::PDFTAGS;
-        }
-        targets
+    struct AttrFlags: u16 {
+        const LARGE = 1 << 0;
+        const NOPDFUA = 1 << 1;
+        const DIAGNOSTIC = 1 << 2;
     }
 }
 
@@ -94,27 +77,131 @@ impl AttrFlags {
 pub struct Attrs {
     pub large: bool,
     pub pdf_ua: bool,
-    pub targets: Targets,
+    pub diagnostic: bool,
+    pub stages: TestStages,
 }
+
+impl Attrs {
+    pub fn save_ref(&self, output: TestOutput) -> bool {
+        self.stages.contains(output.into()) && !self.diagnostic
+    }
+}
+
+pub trait TestStage: Into<TestStages> + Display + Copy {}
 
 bitflags! {
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-    pub struct Targets: u8 {
-        const RENDER = 0x1;
-        const HTML = 0x2;
-        const PDFTAGS = 0x4;
+    pub struct TestStages: u8 {
+        const PAGED = 1 << 0;
+        const RENDER = 1 << 1;
+        const PDF = 1 << 2;
+        const PDFTAGS = 1 << 3;
+        const SVG =  1 << 4;
+        const HTML =  1 << 5;
     }
 }
 
-impl Targets {
-    pub fn from_file_extension(ext: &str) -> Option<Self> {
-        Some(match ext {
-            "png" => Self::RENDER,
-            "html" => Self::HTML,
-            "yml" => Self::PDFTAGS,
-            _ => return None,
+impl TestStages {
+    pub fn has_paged_target(&self) -> bool {
+        self.intersects(
+            Self::PAGED | Self::RENDER | Self::PDF | Self::PDFTAGS | Self::SVG,
+        )
+    }
+
+    pub fn has_html_target(&self) -> bool {
+        self.intersects(Self::HTML)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum TestTarget {
+    Paged = TestStages::PAGED.bits(),
+    Html = TestStages::HTML.bits(),
+}
+
+impl TestStage for TestTarget {}
+
+impl From<TestTarget> for TestStages {
+    fn from(value: TestTarget) -> Self {
+        TestStages::from_bits(value as u8).unwrap()
+    }
+}
+
+impl Display for TestTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TestTarget::Paged => "paged",
+            TestTarget::Html => "html",
         })
     }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum TestOutput {
+    Render = TestStages::RENDER.bits(),
+    Pdf = TestStages::PDF.bits(),
+    Pdftags = TestStages::PDFTAGS.bits(),
+    Svg = TestStages::SVG.bits(),
+    Html = TestStages::HTML.bits(),
+}
+
+impl TestOutput {
+    pub const ALL: [Self; 5] =
+        [Self::Render, Self::Pdf, Self::Pdftags, Self::Svg, Self::Html];
+
+    pub const fn sub_dir(&self) -> &'static str {
+        match self {
+            Self::Render => "render",
+            Self::Pdf => "pdf",
+            Self::Pdftags => "pdftags",
+            Self::Svg => "svg",
+            Self::Html => "html",
+        }
+    }
+
+    pub const fn extension(&self) -> &'static str {
+        match self {
+            Self::Render => "png",
+            Self::Pdf => "pdf",
+            Self::Pdftags => "yml",
+            Self::Svg => "svg",
+            Self::Html => "html",
+        }
+    }
+
+    fn from_sub_dir(dir: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|o| o.sub_dir() == dir)
+    }
+
+    fn kind(&self) -> TestOutputKind {
+        match self {
+            TestOutput::Render | TestOutput::Pdftags | TestOutput::Html => {
+                TestOutputKind::File
+            }
+            TestOutput::Pdf | TestOutput::Svg => TestOutputKind::Hash,
+        }
+    }
+}
+
+impl TestStage for TestOutput {}
+
+impl From<TestOutput> for TestStages {
+    fn from(value: TestOutput) -> Self {
+        TestStages::from_bits(value as u8).unwrap()
+    }
+}
+
+impl Display for TestOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.sub_dir())
+    }
+}
+
+enum TestOutputKind {
+    Hash,
+    File,
 }
 
 /// The size of a file.
@@ -221,41 +308,105 @@ impl Collector {
     fn walk_references(&mut self) {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
-            let path = entry.path();
-            let Some(file_target) = path.extension().and_then(|ext| {
-                let str = ext.to_str()?;
-                Targets::from_file_extension(str)
-            }) else {
+            if !entry.file_type().is_file() {
                 continue;
-            };
-
-            let stem = path.file_stem().unwrap().to_string_lossy();
-            let name = &*stem;
-
-            let Some((pos, attrs)) = self.seen.get(name) else {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, 0),
-                    message: "dangling reference output".into(),
-                });
-                continue;
-            };
-
-            if !attrs.targets.contains(file_target) {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, 0),
-                    message: "dangling reference output".into(),
-                });
             }
 
-            let len = path.metadata().unwrap().len() as usize;
-            if !attrs.large && len > crate::REF_LIMIT {
-                self.errors.push(TestParseError {
-                    pos: pos.clone(),
-                    message: format!(
-                        "reference output size exceeds {}, but the test is not marked as `large`",
-                        FileSize(crate::REF_LIMIT),
-                    ),
-                });
+            let path = entry.path();
+            let sub_path = path.strip_prefix(crate::REF_PATH).unwrap();
+            let sub_dir = sub_path.components().next().unwrap();
+            let Some(test_output) =
+                TestOutput::from_sub_dir(sub_dir.as_os_str().to_str().unwrap())
+            else {
+                continue;
+            };
+
+            match test_output.kind() {
+                TestOutputKind::Hash => {
+                    let string = std::fs::read_to_string(path).unwrap_or_default();
+                    if let Ok(hashed_refs) = HashedRefs::from_str(&string) {
+                        if hashed_refs.is_empty() {
+                            self.errors.push(TestParseError {
+                                pos: FilePos::new(path, 0),
+                                message: "dangling empty reference hash file".into(),
+                            });
+                        }
+
+                        let mut right_file = 0;
+                        let mut wrong_file = Vec::new();
+                        for (line, name) in hashed_refs.keys().enumerate() {
+                            let Some((pos, attrs)) = self.seen.get(name) else {
+                                self.errors.push(TestParseError {
+                                    pos: FilePos::new(path, line),
+                                    message: format!("dangling reference hash ({name})"),
+                                });
+                                continue;
+                            };
+
+                            if !attrs.stages.contains(test_output.into()) {
+                                self.errors.push(TestParseError {
+                                    pos: FilePos::new(path, line),
+                                    message: format!("dangling reference hash ({name})"),
+                                });
+                                continue;
+                            }
+
+                            if hashed_ref_path(test_output, &pos.path) == path {
+                                right_file += 1;
+                            } else {
+                                wrong_file.push((line, name));
+                            }
+                        }
+
+                        if !wrong_file.is_empty() {
+                            if right_file == 0 {
+                                self.errors.push(TestParseError {
+                                    pos: FilePos::new(path, 0),
+                                    message: "dangling reference hash file".into(),
+                                });
+                            } else {
+                                for (line, name) in wrong_file {
+                                    self.errors.push(TestParseError {
+                                        pos: FilePos::new(path, line),
+                                        message: format!(
+                                            "dangling reference hash ({name})"
+                                        ),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                TestOutputKind::File => {
+                    let stem = path.file_stem().unwrap().to_string_lossy();
+                    let name = &*stem;
+
+                    let Some((pos, attrs)) = self.seen.get(name) else {
+                        self.errors.push(TestParseError {
+                            pos: FilePos::new(path, 0),
+                            message: "dangling reference output".into(),
+                        });
+                        continue;
+                    };
+
+                    if !attrs.stages.contains(test_output.into()) {
+                        self.errors.push(TestParseError {
+                            pos: FilePos::new(path, 0),
+                            message: "dangling reference output".into(),
+                        });
+                    }
+
+                    let len = path.metadata().unwrap().len() as usize;
+                    if !attrs.large && len > crate::REF_LIMIT {
+                        self.errors.push(TestParseError {
+                            pos: pos.clone(),
+                            message: format!(
+                                "reference output size exceeds {}, but the test is not marked as `large`",
+                                FileSize(crate::REF_LIMIT),
+                            ),
+                        });
+                    }
+                }
             }
         }
     }
@@ -352,39 +503,60 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            if attrs.diagnostic && notes.is_empty() {
+                self.error(
+                    "`diagnostic` tests must specify at least one diagnostic note",
+                );
+            }
+
             self.collector.tests.push(Test { pos, name, source, notes, attrs });
         }
     }
 
     fn parse_attrs(&mut self) -> Attrs {
-        let mut parsed = AttrFlags::empty();
+        let mut flags = AttrFlags::empty();
+        let mut stages = TestStages::empty();
         while !self.s.eat_if("---") {
             let attr = self.s.eat_until(char::is_whitespace);
-            let flag = match attr {
-                "large" => AttrFlags::LARGE,
-                "html" => AttrFlags::HTML,
-                "render" => AttrFlags::RENDER,
-                "pdftags" => AttrFlags::PDFTAGS,
-                "nopdfua" => AttrFlags::NOPDFUA,
+            match attr {
+                "paged" => self.set_attr(attr, &mut stages, TestStages::PAGED),
+                "render" => self.set_attr(attr, &mut stages, TestStages::RENDER),
+                "pdf" => self.set_attr(attr, &mut stages, TestStages::PDF),
+                "pdftags" => self.set_attr(attr, &mut stages, TestStages::PDFTAGS),
+                "svg" => self.set_attr(attr, &mut stages, TestStages::SVG),
+                "html" => self.set_attr(attr, &mut stages, TestStages::HTML),
+
+                "large" => self.set_attr(attr, &mut flags, AttrFlags::LARGE),
+                "nopdfua" => self.set_attr(attr, &mut flags, AttrFlags::NOPDFUA),
+                "diagnostic" => self.set_attr(attr, &mut flags, AttrFlags::DIAGNOSTIC),
+
                 found => {
                     self.error(format!(
                         "expected attribute or closing ---, found `{found}`"
                     ));
                     break;
                 }
-            };
-            if parsed.contains(flag) {
-                self.error(format!("duplicate attribute `{attr}`"));
             }
-            parsed.insert(flag);
             self.s.eat_while(' ');
         }
 
-        Attrs {
-            large: parsed.contains(AttrFlags::LARGE),
-            pdf_ua: !parsed.contains(AttrFlags::NOPDFUA),
-            targets: parsed.targets(),
+        if stages.is_empty() {
+            self.error("tests must specify at least one target or output");
         }
+
+        Attrs {
+            large: flags.contains(AttrFlags::LARGE),
+            pdf_ua: !flags.contains(AttrFlags::NOPDFUA),
+            diagnostic: flags.contains(AttrFlags::DIAGNOSTIC),
+            stages,
+        }
+    }
+
+    fn set_attr<F: Flags + Copy>(&mut self, attr: &str, flags: &mut F, flag: F) {
+        if flags.contains(flag) {
+            self.error(format!("duplicate attribute `{attr}`"));
+        }
+        flags.insert(flag);
     }
 
     /// Skips the preamble of a test.

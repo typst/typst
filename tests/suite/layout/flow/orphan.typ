@@ -1,13 +1,13 @@
 // Test that lines and headings doesn't become orphan.
 
---- flow-heading-no-orphan ---
+--- flow-heading-no-orphan render ---
 #set page(height: 100pt)
 #lines(4)
 
 = Introduction
 A
 
---- flow-par-no-orphan-and-widow-lines ---
+--- flow-par-no-orphan-and-widow-lines render ---
 #set page(width: 60pt, height: 140pt)
 #set text(weight: 700)
 
@@ -29,12 +29,12 @@ A
 #set text(olive)
 #lines(3)
 
---- flow-widow-forced ---
+--- flow-widow-forced render ---
 // Ensure that a widow is allowed when the three lines don't all fit.
 #set page(height: 50pt)
 #lines(3)
 
---- issue-1445-widow-orphan-unnecessary-skip ---
+--- issue-1445-widow-orphan-unnecessary-skip render ---
 // Ensure that widow/orphan prevention doesn't unnecessarily move things
 // to another page.
 #set page(width: 16cm)

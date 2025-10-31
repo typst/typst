@@ -20,7 +20,9 @@ macro_rules! test_eq {
 
 /// Run special checks for specific tests for which it is not worth it to create
 /// custom annotations.
-pub fn check(test: &Test, world: &TestWorld, doc: Option<&PagedDocument>) -> String {
+pub fn check(test: &Test, world: &TestWorld, doc: &Option<PagedDocument>) -> String {
+    let doc = doc.as_ref();
+
     let mut sink = String::new();
     match test.name.as_str() {
         "document-set-author-date" => {

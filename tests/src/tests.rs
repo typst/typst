@@ -9,6 +9,8 @@ mod logger;
 #[cfg(feature = "default")]
 mod custom;
 #[cfg(feature = "default")]
+mod output;
+#[cfg(feature = "default")]
 mod run;
 #[cfg(feature = "default")]
 mod world;
@@ -145,6 +147,9 @@ fn test() {
 
         sender.send(()).unwrap();
     });
+
+    run::update_hash_refs::<output::Pdf>();
+    run::update_hash_refs::<output::Svg>();
 
     let passed = logger.into_inner().finish();
     if !passed {
