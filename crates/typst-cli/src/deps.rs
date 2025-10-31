@@ -1,5 +1,5 @@
-use std::ffi::OsString;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use serde::Serialize;
 
@@ -31,8 +31,8 @@ fn write_deps_json(
     dest: &Output,
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
-    let decode = |dep: OsString, kind| {
-        dep.into_string().map_err(|dep| {
+    let to_string = |dep: PathBuf, kind| {
+        dep.into_os_string().into_string().map_err(|dep| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("{kind} {dep:?} is not valid utf-8"),
@@ -41,7 +41,7 @@ fn write_deps_json(
     };
 
     let inputs = relative_dependencies(world)?
-        .map(|dep| decode(dep, "input"))
+        .map(|dep| to_string(dep, "input"))
         .collect::<Result<Vec<_>, _>>()?;
 
     let outputs = outputs
@@ -50,9 +50,7 @@ fn write_deps_json(
                 .iter()
                 .filter_map(|output| {
                     match output {
-                        Output::Path(path) => {
-                            Some(decode(path.clone().into_os_string(), "output"))
-                        }
+                        Output::Path(path) => Some(to_string(path.clone(), "output")),
                         // Skip stdout
                         Output::Stdout => None,
                     }
@@ -76,7 +74,7 @@ fn write_deps_json(
 fn write_deps_zero(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
     let mut dest = dest.open()?;
     for dep in relative_dependencies(world)? {
-        dest.write_all(dep.as_encoded_bytes())?;
+        dest.write_all(dep.as_os_str().as_encoded_bytes())?;
         dest.write_all(b"\0")?;
     }
     Ok(())
@@ -167,7 +165,7 @@ fn munge(s: &str) -> String {
 /// current directory.
 fn relative_dependencies(
     world: &mut SystemWorld,
-) -> io::Result<impl Iterator<Item = OsString>> {
+) -> io::Result<impl Iterator<Item = PathBuf>> {
     let root = world.root().to_owned();
     let current_dir = std::env::current_dir()?;
     let relative_root =
@@ -176,6 +174,5 @@ fn relative_dependencies(
         dependency
             .strip_prefix(&root)
             .map_or_else(|_| dependency.clone(), |x| relative_root.join(x))
-            .into_os_string()
     }))
 }
