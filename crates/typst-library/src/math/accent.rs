@@ -104,7 +104,9 @@ impl Accent {
         ACCENTS
             .iter()
             .copied()
-            .find(|(_, names)| names.contains(&s))
+            .find(|(accent, names)| {
+                accent.encode_utf8(&mut [0; 4]) == s || names.contains(&s)
+            })
             .map(|(accent, _)| accent)
     }
 
