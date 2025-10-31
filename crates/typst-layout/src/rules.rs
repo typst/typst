@@ -262,6 +262,11 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .spanned(span);
         let align = styles.resolve(AlignElem::alignment);
 
+        // Add a weak space (of any width) to disable CJ punctuation adjustment.
+        // We select this specific width to make it reusable.
+        let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
+        let numbering_and_spacing = numbering + spacing;
+
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
@@ -270,7 +275,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             let link = LocatorLink::measure(location);
             let size = (engine.routines.layout_frame)(
                 engine,
-                &numbering,
+                &numbering_and_spacing,
                 Locator::link(&link),
                 styles,
                 pod,
@@ -280,9 +285,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
         }
 
-        let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
-
-        realized = numbering + spacing + realized;
+        realized = numbering_and_spacing + realized;
     }
 
     let block = if indent != Abs::zero() {

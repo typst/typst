@@ -101,6 +101,17 @@ comment spans lines
 #set heading(numbering: "1.1.a.")
 = State of the Art
 
+--- heading-hanging-indent-auto-cj-punct ---
+#set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC", fallback: false)
+
+// If the numbering ends with a CJ punctuation and its width is allowed to be shrunk or stretched,
+// then the heading should still be aligned.
+#set heading(numbering: "一、")
+= 犹可说也不可说也
+
+#set heading(numbering: "一口")
+= 犹可说也不可说也
+
 --- heading-hanging-indent-auto-center-align ---
 #set heading(numbering: "1.1.a.")
 #show heading: set align(center)
