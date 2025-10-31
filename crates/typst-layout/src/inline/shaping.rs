@@ -4,9 +4,9 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use az::SaturatingAs;
-use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
-use ttf_parser::Tag;
+use rustybuzz::{BufferFlags, Feature, GlyphBuffer, ShapePlan, UnicodeBuffer};
 use ttf_parser::gsub::SubstitutionSubtable;
+use ttf_parser::{GlyphId, Tag};
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
@@ -897,56 +897,57 @@ fn shape_segment<'a>(
         ctx.used.push(font.clone());
     }
 
-    // Fill the buffer with our text.
-    let mut buffer = UnicodeBuffer::new();
-    buffer.push_str(text);
-    buffer.set_language(language(ctx.styles));
-    if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
+    let script = ctx.styles.get(TextElem::script).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
-    }) {
-        buffer.set_script(script)
-    }
-    buffer.set_direction(match ctx.dir {
+    });
+    let dir = match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
         Dir::RTL => rustybuzz::Direction::RightToLeft,
         _ => unimplemented!("vertical text layout"),
-    });
-    buffer.guess_segment_properties();
+    };
 
-    // By default, Harfbuzz will create zero-width space glyphs for default
-    // ignorables. This is probably useful for GUI apps that want noticeable
-    // effects on the cursor for those, but for us it's not useful and hurts
-    // text extraction.
-    buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
-
-    let (script_shift, script_compensation, scale, shift_feature) = ctx
-        .shift_settings
-        .map_or((Em::zero(), Em::zero(), Em::one(), None), |settings| {
-            determine_shift(text, &font, settings)
-        });
-
-    let has_shift_feature = shift_feature.is_some();
-    if let Some(feat) = shift_feature {
-        // Temporarily push the feature.
-        ctx.features.push(feat)
-    }
-
-    // Prepare the shape plan. This plan depends on direction, script, language,
-    // and features, but is independent from the text and can thus be memoized.
-    let plan = create_shape_plan(
+    // Shape!
+    let mut buffer = shape_segment_with_font(
+        UnicodeBuffer::new(),
+        text,
+        language(ctx.styles),
+        script,
+        dir,
         &font,
-        buffer.direction(),
-        buffer.script(),
-        buffer.language().as_ref(),
         &ctx.features,
     );
 
-    if has_shift_feature {
-        ctx.features.pop();
-    }
+    // Now that we know which glyphs we use, test whether the font provides
+    // `subs`/`sups` version if needed.
+    let mut script_shift = Em::zero();
+    let mut script_compensation = Em::zero();
+    let mut scale = Em::one();
+    if let Some(settings) = ctx.shift_settings {
+        if settings.typographic
+            && are_glyphs_covered(&buffer, &font, settings.kind.feature())
+        {
+            // We can use the font feature :)
+            // Shape again, with the feature enabled.
+            ctx.features.push(Feature::new(settings.kind.feature(), 1, ..));
+            buffer = shape_segment_with_font(
+                buffer.clear(),
+                text,
+                language(ctx.styles),
+                script,
+                dir,
+                &font,
+                &ctx.features,
+            );
+            ctx.features.pop();
+        } else {
+            // We have to synthesize the glyphs :(
+            let script_metrics = settings.kind.read_metrics(font.metrics());
+            script_shift = settings.shift.unwrap_or(script_metrics.vertical_offset);
+            script_compensation = script_metrics.horizontal_offset;
+            scale = settings.size.unwrap_or(script_metrics.height);
+        }
+    };
 
-    // Shape!
-    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
@@ -1079,62 +1080,78 @@ fn shape_segment<'a>(
     ctx.used.pop();
 }
 
-/// Returns a `(script_shift, script_compensation, scale, feature)` quadruplet
-/// describing how to produce scripts.
+/// Shapes text with a given font and OpenType features.
 ///
-/// Those values determine how the rendered text should be transformed to
-/// display sub-/super-scripts. If the OpenType feature can be used, the
-/// rendered text should not be transformed in any way, and so those values are
-/// neutral (`(0, 0, 1, None)`). If scripts should be synthesized, those values
-/// determine how to transform the rendered text to display scripts as expected.
-fn determine_shift(
+/// Accepts an empty [`UnicodeBuffer`] to use in order to prevent unnecessary
+/// allocations.
+fn shape_segment_with_font(
+    mut buffer: UnicodeBuffer,
     text: &str,
+    language: rustybuzz::Language,
+    script: Option<rustybuzz::Script>,
+    direction: rustybuzz::Direction,
     font: &Font,
-    settings: ShiftSettings,
-) -> (Em, Em, Em, Option<Feature>) {
-    settings
-        .typographic
-        .then(|| {
-            // If typographic scripts are enabled (i.e., we want to use the
-            // OpenType feature instead of synthesizing if possible), we add
-            // "subs"/"sups" to the feature list if supported by the font.
-            // In case of a problem, we just early exit
-            let gsub = font.rusty().tables().gsub?;
-            let subtable_index =
-                gsub.features.find(settings.kind.feature())?.lookup_indices.get(0)?;
-            let coverage = gsub
-                .lookups
-                .get(subtable_index)?
-                .subtables
-                .get::<SubstitutionSubtable>(0)?
-                .coverage();
-            text.chars()
-                .all(|c| {
-                    font.rusty().glyph_index(c).is_some_and(|i| coverage.contains(i))
-                })
-                .then(|| {
-                    // If we can use the OpenType feature, we can keep the text
-                    // as is.
-                    (
-                        Em::zero(),
-                        Em::zero(),
-                        Em::one(),
-                        Some(Feature::new(settings.kind.feature(), 1, ..)),
-                    )
-                })
-        })
-        // Reunite the cases where `typographic` is `false` or where using the
-        // OpenType feature would not work.
-        .flatten()
-        .unwrap_or_else(|| {
-            let script_metrics = settings.kind.read_metrics(font.metrics());
-            (
-                settings.shift.unwrap_or(script_metrics.vertical_offset),
-                script_metrics.horizontal_offset,
-                settings.size.unwrap_or(script_metrics.height),
-                None,
-            )
-        })
+    features: &[Feature],
+) -> GlyphBuffer {
+    debug_assert!(buffer.is_empty());
+
+    // Fill the buffer with our text.
+    buffer.push_str(text);
+    buffer.set_language(language);
+    if let Some(script) = script {
+        buffer.set_script(script)
+    }
+    buffer.set_direction(direction);
+    buffer.guess_segment_properties();
+
+    // By default, Harfbuzz will create zero-width space glyphs for default
+    // ignorables. This is probably useful for GUI apps that want noticeable
+    // effects on the cursor for those, but for us it's not useful and hurts
+    // text extraction.
+    buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
+
+    // Prepare the shape plan. This plan depends on direction, script, language,
+    // and features, but is independent from the text and can thus be memoized.
+    let plan = create_shape_plan(
+        font,
+        buffer.direction(),
+        buffer.script(),
+        buffer.language().as_ref(),
+        features,
+    );
+
+    rustybuzz::shape_with_plan(font.rusty(), &plan, buffer)
+}
+
+/// Tests whether a feature covers all the glyphs of a buffer for a font.
+fn are_glyphs_covered(glyphs: &GlyphBuffer, font: &Font, feature: Tag) -> bool {
+    let Some(gsub) = font.rusty().tables().gsub else {
+        return false;
+    };
+    let Some(feature_table) = gsub.features.find(feature) else {
+        return false;
+    };
+    let is_covered = |g| {
+        feature_table
+            .lookup_indices
+            .into_iter()
+            .flat_map(|lookup_index| {
+                gsub.lookups
+                    .get(lookup_index)
+                    .expect("font provided lookup index should be valid")
+                    .subtables
+                    .into_iter::<SubstitutionSubtable>()
+                    .map(|table| table.coverage())
+            })
+            .any(|coverage| coverage.contains(g))
+    };
+    glyphs
+        .glyph_infos()
+        .iter()
+        // The cast should always work as per `glyph_id`'s doc comment.
+        // I'm surprised `hb_glyph_info_t::as_glyph`, which performs this exact
+        // cast, isn't public...
+        .all(|g| is_covered(GlyphId(g.glyph_id as u16)))
 }
 
 /// Create a shape plan.
