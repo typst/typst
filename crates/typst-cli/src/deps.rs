@@ -42,8 +42,16 @@ fn write_deps_json(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut outputs2: Vec<String> = Vec::new();
+    #[derive(Serialize)]
+    struct Deps {
+        inputs: Vec<String>,
+        outputs: Option<Vec<String>>,
+    }
+
+    let mut deps = Deps { inputs, outputs: None };
+
     if let Some(outputs) = outputs {
+        let mut outputs2: Vec<String> = Vec::new();
         for output in outputs {
             match output {
                 Output::Path(path) => {
@@ -62,15 +70,10 @@ fn write_deps_json(
                 Output::Stdout => {} // Skip stdout
             }
         }
+        deps.outputs = Some(outputs2);
     }
 
-    #[derive(Serialize)]
-    struct Deps {
-        inputs: Vec<String>,
-        outputs: Vec<String>,
-    }
-
-    serde_json::to_writer(dest.open()?, &Deps { inputs, outputs: outputs2 })?;
+    serde_json::to_writer(dest.open()?, &deps)?;
 
     Ok(())
 }
