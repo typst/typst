@@ -31,16 +31,35 @@ fn write_deps_json(
     dest: &Output,
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
-    let inputs = relative_dependencies(world)?
-        .map(|dep| {
-            dep.into_string().map_err(|dep| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("input {dep:?} is not valid utf-8"),
-                )
-            })
+    let decode = |dep: OsString, kind| {
+        dep.into_string().map_err(|dep| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{kind} {dep:?} is not valid utf-8"),
+            )
         })
+    };
+
+    let inputs = relative_dependencies(world)?
+        .map(|dep| decode(dep, "input"))
         .collect::<Result<Vec<_>, _>>()?;
+
+    let outputs = outputs
+        .map(|outputs| {
+            outputs
+                .iter()
+                .filter_map(|output| {
+                    match output {
+                        Output::Path(path) => {
+                            Some(decode(path.clone().into_os_string(), "output"))
+                        }
+                        // Skip stdout
+                        Output::Stdout => None,
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
 
     #[derive(Serialize)]
     struct Deps {
@@ -48,32 +67,7 @@ fn write_deps_json(
         outputs: Option<Vec<String>>,
     }
 
-    let mut deps = Deps { inputs, outputs: None };
-
-    if let Some(outputs) = outputs {
-        let mut outputs2: Vec<String> = Vec::new();
-        for output in outputs {
-            match output {
-                Output::Path(path) => {
-                    outputs2.push(
-                        path.as_os_str()
-                            .to_str()
-                            .ok_or_else(|| {
-                                io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!("output {path:?} is not valid utf-8"),
-                                )
-                            })?
-                            .to_string(),
-                    );
-                }
-                Output::Stdout => {} // Skip stdout
-            }
-        }
-        deps.outputs = Some(outputs2);
-    }
-
-    serde_json::to_writer(dest.open()?, &deps)?;
+    serde_json::to_writer(dest.open()?, &Deps { inputs, outputs })?;
 
     Ok(())
 }
