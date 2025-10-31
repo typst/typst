@@ -437,9 +437,10 @@ cast! {
 }
 
 /// Defines how to size something along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Sizing {
     /// A track that fits its item's contents.
+    #[default]
     Auto,
     /// A size specified in absolute terms and relative to the parent's size.
     Rel(Rel),
@@ -457,12 +458,6 @@ impl Sizing {
     /// Whether this is fractional sizing.
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
-    }
-}
-
-impl Default for Sizing {
-    fn default() -> Self {
-        Self::Auto
     }
 }
 
