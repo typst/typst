@@ -42,7 +42,7 @@ fn write_deps_json(
 
     let inputs = relative_dependencies(world)?
         .map(|dep| to_string(dep, "input"))
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<_, _>>()?;
 
     let outputs = outputs
         .map(|outputs| {
@@ -55,7 +55,7 @@ fn write_deps_json(
                         Output::Stdout => None,
                     }
                 })
-                .collect::<Result<Vec<_>, _>>()
+                .collect::<Result<_, _>>()
         })
         .transpose()?;
 
