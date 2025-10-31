@@ -12,7 +12,7 @@ use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
-use ecow::{EcoString};
+use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -28,7 +28,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem
+    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -1111,7 +1112,6 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
         .cloned()
         .collect();
 
-
     // Create and visit the citation group.
     let s = grouped.end();
 
@@ -1122,10 +1122,12 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     for child in children.clone() {
         if let Some(bib_span) = citation_map.get(&child.span()) {
             let entry = map.entry(bib_span);
-            entry.or_insert_with(|| {
-                key_order.push(*bib_span);
-                vec![]
-            }).push(child);
+            entry
+                .or_insert_with(|| {
+                    key_order.push(*bib_span);
+                    vec![]
+                })
+                .push(child);
         }
     }
 

@@ -34,7 +34,8 @@ use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem, LinkElem, Url
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
+    HeadingElem, LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -178,22 +179,23 @@ impl BibliographyElem {
     }
 
     #[comemo::memoize]
-    pub fn assign_citations(introspector: Tracked<Introspector>) -> FxHashMap<Span,Span> {
-        let bibliographies: Vec<Packed<Self>> =
-            introspector
+    pub fn assign_citations(
+        introspector: Tracked<Introspector>,
+    ) -> FxHashMap<Span, Span> {
+        let bibliographies: Vec<Packed<Self>> = introspector
             .query(&Self::ELEM.select())
             .into_iter()
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect();
-        let citations =
-            introspector
-            .query(&CiteElem::ELEM.select());
+        let citations = introspector.query(&CiteElem::ELEM.select());
 
-        let mut citation_map: FxHashMap<Span,Span> = FxHashMap::default();
+        let mut citation_map: FxHashMap<Span, Span> = FxHashMap::default();
 
         // First citations from bibliographies with selectors
         for bibliography in &bibliographies {
-            if let Smart::Custom(bibliography_selector) = &bibliography.target.get_ref(StyleChain::default()) {
+            if let Smart::Custom(bibliography_selector) =
+                &bibliography.target.get_ref(StyleChain::default())
+            {
                 let bibliography_span = bibliography.span();
                 let bibliography_citations = introspector.query(&bibliography_selector);
                 for citation in bibliography_citations {
@@ -209,35 +211,32 @@ impl BibliographyElem {
             if !citation_map.contains_key(&citation.span()) {
                 let citation_key = citation.to_packed::<CiteElem>().unwrap().key;
                 let citation_location = citation.location().unwrap();
-                if let Some(next_bib) =
-                        introspector
-                        .query(&Self::ELEM.select().after(citation_location.into(), false))
-                        .into_iter()
-                        .map(|elem| elem.to_packed::<Self>().unwrap().clone())
-                        .filter(|bibliography| {
-                            bibliography.target.get_ref(StyleChain::default()).is_auto()
+                if let Some(next_bib) = introspector
+                    .query(&Self::ELEM.select().after(citation_location.into(), false))
+                    .into_iter()
+                    .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                    .filter(|bibliography| {
+                        bibliography.target.get_ref(StyleChain::default()).is_auto()
                             && bibliography.sources.derived.has(citation_key)
-                        })
-                        .next()
+                    })
+                    .next()
                 {
                     citation_map.entry(citation.span()).or_insert(next_bib.span());
                 }
-                if let Some(prev_bib) =
-                        introspector
-                        .query(&Self::ELEM.select().before(citation_location.into(), false))
-                        .into_iter()
-                        .rev()
-                        .map(|elem| elem.to_packed::<Self>().unwrap().clone())
-                        .filter(|bibliography| {
-                            bibliography.target.get_ref(StyleChain::default()).is_auto()
+                if let Some(prev_bib) = introspector
+                    .query(&Self::ELEM.select().before(citation_location.into(), false))
+                    .into_iter()
+                    .rev()
+                    .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                    .filter(|bibliography| {
+                        bibliography.target.get_ref(StyleChain::default()).is_auto()
                             && bibliography.sources.derived.has(citation_key)
-                        })
-                        .next()
+                    })
+                    .next()
                 {
                     citation_map.entry(citation.span()).or_insert(prev_bib.span());
                 }
             }
-
         }
         // for bibliography in bibliographies.rev() {
         //     let headings_before: Vec<Packed<HeadingElem>> = introspector
@@ -269,7 +268,6 @@ impl BibliographyElem {
 
         citation_map
     }
-
 
     /// Whether the bibliography contains the given key.
     pub fn has(engine: &Engine, key: Label) -> bool {
@@ -769,17 +767,16 @@ impl<'a> Generator<'a> {
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
             let bibliography_span = bibliography.span();
-            let bibliography_groups =
-                    citation_groups_all
-                    .iter()
-                    .cloned()
-                    .filter(|group| {
-                        let cite_group = group.to_packed::<CiteGroup>().unwrap();
-                        citation_map
-                            .get(&cite_group.children.first().unwrap().span())
-                            .is_some_and(|span| *span == bibliography_span)
-                    })
-                    .collect();
+            let bibliography_groups = citation_groups_all
+                .iter()
+                .cloned()
+                .filter(|group| {
+                    let cite_group = group.to_packed::<CiteGroup>().unwrap();
+                    citation_map
+                        .get(&cite_group.children.first().unwrap().span())
+                        .is_some_and(|span| *span == bibliography_span)
+                })
+                .collect();
             groups.insert(bibliography.span(), bibliography_groups);
         }
         Ok(Self {
