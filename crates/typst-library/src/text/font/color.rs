@@ -34,6 +34,8 @@ pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
 ///
 /// The glyphs are sized in font units, [`text.item.size`] is not taken into
 /// account.
+///
+/// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
 pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
     let upem = Abs::pt(font.units_per_em());
