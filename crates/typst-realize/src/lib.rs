@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
+use std::collections::HashMap;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
@@ -27,8 +28,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -977,7 +978,24 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::ELEM,
+    trigger: |content, _| {
+        content.elem() == CiteElem::ELEM
+        // if content.elem() != CiteElem::ELEM {
+        //     return false;
+        // }
+        // if let Some(active) = state.groupings.last() {
+        //     let (citation_from_grouping,_) = state.sink[active.start];
+        //     // println!("content {:?}\ngrouping {:?}",content,citation_from_grouping);
+        //     if citation_from_grouping.elem() == CiteElem::ELEM {
+        //         let citation_map = BibliographyElem::assign_citations(state.engine.introspector);
+        //         return citation_map.get(&content.span()) == citation_map.get(&citation_from_grouping.span());
+        //     }
+        //     else {
+        //         return true;
+        //     }
+        // }
+        // return true;
+    },
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
@@ -1087,9 +1105,8 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
-    let span = select_span(elems);
     let trunk = elems[0].1;
-    let children = elems
+    let children: Vec<Packed<CiteElem>> = elems
         .iter()
         .filter_map(|(c, _)| c.to_packed::<CiteElem>())
         .cloned()
@@ -1097,8 +1114,30 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
 
     // Create and visit the citation group.
     let s = grouped.end();
-    let elem = CiteGroup::new(children).pack().spanned(span);
-    visit(s, s.store(elem), trunk)
+
+    // Separate children with different bibliographies
+    let citation_map = BibliographyElem::assign_citations(s.engine.introspector);
+    let mut map = HashMap::new();
+    let mut key_order: Vec<Span> = vec![];
+    for child in children.clone() {
+        if let Some(bib_span) = citation_map.get(&child.span()) {
+            let entry = map.entry(bib_span);
+            entry
+                .or_insert_with(|| {
+                    key_order.push(*bib_span);
+                    vec![]
+                })
+                .push(child);
+        }
+    }
+
+    for key in key_order {
+        let sub_children = map.get(&key).unwrap();
+        let span = Span::find(sub_children.iter().map(|c| c.span()));
+        let elem = CiteGroup::new(sub_children.clone()).pack().spanned(span);
+        visit(s, s.store(elem), trunk)?;
+    }
+    return Ok(());
 }
 
 /// Builds the `ListLike` element from `ListItemLike` elements.
