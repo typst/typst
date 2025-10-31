@@ -80,7 +80,7 @@ fn layout_inline_text(
 
             // This won't panic as ASCII digits and '.' will never end up as
             // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span)?.unwrap();
+            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -149,7 +149,7 @@ pub fn layout_symbol(
         let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
 
         if let Some(mut glyph) =
-            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())?
+            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())
         {
             if glyph.class == MathClass::Large {
                 if styles.get(EquationElem::size) == MathSize::Display {

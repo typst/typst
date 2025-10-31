@@ -281,7 +281,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
+        SyntaxKind::MathText | SyntaxKind::MathShorthand => {
             // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
             continuable = math_class(p.current_text()) == Some(MathClass::Alphabetic)
                 || p.current_text().chars().all(char::is_alphabetic);
