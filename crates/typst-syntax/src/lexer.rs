@@ -311,8 +311,8 @@ impl Lexer<'_> {
     /// below.
     ///
     /// ### The initial line:
-    /// - A valid Typst identifier immediately following the opening delimiter
-    ///   is parsed as the language tag.
+    /// - The identifier (dots included) immediately following the opening
+    ///   delimiter is parsed as the language tag.
     /// - We check the rest of the line and if all characters are whitespace,
     ///   trim it. Otherwise we trim a single leading space if present.
     ///   - If more trimmed characters follow on future lines, they will be
@@ -339,8 +339,8 @@ impl Lexer<'_> {
         F: FnMut(SyntaxKind, &Scanner),
     {
         // Language tag.
-        if self.s.eat_if(is_id_start) {
-            self.s.eat_while(is_id_continue);
+        if self.s.eat_if(is_raw_lang_tag_start) {
+            self.s.eat_while(is_raw_lang_tag_continue);
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 
@@ -1077,6 +1077,18 @@ fn is_math_id_start(c: char) -> bool {
 #[inline]
 fn is_math_id_continue(c: char) -> bool {
     is_xid_continue(c) && c != '_'
+}
+
+/// Whether a character can start a language tag.
+#[inline]
+fn is_raw_lang_tag_start(c: char) -> bool {
+    is_id_start(c) || c == '.'
+}
+
+/// Whether a character can continue a language tag.
+#[inline]
+fn is_raw_lang_tag_continue(c: char) -> bool {
+    is_id_continue(c) || c == '.'
 }
 
 /// Whether a character can be part of a label literal's name.
