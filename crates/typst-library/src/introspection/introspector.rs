@@ -12,7 +12,7 @@ use typst_utils::NonZeroExt;
 use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, Tag};
-use crate::layout::{Abs, Frame, FrameItem, Point, Position, Transform};
+use crate::layout::{Frame, FrameItem, Point, Position, Transform};
 use crate::model::Numbering;
 
 /// Can be queried for elements and their positions.
@@ -412,7 +412,10 @@ impl IntrospectorBuilder {
                     self.discover_in_tag(
                         sink,
                         tag,
-                        Position { page, point: pos.transform(ts) },
+                        DocumentPosition::Paged(Position {
+                            page,
+                            point: pos.transform(ts),
+                        }),
                     );
                 }
                 _ => {}
@@ -421,18 +424,18 @@ impl IntrospectorBuilder {
     }
 
     /// Handle a tag.
-    pub fn discover_in_tag<P: Into<DocumentPosition>>(
+    pub fn discover_in_tag(
         &mut self,
         sink: &mut Vec<Pair>,
         tag: &Tag,
-        position: P,
+        position: DocumentPosition,
     ) {
         match tag {
             Tag::Start(elem, flags) => {
                 if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
-                        sink.push((elem.clone(), position.into()));
+                        sink.push((elem.clone(), position));
                     }
                 }
             }
@@ -504,24 +507,106 @@ impl IntrospectorBuilder {
 #[derive(Clone, Debug, Hash)]
 pub struct HtmlPosition {
     /// Indices that can be used to traverse the tree from the root.
-    pub element: EcoVec<usize>,
+    element: EcoVec<usize>,
     /// Precise position inside of the specified element.
-    pub inner: Option<InnerHtmlPosition>,
+    inner: Option<InnerHtmlPosition>,
+}
+
+impl HtmlPosition {
+    /// A position in an HTML pointing to a specific node as a whole.
+    ///
+    /// The items of the vector corresponds to indices that can be used to
+    /// traverse the DOM tree from the root to reach the node. In practice, this
+    /// means that the first item of the vector will often be `1` for the `<body>` tag
+    /// (`0` being the `<head>` tag in a typical HTML document).
+    pub fn new(element: EcoVec<usize>) -> Self {
+        Self { element, inner: None }
+    }
+
+    /// Specify a character offset inside of the node, to build a position
+    /// pointing to a specific point in text.
+    ///
+    /// This only makes sense if the node is a text node, not an element nor a
+    /// frame.
+    ///
+    /// The offset is expressed in codepoints, not in bytes, to be
+    /// encoding-independent.
+    pub fn at_char(self, offset: usize) -> Self {
+        Self {
+            element: self.element,
+            inner: Some(InnerHtmlPosition::Character(offset)),
+        }
+    }
+
+    /// Specify a point in a frame, to build a more precise position.
+    ///
+    /// This only makes sense if the node is a frame.
+    pub fn in_frame(self, point: Point) -> Self {
+        Self {
+            element: self.element,
+            inner: Some(InnerHtmlPosition::Frame(point)),
+        }
+    }
+
+    /// Extra-information for more a precise location inside of the node
+    /// designated by [`HtmlPosition::element`].
+    pub fn details(&self) -> Option<&InnerHtmlPosition> {
+        self.inner.as_ref()
+    }
+
+    /// Indices to traverse an HTML tree to reach the node corresponding to this position.
+    ///
+    /// See [`HtmlPosition::new`] for more details.
+    pub fn element(&self) -> impl Iterator<Item = &usize> {
+        self.element.iter()
+    }
 }
 
 /// Precise position inside of an HTML node.
 #[derive(Clone, Debug, Hash)]
 pub enum InnerHtmlPosition {
     /// If the node is a frame, the coordinates of the position.
-    Frame { x: Abs, y: Abs },
-    /// If the node is a text node, the index of the character at the position.
+    Frame(Point),
+    /// If the node is a text node, the index of the codepoint at the position.
     Character(usize),
 }
 
+/// Physical position in a document, be it paged or HTML.
+///
+/// Only one variant should be used for all positions in a same document. This
+/// type exists to make it possible to write functions that are generic over the
+/// document target.
 #[derive(Clone, Debug, Hash)]
 pub enum DocumentPosition {
+    /// If the document is paged, the position is expressed as coordinates
+    /// inside of a page.
     Paged(Position),
+    /// If the document is an HTML document, the position points to a specific
+    /// node in the DOM tree.
     Html(HtmlPosition),
+}
+
+impl DocumentPosition {
+    /// Returns the paged [`Position`] if available.
+    pub fn as_paged(self) -> Option<Position> {
+        match self {
+            DocumentPosition::Paged(position) => Some(position),
+            _ => None,
+        }
+    }
+
+    pub fn as_paged_or_default(self) -> Position {
+        self.as_paged()
+            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+    }
+
+    /// Returns the [`HtmlPosition`] if available.
+    pub fn as_html(self) -> Option<HtmlPosition> {
+        match self {
+            DocumentPosition::Html(position) => Some(position),
+            _ => None,
+        }
+    }
 }
 
 impl From<Position> for DocumentPosition {
@@ -533,27 +618,5 @@ impl From<Position> for DocumentPosition {
 impl From<HtmlPosition> for DocumentPosition {
     fn from(value: HtmlPosition) -> Self {
         Self::Html(value)
-    }
-}
-
-impl TryFrom<DocumentPosition> for Position {
-    type Error = ();
-
-    fn try_from(value: DocumentPosition) -> Result<Self, Self::Error> {
-        match value {
-            DocumentPosition::Paged(position) => Ok(position),
-            _ => Err(()),
-        }
-    }
-}
-
-impl TryFrom<DocumentPosition> for HtmlPosition {
-    type Error = ();
-
-    fn try_from(value: DocumentPosition) -> Result<Self, Self::Error> {
-        match value {
-            DocumentPosition::Html(position) => Ok(position),
-            _ => Err(()),
-        }
     }
 }

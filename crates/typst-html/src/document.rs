@@ -8,8 +8,7 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Styles};
 use typst_library::introspection::{
-    DocumentPosition, HtmlPosition, InnerHtmlPosition, Introspector, IntrospectorBuilder,
-    Location, Locator,
+    DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Location, Locator,
 };
 use typst_library::layout::{Position, Transform};
 use typst_library::model::DocumentInfo;
@@ -41,15 +40,6 @@ pub fn html_document(
         content,
         styles,
     )
-}
-
-macro_rules! unwrap_elem {
-    ($e:expr) => {
-        match $e {
-            HtmlNode::Element(e) => e,
-            _ => panic!("Expected HTML element"),
-        }
-    };
 }
 
 /// The internal implementation of `html_document`.
@@ -103,7 +93,7 @@ fn html_document_impl(
         Whitespace::Normal,
     )?;
 
-    let (mut tags_and_root, root_index) = prepare_document(
+    let (mut tags_and_root, root_index) = finalize_dom(
         &mut engine,
         nodes,
         &info,
@@ -113,10 +103,18 @@ fn html_document_impl(
 
     let mut link_targets = FxHashSet::default();
     let mut introspector = introspect_html(&tags_and_root, &mut link_targets);
-    let root = unwrap_elem!(&mut tags_and_root[root_index]);
-    crate::link::identify_link_targets(root, &mut introspector, link_targets);
+    match tags_and_root.swap_remove(root_index) {
+        HtmlNode::Element(mut root) => {
+            crate::link::identify_link_targets(
+                &mut root,
+                &mut introspector,
+                link_targets,
+            );
 
-    Ok(HtmlDocument { info, root: root.clone(), introspector })
+            Ok(HtmlDocument { info, root: root.clone(), introspector })
+        }
+        _ => panic!("Expected HTML element"),
+    }
 }
 
 /// Introspects HTML nodes.
@@ -140,7 +138,9 @@ fn introspect_html(
                     builder.discover_in_tag(
                         sink,
                         tag,
-                        HtmlPosition { element: current_position.clone(), inner: None },
+                        DocumentPosition::Html(HtmlPosition::new(
+                            current_position.clone(),
+                        )),
                     );
                     current_position.pop();
                 }
@@ -181,25 +181,21 @@ fn introspect_html(
                 HtmlNode::Frame(frame) => {
                     current_position.push(index);
 
-                    let mut frame_sink = Vec::new();
+                    let mut nested = Vec::new();
                     builder.discover_in_frame(
-                        &mut frame_sink,
+                        &mut nested,
                         &frame.inner,
                         NonZeroUsize::ONE,
                         Transform::identity(),
                     );
-
-                    for pair in frame_sink {
-                        if let DocumentPosition::Paged(Position { point, .. }) = pair.1 {
+                    for (content, pos) in nested {
+                        if let DocumentPosition::Paged(Position { point, .. }) = pos {
                             sink.push((
-                                pair.0,
-                                DocumentPosition::Html(HtmlPosition {
-                                    element: current_position.clone(),
-                                    inner: Some(InnerHtmlPosition::Frame {
-                                        x: point.x,
-                                        y: point.y,
-                                    }),
-                                }),
+                                content,
+                                DocumentPosition::Html(
+                                    HtmlPosition::new(current_position.clone())
+                                        .in_frame(point),
+                                ),
                             ))
                         }
                     }
@@ -217,6 +213,97 @@ fn introspect_html(
     let mut current_position = EcoVec::new();
     discover(&mut builder, &mut elems, link_targets, output, &mut current_position);
     builder.finalize(elems)
+}
+
+/// Wrap the user generated HTML in <html>, <body> or both if needed.
+///
+/// Returns a vector containing outer introspection tags and the HTML root element.
+/// A direct reference to the root element is also returned.
+fn finalize_dom(
+    engine: &mut Engine,
+    mut output: EcoVec<HtmlNode>,
+    info: &DocumentInfo,
+    footnote_locator: Locator<'_>,
+    footnote_styles: StyleChain<'_>,
+) -> SourceResult<(Vec<HtmlNode>, usize)> {
+    fn not_a_tag(node: &HtmlNode) -> bool {
+        !matches!(node, HtmlNode::Tag(_))
+    }
+
+    let preceding_tags_end = output.iter().position(not_a_tag).unwrap_or(0);
+    let following_tags_start = output
+        .iter()
+        .rposition(not_a_tag)
+        .map(|x| x + 1)
+        .unwrap_or(output.len());
+    let non_tag_count = following_tags_start - preceding_tags_end;
+    let mut needs_body = false;
+    let mut needs_html = false;
+
+    if non_tag_count == 0 {
+        // If there are only tags, wrap them in <html> and <body>
+        needs_body = true;
+        needs_html = true;
+    } else if non_tag_count == 1 {
+        let unique_node = &output[preceding_tags_end];
+        if let HtmlNode::Element(HtmlElement { tag, .. }) = unique_node
+            && *tag != tag::html
+        {
+            if *tag != tag::body {
+                needs_body = true;
+            }
+
+            needs_html = true;
+        }
+    } else {
+        // If there is more than one node, you are not allowed to emit a <body>
+        // or <html> element.
+        for node in &output {
+            match node {
+                HtmlNode::Element(HtmlElement { tag, span, .. })
+                    if *tag == tag::html || *tag == tag::body =>
+                {
+                    bail!(
+                        *span,
+                        "`{}` element must be the only element in the document",
+                        tag,
+                    )
+                }
+                _ => {}
+            }
+        }
+
+        // And all elements are necessarily wrapped.
+        needs_body = true;
+        needs_html = true;
+    }
+
+    if needs_body {
+        let mut body = HtmlElement::new(tag::body).with_children(output);
+        let footnotes = crate::fragment::html_block_fragment(
+            engine,
+            FootnoteContainer::shared(),
+            footnote_locator,
+            footnote_styles,
+            Whitespace::Normal,
+        )?;
+        body.children.extend(footnotes);
+        output = eco_vec![body.into()];
+    } else {
+        // If the user supplied their own <body> or <html>, check that they don't use footnotes.
+        FootnoteContainer::unsupported_with_custom_dom(engine)?;
+    }
+
+    if needs_html {
+        let mut html = HtmlElement::new(tag::html)
+            .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
+        let head = head_element(info);
+        html.children.push(head.into());
+        html.children.extend(output);
+        Ok((vec![html.into()], 0))
+    } else {
+        Ok((output.into_iter().collect(), preceding_tags_end))
+    }
 }
 
 /// Generate a `<head>` element.
@@ -268,102 +355,4 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     }
 
     HtmlElement::new(tag::head).with_children(children)
-}
-
-/// Wrap the user generated HTML in <html>, <body> or both if needed.
-///
-/// Returns a vector containing outer introspection tags and the HTML root element.
-/// A direct reference to the root element is also returned.
-fn prepare_document(
-    engine: &mut Engine,
-    mut output: EcoVec<HtmlNode>,
-    info: &DocumentInfo,
-    footnote_locator: Locator<'_>,
-    footnote_styles: StyleChain<'_>,
-) -> SourceResult<(Vec<HtmlNode>, usize)> {
-    fn not_a_tag(node: &HtmlNode) -> bool {
-        !matches!(node, HtmlNode::Tag(_))
-    }
-
-    fn is_body_or_html(node: &HtmlNode) -> bool {
-        match node {
-            HtmlNode::Element(HtmlElement { tag, .. }) => {
-                *tag == tag::html || *tag == tag::body
-            }
-            _ => false,
-        }
-    }
-
-    let preceding_tags_end = output.iter().position(not_a_tag).unwrap_or(0);
-    let following_tags_start = output
-        .iter()
-        .rposition(not_a_tag)
-        .map(|x| x + 1)
-        .unwrap_or(output.len());
-    let non_tag_count = following_tags_start - preceding_tags_end;
-    let mut needs_body = false;
-    let mut needs_html = false;
-
-    if non_tag_count == 0 {
-        // If there are only tags, wrap them in <html> and <body>
-        needs_body = true;
-        needs_html = true;
-    } else if non_tag_count == 1 {
-        let unique_node = &output[preceding_tags_end];
-        if let HtmlNode::Element(HtmlElement { tag, .. }) = unique_node
-            && *tag != tag::html
-        {
-            if *tag != tag::body {
-                needs_body = true;
-            }
-
-            needs_html = true;
-        }
-
-        if !needs_body {
-            // If the user supplied their own <body> or <html>, check that they don't use footnotes.
-            FootnoteContainer::unsupported_with_custom_dom(engine)?;
-        }
-    } else {
-        // If there is more than one node, you are not allowed to emit a <body>
-        // or <html> element.
-        for node in &output {
-            if is_body_or_html(node) {
-                let elem = unwrap_elem!(node);
-                bail!(
-                    elem.span,
-                    "`{}` element must be the only element in the document",
-                    elem.tag,
-                )
-            }
-        }
-
-        // And all elements are necessarily wrapped.
-        needs_body = true;
-        needs_html = true;
-    }
-
-    if needs_body {
-        let mut body = HtmlElement::new(tag::body).with_children(output);
-        let footnotes = crate::fragment::html_block_fragment(
-            engine,
-            FootnoteContainer::shared(),
-            footnote_locator,
-            footnote_styles,
-            Whitespace::Normal,
-        )?;
-        body.children.extend(footnotes);
-        output = eco_vec![body.into()];
-    }
-
-    if needs_html {
-        let mut html = HtmlElement::new(tag::html)
-            .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
-        let head = head_element(info);
-        html.children.push(head.into());
-        html.children.extend(output);
-        Ok((vec![html.into()], 0))
-    } else {
-        Ok((output.into_iter().collect(), preceding_tags_end))
-    }
 }

@@ -3,7 +3,8 @@ use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
 use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
-use typst_library::layout::{Abs, Point, Position, Size};
+use typst_library::introspection::DocumentPosition;
+use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 use typst_syntax::Span;
 
@@ -37,7 +38,9 @@ pub(crate) fn handle_link(
             Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
         Destination::Position(p) => {
-            let Some(dest) = pos_to_xyz(&gc.page_index_converter, *p) else {
+            let Some(dest) =
+                pos_to_xyz(&gc.page_index_converter, DocumentPosition::Paged(*p))
+            else {
                 return Ok(());
             };
             Target::Destination(krilla::destination::Destination::Xyz(dest))
@@ -179,11 +182,11 @@ fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
 /// - Consistently shifts the link by 10pt because the position of e.g.
 ///   backlinks to footnotes is always at the baseline and if you link directly
 ///   to it, the text will not be visible since it is right above.
-pub(crate) fn pos_to_xyz<P: TryInto<Position>>(
+pub(crate) fn pos_to_xyz(
     pic: &PageIndexConverter,
-    pos: P,
+    pos: DocumentPosition,
 ) -> Option<XyzDestination> {
-    let pos = pos.try_into().ok()?;
+    let pos = pos.as_paged()?;
     let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
     let adjusted =
         Point::new(pos.point.x, (pos.point.y - Abs::pt(10.0)).max(Abs::zero()));
