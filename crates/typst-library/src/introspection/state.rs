@@ -353,12 +353,26 @@ impl State {
 
     /// Updates the value of the state.
     ///
-    /// The update will be in effect at the position where the returned content
-    /// is inserted into the document. If you don't put the output into the
-    /// document, nothing happens! This would be the case, for example, if you
-    /// write `{let _ = state("key").update(7)}`. State updates are always
-    /// applied in layout order and in that case, Typst wouldn't know when to
-    /// update the state.
+    /// Returns an _invisible_ piece of content that doesn't affect document
+    /// layout (similar to [`metadata`]). The update will be in effect at the
+    /// position where the returned content is inserted into the document. If
+    /// you don't put the output into the document, nothing will happen! This
+    /// would be the case, for example, if you write
+    /// `{let _ = state("key").update(7)}`. Updates only happen if they are
+    /// associated with a location in the document. That is, only state updates
+    /// that are _in the document_ update the said state.
+    ///
+    /// Here is another way of looking at it. State is a part of your document,
+    /// it runs like a thread embedded in the document content. The value of a
+    /// state is the result of all state updates that happened in the document
+    /// up until that point. That’s why `state.update` returns an invisible
+    /// sliver of content that you need to return and include in the document —
+    /// a state update that is not "placed" in the document does not happen, and
+    /// "when" it happens is determined by where you place it. For example, only
+    /// figures that are placed into the document increase the value of the
+    /// figure counter. That’s also why you need context to read state, you need
+    /// to use the current document position to know where on the state’s
+    /// “thread” you are.
     ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
     /// [`final`]($state.final), this function does not require [context].
