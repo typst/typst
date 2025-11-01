@@ -404,7 +404,7 @@ impl Array {
     }
 
     /// Produces a new array with only the items from the original one for which
-    /// the given function returns true.
+    /// the given function returns `{true}`.
     #[func]
     pub fn filter(
         &self,
