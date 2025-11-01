@@ -150,7 +150,7 @@ yaml-front-matter = "0.1"
 zip = { version = "5", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
-opt-level = 2
+opt-level = 0  # We need to disable optimization to have correct stack trace.
 
 [profile.release]
 lto = "thin"
