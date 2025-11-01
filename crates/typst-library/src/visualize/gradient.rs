@@ -319,7 +319,7 @@ impl Gradient {
         /// By default, it is set to `{50%}`. The ending radius must be bigger
         /// than the focal radius.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
+        #[default(Spanned::detached(Ratio::new(0.5)))]
         radius: Spanned<Ratio>,
         /// The center of the focal circle of the gradient.
         ///
@@ -339,7 +339,7 @@ impl Gradient {
         /// By default, it is set to `{0%}`. The focal radius must be smaller
         /// than the ending radius`.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
+        #[default(Spanned::detached(Ratio::new(0.0)))]
         focal_radius: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
@@ -470,7 +470,7 @@ impl Gradient {
         steps: Spanned<usize>,
         /// How much to smooth the gradient.
         #[named]
-        #[default(Spanned::new(Ratio::zero(), Span::detached()))]
+        #[default(Spanned::detached(Ratio::zero()))]
         smoothness: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if steps.v < 2 {

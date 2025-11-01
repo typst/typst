@@ -189,6 +189,11 @@ impl<T> Spanned<T> {
         Self { v, span }
     }
 
+    /// Create a new instance with a detached span from a value.
+    pub fn detached(v: T) -> Self {
+        Self::new(v, Span::detached())
+    }
+
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
     pub fn as_ref(&self) -> Spanned<&T> {
         Spanned { v: &self.v, span: self.span }
