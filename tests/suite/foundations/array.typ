@@ -258,10 +258,20 @@
 #test((1, 2, 3, 4).filter(calc.even), (2, 4))
 #test((7, 3, 2, 5, 1).filter(x => x < 5), (3, 2, 1))
 
+--- array-filter-error ---
+// Test that errors in the predicate are reported properly.
+// Error: 21-26 cannot subtract integer from string
+#("a",).filter(x => x - 2)
+
 --- array-map ---
 // Test the `map` method.
 #test(().map(x => x * 2), ())
 #test((2, 3).map(x => x * 2), (4, 6))
+
+--- array-map-error ---
+// Test that errors in the function are reported properly.
+// Error: 18-23 cannot subtract integer from string
+#("a",).map(x => x - 2)
 
 --- array-fold ---
 // Test the `fold` method.
