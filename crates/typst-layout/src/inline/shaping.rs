@@ -438,6 +438,7 @@ impl<'a> ShapedText<'a> {
                 size: glyph_size,
                 lang: self.lang,
                 region: self.region,
+                selectable: self.styles.get(TextElem::selectable),
                 fill: fill.clone(),
                 stroke: stroke.clone().map(|s| s.unwrap_or_default()),
                 text: self.text[range.start - self.base..range.end - self.base].into(),
