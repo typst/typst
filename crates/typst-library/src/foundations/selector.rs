@@ -38,7 +38,7 @@ pub use crate::__select_where as select_where;
 /// A filter for selecting elements within the document.
 ///
 /// To construct a selector you can:
-/// - use an element [function]
+/// - use an [element function]
 /// - filter for an element function with [specific fields]($function.where)
 /// - use a [string]($str) or [regular expression]($regex)
 /// - use a [`{<label>}`]($label)
