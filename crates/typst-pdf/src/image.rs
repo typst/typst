@@ -66,7 +66,10 @@ pub(crate) fn handle_image(
                 surface.draw_svg(
                     svg.tree(),
                     size,
-                    SvgSettings { embed_text: true, ..Default::default() },
+                    SvgSettings {
+                        embed_text: svg.is_selectable(),
+                        ..Default::default()
+                    },
                 );
             }
         }

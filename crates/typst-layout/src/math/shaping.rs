@@ -33,6 +33,8 @@ pub struct ShapedText {
     pub lang: Lang,
     /// The region of the text.
     pub region: Option<Region>,
+    /// Should the text be selectable.
+    pub selectable: bool,
     /// The text's span.
     pub span: Span,
     /// The shaped glyphs.
@@ -60,6 +62,7 @@ impl From<ShapedText> for TextItem {
             stroke: item.stroke,
             lang: item.lang,
             region: item.region,
+            selectable: item.selectable,
             text: item.text.clone(),
             glyphs: item
                 .glyphs

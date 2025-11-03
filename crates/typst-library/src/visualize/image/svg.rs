@@ -29,6 +29,7 @@ struct Repr {
     size: Axes<f64>,
     font_hash: u128,
     tree: usvg::Tree,
+    selectable: bool,
 }
 
 impl SvgImage {
@@ -38,7 +39,13 @@ impl SvgImage {
     pub fn new(data: Bytes) -> LoadResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            size: tree_size(&tree),
+            font_hash: 0,
+            tree,
+            selectable: true,
+        })))
     }
 
     /// Decode an SVG image with access to fonts and linked images.
@@ -49,6 +56,7 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[&str],
         svg_file: Option<FileId>,
+        selectable: bool,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
@@ -82,7 +90,13 @@ impl SvgImage {
             return Err(err);
         }
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            size: tree_size(&tree),
+            font_hash,
+            tree,
+            selectable,
+        })))
     }
 
     /// The raw image data.
@@ -103,6 +117,11 @@ impl SvgImage {
     /// Accesses the usvg tree.
     pub fn tree(&self) -> &usvg::Tree {
         &self.0.tree
+    }
+
+    /// Should the text be selectable.
+    pub fn is_selectable(&self) -> bool {
+        self.0.selectable
     }
 }
 

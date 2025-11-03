@@ -57,7 +57,7 @@ pub(crate) fn handle_text(
         font.clone(),
         text,
         size.to_f32(),
-        false,
+        !t.selectable,
     );
 
     Ok(())
