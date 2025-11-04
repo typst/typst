@@ -135,7 +135,7 @@ pub struct StrParam {
 
 /// Details about a group of functions.
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")] 
+#[serde(rename_all = "camelCase")]
 pub struct GroupModel {
     pub name: EcoString,
     pub title: EcoString,
