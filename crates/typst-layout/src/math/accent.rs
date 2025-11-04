@@ -1,7 +1,8 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Em, Frame, Point, Size};
-use typst_library::math::AccentElem;
+use typst_library::layout::{Abs, Em, Frame, Point, Rel, Size};
+use typst_library::math::{Accent, AccentElem};
+use typst_syntax::Span;
 
 use super::{
     FrameFragment, MathContext, MathFragment, style_cramped, style_dtls, style_flac,
@@ -17,8 +18,7 @@ pub fn layout_accent(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let accent = elem.accent;
-    let top_accent = !accent.is_bottom();
+    let top_accent = !elem.accent.is_bottom();
 
     // Try to replace the base glyph with its dotless variant.
     let dtls = style_dtls();
@@ -29,13 +29,8 @@ pub fn layout_accent(
     let base_styles = base_styles.chain(&cramped);
     let base = ctx.layout_into_fragment(&elem.base, base_styles)?;
 
-    let (font, size) = base.font(ctx, base_styles);
-
-    // Preserve class to preserve automatic spacing.
-    let base_class = base.class();
-    let base_attach = base.accent_attach();
-
     // Try to replace the accent glyph with its flattened variant.
+    let (font, size) = base.font(ctx, base_styles);
     let flattened_base_height = font.math().flattened_accent_base_height.at(size);
     let flac = style_flac();
     let accent_styles = if top_accent && base.ascent() > flattened_base_height {
@@ -44,17 +39,70 @@ pub fn layout_accent(
         styles
     };
 
+    // Preserve class to preserve automatic spacing.
+    let base_class = base.class();
+    let base_attach = base.accent_attach();
+    let base_italics_correction = base.italics_correction();
+    let base_text_like = base.is_text_like();
+    let base_ascent = match &base {
+        MathFragment::Frame(frame) => frame.base_ascent,
+        _ => base.ascent(),
+    };
+    let base_descent = match &base {
+        MathFragment::Frame(frame) => frame.base_descent,
+        _ => base.descent(),
+    };
+
+    let frame = place_accent(
+        ctx,
+        base,
+        base_styles,
+        elem.accent,
+        accent_styles,
+        elem.size.resolve(styles),
+        ACCENT_SHORT_FALL,
+        elem.span(),
+    )?;
+
+    ctx.push(
+        FrameFragment::new(styles, frame)
+            .with_class(base_class)
+            .with_base_ascent(base_ascent)
+            .with_base_descent(base_descent)
+            .with_italics_correction(base_italics_correction)
+            .with_accent_attach(base_attach)
+            .with_text_like(base_text_like),
+    );
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn place_accent(
+    ctx: &mut MathContext,
+    base: MathFragment,
+    base_styles: StyleChain,
+    accent: Accent,
+    accent_styles: StyleChain,
+    stretch_width: Rel<Abs>,
+    short_fall: Em,
+    span: Span,
+) -> SourceResult<Frame> {
+    let top_accent = !accent.is_bottom();
+    let base_attach = base.accent_attach();
+    let (font, size) = base.font(ctx, base_styles);
+
     let mut accent = ctx.layout_into_fragment(
-        &SymbolElem::packed(accent.0).spanned(elem.span()),
+        &SymbolElem::packed(accent.0).spanned(span),
         accent_styles,
     )?;
     let old_width = accent.width();
 
     // Forcing the accent to be at least as large as the base makes it too wide
     // in many cases.
-    let width = elem.size.resolve(styles).relative_to(base.width());
-    let short_fall = ACCENT_SHORT_FALL.at(size);
-    accent.stretch_horizontal(ctx, width, short_fall);
+    let stretch_width = stretch_width.relative_to(base.width());
+    let short_fall = short_fall.at(size);
+    accent.stretch_horizontal(ctx, stretch_width, short_fall);
     let accent_attach = accent.accent_attach().0;
     let accent = accent.into_frame();
 
@@ -103,30 +151,9 @@ pub fn layout_accent(
     let size = Size::new(width, accent.height() + gap + base.height());
     let baseline = base_pos.y + base.ascent();
 
-    let base_italics_correction = base.italics_correction();
-    let base_text_like = base.is_text_like();
-    let base_ascent = match &base {
-        MathFragment::Frame(frame) => frame.base_ascent,
-        _ => base.ascent(),
-    };
-    let base_descent = match &base {
-        MathFragment::Frame(frame) => frame.base_descent,
-        _ => base.descent(),
-    };
-
     let mut frame = Frame::soft(size);
     frame.set_baseline(baseline);
     frame.push_frame(accent_pos, accent);
     frame.push_frame(base_pos, base.into_frame());
-    ctx.push(
-        FrameFragment::new(styles, frame)
-            .with_class(base_class)
-            .with_base_ascent(base_ascent)
-            .with_base_descent(base_descent)
-            .with_italics_correction(base_italics_correction)
-            .with_accent_attach(base_attach)
-            .with_text_like(base_text_like),
-    );
-
-    Ok(())
+    Ok(frame)
 }

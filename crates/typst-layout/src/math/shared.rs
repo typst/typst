@@ -1,11 +1,11 @@
 use ttf_parser::Tag;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
+use typst_library::layout::{Abs, Em};
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{FontFamily, FontFeatures, TextElem};
 use typst_utils::{LazyHash, singleton};
 
-use super::{LeftRightAlternator, MathFragment, MathRun};
+use super::{MathFragment, MathRun};
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
@@ -78,48 +78,6 @@ pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> 
 
     let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
     styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
-}
-
-/// Stack rows on top of each other.
-///
-/// Add a `gap` between each row and uses the baseline of the `baseline`-th
-/// row for the whole frame. `alternator` controls the left/right alternating
-/// alignment behavior of `AlignPointElem` in the rows.
-pub fn stack(
-    rows: Vec<MathRun>,
-    align: FixedAlignment,
-    gap: Abs,
-    baseline: usize,
-    alternator: LeftRightAlternator,
-) -> Frame {
-    let AlignmentResult { points, width } = alignments(&rows);
-    let rows: Vec<_> = rows
-        .into_iter()
-        .map(|row| row.into_line_frame(&points, alternator))
-        .collect();
-
-    let mut frame = Frame::soft(Size::new(
-        width,
-        rows.iter().map(|row| row.height()).sum::<Abs>()
-            + rows.len().saturating_sub(1) as f64 * gap,
-    ));
-
-    let mut y = Abs::zero();
-    for (i, row) in rows.into_iter().enumerate() {
-        let x = if points.is_empty() {
-            align.position(width - row.width())
-        } else {
-            Abs::zero()
-        };
-        let pos = Point::new(x, y);
-        if i == baseline {
-            frame.set_baseline(y + row.baseline());
-        }
-        y += row.height() + gap;
-        frame.push_frame(pos, row);
-    }
-
-    frame
 }
 
 /// Determine the positions of the alignment points, according to the input rows combined.
