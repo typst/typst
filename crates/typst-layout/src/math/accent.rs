@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Em, Frame, Point, Size};
+use typst_library::layout::{Abs, Em, Frame, Point, Size};
 use typst_library::math::AccentElem;
 
 use super::{
@@ -48,6 +48,7 @@ pub fn layout_accent(
         &SymbolElem::packed(accent.0).spanned(elem.span()),
         accent_styles,
     )?;
+    let old_width = accent.width();
 
     // Forcing the accent to be at least as large as the base makes it too wide
     // in many cases.
@@ -57,6 +58,31 @@ pub fn layout_accent(
     let accent_attach = accent.accent_attach().0;
     let accent = accent.into_frame();
 
+    // Calculate the width of the final frame. In OpenType, mark glyphs usually
+    // have zero advance width (but their size variants do not), so we treat
+    // that case separately and assume it is contained entirely within the
+    // width of the base. We also don't adjust the width if the accent's width
+    // is less than the base's, even if its positioning would be outside the
+    // bounds of the frame produced, to avoid unpleasant excess spacing.
+    let (width, base_x, accent_x) = {
+        let base_attach = if top_accent { base_attach.0 } else { base_attach.1 };
+        // The first condition implies no stretching occured.
+        if old_width == accent.width() || accent.width() <= base.width() {
+            (base.width(), Abs::zero(), base_attach - accent_attach)
+        } else {
+            let pre_width = accent_attach - base_attach;
+            let post_width =
+                (accent.width() - accent_attach) - (base.width() - base_attach);
+            let width =
+                pre_width.max(Abs::zero()) + base.width() + post_width.max(Abs::zero());
+            if pre_width < Abs::zero() {
+                (width, Abs::zero(), -pre_width)
+            } else {
+                (width, pre_width, Abs::zero())
+            }
+        }
+    };
+
     let (gap, accent_pos, base_pos) = if top_accent {
         // Descent is negative because the accent's ink bottom is above the
         // baseline. Therefore, the default gap is the accent's negated descent
@@ -64,17 +90,17 @@ pub fn layout_accent(
         // need a larger gap so that the accent doesn't move too low.
         let accent_base_height = font.math().accent_base_height.at(size);
         let gap = -accent.descent() - base.ascent().min(accent_base_height);
-        let accent_pos = Point::with_x(base_attach.0 - accent_attach);
-        let base_pos = Point::with_y(accent.height() + gap);
+        let accent_pos = Point::with_x(accent_x);
+        let base_pos = Point::new(base_x, accent.height() + gap);
         (gap, accent_pos, base_pos)
     } else {
         let gap = -accent.ascent();
-        let accent_pos = Point::new(base_attach.1 - accent_attach, base.height() + gap);
-        let base_pos = Point::zero();
+        let accent_pos = Point::new(accent_x, base.height() + gap);
+        let base_pos = Point::with_x(base_x);
         (gap, accent_pos, base_pos)
     };
 
-    let size = Size::new(base.width(), accent.height() + gap + base.height());
+    let size = Size::new(width, accent.height() + gap + base.height());
     let baseline = base_pos.y + base.ascent();
 
     let base_italics_correction = base.italics_correction();

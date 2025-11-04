@@ -92,3 +92,8 @@ $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, s
 $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
+
+--- math-accent-frame-size ---
+// Test final frame size.
+$ x + dash(A, size: #2em) + y $
+$ x + dash(M) + y $
