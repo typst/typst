@@ -154,9 +154,3 @@ pub struct OvershellElem {
     #[positional]
     pub annotation: Option<Content>,
 }
-
-/// A marker to distinguish under- and overlines.
-pub enum Position {
-    Under,
-    Over,
-}

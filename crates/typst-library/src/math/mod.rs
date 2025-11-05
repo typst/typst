@@ -5,6 +5,7 @@ mod attach;
 mod cancel;
 mod equation;
 mod frac;
+pub mod ir;
 mod lr;
 mod matrix;
 mod op;

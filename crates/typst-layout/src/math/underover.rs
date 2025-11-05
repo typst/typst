@@ -3,8 +3,8 @@ use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{
     Accent, OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
-    Position, UnderbraceElem, UnderbracketElem, UnderlineElem, UnderparenElem,
-    UndershellElem,
+    UnderbraceElem, UnderbracketElem, UnderlineElem, UnderparenElem, UndershellElem,
+    ir::Position,
 };
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
@@ -24,7 +24,7 @@ pub fn layout_underline(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Under)
+    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Below)
 }
 
 /// Lays out an [`OverlineElem`].
@@ -34,7 +34,7 @@ pub fn layout_overline(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Over)
+    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Above)
 }
 
 /// Lays out an [`UnderbraceElem`].
@@ -50,7 +50,7 @@ pub fn layout_underbrace(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏟',
-        Position::Under,
+        Position::Below,
         elem.span(),
     )
 }
@@ -68,7 +68,7 @@ pub fn layout_overbrace(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏞',
-        Position::Over,
+        Position::Above,
         elem.span(),
     )
 }
@@ -86,7 +86,7 @@ pub fn layout_underbracket(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⎵',
-        Position::Under,
+        Position::Below,
         elem.span(),
     )
 }
@@ -104,7 +104,7 @@ pub fn layout_overbracket(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⎴',
-        Position::Over,
+        Position::Above,
         elem.span(),
     )
 }
@@ -122,7 +122,7 @@ pub fn layout_underparen(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏝',
-        Position::Under,
+        Position::Below,
         elem.span(),
     )
 }
@@ -140,7 +140,7 @@ pub fn layout_overparen(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏜',
-        Position::Over,
+        Position::Above,
         elem.span(),
     )
 }
@@ -158,7 +158,7 @@ pub fn layout_undershell(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏡',
-        Position::Under,
+        Position::Below,
         elem.span(),
     )
 }
@@ -176,7 +176,7 @@ pub fn layout_overshell(
         &elem.body,
         elem.annotation.get_ref(styles),
         '⏠',
-        Position::Over,
+        Position::Above,
         elem.span(),
     )
 }
@@ -191,7 +191,7 @@ fn layout_underoverline(
 ) -> SourceResult<()> {
     let (extra_height, content, line_pos, content_pos, baseline, thickness, line_adjust);
     match position {
-        Position::Under => {
+        Position::Below => {
             content = ctx.layout_into_fragment(body, styles)?;
 
             let (font, size) = content.font(ctx, styles);
@@ -205,7 +205,7 @@ fn layout_underoverline(
             baseline = content.ascent();
             line_adjust = -content.italics_correction();
         }
-        Position::Over => {
+        Position::Above => {
             let cramped = style_cramped();
             let styles = styles.chain(&cramped);
             content = ctx.layout_into_fragment(body, styles)?;
@@ -281,13 +281,13 @@ fn layout_underoverspreader(
     };
 
     let fragments = match position {
-        Position::Under => {
+        Position::Below => {
             let under_style = style_for_subscript(styles);
             let annotation_styles = styles.chain(&under_style);
             let b = ctx.layout_into_fragment(annotation, annotation_styles)?;
             [None, None, None, None, Some(b), None]
         }
-        Position::Over => {
+        Position::Above => {
             let over_style = style_for_superscript(styles);
             let annotation_styles = styles.chain(&over_style);
             let t = ctx.layout_into_fragment(annotation, annotation_styles)?;
