@@ -64,7 +64,7 @@ pub fn layout_root(
     );
 
     let target = radicand.height() + thickness + gap;
-    sqrt.stretch_vertical(ctx, target, Abs::zero());
+    sqrt.stretch_vertical(ctx.engine, target, Abs::zero());
     let sqrt = sqrt.into_frame();
 
     // Layout the index.

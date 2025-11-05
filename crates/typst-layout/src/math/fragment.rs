@@ -5,6 +5,7 @@ use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use typst_library::World;
 use typst_library::diag::warning;
+use typst_library::engine::Engine;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -214,23 +215,23 @@ impl MathFragment {
 
     pub fn stretch_vertical(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         height: Abs,
         short_fall: Abs,
     ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_vertical(ctx, height, short_fall)
+            glyph.stretch_vertical(engine, height, short_fall)
         }
     }
 
     pub fn stretch_horizontal(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         width: Abs,
         short_fall: Abs,
     ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_horizontal(ctx, width, short_fall)
+            glyph.stretch_horizontal(engine, width, short_fall)
         }
     }
 
@@ -451,21 +452,21 @@ impl GlyphFragment {
     /// Try to stretch a glyph to a desired height.
     pub fn stretch_vertical(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         height: Abs,
         short_fall: Abs,
     ) {
-        self.stretch(ctx, height, short_fall, Axis::Y)
+        self.stretch(engine, height, short_fall, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
     pub fn stretch_horizontal(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         width: Abs,
         short_fall: Abs,
     ) {
-        self.stretch(ctx, width, short_fall, Axis::X)
+        self.stretch(engine, width, short_fall, Axis::X)
     }
 
     /// Try to stretch a glyph to a desired width or height.
@@ -473,7 +474,7 @@ impl GlyphFragment {
     /// The resulting frame may not have the exact desired width or height.
     pub fn stretch(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         target: Abs,
         short_fall: Abs,
         axis: Axis,
@@ -526,7 +527,7 @@ impl GlyphFragment {
         let min_overlap = min_connector_overlap(&self.item.font)
             .unwrap_or_default()
             .at(self.item.size);
-        assemble(ctx, self, assembly, min_overlap, target, axis);
+        assemble(engine, self, assembly, min_overlap, target, axis);
     }
 
     /// Vertically adjust the fragment's frame so that it is centered
@@ -724,7 +725,7 @@ fn glyph_construction(
 
 /// Assemble a glyph from parts.
 fn assemble(
-    ctx: &mut MathContext,
+    engine: &mut Engine,
     base: &mut GlyphFragment,
     assembly: GlyphAssembly,
     min_overlap: Abs,
@@ -755,7 +756,7 @@ fn assemble(
                 if max_overlap < min_overlap {
                     // This condition happening is indicative of a bug in the
                     // font.
-                    ctx.engine.sink.warn(warning!(
+                    engine.sink.warn(warning!(
                        base.item.span,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
