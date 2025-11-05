@@ -1,2 +1,18 @@
 [alias]
 testit = "test --workspace --test tests --"
+
+# Increase stack size for WASM to fix Safari compatibility.
+# Safari has a smaller default WASM stack (1 MB) compared to Chrome/Firefox.
+# Since stacker (dynamic stack growth) doesn't work on WASM, we need a larger
+# fixed stack size. Setting to 4 MB to provide enough headroom for deep recursion.
+#
+# Additionally, disable WASM features that trigger Safari bugs:
+# - multivalue and reference-types (enabled by default in Rust 1.81+) cause
+#   "Out of bounds memory access" errors in Safari TP (WebKit bugs #284752, #286266)
+# - See: https://github.com/rustwasm/wasm-bindgen/discussions/4185
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "link-arg=-zstack-size=4194304",
+    "-C", "target-feature=-multivalue",
+    "-C", "target-feature=-reference-types"
+]
