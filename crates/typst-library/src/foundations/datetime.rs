@@ -309,7 +309,7 @@ impl Datetime {
         })
     }
 
-    /// Returns the current date.
+    /// Returns the current date. Can be overridden by setting the `SOURCE_DATE_EPOCH` environment variable.
     ///
     /// ```example
     /// Today's date is
