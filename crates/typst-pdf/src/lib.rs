@@ -32,12 +32,6 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
     convert::convert(document, options)
 }
 
-/// Generate the document tag tree and display it in a human readable form.
-#[doc(hidden)]
-pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<String> {
-    convert::tag_tree(document, options)
-}
-
 /// Settings for PDF export.
 #[derive(Debug)]
 pub struct PdfOptions<'a> {

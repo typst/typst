@@ -1,4 +1,4 @@
---- outline-spacing paged pdftags ---
+--- outline-spacing paged pdftags pdfstandard(ua-1) ---
 #set heading(numbering: "1.a.")
 #set outline.entry(fill: none)
 #show outline.entry.where(level: 1): set block(above: 1.2em)

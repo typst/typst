@@ -5,14 +5,15 @@ use ecow::EcoString;
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::Document;
-use typst::diag::{SourceResult, StrResult, bail};
+use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
-use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
+use typst_pdf::{PdfOptions, PdfStandards};
+use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput};
+use crate::pdftags;
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
@@ -120,7 +121,7 @@ impl FromStr for HashedRef {
 /// An output type we can test.
 pub trait OutputType: Sized {
     /// The document type this output requires.
-    type Doc: Document + Clone;
+    type Doc;
     /// The type that represents live output.
     type Live;
 
@@ -208,8 +209,10 @@ impl OutputType for Pdf {
 
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
-    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        typst_pdf::pdf(doc, &PdfOptions::default())
+    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
+        let options = PdfOptions { standards, ..Default::default() };
+        typst_pdf::pdf(doc, &options)
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -228,7 +231,7 @@ impl HashOutputType for Pdf {
 pub struct Pdftags;
 
 impl OutputType for Pdftags {
-    type Doc = PagedDocument;
+    type Doc = Vec<u8>;
     type Live = String;
 
     const OUTPUT: TestOutput = TestOutput::Pdftags;
@@ -237,14 +240,8 @@ impl OutputType for Pdftags {
         Ok(live.is_empty())
     }
 
-    fn make_live(test: &Test, doc: &PagedDocument) -> SourceResult<Self::Live> {
-        let standards = if test.attrs.pdf_ua {
-            PdfStandards::new(&[PdfStandard::Ua_1]).unwrap()
-        } else {
-            PdfStandards::default()
-        };
-        let options = PdfOptions { standards, ..Default::default() };
-        typst_pdf::pdf_tags(doc, &options)
+    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+        pdftags::format(doc).at(Span::detached())
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {

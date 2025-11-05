@@ -5,6 +5,7 @@ mod collect;
 mod custom;
 mod logger;
 mod output;
+mod pdftags;
 mod run;
 mod world;
 

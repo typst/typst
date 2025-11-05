@@ -1,10 +1,5 @@
 - Tag: Table
-  /BBox:
-    page: 0
-    left:     9.500
-    top:      9.500
-    right:   85.360
-    bottom:  60.240
+  /BBox: [  9.500,   9.500,  85.360,  60.240]
   /BorderColor: #000000
   /BorderThickness:   1.000
   /K:

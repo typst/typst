@@ -1,4 +1,4 @@
---- lang-tags-pars-basic pdftags ---
+--- lang-tags-pars-basic pdftags pdfstandard(ua-1) ---
 #set text(lang: "uk")
 Par 1.
 
@@ -8,7 +8,7 @@ Par 2.
 #set text(lang: "be")
 Par 3.
 
---- lang-tags-propagation pdftags ---
+--- lang-tags-propagation pdftags pdfstandard(ua-1) ---
 #set text(lang: "nl")
 A paragraph.
 

@@ -1,5 +1,5 @@
 - Tag: L
-  /Numbering: Circle
+  /ListNumbering: Circle
   /K:
     - Tag: LI
       /K:
@@ -20,28 +20,33 @@
                   /K:
                     - Tag: Link
                       /K:
-                        - Annotation: page=0 index=0
+                        - Annotation: page=0 subtype=Link
+                          /Contents: "Footnote 1"
                         - Tag: Span
                           /BaselineShift:   3.500
                           /LineHeight:   6.000
                           /K:
                             - Content: page=0 mcid=2
+                              /Lang: "en"
                 - Tag: Note
+                  /Id: "Note 1"
                   /K:
                     - Tag: Lbl
                       /K:
                         - Tag: Link
                           /K:
-                            - Annotation: page=0 index=1
+                            - Annotation: page=0 subtype=Link
+                              /Contents: "1"
                             - Tag: Span
                               /BaselineShift:   2.975
                               /LineHeight:   5.100
                               /K:
                                 - Content: page=0 mcid=12
+                                  /Lang: "en"
                     - Content: page=0 mcid=13
                 - Content: page=0 mcid=3
     - Tag: L
-      /Numbering: Circle
+      /ListNumbering: Circle
       /K:
         - Tag: LI
           /K:

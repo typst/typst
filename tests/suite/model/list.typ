@@ -28,7 +28,7 @@ _Shopping list_
   - Top-level indent
 - is fine.
 
---- list-indent-specifics paged pdftags ---
+--- list-indent-specifics paged pdftags pdfstandard(ua-1) ---
  - A
      - B
    - C

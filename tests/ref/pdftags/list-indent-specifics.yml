@@ -1,5 +1,5 @@
 - Tag: L
-  /Numbering: Circle
+  /ListNumbering: Circle
   /K:
     - Tag: LI
       /K:
@@ -12,7 +12,7 @@
               /K:
                 - Content: page=0 mcid=1
     - Tag: L
-      /Numbering: Circle
+      /ListNumbering: Circle
       /K:
         - Tag: LI
           /K:

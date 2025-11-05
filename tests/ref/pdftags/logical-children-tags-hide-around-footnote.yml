@@ -2,16 +2,19 @@
   /K:
     - Content: page=0 mcid=0
 - Tag: Note
+  /Id: "Note 1"
   /Placement: Block
   /K:
     - Tag: Lbl
       /K:
         - Tag: Link
           /K:
-            - Annotation: page=0 index=0
+            - Annotation: page=0 subtype=Link
+              /Contents: "1"
             - Tag: Span
               /BaselineShift:   2.975
               /LineHeight:   5.100
               /K:
                 - Content: page=0 mcid=1
+                  /Lang: "en"
     - Content: page=0 mcid=2

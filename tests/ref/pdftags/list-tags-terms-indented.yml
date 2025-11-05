@@ -1,5 +1,5 @@
 - Tag: L
-  /Numbering: None
+  /ListNumbering: None
   /K:
     - Tag: LI
       /K:
@@ -8,6 +8,7 @@
             - Tag: Strong
               /K:
                 - Content: page=0 mcid=0
+                  /Lang: "en"
         - Tag: LBody
           /K:
             - Content: page=0 mcid=1
@@ -18,13 +19,14 @@
             - Tag: Strong
               /K:
                 - Content: page=0 mcid=2
+                  /Lang: "en"
         - Tag: LBody
           /K:
             - Tag: P
               /K:
                 - Content: page=0 mcid=3
     - Tag: L
-      /Numbering: None
+      /ListNumbering: None
       /K:
         - Tag: LI
           /K:
@@ -33,6 +35,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=4
+                      /Lang: "en"
             - Tag: LBody
               /K:
                 - Content: page=0 mcid=5
@@ -43,6 +46,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=6
+                      /Lang: "en"
             - Tag: LBody
               /K:
                 - Content: page=0 mcid=7

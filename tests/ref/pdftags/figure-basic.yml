@@ -4,22 +4,19 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=1
-        - Annotation: page=0 index=0
+        - Annotation: page=0 subtype=Link
+          /Contents: "Figure I"
     - Content: page=0 mcid=2
     - Content: page=0 mcid=3
     - Tag: Link
       /K:
         - Content: page=0 mcid=4
-        - Annotation: page=0 index=1
+        - Annotation: page=0 subtype=Link
+          /Contents: "Table II"
     - Content: page=0 mcid=5
     - Content: page=0 mcid=6
 - Tag: Table
-  /BBox:
-    page: 0
-    left:    28.160
-    top:     54.240
-    right:  123.060
-    bottom:  84.520
+  /BBox: [ 28.160, 137.893, 123.060, 168.173]
   /BorderColor: #000000
   /BorderThickness:   1.000
   /K:
@@ -52,21 +49,12 @@
     - Tag: Figure
       /Alt: "Sketch of white standing cylinder"
       /Placement: Block
-      /BBox:
-        page: 0
-        left:    46.654
-        top:     90.400
-        right:  103.346
-        bottom: 147.093
+      /BBox: [ 46.654,  75.320, 103.346, 132.013]
       /K:
         - Content: page=0 mcid=10
+          /Alt: "Sketch of white standing cylinder"
 - Tag: Table
-  /BBox:
-    page: 0
-    left:    19.695
-    top:    165.673
-    right:  131.525
-    bottom: 214.753
+  /BBox: [ 19.695,   7.660, 131.525,  56.740]
   /BorderColor: #000000
   /BorderThickness:   1.000
   /K:

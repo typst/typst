@@ -9,11 +9,7 @@
     - Tag: Figure
       /Alt: "A tiger"
       /Placement: Block
-      /BBox:
-        page: 0
-        left:    10.000
-        top:     10.000
-        right:  110.000
-        bottom:  75.430
+      /BBox: [ 10.000,  23.080, 110.000,  88.510]
       /K:
         - Content: page=0 mcid=0
+          /Alt: "A tiger"

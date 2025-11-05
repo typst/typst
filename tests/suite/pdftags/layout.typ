@@ -1,4 +1,4 @@
---- layout-tags-placement-float pdftags ---
+--- layout-tags-placement-float pdftags pdfstandard(ua-1) ---
 #set text(lang: "de")
 #grid(
   columns: 2,
