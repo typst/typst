@@ -185,7 +185,12 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        match default_math_class(c) {
+        Self::for_char_with_class(c, default_math_class(c))
+    }
+
+    /// The default limit configuration for a character with a known default class.
+    pub fn for_char_with_class(c: char, class: Option<MathClass>) -> Self {
+        match class {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
                     Limits::Never
