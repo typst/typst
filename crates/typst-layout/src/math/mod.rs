@@ -39,9 +39,9 @@ use typst_utils::{LazyHash, Numeric};
 use unicode_math_class::MathClass;
 
 use self::fragment::{
-    FrameFragment, GlyphFragment, Limits, MathFragment, has_dtls_feat, stretch_axes,
+    FrameFragment, GlyphFragment, MathFragment, has_dtls_feat, stretch_axes,
 };
-use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
+use self::run::{MathRun, MathRunFrameBuilder};
 use self::shared::*;
 use self::stretch::stretch_fragment;
 
