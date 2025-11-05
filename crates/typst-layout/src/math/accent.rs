@@ -1,15 +1,12 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Em, Frame, Point, Rel, Size};
-use typst_library::math::{Accent, AccentElem};
+use typst_library::math::{ACCENT_SHORT_FALL, Accent, AccentElem};
 use typst_syntax::Span;
 
 use super::{
     FrameFragment, MathContext, MathFragment, style_cramped, style_dtls, style_flac,
 };
-
-/// How much the accent can be shorter than the base.
-const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Lays out an [`AccentElem`].
 #[typst_macros::time(name = "math.accent", span = elem.span())]

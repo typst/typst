@@ -2,9 +2,9 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
 };
-use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
 use typst_library::math::{
-    BinomElem, EquationElem, FracElem, FracStyle, LrElem, MathSize,
+    BinomElem, EquationElem, FRAC_PADDING, FracElem, FracStyle, LrElem, MathSize,
 };
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
@@ -14,8 +14,6 @@ use super::{
     DELIM_SHORT_FALL, FrameFragment, MathContext, style_for_denominator,
     style_for_numerator,
 };
-
-const FRAC_AROUND: Em = Em::new(0.1);
 
 /// Lays out a [`FracElem`].
 #[typst_macros::time(name = "math.frac", span = elem.span())]
@@ -107,7 +105,7 @@ fn layout_vertical_frac_like(
         styles.chain(&denom_style),
     )?;
 
-    let around = FRAC_AROUND.resolve(styles);
+    let around = FRAC_PADDING.resolve(styles);
     let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
     let denom_gap =
         (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);
