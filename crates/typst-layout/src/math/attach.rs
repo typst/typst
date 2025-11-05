@@ -72,7 +72,7 @@ pub fn layout_attach(
     if let Some(stretch) = stretch {
         let relative_to_width = measure!(t, width).max(measure!(b, width));
         stretch_fragment(
-            ctx,
+            ctx.engine,
             &mut base,
             Some(Axis::X),
             Some(relative_to_width),
