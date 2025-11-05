@@ -1,5 +1,5 @@
 - Tag: L
-  /Numbering: Decimal
+  /ListNumbering: Decimal
   /K:
     - Tag: LI
       /K:
@@ -22,7 +22,7 @@
               /K:
                 - Content: page=0 mcid=3
     - Tag: L
-      /Numbering: Decimal
+      /ListNumbering: Decimal
       /K:
         - Tag: LI
           /K:

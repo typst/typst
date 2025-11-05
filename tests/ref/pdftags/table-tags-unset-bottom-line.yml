@@ -1,10 +1,5 @@
 - Tag: Table
-  /BBox:
-    page: 0
-    left:     9.500
-    top:      9.500
-    right:   40.130
-    bottom:  43.660
+  /BBox: [  9.500,   9.500,  40.130,  43.660]
   /BorderColor: #000000
   /K:
     - Tag: TR

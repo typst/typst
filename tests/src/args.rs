@@ -31,21 +31,6 @@ pub struct CliArguments {
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
     pub scale: f32,
-    /// Whether to run the tests in extended mode, including RENDER, PDF and SVG
-    /// export.
-    ///
-    /// This is used in CI.
-    #[arg(long, env = "TYPST_TESTS_EXTENDED")]
-    pub extended: bool,
-    /// Runs RENDER export.
-    #[arg(long)]
-    pub render: bool,
-    /// Runs PDF export.
-    #[arg(long)]
-    pub pdf: bool,
-    /// Runs SVG export.
-    #[arg(long)]
-    pub svg: bool,
     /// Displays the syntax tree before running tests.
     ///
     /// Note: This is ignored if using '--syntax-compare'.
@@ -83,23 +68,6 @@ pub struct CliArguments {
     pub parser_compare: Option<Option<PathBuf>>,
     // ^ I'm not using a subcommand here because then test patterns don't parse
     // how you would expect and I'm too lazy to try to fix it.
-}
-
-impl CliArguments {
-    /// Whether to run SVG export.
-    pub fn render(&self) -> bool {
-        self.render || self.extended
-    }
-
-    /// Whether to run PDF export.
-    pub fn pdf(&self) -> bool {
-        self.pdf || self.extended
-    }
-
-    /// Whether to run SVG export.
-    pub fn svg(&self) -> bool {
-        self.svg || self.extended
-    }
 }
 
 /// What to do.

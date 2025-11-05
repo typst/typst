@@ -8,6 +8,7 @@ use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Bytes;
+use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
     FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
@@ -71,7 +72,6 @@ bitflags! {
     #[derive(Copy, Clone)]
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
-        const NOPDFUA = 1 << 1;
     }
 }
 
@@ -79,8 +79,18 @@ bitflags! {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
-    pub pdf_ua: bool,
+    pub pdf_standard: Option<PdfStandard>,
     pub stages: TestStages,
+}
+
+impl Attrs {
+    /// Whether the reference output should be compared and saved.
+    pub fn should_check_ref(&self, output: TestOutput) -> bool {
+        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
+        self.stages.contains(output.into())
+            && output != TestOutput::Pdf
+            && output != TestOutput::Svg
+    }
 }
 
 pub trait TestStage: Into<TestStages> + Display + Copy {}
@@ -101,7 +111,7 @@ bitflags! {
 
 impl TestStages {
     pub fn has_paged_target(&self) -> bool {
-        self.intersects(Self::PAGED | Self::PDFTAGS)
+        self.intersects(Self::PAGED)
     }
 
     pub fn has_html_target(&self) -> bool {
@@ -535,23 +545,52 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse the test attributes inside a test header.
     fn parse_attrs(&mut self) -> Attrs {
-        let mut flags = AttrFlags::empty();
         let mut stages = TestStages::empty();
+        let mut flags = AttrFlags::empty();
+        let mut pdf_standard = None;
         while !self.s.eat_if("---") {
-            let attr = self.s.eat_until(char::is_whitespace);
-            match attr {
+            let attr_name = self.s.eat_while(is_id_continue);
+            let mut attr_params = None;
+            if self.s.eat_if('(') {
+                attr_params = Some(self.s.eat_until(')'));
+                if !self.s.eat_if(')') {
+                    self.error("expected closing parenthesis");
+                }
+            }
+            if !self.s.at(' ') {
+                self.error("expected a space after an attribute");
+            }
+
+            match attr_name {
                 "paged" => {
                     // The paged target will test render, pdf, and svg by
                     // default.
-                    self.set_attr(attr, &mut stages, TestStages::PAGED);
+                    self.set_attr(attr_name, &mut stages, TestStages::PAGED);
                     stages |= TestStages::RENDER | TestStages::PDF | TestStages::SVG;
                 }
-                "pdftags" => self.set_attr(attr, &mut stages, TestStages::PDFTAGS),
-                "html" => self.set_attr(attr, &mut stages, TestStages::HTML),
+                "pdftags" => {
+                    // pdftags implies the paged target, but won't generate any
+                    // render, pdf, or svg output references, unless paged is
+                    // explicitly specified.
+                    stages |= TestStages::PAGED;
+                    self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS);
+                }
+                "pdfstandard" => {
+                    let Some(param) = attr_params.take() else {
+                        self.error("expected parameter for `pdfstandard`");
+                        continue;
+                    };
+                    pdf_standard = serde_yaml::from_str(param)
+                        .inspect_err(|e| {
+                            self.error(format!("unknown pdf standard `{param}`: {e}"))
+                        })
+                        .ok();
+                }
+                "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
 
-                "large" => self.set_attr(attr, &mut flags, AttrFlags::LARGE),
-                "nopdfua" => self.set_attr(attr, &mut flags, AttrFlags::NOPDFUA),
+                "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
 
                 found => {
                     self.error(format!(
@@ -560,6 +599,11 @@ impl<'a> Parser<'a> {
                     break;
                 }
             }
+
+            if attr_params.is_some() {
+                self.error("unexpected attribute parameters");
+            }
+
             self.s.eat_while(' ');
         }
 
@@ -569,11 +613,12 @@ impl<'a> Parser<'a> {
 
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
-            pdf_ua: !flags.contains(AttrFlags::NOPDFUA),
+            pdf_standard,
             stages,
         }
     }
 
+    /// Set an attribute flag and check for duplicates.
     fn set_attr<F: Flags + Copy>(&mut self, attr: &str, flags: &mut F, flag: F) {
         if flags.contains(flag) {
             self.error(format!("duplicate attribute `{attr}`"));

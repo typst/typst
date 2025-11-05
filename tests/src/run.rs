@@ -10,13 +10,11 @@ use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
 use typst_syntax::{FileId, Lines, VirtualPath};
 
-use crate::collect::{
-    FileSize, NoteKind, Test, TestOutput, TestStage, TestStages, TestTarget,
-};
+use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestWorld, system_path};
-use crate::{ARGS, custom, output};
+use crate::{custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
 
@@ -106,14 +104,14 @@ impl<'a> Runner<'a> {
                 }
             }
 
-            self.run_file_test::<output::Render>(doc.as_ref(), ARGS.render());
-            self.run_hash_test::<output::Pdf>(doc.as_ref(), ARGS.pdf());
-            self.run_file_test::<output::Pdftags>(doc.as_ref(), false);
-            self.run_hash_test::<output::Svg>(doc.as_ref(), ARGS.svg());
+            self.run_file_test::<output::Render>(doc.as_ref());
+            let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
+            self.run_file_test::<output::Pdftags>(pdf.as_ref());
+            self.run_hash_test::<output::Svg>(doc.as_ref());
         }
         if self.test.attrs.stages.has_html_target() {
             let doc = self.compile::<HtmlDocument>(TestTarget::Html);
-            self.run_file_test::<output::Html>(doc.as_ref(), false);
+            self.run_file_test::<output::Html>(doc.as_ref());
         }
 
         self.handle_not_emitted();
@@ -166,37 +164,24 @@ impl<'a> Runner<'a> {
     fn run_file_test<T: FileOutputType>(
         &mut self,
         doc: Option<&T::Doc>,
-        save_live: bool,
-    ) {
-        let save_ref = self.test.attrs.stages.contains(T::OUTPUT.into());
-        if !(save_ref || save_live) {
-            return;
-        }
-
+    ) -> Option<T::Live> {
         let output = self.run_test::<T>(doc);
-        if save_ref {
+        if self.test.attrs.should_check_ref(T::OUTPUT) {
             self.check_file_ref::<T>(&output)
         }
+        output.map(|(_, live)| live)
     }
 
     /// Run test for an output format that produces a hashed reference.
     fn run_hash_test<T: HashOutputType>(
         &mut self,
         doc: Option<&T::Doc>,
-        save_live: bool,
-    ) {
-        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
-        let save_ref = self.test.attrs.stages.contains(T::OUTPUT.into())
-            && T::OUTPUT != TestOutput::Pdf
-            && T::OUTPUT != TestOutput::Svg;
-        if !(save_ref || save_live) {
-            return;
-        }
-
+    ) -> Option<T::Live> {
         let output = self.run_test::<T>(doc);
-        if save_ref {
+        if self.test.attrs.should_check_ref(T::OUTPUT) {
             self.check_hash_ref::<T>(&output)
         }
+        output.map(|(_, live)| live)
     }
 
     /// Run test for a specific output format, and save the live output to disk.
