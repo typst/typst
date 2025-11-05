@@ -905,7 +905,8 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 }),
                 value: value.into(),
                 // Matches casting `Symbol` to `Accent`
-                accent: typst::math::Accent::combine(value).is_some(),
+                accent: value_char
+                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _, _)| other != &variant)

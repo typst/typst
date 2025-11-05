@@ -91,24 +91,16 @@ pub struct Accent(pub char);
 
 impl Accent {
     /// Normalizes a string into an accent.
-    pub fn new(s: &str) -> StrResult<Self> {
-        if let Some(accent) = Self::combine(s) {
-            return Ok(Self(accent));
-        }
-        if let Ok(accent) = s.parse::<char>() {
-            return Ok(Self(accent));
-        }
-        bail!("expected a single codepoint")
+    pub fn new(c: char) -> Self {
+        Self(Self::combine(c).unwrap_or(c))
     }
 
     /// Normalize an accent to a combining one.
-    pub fn combine(s: &str) -> Option<char> {
+    pub fn combine(c: char) -> Option<char> {
         ACCENTS
             .iter()
             .copied()
-            .find(|(accent, names)| {
-                accent.encode_utf8(&mut [0; 4]) == s || names.contains(&s)
-            })
+            .find(|(accent, names)| *accent == c || names.contains(&c))
             .map(|(accent, _)| accent)
     }
 
@@ -132,10 +124,10 @@ impl Accent {
 }
 
 /// Gets the accent function corresponding to a name, if any.
-pub fn get_accent_func(name: &str) -> Option<Func> {
+pub fn get_accent_func(c: char) -> Option<Func> {
     Some(
         FUNCS
-            .get(&Accent::combine(name)?)
+            .get(&Accent::combine(c)?)
             .expect("this accent should have a function")
             .into(),
     )
@@ -143,26 +135,26 @@ pub fn get_accent_func(name: &str) -> Option<Func> {
 
 // Keep it synced with the documenting table above.
 /// A list of accents, each with a list of alternative names.
-const ACCENTS: &[(char, &[&str])] = &[
-    ('\u{0300}', &["`"]),
-    ('\u{0301}', &["´"]),
-    ('\u{0302}', &["^", "ˆ"]),
-    ('\u{0303}', &["~", "∼", "˜"]),
-    ('\u{0304}', &["¯"]),
-    ('\u{0305}', &["-", "–", "‾", "−"]),
-    ('\u{0306}', &["˘"]),
-    ('\u{0307}', &[".", "˙", "⋅"]),
-    ('\u{0308}', &["¨"]),
+const ACCENTS: &[(char, &[char])] = &[
+    ('\u{0300}', &['`']),
+    ('\u{0301}', &['´']),
+    ('\u{0302}', &['^', 'ˆ']),
+    ('\u{0303}', &['~', '∼', '˜']),
+    ('\u{0304}', &['¯']),
+    ('\u{0305}', &['-', '–', '‾', '−']),
+    ('\u{0306}', &['˘']),
+    ('\u{0307}', &['.', '˙', '⋅']),
+    ('\u{0308}', &['¨']),
     ('\u{20db}', &[]),
     ('\u{20dc}', &[]),
-    ('\u{030a}', &["∘", "○"]),
-    ('\u{030b}', &["˝"]),
-    ('\u{030c}', &["ˇ"]),
-    ('\u{20d6}', &["←"]),
-    ('\u{20d7}', &["→", "⟶"]),
-    ('\u{20e1}', &["↔", "⟷"]),
-    ('\u{20d0}', &["↼"]),
-    ('\u{20d1}', &["⇀"]),
+    ('\u{030a}', &['∘', '○']),
+    ('\u{030b}', &['˝']),
+    ('\u{030c}', &['ˇ']),
+    ('\u{20d6}', &['←']),
+    ('\u{20d7}', &['→', '⟶']),
+    ('\u{20e1}', &['↔', '⟷']),
+    ('\u{20d0}', &['↼']),
+    ('\u{20d1}', &['⇀']),
 ];
 
 /// Lazily created accent functions.
@@ -249,9 +241,9 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
 cast! {
     Accent,
     self => self.0.into_value(),
-    v: EcoString => Self::new(&v)?,
-    v: Content => match v.to_packed::<SymbolElem>() {
-        Some(elem) => Self::new(&elem.text)?,
-        None => bail!("expected a symbol"),
-    },
+    v: char => Self::new(v),
+    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
+        Some(c) => Self::new(c),
+        _ => bail!("expected a single-codepoint symbol"),
+    }
 }
