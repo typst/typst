@@ -131,9 +131,13 @@ impl Symbol {
 
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
-        let c = self.get();
-        crate::math::accent::get_accent_func(c)
-            .or_else(|| crate::math::get_lr_wrapper_func(c))
+        self.get()
+            .parse::<char>()
+            .ok()
+            .and_then(|c| {
+                crate::math::accent::get_accent_func(c)
+                    .or_else(|| crate::math::get_lr_wrapper_func(c))
+            })
             .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 

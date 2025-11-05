@@ -3,7 +3,6 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use ecow::EcoString;
 
 use crate::engine::Engine;
 use crate::foundations::{
@@ -139,62 +138,58 @@ pub fn norm(
 
 /// Gets the Left/Right wrapper function corresponding to a left delimiter, if
 /// any.
-pub fn get_lr_wrapper_func(left: &str) -> Option<Func> {
+pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
     match left {
-        "⌈" => Some(ceil::func()),
-        "⌊" => Some(floor::func()),
-        l => FUNCS.get(l).map(Func::from),
+        '⌈' => Some(ceil::func()),
+        '⌊' => Some(floor::func()),
+        l => FUNCS.get(&l).map(Func::from),
     }
 }
 
 /// The delimiter pairings supported for use as callable symbols.
-const DELIMS: &[(&str, &str)] = &[
-    ("(", ")"),
-    ("⟮", "⟯"),
-    ("⦇", "⦈"),
-    ("⦅", "⦆"),
-    ("⦓", "⦔"),
-    ("⦕", "⦖"),
-    ("{", "}"),
-    ("⦃", "⦄"),
-    ("[", "]"),
-    ("⦍", "⦐"),
-    ("⦏", "⦎"),
-    ("⟦", "⟧"),
-    ("⦋", "⦌"),
-    ("❲", "❳"),
-    ("⟬", "⟭"),
-    ("⦗", "⦘"),
-    ("⟅", "⟆"),
-    ("⎰", "⎱"),
-    ("⎱", "⎰"),
-    ("⧘", "⧙"),
-    ("⧚", "⧛"),
-    ("⟨", "⟩"),
-    ("⧼", "⧽"),
-    ("⦑", "⦒"),
-    ("⦉", "⦊"),
-    ("⟪", "⟫"),
-    ("⌜", "⌝"),
-    ("⌞", "⌟"),
+const DELIMS: &[(char, char)] = &[
+    ('(', ')'),
+    ('⟮', '⟯'),
+    ('⦇', '⦈'),
+    ('⦅', '⦆'),
+    ('⦓', '⦔'),
+    ('⦕', '⦖'),
+    ('{', '}'),
+    ('⦃', '⦄'),
+    ('[', ']'),
+    ('⦍', '⦐'),
+    ('⦏', '⦎'),
+    ('⟦', '⟧'),
+    ('⦋', '⦌'),
+    ('❲', '❳'),
+    ('⟬', '⟭'),
+    ('⦗', '⦘'),
+    ('⟅', '⟆'),
+    ('⎰', '⎱'),
+    ('⎱', '⎰'),
+    ('⧘', '⧙'),
+    ('⧚', '⧛'),
+    ('⟨', '⟩'),
+    ('⧼', '⧽'),
+    ('⦑', '⦒'),
+    ('⦉', '⦊'),
+    ('⟪', '⟫'),
+    ('⌜', '⌝'),
+    ('⌞', '⌟'),
 ];
 
 /// Lazily created left/right wrapper functions.
-static FUNCS: LazyLock<HashMap<&'static str, NativeFuncData>> = LazyLock::new(|| {
+static FUNCS: LazyLock<HashMap<char, NativeFuncData>> = LazyLock::new(|| {
     let bump = Box::leak(Box::new(Bump::new()));
     DELIMS
         .iter()
         .copied()
-        .map(|(l, r)| (l, create_lr_func_data(l.into(), r.into(), bump)))
+        .map(|(l, r)| (l, create_lr_func_data(l, r, bump)))
         .collect()
 });
 
 /// Creates metadata for an L/R wrapper function.
-fn create_lr_func_data(
-    left: EcoString,
-    right: EcoString,
-    bump: &'static Bump,
-) -> NativeFuncData {
+fn create_lr_func_data(left: char, right: char, bump: &'static Bump) -> NativeFuncData {
     let title = bumpalo::format!(in bump, "{}{} Left/Right", left, right).into_bump_str();
     let docs = bumpalo::format!(in bump, "Wraps an expression in {}{}.", left, right)
         .into_bump_str();
@@ -203,7 +198,7 @@ fn create_lr_func_data(
             move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
                 let size = args.named("size")?;
                 let body = args.expect("body")?;
-                Ok(delimited(body, left.clone(), right.clone(), size).into_value())
+                Ok(delimited(body, left, right, size).into_value())
             },
         )),
         name: "(..) => ..",
@@ -251,8 +246,8 @@ fn create_lr_param_info() -> Vec<ParamInfo> {
 /// Creates an L/R element with the given delimiters.
 fn delimited(
     body: Content,
-    left: EcoString,
-    right: EcoString,
+    left: char,
+    right: char,
     size: Option<Rel<Length>>,
 ) -> Content {
     let span = body.span();
