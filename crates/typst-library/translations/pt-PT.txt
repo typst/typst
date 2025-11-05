@@ -1,11 +1,3 @@
-# figure =
-# table = 
-# equation = 
-# bibliography = 
 heading = Secção
 outline = Índice
-# raw = 
-# page = 
-# footnote = 
 email = Correio Eletrónico
-# telephone = 
