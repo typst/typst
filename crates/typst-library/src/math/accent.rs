@@ -1,3 +1,14 @@
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
+use bumpalo::Bump;
+use comemo::Tracked;
+use ecow::EcoString;
+use icu_properties::CanonicalCombiningClass;
+use icu_properties::maps::CodePointMapData;
+use icu_provider::AsDeserializingBufferProvider;
+use icu_provider_blob::BlobDataProvider;
+
 use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -6,15 +17,6 @@ use crate::foundations::{
 };
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
-use bumpalo::Bump;
-use comemo::Tracked;
-use ecow::EcoString;
-use icu_properties::CanonicalCombiningClass;
-use icu_properties::maps::CodePointMapData;
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_blob::BlobDataProvider;
-use std::collections::HashMap;
-use std::sync::LazyLock;
 
 /// Attaches an accent to a base.
 ///
