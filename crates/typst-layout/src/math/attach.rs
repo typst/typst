@@ -7,9 +7,9 @@ use typst_utils::OptionExt;
 
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
+use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Size};
 use typst_library::math::{
-    AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
+    AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem,
 };
 use typst_library::text::Font;
 
@@ -33,7 +33,7 @@ pub fn layout_attach(
 ) -> SourceResult<()> {
     let merged = elem.merge_base();
     let elem = merged.as_ref().unwrap_or(elem);
-    let stretch = stretch_size(styles, elem);
+    let stretch = elem.stretch_size(styles);
 
     let mut base = ctx.layout_into_fragment(&elem.base, styles)?;
     let sup_style = style_for_superscript(styles);
@@ -164,18 +164,6 @@ pub fn layout_limits(
     fragment.set_limits(limits);
     ctx.push(fragment);
     Ok(())
-}
-
-/// Get the size to stretch the base to.
-fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs>> {
-    // Extract from an EquationElem.
-    let mut base = &elem.base;
-    while let Some(equation) = base.to_packed::<EquationElem>() {
-        base = &equation.body;
-    }
-
-    base.to_packed::<StretchElem>()
-        .map(|stretch| stretch.size.resolve(styles))
 }
 
 /// Lay out the attachments.

@@ -147,3 +147,26 @@ pub struct ClassElem {
     #[required]
     pub body: Content,
 }
+
+/// An iterator that alternates between the `Left` and `Right` values, if the
+/// initial value is not `None`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum LeftRightAlternator {
+    None,
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::None => {}
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
+    }
+}
