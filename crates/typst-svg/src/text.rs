@@ -35,12 +35,18 @@ impl SVGRenderer<'_> {
             ),
         );
 
+        // we need to store the offsets to later fill x="<codepoint1_x> <codepoint2_x> ..." and y=...
+        // in the <text>
+        let mut offsets = vec![(0, 0.0, 0.0); text.glyphs.len()];
+
         let mut x: f64 = 0.0;
         let mut y: f64 = 0.0;
         for glyph in &text.glyphs {
             let id = GlyphId(glyph.id);
             let x_offset = x + glyph.x_offset.at(text.size).to_pt();
             let y_offset = y + glyph.y_offset.at(text.size).to_pt();
+
+            offsets.push((glyph.range().start, x_offset, y_offset));
 
             self.render_colr_glyph(text, id, x_offset, y_offset, scale)
                 .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale))
@@ -64,6 +70,35 @@ impl SVGRenderer<'_> {
             x += glyph.x_advance.at(text.size).to_pt();
             y += glyph.y_advance.at(text.size).to_pt();
         }
+
+        // using `font-variant-ligatures: none` to make sure there's a 1:1 mapping of character<->glyph
+
+        self.xml.start_element("text");
+        self.xml.write_attribute("fill", "transparent");
+        self.xml.write_attribute("style", "font-variant-ligatures: none");
+        self.xml.write_attribute("transform", "scale(1,-1)");
+
+        let offsets_per_char = text.text.as_str().char_indices()
+            .map(|(i, _)| offsets.iter().rfind(|(j, _, _)| *j <= i).expect("offsets list is supposed to include offsets for all chars, this is a bug"))
+            .collect::<Vec<_>>();
+
+        self.xml.write_attribute(
+            "x",
+            &offsets_per_char.iter()
+                .map(|(_, x, _)| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        self.xml.write_attribute(
+            "y",
+            &offsets_per_char.iter()
+                .map(|(_, _, y)| format!("{}", y))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+
+        self.xml.write_text(text.text.as_str());
+        self.xml.end_element();
 
         self.xml.end_element();
     }
