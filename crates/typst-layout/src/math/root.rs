@@ -61,7 +61,7 @@ pub fn layout_root(
     let line_width = radicand.width();
 
     let target = radicand.height() + thickness + gap;
-    sqrt.stretch_vertical(ctx, target, Abs::zero());
+    sqrt.stretch_vertical(ctx.engine, target, Abs::zero());
     let sqrt_stroke = sqrt.stroke();
     let sqrt = sqrt.into_frame();
 

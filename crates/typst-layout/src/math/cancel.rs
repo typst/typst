@@ -1,5 +1,6 @@
 use comemo::Track;
 use typst_library::diag::{At, SourceResult};
+use typst_library::engine::Engine;
 use typst_library::foundations::{Context, Packed, Smart, StyleChain};
 use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Transform};
 use typst_library::math::{CancelAngle, CancelElem};
@@ -40,7 +41,7 @@ pub fn layout_cancel(
 
     let invert_first_line = !cross && invert;
     let first_line = draw_cancel_line(
-        ctx,
+        ctx.engine,
         length,
         stroke.clone(),
         invert_first_line,
@@ -56,8 +57,9 @@ pub fn layout_cancel(
 
     if cross {
         // Draw the second line.
-        let second_line =
-            draw_cancel_line(ctx, length, stroke, true, angle, body_size, styles, span)?;
+        let second_line = draw_cancel_line(
+            ctx.engine, length, stroke, true, angle, body_size, styles, span,
+        )?;
 
         body.push_frame(center, second_line);
     }
@@ -76,7 +78,7 @@ pub fn layout_cancel(
 /// Draws a cancel line.
 #[allow(clippy::too_many_arguments)]
 fn draw_cancel_line(
-    ctx: &mut MathContext,
+    engine: &mut Engine,
     length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
@@ -94,7 +96,7 @@ fn draw_cancel_line(
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
             CancelAngle::Func(func) => func
-                .call(ctx.engine, Context::new(None, Some(styles)).track(), [default])?
+                .call(engine, Context::new(None, Some(styles)).track(), [default])?
                 .cast()
                 .at(span)?,
         },

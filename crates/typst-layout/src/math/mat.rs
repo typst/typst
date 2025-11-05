@@ -347,7 +347,7 @@ fn layout_delimiters(
     if let Some(left_c) = left {
         let mut left =
             ctx.layout_into_fragment(&SymbolElem::packed(left_c).spanned(span), styles)?;
-        left.stretch_vertical(ctx, target, short_fall);
+        left.stretch_vertical(ctx.engine, target, short_fall);
         left.center_on_axis();
         left.set_class(MathClass::Opening);
         ctx.push(left);
@@ -358,7 +358,7 @@ fn layout_delimiters(
     if let Some(right_c) = right {
         let mut right =
             ctx.layout_into_fragment(&SymbolElem::packed(right_c).spanned(span), styles)?;
-        right.stretch_vertical(ctx, target, short_fall);
+        right.stretch_vertical(ctx.engine, target, short_fall);
         right.center_on_axis();
         right.set_class(MathClass::Closing);
         ctx.push(right);
