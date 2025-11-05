@@ -106,7 +106,7 @@ pub fn place_accent(
     // in many cases.
     let stretch_width = stretch_width.relative_to(base.width());
     let short_fall = short_fall.at(size);
-    accent.stretch_horizontal(ctx, stretch_width, short_fall);
+    accent.stretch_horizontal(ctx.engine, stretch_width, short_fall);
     let accent_attach = accent.accent_attach().0;
     let accent = accent.into_frame();
 
