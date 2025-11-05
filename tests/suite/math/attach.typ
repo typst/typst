@@ -195,3 +195,10 @@ $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 // Error: 23-24 unexpected underscore
 $ a _ b (d _) (d'_ ) (_ c) $
 
+--- math-attach-double-chain ---
+// Test attachment chain grouping with doubled operators and primes
+$ mat(delim: #none,
+  a_1_2^3,  b^1^2_3,  c_1^2^3,  d^1_2_3;
+  a'_1_2^3, b'^1^2_3, c'_1^2^3, d'^1_2_3;
+  a_1'_2^3, b^1'^2_3, c_1'^2^3, d^1'_2_3;
+) $
