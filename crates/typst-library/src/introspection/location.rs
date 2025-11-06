@@ -124,7 +124,7 @@ impl Debug for Location {
 
 impl Repr for Location {
     fn repr(&self) -> EcoString {
-        "..".into()
+        "location(..)".into()
     }
 }
 

@@ -247,11 +247,15 @@ impl Repr for Selector {
             }
             Self::Label(label) => label.repr(),
             Self::Regex(regex) => regex.repr(),
-            Self::Can(cap) => eco_format!("{cap:?}"),
+            Self::Can(_) => eco_format!("selector(..)"),
             Self::Or(selectors) | Self::And(selectors) => {
                 let function = if matches!(self, Self::Or(_)) { "or" } else { "and" };
                 let pieces: Vec<_> = selectors.iter().map(Selector::repr).collect();
-                eco_format!("{}{}", function, repr::pretty_array_like(&pieces, false))
+                eco_format!(
+                    "selector.{}{}",
+                    function,
+                    repr::pretty_array_like(&pieces, false)
+                )
             }
             Self::Location(loc) => loc.repr(),
             Self::Before { selector, end: split, inclusive }
