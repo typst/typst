@@ -22,6 +22,13 @@ $ ∑'_S' $
 // Test attaching primes only
 $a' = a^', a_', a_'''^''^'$
 
+--- math-primes-factorial ---
+// Test edge cases with factorials and primes
+$
+  n'!' quad n' !' quad a_n'!'^b \
+  n!'! quad n! '! quad a_n!'!^b \
+$
+
 --- math-primes-scripts ---
 // Test primes always attaching as scripts
 $ x' $

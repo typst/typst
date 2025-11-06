@@ -800,9 +800,9 @@ calendar.
 >>>
 >>> #show table.cell.where(y: 0): strong
 #set table(stroke: (x, y) => (
-  left: if x == 0 or y > 0 { 1pt } else { 0pt },
+  left: if x == 0 or y > 0 { 1pt } else { 0pt },
   right: 1pt,
-  top: if y <= 1 { 1pt } else { 0pt },
+  top: if y <= 1 { 1pt } else { 0pt },
   bottom: 1pt,
 ))
 
@@ -1037,7 +1037,7 @@ on the right of the table.
     inset: (x: 0.6em,),
     stroke: (_, y) => (
       x: 1pt,
-      top: if y <= 1 { 1pt } else { 0pt },
+      top: if y <= 1 { 1pt } else { 0pt },
       bottom: 1pt,
     ),
     align: (left, right, right, right, right, left),
@@ -1090,7 +1090,7 @@ upright:
     inset: (x: 0.6em,),
     stroke: (_, y) => (
       x: 1pt,
-      top: if y <= 1 { 1pt } else { 0pt },
+      top: if y <= 1 { 1pt } else { 0pt },
       bottom: 1pt,
     ),
     align: (left, right, right, right, right, left),

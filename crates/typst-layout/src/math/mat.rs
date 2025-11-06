@@ -7,6 +7,7 @@ use typst_library::math::{Augment, AugmentOffsets, CasesElem, MatElem, VecElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
+use unicode_math_class::MathClass;
 
 use super::{
     AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
@@ -348,6 +349,7 @@ fn layout_delimiters(
             ctx.layout_into_fragment(&SymbolElem::packed(left_c).spanned(span), styles)?;
         left.stretch_vertical(ctx, target, short_fall);
         left.center_on_axis();
+        left.set_class(MathClass::Opening);
         ctx.push(left);
     }
 
@@ -358,6 +360,7 @@ fn layout_delimiters(
             ctx.layout_into_fragment(&SymbolElem::packed(right_c).spanned(span), styles)?;
         right.stretch_vertical(ctx, target, short_fall);
         right.center_on_axis();
+        right.set_class(MathClass::Closing);
         ctx.push(right);
     }
 
