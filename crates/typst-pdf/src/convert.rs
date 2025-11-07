@@ -427,9 +427,9 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
-            KrillaError::Image(_, loc) => {
+            KrillaError::Image(_, loc, e) => {
                 let span = to_span(loc);
-                bail!(span, "failed to process image");
+                bail!(span, "failed to process image: {e}");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();
