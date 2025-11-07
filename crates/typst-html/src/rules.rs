@@ -8,7 +8,7 @@ use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
-use typst_library::layout::resolve::{Cell, CellGrid, Entry};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
@@ -563,9 +563,22 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     // TODO(subfooters): similarly to headers, take consecutive footers from
     // the end for 'tfoot'.
     let footer = grid.footer.as_ref().map(|ft| {
-        let rows = rows.drain(ft.start..);
+        // Convert from gutter to non-gutter coordinates.
+        let footer_start = if grid.has_gutter { ft.start / 2 } else { ft.start };
+        let rows = rows.drain(footer_start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
+
+    // Header range converting from gutter (doubled) to non-gutter coordinates.
+    let header_range = |hd: &Header| {
+        if grid.has_gutter {
+            // Use ceil as it might be `2 * row_amount - 1` if the header is at
+            // the end.
+            hd.range.start / 2..hd.range.end.div_ceil(2)
+        } else {
+            hd.range.clone()
+        }
+    };
 
     // Store all consecutive headers at the start in 'thead'. All remaining
     // headers are just 'th' rows across the table body.
@@ -574,15 +587,16 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
         .headers
         .iter()
         .take_while(|hd| {
-            let is_consecutive = hd.range.start == consecutive_header_end;
-            consecutive_header_end = hd.range.end;
+            let range = header_range(hd);
+            let is_consecutive = range.start == consecutive_header_end;
+            consecutive_header_end = range.end;
             is_consecutive
         })
         .count();
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            grid.headers.get(first_mid_table_header - 1).unwrap().range.end;
+            header_range(grid.headers.get(first_mid_table_header - 1).unwrap()).end;
         let rows = rows.drain(..removed_header_rows);
 
         (
@@ -601,10 +615,11 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     let mut body =
         Content::sequence(rows.into_iter().enumerate().map(|(relative_y, row)| {
             let y = relative_y + y_offset;
-            if let Some(current_header) =
-                grid.headers.get(next_header).filter(|h| h.range.contains(&y))
+            if let Some(current_header_range) =
+                grid.headers.get(next_header).map(|h| header_range(h))
+                && current_header_range.contains(&y)
             {
-                if y + 1 == current_header.range.end {
+                if y + 1 == current_header_range.end {
                     next_header += 1;
                 }
 
