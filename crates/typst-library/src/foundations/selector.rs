@@ -141,36 +141,6 @@ impl Selector {
             Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
         }
     }
-
-    /// Changes the element type of the selector
-    pub fn change_element(&self, elem: Element) -> Self {
-        match self {
-            Self::Elem(_, dict) => Self::Elem(elem, dict.clone()),
-            Self::Or(selectors) => Self::Or(
-                selectors
-                    .iter()
-                    .map(|selector| selector.change_element(elem))
-                    .collect(),
-            ),
-            Self::And(selectors) => Self::And(
-                selectors
-                    .iter()
-                    .map(|selector| selector.change_element(elem))
-                    .collect(),
-            ),
-            Self::Before { selector, end, inclusive } => Self::Before {
-                selector: Arc::new(selector.change_element(elem)),
-                end: end.clone(),
-                inclusive: inclusive.clone(),
-            },
-            Self::After { selector, start, inclusive } => Self::After {
-                selector: Arc::new(selector.change_element(elem)),
-                start: start.clone(),
-                inclusive: inclusive.clone(),
-            },
-            other_selector => other_selector.clone(),
-        }
-    }
 }
 
 #[scope]
