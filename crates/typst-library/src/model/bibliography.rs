@@ -181,7 +181,7 @@ impl BibliographyElem {
     #[comemo::memoize]
     pub fn assign_citations(
         introspector: Tracked<Introspector>,
-    ) -> FxHashMap<Span, Span> {
+    ) -> FxHashMap<Location, Location> {
         let bibliographies: Vec<Packed<Self>> = introspector
             .query(&Self::ELEM.select())
             .into_iter()
@@ -189,17 +189,17 @@ impl BibliographyElem {
             .collect();
         let citations = introspector.query(&CiteElem::ELEM.select());
 
-        let mut citation_map: FxHashMap<Span, Span> = FxHashMap::default();
+        let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
 
         // First citations from bibliographies with selectors
         for bibliography in &bibliographies {
             if let Smart::Custom(bibliography_selector) =
                 &bibliography.target.get_ref(StyleChain::default())
             {
-                let bibliography_span = bibliography.span();
+                let bibliography_location = bibliography.location().unwrap();
                 let bibliography_citations = introspector.query(&bibliography_selector);
                 for citation in bibliography_citations {
-                    citation_map.entry(citation.span()).or_insert(bibliography_span);
+                    citation_map.entry(citation.location().unwrap()).or_insert(bibliography_location);
                 }
             }
         }
@@ -208,7 +208,7 @@ impl BibliographyElem {
         // 1. First following auto bibliography containing the label
         // 2. First preceding auto bibliography containing the label
         for citation in citations {
-            if !citation_map.contains_key(&citation.span()) {
+            if !citation_map.contains_key(&citation.location().unwrap()) {
                 let citation_key = citation.to_packed::<CiteElem>().unwrap().key;
                 let citation_location = citation.location().unwrap();
                 if let Some(next_bib) = introspector
@@ -221,7 +221,7 @@ impl BibliographyElem {
                     })
                     .next()
                 {
-                    citation_map.entry(citation.span()).or_insert(next_bib.span());
+                    citation_map.entry(citation.location().unwrap()).or_insert(next_bib.location().unwrap());
                 }
                 if let Some(prev_bib) = introspector
                     .query(&Self::ELEM.select().before(citation_location.into(), false))
@@ -234,37 +234,10 @@ impl BibliographyElem {
                     })
                     .next()
                 {
-                    citation_map.entry(citation.span()).or_insert(prev_bib.span());
+                    citation_map.entry(citation.location().unwrap()).or_insert(prev_bib.location().unwrap());
                 }
             }
         }
-        // for bibliography in bibliographies.rev() {
-        //     let headings_before: Vec<Packed<HeadingElem>> = introspector
-        //         .query(
-        //             &HeadingElem::ELEM
-        //             .select()
-        //             .before(bibliography_location.into(), false),
-        //         )
-        //         .iter()
-        //         .map(|element| {
-        //             element.to_packed::<HeadingElem>().unwrap().clone()
-        //         })
-        //     .filter(|heading| {
-        //         heading
-        //             .level
-        //             .get(StyleChain::default())
-        //             .map(NonZeroUsize::get)
-        //             .unwrap_or(1)
-        //             <= heading_level.get()
-        //     })
-        //     .collect();
-        //     if bibliography.target.get_ref(StyleChain::default()) == Smart::Auto {
-        //         let bibliography_span = bibliography.span();
-        //         for citation in bibliography_citations {
-        //             citation_map.entry(citation.span()).or_insert(bibliography_span);
-        //         }
-        //     }
-        // }
 
         citation_map
     }
@@ -653,7 +626,7 @@ pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Works for each bibliography
-    pub works: FxHashMap<Span, IndivWorks>,
+    pub works: FxHashMap<Location, IndivWorks>,
 }
 
 pub struct IndivWorks {
@@ -691,7 +664,7 @@ impl Works {
         styles: StyleChain,
     ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
         self.works
-            .get(&elem.span())
+            .get(&elem.location().unwrap())
             .unwrap()
             .references
             .as_deref()
@@ -708,7 +681,7 @@ impl Works {
     }
 
     pub fn hanging_indent(&self, elem: &Packed<BibliographyElem>) -> bool {
-        self.works.get(&elem.span()).unwrap().hanging_indent
+        self.works.get(&elem.location().unwrap()).unwrap().hanging_indent
     }
 }
 
@@ -721,11 +694,11 @@ struct Generator<'a> {
     /// The document's bibliographies.
     bibliographies: Vec<Packed<BibliographyElem>>,
     /// The document's citation groups for each bibliography.
-    groups: FxHashMap<Span, EcoVec<Content>>,
+    groups: FxHashMap<Location, EcoVec<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
     /// Grouped by bibliography.
-    infos: FxHashMap<Span, Vec<GroupInfo>>,
+    infos: FxHashMap<Location, Vec<GroupInfo>>,
     /// Citations with unresolved keys.
     failures: FxHashMap<Location, SourceResult<Content>>,
 }
@@ -766,18 +739,18 @@ impl<'a> Generator<'a> {
         let citation_map = BibliographyElem::assign_citations(introspector);
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
-            let bibliography_span = bibliography.span();
+            let bibliography_location = bibliography.location().unwrap();
             let bibliography_groups = citation_groups_all
                 .iter()
                 .cloned()
                 .filter(|group| {
                     let cite_group = group.to_packed::<CiteGroup>().unwrap();
                     citation_map
-                        .get(&cite_group.children.first().unwrap().span())
-                        .is_some_and(|span| *span == bibliography_span)
+                        .get(&cite_group.children.first().unwrap().location().unwrap())
+                        .is_some_and(|location| *location == bibliography_location)
                 })
                 .collect();
-            groups.insert(bibliography.span(), bibliography_groups);
+            groups.insert(bibliography_location, bibliography_groups);
         }
         Ok(Self {
             routines,
@@ -806,10 +779,10 @@ impl<'a> Generator<'a> {
             let bibliography_style =
                 &bibliography.style.get_ref(StyleChain::default()).derived;
             let database = &bibliography.sources.derived;
-            let bibliography_span = bibliography.span();
+            let bibliography_location = bibliography.location().unwrap();
 
             // Process all citation groups.
-            for elem in self.groups.get(&bibliography_span).unwrap() {
+            for elem in self.groups.get(&bibliography_location).unwrap() {
                 let group = elem.to_packed::<CiteGroup>().unwrap();
                 let location = elem.location().unwrap();
                 let children = &group.children;
@@ -879,7 +852,7 @@ impl<'a> Generator<'a> {
                     Smart::Custom(style) => style.derived.get(),
                 };
 
-                self.infos.entry(bibliography_span).or_insert(vec![]).push(GroupInfo {
+                self.infos.entry(bibliography_location).or_insert(vec![]).push(GroupInfo {
                     location,
                     subinfos,
                     span: first.span(),
@@ -940,7 +913,7 @@ impl<'a> Generator<'a> {
             let references = self.display_references(rendered_indiv, bibliography)?;
             let hanging_indent =
                 rendered_indiv.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-            works.insert(bibliography.span(), IndivWorks { references, hanging_indent });
+            works.insert(bibliography.location().unwrap(), IndivWorks { references, hanging_indent });
         }
         Ok(Works { citations, works })
     }
@@ -965,7 +938,7 @@ impl<'a> Generator<'a> {
                 }
             }
 
-            if let Some(infos) = self.infos.get(&source_bibliography.span()) {
+            if let Some(infos) = self.infos.get(&source_bibliography.location().unwrap()) {
                 for (info, citation) in infos.iter().zip(&rendered_indiv.citations) {
                     let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
                     let link = |i: usize| {
@@ -1018,7 +991,7 @@ impl<'a> Generator<'a> {
         // Determine for each citation key where it first occurred, so that we
         // can link there.
         let mut first_occurrences = FxHashMap::default();
-        if let Some(infos) = self.infos.get(&bibliography.span()) {
+        if let Some(infos) = self.infos.get(&bibliography.location().unwrap()) {
             for info in infos {
                 for subinfo in &info.subinfos {
                     let key = subinfo.key.resolve();

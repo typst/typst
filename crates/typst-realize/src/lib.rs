@@ -21,7 +21,7 @@ use typst_library::foundations::{
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{
-    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+    Location, Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -1118,13 +1118,13 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Separate children with different bibliographies
     let citation_map = BibliographyElem::assign_citations(s.engine.introspector);
     let mut map = HashMap::new();
-    let mut key_order: Vec<Span> = vec![];
+    let mut key_order: Vec<Location> = vec![];
     for child in children.clone() {
-        if let Some(bib_span) = citation_map.get(&child.span()) {
-            let entry = map.entry(bib_span);
+        if let Some(bib_loc) = citation_map.get(&child.location().unwrap()) {
+            let entry = map.entry(bib_loc);
             entry
                 .or_insert_with(|| {
-                    key_order.push(*bib_span);
+                    key_order.push(*bib_loc);
                     vec![]
                 })
                 .push(child);
