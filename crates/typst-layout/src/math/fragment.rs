@@ -359,6 +359,7 @@ impl GlyphFragment {
             stroke: styles.resolve(TextElem::stroke).map(|s| s.unwrap_or_default()),
             lang: styles.get(TextElem::lang),
             region: styles.get(TextElem::region),
+            selectable: styles.get(TextElem::selectable),
             text: text.into(),
             glyphs: vec![glyph.clone()],
         };
