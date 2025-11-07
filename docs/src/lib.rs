@@ -571,9 +571,12 @@ fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
                 let tag = &docs[fence_idx + fence_len..lang_tag_end].trim();
                 let title = ExampleArgs::from_tag(tag).title;
 
-                // First, push non-fenced content.
-                if found > 0 {
-                    res.push(RawDetailsBlock::Markdown(&docs[i..fence_idx]));
+                // First, push non-fenced content. It might be all whitespaces
+                // if it's between two consecutive fences. Therefore, we have to
+                // trim it before checking.
+                let content_before_fence = &docs[i..fence_idx];
+                if !content_before_fence.trim().is_empty() {
+                    res.push(RawDetailsBlock::Markdown(content_before_fence));
                 }
 
                 // Then, find the end of the fence.
@@ -596,7 +599,11 @@ fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
                 i = fence_end;
             }
             None => {
-                res.push(RawDetailsBlock::Markdown(&docs[i..]));
+                // Push the remaining content only if it's non-empty after trimming.
+                let slice = &docs[i..];
+                if !slice.trim().is_empty() {
+                    res.push(RawDetailsBlock::Markdown(slice));
+                }
                 break;
             }
         }
@@ -1081,5 +1088,38 @@ mod tests {
         fn base(&self) -> &str {
             "/"
         }
+    }
+
+    #[test]
+    fn test_parsing_details_blocks() {
+        let docs = r#"
+A brief description of the parameter.
+
+```example
+A basic example.
+```
+
+Further descriptions.
+
+```example
+An _advanced_ example.
+```
+
+```example
+Immediately followed by another example.
+There should be no additional markdown block between them.
+
+Empty lines after the final example should also be dropped.
+```
+
+"#;
+        let blocks = details_blocks(docs);
+
+        assert_eq!(blocks.len(), 5);
+        matches!(blocks[0], RawDetailsBlock::Markdown { .. });
+        matches!(blocks[1], RawDetailsBlock::Example { .. });
+        matches!(blocks[2], RawDetailsBlock::Markdown { .. });
+        matches!(blocks[3], RawDetailsBlock::Example { .. });
+        matches!(blocks[4], RawDetailsBlock::Example { .. });
     }
 }
