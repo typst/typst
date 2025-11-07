@@ -563,8 +563,10 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     // TODO(subfooters): similarly to headers, take consecutive footers from
     // the end for 'tfoot'.
     let footer = grid.footer.as_ref().map(|ft| {
-        // Convert from gutter to non-gutter coordinates.
-        let footer_start = if grid.has_gutter { ft.start / 2 } else { ft.start };
+        // Convert from gutter to non-gutter coordinates. Use ceil as it might
+        // include the previous gutter row
+        // (cf. typst-library/layout/grid/resolve.rs).
+        let footer_start = if grid.has_gutter { ft.start.div_ceil(2) } else { ft.start };
         let rows = rows.drain(footer_start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
@@ -573,7 +575,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     let header_range = |hd: &Header| {
         if grid.has_gutter {
             // Use ceil as it might be `2 * row_amount - 1` if the header is at
-            // the end.
+            // the end (cf. typst-library/layout/grid/resolve.rs).
             hd.range.start / 2..hd.range.end.div_ceil(2)
         } else {
             hd.range.clone()

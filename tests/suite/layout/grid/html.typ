@@ -107,6 +107,34 @@
   ),
 )
 
+--- multi-header-table-gutter html ---
+#table(
+  columns: 2,
+  gutter: 3pt,
+  table.header(
+    [First], [Header]
+  ),
+  table.header(
+    [Second], [Header]
+  ),
+  table.header(
+    [Level 2], [Header],
+    level: 2,
+  ),
+  table.header(
+    [Level 3], [Header],
+    level: 3,
+  ),
+
+  [Body], [Cells],
+  [Yet], [More],
+
+  table.footer(
+    [Footer], [Row],
+    [Ending], [Table],
+  ),
+)
+
 --- multi-header-inside-table html ---
 #table(
   columns: 2,
