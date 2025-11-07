@@ -994,8 +994,17 @@ impl Regex {
         /// backslash, you would need to write `{regex("\\\\")}`.
         ///
         /// If you need many escape sequences, you can also create a raw element
-        /// and extract its text to use it for your regular expressions:
-        /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
+        /// and extract its text to use it for your regular expressions.
+        ///
+        /// ```example
+        /// #show regex("\\\\"): set text(red)
+        ///
+        /// The following sentence contains a backslash: C:\\Users\\Alice\\file.txt
+        ///
+        /// #show regex(`\d+\.\d+\.\d+`.text): set text(blue)
+        ///
+        /// The latest version of the software is 1.2.3, which includes several important bug fixes.
+        /// ```
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)
