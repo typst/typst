@@ -35,7 +35,7 @@
 #table(
   columns: 3,
   column-gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
 )
@@ -44,7 +44,7 @@
 #table(
   columns: 3,
   row-gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
 )
@@ -53,9 +53,30 @@
 #table(
   columns: 3,
   gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
+)
+
+--- table-wide-header-table html ---
+#table(
+  columns: 3,
+  table.header(
+    [a], [b], [c],
+    [d], [e], [f],
+    [g], [h], [i]
+  )
+)
+
+--- table-wide-header-gutter-table html ---
+#table(
+  columns: 3,
+  gutter: 3pt,
+  table.header(
+    [a], [b], [c],
+    [d], [e], [f],
+    [g], [h], [i]
+  )
 )
 
 --- multi-header-table html ---
