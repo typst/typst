@@ -988,13 +988,13 @@ impl Regex {
     pub fn construct(
         /// The regular expression as a string.
         ///
-        /// Most regex escape sequences just work because they are not valid
-        /// Typst escape sequences (e.g., `\d`, `\b`). To produce regex escape
-        /// sequences that are also valid in Typst (e.g. `[\\]`), you need to
-        /// escape twice. Thus, to match a verbatim backslash, you would need to
-        /// write `{regex("\\\\")}`. To prevent undesired side effects, it's a
-        /// good practice to always escape the backslash in regex tokens that
-        /// use it.
+        /// Both Typst strings and regular expressions use backslashes for
+        /// escaping. To produce a regex escape sequence that is also valid in
+        /// Typst, you need to escape the backslash itself (e.g., writing
+        /// `{regex("\\\\")}` for the regex `\\`). Regex escape sequences that
+        /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
+        /// entered into strings directly, but it's a good practice to still
+        /// escape them to avoid ambiguity (i.e., `{regex("\\d")}`).
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
