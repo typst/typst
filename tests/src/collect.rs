@@ -17,7 +17,7 @@ use unscanny::Scanner;
 
 use crate::output::HashedRefs;
 use crate::world::{read, system_path};
-use crate::{REF_PATH, STORE_PATH, SUITE_PATH};
+use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
 ///
@@ -80,6 +80,9 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub pdf_standard: Option<PdfStandard>,
+    /// The test stages that are either directly specified or are implied by a
+    /// test attribute. If not specified otherwise by the `--stages` flag a
+    /// reference output will be generated.
     pub stages: TestStages,
 }
 
@@ -87,7 +90,7 @@ impl Attrs {
     /// Whether the reference output should be compared and saved.
     pub fn should_check_ref(&self, output: TestOutput) -> bool {
         // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
-        self.stages.contains(output.into())
+        ARGS.should_run(self.stages & output.into())
             && output != TestOutput::Pdf
             && output != TestOutput::Svg
     }
@@ -109,13 +112,45 @@ bitflags! {
     }
 }
 
-impl TestStages {
-    pub fn has_paged_target(&self) -> bool {
-        self.intersects(Self::PAGED)
-    }
+macro_rules! union {
+    ($union:expr) => {
+        $union
+    };
+    ($a:expr, $b:expr $(,$flag:expr)*$(,)?) => {
+        union!($a.union($b) $(,$flag)*)
+    };
+}
 
-    pub fn has_html_target(&self) -> bool {
-        self.intersects(Self::HTML)
+impl TestStages {
+    /// All stages that require the paged target.
+    pub const PAGED_STAGES: Self = union!(
+        TestStages::PAGED,
+        TestStages::RENDER,
+        TestStages::PDF,
+        TestStages::PDFTAGS,
+        TestStages::SVG,
+    );
+
+    /// All stages that require a pdf document.
+    pub const PDF_STAGES: Self = union!(TestStages::PDF, TestStages::PDFTAGS);
+
+    /// The union the supplied stages and their implied stages.
+    ///
+    /// The `paged` target will test `render`, `pdf`, and `svg` by default.
+    pub fn with_implied(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::RENDER => TestStages::empty(),
+                TestStages::PDF => TestStages::empty(),
+                TestStages::PDFTAGS => TestStages::empty(),
+                TestStages::SVG => TestStages::empty(),
+                TestStages::HTML => TestStages::empty(),
+                _ => unreachable!(),
+            });
+        }
+        res
     }
 }
 
@@ -518,7 +553,9 @@ impl<'a> Parser<'a> {
 
             let text = self.s.from(start);
 
-            if !selected(&name, self.path.canonicalize().unwrap()) {
+            if !ARGS.should_run(attrs.stages)
+                || !selected(&name, self.path.canonicalize().unwrap())
+            {
                 self.collector.skipped += 1;
                 continue;
             }
@@ -564,19 +601,8 @@ impl<'a> Parser<'a> {
             }
 
             match attr_name {
-                "paged" => {
-                    // The paged target will test render, pdf, and svg by
-                    // default.
-                    self.set_attr(attr_name, &mut stages, TestStages::PAGED);
-                    stages |= TestStages::RENDER | TestStages::PDF | TestStages::SVG;
-                }
-                "pdftags" => {
-                    // pdftags implies the paged target, but won't generate any
-                    // render, pdf, or svg output references, unless paged is
-                    // explicitly specified.
-                    stages |= TestStages::PAGED;
-                    self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS);
-                }
+                "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
+                "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
                 "pdfstandard" => {
                     let Some(param) = attr_params.take() else {
                         self.error("expected parameter for `pdfstandard`");
@@ -589,7 +615,6 @@ impl<'a> Parser<'a> {
                         .ok();
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
-
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
 
                 found => {
@@ -614,7 +639,7 @@ impl<'a> Parser<'a> {
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
             pdf_standard,
-            stages,
+            stages: stages.with_implied(),
         }
     }
 
