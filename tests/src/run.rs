@@ -14,7 +14,7 @@ use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestWorld, system_path};
-use crate::{custom, output};
+use crate::{ARGS, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
 
@@ -87,7 +87,11 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        if self.test.attrs.stages.has_paged_target() {
+        // Only compile paged document when the paged target is specified or
+        // implied. If so, run tests for all paged outputs unless excluded by
+        // the `--stages` flag. The test attribute still control which
+        // reference outputs are saved and compared though.
+        if ARGS.should_run(self.test.attrs.stages & TestStages::PAGED_STAGES) {
             let mut doc = self.compile::<PagedDocument>(TestTarget::Paged);
 
             if let Some(doc) = &mut doc
@@ -104,12 +108,22 @@ impl<'a> Runner<'a> {
                 }
             }
 
-            self.run_file_test::<output::Render>(doc.as_ref());
-            let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
-            self.run_file_test::<output::Pdftags>(pdf.as_ref());
-            self.run_hash_test::<output::Svg>(doc.as_ref());
+            if ARGS.should_run(self.test.attrs.stages & TestStages::RENDER) {
+                self.run_file_test::<output::Render>(doc.as_ref());
+            }
+            if ARGS.should_run(self.test.attrs.stages & TestStages::PDF_STAGES) {
+                let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
+                if ARGS.should_run(TestStages::PDFTAGS) {
+                    self.run_file_test::<output::Pdftags>(pdf.as_ref());
+                }
+            }
+            if ARGS.should_run(self.test.attrs.stages & TestStages::SVG) {
+                self.run_hash_test::<output::Svg>(doc.as_ref());
+            }
         }
-        if self.test.attrs.stages.has_html_target() {
+
+        // Only compile html document when the html target is specified.
+        if ARGS.should_run(self.test.attrs.stages & TestStages::HTML) {
             let doc = self.compile::<HtmlDocument>(TestTarget::Html);
             self.run_file_test::<output::Html>(doc.as_ref());
         }

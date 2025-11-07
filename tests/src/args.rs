@@ -1,7 +1,10 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
+
+use crate::collect::TestStages;
 
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
@@ -26,6 +29,11 @@ pub struct CliArguments {
     /// Updates the reference output of non-passing tests.
     #[arg(short, long, group = "action")]
     pub update: bool,
+    /// Specify which test targets/outputs to run.
+    ///
+    /// This is useful to only update specific reference outputs of a test.
+    #[arg(long, value_delimiter = ',')]
+    pub stages: Vec<TestStage>,
     /// The scaling factor to render the output image with.
     ///
     /// Does not affect the comparison or the reference image.
@@ -70,6 +78,35 @@ pub struct CliArguments {
     // how you would expect and I'm too lazy to try to fix it.
 }
 
+impl CliArguments {
+    /// The stages which should be run depending on the `--stages` flag.
+    pub fn stages(&self) -> TestStages {
+        static CACHED: AtomicU8 = AtomicU8::new(0xFF);
+
+        if CACHED.load(Ordering::Relaxed) == 0xFF {
+            let mut stages = TestStages::empty();
+            if self.stages.is_empty() {
+                stages = TestStages::all();
+            } else {
+                for &s in self.stages.iter() {
+                    stages |= s.into();
+                }
+
+                stages = stages.with_implied();
+            };
+
+            CACHED.store(stages.bits(), Ordering::Relaxed);
+        }
+
+        TestStages::from_bits(CACHED.load(Ordering::Relaxed)).unwrap()
+    }
+
+    /// Whether the stage should be run depending on the `--stages` flag.
+    pub fn should_run(&self, stage: TestStages) -> bool {
+        self.stages().intersects(stage)
+    }
+}
+
 /// What to do.
 #[derive(Debug, Clone, Subcommand)]
 #[command()]
@@ -78,4 +115,27 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum TestStage {
+    Paged,
+    Render,
+    Pdf,
+    Pdftags,
+    Svg,
+    Html,
+}
+
+impl From<TestStage> for TestStages {
+    fn from(value: TestStage) -> Self {
+        match value {
+            TestStage::Paged => TestStages::PAGED,
+            TestStage::Render => TestStages::RENDER,
+            TestStage::Pdf => TestStages::PDF,
+            TestStage::Pdftags => TestStages::PDFTAGS,
+            TestStage::Svg => TestStages::SVG,
+            TestStage::Html => TestStages::HTML,
+        }
+    }
 }
