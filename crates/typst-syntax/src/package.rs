@@ -364,11 +364,7 @@ pub struct PackageVersion {
 impl PackageVersion {
     /// The current compiler version.
     pub fn compiler() -> Self {
-        Self {
-            major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
-            minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
-            patch: env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
-        }
+        Self::from(crate::TypstVersion::new())
     }
 
     /// Performs an `==` match with the given version bound. Version elements
@@ -475,6 +471,16 @@ impl<'de> Deserialize<'de> for PackageVersion {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl From<&crate::TypstVersion> for PackageVersion {
+    fn from(value: &crate::TypstVersion) -> Self {
+        Self {
+            major: value.major() as u32,
+            minor: value.minor() as u32,
+            patch: value.patch() as u32,
+        }
     }
 }
 
