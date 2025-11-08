@@ -9,7 +9,7 @@ mod prepare;
 mod shaping;
 
 pub use self::box_::layout_box;
-pub use self::shaping::create_shape_plan;
+pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::World;
