@@ -994,7 +994,8 @@ impl Regex {
         /// `{regex("\\\\")}` for the regex `\\`). Regex escape sequences that
         /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
         /// entered into strings directly, but it's a good practice to still
-        /// escape them to avoid ambiguity (i.e., `{regex("\\d")}`).
+        /// escape them to avoid ambiguity (i.e., `{regex("\\b\\d")}`). See the
+        /// [list of valid string escape sequences]($str.escapes).
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
