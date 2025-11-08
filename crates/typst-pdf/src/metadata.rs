@@ -6,8 +6,6 @@ use typst_library::text::Locale;
 use crate::convert::GlobalContext;
 
 pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Metadata {
-    let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
-
     // Always write a language, PDF/UA-1 implicitly requires a document language
     // so the metadata and outline entries have an applicable language.
     let lang = doc_lang.unwrap_or(Locale::DEFAULT);
@@ -19,7 +17,6 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
     };
 
     let mut metadata = Metadata::new()
-        .creator(creator)
         .keywords(gc.document.info.keywords.iter().map(Into::into).collect())
         .authors(gc.document.info.author.iter().map(Into::into).collect())
         .language(lang.rfc_3066().to_string());
@@ -38,6 +35,10 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
 
     if let Some(date) = creation_date(gc) {
         metadata = metadata.creation_date(date);
+    }
+
+    if let Some(creator) = creator(gc) {
+        metadata = metadata.creator(creator.to_string());
     }
 
     metadata = metadata.text_direction(dir);
@@ -89,6 +90,16 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
     }
 
     Some(kd)
+}
+
+/// (1) If the `document.creator` is left as `auto`, we write Typst {version}.
+/// (2) If the `document.creator` is set to `none`, we write nothing.
+/// (3) Otherwise, we use whatever string is set.
+pub fn creator(gc: &GlobalContext) -> Option<String> {
+    match &gc.document.info.creator {
+        Smart::Auto => Some(format!("Typst {}", env!("CARGO_PKG_VERSION"))),
+        Smart::Custom(opt) => opt.as_ref().map(|s| s.to_string()),
+    }
 }
 
 /// A timestamp with timezone information.

@@ -50,6 +50,12 @@ pub struct DocumentElem {
     #[ghost]
     pub keywords: OneOrMultiple<EcoString>,
 
+    /// The custom creator metadata for this document.
+    /// If this is `{auto}` (default), Typst uses `Typst <version>`.
+    /// Otherwise, the chosen string is embedded as the creator metadata.
+    #[ghost]
+    pub creator: Smart<Option<EcoString>>,
+
     /// The document's creation date.
     ///
     /// If this is `{auto}` (default), Typst uses the current date and time.
@@ -102,6 +108,8 @@ pub struct DocumentInfo {
     pub author: Vec<EcoString>,
     /// The document's description.
     pub description: Option<EcoString>,
+    /// Custom creator metadata for this document.
+    pub creator: Smart<Option<EcoString>>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
@@ -140,6 +148,9 @@ impl DocumentInfo {
         }
         if styles.has(DocumentElem::date) {
             self.date = chain.get(DocumentElem::date);
+        }
+        if styles.has(DocumentElem::creator) {
+            self.creator = chain.get_cloned(DocumentElem::creator);
         }
     }
 
