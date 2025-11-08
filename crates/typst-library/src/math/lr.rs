@@ -6,8 +6,9 @@ use comemo::Tracked;
 
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem, func,
+    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFunc,
+    NativeFuncData, NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
+    func,
 };
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
@@ -138,11 +139,23 @@ pub fn norm(
 /// Gets the Left/Right wrapper function corresponding to a left delimiter, if
 /// any.
 pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
-    FUNCS.get(&left).map(Func::from)
+    match left {
+        // Unlike `round`, `abs`, and `norm`, floor` and `ceil` are of type
+        // `symbol` and cast to a function like other L/R symbols. We could thus
+        // rely on autogeneration for these as well, but since they are
+        // specifically called out in the documentation on the L/R page (via the
+        // group mechanism), it's nice for them to have a bit of extra
+        // documentation.
+        '⌈' => Some(ceil::func()),
+        '⌊' => Some(floor::func()),
+        l => FUNCS.get(&l).map(Func::from),
+    }
 }
 
 /// The delimiter pairings supported for use as callable symbols.
 const DELIMS: &[(char, char)] = &[
+    // The `ceil` and `floor` pairs are omitted here because they are handled
+    // manually.
     ('⌈', '⌉'),
     ('⌊', '⌋'),
     ('(', ')'),
