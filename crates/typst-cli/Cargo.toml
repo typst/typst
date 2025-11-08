@@ -66,6 +66,7 @@ clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
+typst = { workspace = true }
 
 [features]
 default = ["embed-fonts", "http-server"]
