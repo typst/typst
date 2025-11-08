@@ -3,13 +3,12 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use ecow::EcoString;
 use icu_properties::CanonicalCombiningClass;
 use icu_properties::maps::CodePointMapData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
 
-use crate::diag::{StrResult, bail};
+use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
