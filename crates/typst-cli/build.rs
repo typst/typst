@@ -14,12 +14,7 @@ mod args;
 fn main() {
     // https://stackoverflow.com/a/51311222/11494565
     println!("cargo:rustc-env=TARGET={}", env::var("TARGET").unwrap());
-    println!("cargo:rerun-if-env-changed=TYPST_VERSION");
     println!("cargo:rerun-if-env-changed=GEN_ARTIFACTS");
-
-    if option_env!("TYPST_VERSION").is_none() {
-        println!("cargo:rustc-env=TYPST_VERSION={}", typst_version());
-    }
 
     if option_env!("TYPST_COMMIT_SHA").is_none() {
         println!("cargo:rustc-env=TYPST_COMMIT_SHA={}", typst_commit_sha());
@@ -45,15 +40,6 @@ fn main() {
             generate_to(*shell, cmd, "typst", out).unwrap();
         }
     }
-}
-
-/// Also used by `args.rs`.
-fn typst_version() -> &'static str {
-    if let Some(version) = option_env!("TYPST_VERSION") {
-        return version;
-    }
-
-    env!("CARGO_PKG_VERSION")
 }
 
 /// Also used by `args.rs`.

@@ -50,7 +50,7 @@ const STYLES: Styles = Styles::styled()
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
+    version = format!("{} ({})", typst::version().raw(), crate::typst_commit_sha()),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
