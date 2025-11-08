@@ -3334,6 +3334,7 @@ version = "0.14.1"
 dependencies = [
  "ecow",
  "rustc-hash",
+ "semver",
  "serde",
  "toml",
  "typst-timing",
