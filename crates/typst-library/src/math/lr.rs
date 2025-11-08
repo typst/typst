@@ -140,7 +140,7 @@ pub fn norm(
 /// any.
 pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
     match left {
-        // Unlike `round`, `abs`, and `norm`, floor` and `ceil` are of type
+        // Unlike `round`, `abs`, and `norm`, `floor` and `ceil` are of type
         // `symbol` and cast to a function like other L/R symbols. We could thus
         // rely on autogeneration for these as well, but since they are
         // specifically called out in the documentation on the L/R page (via the
@@ -156,8 +156,6 @@ pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
 const DELIMS: &[(char, char)] = &[
     // The `ceil` and `floor` pairs are omitted here because they are handled
     // manually.
-    ('⌈', '⌉'),
-    ('⌊', '⌋'),
     ('(', ')'),
     ('⟮', '⟯'),
     ('⦇', '⦈'),
