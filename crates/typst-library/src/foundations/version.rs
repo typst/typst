@@ -197,6 +197,21 @@ impl Repr for Version {
     }
 }
 
+impl From<&typst_syntax::TypstVersion> for Version {
+    /// Convert the Typst compiler version into a version object.
+    ///
+    /// # Panics
+    ///
+    /// If any of major/minor/patch version is larger than `u32::MAX`.
+    fn from(value: &typst_syntax::TypstVersion) -> Self {
+        Self::from_iter([
+            u32::try_from(value.major()).expect("major version must fit into u32"),
+            u32::try_from(value.minor()).expect("minor version must fit into u32"),
+            u32::try_from(value.patch()).expect("patch version must fit into u32"),
+        ])
+    }
+}
+
 /// One or multiple version components.
 pub enum VersionComponents {
     Single(u32),
