@@ -839,7 +839,16 @@ fn assemble(
     }
 
     match axis {
-        Axis::X => base.size.x = full,
+        Axis::X => {
+            base.size.x = full;
+            let (ascent, descent) = glyphs
+                .iter()
+                .filter_map(|glyph| ascent_descent(&base.item.font, GlyphId(glyph.id)))
+                .reduce(|(ma, md), (a, d)| (ma.max(a), md.max(d)))
+                .unwrap_or((Em::zero(), Em::zero()));
+            base.baseline = Some(ascent.at(base.item.size));
+            base.size.y = (ascent + descent).at(base.item.size);
+        }
         Axis::Y => {
             base.baseline = None;
             base.size.y = full;
