@@ -90,7 +90,7 @@ pub struct AccentElem {
 pub struct Accent(pub char);
 
 impl Accent {
-    /// Normalizes a string into an accent.
+    /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
         Self(Self::combine(c).unwrap_or(c))
     }
@@ -245,5 +245,5 @@ cast! {
     v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
         Some(c) => Self::new(c),
         _ => bail!("expected a single-codepoint symbol"),
-    }
+    },
 }

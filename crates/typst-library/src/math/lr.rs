@@ -6,9 +6,8 @@ use comemo::Tracked;
 
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFunc,
-    NativeFuncData, NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
-    func,
+    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
+    NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem, func,
 };
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
@@ -61,7 +60,7 @@ pub fn floor(
     /// The expression to floor.
     body: Content,
 ) -> Content {
-    delimited(body, '⌊'.into(), '⌋'.into(), size)
+    delimited(body, '⌊', '⌋', size)
 }
 
 /// Ceils an expression.
@@ -79,7 +78,7 @@ pub fn ceil(
     /// The expression to ceil.
     body: Content,
 ) -> Content {
-    delimited(body, '⌈'.into(), '⌉'.into(), size)
+    delimited(body, '⌈', '⌉', size)
 }
 
 /// Rounds an expression.
@@ -97,7 +96,7 @@ pub fn round(
     /// The expression to round.
     body: Content,
 ) -> Content {
-    delimited(body, '⌊'.into(), '⌉'.into(), size)
+    delimited(body, '⌊', '⌉', size)
 }
 
 /// Takes the absolute value of an expression.
@@ -115,7 +114,7 @@ pub fn abs(
     /// The expression to take the absolute value of.
     body: Content,
 ) -> Content {
-    delimited(body, '|'.into(), '|'.into(), size)
+    delimited(body, '|', '|', size)
 }
 
 /// Takes the norm of an expression.
@@ -133,21 +132,19 @@ pub fn norm(
     /// The expression to take the norm of.
     body: Content,
 ) -> Content {
-    delimited(body, '‖'.into(), '‖'.into(), size)
+    delimited(body, '‖', '‖', size)
 }
 
 /// Gets the Left/Right wrapper function corresponding to a left delimiter, if
 /// any.
 pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
-    match left {
-        '⌈' => Some(ceil::func()),
-        '⌊' => Some(floor::func()),
-        l => FUNCS.get(&l).map(Func::from),
-    }
+    FUNCS.get(&left).map(Func::from)
 }
 
 /// The delimiter pairings supported for use as callable symbols.
 const DELIMS: &[(char, char)] = &[
+    ('⌈', '⌉'),
+    ('⌊', '⌋'),
     ('(', ')'),
     ('⟮', '⟯'),
     ('⦇', '⦈'),
