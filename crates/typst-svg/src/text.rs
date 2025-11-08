@@ -35,9 +35,14 @@ impl SVGRenderer<'_> {
             ),
         );
 
-        // we need to store the offsets to later fill x="<codepoint1_x> <codepoint2_x> ..." and y=...
-        // in the <text>
-        let mut offsets = vec![(0, 0.0, 0.0); text.glyphs.len()];
+        struct SpanItem<'text> {
+            // is_span_start: bool,
+            x_offset: f64,
+            y_offset: f64,
+            text: &'text str
+        }
+
+        let mut span_items = Vec::<SpanItem>::new();
 
         let mut x: f64 = 0.0;
         let mut y: f64 = 0.0;
@@ -46,7 +51,13 @@ impl SVGRenderer<'_> {
             let x_offset = x + glyph.x_offset.at(text.size).to_pt();
             let y_offset = y + glyph.y_offset.at(text.size).to_pt();
 
-            offsets.push((glyph.range().start, x_offset, y_offset));
+            // let is_span_start = text.text.as_str()[glyph.range()].chars().count() > 0;
+
+            span_items.push(SpanItem {
+                // is_span_start,
+                x_offset, y_offset,
+                text: &text.text.as_str()[glyph.range()]
+            });
 
             self.render_colr_glyph(text, id, x_offset, y_offset, scale)
                 .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale))
@@ -77,27 +88,22 @@ impl SVGRenderer<'_> {
         self.xml.write_attribute("fill", "transparent");
         self.xml.write_attribute("style", "font-variant-ligatures: none");
         self.xml.write_attribute("transform", "scale(1,-1)");
+        self.xml.set_preserve_whitespaces(true);
 
-        let offsets_per_char = text.text.as_str().char_indices()
-            .map(|(i, _)| offsets.iter().rfind(|(j, _, _)| *j <= i).expect("offsets list is supposed to include offsets for all chars, this is a bug"))
-            .collect::<Vec<_>>();
+        // todo: collapse adjacent non-ligature spans into larger spans
+        // e.g. <tspan>h</tspan><tspan>i</tspan> -> <tspan>hi</tspan>
+        for item in span_items {
+            self.xml.start_element("tspan");
 
-        self.xml.write_attribute(
-            "x",
-            &offsets_per_char.iter()
-                .map(|(_, x, _)| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-        self.xml.write_attribute(
-            "y",
-            &offsets_per_char.iter()
-                .map(|(_, _, y)| format!("{}", y))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+            self.xml.write_attribute_fmt("x", format_args!("{}", item.x_offset));
+            self.xml.write_attribute_fmt("y", format_args!("{}", item.y_offset));
+            self.xml.write_attribute("style", "user-select: all");
 
-        self.xml.write_text(text.text.as_str());
+            self.xml.write_text(item.text);
+            self.xml.end_element();
+        }
+
+        self.xml.set_preserve_whitespaces(false);
         self.xml.end_element();
 
         self.xml.end_element();
