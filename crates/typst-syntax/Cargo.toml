@@ -1,6 +1,8 @@
 [package]
 name = "typst-syntax"
 description = "Parser and syntax tree for Typst."
+# NOTE: If this is ever changed, the `TypstVersion` type probably no longer
+# represents the actual version of Typst and must be refactored!
 version = { workspace = true }
 rust-version = { workspace = true }
 authors = { workspace = true }
@@ -17,6 +19,7 @@ typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
+semver = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
 unicode-ident = { workspace = true }

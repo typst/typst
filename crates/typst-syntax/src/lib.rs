@@ -15,6 +15,7 @@ mod reparser;
 mod set;
 mod source;
 mod span;
+mod version;
 
 pub use self::file::FileId;
 pub use self::highlight::{Tag, highlight, highlight_html};
@@ -29,6 +30,7 @@ pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::VirtualPath;
 pub use self::source::Source;
 pub use self::span::{Span, Spanned};
+pub use self::version::TypstVersion;
 
 use self::lexer::Lexer;
 use self::parser::{reparse_block, reparse_markup};
