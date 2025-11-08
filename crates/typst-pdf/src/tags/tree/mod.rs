@@ -385,10 +385,16 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         GroupKind::LogicalParent(elem) => {
             let loc = elem.location().unwrap();
             // Insert logical children when closing the logical parent, so they
-            // are at the end of the group.
-            if let Some(children) = tree.logical_children.get(&loc) {
+            // are at the end of the group. In some cases there might be
+            // multiple parent groups with the same location, only insert the
+            // children for the first parent group.
+            if let Some(located) = tree.groups.by_loc(&loc)
+                && located.id == id
+                && let Some(children) = tree.logical_children.get(&loc)
+            {
                 tree.groups.push_groups(id, children);
             }
+
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::LogicalChild(inherit, logical_parent) => {
@@ -464,11 +470,6 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 // Avoid panicking, the nesting will be validated later.
                 tree.groups.push_group(direct_parent, id);
             }
-        }
-        GroupKind::InternalGridCell(internal) => {
-            // Replace with the actual group kind.
-            tree.groups.get_mut(id).kind = internal.to_kind();
-            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::List(..) => {
             tree.groups.push_group(direct_parent, id);

@@ -20,3 +20,8 @@ $ cases(a, b, c) $
 // Warning: 40-49 linebreaks are ignored in branches
 // Hint: 40-49 use commas instead to separate each line
 $ cases(a, b, c) cases(reverse: #true, a \ b \ c) $
+
+--- math-cases-delim-class ---
+// Test that delimiters have opening and closing math class.
+$ 2cases(a, reverse: #true, delim: bar.v) 2 $
+$ 2 cases(a, delim: bar.v)2 $

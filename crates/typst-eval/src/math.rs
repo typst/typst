@@ -2,15 +2,26 @@ use ecow::eco_format;
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
-    AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
+    AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
 
 use crate::{Eval, Vm};
 
+impl Eval for ast::Equation<'_> {
+    type Output = Content;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let body = self.body().eval(vm)?;
+        let block = self.block();
+        Ok(EquationElem::new(body).with_block(block).pack())
+    }
+}
+
 impl Eval for ast::Math<'_> {
     type Output = Content;
+
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Content::sequence(
             self.exprs()

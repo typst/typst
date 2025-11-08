@@ -50,7 +50,7 @@ pub use crate::__format_str as format_str;
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
 /// zero-based and negative indices wrap around to the end of the string.
 ///
-/// You can convert a value to a string with this type's constructor.
+/// You can convert a value to a string with the `str` constructor.
 ///
 /// # Example
 /// ```example
@@ -154,21 +154,28 @@ impl Str {
         value: ToStr,
         /// The base (radix) to display integers in, between 2 and 36.
         #[named]
-        #[default(Spanned::new(10, Span::detached()))]
-        base: Spanned<i64>,
+        #[default(Spanned::new(Base::Default, Span::detached()))]
+        base: Spanned<Base>,
     ) -> SourceResult<Str> {
         Ok(match value {
             ToStr::Str(s) => {
-                if base.v != 10 {
+                if matches!(base.v, Base::User(_)) {
                     bail!(base.span, "base is only supported for integers");
                 }
                 s
             }
             ToStr::Int(n) => {
-                if base.v < 2 || base.v > 36 {
+                let b = base.v.value();
+                if b == 1 && n > 0 {
+                    bail!(
+                        base.span, "base must be between 2 and 36";
+                        hint: "generate a unary representation with `\"1\" * {}`", n
+                    );
+                }
+                if b < 2 || b > 36 {
                     bail!(base.span, "base must be between 2 and 36");
                 }
-                repr::format_int_with_base(n, base.v).into()
+                repr::format_int_with_base(n, b).into()
             }
         })
     }
@@ -254,6 +261,9 @@ impl Str {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
+        if end.is_some() && count.is_some() {
+            bail!("`end` and `count` are mutually exclusive");
+        }
         let start = self.locate(start)?;
         let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
@@ -846,6 +856,29 @@ cast! {
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+/// Similar to `Option<i64>`, but the default value casts to `10` rather than
+/// `none`, so that the right default value is documented.
+#[derive(Debug, Copy, Clone)]
+pub enum Base {
+    Default,
+    User(i64),
+}
+
+impl Base {
+    fn value(self) -> i64 {
+        match self {
+            Self::Default => 10,
+            Self::User(b) => b,
+        }
+    }
+}
+
+cast! {
+    Base,
+    self => self.value().into_value(),
+    v: i64 => Self::User(v),
 }
 
 /// A Unicode normalization form.

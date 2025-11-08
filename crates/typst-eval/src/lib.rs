@@ -17,7 +17,7 @@ mod vm;
 pub use self::call::{CapturesVisitor, eval_closure};
 pub use self::flow::FlowEvent;
 pub use self::import::import;
-pub use self::vm::Vm;
+pub use self::vm::{Vm, hint_if_shadowed_std};
 
 use self::access::*;
 use self::binding::*;
