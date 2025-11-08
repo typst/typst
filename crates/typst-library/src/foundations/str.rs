@@ -58,8 +58,8 @@ pub use crate::__format_str as format_str;
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
 /// #"1,2;3".split(regex("[,;]")) \
-/// #(regex("\d+") in "ten euros") \
-/// #(regex("\d+") in "10 euros")
+/// #(regex("\\d+") in "ten euros") \
+/// #(regex("\\d+") in "10 euros")
 /// ```
 ///
 /// # Escape sequences { #escapes }

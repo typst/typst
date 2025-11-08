@@ -59,7 +59,7 @@
     let func = elem.func()
     if elem.has("text") {
       let text = elem.text
-      if regex("^\d+$") in text {
+      if regex("^\\d+$") in text {
         int(text)
       } else if text in vars {
         int(vars.at(text))
