@@ -206,9 +206,9 @@ impl From<&typst_syntax::TypstVersion> for Version {
     /// If any of major/minor/patch version is larger than `u32::MAX`.
     fn from(value: &typst_syntax::TypstVersion) -> Self {
         Self::from_iter([
-            value.major() as u32,
-            value.minor() as u32,
-            value.patch() as u32,
+            u32::try_from(value.major()).expect("major version must fit into u32"),
+            u32::try_from(value.minor()).expect("minor version must fit into u32"),
+            u32::try_from(value.patch()).expect("patch version must fit into u32"),
         ])
     }
 }
