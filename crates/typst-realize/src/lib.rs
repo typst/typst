@@ -980,21 +980,6 @@ static CITES: GroupingRule = GroupingRule {
     tags: false,
     trigger: |content, _| {
         content.elem() == CiteElem::ELEM
-        // if content.elem() != CiteElem::ELEM {
-        //     return false;
-        // }
-        // if let Some(active) = state.groupings.last() {
-        //     let (citation_from_grouping,_) = state.sink[active.start];
-        //     // println!("content {:?}\ngrouping {:?}",content,citation_from_grouping);
-        //     if citation_from_grouping.elem() == CiteElem::ELEM {
-        //         let citation_map = BibliographyElem::assign_citations(state.engine.introspector);
-        //         return citation_map.get(&content.span()) == citation_map.get(&citation_from_grouping.span());
-        //     }
-        //     else {
-        //         return true;
-        //     }
-        // }
-        // return true;
     },
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
