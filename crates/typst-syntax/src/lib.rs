@@ -20,7 +20,7 @@ pub use self::file::FileId;
 pub use self::highlight::{Tag, highlight, highlight_html};
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{
-    is_id_continue, is_id_start, is_ident, is_newline, is_valid_label_literal_id,
+    is_cjk, is_id_continue, is_id_start, is_ident, is_newline, is_valid_label_literal_id,
     link_prefix, split_newlines,
 };
 pub use self::lines::Lines;

@@ -528,18 +528,8 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let wordy = |c: Option<char>| {
-            c.is_some_and(|c| {
-                c.is_alphanumeric()
-                    && !matches!(
-                        c.script(),
-                        Script::Han
-                            | Script::Hiragana
-                            | Script::Katakana
-                            | Script::Hangul
-                    )
-            })
-        };
+        let wordy =
+            |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() && !is_cjk(c));
         let prev = self.s.scout(-2);
         let next = self.s.peek();
         wordy(prev) && wordy(next)
@@ -1047,6 +1037,15 @@ fn count_newlines(text: &str) -> usize {
         }
     }
     newlines
+}
+
+/// Whether a character is part of the Chinese, Japanese, or Korean scripts.
+#[inline]
+pub fn is_cjk(c: char) -> bool {
+    matches!(
+        c.script(),
+        Script::Han | Script::Hiragana | Script::Katakana | Script::Hangul
+    )
 }
 
 /// Whether a string is a valid Typst identifier.
