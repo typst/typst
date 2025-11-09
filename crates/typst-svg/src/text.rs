@@ -36,7 +36,6 @@ impl SVGRenderer<'_> {
         );
 
         struct SpanItem<'text> {
-            // is_span_start: bool,
             x_offset: f64,
             y_offset: f64,
             x_advance: f64,
@@ -52,10 +51,7 @@ impl SVGRenderer<'_> {
             let x_offset = x + glyph.x_offset.at(text.size).to_pt();
             let y_offset = y + glyph.y_offset.at(text.size).to_pt();
 
-            // let is_span_start = text.text.as_str()[glyph.range()].chars().count() > 0;
-
             span_items.push(SpanItem {
-                // is_span_start,
                 x_offset, y_offset,
                 x_advance: glyph.x_advance.at(text.size).to_pt(),
                 text: &text.text.as_str()[glyph.range()]
@@ -92,8 +88,6 @@ impl SVGRenderer<'_> {
         self.xml.write_attribute("transform", "scale(1,-1)");
         self.xml.set_preserve_whitespaces(true);
 
-        // todo: collapse adjacent non-ligature spans into larger spans
-        // e.g. <tspan>h</tspan><tspan>i</tspan> -> <tspan>hi</tspan>
         for item in span_items {
             self.xml.start_element("tspan");
 
