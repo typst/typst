@@ -16,8 +16,6 @@ pub(super) struct Lexer<'s> {
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
     mode: SyntaxMode,
-    /// Whether the last token contained a newline.
-    newline: bool,
     /// An error for the last token.
     error: Option<SyntaxError>,
 }
@@ -26,12 +24,7 @@ impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
     pub fn new(text: &'s str, mode: SyntaxMode) -> Self {
-        Self {
-            s: Scanner::new(text),
-            mode,
-            newline: false,
-            error: None,
-        }
+        Self { s: Scanner::new(text), mode, error: None }
     }
 
     /// Get the current lexing mode.
@@ -53,11 +46,6 @@ impl<'s> Lexer<'s> {
     /// Jump to the given index in the string.
     pub fn jump(&mut self, index: usize) {
         self.s.jump(index);
-    }
-
-    /// Whether the last token contained a newline.
-    pub fn newline(&self) -> bool {
-        self.newline
     }
 
     /// The number of characters until the most recent newline from an index.
@@ -91,7 +79,6 @@ impl Lexer<'_> {
         debug_assert!(self.error.is_none());
         let start = self.s.cursor();
 
-        self.newline = false;
         let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('#') if start == 0 && self.s.eat_if('!') => self.shebang(),
@@ -135,11 +122,12 @@ impl Lexer<'_> {
             _ => count_newlines(self.s.from(start)),
         };
 
-        self.newline = newlines > 0;
         if self.mode == SyntaxMode::Markup && newlines >= 2 {
             SyntaxKind::Parbreak
+        } else if newlines > 0 {
+            SyntaxKind::SpaceWithNewline
         } else {
-            SyntaxKind::Space
+            SyntaxKind::SpaceNoNewline
         }
     }
 
