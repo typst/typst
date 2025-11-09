@@ -302,6 +302,20 @@ pub struct RawElem {
     })]
     pub theme: Smart<Option<Derived<DataSource, RawTheme>>>,
 
+    /// Additional tree-sitter syntaxes to load
+    #[parse(match args.named("tree-sitter-syntaxes")? {
+        Some(sources) => Some(super::tree_sitter::TreeSitterHighlightConfiguration::load(engine.world, sources)?),
+        None => None
+    })]
+    #[fold]
+    pub tree_sitter_syntaxes: Derived<
+        OneOrMultiple<super::tree_sitter::TreeSitterSyntax>,
+        Vec<super::tree_sitter::TreeSitterHighlightConfiguration>,
+    >,
+
+    /// The theme to use for syntax highlighting of tree-sitter grammars
+    pub tree_sitter_theme: Option<super::tree_sitter::TreeSitterTheme>,
+
     /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
     /// align with the next multiple of the size.
     ///
@@ -391,6 +405,8 @@ impl Packed<RawElem> {
         };
 
         let syntaxes = LazyCell::new(|| elem.syntaxes.get_cloned(styles));
+        let tree_sitter_syntaxes =
+            LazyCell::new(|| elem.tree_sitter_syntaxes.get_cloned(styles));
         let theme: &synt::Theme = match elem.theme.get_ref(styles) {
             Smart::Auto => &RAW_THEME,
             Smart::Custom(Some(theme)) => theme.derived.get(),
@@ -445,6 +461,25 @@ impl Packed<RawElem> {
                 },
             )
             .highlight();
+        // Prefer tree-sitter grammar over sublime text, if it is found
+        } else if let Some(syntax) = lang.as_ref().and_then(|token| {
+            tree_sitter_syntaxes
+                .derived
+                .iter()
+                .find(|syntax| syntax.matches(token.as_str()))
+        }) && let Some(theme) = elem.tree_sitter_theme.get_ref(styles)
+        {
+            crate::text::tree_sitter::highlight(
+                &tree_sitter_syntaxes.derived,
+                routines,
+                target,
+                lines,
+                &mut seq,
+                foreground,
+                count,
+                syntax,
+                theme,
+            );
         } else if let Some((syntax_set, syntax)) = lang.and_then(|token| {
             // Prefer user-provided syntaxes over built-in ones.
             syntaxes
@@ -836,7 +871,7 @@ fn preprocess(
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(
+pub(crate) fn styled(
     routines: &Routines,
     target: Target,
     piece: &str,

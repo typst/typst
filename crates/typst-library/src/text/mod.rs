@@ -1,5 +1,7 @@
 //! Text handling.
 
+pub mod tree_sitter;
+
 mod case;
 mod deco;
 mod font;
