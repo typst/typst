@@ -18,6 +18,9 @@ impl SVGRenderer<'_> {
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
+    ///
+    /// The text is made selectable in browsers by including a `<text>` element with
+    /// `fill=transparent`.
     pub(super) fn render_text(&mut self, state: &State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
 
@@ -39,7 +42,7 @@ impl SVGRenderer<'_> {
             x_offset: f64,
             y_offset: f64,
             x_advance: f64,
-            text: &'text str
+            text: &'text str,
         }
 
         let mut span_items = Vec::<SpanItem>::new();
@@ -52,9 +55,10 @@ impl SVGRenderer<'_> {
             let y_offset = y + glyph.y_offset.at(text.size).to_pt();
 
             span_items.push(SpanItem {
-                x_offset, y_offset,
+                x_offset,
+                y_offset,
                 x_advance: glyph.x_advance.at(text.size).to_pt(),
-                text: &text.text.as_str()[glyph.range()]
+                text: &text.text.as_str()[glyph.range()],
             });
 
             self.render_colr_glyph(text, id, x_offset, y_offset, scale)
@@ -93,7 +97,8 @@ impl SVGRenderer<'_> {
 
             self.xml.write_attribute_fmt("x", format_args!("{}", item.x_offset));
             self.xml.write_attribute_fmt("y", format_args!("{}", item.y_offset));
-            self.xml.write_attribute_fmt("textLength", format_args!("{}", item.x_advance));
+            self.xml
+                .write_attribute_fmt("textLength", format_args!("{}", item.x_advance));
             self.xml.write_attribute("lengthAdjust", "spacingAndGlyphs");
             self.xml.write_attribute("style", "user-select: all");
 
