@@ -39,6 +39,7 @@ impl SVGRenderer<'_> {
             // is_span_start: bool,
             x_offset: f64,
             y_offset: f64,
+            x_advance: f64,
             text: &'text str
         }
 
@@ -56,6 +57,7 @@ impl SVGRenderer<'_> {
             span_items.push(SpanItem {
                 // is_span_start,
                 x_offset, y_offset,
+                x_advance: glyph.x_advance.at(text.size).to_pt(),
                 text: &text.text.as_str()[glyph.range()]
             });
 
@@ -97,6 +99,8 @@ impl SVGRenderer<'_> {
 
             self.xml.write_attribute_fmt("x", format_args!("{}", item.x_offset));
             self.xml.write_attribute_fmt("y", format_args!("{}", item.y_offset));
+            self.xml.write_attribute_fmt("textLength", format_args!("{}", item.x_advance));
+            self.xml.write_attribute("lengthAdjust", "spacingAndGlyphs");
             self.xml.write_attribute("style", "user-select: all");
 
             self.xml.write_text(item.text);
