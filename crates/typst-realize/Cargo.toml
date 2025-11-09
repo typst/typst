@@ -23,6 +23,9 @@ bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 regex = { workspace = true }
+unicode-properties = { workspace = true }
+unicode-script = { workspace = true }
+unicode-width = { workspace = true }
 
 [lints]
 workspace = true
