@@ -58,3 +58,16 @@ LLLLLLLLLLLLLLLLLL R _L_
 // Test that thin spaces are preserved.
 | | U+0020 regular space \
 | | U+2009 thin space
+
+--- space-eq-newline paged ---
+// Test whether spaces with/without newlines compare equal.
+#let parbreak = [
+
+]
+#let one-newline = [
+]
+#let no-newline = [ ]
+// parbreak is not equal
+#assert.ne(one-newline, parbreak)
+// spaces are equal despite newlines
+#assert.eq(one-newline, no-newline)
