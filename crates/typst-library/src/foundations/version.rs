@@ -197,18 +197,26 @@ impl Repr for Version {
     }
 }
 
-impl From<&typst_syntax::TypstVersion> for Version {
-    /// Convert the Typst compiler version into a version object.
-    ///
-    /// # Panics
-    ///
-    /// If any of major/minor/patch version is larger than `u32::MAX`.
-    fn from(value: &typst_syntax::TypstVersion) -> Self {
-        Self::from_iter([
-            u32::try_from(value.major()).expect("major version must fit into u32"),
-            u32::try_from(value.minor()).expect("minor version must fit into u32"),
-            u32::try_from(value.patch()).expect("patch version must fit into u32"),
-        ])
+impl TryFrom<&typst_syntax::TypstVersion> for Version {
+    type Error = EcoString;
+
+    /// Try to convert the Typst compiler version into a [`Version`] object.
+    fn try_from(value: &typst_syntax::TypstVersion) -> Result<Self, Self::Error> {
+        macro_rules! digit {
+            ($name:ident) => {
+                if let Ok(value) = u32::try_from(value.$name()) {
+                    value
+                } else {
+                    bail!(
+                        "invalid Typst {} version {} cannot be converted into version number",
+                        stringify!($name),
+                        value.$name(),
+                    );
+                }
+            };
+        }
+
+        Ok(Self::from_iter([digit!(major), digit!(minor), digit!(patch)]))
     }
 }
 
