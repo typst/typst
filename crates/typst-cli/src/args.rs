@@ -151,6 +151,10 @@ pub struct QueryCommand {
     #[clap(long = "field")]
     pub field: Option<String>,
 
+    /// Adds location information to the retrieved elements.
+    #[clap(long = "location", default_value = "false")]
+    pub location: bool,
+
     /// Expects and retrieves exactly one element.
     #[clap(long = "one", default_value = "false")]
     pub one: bool,

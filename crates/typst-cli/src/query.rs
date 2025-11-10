@@ -3,7 +3,7 @@ use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, StrResult, Warned, bail};
 use typst::engine::Sink;
-use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::foundations::{Content, Dict, IntoValue, LocatableSelector, Scope};
 use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
@@ -34,7 +34,7 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
         // Retrieve and print query results.
         Ok(introspector) => {
             let data = retrieve(&world, command, &introspector)?;
-            let serialized = format(data, command)?;
+            let serialized = format(data, command, &introspector)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
@@ -86,16 +86,35 @@ fn retrieve(
 }
 
 /// Format the query result in the output format.
-fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
+fn format(
+    elements: Vec<Content>,
+    command: &QueryCommand,
+    introspector: &Introspector,
+) -> StrResult<String> {
     if command.one && elements.len() != 1 {
         bail!("expected exactly one element, found {}", elements.len());
     }
 
     let mapped: Vec<_> = elements
         .into_iter()
-        .filter_map(|c| match &command.field {
-            Some(field) => c.get_by_name(field).ok(),
-            _ => Some(c.into_value()),
+        .filter_map(|c| {
+            let location = c.location()?;
+            let element = match &command.field {
+                Some(field) => c.get_by_name(field).ok()?,
+                _ => c.into_value(),
+            };
+
+            if !command.location {
+                // No location needs to be attached, no further processing needed
+                return Some(element);
+            }
+
+            let location = introspector.position(location);
+            let attached = Dict::from_iter([
+                ("match".into(), element),
+                ("location".into(), location.into_value()),
+            ]);
+            Some(attached.into_value())
         })
         .collect();
 
