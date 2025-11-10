@@ -154,6 +154,26 @@ impl TestStages {
     }
 }
 
+impl Display for TestStages {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (i, flag) in self.iter().enumerate() {
+            if i != 0 {
+                f.write_str(", ")?;
+            }
+            bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => Display::fmt(&TestTarget::Paged, f),
+                TestStages::RENDER => Display::fmt(&TestOutput::Render, f),
+                TestStages::PDF => Display::fmt(&TestOutput::Pdf, f),
+                TestStages::PDFTAGS => Display::fmt(&TestOutput::Pdftags, f),
+                TestStages::SVG => Display::fmt(&TestOutput::Svg, f),
+                TestStages::HTML => Display::fmt(&TestTarget::Html, f),
+                _ => unreachable!(),
+            })?;
+        }
+        Ok(())
+    }
+}
+
 /// A compilation target, analog to [`typst::Target`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
