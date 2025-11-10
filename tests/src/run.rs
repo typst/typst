@@ -146,12 +146,30 @@ impl<'a> Runner<'a> {
     fn handle_not_emitted(&mut self) {
         let mut first = true;
         for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            if !seen.is_empty() {
+            let mut missing_stages = TestStages::empty();
+            let required_stages = ARGS.stages() & self.test.attrs.stages;
+
+            // If a test stage requiring the paged target has been specified,
+            // require the annotated diagnostics to be present in any paged
+            // stage. For example if `pdftags` is specified and an error is
+            // emitted in the pdf stage, that is ok.
+            if !(required_stages & TestStages::PAGED_STAGES).is_empty()
+                && (seen & TestStages::PAGED_STAGES).is_empty()
+            {
+                missing_stages |= TestStages::PAGED;
+            }
+            if !(required_stages & TestStages::HTML).is_empty()
+                && (seen & TestStages::HTML).is_empty()
+            {
+                missing_stages |= TestStages::HTML;
+            }
+
+            if missing_stages.is_empty() {
                 continue;
             }
             let note_range = self.format_range(note.file, &note.range);
             if first {
-                log!(self, "not emitted");
+                log!(self, "not emitted [{missing_stages}]");
                 first = false;
             }
             log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos,);
@@ -469,7 +487,7 @@ impl<'a> Runner<'a> {
         }) else {
             // Not even a close match, diagnostic is not annotated.
             let diag_range = self.format_range(file, &range);
-            log!(into: self.not_annotated, "  ({stage}) {kind}: {diag_range} {}", message);
+            log!(into: self.not_annotated, "  {kind} [{stage}]: {diag_range} {}", message);
             return;
         };
 
@@ -482,7 +500,7 @@ impl<'a> Runner<'a> {
             let note_text = self.text_for_range(note.file, &note.range);
             let diag_range = self.format_range(file, &range);
             let diag_text = self.text_for_range(file, &range);
-            log!(self, "mismatched range ({}):", note.pos);
+            log!(self, "mismatched range [{stage}] ({}):", note.pos);
             log!(self, "  message   | {}", note.message);
             log!(self, "  annotated | {note_range:<9} | {note_text}");
             log!(self, "  emitted   | {diag_range:<9} | {diag_text}");
@@ -490,7 +508,7 @@ impl<'a> Runner<'a> {
 
         // Message is wrong.
         if message != note.message {
-            log!(self, "mismatched message ({}):", note.pos);
+            log!(self, "mismatched message [{stage}] ({}):", note.pos);
             log!(self, "  annotated | {}", note.message);
             log!(self, "  emitted   | {message}");
         }
