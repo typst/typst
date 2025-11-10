@@ -364,7 +364,8 @@ pub struct PackageVersion {
 impl PackageVersion {
     /// The current compiler version.
     pub fn compiler() -> Self {
-        Self::from(crate::TypstVersion::new())
+        Self::try_from(crate::TypstVersion::new())
+            .expect("Typst compiler version must be representable as package version")
     }
 
     /// Performs an `==` match with the given version bound. Version elements
@@ -474,13 +475,29 @@ impl<'de> Deserialize<'de> for PackageVersion {
     }
 }
 
-impl From<&crate::TypstVersion> for PackageVersion {
-    fn from(value: &crate::TypstVersion) -> Self {
-        Self {
-            major: value.major() as u32,
-            minor: value.minor() as u32,
-            patch: value.patch() as u32,
+impl TryFrom<&crate::TypstVersion> for PackageVersion {
+    type Error = EcoString;
+
+    fn try_from(value: &crate::TypstVersion) -> Result<Self, Self::Error> {
+        macro_rules! digit {
+            ($name:ident) => {
+                if let Ok(value) = u32::try_from(value.$name()) {
+                    value
+                } else {
+                    panic!(
+                        "invalid Typst {} version {} cannot be converted into version number",
+                        stringify!($name),
+                        value.$name(),
+                    );
+                }
+            };
         }
+
+        Ok(Self {
+            major: digit!(major),
+            minor: digit!(minor),
+            patch: digit!(patch),
+        })
     }
 }
 
