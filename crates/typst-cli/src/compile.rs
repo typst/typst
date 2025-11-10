@@ -635,10 +635,20 @@ pub fn print_diagnostics(
             diagnostic
                 .hints
                 .iter()
-                .map(|e| (eco_format!("hint: {e}")).into())
+                .filter(|s| s.span.is_detached())
+                .map(|s| (eco_format!("hint: {}", s.v)).into())
                 .collect(),
         )
-        .with_labels(label(world, diagnostic.span).into_iter().collect());
+        .with_labels(
+            label(world, diagnostic.span)
+                .into_iter()
+                .chain(diagnostic.hints.iter().filter_map(|hint| {
+                    let id = hint.span.id()?;
+                    let range = world.range(hint.span)?;
+                    Some(Label::secondary(id, range).with_message(&hint.v))
+                }))
+                .collect(),
+        );
 
         term::emit(&mut terminal::out(), &config, world, &diag)?;
 
