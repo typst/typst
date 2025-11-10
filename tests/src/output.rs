@@ -9,7 +9,7 @@ use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
-use typst_pdf::{PdfOptions, PdfStandards};
+use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput};
@@ -210,9 +210,16 @@ impl OutputType for Pdf {
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
-        let options = PdfOptions { standards, ..Default::default() };
-        typst_pdf::pdf(doc, &options)
+        // Always run the default PDF export and PDF/UA-1 export, to detect
+        // crashes, since there are quite a few different code paths involved.
+        // If another standard is specified in the test, run that as well.
+        let default_pdf = generate_pdf(doc, None);
+        let ua1_pdf = generate_pdf(doc, Some(PdfStandard::Ua_1));
+        match test.attrs.pdf_standard {
+            Some(PdfStandard::Ua_1) => ua1_pdf,
+            Some(other) => generate_pdf(doc, Some(other)),
+            None => default_pdf,
+        }
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -226,6 +233,15 @@ impl HashOutputType for Pdf {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+}
+
+fn generate_pdf(
+    doc: &PagedDocument,
+    standard: Option<PdfStandard>,
+) -> SourceResult<Vec<u8>> {
+    let standards = PdfStandards::new(standard.as_slice()).unwrap();
+    let options = PdfOptions { standards, ..Default::default() };
+    typst_pdf::pdf(doc, &options)
 }
 
 pub struct Pdftags;
