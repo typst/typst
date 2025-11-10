@@ -21,7 +21,7 @@ use typst_library::foundations::{
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{
-    Location, Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+    Locatable, Location, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -978,9 +978,7 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| {
-        content.elem() == CiteElem::ELEM
-    },
+    trigger: |content, _| content.elem() == CiteElem::ELEM,
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM

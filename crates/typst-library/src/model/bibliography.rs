@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
@@ -187,7 +187,6 @@ impl BibliographyElem {
             .into_iter()
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect();
-        let citations = introspector.query(&CiteElem::ELEM.select());
 
         let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
 
@@ -199,7 +198,9 @@ impl BibliographyElem {
                 let bibliography_location = bibliography.location().unwrap();
                 let bibliography_citations = introspector.query(&bibliography_selector);
                 for citation in bibliography_citations {
-                    citation_map.entry(citation.location().unwrap()).or_insert(bibliography_location);
+                    citation_map
+                        .entry(citation.location().unwrap())
+                        .or_insert(bibliography_location);
                 }
             }
         }
@@ -207,34 +208,51 @@ impl BibliographyElem {
         // Find the bibliography for the remaining citations. Priority order:
         // 1. First following auto bibliography containing the label
         // 2. First preceding auto bibliography containing the label
-        for citation in citations {
-            if !citation_map.contains_key(&citation.location().unwrap()) {
+        let citations_and_bib = introspector
+            .query(&Selector::Or(eco_vec![CiteElem::ELEM.select(), Self::ELEM.select()]));
+        for (i, citation) in citations_and_bib.iter().enumerate() {
+            if citation.elem() == CiteElem::ELEM && !citation_map.contains_key(&citation.location().unwrap()) {
                 let citation_key = citation.to_packed::<CiteElem>().unwrap().key;
-                let citation_location = citation.location().unwrap();
-                if let Some(next_bib) = introspector
-                    .query(&Self::ELEM.select().after(citation_location.into(), false))
-                    .into_iter()
-                    .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                if let Some(next_bib) = citations_and_bib[i + 1..]
+                    .iter()
+                    .filter_map(|content| {
+                        if content.elem() == Self::ELEM {
+                            Some(content.to_packed::<Self>().unwrap().clone())
+                        }
+                        else {
+                            None
+                        }
+                    })
                     .filter(|bibliography| {
                         bibliography.target.get_ref(StyleChain::default()).is_auto()
                             && bibliography.sources.derived.has(citation_key)
                     })
                     .next()
                 {
-                    citation_map.entry(citation.location().unwrap()).or_insert(next_bib.location().unwrap());
+                    citation_map
+                        .entry(citation.location().unwrap())
+                        .or_insert(next_bib.location().unwrap());
                 }
-                if let Some(prev_bib) = introspector
-                    .query(&Self::ELEM.select().before(citation_location.into(), false))
-                    .into_iter()
+                else if let Some(prev_bib) = citations_and_bib[..i]
+                    .iter()
                     .rev()
-                    .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+                    .filter_map(|content| {
+                        if content.elem() == Self::ELEM {
+                            Some(content.to_packed::<Self>().unwrap().clone())
+                        }
+                        else {
+                            None
+                        }
+                    })
                     .filter(|bibliography| {
                         bibliography.target.get_ref(StyleChain::default()).is_auto()
                             && bibliography.sources.derived.has(citation_key)
                     })
                     .next()
                 {
-                    citation_map.entry(citation.location().unwrap()).or_insert(prev_bib.location().unwrap());
+                    citation_map
+                        .entry(citation.location().unwrap())
+                        .or_insert(prev_bib.location().unwrap());
                 }
             }
         }
@@ -852,13 +870,15 @@ impl<'a> Generator<'a> {
                     Smart::Custom(style) => style.derived.get(),
                 };
 
-                self.infos.entry(bibliography_location).or_insert(vec![]).push(GroupInfo {
-                    location,
-                    subinfos,
-                    span: first.span(),
-                    footnote: normal
-                        && style.settings.class == citationberg::StyleClass::Note,
-                });
+                self.infos.entry(bibliography_location).or_insert(vec![]).push(
+                    GroupInfo {
+                        location,
+                        subinfos,
+                        span: first.span(),
+                        footnote: normal
+                            && style.settings.class == citationberg::StyleClass::Note,
+                    },
+                );
 
                 driver.citation(CitationRequest::new(
                     items,
@@ -913,7 +933,10 @@ impl<'a> Generator<'a> {
             let references = self.display_references(rendered_indiv, bibliography)?;
             let hanging_indent =
                 rendered_indiv.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-            works.insert(bibliography.location().unwrap(), IndivWorks { references, hanging_indent });
+            works.insert(
+                bibliography.location().unwrap(),
+                IndivWorks { references, hanging_indent },
+            );
         }
         Ok(Works { citations, works })
     }
@@ -938,7 +961,8 @@ impl<'a> Generator<'a> {
                 }
             }
 
-            if let Some(infos) = self.infos.get(&source_bibliography.location().unwrap()) {
+            if let Some(infos) = self.infos.get(&source_bibliography.location().unwrap())
+            {
                 for (info, citation) in infos.iter().zip(&rendered_indiv.citations) {
                     let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
                     let link = |i: usize| {
