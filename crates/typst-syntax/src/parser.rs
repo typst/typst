@@ -287,7 +287,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathText => {
+        SyntaxKind::MathText => {
             continuable = is_math_alphabetic(p.current_text());
             p.eat();
         }
