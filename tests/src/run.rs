@@ -13,11 +13,13 @@ use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
 use typst_syntax::{FileId, VirtualPath};
 
-use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
+use crate::collect::{
+    FileSize, NoteKind, Test, TestOutputKind, TestStage, TestStages, TestTarget,
+};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestFiles, TestWorld};
-use crate::{ARGS, custom, output};
+use crate::{ARGS, STORE_PATH, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
 
@@ -254,7 +256,31 @@ impl<'a> Runner<'a> {
             Some((doc, live)) if !skippable => {
                 // Convert and save live version.
                 let live_data = T::save_live(doc, live);
-                std::fs::write(&live_path, live_data).unwrap();
+
+                match T::OUTPUT.kind() {
+                    TestOutputKind::File => {
+                        std::fs::write(&live_path, live_data).unwrap();
+                    }
+                    TestOutputKind::Hash => {
+                        // Write the file to a path of its hash.
+                        let hash = T::make_hash(live);
+                        let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
+                        std::fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
+                        std::fs::write(&hash_path, live_data).unwrap();
+
+                        // Create a link in the store directory.
+                        std::fs::remove_file(&live_path).ok();
+
+                        let relative_path = hash_path.strip_prefix(STORE_PATH).unwrap();
+                        let link_path = Path::new("..").join(relative_path);
+
+                        #[cfg(target_family = "unix")]
+                        std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
+                        #[cfg(target_family = "windows")]
+                        std::os::windows::fs::symlink_file(&link_path, &live_path)
+                            .unwrap();
+                    }
+                }
             }
             _ => {
                 // Clean live output.

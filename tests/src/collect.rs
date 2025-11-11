@@ -296,7 +296,14 @@ impl TestOutput {
         }
     }
 
-    /// The path at which the live output will be stored for inspection.
+    /// The path at which the live output will be stored.
+    pub fn hash_path(&self, hash: impl Display, name: &str) -> PathBuf {
+        let ext = self.extension();
+        PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
+    }
+
+    /// The path at which a symlink to the [`Self::hash_path`] will be created
+    /// for inspection.
     pub fn live_path(&self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.extension();
@@ -320,7 +327,7 @@ impl TestOutput {
     }
 
     /// The output kind.
-    fn kind(&self) -> TestOutputKind {
+    pub fn kind(&self) -> TestOutputKind {
         match self {
             TestOutput::Render | TestOutput::Pdftags | TestOutput::Html => {
                 TestOutputKind::File
@@ -345,7 +352,7 @@ impl Display for TestOutput {
 }
 
 /// Whether the output format produces hashed or file references.
-enum TestOutputKind {
+pub enum TestOutputKind {
     Hash,
     File,
 }
