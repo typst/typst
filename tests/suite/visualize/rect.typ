@@ -311,3 +311,25 @@
   another-block(cap: "round", radius: 2pt, adjacent: 0pt),
   another-block(cap: "round", radius: 2pt, adjacent: 1pt),
 )
+
+--- rect-adjacent-dashed-stroke-cap-change paged ---
+#set page(width: auto)
+#rect(
+  height: 1.2cm,
+  width: 1.5cm,
+  stroke: (
+    bottom: (cap: "square", thickness: 4pt, dash: "loosely-dashed"),
+    left: (cap: "round", thickness: 4pt, dash: "loosely-dashed"),
+  ),
+)
+
+--- rect-adjacent-dashed-stroke-thickness-change paged ---
+#set page(width: auto)
+#rect(
+  height: 1.2cm,
+  width: 1.5cm,
+  stroke: (
+    bottom: (thickness: 4pt, dash: "loosely-dashed"),
+    left: (thickness: 8pt, dash: "loosely-dashed"),
+  ),
+)
