@@ -823,7 +823,20 @@ fn corners_control_points(
             strokes.get_ref(corner.side_ccw()),
             strokes.get_ref(corner.side_cw()),
         ) {
-            (Some(a), Some(b)) => a.paint == b.paint && a.dash == b.dash,
+            (Some(a), Some(b)) => {
+                // Solid strokes can be drawn as `fill_segment`s.
+                let solid =
+                    a.dash.as_ref().map(|dash| dash.array.is_empty()).unwrap_or(true);
+
+                // For solid strokes the caps are only relevant for the end of
+                // the strokes, and they can be filled. For dashed strokes the
+                // cap determines how the entire line is drawn, thus there
+                // should be two different segments if the cap differs.
+                let filled_segment_same = a.paint == b.paint && a.dash == b.dash;
+                let stroke_segment_same = a.cap == b.cap && a.thickness == b.thickness;
+
+                filled_segment_same && (solid || stroke_segment_same)
+            }
             (None, None) => true,
             _ => false,
         },
