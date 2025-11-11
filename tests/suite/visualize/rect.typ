@@ -479,3 +479,23 @@
   another-block(cap: "round", radius: 2pt, adjacent: 0pt),
   another-block(cap: "round", radius: 2pt, adjacent: 1pt),
 )
+
+--- rect-adjacent-dashed-stroke-cap-change ---
+#rect(
+  height: 4em,
+  width: 5em,
+  stroke: (
+    bottom: (cap: "square", thickness: 4pt, dash: "loosely-dashed"),
+    left: (cap: "round", thickness: 4pt, dash: "loosely-dashed"),
+  ),
+)
+
+--- rect-adjacent-dashed-stroke-thickness-change ---
+#rect(
+  height: 4em,
+  width: 5em,
+  stroke: (
+    bottom: (thickness: 4pt, dash: "loosely-dashed"),
+    left: (thickness: 8pt, dash: "loosely-dashed"),
+  ),
+)
