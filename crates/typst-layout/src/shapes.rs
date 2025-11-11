@@ -1264,7 +1264,7 @@ impl ControlPoints {
 
     /// Middle of the corner in the middle of the stroke.
     pub fn mid(&self) -> Point {
-        let center = self.center_outer();
+        let center = self.center();
         let outer = self.outer();
         let diff = outer - center;
         center + diff / diff.hypot().to_raw() * self.radius().to_raw()
