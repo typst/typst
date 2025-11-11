@@ -456,14 +456,8 @@ impl<'a> Parser<'a> {
         })
     }
 
-    #[cfg(not(feature = "default"))]
-    fn parse_range_external(&mut self, _file: FileId) -> Option<Range<usize>> {
-        panic!("external file ranges are not expected when testing `typst_syntax`");
-    }
-
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
-    #[cfg(feature = "default")]
     fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
         use typst::foundations::Bytes;
 
