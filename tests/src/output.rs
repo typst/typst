@@ -138,6 +138,9 @@ pub trait OutputType: Sized {
 
     /// Converts the live output to bytes that can be saved to disk.
     fn save_live(doc: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]>;
+
+    /// Produce a hash from the live output.
+    fn make_hash(live: &Self::Live) -> HashedRef;
 }
 
 /// An output type that produces file references.
@@ -153,9 +156,6 @@ pub trait FileOutputType: OutputType {
 pub trait HashOutputType: OutputType {
     /// The index into the [`crate::run::HASHES`] array.
     const INDEX: usize;
-
-    /// Produces the reference output from the live output.
-    fn make_hash(live: &Self::Live) -> HashedRef;
 }
 
 pub struct Render;
@@ -185,6 +185,10 @@ impl OutputType for Render {
             pixmap_live = &slot;
         }
         pixmap_live.encode_png().unwrap()
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live.data()))
     }
 }
 
@@ -225,14 +229,14 @@ impl OutputType for Pdf {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
-}
-
-impl HashOutputType for Pdf {
-    const INDEX: usize = 0;
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+}
+
+impl HashOutputType for Pdf {
+    const INDEX: usize = 0;
 }
 
 fn generate_pdf(
@@ -262,6 +266,10 @@ impl OutputType for Pdftags {
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
     }
 }
 
@@ -294,14 +302,14 @@ impl OutputType for Svg {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
-}
-
-impl HashOutputType for Svg {
-    const INDEX: usize = 1;
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+}
+
+impl HashOutputType for Svg {
+    const INDEX: usize = 1;
 }
 
 pub struct Html;
@@ -322,6 +330,10 @@ impl OutputType for Html {
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
     }
 }
 
