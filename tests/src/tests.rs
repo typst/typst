@@ -61,8 +61,8 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for ext in ["render", "html", "pdf", "pdftags", "svg"] {
-        std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
+    for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
+        std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 
     // Set up the thread pool.
