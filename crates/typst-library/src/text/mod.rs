@@ -863,7 +863,13 @@ impl FontFamily {
 
 cast! {
     FontFamily,
-    self => self.name.into_value(),
+    self => match self.covers {
+        Some(covers) => dict![
+            "name" => self.name,
+            "covers" => covers
+        ].into_value(),
+        None => self.name.into_value()
+    },
     string: EcoString => Self::new(&string),
     mut v: Dict => {
         let ret = Self::with_coverage(
