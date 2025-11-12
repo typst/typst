@@ -83,7 +83,7 @@ pub enum Command {
     /// Processes an input file to extract provided metadata.
     Query(QueryCommand),
 
-    /// Evaluates a string of Typst code individually or in context of a file.
+    /// Evaluates a piece of Typst code.
     Eval(EvalCommand),
 
     /// Lists all discovered fonts in system and custom font paths.
@@ -184,11 +184,11 @@ pub struct QueryCommand {
 /// Evaluates a piece of Typst code.
 #[derive(Debug, Clone, Parser)]
 pub struct EvalCommand {
-    /// The string of Typst code to evaluate. Use `-` to read input from stdin.
+    /// The piece of Typst code to evaluate. Use `-` to read input from stdin.
     #[clap(value_parser = string_input_value_parser())]
     pub statement: StringInput,
 
-    /// The file to evaluate the code in context of. Can be used to introspect the document.
+    /// The file to evaluate the code in. Can be used to introspect the document.
     #[clap(long = "in", value_hint = ValueHint::FilePath)]
     pub r#in: Option<PathBuf>,
 
@@ -385,7 +385,7 @@ pub struct CompileArgs {
     pub timings: Option<Option<PathBuf>>,
 }
 
-/// Arguments for the construction of a world. Shared by compile, watch, and
+/// Arguments for the construction of a world. Shared by compile, watch, eval, and
 /// query.
 #[derive(Debug, Clone, Args)]
 pub struct WorldArgs {
