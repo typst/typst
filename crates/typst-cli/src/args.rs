@@ -83,6 +83,9 @@ pub enum Command {
     /// Processes an input file to extract provided metadata.
     Query(QueryCommand),
 
+    /// Evaluates a string of Typst code individually or in context of a file.
+    Eval(EvalCommand),
+
     /// Lists all discovered fonts in system and custom font paths.
     Fonts(FontsCommand),
 
@@ -174,6 +177,52 @@ pub struct QueryCommand {
     pub world: WorldArgs,
 
     /// Processing arguments.
+    #[clap(flatten)]
+    pub process: ProcessArgs,
+}
+
+/// Evaluates a piece of Typst code.
+#[derive(Debug, Clone, Parser)]
+pub struct EvalCommand {
+    /// The string of Typst code to evaluate. Use `-` to read input from stdin.
+    #[clap(value_parser = string_input_value_parser())]
+    pub statement: StringInput,
+
+    /// The file to evaluate the code in context of. Can be used to introspect the document.
+    #[clap(long = "in", value_hint = ValueHint::FilePath)]
+    pub r#in: Option<PathBuf>,
+
+    /// The syntax mode to use for evaluation.
+    #[clap(long = "mode", default_value_t)]
+    pub mode: SyntaxMode,
+
+    /// The scope to use for evaluation. The format is `key=value`.
+    /// Multiple key-value pairs can be specified.
+    /// For example, `--scope a=1 --scope b=2`.
+    /// The `value` is evaluated as Typst code.
+    #[clap(
+        long = "scope",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_sys_input_pair),
+    )]
+    pub scope: Vec<(String, String)>,
+
+    /// The format to serialize in.
+    #[clap(long = "format", default_value_t)]
+    pub format: SerializationFormat,
+
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
+    #[clap(long)]
+    pub pretty: bool,
+
+    /// The world arguments.
+    #[clap(flatten)]
+    pub world: WorldArgs,
+
+    /// The processing arguments.
     #[clap(flatten)]
     pub process: ProcessArgs,
 }
@@ -483,6 +532,21 @@ impl Display for FileInput {
         }
     }
 }
+
+/// An input that is either stdin or a string.
+#[derive(Debug, Clone)]
+pub enum StringInput {
+    /// Stdin, represented by `-`.
+    Stdin,
+    /// A string.
+    String(String),
+}
+
+impl Display for StringInput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            StringInput::Stdin => f.pad("stdin"),
+            StringInput::String(string) => string.fmt(f),
         }
     }
 }
@@ -678,6 +742,17 @@ pub enum SerializationFormat {
 
 display_possible_values!(SerializationFormat);
 
+/// The syntax mode to use for evaluation.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum SyntaxMode {
+    #[default]
+    Code,
+    Markup,
+    Math,
+}
+
+display_possible_values!(SyntaxMode);
+
 /// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a
 /// value parser, in order to generate better errors.
@@ -734,6 +809,16 @@ fn file_input_value_parser() -> impl TypedValueParser<Value = FileInput> {
         }
     })
 }
+
+/// The clap value parser used by `EvalCommand.statement`
+fn string_input_value_parser() -> impl TypedValueParser<Value = StringInput> {
+    clap::builder::OsStringValueParser::new().try_map(|value| {
+        if value.is_empty() {
+            Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+        } else if value == "-" {
+            Ok(StringInput::Stdin)
+        } else {
+            Ok(StringInput::String(value.to_string_lossy().into()))
         }
     })
 }
