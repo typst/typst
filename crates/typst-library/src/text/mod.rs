@@ -964,7 +964,7 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().name.into_value()
+        self.0.into_iter().next().unwrap().into_value()
     } else {
         self.0.into_value()
     },
