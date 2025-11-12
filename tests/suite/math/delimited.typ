@@ -179,7 +179,12 @@ $
   chevron.l.double(x) \
 
   corner.l.t(x) \
-  corner.l.b(x)
+  corner.l.b(x) \
+
+  bar(x) \
+  bar.double(x) \
+  bar.triple(x) \
+  fence.dotted(x) \
 $
 
 --- math-lr-sym-call-size ---

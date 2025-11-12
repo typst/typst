@@ -184,6 +184,13 @@ const DELIMS: &[(char, char)] = &[
     ('⟪', '⟫'),
     ('⌜', '⌝'),
     ('⌞', '⌟'),
+
+    // Fences.
+    ('|', '|'),
+    ('‖', '‖'),
+    ('⦀', '⦀'),
+    ('⦙', '⦙'),
+    ('⦚', '⦚'),
 ];
 
 /// Lazily created left/right wrapper functions.
