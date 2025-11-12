@@ -500,7 +500,6 @@ mod callbacks {
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
             #[derive(Debug, Clone, Hash)]
-            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,

@@ -24,7 +24,6 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 /// the [`array`] constructor.
 #[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Version(EcoVec<u32>);
 
 impl Version {

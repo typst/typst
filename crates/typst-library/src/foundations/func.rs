@@ -134,7 +134,6 @@ use crate::foundations::{
 /// called on.
 #[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,

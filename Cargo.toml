@@ -168,3 +168,5 @@ manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
+# See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
+derived_hash_with_manual_eq = "allow"

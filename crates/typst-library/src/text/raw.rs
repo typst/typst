@@ -525,10 +525,6 @@ impl PlainText for Packed<RawElem> {
 
 /// The content of the raw text.
 #[derive(Debug, Clone, Hash)]
-#[allow(
-    clippy::derived_hash_with_manual_eq,
-    reason = "https://github.com/typst/typst/pull/6560#issuecomment-3045393640"
-)]
 pub enum RawContent {
     /// From a string.
     Text(EcoString),
