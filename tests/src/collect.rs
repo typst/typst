@@ -444,7 +444,8 @@ impl<'a> Parser<'a> {
             .s
             .eat_until(is_newline)
             .trim()
-            .replace("VERSION", &eco_format!("{}", PackageVersion::compiler()));
+            .replace("VERSION", &eco_format!("{}", PackageVersion::compiler()))
+            .replace("\\n", "\n");
 
         Some(Note {
             pos: FilePos::new(self.path, self.line),
