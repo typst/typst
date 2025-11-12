@@ -394,8 +394,7 @@ impl Block {
 
     /// Downcasts the block to the specified type.
     fn downcast<T: 'static>(&self, func: Element, id: u8) -> &T {
-        self.0
-            .as_any()
+        (&*self.0 as &dyn Any)
             .downcast_ref()
             .unwrap_or_else(|| block_wrong_type(func, id, self))
     }
@@ -417,10 +416,7 @@ impl Clone for Block {
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
-trait Blockable: Debug + Send + Sync + 'static {
-    /// Equivalent to `downcast_ref` for the block.
-    fn as_any(&self) -> &dyn Any;
-
+trait Blockable: Debug + Any + Send + Sync + 'static {
     /// Equivalent to [`Hash`] for the block.
     fn dyn_hash(&self, state: &mut dyn Hasher);
 
@@ -429,10 +425,6 @@ trait Blockable: Debug + Send + Sync + 'static {
 }
 
 impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
