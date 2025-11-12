@@ -208,6 +208,10 @@ pub struct EvalCommand {
     )]
     pub scope: Vec<(String, String)>,
 
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
     /// The format to serialize in.
     #[clap(long = "format", default_value_t)]
     pub format: SerializationFormat,

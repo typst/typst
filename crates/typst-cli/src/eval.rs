@@ -31,7 +31,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     world.source(world.main()).map_err(|err| err.to_string())?;
 
     // Compile the main file and get the introspector.
-    let Warned { output, warnings } = match /* command.target */ Target::Paged {
+    let Warned { output, warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
