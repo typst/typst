@@ -3,7 +3,7 @@ use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
-use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Scope};
 use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
@@ -74,6 +74,8 @@ fn retrieve(
         world.track(),
         // TODO: propagate warnings
         Sink::new().track_mut(),
+        Introspector::default().track(),
+        Context::none().track(),
         &command.selector,
         Span::detached(),
         SyntaxMode::Code,

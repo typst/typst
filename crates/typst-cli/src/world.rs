@@ -456,7 +456,7 @@ fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
 }
 
 /// Read from stdin.
-fn read_from_stdin() -> FileResult<Vec<u8>> {
+pub fn read_from_stdin() -> FileResult<Vec<u8>> {
     let mut buf = Vec::new();
     let result = io::stdin().read_to_end(&mut buf);
     match result {
@@ -468,7 +468,7 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
 }
 
 /// Decode UTF-8 with an optional BOM.
-fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
+pub fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
 }

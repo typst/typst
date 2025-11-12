@@ -66,6 +66,7 @@ pub use self::target_::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
+use comemo::Track;
 pub use typst_macros::{scope, ty};
 use typst_syntax::SyntaxMode;
 
@@ -82,8 +83,8 @@ use ecow::EcoString;
 use typst_syntax::Spanned;
 
 use crate::diag::{SourceResult, StrResult, bail};
-use crate::engine::Engine;
 use crate::{Feature, Features};
+use crate::{engine::Engine, introspection::Introspector};
 
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
@@ -302,6 +303,10 @@ pub fn eval(
         engine.routines,
         engine.world,
         TrackedMut::reborrow_mut(&mut engine.sink),
+        // We create a new, detached introspector for evaluation, this is same behavior as has always been in eval_string
+        // We could extend to pass engine.introspector, but that is protected and may have unintended side effects
+        Introspector::default().track(),
+        Context::none().track(),
         &text,
         span,
         mode,

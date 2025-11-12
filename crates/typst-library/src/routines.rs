@@ -55,6 +55,8 @@ routines! {
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         sink: TrackedMut<Sink>,
+        introspector: Tracked<Introspector>,
+        context: Tracked<Context>,
         string: &str,
         span: Span,
         mode: SyntaxMode,

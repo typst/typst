@@ -2,7 +2,7 @@ use crate::{
     args::{EvalCommand, FileInput, StringInput, SyntaxMode, Target},
     compile::print_diagnostics,
     set_failed,
-    world::SystemWorld,
+    world::{SystemWorld, decode_utf8, read_from_stdin},
 };
 use comemo::Track;
 use ecow::{EcoString, eco_format};
@@ -39,11 +39,11 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     };
 
     match output {
-        // Retrieve and print query results.
+        // Retrieve and print evaluation results.
         Ok(introspector) => {
             let scope = evaluate_scope(&command.scope, &world, &introspector)?;
             let statement = match &command.statement {
-                StringInput::Stdin => read_statement_from_stdin().map_err(|err| err.to_string())?,
+                StringInput::Stdin => read_statement_from_stdin()?,
                 StringInput::String(statement) => statement.clone(),
             };
             let eval_result =
@@ -122,67 +122,27 @@ fn evaluate_statement(
     world: &dyn World,
     introspector: &Introspector,
 ) -> SourceResult<Value> {
-    // Pretty much shamelessly copied from typst-eval::eval_string
-    let root = match mode {
-        SyntaxMode::Code => parse_code(&statement),
-        SyntaxMode::Markup => parse(&statement),
-        SyntaxMode::Math => parse_math(&statement),
-    };
-
-    // Check for well-formedness.
-    let errors = root.errors();
-    if !errors.is_empty() {
-        return Err(errors.into_iter().map(Into::into).collect());
-    }
-
-    // Prepare the engine.
-    let introspector = introspector.clone();
-    let traced = Traced::default();
-    let mut binding = Sink::new();
-    let engine = Engine {
-        routines: &typst::ROUTINES,
-        world: world.track(),
-        introspector: introspector.track(),
-        traced: traced.track(),
-        sink: binding.track_mut(),
-        route: Route::default(),
-    };
-
-    // Prepare VM.
-    let context = Context::new(None, Some(StyleChain::new(&world.library().styles)));
-    let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
-    vm.scopes.scopes.push(scope);
-
-    // Evaluate the code.
-    let output = match mode {
-        SyntaxMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm)?,
-        SyntaxMode::Markup => {
-            Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
-        }
-        SyntaxMode::Math => Value::Content(
-            EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-                .with_block(false)
-                .pack(),
-        ),
-    };
-
-    // Handle control flow.
-    if let Some(flow) = vm.flow {
-        bail!(flow.forbidden());
-    }
-
-    Ok(output)
+    eval_string(
+        &typst::ROUTINES,
+        world.track(),
+        // TODO: propagate warnings
+        Sink::new().track_mut(),
+        introspector.track(),
+        Context::new(None, Some(StyleChain::new(&world.library().styles))).track(),
+        &statement,
+        Span::detached(),
+        match mode {
+            SyntaxMode::Code => typst::syntax::SyntaxMode::Code,
+            SyntaxMode::Markup => typst::syntax::SyntaxMode::Markup,
+            SyntaxMode::Math => typst::syntax::SyntaxMode::Math,
+        },
+        scope,
+    )
 }
 
-fn read_statement_from_stdin() -> FileResult<String> {
-    let mut buf = Vec::new();
-    let result = io::stdin().read_to_end(&mut buf);
-    match result {
-        Ok(_) => (),
-        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => (),
-        Err(err) => return Err(FileError::from_io(err, Path::new("<stdin>"))),
-    }
-    let statement = std::str::from_utf8(&buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(&buf))?;
-    Ok(statement.to_string())
+/// Reads a statement from stdin, decoding it from UTF-8.
+fn read_statement_from_stdin() -> HintedStrResult<String> {
+    let result = read_from_stdin()?;
+    let statement = decode_utf8(&result)?;
+    Ok(statement.into())
 }
