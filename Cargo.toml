@@ -5,7 +5,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.14.0"
-rust-version = "1.88" # also change in ci.yml
+rust-version = "1.89" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2024"
 homepage = "https://typst.app"
