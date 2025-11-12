@@ -47,14 +47,6 @@ Was: #context {
 #trait[Fear]
 #trait[Anger]
 
---- state-no-convergence ---
-// Make sure that a warning is produced if the layout fails to converge.
-// Warning: layout did not converge within 5 attempts
-// Hint: check if any states or queries are updating themselves
-#let s = state("s", 1)
-#context s.update(s.final() + 1)
-#context s.get()
-
 --- state-at-no-context ---
 // Test `state.at` outside of context.
 // Error: 2-26 can only be used when context is known

@@ -1,12 +1,25 @@
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 
-use ecow::EcoString;
+use comemo::Tracked;
+use ecow::{EcoString, eco_format};
+use typst_syntax::Span;
 
+use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
-use crate::foundations::{Repr, func, scope, ty};
-use crate::layout::Position;
+use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
+use crate::introspection::{History, Introspect, Introspector};
+use crate::layout::{Abs, Position};
 use crate::model::Numbering;
+
+/// Makes an element available in the introspector.
+pub trait Locatable {}
+
+/// Marks an element as not queriable for the user.
+pub trait Unqueriable: Locatable {}
+
+/// Marks an element as tagged in PDF files.
+pub trait Tagged {}
 
 /// Identifies an element in the document.
 ///
@@ -82,8 +95,8 @@ impl Location {
     /// ]
     /// ```
     #[func]
-    pub fn page(self, engine: &mut Engine) -> NonZeroUsize {
-        engine.introspector.page(self)
+    pub fn page(self, engine: &mut Engine, span: Span) -> NonZeroUsize {
+        engine.introspect(PageIntrospection(self, span))
     }
 
     /// Returns a dictionary with the page number and the x, y position for this
@@ -93,8 +106,8 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     #[func]
-    pub fn position(self, engine: &mut Engine) -> Position {
-        engine.introspector.position(self)
+    pub fn position(self, engine: &mut Engine, span: Span) -> Position {
+        engine.introspect(PositionIntrospection(self, span))
     }
 
     /// Returns the page numbering pattern of the page at this location. This
@@ -105,8 +118,8 @@ impl Location {
     /// If the page numbering is set to `{none}` at that location, this function
     /// returns `{none}`.
     #[func]
-    pub fn page_numbering(self, engine: &mut Engine) -> Option<Numbering> {
-        engine.introspector.page_numbering(self).cloned()
+    pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
+        engine.introspect(PageNumberingIntrospection(self, span))
     }
 }
 
@@ -152,11 +165,149 @@ impl From<Location> for LocationKey {
     }
 }
 
-/// Make this element available in the introspector.
-pub trait Locatable {}
+/// Retrieves the exact position of an element in the document.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PositionIntrospection(pub Location, pub Span);
 
-/// Make this element not queriable for the user.
-pub trait Unqueriable: Locatable {}
+impl Introspect for PositionIntrospection {
+    type Output = Position;
 
-/// Marks this element as tagged in PDF files.
-pub trait Tagged {}
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.position(self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "positions",
+            |element| eco_format!("{element} position"),
+            |pos| {
+                let coord = |v: Abs| repr::format_float(v.to_pt(), Some(0), false, "pt");
+                eco_format!(
+                    "page {} at ({}, {})",
+                    pos.page,
+                    coord(pos.point.x),
+                    coord(pos.point.y)
+                )
+            },
+        )
+    }
+}
+
+/// Retrieves the number of the page where an element is located.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PageIntrospection(pub Location, pub Span);
+
+impl Introspect for PageIntrospection {
+    type Output = NonZeroUsize;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.page(self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "page numbers",
+            |element| eco_format!("page number of the {element}"),
+            |n| eco_format!("page {n}"),
+        )
+    }
+}
+
+/// Retrieves the numbering of the page where an element is located.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PageNumberingIntrospection(pub Location, pub Span);
+
+impl Introspect for PageNumberingIntrospection {
+    type Output = Option<Numbering>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.page_numbering(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "numberings",
+            |element| {
+                eco_format!("numbering of the page on which the {element} is located")
+            },
+            |numbering| eco_format!("`{}`", numbering.clone().into_value().repr()),
+        )
+    }
+}
+
+/// Retrieves the supplement of the page where an element is located.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PageSupplementIntrospection(pub Location, pub Span);
+
+impl Introspect for PageSupplementIntrospection {
+    type Output = Content;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.page_supplement(self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "supplements",
+            |element| {
+                eco_format!("supplement of the page on which the {element} is located")
+            },
+            |supplement| eco_format!("`{}`", supplement.repr()),
+        )
+    }
+}
+
+/// The warning when an introspection on a [`Location`] did not converge.
+fn format_convergence_warning<T>(
+    loc: Location,
+    span: Span,
+    history: &History<T>,
+    output_kind_plural: &str,
+    format_output_kind: impl FnOnce(&str) -> EcoString,
+    format_output: impl FnMut(&T) -> EcoString,
+) -> SourceDiagnostic {
+    let elem = history.final_introspector().query_first(&Selector::Location(loc));
+    let kind = match &elem {
+        Some(content) => content.elem().name(),
+        None => "element",
+    };
+
+    let what = format_output_kind(kind);
+    let mut diag = warning!(span, "{what} did not stabilize");
+
+    if let Some(elem) = elem
+        && !elem.span().is_detached()
+    {
+        diag.spanned_hint(eco_format!("{kind} was created here"), elem.span());
+    }
+
+    diag.with_hint(history.hint(output_kind_plural, format_output))
+}

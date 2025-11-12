@@ -163,8 +163,7 @@ impl Packed<CiteGroup> {
     pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
         let location = self.location().unwrap();
         let span = self.span();
-        Works::generate(engine)
-            .at(span)?
+        Works::generate(engine, span)?
             .citations
             .get(&location)
             .cloned()

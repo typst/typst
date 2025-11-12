@@ -540,7 +540,7 @@ fn prepare(
         tagged: elem.can::<dyn Tagged>(),
     };
     if elem.location().is_none() && flags.any() {
-        let loc = locator.next_location(engine.introspector, key);
+        let loc = locator.next_location(engine, key, elem.span());
         elem.set_location(loc);
     }
 

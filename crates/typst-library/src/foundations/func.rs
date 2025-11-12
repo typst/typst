@@ -320,7 +320,7 @@ impl Func {
                 closure,
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),

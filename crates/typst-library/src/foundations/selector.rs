@@ -4,13 +4,15 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
+use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::engine::Engine;
 use crate::foundations::{
     CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
     Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
-use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
+use crate::introspection::{Locatable, Location, QueryUniqueIntrospection, Unqueriable};
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 #[macro_export]
@@ -298,14 +300,18 @@ impl LocatableSelector {
     /// Resolve this selector into a location that is guaranteed to be unique.
     pub fn resolve_unique(
         &self,
-        introspector: Tracked<Introspector>,
+        engine: &mut Engine,
         context: Tracked<Context>,
-    ) -> HintedStrResult<Location> {
-        match &self.0 {
-            Selector::Location(loc) => Ok(*loc),
+        span: Span,
+    ) -> SourceResult<Location> {
+        match self.0.clone() {
+            Selector::Location(loc) => Ok(loc),
             other => {
-                context.introspect()?;
-                Ok(introspector.query_unique(other).map(|c| c.location().unwrap())?)
+                context.introspect().at(span)?;
+                engine
+                    .introspect(QueryUniqueIntrospection(other, span))
+                    .map(|c| c.location().unwrap())
+                    .at(span)
             }
         }
     }

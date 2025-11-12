@@ -20,7 +20,7 @@ use typst_library::layout::{
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
-use typst_utils::SliceExt;
+use typst_utils::{Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
@@ -395,7 +395,7 @@ impl SingleChild<'_> {
             layout_single_impl(
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
@@ -423,6 +423,7 @@ fn layout_single_impl(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {
@@ -494,7 +495,7 @@ impl<'a> MultiChild<'a> {
             layout_multi_impl(
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
@@ -522,6 +523,7 @@ fn layout_multi_impl(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {

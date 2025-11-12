@@ -24,7 +24,7 @@ use typst_library::model::{
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::text::{Costs, Lang, TextElem};
-use typst_utils::{Numeric, SliceExt};
+use typst_utils::{Numeric, Protected, SliceExt};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
@@ -54,7 +54,7 @@ pub fn layout_par(
         elem,
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -83,6 +83,7 @@ fn layout_par_impl(
     expand: bool,
     situation: ParSituation,
 ) -> SourceResult<Fragment> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
