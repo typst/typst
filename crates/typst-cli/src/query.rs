@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
-use typst::diag::{HintedStrResult, StrResult, Warned, bail};
+use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::introspection::Introspector;
@@ -24,12 +24,18 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let Warned { output, warnings } = match command.target {
+    let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
     };
+
+    // Add deprecation warning to warnings
+    warnings.push(
+        SourceDiagnostic::warning(Span::detached(), "`query` is deprecated")
+            .with_hint("use `eval` instead"),
+    );
 
     match output {
         // Retrieve and print query results.

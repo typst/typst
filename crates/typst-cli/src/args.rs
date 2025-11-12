@@ -80,7 +80,7 @@ pub enum Command {
     /// Initializes a new project from a template.
     Init(InitCommand),
 
-    /// Processes an input file to extract provided metadata.
+    /// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
     Query(QueryCommand),
 
     /// Evaluates a piece of Typst code.
@@ -140,7 +140,7 @@ pub struct InitCommand {
     pub package: PackageArgs,
 }
 
-/// Processes an input file to extract provided metadata.
+/// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file. Use `-` to read input from stdin.
