@@ -17,7 +17,7 @@ use typst_kit::fonts::Fonts;
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FileInput, FontArgs, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -25,6 +25,11 @@ use crate::package;
 /// This is to ensure that a file is read in the correct way.
 static STDIN_ID: LazyLock<FileId> =
     LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+
+/// Static `FileId` allocated for empty.
+/// This is to ensure that a file is read in the correct way.
+static EMPTY_ID: LazyLock<FileId> =
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -51,7 +56,7 @@ pub struct SystemWorld {
 impl SystemWorld {
     /// Create a new system world.
     pub fn new(
-        input: &Input,
+        input: Option<&FileInput>,
         world_args: &'static WorldArgs,
         process_args: &ProcessArgs,
     ) -> Result<Self, WorldCreationError> {
@@ -65,9 +70,8 @@ impl SystemWorld {
         }
 
         // Resolve the system-global input path.
-        let input = match input {
-            Input::Stdin => None,
-            Input::Path(path) => {
+        let input_path = match input {
+            Some(FileInput::Path(path)) => {
                 Some(path.canonicalize().map_err(|err| match err.kind() {
                     io::ErrorKind::NotFound => {
                         WorldCreationError::InputNotFound(path.clone())
@@ -75,6 +79,7 @@ impl SystemWorld {
                     _ => WorldCreationError::Io(err),
                 })?)
             }
+            _ => None,
         };
 
         // Resolve the system-global root directory.
@@ -82,7 +87,7 @@ impl SystemWorld {
             let path = world_args
                 .root
                 .as_deref()
-                .or_else(|| input.as_deref().and_then(|i| i.parent()))
+                .or_else(|| input_path.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -92,14 +97,17 @@ impl SystemWorld {
             })?
         };
 
-        let main = if let Some(path) = &input {
+        let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::within_root(path, &root)
                 .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
-        } else {
-            // Return the special id of STDIN otherwise
+        } else if matches!(input, Some(FileInput::Stdin)) {
+            // Return the special id of STDIN
             *STDIN_ID
+        } else {
+            // Return the special id of EMPTY otherwise
+            *EMPTY_ID
         };
 
         let library = {
@@ -423,16 +431,17 @@ fn system_path(
 /// Reads a file from a `FileId`.
 ///
 /// If the ID represents stdin it will read from standard input,
+/// else if it represents empty it will return an empty vector,
 /// otherwise it gets the file path of the ID and reads the file from disk.
 fn read(
     id: FileId,
     project_root: &Path,
     package_storage: &PackageStorage,
 ) -> FileResult<Vec<u8>> {
-    if id == *STDIN_ID {
-        read_from_stdin()
-    } else {
-        read_from_disk(&system_path(project_root, id, package_storage)?)
+    match id {
+        id if id == *EMPTY_ID => Ok(Vec::new()),
+        id if id == *STDIN_ID => read_from_stdin(),
+        _ => read_from_disk(&system_path(project_root, id, package_storage)?),
     }
 }
 

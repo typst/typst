@@ -14,7 +14,7 @@ use typst::diag::{HintedStrResult, StrResult, bail, warning};
 use typst::syntax::Span;
 use typst::utils::format_duration;
 
-use crate::args::{Input, Output, WatchCommand};
+use crate::args::{FileInput, Output, WatchCommand};
 use crate::compile::{CompileConfig, compile_once, print_diagnostics};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
@@ -35,7 +35,7 @@ pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResu
     // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
         match SystemWorld::new(
-            &command.args.input,
+            Some(&command.args.input),
             &command.args.world,
             &command.args.process,
         ) {
@@ -65,7 +65,7 @@ pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResu
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
     // Print warning when trying to watch stdin.
-    if matches!(&config.input, Input::Stdin) {
+    if matches!(&config.input, FileInput::Stdin) {
         warn_watching_std(&world, &config)?;
     }
 
@@ -301,8 +301,8 @@ impl Status {
         write!(out, "watching")?;
         out.reset()?;
         match &config.input {
-            Input::Stdin => writeln!(out, " <stdin>"),
-            Input::Path(path) => writeln!(out, " {}", path.display()),
+            FileInput::Stdin => writeln!(out, " <stdin>"),
+            FileInput::Path(path) => writeln!(out, " {}", path.display()),
         }?;
 
         out.set_color(&color)?;

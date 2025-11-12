@@ -19,7 +19,7 @@ use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
-    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
+    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, FileInput, Output,
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
@@ -40,9 +40,12 @@ pub fn compile(
     command: &'static CompileCommand,
 ) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
-    let mut world =
-        SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
-            .map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(
+        Some(&command.args.input),
+        &command.args.world,
+        &command.args.process,
+    )
+    .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 
@@ -53,7 +56,7 @@ pub struct CompileConfig {
     /// Whether we are watching.
     pub watching: bool,
     /// Path to input Typst file or stdin.
-    pub input: Input,
+    pub input: FileInput,
     /// Path to output file (PDF, PNG, SVG, or HTML).
     pub output: Output,
     /// The format of the output file.
@@ -124,7 +127,7 @@ impl CompileConfig {
         };
 
         let output = args.output.clone().unwrap_or_else(|| {
-            let Input::Path(path) = &input else {
+            let FileInput::Path(path) = &input else {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             Output::Path(path.with_extension(

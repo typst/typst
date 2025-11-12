@@ -141,8 +141,8 @@ pub struct InitCommand {
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: Input,
+    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: FileInput,
 
     /// Defines which elements to retrieve.
     pub selector: String,
@@ -244,8 +244,8 @@ pub struct InfoCommand {
 #[derive(Debug, Clone, Args)]
 pub struct CompileArgs {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: Input,
+    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: FileInput,
 
     /// Path to output file (PDF, PNG, SVG, or HTML). Use `-` to write output to
     /// stdout.
@@ -468,18 +468,21 @@ macro_rules! display_possible_values {
 
 /// An input that is either stdin or a real path.
 #[derive(Debug, Clone)]
-pub enum Input {
+pub enum FileInput {
     /// Stdin, represented by `-`.
     Stdin,
     /// A non-empty path.
     Path(PathBuf),
 }
 
-impl Display for Input {
+impl Display for FileInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Input::Stdin => f.pad("stdin"),
-            Input::Path(path) => path.display().fmt(f),
+            FileInput::Stdin => f.pad("stdin"),
+            FileInput::Path(path) => path.display().fmt(f),
+        }
+    }
+}
         }
     }
 }
@@ -720,14 +723,17 @@ fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
 }
 
 /// The clap value parser used by `SharedArgs.input`
-fn input_value_parser() -> impl TypedValueParser<Value = Input> {
+fn file_input_value_parser() -> impl TypedValueParser<Value = FileInput> {
     clap::builder::OsStringValueParser::new().try_map(|value| {
         if value.is_empty() {
             Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
         } else if value == "-" {
-            Ok(Input::Stdin)
+            Ok(FileInput::Stdin)
         } else {
-            Ok(Input::Path(value.into()))
+            Ok(FileInput::Path(value.into()))
+        }
+    })
+}
         }
     })
 }
