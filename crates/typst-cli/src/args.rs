@@ -816,13 +816,13 @@ fn file_input_value_parser() -> impl TypedValueParser<Value = FileInput> {
 
 /// The clap value parser used by `EvalCommand.statement`
 fn string_input_value_parser() -> impl TypedValueParser<Value = StringInput> {
-    clap::builder::OsStringValueParser::new().try_map(|value| {
+    clap::builder::NonEmptyStringValueParser::new().try_map(|value| {
         if value.is_empty() {
             Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
         } else if value == "-" {
             Ok(StringInput::Stdin)
         } else {
-            Ok(StringInput::String(value.to_string_lossy().into()))
+            Ok(StringInput::String(value))
         }
     })
 }
