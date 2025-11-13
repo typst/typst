@@ -26,8 +26,8 @@ use crate::package;
 static STDIN_ID: LazyLock<FileId> =
     LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
 
-/// Static `FileId` allocated for empty.
-/// This is to ensure that a file is read in the correct way.
+/// Static `FileId` allocated for empty/no input at all.
+/// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
 static EMPTY_ID: LazyLock<FileId> =
     LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>")));
 
@@ -106,7 +106,7 @@ impl SystemWorld {
             // Return the special id of STDIN
             *STDIN_ID
         } else {
-            // Return the special id of EMPTY otherwise
+            // Return the special id of EMPTY/no input at all otherwise
             *EMPTY_ID
         };
 
@@ -431,7 +431,7 @@ fn system_path(
 /// Reads a file from a `FileId`.
 ///
 /// If the ID represents stdin it will read from standard input,
-/// else if it represents empty it will return an empty vector,
+/// else if it represents empty/no input at all it will return an empty vector,
 /// otherwise it gets the file path of the ID and reads the file from disk.
 fn read(
     id: FileId,
