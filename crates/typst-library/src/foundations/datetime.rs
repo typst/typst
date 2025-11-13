@@ -275,21 +275,21 @@ impl Datetime {
         #[named]
         second: Option<u8>,
     ) -> HintedStrResult<Datetime> {
-        fn format_missing_entries(entries: Vec<&str>) -> String {
-            let len = entries.len();
+        fn format_missing_fields(fields: Vec<&str>) -> String {
+            let len = fields.len();
             match len {
                 0 => String::new(),
-                1 => format!("{} field", entries[0]),
+                1 => format!("{} field", fields[0]),
                 _ => format!(
                     "{} and {} fields",
-                    entries[0..len - 1].join(", "),
-                    entries[len - 1]
+                    fields[0..len - 1].join(", "),
+                    fields[len - 1]
                 ),
             }
         }
-        macro_rules! missing_entries_from {
+        macro_rules! missing_fields_from {
             ($($key:expr => $value:expr),* $(,)?) => {
-                format_missing_entries(
+                format_missing_fields(
                     vec![$(if $key.is_none() { Some($value) } else { None }),*]
                         .into_iter()
                         .flatten()
@@ -306,14 +306,14 @@ impl Datetime {
             }
             (None, None, None) => None,
             (hour, minute, second) => {
-                let missing_entries = missing_entries_from![
+                let missing_fields = missing_fields_from![
                     hour => "`hour`",
                     minute => "`minute`",
                     second => "`second`"
                 ];
                 bail!(
                     "time is incomplete";
-                    hint: "add {missing_entries} to get a valid time"
+                    hint: "add {missing_fields} to get a valid time"
                 )
             }
         };
@@ -327,14 +327,14 @@ impl Datetime {
             }
             (None, None, None) => None,
             (year, month, day) => {
-                let missing_entries = missing_entries_from![
+                let missing_fields = missing_fields_from![
                     year => "`year`",
                     month => "`month`",
                     day => "`day`"
                 ];
                 bail!(
                     "date is incomplete";
-                    hint: "add {missing_entries} to get a valid date"
+                    hint: "add {missing_fields} to get a valid date"
                 )
             }
         };
