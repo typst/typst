@@ -10,7 +10,7 @@ use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
-use crate::args::{QueryCommand, Target};
+use crate::args::{FileInput, QueryCommand, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -32,10 +32,7 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
     };
 
     // Add deprecation warning to warnings
-    warnings.push(
-        SourceDiagnostic::warning(Span::detached(), "`query` is deprecated")
-            .with_hint("use `eval` instead"),
-    );
+    warnings.push(deprecation_warning(&command));
 
     match output {
         // Retrieve and print query results.
@@ -116,4 +113,15 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
     } else {
         crate::serialize(&mapped, command.format, command.pretty)
     }
+}
+
+/// Format the deprecation warning with the specific invocation of `typst eval` needed to replace `typst query`.
+fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
+    let alternative_eval_command = match &command.input {
+        FileInput::Path(path) => eco_format!("typst eval 'query({})' --in {}", command.selector, path.display()),
+        FileInput::Stdin => eco_format!("typst eval 'query({})'", command.selector),
+    };
+
+    SourceDiagnostic::warning(Span::detached(), "`typst query` command is deprecated")
+    .with_hint(eco_format!("use `{}` instead", alternative_eval_command))
 }
