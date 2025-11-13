@@ -66,9 +66,7 @@ pub use self::target_::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
-use comemo::Track;
 pub use typst_macros::{scope, ty};
-use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -78,9 +76,9 @@ pub use {
     smallvec::SmallVec,
 };
 
-use comemo::TrackedMut;
+use comemo::{Track, TrackedMut};
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::{Feature, Features};

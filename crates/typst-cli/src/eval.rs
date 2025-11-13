@@ -1,20 +1,12 @@
-use crate::{
-    args::{EvalCommand, FileInput, StringInput, SyntaxMode, Target},
-    compile::print_diagnostics,
-    set_failed,
-    world::{SystemWorld, decode_utf8, read_from_stdin},
-};
+use crate::args::{EvalCommand, FileInput, StringInput, SyntaxMode, Target};
+use crate::world::{SystemWorld, decode_utf8, read_from_stdin};
+use crate::{compile::print_diagnostics, set_failed};
 use comemo::Track;
 use ecow::{EcoString, eco_format};
-use typst::{
-    World,
-    diag::{HintedStrResult, SourceResult, Warned},
-    engine::Sink,
-    foundations::{Binding, Context, Scope, StyleChain, Value},
-    introspection::Introspector,
-    layout::PagedDocument,
-    syntax::Span,
-};
+use typst::diag::{HintedStrResult, SourceResult, Warned};
+use typst::foundations::{Binding, Context, Scope, StyleChain, Value};
+use typst::{World, introspection::Introspector, layout::PagedDocument};
+use typst::{engine::Sink, syntax::Span};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 

@@ -32,7 +32,7 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
     };
 
     // Add deprecation warning to warnings
-    warnings.push(deprecation_warning(&command));
+    warnings.push(deprecation_warning(command));
 
     match output {
         // Retrieve and print query results.
@@ -118,10 +118,14 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
 /// Format the deprecation warning with the specific invocation of `typst eval` needed to replace `typst query`.
 fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
     let alternative_eval_command = match &command.input {
-        FileInput::Path(path) => eco_format!("typst eval 'query({})' --in {}", command.selector, path.display()),
+        FileInput::Path(path) => eco_format!(
+            "typst eval 'query({})' --in {}",
+            command.selector,
+            path.display()
+        ),
         FileInput::Stdin => eco_format!("typst eval 'query({})'", command.selector),
     };
 
     SourceDiagnostic::warning(Span::detached(), "`typst query` command is deprecated")
-    .with_hint(eco_format!("use `{}` instead", alternative_eval_command))
+        .with_hint(eco_format!("use `{}` instead", alternative_eval_command))
 }
