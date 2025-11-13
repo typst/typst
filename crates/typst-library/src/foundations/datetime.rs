@@ -8,7 +8,7 @@ use time::macros::format_description;
 use time::{Month, PrimitiveDateTime, format_description};
 
 use crate::World;
-use crate::diag::{StrResult, bail};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
@@ -274,7 +274,29 @@ impl Datetime {
         /// The second of the datetime.
         #[named]
         second: Option<u8>,
-    ) -> StrResult<Datetime> {
+    ) -> HintedStrResult<Datetime> {
+        fn format_missing_entries(entries: Vec<&str>) -> String {
+            let len = entries.len();
+            match len {
+                0 => String::new(),
+                1 => format!("{} field", entries[0]),
+                _ => format!(
+                    "{} and {} fields",
+                    entries[0..len - 1].join(", "),
+                    entries[len - 1]
+                ),
+            }
+        }
+        macro_rules! missing_entries_from {
+            ($($key:expr => $value:expr),* $(,)?) => {
+                format_missing_entries(
+                    vec![$(if $key.is_none() { Some($value) } else { None }),*]
+                        .into_iter()
+                        .flatten()
+                        .collect()
+                )
+            };
+        }
         let time = match (hour, minute, second) {
             (Some(hour), Some(minute), Some(second)) => {
                 match time::Time::from_hms(hour, minute, second) {
@@ -283,7 +305,17 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("time is incomplete"),
+            (hour, minute, second) => {
+                let missing_entries = missing_entries_from![
+                    hour => "`hour`",
+                    minute => "`minute`",
+                    second => "`second`"
+                ];
+                bail!(
+                    "time is incomplete";
+                    hint: "add {missing_entries} to get a valid time"
+                )
+            }
         };
 
         let date = match (year, month, day) {
@@ -294,7 +326,17 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("date is incomplete"),
+            (year, month, day) => {
+                let missing_entries = missing_entries_from![
+                    year => "`year`",
+                    month => "`month`",
+                    day => "`day`"
+                ];
+                bail!(
+                    "date is incomplete";
+                    hint: "add {missing_entries} to get a valid date"
+                )
+            }
         };
 
         Ok(match (date, time) {
