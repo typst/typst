@@ -6,6 +6,7 @@ mod custom;
 mod logger;
 mod output;
 mod pdftags;
+mod report;
 mod run;
 mod world;
 
@@ -216,6 +217,7 @@ fn run_parser_test(
         errors: String::new(),
         infos: String::new(),
         mismatched_output: false,
+        report: None,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));

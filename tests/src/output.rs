@@ -1,7 +1,10 @@
 use std::fmt::Display;
+use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use ecow::EcoString;
+use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
@@ -13,7 +16,8 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput};
-use crate::pdftags;
+use crate::report::DiffKind;
+use crate::{pdftags, report};
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
@@ -116,6 +120,8 @@ pub trait OutputType: Sized {
     type Doc;
     /// The type that represents live output.
     type Live;
+    /// The number of HTML diffs produced by this output.
+    type Diffs: IntoIterator<Item = DiffKind>;
 
     /// The test output format.
     const OUTPUT: TestOutput;
@@ -133,6 +139,9 @@ pub trait OutputType: Sized {
 
     /// Produce a hash from the live output.
     fn make_hash(live: &Self::Live) -> HashedRef;
+
+    /// Generate data necessary to make a HTML diff.
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> Self::Diffs;
 }
 
 /// An output type that produces file references.
@@ -155,6 +164,7 @@ pub struct Render;
 impl OutputType for Render {
     type Doc = PagedDocument;
     type Live = tiny_skia::Pixmap;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Render;
 
@@ -182,6 +192,10 @@ impl OutputType for Render {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live.data()))
     }
+
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> [DiffKind; 1] {
+        [DiffKind::Image(report::image_diff(a, b, "png"))]
+    }
 }
 
 impl FileOutputType for Render {
@@ -202,6 +216,7 @@ pub struct Pdf;
 impl OutputType for Pdf {
     type Doc = PagedDocument;
     type Live = Vec<u8>;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
@@ -229,6 +244,52 @@ impl OutputType for Pdf {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 1] {
+        let a = pdf_to_svg(a);
+        let b = pdf_to_svg(b);
+        [DiffKind::Image(report::image_diff(
+            (path_a, a.as_bytes()),
+            (path_b, b.as_bytes()),
+            "svg+xml",
+        ))]
+    }
+}
+
+fn pdf_to_svg(bytes: &[u8]) -> String {
+    let pdf = hayro_syntax::Pdf::new(Arc::new(bytes.to_vec())).unwrap();
+    let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
+        let bytes = match font {
+            StandardFont::Helvetica => typst_assets::pdf::SANS,
+            StandardFont::HelveticaBold => typst_assets::pdf::SANS_BOLD,
+            StandardFont::HelveticaOblique => typst_assets::pdf::SANS_ITALIC,
+            StandardFont::HelveticaBoldOblique => typst_assets::pdf::SANS_BOLD_ITALIC,
+            StandardFont::Courier => typst_assets::pdf::FIXED,
+            StandardFont::CourierBold => typst_assets::pdf::FIXED_BOLD,
+            StandardFont::CourierOblique => typst_assets::pdf::FIXED_ITALIC,
+            StandardFont::CourierBoldOblique => typst_assets::pdf::FIXED_BOLD_ITALIC,
+            StandardFont::TimesRoman => typst_assets::pdf::SERIF,
+            StandardFont::TimesBold => typst_assets::pdf::SERIF_BOLD,
+            StandardFont::TimesItalic => typst_assets::pdf::SERIF_ITALIC,
+            StandardFont::TimesBoldItalic => typst_assets::pdf::SERIF_BOLD_ITALIC,
+            StandardFont::ZapfDingBats => typst_assets::pdf::DING_BATS,
+            StandardFont::Symbol => typst_assets::pdf::SYMBOL,
+        };
+        Some((Arc::new(bytes), 0))
+    };
+
+    let interpreter_settings = InterpreterSettings {
+        font_resolver: Arc::new(move |query| match query {
+            FontQuery::Standard(s) => select_standard_font(*s),
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
+        }),
+        warning_sink: Arc::new(|_| {}),
+    };
+
+    hayro_svg::convert(&pdf.pages()[0], &interpreter_settings)
 }
 
 impl HashOutputType for Pdf {
@@ -249,6 +310,7 @@ pub struct Pdftags;
 impl OutputType for Pdftags {
     type Doc = Vec<u8>;
     type Live = String;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Pdftags;
 
@@ -267,6 +329,16 @@ impl OutputType for Pdftags {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 1] {
+        [DiffKind::Text(report::text_diff(
+            (path_a, std::str::from_utf8(a).unwrap()),
+            (path_b, std::str::from_utf8(b).unwrap()),
+        ))]
+    }
 }
 
 impl FileOutputType for Pdftags {
@@ -284,6 +356,7 @@ pub struct Svg;
 impl OutputType for Svg {
     type Doc = PagedDocument;
     type Live = String;
+    type Diffs = [DiffKind; 2];
 
     const OUTPUT: TestOutput = TestOutput::Svg;
 
@@ -302,6 +375,19 @@ impl OutputType for Svg {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 2] {
+        [
+            DiffKind::Image(report::image_diff((path_a, a), (path_b, b), "svg+xml")),
+            DiffKind::Text(report::text_diff(
+                (path_a, std::str::from_utf8(a).unwrap()),
+                (path_b, std::str::from_utf8(b).unwrap()),
+            )),
+        ]
+    }
 }
 
 impl HashOutputType for Svg {
@@ -313,6 +399,7 @@ pub struct Html;
 impl OutputType for Html {
     type Doc = HtmlDocument;
     type Live = String;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Html;
 
@@ -330,6 +417,16 @@ impl OutputType for Html {
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
+    }
+
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 1] {
+        [DiffKind::Text(report::text_diff(
+            (path_a, std::str::from_utf8(a).unwrap()),
+            (path_b, std::str::from_utf8(b).unwrap()),
+        ))]
     }
 }
 
