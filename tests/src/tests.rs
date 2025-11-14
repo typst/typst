@@ -6,6 +6,7 @@ mod custom;
 mod logger;
 mod output;
 mod pdftags;
+mod report;
 mod run;
 mod world;
 
@@ -148,7 +149,13 @@ fn test() {
     run::update_hash_refs::<output::Pdf>(&hashes);
     run::update_hash_refs::<output::Svg>(&hashes);
 
-    let passed = logger.into_inner().finish();
+    let mut logger = logger.into_inner();
+
+    logger.reports.sort_by(|a, b| a.name.cmp(&b.name));
+    let html = report::html::generate(&logger.reports);
+    std::fs::write(Path::new(STORE_PATH).join("report.html"), html).unwrap();
+
+    let passed = logger.finish();
     if !passed {
         std::process::exit(1);
     }
@@ -213,6 +220,7 @@ fn run_parser_test(
         errors: String::new(),
         infos: String::new(),
         mismatched_output: false,
+        report: None,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));

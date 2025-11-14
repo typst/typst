@@ -1,7 +1,11 @@
 use std::fmt::Display;
+use std::option::Option;
+use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{EcoString, eco_format};
+use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
@@ -17,7 +21,8 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput, TestTarget};
-use crate::pdftags;
+use crate::report::{DiffKind, File, FileDiff, FileReport, Image, Lines, Old};
+use crate::{pdftags, report};
 
 pub trait TestDocument: Document {
     /// The target of the document.
@@ -148,6 +153,12 @@ pub trait OutputType: Sized {
 
     /// Produce a hash from the live output.
     fn make_hash(live: &Self::Live) -> HashedRef;
+
+    /// Generate data necessary to make a HTML diff.
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport;
 }
 
 /// An output type that produces file references.
@@ -197,6 +208,14 @@ impl OutputType for Render {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live.data()))
     }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport {
+        let diffs = [DiffKind::Image(image_diff(a, b, "png"))];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
 }
 
 impl FileOutputType for Render {
@@ -244,6 +263,60 @@ impl OutputType for Pdf {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport {
+        // TODO: PDF plain text diffs.
+        let mut svg_buf_a = String::new();
+        let mut svg_buf_b = String::new();
+        let svg_a = a.map(|(_, old)| {
+            old.map(|bytes| {
+                svg_buf_a = pdf_to_svg(bytes);
+                svg_buf_a.as_bytes()
+            })
+        });
+        let svg_b = b.map(|(_, bytes)| {
+            svg_buf_b = pdf_to_svg(bytes);
+            svg_buf_b.as_bytes()
+        });
+        let diffs = [DiffKind::Image(report::image_diff(svg_a, svg_b, "svg+xml"))];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
+}
+
+fn pdf_to_svg(bytes: &[u8]) -> String {
+    let pdf = hayro_syntax::Pdf::new(Arc::new(bytes.to_vec())).unwrap();
+    let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
+        let bytes = match font {
+            StandardFont::Helvetica => typst_assets::pdf::SANS,
+            StandardFont::HelveticaBold => typst_assets::pdf::SANS_BOLD,
+            StandardFont::HelveticaOblique => typst_assets::pdf::SANS_ITALIC,
+            StandardFont::HelveticaBoldOblique => typst_assets::pdf::SANS_BOLD_ITALIC,
+            StandardFont::Courier => typst_assets::pdf::FIXED,
+            StandardFont::CourierBold => typst_assets::pdf::FIXED_BOLD,
+            StandardFont::CourierOblique => typst_assets::pdf::FIXED_ITALIC,
+            StandardFont::CourierBoldOblique => typst_assets::pdf::FIXED_BOLD_ITALIC,
+            StandardFont::TimesRoman => typst_assets::pdf::SERIF,
+            StandardFont::TimesBold => typst_assets::pdf::SERIF_BOLD,
+            StandardFont::TimesItalic => typst_assets::pdf::SERIF_ITALIC,
+            StandardFont::TimesBoldItalic => typst_assets::pdf::SERIF_BOLD_ITALIC,
+            StandardFont::ZapfDingBats => typst_assets::pdf::DING_BATS,
+            StandardFont::Symbol => typst_assets::pdf::SYMBOL,
+        };
+        Some((Arc::new(bytes), 0))
+    };
+
+    let interpreter_settings = InterpreterSettings {
+        font_resolver: Arc::new(move |query| match query {
+            FontQuery::Standard(s) => select_standard_font(*s),
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
+        }),
+        warning_sink: Arc::new(|_| {}),
+    };
+
+    hayro_svg::convert(&pdf.pages()[0], &interpreter_settings)
 }
 
 impl HashOutputType for Pdf {
@@ -282,6 +355,14 @@ impl OutputType for Pdftags {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport {
+        let diffs = [DiffKind::Text(text_diff(a, b))];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
 }
 
 impl FileOutputType for Pdftags {
@@ -316,6 +397,17 @@ impl OutputType for Svg {
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
+    }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport {
+        let diffs = [
+            DiffKind::Image(image_diff(a, b, "svg+xml")),
+            DiffKind::Text(text_diff(a, b)),
+        ];
+        file_report(Self::OUTPUT, a, b, diffs)
     }
 }
 
@@ -357,6 +449,14 @@ impl OutputType for Html {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> FileReport {
+        let diffs = [DiffKind::Text(text_diff(a, b))];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
 }
 
 impl FileOutputType for Html {
@@ -367,6 +467,42 @@ impl FileOutputType for Html {
     fn matches(old: &[u8], new: &Self::Live) -> bool {
         old == new.as_bytes()
     }
+}
+
+fn image_diff(
+    a: Option<(&Path, Old<&[u8]>)>,
+    b: Result<(&Path, &[u8]), ()>,
+    format: &str,
+) -> FileDiff<Image> {
+    let a = a.map(|(_, old)| old);
+    let b = b.map(|(_, bytes)| bytes);
+    report::image_diff(a, b, format)
+}
+
+fn text_diff(
+    a: Option<(&Path, Old<&[u8]>)>,
+    b: Result<(&Path, &[u8]), ()>,
+) -> FileDiff<Lines> {
+    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
+    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
+    report::text_diff(a, b)
+}
+
+fn file_report(
+    output: TestOutput,
+    a: Option<(&Path, Old<&[u8]>)>,
+    b: Result<(&Path, &[u8]), ()>,
+    diffs: impl IntoIterator<Item = DiffKind>,
+) -> FileReport {
+    let old = a.map(|(path, old)| File {
+        path: eco_format!("{}", path.display()),
+        size: old.data().map(|d| d.len()),
+    });
+    let new = b.ok().map(|(path, bytes)| File {
+        path: eco_format!("{}", path.display()),
+        size: Some(bytes.len()),
+    });
+    FileReport::new(output, old, new, diffs)
 }
 
 /// Draw all frames into one image with padding in between.
