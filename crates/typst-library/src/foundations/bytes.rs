@@ -293,7 +293,7 @@ impl TryFrom<&Bytes> for Lines<String> {
 }
 
 /// Any type that can back a byte buffer.
-trait Bytelike: Send + Sync {
+trait Bytelike: Any + Send + Sync {
     fn as_bytes(&self) -> &[u8];
     fn as_str(&self) -> Result<&str, Utf8Error>;
     fn as_any(&self) -> &dyn Any;
