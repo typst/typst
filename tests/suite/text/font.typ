@@ -72,10 +72,18 @@ Emoji: 🐪, 🌋, 🏞
 // Warning: 17-35 unknown font family: also-nonexistent
 #set text(font: "also-nonexistent")
 I
-// Warning: 23-55 unknown font family: list-of
-// Warning: 23-55 unknown font family: nonexistent-fonts
+// Warning: 23-55 unknown font families: ["list-of", "nonexistent-fonts"]
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
+
+#text(font: ("nonexisting", "libertinus serif"))[
+  One of us suffices.
+]
+
+// Warning: 13-80 unknown font family: nonexisting
+#text(font: ("nonexisting", (name: "libertinus serif", covers: regex("[0-9]"))))[
+  Unless it is restricted to a specific cover.
+]
 
 --- issue-5499-text-fill-in-clip-block ---
 
