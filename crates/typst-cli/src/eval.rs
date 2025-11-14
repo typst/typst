@@ -23,7 +23,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     world.source(world.main()).map_err(|err| err.to_string())?;
 
     // Compile the main file and get the introspector.
-    let Warned { output, warnings } = match command.target {
+    let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
@@ -33,13 +33,20 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     match output {
         // Retrieve and print evaluation results.
         Ok(introspector) => {
-            let scope = evaluate_scope(&command.scope, &world, &introspector)?;
+            let mut sink = Sink::new();
+            let scope = evaluate_scope(&command.scope, &mut sink, &world, &introspector)?;
             let statement = match &command.statement {
                 StringInput::Stdin => read_statement_from_stdin()?,
                 StringInput::String(statement) => statement.clone(),
             };
-            let eval_result =
-                evaluate_statement(statement, command.mode, scope, &world, &introspector);
+            let eval_result = evaluate_statement(
+                statement,
+                command.mode,
+                scope,
+                &mut sink,
+                &world,
+                &introspector,
+            );
             let errors = match &eval_result {
                 Err(errors) => errors.as_slice(),
                 Ok(value) => {
@@ -49,6 +56,9 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                     &[]
                 }
             };
+            // Collect additional warnings from code evaluations
+            warnings.extend(sink.warnings());
+
             print_diagnostics(
                 &world,
                 errors,
@@ -77,22 +87,25 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
 /// Evaluates the scope with values interpreted as Typst code.
 fn evaluate_scope(
     key_value_pairs: &[(String, String)],
+    sink: &mut Sink,
     world: &dyn World,
     introspector: &Introspector,
 ) -> HintedStrResult<Scope> {
     let mut scope = Scope::new();
 
     for (key, value) in key_value_pairs {
+        let mut local_sink = Sink::new();
         let value = evaluate_statement(
             value.clone(),
             SyntaxMode::Code,
             Scope::default(),
+            &mut local_sink,
             world,
             introspector,
         )
         .map_err(|errors| {
             let mut message =
-                EcoString::from(format!("failure in scope key `{key}` evaluation"));
+                EcoString::from(format!("failure in evaluation of scope key `{key}`"));
             for (i, error) in errors.into_iter().enumerate() {
                 message.push_str(if i == 0 { ": " } else { ", " });
                 message.push_str(&error.message);
@@ -100,6 +113,16 @@ fn evaluate_scope(
             message
         })?;
 
+        // Propagate warnings from code evaluations
+        for mut warning in local_sink.warnings() {
+            warning.message = eco_format!(
+                "warning in evaluation of scope key `{key}`: {}",
+                warning.message
+            );
+            sink.warn(warning);
+        }
+
+        // Bind the evaluated value to the scope aggregated so far
         scope.bind(key.into(), Binding::detached(value));
     }
 
@@ -111,14 +134,14 @@ fn evaluate_statement(
     statement: String,
     mode: SyntaxMode,
     scope: Scope,
+    sink: &mut Sink,
     world: &dyn World,
     introspector: &Introspector,
 ) -> SourceResult<Value> {
     eval_string(
         &typst::ROUTINES,
         world.track(),
-        // TODO: propagate warnings
-        Sink::new().track_mut(),
+        sink.track_mut(),
         introspector.track(),
         Context::new(None, Some(StyleChain::new(&world.library().styles))).track(),
         &statement,
