@@ -16,6 +16,7 @@ use fontdb::{Database, Source};
 use typst_library::foundations::Bytes;
 use typst_library::text::{Font, FontBook, FontInfo};
 use typst_timing::TimingScope;
+use typst_utils::LazyHash;
 
 /// Holds details about the location of a font and lazily the font itself.
 #[derive(Debug)]
@@ -64,9 +65,19 @@ impl FontSlot {
 #[derive(Debug)]
 pub struct Fonts {
     /// Metadata about all discovered fonts.
-    pub book: FontBook,
+    ///
+    /// Can directly be used in [`World::book`](typst_library::World::book).
+    pub book: LazyHash<FontBook>,
     /// Slots that the fonts are loaded into.
-    pub fonts: Vec<FontSlot>,
+    ///
+    /// Assuming your world implementation has a field `fonts: Fonts`, this can
+    /// be used in [`World::font`](typst_library::World::font) as such:
+    /// ```ignore
+    /// fn font(&self, index: usize) -> Option<Font> {
+    ///     self.fonts.slots.get(index)?.get()
+    /// }
+    /// ```
+    pub slots: Vec<FontSlot>,
 }
 
 impl Fonts {
@@ -187,8 +198,8 @@ impl FontSearcher {
         }
 
         Fonts {
-            book: std::mem::take(&mut self.book),
-            fonts: std::mem::take(&mut self.fonts),
+            book: LazyHash::new(std::mem::take(&mut self.book)),
+            slots: std::mem::take(&mut self.fonts),
         }
     }
 
