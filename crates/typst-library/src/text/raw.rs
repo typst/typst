@@ -75,12 +75,12 @@ use crate::visualize::Color;
 /// Within raw blocks, everything (except for the language tag, if applicable)
 /// is rendered as is, in particular, there are no escape sequences.
 ///
-/// The language tag is an identifier that directly follows the opening
-/// backticks only if there are three or more backticks. If your text starts
-/// with something that looks like an identifier, but no syntax highlighting is
-/// needed, start the text with a single space (which will be trimmed) or use
-/// the single backtick syntax. If your text should start or end with a
-/// backtick, put a space before or after it (it will be trimmed).
+/// Directly following the three or more opening backticks is the language tag
+/// until the first whitespace or backtick. If your text starts with something
+/// that looks like an identifier, but no syntax highlighting is needed, start
+/// the text with a single space (which will be trimmed) or use the single
+/// backtick syntax. If your text should start or end with a backtick, put a
+/// space before or after it (it will be trimmed).
 ///
 /// If no syntax highlighting is available by default for your specified
 /// language tag (or if you want to override the built-in definition), you may
