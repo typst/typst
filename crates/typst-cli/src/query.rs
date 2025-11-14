@@ -16,7 +16,7 @@ use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
-pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
+pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
     let mut world = SystemWorld::new(&command.input, &command.world, &command.process)?;
 
     // Reset everything and ensure that the main file is present.

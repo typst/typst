@@ -552,6 +552,13 @@ pub enum OutputFormat {
     Html,
 }
 
+impl OutputFormat {
+    /// Whether this format results in a `PagedDocument`.
+    pub fn is_paged(&self) -> bool {
+        matches!(self, Self::Pdf | Self::Png | Self::Svg)
+    }
+}
+
 display_possible_values!(OutputFormat);
 
 /// Which format to use for a generated dependency file.

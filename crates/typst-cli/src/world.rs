@@ -13,11 +13,11 @@ use typst::syntax::{FileId, Lines, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
-use typst_kit::fonts::{FontSlot, Fonts};
+use typst_kit::fonts::Fonts;
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -36,10 +36,8 @@ pub struct SystemWorld {
     main: FileId,
     /// Typst's standard library.
     library: LazyHash<Library>,
-    /// Metadata about discovered fonts.
-    book: LazyHash<FontBook>,
-    /// Locations of and storage for lazily loaded fonts.
-    fonts: Vec<FontSlot>,
+    /// Metadata about discovered fonts and lazily loaded fonts.
+    fonts: LazyLock<Fonts, Box<dyn Fn() -> Fonts + Send + Sync>>,
     /// Maps file ids to source files and buffers.
     slots: Mutex<FxHashMap<FileId, FileSlot>>,
     /// Holds information about where packages are stored.
@@ -54,7 +52,7 @@ impl SystemWorld {
     /// Create a new system world.
     pub fn new(
         input: &Input,
-        world_args: &WorldArgs,
+        world_args: &'static WorldArgs,
         process_args: &ProcessArgs,
     ) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
@@ -124,12 +122,6 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
-        let mut fonts = Fonts::searcher();
-        fonts.include_system_fonts(!world_args.font.ignore_system_fonts);
-        #[cfg(feature = "embed-fonts")]
-        fonts.include_embedded_fonts(!world_args.font.ignore_embedded_fonts);
-        let fonts = fonts.search_with(&world_args.font.font_paths);
-
         let now = match world_args.creation_timestamp {
             Some(time) => Now::Fixed(time),
             None => Now::System(OnceLock::new()),
@@ -140,8 +132,7 @@ impl SystemWorld {
             root,
             main,
             library: LazyHash::new(library),
-            book: LazyHash::new(fonts.book),
-            fonts: fonts.fonts,
+            fonts: LazyLock::new(Box::new(|| scan_fonts(&world_args.font))),
             slots: Mutex::new(FxHashMap::default()),
             package_storage: package::storage(&world_args.package),
             now,
@@ -200,6 +191,13 @@ impl SystemWorld {
             }
         })
     }
+
+    /// Forcibly scan fonts instead of doing it lazily upon the first access.
+    ///
+    /// Does nothing if the fonts were already scanned.
+    pub fn scan_fonts(&mut self) {
+        LazyLock::force(&self.fonts);
+    }
 }
 
 impl World for SystemWorld {
@@ -208,7 +206,7 @@ impl World for SystemWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
+        &self.fonts.book
     }
 
     fn main(&self) -> FileId {
@@ -224,9 +222,10 @@ impl World for SystemWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        // comemo's validation may invoke this function with an invalid index. This is
-        // impossible in typst-cli but possible if a custom tool mutates the fonts.
-        self.fonts.get(index)?.get()
+        // comemo's validation may invoke this function with an invalid index.
+        // This is impossible in typst-cli but possible if a custom tool mutates
+        // the fonts.
+        self.fonts.slots.get(index)?.get()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -388,6 +387,16 @@ impl<T: Clone> SlotCell<T> {
 
         value
     }
+}
+
+/// Discovers the fonts as specified by the CLI flags.
+#[typst_macros::time(name = "scan fonts")]
+fn scan_fonts(args: &FontArgs) -> Fonts {
+    let mut fonts = Fonts::searcher();
+    fonts.include_system_fonts(!args.ignore_system_fonts);
+    #[cfg(feature = "embed-fonts")]
+    fonts.include_embedded_fonts(!args.ignore_embedded_fonts);
+    fonts.search_with(&args.font_paths)
 }
 
 /// Resolves the path of a file id on the system, downloading a package if
