@@ -4,11 +4,11 @@ use std::str::FromStr;
 
 use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
-    Value, cast, elem,
+    Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue, IntoValue,
+    NativeElement, Reflect, Set, Smart, Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -54,7 +54,12 @@ pub struct PageElem {
     #[default(Paper::A4)]
     pub paper: Paper,
 
-    /// The width of the page.
+    /// The width of the final page, after any trims have been applied.
+    ///
+    /// In professional printing setups, this may be smaller than the sheet size
+    /// fed into the printer.
+    ///
+    /// See the `bleed` argument for details on how to set a trim or bleed area.
     ///
     /// ```example
     /// #set page(
@@ -75,7 +80,7 @@ pub struct PageElem {
     #[ghost]
     pub width: Smart<Length>,
 
-    /// The height of the page.
+    /// The height of the final page area, after any trims have been applied.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
     /// by inserting a [page break]($pagebreak) or by adding another non-empty
@@ -152,7 +157,46 @@ pub struct PageElem {
     /// ```
     #[fold]
     #[ghost]
-    pub margin: Margin,
+    pub margin: Smart<Margin<Smart<Rel<Length>>>>,
+
+    /// The page's bleed margin.
+    ///
+    /// The bleed is the area of content that extends beyond the final trimmed
+    /// size of the page. It ensures that no unprinted edges appear in the final
+    /// product, even if minor trimming misalignments occur.
+    ///
+    /// Accepted values:
+    ///
+    /// - A single length: Applies the same bleed to all sides.
+    /// - A dictionary: Allows setting bleed values individually. The dictionary
+    ///   may include the following keys, listed in order of precedence:
+    ///   - `top`: Bleed at the top of the page.
+    ///   - `right`: Bleed at the right side.
+    ///   - `bottom`: Bleed at the bottom.
+    ///   - `left`: Bleed at the left side.
+    ///   - `inside`: Bleed on the inner side of the page (next to
+    ///     [binding]($page.binding)).
+    ///   - `outside`: Bleed on the outer side of the page (opposite the
+    ///     [binding]($page.binding)).
+    ///   - `x`: Horizontal bleed (applies to both left/right or inside/outside).
+    ///   - `y`: Vertical bleed (applies to both top and bottom).
+    ///   - `rest`: Default bleed for any sides not explicitly set.
+    ///
+    /// Note: The keys `left` and `right` are mutually exclusive with `inside` and
+    /// `outside`.
+    ///
+    /// On PDF output, if the bleed is non-zero, a `TrimBox` is defined for the page.
+    ///
+    /// ```example
+    /// #set page(
+    ///   width: 3cm,
+    ///   height: 4cm,
+    ///   bleed: 5mm,
+    ///   background: rect(width: 100%, height: 100%, fill: aqua),
+    /// )
+    /// ```
+    #[ghost]
+    pub bleed: Margin<Rel<Length>>,
 
     /// On which side the pages will be bound.
     ///
@@ -344,6 +388,11 @@ pub struct PageElem {
     /// This content will be placed behind the page's body. It can be
     /// used to place a background image or a watermark.
     ///
+    /// For convenience, [relative lengths]($relative) are resolved against the
+    /// page size including the page `bleed` when used in  background content.
+    /// For example, on a page that is `100mm` wide with a `5mm` bleed, a width
+    /// of `100%` is computed as `5mm + 100mm + 5mm`.
+    ///
     /// ```example
     /// #set page(background: rotate(24deg,
     ///   text(18pt, fill: rgb("FFCBC4"))[
@@ -361,6 +410,9 @@ pub struct PageElem {
     /// Content in the page's foreground.
     ///
     /// This content will overlay the page's body.
+    ///
+    /// Relative lengths are resolved against the page size including `bleed`,
+    /// following the same behavior as [background]($page.background).
     ///
     /// ```example
     /// #set page(foreground: text(24pt)[🤓])
@@ -489,6 +541,8 @@ pub struct PagedDocument {
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
+    /// The bleed amount to be added on each side of the page.
+    pub bleed: Sides<Abs>,
     /// How the page is filled.
     ///
     /// - When `None`, the background is transparent.
@@ -524,32 +578,23 @@ impl Page {
 }
 
 /// Specification of the page's margins.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margin {
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Margin<T: PartialEq> {
     /// The margins for each side.
-    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    pub sides: Sides<Option<T>>,
     /// Whether to swap `left` and `right` to make them `inside` and `outside`
     /// (when to swap depends on the binding).
     pub two_sided: Option<bool>,
 }
 
-impl Margin {
+impl<T: Clone + PartialEq> Margin<T> {
     /// Create an instance with four equal components.
-    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+    pub fn splat(value: Option<T>) -> Self {
         Self { sides: Sides::splat(value), two_sided: None }
     }
 }
 
-impl Default for Margin {
-    fn default() -> Self {
-        Self {
-            sides: Sides::splat(Some(Smart::Auto)),
-            two_sided: None,
-        }
-    }
-}
-
-impl Fold for Margin {
+impl<T: Fold + PartialEq> Fold for Margin<T> {
     fn fold(self, outer: Self) -> Self {
         Margin {
             sides: self.sides.fold(outer.sides),
@@ -558,17 +603,31 @@ impl Fold for Margin {
     }
 }
 
-cast! {
-    Margin,
-    self => {
+impl<T: Reflect + PartialEq> Reflect for Margin<T> {
+    fn input() -> CastInfo {
+        T::input() + Dict::input()
+    }
+    fn output() -> CastInfo {
+        Self::input()
+    }
+    fn castable(value: &Value) -> bool {
+        T::castable(value) || Dict::castable(value)
+    }
+}
+
+impl<T: IntoValue + PartialEq> IntoValue for Margin<T> {
+    fn into_value(self) -> Value {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform()
-            && let Some(left) = self.sides.left {
-                return left.into_value();
-            }
+        if !two_sided
+            && self.sides.is_uniform()
+            && let Some(left) = self.sides.left
+        {
+            return left.into_value();
+        }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
+
+        let mut handle = |key: &str, component: Option<T>| {
             if let Some(c) = component {
                 dict.insert(key.into(), c.into_value());
             }
@@ -585,50 +644,63 @@ cast! {
         }
 
         Value::Dict(dict)
-    },
-    _: AutoValue => Self::splat(Some(Smart::Auto)),
-    v: Rel<Length> => Self::splat(Some(Smart::Custom(v))),
-    mut dict: Dict => {
-        let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+    }
+}
 
-        let rest = take("rest")?;
-        let x = take("x")?.or(rest);
-        let y = take("y")?.or(rest);
-        let top = take("top")?.or(y);
-        let bottom = take("bottom")?.or(y);
-        let outside = take("outside")?;
-        let inside = take("inside")?;
-        let left = take("left")?;
-        let right = take("right")?;
-
-        let implicitly_two_sided = outside.is_some() || inside.is_some();
-        let implicitly_not_two_sided = left.is_some() || right.is_some();
-        if implicitly_two_sided && implicitly_not_two_sided {
-            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
+impl<T: Reflect + FromValue + Copy + PartialEq> FromValue for Margin<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if T::castable(&value) {
+            let v = T::from_value(value)?;
+            return Ok(Self::splat(Some(v)));
         }
 
-        // - If 'implicitly_two_sided' is false here, then
-        //   'implicitly_not_two_sided' will be guaranteed to be true
-        //    due to the previous two 'if' conditions.
-        // - If both are false, this means that this margin change does not
-        //   affect lateral margins, and thus shouldn't make a difference on
-        //   the 'two_sided' attribute of this margin.
-        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
-            .then_some(implicitly_two_sided);
+        if Dict::castable(&value) {
+            let mut dict = Dict::from_value(value)?;
+            let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
-        dict.finish(&[
-            "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
-        ])?;
+            let rest = take("rest")?;
+            let x = take("x")?.or(rest);
+            let y = take("y")?.or(rest);
+            let top = take("top")?.or(y);
+            let bottom = take("bottom")?.or(y);
+            let outside = take("outside")?;
+            let inside = take("inside")?;
+            let left = take("left")?;
+            let right = take("right")?;
 
-        Margin {
-            sides: Sides {
-                left: inside.or(left).or(x),
-                top,
-                right: outside.or(right).or(x),
-                bottom,
-            },
-            two_sided,
+            let implicitly_two_sided = outside.is_some() || inside.is_some();
+            let implicitly_not_two_sided = left.is_some() || right.is_some();
+            if implicitly_two_sided && implicitly_not_two_sided {
+                bail!(
+                    "`inside` and `outside` are mutually exclusive with `left` and `right`"
+                );
+            }
+
+            // - If 'implicitly_two_sided' is false here, then
+            //   'implicitly_not_two_sided' will be guaranteed to be true
+            //    due to the previous two 'if' conditions.
+            // - If both are false, this means that this margin change does not
+            //   affect lateral margins, and thus shouldn't make a difference on
+            //   the 'two_sided' attribute of this margin.
+            let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
+                .then_some(implicitly_two_sided);
+
+            dict.finish(&[
+                "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
+            ])?;
+
+            return Ok(Margin {
+                sides: Sides {
+                    left: inside.or(left).or(x),
+                    top,
+                    right: outside.or(right).or(x),
+                    bottom,
+                },
+                two_sided,
+            });
         }
+
+        Err(Self::error(&value))
     }
 }
 
