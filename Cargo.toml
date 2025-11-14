@@ -52,6 +52,7 @@ color-print = "0.3.6"
 comemo = "0.5.0"
 csv = "1"
 ctrlc = "3.4.1"
+similar = { version = "2.7.0", features = ["inline"] }
 dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 either = "1"
