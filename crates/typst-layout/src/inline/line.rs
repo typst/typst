@@ -11,7 +11,7 @@ use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
-use crate::inline::shaping::Adjustability;
+use crate::inline::shaping::{Adjustability, ShapedGlyph};
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -499,8 +499,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some(text) = line.items.leading_text()
-        && let Some(glyph) = text.glyphs.first()
+    if let Some((text, glyph)) = line.items.leading_glyph()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -511,8 +510,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the right.
-    if let Some(text) = line.items.trailing_text()
-        && let Some(glyph) = text.glyphs.last()
+    if let Some((text, glyph)) = line.items.trailing_glyph()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -719,14 +717,24 @@ impl<'a> Items<'a> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
-    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
-    }
-
     /// Access the first item (skipping tags) mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the first glyph with non-zero advance in the line.
+    pub fn leading_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        for (_, item) in self.0.iter() {
+            let Item::Text(text) = &**item else { continue };
+            if let Some(glyph) = text
+                .glyphs
+                .iter()
+                .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+            {
+                return Some((text, glyph));
+            }
+        }
+        None
     }
 
     /// Access the last item (skipping tags), if it is text.
@@ -737,6 +745,22 @@ impl<'a> Items<'a> {
     /// Access the last item (skipping tags) mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the last glyph with non-zero advance in the line.
+    pub fn trailing_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        for (_, item) in self.0.iter().rev() {
+            let Item::Text(text) = &**item else { continue };
+            if let Some(glyph) = text
+                .glyphs
+                .iter()
+                .rev()
+                .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+            {
+                return Some((text, glyph));
+            }
+        }
+        None
     }
 
     /// Reorder the items starting at the given index to RTL.
