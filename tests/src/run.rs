@@ -79,6 +79,7 @@ impl<'a> Runner<'a> {
                 errors: String::new(),
                 infos: String::new(),
                 mismatched_output: false,
+                diff: None,
             },
             not_annotated: String::new(),
         }
@@ -312,6 +313,8 @@ impl<'a> Runner<'a> {
             return;
         }
 
+        let new_ref_data = T::make_ref(live);
+        let new_ref_data = new_ref_data.as_ref();
         if crate::ARGS.update {
             if skippable {
                 std::fs::remove_file(&ref_path).unwrap();
@@ -320,8 +323,6 @@ impl<'a> Runner<'a> {
                     "removed reference output ({})", ref_path.display()
                 );
             } else {
-                let new_ref_data = T::make_ref(live);
-                let new_ref_data = new_ref_data.as_ref();
                 if !self.test.attrs.large && new_ref_data.len() > crate::REF_LIMIT {
                     log!(self, "reference output would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
@@ -346,10 +347,20 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_output = true;
-            if old_ref_data.is_ok() {
+            if let Ok(old_ref) = old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
+
+                let old_str = std::str::from_utf8(&old_ref).ok();
+                let new_str = std::str::from_utf8(new_ref_data).ok();
+                if let Some((a, b)) = old_str.zip(new_str) {
+                    self.result.diff = Some(crate::diff::text_diff(
+                        self.test.name.clone(),
+                        (&ref_path, a),
+                        (&live_path, b),
+                    ))
+                }
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
