@@ -57,8 +57,9 @@ pub fn numbering(
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
-    /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `١`, `۱`, `१`, `১`, `ক`,
-    /// `①`, and `⓵`. They are replaced by the number in the sequence,
+    /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `㈀`, `㈎`, `㉠`, `㉮`, `*`, `١`,
+    /// `۱`, `१`, `১`, `ক`, `①`, and `⓵`.
+    /// They are replaced by the number in the sequence,
     /// preserving the original case.
     ///
     /// The `*` character means that symbols should be used to count, in the
@@ -302,6 +303,14 @@ pub enum NumberingKind {
     KoreanJamo,
     /// Korean syllables (가, 나, 다, etc.).
     KoreanSyllable,
+    /// Parenthesised Korean jamo (㈀, ㈁, ㈂, etc.).
+    KoreanJamoParenthesised,
+    /// Parenthesised Korean syllables (㈎, ㈏, ㈐, etc.).
+    KoreanSyllableParenthesised,
+    /// Circled Korean jamo (㉠, ㉡, ㉢, etc.).
+    KoreanJamoCircled,
+    /// Circled Korean syllables (㉮, ㉯, ㉰, etc.).
+    KoreanSyllableCircled,
     /// Eastern Arabic numerals, used in some Arabic-speaking countries.
     EasternArabic,
     /// The variant of Eastern Arabic numerals used in Persian and Urdu.
@@ -339,6 +348,10 @@ impl NumberingKind {
             'イ' => NumberingKind::KatakanaIroha,
             'ㄱ' => NumberingKind::KoreanJamo,
             '가' => NumberingKind::KoreanSyllable,
+            '㈀' => NumberingKind::KoreanJamoParenthesised,
+            '㈎' => NumberingKind::KoreanSyllableParenthesised,
+            '㉠' => NumberingKind::KoreanJamoCircled,
+            '㉮' => NumberingKind::KoreanSyllableCircled,
             '\u{0661}' => NumberingKind::EasternArabic,
             '\u{06F1}' => NumberingKind::EasternArabicPersian,
             '\u{0967}' => NumberingKind::DevanagariNumber,
@@ -370,6 +383,10 @@ impl NumberingKind {
             Self::KatakanaIroha => 'イ',
             Self::KoreanJamo => 'ㄱ',
             Self::KoreanSyllable => '가',
+            Self::KoreanJamoParenthesised => '㈀',
+            Self::KoreanSyllableParenthesised => '㈎',
+            Self::KoreanJamoCircled => '㉠',
+            Self::KoreanSyllableCircled => '㉮',
             Self::EasternArabic => '\u{0661}',
             Self::EasternArabicPersian => '\u{06F1}',
             Self::DevanagariNumber => '\u{0967}',
@@ -609,17 +626,51 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::KoreanJamo => alphabetic(
+            Self::KoreanJamo => fixed(
                 &[
                     'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
                     'ㅌ', 'ㅍ', 'ㅎ',
                 ],
                 n,
             ),
-            Self::KoreanSyllable => alphabetic(
+            Self::KoreanSyllable => fixed(
                 &[
                     '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
-                    '타', '파', '하',
+                    '타', '파', '하', '거', '너', '더', '러', '머', '버', '서', '어',
+                    '저', '처', '커', '터', '퍼', '허', '고', '노', '도', '로', '모',
+                    '보', '소', '오', '조', '초', '코', '토', '포', '호', '구', '누',
+                    '두', '루', '무', '부', '수', '우', '주', '추', '쿠', '투', '푸',
+                    '후', '그', '느', '드', '르', '므', '브', '스', '으', '즈', '츠',
+                    '크', '트', '프', '흐', '기', '니', '디', '리', '미', '비', '시',
+                    '이', '지', '치', '키', '티', '피', '히',
+                ],
+                n,
+            ),
+            Self::KoreanJamoParenthesised => fixed(
+                &[
+                    '㈀', '㈁', '㈂', '㈃', '㈄', '㈅', '㈆', '㈇', '㈈', '㈉', '㈊',
+                    '㈋', '㈌', '㈍',
+                ],
+                n,
+            ),
+            Self::KoreanSyllableParenthesised => fixed(
+                &[
+                    '㈎', '㈏', '㈐', '㈑', '㈒', '㈓', '㈔', '㈕', '㈖', '㈗', '㈘',
+                    '㈙', '㈚', '㈛',
+                ],
+                n,
+            ),
+            Self::KoreanJamoCircled => fixed(
+                &[
+                    '㉠', '㉡', '㉢', '㉣', '㉤', '㉥', '㉦', '㉧', '㉨', '㉩', '㉪',
+                    '㉫', '㉬', '㉭',
+                ],
+                n,
+            ),
+            Self::KoreanSyllableCircled => fixed(
+                &[
+                    '㉮', '㉯', '㉰', '㉱', '㉲', '㉳', '㉴', '㉵', '㉶', '㉷', '㉸',
+                    '㉹', '㉺', '㉻',
                 ],
                 n,
             ),
