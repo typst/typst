@@ -276,26 +276,13 @@ impl Datetime {
         second: Option<u8>,
     ) -> HintedStrResult<Datetime> {
         fn format_missing_fields(fields: Vec<&str>) -> String {
-            let len = fields.len();
-            match len {
-                0 => String::new(),
-                1 => format!("{} field", fields[0]),
-                _ => format!(
-                    "{} and {} fields",
-                    fields[0..len - 1].join(", "),
-                    fields[len - 1]
-                ),
+            match fields.as_slice() {
+                [] => String::new(),
+                [field] => format!("{field} field"),
+                [fields @ .., field] => {
+                    format!("{} and {field} fields", fields.join(", "))
+                }
             }
-        }
-        macro_rules! missing_fields_from {
-            ($($key:expr => $value:expr),* $(,)?) => {
-                format_missing_fields(
-                    vec![$(if $key.is_none() { Some($value) } else { None }),*]
-                        .into_iter()
-                        .flatten()
-                        .collect()
-                )
-            };
         }
         let time = match (hour, minute, second) {
             (Some(hour), Some(minute), Some(second)) => {
@@ -306,11 +293,13 @@ impl Datetime {
             }
             (None, None, None) => None,
             (hour, minute, second) => {
-                let missing_fields = missing_fields_from![
-                    hour => "`hour`",
-                    minute => "`minute`",
-                    second => "`second`"
+                let time_fields = [
+                    if hour.is_none() { Some("`hour`") } else { None },
+                    if minute.is_none() { Some("`minute`") } else { None },
+                    if second.is_none() { Some("`second`") } else { None },
                 ];
+                let missing_fields =
+                    format_missing_fields(time_fields.into_iter().flatten().collect());
                 bail!(
                     "time is incomplete";
                     hint: "add {missing_fields} to get a valid time"
@@ -327,11 +316,13 @@ impl Datetime {
             }
             (None, None, None) => None,
             (year, month, day) => {
-                let missing_fields = missing_fields_from![
-                    year => "`year`",
-                    month => "`month`",
-                    day => "`day`"
+                let date_fields = [
+                    if year.is_none() { Some("`year`") } else { None },
+                    if month.is_none() { Some("`month`") } else { None },
+                    if day.is_none() { Some("`day`") } else { None },
                 ];
+                let missing_fields =
+                    format_missing_fields(date_fields.into_iter().flatten().collect());
                 bail!(
                     "date is incomplete";
                     hint: "add {missing_fields} to get a valid date"
