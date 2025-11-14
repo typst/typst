@@ -104,8 +104,7 @@ fn evaluate_scope(
             introspector,
         )
         .map_err(|errors| {
-            let mut message =
-                EcoString::from(format!("failure in evaluation of scope key `{key}`"));
+            let mut message = EcoString::from(format!(r#"scope value for "{key}""#));
             for (i, error) in errors.into_iter().enumerate() {
                 message.push_str(if i == 0 { ": " } else { ", " });
                 message.push_str(&error.message);
@@ -115,10 +114,8 @@ fn evaluate_scope(
 
         // Propagate warnings from code evaluations
         for mut warning in local_sink.warnings() {
-            warning.message = eco_format!(
-                "warning in evaluation of scope key `{key}`: {}",
-                warning.message
-            );
+            warning.message =
+                eco_format!(r#"scope value for "{key}": {}"#, warning.message);
             sink.warn(warning);
         }
 
