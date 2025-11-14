@@ -3,13 +3,14 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=0
-        - Annotation: page=0 index=0
+        - Annotation: page=0 subtype=Link
+          /Contents: "[1]"
 - Tag: H1
   /T: "Bibliography"
   /K:
     - Content: page=0 mcid=1
 - Tag: L
-  /Numbering: Decimal
+  /ListNumbering: Decimal
   /K:
     - Tag: LI
       /K:
@@ -18,7 +19,8 @@
             - Tag: Link
               /K:
                 - Content: page=0 mcid=2
-                - Annotation: page=0 index=1
+                - Annotation: page=0 subtype=Link
+                  /Contents: "[1]"
         - Tag: LBody
           /K:
             - Tag: BibEntry
@@ -27,7 +29,9 @@
                 - Tag: Em
                   /K:
                     - Content: page=0 mcid=4
+                      /Lang: "en"
                     - Content: page=0 mcid=5
+                      /Lang: "en"
                 - Content: page=0 mcid=6
                 - Content: page=0 mcid=7
                 - Content: page=0 mcid=8
@@ -35,7 +39,11 @@
                 - Tag: Link
                   /K:
                     - Content: page=0 mcid=10
-                    - Annotation: page=0 index=2
+                    - Annotation: page=0 subtype=Link
+                      /Contents: "https://www.worldcat.org/oclc/13157596"
+                      /URI: "https://www.worldcat.org/oclc/13157596"
                     - Content: page=1 mcid=0
-                    - Annotation: page=1 index=0
+                    - Annotation: page=1 subtype=Link
+                      /Contents: "https://www.worldcat.org/oclc/13157596"
+                      /URI: "https://www.worldcat.org/oclc/13157596"
                     - Content: page=1 mcid=1

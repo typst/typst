@@ -16,6 +16,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=0
+                      /Lang: "en"
         - Tag: TR
           /K:
             - Tag: TH
@@ -33,6 +34,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=1
+                      /Lang: "en"
             - Tag: TH
               /Id: "U1x1y1"
               /Scope: Column
@@ -48,6 +50,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=2
+                      /Lang: "en"
             - Tag: TH
               /Id: "U1x2y1"
               /Scope: Column
@@ -63,6 +66,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=3
+                      /Lang: "en"
             - Tag: TH
               /Id: "U1x3y1"
               /Scope: Column
@@ -73,6 +77,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=4
+                      /Lang: "en"
             - Tag: TH
               /Id: "U1x4y1"
               /Scope: Column
@@ -83,6 +88,7 @@
                 - Tag: Strong
                   /K:
                     - Content: page=0 mcid=5
+                      /Lang: "en"
     - Tag: TBody
       /K:
         - Tag: TR

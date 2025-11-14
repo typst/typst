@@ -1,6 +1,6 @@
 // Test how numbers are displayed.
 
---- numbers ---
+--- numbers paged ---
 // Test numbers in text mode.
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 12 \

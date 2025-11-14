@@ -1,6 +1,6 @@
 // Test line and block comments.
 
---- comments ---
+--- comments paged ---
 // Line comment acts as spacing.
 A// you
 B
@@ -25,7 +25,7 @@ E
 This is a comment.
 */*/
 
---- comment-end-of-line ---
+--- comment-end-of-line paged ---
 // Test comments at the end of a line
 First part//
 Second part
@@ -34,7 +34,7 @@ Second part
 First part          //
 Second part
 
---- issue-4632-sth-followed-by-comment ---
+--- issue-4632-sth-followed-by-comment paged ---
 // Test heading markers followed by comments.
 #test([
   =// Comment
@@ -69,7 +69,7 @@ Second part
 ])
 
 
---- comment-block-unclosed ---
+--- comment-block-unclosed paged ---
 // End should not appear without start.
 // Error: 7-9 unexpected end of block comment
 // Hint: 7-9 consider escaping the `*` with a backslash or opening the block comment with `/*`

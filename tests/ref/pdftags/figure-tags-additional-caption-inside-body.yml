@@ -21,6 +21,7 @@
           /Placement: Block
           /K:
             - Content: page=0 mcid=0
+              /Alt: "A tiger"
         - Tag: P
           /K:
             - Content: page=0 mcid=1

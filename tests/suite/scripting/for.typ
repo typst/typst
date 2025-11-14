@@ -1,6 +1,6 @@
 // Test for loops.
 
---- for-loop-basic ---
+--- for-loop-basic paged ---
 
 // Empty array.
 #for x in () [Nope]
@@ -36,7 +36,7 @@
 #let f(..args) = (f1(..args) + f2(..args)).join(", ")
 #f(1, a: 2)
 
---- for-loop-integrated ---
+--- for-loop-integrated paged ---
 #let out = ()
 
 // Values of array.
@@ -76,19 +76,19 @@
 #test(for v in "" [], none)
 #test(type(for v in "1" []), content)
 
---- for-loop-over-bool ---
+--- for-loop-over-bool paged ---
 // Uniterable expression.
 // Error: 11-15 cannot loop over boolean
 #for v in true {}
 
---- for-loop-over-string ---
+--- for-loop-over-string paged ---
 // Keys and values of strings.
 // Error: 6-12 cannot destructure values of string
 #for (k, v) in "hi" {
   dont-care
 }
 
---- for-loop-destructuring-without-parentheses ---
+--- for-loop-destructuring-without-parentheses paged ---
 // Destructuring without parentheses.
 // Error: 7-8 unexpected comma
 // Hint: 7-8 destructuring patterns must be wrapped in parentheses
@@ -96,12 +96,12 @@
   dont-care
 }
 
---- for-loop-destructuring-half ---
+--- for-loop-destructuring-half paged ---
 // Error: 7-8 unexpected comma
 // Hint: 7-8 destructuring patterns must be wrapped in parentheses
 #for k, in () {}
 
---- for-loop-incomplete ---
+--- for-loop-incomplete paged ---
 // Error: 5 expected pattern
 #for
 

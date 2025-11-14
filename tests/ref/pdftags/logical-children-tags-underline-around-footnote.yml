@@ -4,34 +4,41 @@
       /TextDecorationType: Underline
       /K:
         - Content: page=0 mcid=0
+          /Lang: "en"
     - Tag: Lbl
       /K:
         - Tag: Link
           /K:
-            - Annotation: page=0 index=0
+            - Annotation: page=0 subtype=Link
+              /Contents: "Footnote 1"
             - Tag: Span
               /BaselineShift:   3.500
               /LineHeight:   6.000
               /TextDecorationType: Underline
               /K:
                 - Content: page=0 mcid=1
+                  /Lang: "en"
     - Tag: Note
+      /Id: "Note 1"
       /K:
         - Tag: Lbl
           /K:
             - Tag: Link
               /K:
-                - Annotation: page=0 index=1
+                - Annotation: page=0 subtype=Link
+                  /Contents: "1"
                 - Tag: Span
                   /BaselineShift:   2.975
                   /LineHeight:   5.100
                   /K:
                     - Content: page=0 mcid=4
+                      /Lang: "en"
         - Content: page=0 mcid=5
     - Tag: Span
       /TextDecorationType: Underline
       /K:
         - Content: page=0 mcid=2
+          /Lang: "en"
 - Tag: P
   /K:
     - Content: page=0 mcid=3

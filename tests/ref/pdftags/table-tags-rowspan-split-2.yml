@@ -15,10 +15,15 @@
           /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=2
+              /Lang: "en"
             - Content: page=0 mcid=3
+              /Lang: "en"
             - Content: page=1 mcid=2
+              /Lang: "en"
             - Content: page=2 mcid=0
+              /Lang: "en"
             - Content: page=2 mcid=1
+              /Lang: "en"
         - Tag: TD
           /Headers: []
           /BorderStyle: Solid

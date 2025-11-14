@@ -1,12 +1,7 @@
 - Tag: Figure
   /Alt: "alt text"
   /Placement: Block
-  /BBox:
-    page: 0
-    left:    33.655
-    top:      8.552
-    right:   85.743
-    bottom:  40.230
+  /BBox: [ 33.656,   5.450,  85.743,  37.128]
   /K:
     - Content: page=0 mcid=0
     - Content: page=0 mcid=1

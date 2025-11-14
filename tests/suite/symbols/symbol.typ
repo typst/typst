@@ -1,6 +1,6 @@
 // Test symbols.
 
---- symbol ---
+--- symbol paged ---
 #emoji.face
 #emoji.woman.old
 #emoji.turtle
@@ -13,7 +13,7 @@
 
 #sym.arrow.r;this and this#sym.arrow.l;
 
---- symbol-constructor ---
+--- symbol-constructor paged ---
 #let envelope = symbol(
   "🖂",
   ("stamped", "🖃"),
@@ -35,52 +35,52 @@
 #one
 #one.emoji
 
---- symbol-constructor-empty ---
+--- symbol-constructor-empty paged ---
 // Error: 2-10 expected at least one variant
 #symbol()
 
---- symbol-constructor-invalid-modifier ---
+--- symbol-constructor-invalid-modifier paged ---
 // Error: 2:3-2:24 invalid symbol modifier: " id!"
 #symbol(
   ("invalid. id!", "x")
 )
 
---- symbol-constructor-duplicate-modifier ---
+--- symbol-constructor-duplicate-modifier paged ---
 // Error: 2:3-2:31 duplicate modifier within variant: "duplicate"
 // Hint: 2:3-2:31 modifiers are not ordered, so each one may appear only once
 #symbol(
   ("duplicate.duplicate", "x"),
 )
 
---- symbol-constructor-duplicate-default-variant ---
+--- symbol-constructor-duplicate-default-variant paged ---
 // Error: 3:3-3:6 duplicate default variant
 #symbol(
   "x",
   "y",
 )
 
---- symbol-constructor-duplicate-empty-variant ---
+--- symbol-constructor-duplicate-empty-variant paged ---
 // Error: 3:3-3:12 duplicate default variant
 #symbol(
   ("", "x"),
   ("", "y"),
 )
 
---- symbol-constructor-default-and-empty-variants ---
+--- symbol-constructor-default-and-empty-variants paged ---
 // Error: 3:3-3:12 duplicate default variant
 #symbol(
   "x",
   ("", "y"),
 )
 
---- symbol-constructor-duplicate-variant ---
+--- symbol-constructor-duplicate-variant paged ---
 // Error: 3:3-3:29 duplicate variant: "duplicate.variant"
 #symbol(
   ("duplicate.variant", "x"),
   ("duplicate.variant", "y"),
 )
 
---- symbol-constructor-duplicate-variant-different-order ---
+--- symbol-constructor-duplicate-variant-different-order paged ---
 // Error: 3:3-3:29 duplicate variant: "variant.duplicate"
 // Hint: 3:3-3:29 variants with the same modifiers are identical, regardless of their order
 #symbol(
@@ -88,7 +88,7 @@
   ("variant.duplicate", "y"),
 )
 
---- symbol-constructor-empty-variant-value ---
+--- symbol-constructor-empty-variant-value paged ---
 // Error: 2:3-2:5 invalid variant value: ""
 // Hint: 2:3-2:5 variant value must be exactly one grapheme cluster
 // Error: 3:3-3:16 invalid variant value: ""
@@ -98,7 +98,7 @@
   ("empty", "")
 )
 
---- symbol-constructor-multi-cluster-variant-value ---
+--- symbol-constructor-multi-cluster-variant-value paged ---
 // Error: 2:3-2:7 invalid variant value: "aa"
 // Hint: 2:3-2:7 variant value must be exactly one grapheme cluster
 // Error: 3:3-3:14 invalid variant value: "bb"
@@ -108,11 +108,11 @@
   ("b", "bb")
 )
 
---- symbol-unknown-modifier ---
+--- symbol-unknown-modifier paged ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
 
---- symbol-repr ---
+--- symbol-repr paged ---
 #test(
   repr(sym.amp),
   `symbol("&", ("inv", "⅋"))`.text,
@@ -176,22 +176,22 @@
   `symbol("🖅")`.text,
 )
 
---- symbol-sect-deprecated ---
+--- symbol-sect-deprecated paged ---
 // Warning: 5-9 `sect` is deprecated, use `inter` instead
 $ A sect B = A inter B $
 
---- symbol-modifier-deprecated ---
+--- symbol-modifier-deprecated paged ---
 // Warning: 7-12 `ast.small` is deprecated (CJK compatibility character), use ﹡ or `\u{fe61}` instead
 $ ast.small $
 
 // Warning: 14-20 `bracket.double` is deprecated, use `bracket.stroked` instead
 #sym.bracket.double.r
 
---- issue-5930-symbol-label ---
+--- issue-5930-symbol-label paged ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
 
---- presentation-selectors ---
+--- presentation-selectors paged ---
 // Currently, presentation selectors do not cause font fallback when the main
 // font supports at least one presentation, instead causing a fallback of the
 // presentation form. This should probably be solved at some point, making the

@@ -4,14 +4,14 @@ lang: "ar"
   /Lang: "en"
   /K:
     - Content: page=0 mcid=0
-    - Tag: InlineQuote
+    - Tag: Quote
       /K:
         - Content: page=0 mcid=1
         - Content: page=0 mcid=2
     - Content: page=0 mcid=3
 - Tag: P
   /K:
-    - Tag: InlineQuote
+    - Tag: Quote
       /K:
         - Content: page=0 mcid=4
         - Content: page=0 mcid=5

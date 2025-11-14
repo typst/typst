@@ -1,6 +1,6 @@
 // Test shaping quirks.
 
---- shaping-script-separation ---
+--- shaping-script-separation paged ---
 // Test separation by script.
 #set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"))
 ABCअपार्टमेंट
@@ -12,23 +12,23 @@ ABCअपार्टमेंट
 // if we didn't separate by script.
 अ पा र् ट में ट
 
---- shaping-forced-script-font-feature-inhibited ---
+--- shaping-forced-script-font-feature-inhibited paged ---
 // A forced `latn` script inhibits Devanagari font features.
 #set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"), script: "latn")
 ABCअपार्टमेंट
 
---- shaping-forced-script-font-feature-enabled ---
+--- shaping-forced-script-font-feature-enabled paged ---
 // A forced `deva` script enables Devanagari font features.
 #set text(font: ("Libertinus Serif", "IBM Plex Sans Devanagari"), script: "deva")
 ABCअपार्टमेंट
 
---- issue-rtl-safe-to-break-panic ---
+--- issue-rtl-safe-to-break-panic paged ---
 // Test that RTL safe-to-break doesn't panic even though newline
 // doesn't exist in shaping output.
 #set text(dir: rtl, font: "Noto Serif Hebrew")
 \ ט
 
---- shaping-font-fallback ---
+--- shaping-font-fallback paged ---
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 // Font fallback for emoji.
 A😀B
@@ -48,7 +48,7 @@ Aب😀🏞سمB
 // Tofus are rendered with the first font.
 A🐈ዲሞB
 
---- shaping-emoji-basic ---
+--- shaping-emoji-basic paged ---
 // This should form a three-member family.
 👩‍👩‍👦
 
@@ -61,6 +61,6 @@ A🐈ዲሞB
 // This should be a 1 in a box.
 1️⃣
 
---- shaping-emoji-bad-zwj ---
+--- shaping-emoji-bad-zwj paged ---
 // These two shouldn't be affected by a zero-width joiner.
 🏞‍🌋

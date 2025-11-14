@@ -3,7 +3,7 @@
   /K:
     - Content: page=0 mcid=0
 - Tag: L
-  /Numbering: Circle
+  /ListNumbering: Circle
   /K:
     - Tag: LI
       /K:
@@ -20,7 +20,7 @@
             - Content: page=0 mcid=3
         - Tag: LBody
     - Tag: L
-      /Numbering: Circle
+      /ListNumbering: Circle
       /K:
         - Tag: LI
           /K:

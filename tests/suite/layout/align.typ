@@ -1,11 +1,11 @@
 // Test alignment.
 
---- align-right ---
+--- align-right paged ---
 // Test ragged-left.
 #set align(right)
 To the right! Where the sunlight peeks behind the mountain.
 
---- align-in-stack ---
+--- align-in-stack paged ---
 #set page(height: 100pt)
 #stack(dir: ltr,
   align(left, square(size: 15pt, fill: eastern)),
@@ -18,7 +18,7 @@ To the right! Where the sunlight peeks behind the mountain.
   rect(fill: forest, height: 10pt, width: 100%),
 ))
 
---- align-center-in-flow ---
+--- align-center-in-flow paged ---
 // Test that multiple paragraphs in subflow also respect alignment.
 #align(center)[
   Lorem Ipsum
@@ -26,7 +26,7 @@ To the right! Where the sunlight peeks behind the mountain.
   Dolor
 ]
 
---- align-start-and-end ---
+--- align-start-and-end paged ---
 // Test start and end alignment.
 #rotate(-30deg, origin: end + horizon)[Hello]
 
@@ -38,7 +38,7 @@ To the right! Where the sunlight peeks behind the mountain.
 #align(start)[يبدأ]
 #align(end)[نهاية]
 
---- alignment-fields-x ---
+--- alignment-fields-x paged ---
 // Test 2d alignment 'horizontal' field.
 #test((start + top).x, start)
 #test((end + top).x, end)
@@ -59,7 +59,7 @@ To the right! Where the sunlight peeks behind the mountain.
 #test((bottom + end).x, end)
 #test((horizon + center).x, center)
 
---- alignment-fields-y ---
+--- alignment-fields-y paged ---
 // Test 2d alignment 'vertical' field.
 #test((start + top).y, top)
 #test((end + top).y, top)
@@ -80,12 +80,12 @@ To the right! Where the sunlight peeks behind the mountain.
 #test((bottom + end).y, bottom)
 #test((horizon + center).y, horizon)
 
---- alignment-type ---
+--- alignment-type paged ---
 #test(type(center), alignment)
 #test(type(horizon), alignment)
 #test(type(center + horizon), alignment)
 
---- alignment-axis ---
+--- alignment-axis paged ---
 // Test alignment methods.
 #test(start.axis(), "horizontal")
 #test(end.axis(), "horizontal")
@@ -96,7 +96,7 @@ To the right! Where the sunlight peeks behind the mountain.
 #test(bottom.axis(), "vertical")
 #test(horizon.axis(), "vertical")
 
---- alignment-inv ---
+--- alignment-inv paged ---
 #test(start.inv(), end)
 #test(end.inv(), start)
 #test(left.inv(), right)
@@ -124,24 +124,24 @@ To the right! Where the sunlight peeks behind the mountain.
 #test((bottom + end).inv(), (start + top))
 #test((horizon + center).inv(), (center + horizon))
 
---- alignment-add-two-horizontal ---
+--- alignment-add-two-horizontal paged ---
 // Error: 8-22 cannot add two horizontal alignments
 #align(center + right, [A])
 
---- alignment-add-two-vertical ---
+--- alignment-add-two-vertical paged ---
 // Error: 8-20 cannot add two vertical alignments
 #align(top + bottom, [A])
 
---- alignment-add-vertical-and-2d ---
+--- alignment-add-vertical-and-2d paged ---
 // Error: 8-30 cannot add a vertical and a 2D alignment
 #align(top + (bottom + right), [A])
 
---- issue-1398-line-align ---
+--- issue-1398-line-align paged ---
 // Test right-aligning a line and a rectangle.
 #align(right, line(length: 30%))
 #align(right, rect())
 
---- issue-2213-align-fr ---
+--- issue-2213-align-fr paged ---
 // Test a mix of alignment and fr units (fr wins).
 #set page(height: 80pt)
 A

@@ -1,4 +1,4 @@
---- grid-footer ---
+--- grid-footer paged ---
 #set page(width: auto, height: 15em)
 #set text(6pt)
 #set table(inset: 2pt, stroke: 0.5pt)
@@ -18,7 +18,7 @@
   )
 )
 
---- grid-footer-gutter-and-no-repeat ---
+--- grid-footer-gutter-and-no-repeat paged ---
 // Gutter & no repetition
 #set page(width: auto, height: 16em)
 #set text(6pt)
@@ -41,20 +41,20 @@
   )
 )
 
---- grid-cell-override-in-header-and-footer ---
+--- grid-cell-override-in-header-and-footer paged ---
 #table(
   table.header(table.cell(stroke: red)[Hello]),
   table.footer(table.cell(stroke: aqua)[Bye]),
 )
 
---- grid-cell-override-in-header-and-footer-with-gutter ---
+--- grid-cell-override-in-header-and-footer-with-gutter paged ---
 #table(
   gutter: 3pt,
   table.header(table.cell(stroke: red)[Hello]),
   table.footer(table.cell(stroke: aqua)[Bye]),
 )
 
---- grid-footer-top-stroke ---
+--- grid-footer-top-stroke paged ---
 // Footer's top stroke should win when repeated, but lose at the last page.
 #set page(height: 10em)
 #table(
@@ -66,7 +66,7 @@
   table.footer[Bye],
 )
 
---- grid-footer-relative-row-sizes ---
+--- grid-footer-relative-row-sizes paged ---
 // Relative lengths
 #set page(height: 10em)
 #table(
@@ -76,14 +76,14 @@
   table.footer[*A*][*B*],
 )
 
---- grid-footer-cell-with-y ---
+--- grid-footer-cell-with-y paged ---
 #grid(
   grid.footer(grid.cell(y: 2)[b]),
   grid.cell(y: 0)[a],
   grid.cell(y: 1)[c],
 )
 
---- grid-footer-cell-with-x ---
+--- grid-footer-cell-with-x paged ---
 #grid(
   columns: 2,
   stroke: black,
@@ -95,7 +95,7 @@
   grid.cell(x: 1)[c]
 )
 
---- grid-footer-no-expand-with-col-and-row-pos-cell ---
+--- grid-footer-no-expand-with-col-and-row-pos-cell paged ---
 #grid(
   columns: 2,
   [a], [],
@@ -110,7 +110,7 @@
   grid.cell(x: 1, y: 7)[d],
 )
 
---- grid-footer-no-expand-with-row-pos-cell ---
+--- grid-footer-no-expand-with-row-pos-cell paged ---
 #grid(
   columns: 2,
   [a], [],
@@ -125,7 +125,7 @@
   grid.cell(y: 6, rowspan: 2)[d],
 )
 
---- grid-footer-moved-to-bottom-of-rowspans ---
+--- grid-footer-moved-to-bottom-of-rowspans paged ---
 #grid(
   columns: 2,
   [a], [],
@@ -140,14 +140,14 @@
   grid.cell(y: 6)[f],
 )
 
---- grid-footer-not-at-last-row ---
+--- grid-footer-not-at-last-row paged ---
 // Error: 2:3-2:19 footer must end at the last row
 #grid(
   grid.footer([a]),
   [b],
 )
 
---- grid-footer-not-at-last-row-two-columns ---
+--- grid-footer-not-at-last-row-two-columns paged ---
 // Error: 3:3-3:19 footer must end at the last row
 #grid(
   columns: 2,
@@ -155,7 +155,7 @@
   [b],
 )
 
---- grid-footer-overlap ---
+--- grid-footer-overlap paged ---
 #grid(
   columns: 2,
   grid.header(),
@@ -165,7 +165,7 @@
   grid.cell(x: 1, y: 1, rowspan: 2)[a],
 )
 
---- grid-footer-rowbreak-line ---
+--- grid-footer-rowbreak-line paged ---
 #grid(
   columns: 1,
   [a],
@@ -174,7 +174,7 @@
   grid.hline(stroke: 3pt),
 )
 
---- grid-footer-multiple ---
+--- grid-footer-multiple paged ---
 // Error: 4:3-4:19 cannot have more than one footer
 #grid(
   [a],
@@ -182,7 +182,7 @@
   grid.footer([b]),
 )
 
---- table-footer-in-grid ---
+--- table-footer-in-grid paged ---
 // Error: 3:3-3:20 cannot use `table.footer` as a grid footer
 // Hint: 3:3-3:20 use `grid.footer` instead
 #grid(
@@ -190,7 +190,7 @@
   table.footer([a]),
 )
 
---- grid-footer-in-table ---
+--- grid-footer-in-table paged ---
 // Error: 3:3-3:19 cannot use `grid.footer` as a table footer
 // Hint: 3:3-3:19 use `table.footer` instead
 #table(
@@ -198,55 +198,55 @@
   grid.footer([a]),
 )
 
---- grid-footer-in-grid-header ---
+--- grid-footer-in-grid-header paged ---
 // Error: 14-28 cannot place a grid footer within another footer or header
 #grid.header(grid.footer[a])
 
---- table-footer-in-grid-header ---
+--- table-footer-in-grid-header paged ---
 // Error: 14-29 cannot place a table footer within another footer or header
 #grid.header(table.footer[a])
 
---- grid-footer-in-table-header ---
+--- grid-footer-in-table-header paged ---
 // Error: 15-29 cannot place a grid footer within another footer or header
 #table.header(grid.footer[a])
 
---- table-footer-in-table-header ---
+--- table-footer-in-table-header paged ---
 // Error: 15-30 cannot place a table footer within another footer or header
 #table.header(table.footer[a])
 
---- grid-footer-in-grid-footer ---
+--- grid-footer-in-grid-footer paged ---
 // Error: 14-28 cannot place a grid footer within another footer or header
 #grid.footer(grid.footer[a])
 
---- table-footer-in-grid-footer ---
+--- table-footer-in-grid-footer paged ---
 // Error: 14-29 cannot place a table footer within another footer or header
 #grid.footer(table.footer[a])
 
---- grid-footer-in-table-footer ---
+--- grid-footer-in-table-footer paged ---
 // Error: 15-29 cannot place a grid footer within another footer or header
 #table.footer(grid.footer[a])
 
---- table-footer-in-table-footer ---
+--- table-footer-in-table-footer paged ---
 // Error: 15-30 cannot place a table footer within another footer or header
 #table.footer(table.footer[a])
 
---- grid-header-in-grid-footer ---
+--- grid-header-in-grid-footer paged ---
 // Error: 14-28 cannot place a grid header within another header or footer
 #grid.footer(grid.header[a])
 
---- table-header-in-grid-footer ---
+--- table-header-in-grid-footer paged ---
 // Error: 14-29 cannot place a table header within another header or footer
 #grid.footer(table.header[a])
 
---- grid-header-in-table-footer ---
+--- grid-header-in-table-footer paged ---
 // Error: 15-29 cannot place a grid header within another header or footer
 #table.footer(grid.header[a])
 
---- table-header-in-table-footer ---
+--- table-header-in-table-footer paged ---
 // Error: 15-30 cannot place a table header within another header or footer
 #table.footer(table.header[a])
 
---- grid-header-footer-block-with-fixed-height ---
+--- grid-header-footer-block-with-fixed-height paged ---
 #set page(height: 17em)
 #table(
   rows: (auto, 2.5em, auto),
@@ -255,7 +255,7 @@
   table.footer[*Bye*][*World*],
 )
 
---- grid-header-footer-and-rowspan-non-contiguous-1 ---
+--- grid-header-footer-and-rowspan-non-contiguous-1 paged ---
 // Rowspan sizing algorithm doesn't do the best job at non-contiguous content
 // ATM.
 #set page(height: 20em)
@@ -267,7 +267,7 @@
   table.footer[*Ok*][*Bye*],
 )
 
---- grid-header-footer-and-rowspan-non-contiguous-2 ---
+--- grid-header-footer-and-rowspan-non-contiguous-2 paged ---
 // This should look right
 #set page(height: 20em)
 
@@ -278,7 +278,7 @@
   table.cell(rowspan: 3, lorem(20)),
   table.footer[*Ok*][*Bye*],
 )
---- grid-header-and-footer-lack-of-space ---
+--- grid-header-and-footer-lack-of-space paged ---
 // Test lack of space for header + text.
 #set page(height: 9em + 2.5em + 1.5em)
 
@@ -290,7 +290,7 @@
   table.footer[*Ok*][*Bye*],
 )
 
---- grid-header-and-footer-orphan-prevention ---
+--- grid-header-and-footer-orphan-prevention paged ---
 // Orphan header prevention test
 #set page(height: 13em)
 #v(8em)
@@ -308,7 +308,7 @@
   ),
 )
 
---- grid-header-and-footer-empty ---
+--- grid-header-and-footer-empty paged ---
 // Empty footer should just be a repeated blank row
 #set page(height: 8em)
 #table(
@@ -324,7 +324,7 @@
   table.footer(),
 )
 
---- grid-header-and-footer-containing-rowspan ---
+--- grid-header-and-footer-containing-rowspan paged ---
 // When a footer has a rowspan with an empty row, it should be displayed
 // properly
 #set page(height: 14em, width: auto)
@@ -346,7 +346,7 @@
 )
 #context count.display()
 
---- grid-nested-with-footers ---
+--- grid-nested-with-footers paged ---
 // Nested table with footer should repeat both footers
 #set page(height: 10em, width: auto)
 #table(
@@ -357,7 +357,7 @@
   table.footer[a],
 )
 
---- grid-nested-footers ---
+--- grid-nested-footers paged ---
 #set page(height: 12em, width: auto)
 #table(
   [a\ b\ c\ d],
@@ -368,7 +368,7 @@
   ))
 )
 
---- grid-footer-rowspan ---
+--- grid-footer-rowspan paged ---
 // General footer-only tests
 #set page(height: 9em)
 #table(
@@ -384,13 +384,13 @@
   )
 )
 
---- grid-footer-bare-1 ---
+--- grid-footer-bare-1 paged ---
 #set page(height: 5em)
 #table(
   table.footer[a][b][c]
 )
 
---- grid-footer-bare-2 ---
+--- grid-footer-bare-2 paged ---
 #table(table.footer[a][b][c])
 
 #table(
@@ -398,7 +398,7 @@
   table.footer[a][b][c]
 )
 
---- grid-footer-repeatable-unbreakable ---
+--- grid-footer-repeatable-unbreakable paged ---
 #set page(height: 8em, width: auto)
 #table(
   [h],
@@ -409,7 +409,7 @@
   )
 )
 
---- grid-footer-non-repeatable-unbreakable ---
+--- grid-footer-non-repeatable-unbreakable paged ---
 #set page(height: 8em, width: auto)
 #table(
   [h],
@@ -421,7 +421,7 @@
   )
 )
 
---- grid-footer-stroke-edge-cases ---
+--- grid-footer-stroke-edge-cases paged ---
 // Test footer stroke priority edge case
 #set page(height: 10em)
 #table(
@@ -434,7 +434,7 @@
   )
 )
 
---- grid-footer-hline-and-vline-1 ---
+--- grid-footer-hline-and-vline-1 paged ---
 // Footer should appear at the bottom. Red line should be above the footer.
 // Green line should be on the left border.
 #set page(margin: 2pt)
@@ -453,7 +453,7 @@
   ),
 )
 
---- grid-footer-hline-and-vline-2 ---
+--- grid-footer-hline-and-vline-2 paged ---
 // Table should be just one row. [c] appears at the third column.
 #set page(margin: 2pt)
 #set text(6pt)
@@ -469,7 +469,7 @@
   )
 )
 
---- grid-footer-top-hlines-with-only-row-pos-cell ---
+--- grid-footer-top-hlines-with-only-row-pos-cell paged ---
 // Top hlines should attach to the top of the footer.
 #set page(margin: 2pt)
 #set text(6pt)
@@ -485,7 +485,7 @@
   )
 )
 
---- grid-footer-top-hlines-with-row-and-auto-pos-cell ---
+--- grid-footer-top-hlines-with-row-and-auto-pos-cell paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -501,7 +501,7 @@
   )
 )
 
---- grid-footer-below-rowspans ---
+--- grid-footer-below-rowspans paged ---
 // Footer should go below the rowspans.
 #set page(margin: 2pt)
 #set text(6pt)
@@ -512,7 +512,7 @@
   table.footer()
 )
 
---- grid-footer-row-pos-cell-inside-conflicts-with-row-before ---
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-before paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -529,7 +529,7 @@
   )
 )
 
---- grid-footer-auto-pos-cell-inside-conflicts-with-row-after ---
+--- grid-footer-auto-pos-cell-inside-conflicts-with-row-after paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -544,7 +544,7 @@
   ),
 )
 
---- grid-footer-row-pos-cell-inside-conflicts-with-row-after ---
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-after paged ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -559,7 +559,7 @@
   ),
 )
 
---- grid-footer-conflicts-with-empty-header ---
+--- grid-footer-conflicts-with-empty-header paged ---
 #table(
   columns: 2,
   table.header(),
@@ -570,7 +570,7 @@
   ),
 )
 
---- issue-5359-column-override-stays-inside-footer ---
+--- issue-5359-column-override-stays-inside-footer paged ---
 #table(
   columns: 3,
   [Outside],
@@ -580,7 +580,7 @@
   ),
 )
 
---- issue-6666-auto-hlines-around-footer ---
+--- issue-6666-auto-hlines-around-footer paged ---
 #table(
 	columns: 2,
 	table.hline(stroke: 2pt + blue),

@@ -1,4 +1,4 @@
---- disable-tags-artifact pdftags ---
+--- disable-tags-artifact pdftags pdfstandard(ua-1) ---
 = Heading 1
 #pdf.artifact[
   #table(
@@ -10,7 +10,7 @@
 
 = Heading 2
 
---- disable-tags-tiling pdftags ---
+--- disable-tags-tiling pdftags pdfstandard(ua-1) ---
 = Rectangle
 
 #let pat = tiling(size: (20pt, 20pt))[
@@ -20,7 +20,7 @@
 ]
 #rect(fill: pat)
 
---- disable-tags-hide pdftags ---
+--- disable-tags-hide pdftags pdfstandard(ua-1) ---
 = Hidden
 
 #hide[
@@ -29,7 +29,7 @@
     - c
 ]
 
---- disable-tags-partially-hidden-list pdftags ---
+--- disable-tags-partially-hidden-list pdftags pdfstandard(ua-1) ---
 // FIXME(accessibility): In realization, tags inside of list groupings aren't
 // handled. Thus if the head of the list is visible, all tags of list items
 // will be emitted before (outside) the hide element. And if the head is not
@@ -48,12 +48,12 @@
 - b
   - c
 
---- disable-tags-broken-paragraph-hide pdftags ---
+--- disable-tags-broken-paragraph-hide pdftags pdfstandard(ua-1) ---
 This is the #hide[ first paragraph.
 
 And this is the ] second paragraph.
 
---- disable-tags-broken-paragraph-artifact pdftags ---
+--- disable-tags-broken-paragraph-artifact pdftags pdfstandard(ua-1) ---
 This is the #pdf.artifact[ first paragraph.
 
 And this is the ] second paragraph.

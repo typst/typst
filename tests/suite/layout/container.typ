@@ -1,6 +1,6 @@
 // Test the `box` and `block` containers.
 
---- box ---
+--- box paged ---
 // Test box in paragraph.
 A #box[B \ C] D.
 
@@ -9,7 +9,7 @@ Spaced \
 #box(height: 0.5cm) \
 Apart
 
---- block-sizing ---
+--- block-sizing paged ---
 // Test block sizing.
 #set page(height: 120pt)
 #set block(spacing: 0pt)
@@ -18,17 +18,17 @@ Apart
   #block(width: 50%, height: 60%, fill: blue)
 ]
 
---- box-fr-width ---
+--- box-fr-width paged ---
 // Test fr box.
 Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
 
---- block-fr-height ---
+--- block-fr-height paged ---
 #set page(height: 100pt)
 #rect(height: 10pt, width: 100%)
 #align(center, block(height: 1fr, width: 20pt, stroke: 1pt))
 #rect(height: 10pt, width: 100%)
 
---- block-fr-height-auto-width ---
+--- block-fr-height-auto-width paged ---
 // Test that the fr block can also expand its parent.
 #set page(height: 100pt)
 #set align(center)
@@ -41,19 +41,19 @@ Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
   #rect(height: 10pt)
 ]
 
---- block-fr-height-first-child ---
+--- block-fr-height-first-child paged ---
 // Test that block spacing is not trimmed if only an fr block precedes it.
 #set page(height: 100pt)
 #rect(height: 1fr)
 #rect()
 
---- block-fr-height-multiple ---
+--- block-fr-height-multiple paged ---
 #set page(height: 100pt)
 #rect(height: 1fr)
 #rect()
 #block(height: 1fr, line(length: 100%, angle: 90deg))
 
---- block-multiple-pages ---
+--- block-multiple-pages paged ---
 // Test block over multiple pages.
 #set page(height: 60pt)
 
@@ -64,13 +64,13 @@ First!
   is the sun.
 ]
 
---- block-multiple-pages-empty ---
+--- block-multiple-pages-empty paged ---
 #set page(height: 60pt)
 A
 #block(height: 30pt)
 B
 
---- block-box-fill ---
+--- block-box-fill paged ---
 #set page(height: 100pt)
 #let words = lorem(18).split()
 #block(inset: 8pt, width: 100%, fill: aqua, stroke: aqua.darken(30%))[
@@ -79,7 +79,7 @@ B
   #words.slice(13).join(" ")
 ]
 
---- block-spacing-basic ---
+--- block-spacing-basic paged ---
 #set par(spacing: 10pt)
 Hello
 
@@ -87,27 +87,27 @@ There
 
 #block(spacing: 20pt)[Further down]
 
---- block-above-below-context ---
+--- block-above-below-context paged ---
 #context test(block.above, auto)
 #set block(spacing: 20pt)
 #context test(block.above, 20pt)
 #context test(block.below, 20pt)
 
---- block-spacing-context ---
+--- block-spacing-context paged ---
 // The values for `above` and `below` might be different, so we cannot retrieve
 // `spacing` directly
 //
 // Error: 16-23 function `block` does not contain field `spacing`
 #context block.spacing
 
---- block-spacing-table ---
+--- block-spacing-table paged ---
 // Test that paragraph spacing loses against block spacing.
 #set block(spacing: 100pt)
 #show table: set block(above: 5pt, below: 5pt)
 Hello
 #table(columns: 4, fill: (x, y) => if calc.odd(x + y) { silver })[A][B][C][D]
 
---- block-spacing-maximum ---
+--- block-spacing-maximum paged ---
 // While we're at it, test the larger block spacing wins.
 #set block(spacing: 0pt)
 #show raw: set block(spacing: 15pt)
@@ -121,7 +121,7 @@ fn main() {}
 
 Paragraph
 
---- block-spacing-collapse-text-style ---
+--- block-spacing-collapse-text-style paged ---
 // Test spacing collapsing with different font sizes.
 #grid(columns: 2)[
   #text(size: 12pt, block(below: 1em)[A])
@@ -131,7 +131,7 @@ Paragraph
   #text(size: 8pt, block(above: 1.25em)[B])
 ]
 
---- block-fixed-height ---
+--- block-fixed-height paged ---
 #set page(height: 100pt)
 #set align(center)
 
@@ -146,7 +146,7 @@ Paragraph
   lines(3) + colbreak(),
 )
 
---- block-consistent-width ---
+--- block-consistent-width paged ---
 // Test that block enforces consistent width across regions. Also use some
 // introspection to check that measurement is working correctly.
 #block(stroke: 1pt, inset: 5pt)[
@@ -158,7 +158,7 @@ Paragraph
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- box-inset-ratio ---
+--- box-inset-ratio paged ---
 #let body-width = 10pt
 #context for inset in range(10).map(n => n / 10) {
   // If there's infinite available space, then:
@@ -178,18 +178,18 @@ Paragraph
   assert.eq(measured-width, body-width / (1 - inset))
 }
 
---- block-sticky ---
+--- block-sticky paged ---
 #set page(height: 100pt)
 #lines(3)
 #block(sticky: true)[D]
 #block(sticky: true)[E]
 F
 
---- block-sticky-alone ---
+--- block-sticky-alone paged ---
 #set page(height: 50pt)
 #block(sticky: true)[A]
 
---- block-sticky-many ---
+--- block-sticky-many paged ---
 #set page(height: 80pt)
 #set block(sticky: true)
 #block[A]
@@ -200,19 +200,19 @@ E
 #block[F]
 #block[G]
 
---- block-sticky-colbreak ---
+--- block-sticky-colbreak paged ---
 A
 #block(sticky: true)[B]
 #colbreak()
 C
 
---- block-sticky-breakable ---
+--- block-sticky-breakable paged ---
 // Ensure that sticky blocks are still breakable.
 #set page(height: 60pt)
 #block(sticky: true, lines(4))
 E
 
---- box-clip-rect ---
+--- box-clip-rect paged ---
 // Test box clipping with a rectangle
 Hello #box(width: 1em, height: 1em, clip: false)[#rect(width: 3em, height: 3em, fill: red)]
 world 1
@@ -222,7 +222,7 @@ Space
 Hello #box(width: 1em, height: 1em, clip: true)[#rect(width: 3em, height: 3em, fill: red)]
 world 2
 
---- block-clip-text ---
+--- block-clip-text paged ---
 // Test clipping text
 #block(width: 5em, height: 2em, clip: false, stroke: 1pt + black)[
   But, soft! what light through
@@ -235,13 +235,13 @@ world 2
   is the sun.
 ]
 
---- block-clip-svg-glyphs ---
+--- block-clip-svg-glyphs paged ---
 // Test clipping svg glyphs
 Emoji: #box(height: 0.5em, stroke: 1pt + black)[🐪, 🌋, 🏞]
 
 Emoji: #box(height: 0.5em, clip: true, stroke: 1pt + black)[🐪, 🌋, 🏞]
 
---- block-clipping-multiple-pages ---
+--- block-clipping-multiple-pages paged ---
 // Test block clipping over multiple pages.
 #set page(height: 60pt)
 
@@ -252,7 +252,7 @@ First!
   is the sun.
 ]
 
---- box-clip-radius ---
+--- box-clip-radius paged ---
 // Test clipping with `radius`.
 #set page(height: 60pt)
 
@@ -265,7 +265,7 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
---- box-clip-radius-without-stroke ---
+--- box-clip-radius-without-stroke paged ---
 // Test clipping with `radius`, but without `stroke`.
 #set page(height: 60pt)
 
@@ -277,7 +277,7 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
---- box-clip-outset ---
+--- box-clip-outset paged ---
 // Test clipping with `outset`.
 #set page(height: 60pt)
 
@@ -297,7 +297,7 @@ Text #box[Span].
 Paragraph
 #block[Div]
 
---- container-layoutable-child ---
+--- container-layoutable-child paged ---
 // Test box/block sizing with directly layoutable child.
 //
 // Ensure that the output respects the box size.
@@ -308,12 +308,12 @@ Paragraph
 
 #stack(dir: ltr, spacing: 1fr, check(box), check(block))
 
---- issue-2128-block-width-box ---
+--- issue-2128-block-width-box paged ---
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])
 
---- issue-2914-block-height-cut-off ---
+--- issue-2914-block-height-cut-off paged ---
 // Ensure that breaking a block doesn't shrink its height.
 #set page(height: 65pt)
 #set block(fill: aqua, width: 25pt, height: 25pt, inset: 5pt)
@@ -321,20 +321,20 @@ Paragraph
 #block[A]
 #block[B]
 
---- issue-2914-block-fill-skip-nested ---
+--- issue-2914-block-fill-skip-nested paged ---
 // Ensure that fill and stroke are skipped for an empty frame with a nested block.
 #set page(height: 50pt)
 A
 #block(fill: aqua, stroke: blue, inset: 5pt, width: 100%, block[B])
 
---- issue-6304-block-skip-label ---
+--- issue-6304-block-skip-label paged ---
 // Ensure that labeling is skipped for an empty orphan frame.
 #set page(height: 60pt)
 A
 #block(sticky: true)[B]
 #block[C] <label>
 
---- issue-6125-block-place-width-limited ---
+--- issue-6125-block-place-width-limited paged ---
 // Ensure that the width of a placed block isn't limited by its siblings.
 #set page(height: 70pt)
 #let b = block({
@@ -344,7 +344,7 @@ A
 #b
 #b
 
---- issue-5296-block-sticky-in-block-at-top ---
+--- issue-5296-block-sticky-in-block-at-top paged ---
 #set page(height: 3cm)
 #v(1.6cm)
 #block(height: 2cm, breakable: true)[
@@ -353,7 +353,7 @@ A
   b
 ]
 
---- issue-5296-block-sticky-spaced-from-top-of-page ---
+--- issue-5296-block-sticky-spaced-from-top-of-page paged ---
 #set page(height: 3cm)
 #v(2cm)
 
@@ -361,7 +361,7 @@ A
 
 b
 
---- issue-5296-block-sticky-weakly-spaced-from-top-of-page ---
+--- issue-5296-block-sticky-weakly-spaced-from-top-of-page paged ---
 #set page(height: 3cm)
 #v(2cm, weak: true)
 
@@ -369,21 +369,21 @@ b
 
 b
 
---- issue-5262-block-negative-height ---
+--- issue-5262-block-negative-height paged ---
 #block(height: -1pt)[]
 
---- issue-5262-block-negative-height-implicit ---
+--- issue-5262-block-negative-height-implicit paged ---
 #set page(height: 10pt, margin: (top: 9pt))
 #block(height: 100%)[]
 
---- issue-5262-block-negative-height-in-flow ---
+--- issue-5262-block-negative-height-in-flow paged ---
 // The contents after the block should be pushed upwards.
 #set page(height: 60pt)
 a
 #block(height: -25pt)[b]
 c
 
---- issue-6267-clip-anti-alias ---
+--- issue-6267-clip-anti-alias paged ---
 #block(
   clip: true,
   radius: 100%,
