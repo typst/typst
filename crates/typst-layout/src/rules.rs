@@ -510,7 +510,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         let mut body = vec![];
         for (_, reference, loc) in references {
             let realized = PdfMarkerTag::BibEntry(reference.clone().located(*loc));
-            let block = if works.hanging_indent {
+            let block = if works.hanging_indent(elem) {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
                     .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
