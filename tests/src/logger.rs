@@ -1,7 +1,10 @@
 use std::io::{self, IsTerminal, StderrLock, Write};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use crate::collect::Test;
+use crate::report::TestReport;
+use crate::{STORE_PATH, report};
 
 /// The result of running a single test.
 pub struct TestResult {
@@ -11,6 +14,8 @@ pub struct TestResult {
     pub infos: String,
     /// Whether the output was mismatched.
     pub mismatched_output: bool,
+    /// The data necessary to generate a HTML report.
+    pub report: Option<TestReport>,
 }
 
 /// Receives status updates by individual test runs.
@@ -24,6 +29,7 @@ pub struct Logger<'a> {
     last_change: Instant,
     temp_lines: usize,
     terminal: bool,
+    reports: Vec<TestReport>,
 }
 
 impl<'a> Logger<'a> {
@@ -39,6 +45,7 @@ impl<'a> Logger<'a> {
             temp_lines: 0,
             last_change: Instant::now(),
             terminal: std::io::stderr().is_terminal(),
+            reports: vec![],
         }
     }
 
@@ -76,6 +83,8 @@ impl<'a> Logger<'a> {
         self.mismatched_output |= result.mismatched_output;
         self.last_change = Instant::now();
 
+        self.reports.extend(result.report);
+
         self.print(move |out| {
             if !result.errors.is_empty() {
                 writeln!(out, "❌ {test}")?;
@@ -96,8 +105,11 @@ impl<'a> Logger<'a> {
     }
 
     /// Prints a summary and returns whether the test suite passed.
-    pub fn finish(&self) -> bool {
-        let Self { selected, passed, failed, skipped, .. } = *self;
+    pub fn finish(self) -> bool {
+        let Self { selected, passed, failed, skipped, reports, .. } = self;
+
+        let html = report::html::generate(reports);
+        std::fs::write(Path::new(STORE_PATH).join("report.html"), html).unwrap();
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");
