@@ -8,6 +8,7 @@ mod output;
 mod pdftags;
 mod run;
 mod world;
+mod diff;
 
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -192,6 +193,7 @@ fn run_parser_test(
         errors: String::new(),
         infos: String::new(),
         mismatched_output: false,
+        diff: None,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
