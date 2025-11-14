@@ -60,6 +60,16 @@ impl Point {
         Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))
     }
 
+    // TODO: this is a bit awkward on a point struct.
+    pub fn normalized(self) -> Self {
+        self / self.hypot().to_raw()
+    }
+
+    /// Rotate the point 90 degrees counter-clockwise.
+    pub fn rot90ccw(self) -> Self {
+        Self { x: self.y, y: -self.x }
+    }
+
     /// Transform the point with the given transformation.
     ///
     /// In the event that one of the coordinates is infinite, the result will
