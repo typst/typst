@@ -1,0 +1,175 @@
+:root {
+    background-color: #121212;
+    margin: 0;
+    padding: 0;
+    font-family: verdana, sans-serif;
+    font-size: 11pt;
+}
+
+* {
+    color: #c8c8c8;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%
+}
+
+a:hover {
+    color: #7898e9;
+}
+
+.container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.sidebar-container {
+    flex: 1;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.sidebar {
+    display: flex;
+    min-height: calc(100% - 24px);
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 0 8px 8px 0;
+    background-color: #1e1e1e;
+}
+
+.test-link {
+
+}
+
+.diff-container {
+    font-size: 10pt;
+    flex: 6;
+    display: flex;
+    flex-direction: column;
+    scroll-behavior: smooth;
+    overflow-y: scroll;
+    height: 100%;
+}
+
+.file-diff {
+    margin: 8px;
+    scroll-margin-top: 8px;
+    border-radius: 8px;
+    background-color: #1e1e1e;
+    overflow: clip;
+}
+
+table.diff-area {
+    width: 100%;
+    border-style: none;
+    border-spacing: 0;
+}
+
+.col-line-gutter {
+    width: 4em;
+    min-width: 4em;
+    max-width: 4em;
+}
+
+.col-line-body {
+    width: 50%;
+    min-width: 50%;
+    max-width: 50%;
+}
+
+.diff-header {
+    height: 3em;
+    background-color: #2b3b4b;
+    position: sticky;
+    top: 0;
+}
+
+.diff-line {
+    min-height: 1.5em;
+    height: 1.5em;
+    line-height: 1.5em;
+}
+
+.diff-empty {
+    background-color: #242424;
+}
+
+.diff-del {
+    background-color: #7a424280;
+}
+
+.diff-add {
+    background-color: #39503980;
+}
+
+.diff-unchanged {}
+
+.diff-gap {
+    text-align: center;
+    background-color: #3a528228;
+    font-size: 1.2em;
+    vertical-align: bottom;
+    color: #5a92c2;
+}
+
+.diff-end {}
+
+.line-gutter {
+    vertical-align: baseline;
+    text-align: right;
+    user-select: none;
+    color: #a0a0a0;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.line-gutter.diff-empty {
+    background-color: #242424;
+}
+
+.line-gutter.diff-del {
+    background-color: #7a424240;
+}
+
+.line-gutter.diff-add {
+    background-color: #39503940;
+}
+
+.line-gutter.diff-unchanged {
+    background-color: #24242480;
+    color: #606060;
+}
+
+.line-body {
+    margin: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.line-body.diff-del {
+    vertical-align: top;
+}
+
+.line-text {
+    display: inline-block;
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.span-del {
+    background-color: #8f3a39;
+}
+
+.span-add {
+    background-color: #316531;
+}
