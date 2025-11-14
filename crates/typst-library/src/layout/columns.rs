@@ -11,6 +11,22 @@ use crate::layout::{Length, Ratio, Rel};
 /// remaining height on the page. Support for balanced columns is planned for
 /// the future.
 ///
+/// When arranging content across multiple columns, use [`colbreak`]($colbreak)
+/// to explicitly continue in the next column.
+///
+/// # Example
+/// ```example
+/// #columns(2, gutter: 8pt)[
+///   This text is in the
+///   first column.
+///
+///   #colbreak()
+///
+///   This text is in the
+///   second column.
+/// ]
+/// ```
+///
 /// # Page-level columns { #page-level }
 /// If you need to insert columns across your whole document, use the `{page}`
 /// function's [`columns` parameter]($page.columns) instead. This will create
