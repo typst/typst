@@ -184,7 +184,7 @@ use crate::routines::Routines;
 /// = Values
 /// #context [
 ///   Value here: #mine.get() \
-///   At intro: #mine.at(<intro>) \
+///   At intro: #mine.get(at: <intro>) \
 ///   Final value: #mine.final()
 /// ]
 ///
@@ -423,23 +423,38 @@ impl Counter {
         Self::new(key)
     }
 
-    /// Retrieves the value of the counter at the current location. Always
+    /// Retrieves the value of the counter at the given location. Always
     /// returns an array of integers, even if the counter has just one number.
-    ///
-    /// This is equivalent to `{counter.at(here())}`.
     #[func(contextual)]
     pub fn get(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
+        /// The place at which the counter should be retrieved.
+        ///
+        /// If a selector is used, it must match exactly one element in the
+        /// document. The most useful kinds of selectors for this are
+        /// [labels]($label) and [locations]($location).
+        ///
+        /// If this is omitted or set to `{auto}`, retrieves the counter at the
+        /// current location. This is equivalent to using `{here()}`.
+        #[named]
+        #[default]
+        at: Smart<LocatableSelector>,
     ) -> SourceResult<CounterState> {
-        let loc = context.location().at(span)?;
+        let loc = match at {
+            Smart::Auto => context.location(),
+            Smart::Custom(selector) => {
+                selector.resolve_unique(engine.introspector, context)
+            }
+        }
+        .at(span)?;
         self.at_loc(engine, loc)
     }
 
-    /// Displays the current value of the counter with a numbering and returns
-    /// the formatted output.
+    /// Displays the value of the counter with a numbering at the given location
+    /// and returns the formatted output.
     #[func(contextual)]
     pub fn display(
         self,
@@ -457,6 +472,17 @@ impl Counter {
         /// `{"1.1"}` if no such style exists.
         #[default]
         numbering: Smart<Numbering>,
+        /// The place at which the counter should be displayed.
+        ///
+        /// If a selector is used, it must match exactly one element in the
+        /// document. The most useful kinds of selectors for this are
+        /// [labels]($label) and [locations]($location).
+        ///
+        /// If this is omitted or set to `{auto}`, displays the counter at the
+        /// current location. This is equivalent to using `{here()}`.
+        #[named]
+        #[default]
+        at: Smart<LocatableSelector>,
         /// If enabled, displays the current and final top-level count together.
         /// Both can be styled through a single numbering pattern. This is used
         /// by the page numbering property to display the current and total
@@ -465,7 +491,13 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        let loc = context.location().at(span)?;
+        let loc = match at {
+            Smart::Auto => context.location(),
+            Smart::Custom(selector) => {
+                selector.resolve_unique(engine.introspector, context)
+            }
+        }
+        .at(span)?;
         self.display_impl(engine, loc, numbering, both, context.styles().ok())
     }
 
@@ -476,6 +508,10 @@ impl Counter {
     /// useful kinds of selectors for this are [labels]($label) and
     /// [locations]($location).
     #[func(contextual)]
+    #[deprecated(
+        message = "`counter.at` is deprecated, use the `at` parameter on `counter.get` instead",
+        until = "0.15.0"
+    )]
     pub fn at(
         &self,
         engine: &mut Engine,

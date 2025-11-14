@@ -12,7 +12,7 @@ $ 2 + 3 $
 Is: #context s.get(),
 Was: #context {
   let it = query(math.equation).first()
-  s.at(it.location())
+  s.get(at: it.location())
 }.
 
 --- state-multiple-calls-same-key ---
@@ -56,8 +56,13 @@ Was: #context {
 #context s.get()
 
 --- state-at-no-context ---
-// Test `state.at` outside of context.
-// Error: 2-26 can only be used when context is known
-// Hint: 2-26 try wrapping this in a `context` expression
-// Hint: 2-26 the `context` expression should wrap everything that depends on this function
-#state("key").at(<label>)
+// Test `state.get(at: loc)` outside of context.
+// Error: 2-31 can only be used when context is known
+// Hint: 2-31 try wrapping this in a `context` expression
+// Hint: 2-31 the `context` expression should wrap everything that depends on this function
+#state("key").get(at: <label>)
+
+--- state-at-deprecated ---
+// Warning: 23-25 `state.at` is deprecated, use the `at` parameter on `state.get` instead
+// Hint: 23-25 it will be removed in Typst 0.15.0
+#context state("key").at(here())
