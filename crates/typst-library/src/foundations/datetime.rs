@@ -8,7 +8,7 @@ use time::macros::format_description;
 use time::{Month, PrimitiveDateTime, format_description};
 
 use crate::World;
-use crate::diag::{StrResult, bail};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
@@ -274,7 +274,16 @@ impl Datetime {
         /// The second of the datetime.
         #[named]
         second: Option<u8>,
-    ) -> StrResult<Datetime> {
+    ) -> HintedStrResult<Datetime> {
+        fn format_missing_fields(fields: Vec<&str>) -> String {
+            match fields.as_slice() {
+                [] => String::new(),
+                [field] => format!("{field} field"),
+                [fields @ .., field] => {
+                    format!("{} and {field} fields", fields.join(", "))
+                }
+            }
+        }
         let time = match (hour, minute, second) {
             (Some(hour), Some(minute), Some(second)) => {
                 match time::Time::from_hms(hour, minute, second) {
@@ -283,7 +292,19 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("time is incomplete"),
+            (hour, minute, second) => {
+                let time_fields = [
+                    if hour.is_none() { Some("`hour`") } else { None },
+                    if minute.is_none() { Some("`minute`") } else { None },
+                    if second.is_none() { Some("`second`") } else { None },
+                ];
+                let missing_fields =
+                    format_missing_fields(time_fields.into_iter().flatten().collect());
+                bail!(
+                    "time is incomplete";
+                    hint: "add {missing_fields} to get a valid time"
+                )
+            }
         };
 
         let date = match (year, month, day) {
@@ -294,7 +315,19 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("date is incomplete"),
+            (year, month, day) => {
+                let date_fields = [
+                    if year.is_none() { Some("`year`") } else { None },
+                    if month.is_none() { Some("`month`") } else { None },
+                    if day.is_none() { Some("`day`") } else { None },
+                ];
+                let missing_fields =
+                    format_missing_fields(date_fields.into_iter().flatten().collect());
+                bail!(
+                    "date is incomplete";
+                    hint: "add {missing_fields} to get a valid date"
+                )
+            }
         };
 
         Ok(match (date, time) {
