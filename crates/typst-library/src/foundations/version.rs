@@ -197,6 +197,29 @@ impl Repr for Version {
     }
 }
 
+impl TryFrom<&typst_syntax::TypstVersion> for Version {
+    type Error = EcoString;
+
+    /// Try to convert the Typst compiler version into a [`Version`] object.
+    fn try_from(value: &typst_syntax::TypstVersion) -> Result<Self, Self::Error> {
+        macro_rules! digit {
+            ($name:ident) => {
+                if let Ok(value) = u32::try_from(value.$name()) {
+                    value
+                } else {
+                    bail!(
+                        "invalid Typst {} version {} cannot be converted into version number",
+                        stringify!($name),
+                        value.$name(),
+                    );
+                }
+            };
+        }
+
+        Ok(Self::from_iter([digit!(major), digit!(minor), digit!(patch)]))
+    }
+}
+
 /// One or multiple version components.
 pub enum VersionComponents {
     Single(u32),

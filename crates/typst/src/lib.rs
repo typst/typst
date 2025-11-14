@@ -88,6 +88,11 @@ where
     sink.values()
 }
 
+/// Return the current Typst version.
+pub fn version() -> &'static typst_syntax::TypstVersion {
+    typst_syntax::TypstVersion::new()
+}
+
 /// The internal implementation of `compile` with a bit lower-level interface
 /// that is also used by `trace`.
 fn compile_impl<D: Document>(

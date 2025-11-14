@@ -93,7 +93,7 @@ fn set_failed() {
 
 /// Used by `args.rs`.
 fn typst_version() -> &'static str {
-    env!("TYPST_VERSION")
+    typst::version().raw()
 }
 
 /// Used by `args.rs`.
