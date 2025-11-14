@@ -18,8 +18,9 @@ use crate::collect::{
 };
 use crate::logger::TestResult;
 use crate::output::{
-    FileOutputType, HashOutputType, HashedRefs, OutputType, TestDocument,
+    FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
 };
+use crate::report::{FileReport, Old};
 use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, STORE_PATH, custom, output};
 
@@ -136,6 +137,7 @@ impl<'a> Runner<'a> {
                 errors: String::new(),
                 infos: String::new(),
                 mismatched_output: false,
+                report: None,
             },
             not_annotated: String::new(),
             unexpected_empty: UnexpectedEmpty::None,
@@ -334,10 +336,13 @@ impl<'a> Runner<'a> {
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
         let live = self.run_test::<T>(doc);
-        let output = doc.zip(live.as_ref());
-        self.save_live::<T>(output);
-        if self.test.should_check(T::OUTPUT) {
-            self.check_file_ref::<T>(output)
+        {
+            let output = doc.zip(live.as_ref());
+            let live_data = self.save_live::<T>(output);
+            if self.test.should_check(T::OUTPUT) {
+                let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
+                self.check_file_ref::<T>(output)
+            }
         }
         live
     }
@@ -348,10 +353,13 @@ impl<'a> Runner<'a> {
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
         let live = self.run_test::<T>(doc);
-        let output = doc.zip(live.as_ref());
-        self.save_live::<T>(output);
-        if self.test.should_check(T::OUTPUT) {
-            self.check_hash_ref::<T>(output)
+        {
+            let output = doc.zip(live.as_ref());
+            let live_data = self.save_live::<T>(output);
+            if self.test.should_check(T::OUTPUT) {
+                let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
+                self.check_hash_ref::<T>(output);
+            }
         }
         live
     }
@@ -374,13 +382,17 @@ impl<'a> Runner<'a> {
         live.ok()
     }
 
-    fn save_live<T: OutputType>(&self, output: Option<(&T::Doc, &T::Live)>) {
+    fn save_live<'d, T: OutputType>(
+        &self,
+        output: Option<(&'d T::Doc, &'d T::Live)>,
+    ) -> Option<impl AsRef<[u8]> + use<'d, T>> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
-        match output {
-            Some((doc, live)) if !T::is_empty(doc, live) => {
-                // Convert and save live version.
-                let live_data = T::save_live(doc, live);
 
+        // Convert live output, so it can be written to disk.
+        let live_data = output.map(|(doc, live)| T::save_live(doc, live));
+
+        match (output, &live_data) {
+            (Some((doc, live)), Some(live_data)) if !T::is_empty(doc, live) => {
                 match T::OUTPUT.kind() {
                     TestOutputKind::File => {
                         std::fs::write(&live_path, live_data).unwrap();
@@ -411,24 +423,35 @@ impl<'a> Runner<'a> {
                 std::fs::remove_file(&live_path).ok();
             }
         }
+
+        live_data
     }
 
     /// Check that the document output matches the existing file reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_file_ref<T: FileOutputType>(&mut self, output: Option<(&T::Doc, &T::Live)>) {
+    fn check_file_ref<T: FileOutputType>(
+        &mut self,
+        output: Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let ref_path = T::OUTPUT.file_ref_path(&self.test.name);
 
         let old_ref_data = std::fs::read(&ref_path).ok();
 
-        let live = match self.expect_output::<T>(output) {
+        let live = match self.expect_output::<T>(&output) {
             Ok(non_empty) => match non_empty.and(output) {
-                Some((_, live)) => live,
+                Some((_, live, _)) => live,
                 None => return,
             },
             Err(()) => {
                 self.result.mismatched_output = true;
+
+                let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
+                let new = output.map(|(_, _, data)| (live_path, data));
+                let file_report = make_report::<T>(old, new);
+                self.result.add_report(self.test.name.clone(), file_report);
+
                 return;
             }
         };
@@ -464,31 +487,57 @@ impl<'a> Runner<'a> {
             );
         } else {
             self.result.mismatched_output = true;
-            if old_ref_data.is_some() {
+            let old = if let Some(old_ref_data) = old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
+
+                Some((ref_path, Old::Data(old_ref_data)))
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
-            }
+
+                None
+            };
+
+            let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
+            self.result.add_report(self.test.name.clone(), file_report);
         }
     }
 
     /// Check that the document output matches the existing hashed reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_hash_ref<T: HashOutputType>(&mut self, output: Option<(&T::Doc, &T::Live)>) {
+    fn check_hash_ref<T: HashOutputType>(
+        &mut self,
+        output: Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let old_hash = self.hashes[T::INDEX].read().get(&self.test.name);
 
-        let live = match self.expect_output::<T>(output) {
+        let (live, live_data) = match self.expect_output::<T>(&output) {
             Ok(non_empty) => match non_empty.and(output) {
-                Some((_, live)) => live,
+                Some((_, live, data)) => (live, data),
                 None => return,
             },
             Err(()) => {
                 self.result.mismatched_output = true;
+
+                let old = old_hash.map(|old_hash| {
+                    let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                    let old_live_data = self.read_old_live_data::<T>(old_hash);
+                    (old_hash_path, old_live_data)
+                });
+
+                let new = output.map(|(_, live, data)| {
+                    let new_hash = T::make_hash(live);
+                    let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+                    (new_hash_path, data)
+                });
+
+                let file_report = make_report::<T>(old, new);
+                self.result.add_report(self.test.name.clone(), file_report);
+
                 return;
             }
         };
@@ -510,16 +559,26 @@ impl<'a> Runner<'a> {
             );
         } else {
             self.result.mismatched_output = true;
-            if let Some(old_hash) = old_hash {
+            let old = if let Some(old_hash) = old_hash {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  old       | {old_hash}");
                 log!(self, "  new       | {new_hash}");
+
+                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                let old_live_data = self.read_old_live_data::<T>(old_hash);
+                Some((old_hash_path, old_live_data))
             } else {
                 log!(self, "missing reference hash");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  new       | {new_hash}");
-            }
+
+                None
+            };
+
+            let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+            let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
+            self.result.add_report(self.test.name.clone(), file_report);
         }
     }
 
@@ -529,9 +588,9 @@ impl<'a> Runner<'a> {
     /// should be compared to a reference.
     fn expect_output<T: OutputType>(
         &mut self,
-        output: Option<(&T::Doc, &T::Live)>,
+        output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
     ) -> Result<Option<()>, ()> {
-        let Some((doc, live)) = output else {
+        let Some((doc, live, _)) = output else {
             if !self.test.should_error() {
                 log!(self, "missing output [{}]", T::OUTPUT);
                 return Err(());
@@ -551,6 +610,21 @@ impl<'a> Runner<'a> {
         }
 
         Ok(Some(()))
+    }
+
+    fn read_old_live_data<T: HashOutputType>(
+        &mut self,
+        old_hash: HashedRef,
+    ) -> Old<Vec<u8>> {
+        let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+
+        let old_live_data = std::fs::read(&old_hash_path).inspect_err(|_| {
+            log!(self, "  missing old live output {}", old_hash_path.display());
+        });
+        match old_live_data {
+            Ok(data) => Old::Data(data),
+            Err(_) => Old::Missing,
+        }
     }
 
     /// Compare a subset of notes with a given kind against diagnostics of
@@ -696,6 +770,17 @@ impl<'a> Runner<'a> {
 
         if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
     }
+}
+
+// Convenience wrapper that handles both owned and borrowed data.
+fn make_report<T: OutputType>(
+    a: Option<(impl AsRef<Path>, Old<impl AsRef<[u8]>>)>,
+    b: Option<(impl AsRef<Path>, impl AsRef<[u8]>)>,
+) -> FileReport {
+    let a = (a.as_ref())
+        .map(|(path, data)| (path.as_ref(), data.as_ref().map(|d| d.as_ref())));
+    let b = b.as_ref().map(|(path, data)| (path.as_ref(), data.as_ref()));
+    T::make_report(a, b.ok_or(()))
 }
 
 /// A bunch of copy pasted code from the `typst` crate, so we don't have to
