@@ -50,7 +50,7 @@ pub(crate) fn handle_image(
             let mut surface = defer(surface, |s| s.pop());
 
             let image = convert_raster(raster.clone(), interpolate)
-                .map_err(|e| eco_format!("failed to process image: {e}"))
+                .map_err(|err| eco_format!("failed to process image ({err})"))
                 .at(span)?;
 
             if !gc.image_to_spans.contains_key(&image) {

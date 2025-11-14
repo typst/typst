@@ -399,8 +399,8 @@ pub(crate) fn handle_group(
     Ok(())
 }
 
-#[typst_macros::time(name = "finish export")]
 /// Finish a krilla document and handle export errors.
+#[typst_macros::time(name = "finish export")]
 fn finish(
     document: Document,
     gc: GlobalContext,
@@ -411,11 +411,11 @@ fn finish(
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
-            KrillaError::Font(f, s) => {
+            KrillaError::Font(f, err) => {
                 let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(
                     Span::detached(),
-                    "failed to process font {font_str}: {s}";
+                    "failed to process font {font_str} ({err})";
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst"
                 );
@@ -427,9 +427,9 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
-            KrillaError::Image(_, loc, e) => {
+            KrillaError::Image(_, loc, err) => {
                 let span = to_span(loc);
-                bail!(span, "failed to process image: {e}");
+                bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();
