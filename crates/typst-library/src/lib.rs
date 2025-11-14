@@ -76,6 +76,19 @@ pub trait World: Send + Sync {
     /// Try to access the font with the given index in the font book.
     fn font(&self, index: usize) -> Option<Font>;
 
+    /// Try to get the tree-sitter language for the given name
+    fn tree_sitter_language(
+        &self,
+        name: String,
+        aliases: Vec<String>,
+        wasm: &[u8],
+    ) -> Option<tree_sitter::Language> {
+        let _ = name;
+        let _ = aliases;
+        let _ = wasm;
+        None
+    }
+
     /// Get the current date.
     ///
     /// If no offset is specified, the local date should be chosen. Otherwise,
@@ -111,6 +124,15 @@ macro_rules! world_impl {
 
             fn font(&self, index: usize) -> Option<Font> {
                 self.deref().font(index)
+            }
+
+            fn tree_sitter_language(
+                &self,
+                name: String,
+                aliases: Vec<String>,
+                wasm: &[u8],
+            ) -> Option<tree_sitter::Language> {
+                self.deref().tree_sitter_language(name, aliases, wasm)
             }
 
             fn today(&self, offset: Option<i64>) -> Option<Datetime> {

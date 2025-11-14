@@ -147,6 +147,7 @@
             inputsFrom = [ typst ];
 
             buildInputs = [
+              pkgs.cmake
               rust-toolchain.rust-analyzer
               rust-toolchain.rust-src
             ];
