@@ -60,11 +60,48 @@ a:hover {
 }
 
 .file-diff {
+    position: relative;
     margin: 8px;
     scroll-margin-top: 8px;
     border-radius: 8px;
     background-color: #1e1e1e;
     overflow: clip;
+}
+
+.file-diff:has(.collapse-diff:checked) {
+    .diff-body {
+        display: none;
+    }
+}
+
+/* Checkbox styled as a chevron */
+input[type="checkbox"].collapse-diff {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 100;
+
+    appearance: none;
+    display: grid;
+    place-content: center;
+
+    background-color: transparent;
+    border: none;
+    width: 3em;
+    height: 3em;
+    padding: 0;
+    margin: 0;
+}
+
+input[type="checkbox"].collapse-diff::before {
+    content: "\2039";
+    font-size: 18pt;
+    transition: 120ms transform ease-in-out;
+    transform: rotate(-90deg);
+}
+
+input[type="checkbox"].collapse-diff:checked::before {
+    transform: rotate(0deg);
 }
 
 table.diff-area {
