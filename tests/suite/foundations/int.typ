@@ -19,6 +19,10 @@
 #test(int(10), 10)
 #test(int("150"), 150)
 #test(int("-834"), -834)
+#test(int("beef", base: 16), 48879)
+#test(int("-cAfFe", base: 16), -831486)
+#test(int("10", base: 2), 2)
+#test(int("644", base: 8), 420)
 #test(int("\u{2212}79"), -79)
 #test(int(10 / 3), 3)
 #test(int(-58.34), -58)
@@ -30,8 +34,24 @@
 #int(10pt)
 
 --- int-constructor-bad-value ---
-// Error: 6-12 invalid integer: nope
+// Error: 6-12 invalid integer: invalid digit found while parsing integer
 #int("nope")
+
+--- int-constructor-str-parse-overflow ---
+// Error: 6-39 invalid integer: the integer is too large to fit into a signed 64-bit integer
+#int("fffffffffffffffffffffffffffffff", base: 16)
+
+--- int-constructor-base-with-non-string ---
+// Error: 16-18 base is only supported for strings
+#int(40, base: 16)
+
+--- int-constructor-str-small-base ---
+// Error: 17-18 base must be between 2 and 36
+#int("0", base: 1)
+
+--- int-constructor-str-large-base ---
+// Error: 17-19 base must be between 2 and 36
+#int("0", base: 42)
 
 --- int-constructor-float-too-large ---
 // Error: 6-27 number too large
