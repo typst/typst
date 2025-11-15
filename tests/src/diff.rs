@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use ecow::EcoString;
@@ -118,8 +118,8 @@ pub fn text_diff(
     left.push(line_end());
     right.push(line_end());
 
+    let thead = typst_utils::display(|f| table_header(f, path_a, path_b));
     let rows = typst_utils::display(|f| {
-        header_row(f, path_a, path_b);
         for (l, r) in left.iter().zip(right.iter()) {
             writeln!(
                 f,
@@ -136,6 +136,7 @@ pub fn text_diff(
 
     let html = format!(
         r#"<div class="file-diff" id="{name}">
+        <input type="checkbox" class="collapse-diff"/>
     <table columns="4" class="diff-area">
         <colgroup>
             <col span="1" class="col-line-gutter">
@@ -143,7 +144,11 @@ pub fn text_diff(
             <col span="1" class="col-line-gutter">
             <col span="1" class="col-line-body">
         </colgroup>
+{thead}
+<tbody class="diff-body">
 {rows}
+</tbody>
+<t>
     </table>
 </div>
 "#
@@ -151,7 +156,7 @@ pub fn text_diff(
     TextFileDiff { name, html }
 }
 
-fn header_row(f: &mut impl Write, a: &Path, b: &Path) {
+fn table_header(f: &mut Formatter, a: &Path, b: &Path) -> std::fmt::Result {
     let a = a.display();
     let b = b.display();
     writeln!(
@@ -163,7 +168,6 @@ fn header_row(f: &mut impl Write, a: &Path, b: &Path) {
     </tr>
 </thead>"#
     )
-    .ok();
 }
 
 fn line_empty() -> String {
@@ -201,7 +205,7 @@ fn diff_line(kind: &str, line_nr: impl Display, line: impl Display) -> String {
 
 fn display_line_text<'a>(
     change: &InlineChange<str>,
-    write_emph: fn(&mut std::fmt::Formatter, span: &str) -> std::fmt::Result,
+    write_emph: fn(&mut Formatter, span: &str) -> std::fmt::Result,
 ) -> impl Display {
     typst_utils::display(move |f| {
         for (emph, span) in change.iter_strings_lossy() {
@@ -216,16 +220,16 @@ fn display_line_text<'a>(
     })
 }
 
-fn span_unchanged(f: &mut std::fmt::Formatter, span: &str) -> std::fmt::Result {
+fn span_unchanged(f: &mut Formatter, span: &str) -> std::fmt::Result {
     Display::fmt(&Escaped(span), f)
 }
 
-fn span_del(f: &mut std::fmt::Formatter, span: &str) -> std::fmt::Result {
+fn span_del(f: &mut Formatter, span: &str) -> std::fmt::Result {
     let span = Escaped(span);
     write!(f, r#"<span class="span-del">{span}</span>"#)
 }
 
-fn span_add(f: &mut std::fmt::Formatter, span: &str) -> std::fmt::Result {
+fn span_add(f: &mut Formatter, span: &str) -> std::fmt::Result {
     let span = Escaped(span);
     write!(f, r#"<span class="span-add">{span}</span>"#)
 }
@@ -234,7 +238,7 @@ fn span_add(f: &mut std::fmt::Formatter, span: &str) -> std::fmt::Result {
 struct Escaped<'a>(&'a str);
 
 impl std::fmt::Display for Escaped<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut remainder = self.0;
         while let Some(i) = remainder.find(['<', '&', '>']) {
             f.write_str(&remainder[..i])?;
