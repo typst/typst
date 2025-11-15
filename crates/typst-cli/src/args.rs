@@ -186,27 +186,11 @@ pub struct QueryCommand {
 pub struct EvalCommand {
     /// The piece of Typst code to evaluate. Use `-` to read input from stdin.
     #[clap(value_parser = string_input_value_parser())]
-    pub statement: StringInput,
+    pub expression: StringInput,
 
     /// The file to evaluate the code in. Can be used to introspect the document.
     #[clap(long = "in", value_hint = ValueHint::FilePath)]
     pub r#in: Option<PathBuf>,
-
-    /// The syntax mode to use for evaluation.
-    #[clap(long = "mode", default_value_t)]
-    pub mode: SyntaxMode,
-
-    /// The scope to use for evaluation. The format is `key=value`.
-    /// Multiple key-value pairs can be specified.
-    /// For example, `--scope a=1 --scope b=2`.
-    /// The `value` is evaluated as Typst code.
-    #[clap(
-        long = "scope",
-        value_name = "key=value",
-        action = ArgAction::Append,
-        value_parser = ValueParser::new(parse_sys_input_pair),
-    )]
-    pub scope: Vec<(String, String)>,
 
     /// The target to compile for.
     #[clap(long, default_value_t)]
@@ -745,17 +729,6 @@ pub enum SerializationFormat {
 }
 
 display_possible_values!(SerializationFormat);
-
-/// The syntax mode to use for evaluation.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
-pub enum SyntaxMode {
-    #[default]
-    Code,
-    Markup,
-    Math,
-}
-
-display_possible_values!(SyntaxMode);
 
 /// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a

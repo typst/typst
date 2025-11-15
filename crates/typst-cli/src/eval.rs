@@ -1,12 +1,12 @@
-use crate::args::{EvalCommand, FileInput, StringInput, SyntaxMode, Target};
+use crate::args::{EvalCommand, FileInput, StringInput, Target};
 use crate::world::{SystemWorld, decode_utf8, read_from_stdin};
 use crate::{compile::print_diagnostics, set_failed};
 use comemo::Track;
-use ecow::{EcoString, eco_format};
+use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
-use typst::foundations::{Binding, Context, Scope, StyleChain, Value};
-use typst::{World, introspection::Introspector, layout::PagedDocument};
-use typst::{engine::Sink, syntax::Span};
+use typst::foundations::{Context, Scope, StyleChain, Value};
+use typst::syntax::{Span, SyntaxMode};
+use typst::{World, engine::Sink, introspection::Introspector, layout::PagedDocument};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
@@ -34,19 +34,12 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
         // Retrieve and print evaluation results.
         Ok(introspector) => {
             let mut sink = Sink::new();
-            let scope = evaluate_scope(&command.scope, &mut sink, &world, &introspector)?;
-            let statement = match &command.statement {
-                StringInput::Stdin => read_statement_from_stdin()?,
-                StringInput::String(statement) => statement.clone(),
+            let expression = match &command.expression {
+                StringInput::Stdin => read_expression_from_stdin()?,
+                StringInput::String(expression) => expression.clone(),
             };
-            let eval_result = evaluate_statement(
-                statement,
-                command.mode,
-                scope,
-                &mut sink,
-                &world,
-                &introspector,
-            );
+            let eval_result =
+                evaluate_expression(expression, &mut sink, &world, &introspector);
             let errors = match &eval_result {
                 Err(errors) => errors.as_slice(),
                 Ok(value) => {
@@ -56,7 +49,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                     &[]
                 }
             };
-            // Collect additional warnings from code evaluations
+            // Collect additional warnings from code evaluation
             warnings.extend(sink.warnings());
 
             print_diagnostics(
@@ -84,53 +77,9 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     Ok(())
 }
 
-/// Evaluates the scope with values interpreted as Typst code.
-fn evaluate_scope(
-    key_value_pairs: &[(String, String)],
-    sink: &mut Sink,
-    world: &dyn World,
-    introspector: &Introspector,
-) -> HintedStrResult<Scope> {
-    let mut scope = Scope::new();
-
-    for (key, value) in key_value_pairs {
-        let mut local_sink = Sink::new();
-        let value = evaluate_statement(
-            value.clone(),
-            SyntaxMode::Code,
-            Scope::default(),
-            &mut local_sink,
-            world,
-            introspector,
-        )
-        .map_err(|errors| {
-            let mut message = EcoString::from(format!(r#"scope value for "{key}""#));
-            for (i, error) in errors.into_iter().enumerate() {
-                message.push_str(if i == 0 { ": " } else { ", " });
-                message.push_str(&error.message);
-            }
-            message
-        })?;
-
-        // Propagate warnings from code evaluations
-        for mut warning in local_sink.warnings() {
-            warning.message =
-                eco_format!(r#"scope value for "{key}": {}"#, warning.message);
-            sink.warn(warning);
-        }
-
-        // Bind the evaluated value to the scope aggregated so far
-        scope.bind(key.into(), Binding::detached(value));
-    }
-
-    Ok(scope)
-}
-
-/// Evaluates the statement with the given mode and scope.
-fn evaluate_statement(
-    statement: String,
-    mode: SyntaxMode,
-    scope: Scope,
+/// Evaluates the expression with code SyntaxMode and no scope.
+fn evaluate_expression(
+    expression: String,
     sink: &mut Sink,
     world: &dyn World,
     introspector: &Introspector,
@@ -141,19 +90,15 @@ fn evaluate_statement(
         sink.track_mut(),
         introspector.track(),
         Context::new(None, Some(StyleChain::new(&world.library().styles))).track(),
-        &statement,
+        &expression,
         Span::detached(),
-        match mode {
-            SyntaxMode::Code => typst::syntax::SyntaxMode::Code,
-            SyntaxMode::Markup => typst::syntax::SyntaxMode::Markup,
-            SyntaxMode::Math => typst::syntax::SyntaxMode::Math,
-        },
-        scope,
+        SyntaxMode::Code,
+        Scope::default(),
     )
 }
 
 /// Reads a statement from stdin, decoding it from UTF-8.
-fn read_statement_from_stdin() -> HintedStrResult<String> {
+fn read_expression_from_stdin() -> HintedStrResult<String> {
     let result = read_from_stdin()?;
     let statement = decode_utf8(&result)?;
     Ok(statement.into())
