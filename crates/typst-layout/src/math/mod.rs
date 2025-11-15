@@ -9,6 +9,7 @@ mod lr;
 mod mat;
 mod root;
 mod run;
+mod shaping;
 mod stretch;
 mod text;
 mod underover;
@@ -203,7 +204,7 @@ pub fn layout_equation_block(
 
     let pod = Region::new(regions.base(), Axes::splat(false));
     let counter = Counter::of(EquationElem::ELEM)
-        .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
+        .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
     let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 

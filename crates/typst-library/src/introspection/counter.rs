@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -5,17 +6,19 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, Protected};
 
 use crate::World;
-use crate::diag::{At, HintedStrResult, SourceResult, bail};
+use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
     LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
-use crate::introspection::{Introspector, Locatable, Location, Tag, Unqueriable};
+use crate::introspection::{
+    History, Introspect, Introspector, Locatable, Location, Tag, Unqueriable,
+};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
@@ -216,128 +219,13 @@ impl Counter {
         Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
-    /// Gets the current and final value of the state combined in one state.
-    pub fn both(
-        &self,
-        engine: &mut Engine,
-        location: Location,
-    ) -> SourceResult<CounterState> {
-        let sequence = self.sequence(engine)?;
-        let offset = engine.introspector.query_count_before(&self.selector(), location);
-        let (mut at_state, at_page) = sequence[offset].clone();
-        let (mut final_state, final_page) = sequence.last().unwrap().clone();
-        if self.is_page() {
-            let at_delta =
-                engine.introspector.page(location).get().saturating_sub(at_page.get());
-            at_state.step(NonZeroUsize::ONE, at_delta as u64);
-            let final_delta =
-                engine.introspector.pages().get().saturating_sub(final_page.get());
-            final_state.step(NonZeroUsize::ONE, final_delta as u64);
-        }
-        Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
-    }
-
-    /// Gets the value of the counter at the given location. Always returns an
-    /// array of integers, even if the counter has just one number.
-    pub fn at_loc(
-        &self,
-        engine: &mut Engine,
-        location: Location,
-    ) -> SourceResult<CounterState> {
-        let sequence = self.sequence(engine)?;
-        let offset = engine.introspector.query_count_before(&self.selector(), location);
-        let (mut state, page) = sequence[offset].clone();
-        if self.is_page() {
-            let delta =
-                engine.introspector.page(location).get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta as u64);
-        }
-        Ok(state)
-    }
-
-    /// Displays the value of the counter at the given location.
-    pub fn display_at_loc(
-        &self,
-        engine: &mut Engine,
-        loc: Location,
-        styles: StyleChain,
-        numbering: &Numbering,
-    ) -> SourceResult<Content> {
-        let context = Context::new(Some(loc), Some(styles));
-        Ok(self
-            .at_loc(engine, loc)?
-            .display(engine, context.track(), numbering)?
-            .display())
-    }
-
-    /// Produce the whole sequence of counter states.
-    ///
-    /// This has to happen just once for all counters, cutting down the number
-    /// of counter updates from quadratic to linear.
-    fn sequence(
-        &self,
-        engine: &mut Engine,
-    ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
-        self.sequence_impl(
-            engine.routines,
-            engine.world,
-            engine.introspector,
-            engine.traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            engine.route.track(),
-        )
-    }
-
-    /// Memoized implementation of `sequence`.
-    #[comemo::memoize]
-    fn sequence_impl(
-        &self,
-        routines: &Routines,
-        world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
-        traced: Tracked<Traced>,
-        sink: TrackedMut<Sink>,
-        route: Tracked<Route>,
-    ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
-        let mut engine = Engine {
-            routines,
-            world,
-            introspector,
-            traced,
-            sink,
-            route: Route::extend(route).unnested(),
-        };
-
-        let mut state = CounterState::init(matches!(self.0, CounterKey::Page));
-        let mut page = NonZeroUsize::ONE;
-        let mut stops = eco_vec![(state.clone(), page)];
-
-        for elem in introspector.query(&self.selector()) {
-            if self.is_page() {
-                let prev = page;
-                page = introspector.page(elem.location().unwrap());
-
-                let delta = page.get() - prev.get();
-                if delta > 0 {
-                    state.step(NonZeroUsize::ONE, delta as u64);
-                }
-            }
-
-            if let Some(update) = match elem.with::<dyn Count>() {
-                Some(countable) => countable.update(),
-                None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
-            } {
-                state.update(&mut engine, update)?;
-            }
-
-            stops.push((state.clone(), page));
-        }
-
-        Ok(stops)
+    /// Selects all state updates.
+    pub fn select_any() -> Selector {
+        CounterUpdateElem::ELEM.select()
     }
 
     /// The selector relevant for this counter's updates.
-    fn selector(&self) -> Selector {
+    pub fn select(&self) -> Selector {
         let mut selector = select_where!(CounterUpdateElem, key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
@@ -348,57 +236,48 @@ impl Counter {
     }
 
     /// Whether this is the page counter.
-    fn is_page(&self) -> bool {
+    pub fn is_page(&self) -> bool {
         self.0 == CounterKey::Page
     }
 
-    /// Shared implementation of displaying between `counter.display` and
-    /// `CounterDisplayElem`.
-    fn display_impl(
+    /// Displays the value of the counter at the given location.
+    pub fn display_at(
         &self,
         engine: &mut Engine,
-        location: Location,
-        numbering: Smart<Numbering>,
-        both: bool,
-        styles: Option<StyleChain>,
-    ) -> SourceResult<Value> {
-        let numbering = numbering
-            .custom()
-            .or_else(|| {
-                let styles = styles?;
-                match self.0 {
-                    CounterKey::Page => styles.get_cloned(PageElem::numbering),
-                    CounterKey::Selector(Selector::Elem(func, _)) => {
-                        if func == HeadingElem::ELEM {
-                            styles.get_cloned(HeadingElem::numbering)
-                        } else if func == FigureElem::ELEM {
-                            styles.get_cloned(FigureElem::numbering)
-                        } else if func == EquationElem::ELEM {
-                            styles.get_cloned(EquationElem::numbering)
-                        } else if func == FootnoteElem::ELEM {
-                            Some(styles.get_cloned(FootnoteElem::numbering))
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                }
-            })
-            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
-
-        let state = if both {
-            self.both(engine, location)?
-        } else {
-            self.at_loc(engine, location)?
-        };
-
-        let context = Context::new(Some(location), styles);
-        state.display(engine, context.track(), &numbering)
+        loc: Location,
+        styles: StyleChain,
+        numbering: &Numbering,
+        span: Span,
+    ) -> SourceResult<Content> {
+        let context = Context::new(Some(loc), Some(styles));
+        Ok(engine
+            .introspect(CounterAtIntrospection(self.clone(), loc, span))?
+            .display(engine, context.track(), numbering)?
+            .display())
     }
 
-    /// Selects all state updates.
-    pub fn select_any() -> Selector {
-        CounterUpdateElem::ELEM.select()
+    /// Resolves the numbering for this counter track.
+    ///
+    /// This coupling between the counter type and the remaining standard
+    /// library is not great ...
+    fn matching_numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        match self.0 {
+            CounterKey::Page => styles.get_cloned(PageElem::numbering),
+            CounterKey::Selector(Selector::Elem(func, _)) => {
+                if func == HeadingElem::ELEM {
+                    styles.get_cloned(HeadingElem::numbering)
+                } else if func == FigureElem::ELEM {
+                    styles.get_cloned(FigureElem::numbering)
+                } else if func == EquationElem::ELEM {
+                    styles.get_cloned(EquationElem::numbering)
+                } else if func == FootnoteElem::ELEM {
+                    Some(styles.get_cloned(FootnoteElem::numbering))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
     }
 }
 
@@ -435,7 +314,7 @@ impl Counter {
         span: Span,
     ) -> SourceResult<CounterState> {
         let loc = context.location().at(span)?;
-        self.at_loc(engine, loc)
+        engine.introspect(CounterAtIntrospection(self.clone(), loc, span))
     }
 
     /// Displays the current value of the counter with a numbering and returns
@@ -465,8 +344,19 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        let loc = context.location().at(span)?;
-        self.display_impl(engine, loc, numbering, both, context.styles().ok())
+        let location = context.location().at(span)?;
+        let state = if both {
+            engine.introspect(CounterBothIntrospection(self.clone(), location, span))?
+        } else {
+            engine.introspect(CounterAtIntrospection(self.clone(), location, span))?
+        };
+
+        let numbering = numbering
+            .custom()
+            .or_else(|| self.matching_numbering(context.styles().ok()?))
+            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
+
+        state.display(engine, context, &numbering)
     }
 
     /// Retrieves the value of the counter at the given location. Always returns
@@ -484,8 +374,8 @@ impl Counter {
         /// The place at which the counter's value should be retrieved.
         selector: LocatableSelector,
     ) -> SourceResult<CounterState> {
-        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
-        self.at_loc(engine, loc)
+        let loc = selector.resolve_unique(engine, context, span)?;
+        engine.introspect(CounterAtIntrospection(self.clone(), loc, span))
     }
 
     /// Retrieves the value of the counter at the end of the document. Always
@@ -498,13 +388,7 @@ impl Counter {
         span: Span,
     ) -> SourceResult<CounterState> {
         context.introspect().at(span)?;
-        let sequence = self.sequence(engine)?;
-        let (mut state, page) = sequence.last().unwrap().clone();
-        if self.is_page() {
-            let delta = engine.introspector.pages().get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta as u64);
-        }
-        Ok(state)
+        engine.introspect(CounterFinalIntrospection(self.clone(), span))
     }
 
     /// Increases the value of the counter by one.
@@ -737,12 +621,13 @@ impl Construct for CounterDisplayElem {
 pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styles| {
     Ok(elem
         .counter
-        .display_impl(
+        .clone()
+        .display(
             engine,
-            elem.location().unwrap(),
+            Context::new(elem.location(), Some(styles)).track(),
+            elem.span(),
             elem.numbering.clone(),
             elem.both,
-            Some(styles),
         )?
         .display())
 };
@@ -804,4 +689,193 @@ impl Default for ManualPageCounter {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Retrieves a counter at a specific location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CounterAtIntrospection(Counter, Location, Span);
+
+impl Introspect for CounterAtIntrospection {
+    type Output = SourceResult<CounterState>;
+
+    fn introspect(
+        &self,
+        engine: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let Self(counter, loc, _) = self;
+        let sequence = sequence(counter, engine, introspector)?;
+        let offset = introspector.query_count_before(&counter.select(), *loc);
+        let (mut state, page) = sequence[offset].clone();
+        if counter.is_page() {
+            let delta = introspector.page(*loc).get().saturating_sub(page.get());
+            state.step(NonZeroUsize::ONE, delta as u64);
+        }
+        Ok(state)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(&self.0, self.2, history)
+    }
+}
+
+/// Retrieves the first number of a counter at a specific location and the first
+/// number of the final state, both in one operation.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CounterBothIntrospection(Counter, Location, Span);
+
+impl Introspect for CounterBothIntrospection {
+    type Output = SourceResult<CounterState>;
+
+    fn introspect(
+        &self,
+        engine: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let Self(counter, loc, _) = self;
+        let sequence = sequence(counter, engine, introspector)?;
+        let offset = introspector.query_count_before(&counter.select(), *loc);
+        let (mut at_state, at_page) = sequence[offset].clone();
+        let (mut final_state, final_page) = sequence.last().unwrap().clone();
+        if counter.is_page() {
+            let at_delta = introspector.page(*loc).get().saturating_sub(at_page.get());
+            at_state.step(NonZeroUsize::ONE, at_delta as u64);
+            let final_delta = introspector.pages().get().saturating_sub(final_page.get());
+            final_state.step(NonZeroUsize::ONE, final_delta as u64);
+        }
+        Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(&self.0, self.2, history)
+    }
+}
+
+/// Retrieves the final state of a counter.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CounterFinalIntrospection(Counter, Span);
+
+impl Introspect for CounterFinalIntrospection {
+    type Output = SourceResult<CounterState>;
+
+    fn introspect(
+        &self,
+        engine: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let Self(counter, _) = self;
+        let sequence = sequence(counter, engine, introspector)?;
+        let (mut state, page) = sequence.last().unwrap().clone();
+        if counter.is_page() {
+            let delta = introspector.pages().get().saturating_sub(page.get());
+            state.step(NonZeroUsize::ONE, delta as u64);
+        }
+        Ok(state)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(&self.0, self.1, history)
+    }
+}
+
+/// Produces the whole sequence of a counter.
+///
+/// Due to memoization, this has to happen just once for all retrievals of the
+/// same counter, cutting down the number of computations from quadratic to
+/// linear.
+fn sequence(
+    counter: &Counter,
+    engine: &mut Engine,
+    introspector: Tracked<Introspector>,
+) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
+    sequence_impl(
+        counter,
+        engine.routines,
+        engine.world,
+        introspector,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+    )
+}
+
+/// Memoized implementation of `sequence`.
+#[comemo::memoize]
+fn sequence_impl(
+    counter: &Counter,
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
+    let mut engine = Engine {
+        routines,
+        world,
+        introspector: Protected::from_raw(introspector),
+        traced,
+        sink,
+        route: Route::extend(route).unnested(),
+    };
+
+    let mut current = CounterState::init(matches!(counter.0, CounterKey::Page));
+    let mut page = NonZeroUsize::ONE;
+    let mut stops = eco_vec![(current.clone(), page)];
+
+    for elem in introspector.query(&counter.select()) {
+        if counter.is_page() {
+            let prev = page;
+            page = introspector.page(elem.location().unwrap());
+
+            let delta = page.get() - prev.get();
+            if delta > 0 {
+                current.step(NonZeroUsize::ONE, delta as u64);
+            }
+        }
+
+        if let Some(update) = match elem.with::<dyn Count>() {
+            Some(countable) => countable.update(),
+            None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
+        } {
+            current.update(&mut engine, update)?;
+        }
+
+        stops.push((current.clone(), page));
+    }
+
+    Ok(stops)
+}
+
+/// The warning when a counter failed to converge.
+fn format_convergence_warning(
+    counter: &Counter,
+    span: Span,
+    history: &History<SourceResult<CounterState>>,
+) -> SourceDiagnostic {
+    warning!(span, "value of {} did not converge", format_key(counter)).with_hint(
+        history.hint("values", |ret| match ret {
+            Ok(v) => format_counter_state(v),
+            Err(_) => "(errored)".into(),
+        }),
+    )
+}
+
+/// Formats a counter's key human-readably.
+fn format_key(counter: &Counter) -> EcoString {
+    match counter.0 {
+        CounterKey::Page => "the page counter".into(),
+        _ => eco_format!("`{}`", counter.repr()),
+    }
+}
+
+/// Formats a counter's state human-readably.
+fn format_counter_state(state: &CounterState) -> EcoString {
+    let mut output = EcoString::new();
+    let mut sep = "";
+    for value in state.0.as_slice() {
+        write!(output, "{sep}{value}").unwrap();
+        sep = ", ";
+    }
+    output
 }

@@ -284,3 +284,8 @@ $ mat(
     dots.v, dots.v, dots.v, dots.v, dots.down;
   )
   mat(p_0; p_1; p_2; dots.v) $
+
+--- math-mat-delim-class ---
+// Test that delimiters have opening and closing math class.
+$ 2mat(a, delim: bar.v) 2 $
+$ 2 mat(a, delim: bar.v)2 $

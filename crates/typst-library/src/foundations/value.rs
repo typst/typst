@@ -494,7 +494,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
 /// A value that is not part of the built-in enum.
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {

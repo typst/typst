@@ -1,5 +1,5 @@
 use crate::foundations::{Content, Func, Smart, cast, elem};
-use crate::layout::{Abs, Angle, Length, Ratio, Rel};
+use crate::layout::{Angle, Em, Length, Ratio, Rel};
 use crate::math::Mathy;
 use crate::visualize::Stroke;
 
@@ -29,7 +29,7 @@ pub struct CancelElem {
     /// $ a + cancel(x, length: #200%)
     ///     - cancel(x, length: #200%) $
     /// ```
-    #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
+    #[default(Rel::new(Ratio::one(), Em::new(0.3).into()))]
     pub length: Rel<Length>,
 
     /// Whether the cancel line should be inverted (flipped along the y-axis).
@@ -90,8 +90,8 @@ pub struct CancelElem {
     /// ```
     #[fold]
     #[default(Stroke {
-        // Default stroke has 0.5pt for better visuals.
-        thickness: Smart::Custom(Abs::pt(0.5).into()),
+        // Default stroke has 0.05em for better visuals.
+        thickness: Smart::Custom(Em::new(0.05).into()),
         ..Default::default()
     })]
     pub stroke: Stroke,

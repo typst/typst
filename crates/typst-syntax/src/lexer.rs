@@ -1,5 +1,7 @@
 use ecow::{EcoString, eco_format};
+use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_math_class::MathClass;
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
@@ -577,7 +579,6 @@ impl Lexer<'_> {
             ':' if self.s.eat_if(":=") => SyntaxKind::MathShorthand,
             '!' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
             '.' if self.s.eat_if("..") => SyntaxKind::MathShorthand,
-            '[' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("==>") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("-->") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("--") => SyntaxKind::MathShorthand,
@@ -601,7 +602,6 @@ impl Lexer<'_> {
             '>' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
-            '|' if self.s.eat_if(']') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if("~>") => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
@@ -610,22 +610,48 @@ impl Lexer<'_> {
             '.' => SyntaxKind::Dot,
             ',' => SyntaxKind::Comma,
             ';' => SyntaxKind::Semicolon,
-            ')' => SyntaxKind::RightParen,
 
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
-            '\'' => SyntaxKind::Prime,
             '&' => SyntaxKind::MathAlignPoint,
             '√' | '∛' | '∜' => SyntaxKind::Root,
+            '!' => SyntaxKind::Bang,
+
+            '\'' => {
+                self.s.eat_while('\'');
+                SyntaxKind::MathPrimes
+            }
+
+            // We lex delimiters as `{Left,Right}{Brace,Paren}` and convert back
+            // to `MathText` or `MathShorthand` in the parser.
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
+            // TODO: We may instead want to add `MathOpening` and `MathClosing`
+            // kinds for these.
+            '[' if self.s.eat_if('|') => SyntaxKind::LeftBrace,
+            '|' if self.s.eat_if(']') => SyntaxKind::RightBrace,
+            c if default_math_class(c) == Some(MathClass::Opening) => {
+                SyntaxKind::LeftBrace
+            }
+            c if default_math_class(c) == Some(MathClass::Closing) => {
+                SyntaxKind::RightBrace
+            }
 
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                let (kind, node) = self.math_ident_or_field(start);
-                return (kind, Some(node));
+                let (last_index, _) =
+                    self.s.from(start).grapheme_indices(true).next_back().unwrap();
+                if last_index == 0 {
+                    // If this was just a single grapheme.
+                    SyntaxKind::MathText
+                } else {
+                    let (kind, node) = self.math_ident_or_field(start);
+                    return (kind, Some(node));
+                }
             }
 
             // Other math atoms.
@@ -670,7 +696,6 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
-            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -679,14 +704,8 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
-            if len > c.len_utf8() {
-                // Grapheme clusters are treated as normal text and stay grouped
-                // This may need to change in the future.
-                SyntaxKind::Text
-            } else {
-                SyntaxKind::MathText
-            }
         }
+        SyntaxKind::MathText
     }
 
     /// Handle named arguments in math function call.
@@ -717,9 +736,11 @@ impl Lexer<'_> {
         let cursor = self.s.cursor();
         self.s.jump(start);
         if self.s.eat_if("..") {
-            // Check that neither a space nor a dot follows the spread syntax.
-            // A dot would clash with the `...` math shorthand.
-            if !self.space_or_end() && !self.s.at('.') {
+            // We only infer a spread operator if it is not followed by:
+            // - a space/trivia/end
+            // - a dot (this would clash with the `...` math shorthand)
+            // - an end of arg character: `,`, `;`, ')', `$` (spreads nothing)
+            if !self.space_or_end() && !self.s.at(['.', ',', ';', ')', '$']) {
                 let node = SyntaxNode::leaf(SyntaxKind::Dots, self.s.from(start));
                 return Some(node);
             }

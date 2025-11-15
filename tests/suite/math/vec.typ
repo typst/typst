@@ -54,3 +54,8 @@ $ vec(1, 2) $
 // Warning: 20-29 linebreaks are ignored in elements
 // Hint: 20-29 use commas instead to separate each line
 $ vec(a, b, c) vec(a \ b \ c) $
+
+--- math-vec-delim-class ---
+// Test that delimiters have opening and closing math class.
+$ 2vec(a, delim: bar.v) 2 $
+$ 2 vec(a, delim: bar.v)2 $

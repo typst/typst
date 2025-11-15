@@ -173,6 +173,19 @@ The number 123.
 // Hint: 17-65 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))
 
+--- text-font-covers-reflection ---
+// reflect "latin-in-cjk" covers
+#set text(font: (name: "Ubuntu", covers: "latin-in-cjk"))
+#context test(text.font, (name: "ubuntu", covers: "latin-in-cjk"))
+
+// reflect regex covers
+#set text(font: (name: "Ubuntu", covers: regex("\d")))
+#context test(text.font, (name: "ubuntu", covers: regex("\d")))
+
+// reflect font list with covers
+#set text(font: ((name: "Ubuntu", covers: regex("\d")), "IBM Plex Serif"))
+#context test(text.font, ((name: "ubuntu", covers: regex("\d")), "ibm plex serif"))
+
 --- issue-5262-text-negative-size ---
 #set text(-1pt)
 

@@ -17,7 +17,7 @@ mod vm;
 pub use self::call::{CapturesVisitor, eval_closure};
 pub use self::flow::FlowEvent;
 pub use self::import::import;
-pub use self::vm::Vm;
+pub use self::vm::{Vm, hint_if_shadowed_std};
 
 use self::access::*;
 use self::binding::*;
@@ -32,6 +32,7 @@ use typst_library::introspection::Introspector;
 use typst_library::math::EquationElem;
 use typst_library::routines::Routines;
 use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_utils::Protected;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
@@ -55,7 +56,7 @@ pub fn eval(
     let engine = Engine {
         routines,
         world,
-        introspector: introspector.track(),
+        introspector: Protected::new(introspector.track()),
         traced,
         sink,
         route: Route::extend(route).with_id(id),
@@ -126,7 +127,7 @@ pub fn eval_string(
     let engine = Engine {
         routines,
         world,
-        introspector: introspector.track(),
+        introspector: Protected::new(introspector.track()),
         traced: traced.track(),
         sink,
         route: Route::default(),

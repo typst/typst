@@ -248,7 +248,9 @@ impl<'a> Runner<'a> {
 
         // Check hints.
         for hint in &diag.hints {
-            self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
+            let span = hint.span.or(diag.span);
+            let range = self.world.range(span);
+            self.validate_note(NoteKind::Hint, span.id(), range, &hint.v);
         }
     }
 

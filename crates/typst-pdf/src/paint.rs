@@ -286,7 +286,9 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                if gradient.space().hue_index().is_some() {
+                if gradient.space().hue_index().is_some()
+                    || gradient.space() == ColorSpace::Oklab
+                {
                     for i in 0..=32 {
                         let t = i as f64 / 32.0;
                         let real_t = Ratio::new(

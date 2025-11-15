@@ -10,6 +10,7 @@ mod duration;
 mod hash;
 mod listset;
 mod pico;
+mod protected;
 mod round;
 mod scalar;
 
@@ -19,6 +20,7 @@ pub use self::duration::format_duration;
 pub use self::hash::{HashLock, LazyHash, ManuallyHash};
 pub use self::listset::ListSet;
 pub use self::pico::{PicoStr, ResolvedPicoStr};
+pub use self::protected::Protected;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
 

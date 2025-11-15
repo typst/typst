@@ -2,8 +2,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::World;
 use typst_library::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
-    bail, error,
+    At, HintedStrResult, SourceDiagnostic, SourceResult, Trace, Tracepoint, bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -15,9 +14,12 @@ use typst_library::math::LrElem;
 use typst_library::routines::Routines;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, Protected};
 
-use crate::{Access, Eval, FlowEvent, Route, Vm, call_method_mut, is_mutating_method};
+use crate::{
+    Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
+    is_mutating_method,
+};
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
@@ -200,6 +202,7 @@ pub fn eval_closure(
     scopes.top = closure.captured.clone();
 
     // Prepare the engine.
+    let introspector = Protected::from_raw(introspector);
     let engine = Engine {
         routines,
         world,
@@ -430,23 +433,6 @@ fn wrap_args_in_math(
 
     args.finish()?;
     Ok(Value::Content(formatted))
-}
-
-/// Provide a hint if the callee is a shadowed standard library function.
-fn hint_if_shadowed_std(
-    vm: &mut Vm,
-    callee: &ast::Expr,
-    mut err: HintedString,
-) -> HintedString {
-    if let ast::Expr::Ident(ident) = callee {
-        let ident = ident.get();
-        if vm.scopes.check_std_shadowed(ident) {
-            err.hint(eco_format!(
-                "use `std.{ident}` to access the shadowed standard library function",
-            ));
-        }
-    }
-    err
 }
 
 /// A visitor that determines which variables to capture for a closure.

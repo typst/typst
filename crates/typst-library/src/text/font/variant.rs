@@ -32,11 +32,12 @@ impl Debug for FontVariant {
 }
 
 /// The style of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Cast, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
     /// The default, typically upright style.
+    #[default]
     Normal,
     /// A cursive style with custom letterform.
     Italic,
@@ -54,12 +55,6 @@ impl FontStyle {
         } else {
             2
         }
-    }
-}
-
-impl Default for FontStyle {
-    fn default() -> Self {
-        Self::Normal
     }
 }
 

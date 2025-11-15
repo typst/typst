@@ -863,7 +863,13 @@ impl FontFamily {
 
 cast! {
     FontFamily,
-    self => self.name.into_value(),
+    self => match self.covers {
+        Some(covers) => dict![
+            "name" => self.name,
+            "covers" => covers
+        ].into_value(),
+        None => self.name.into_value()
+    },
     string: EcoString => Self::new(&string),
     mut v: Dict => {
         let ret = Self::with_coverage(
@@ -958,7 +964,7 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().name.into_value()
+        self.0.into_iter().next().unwrap().into_value()
     } else {
         self.0.into_value()
     },

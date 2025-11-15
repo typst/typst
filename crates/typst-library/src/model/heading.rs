@@ -253,7 +253,7 @@ impl Synthesize for Packed<HeadingElem> {
         {
             self.numbers = Some(
                 self.counter()
-                    .display_at_loc(engine, location, styles, numbering)?
+                    .display_at(engine, location, styles, numbering, self.span())?
                     .plain_text(),
             );
         }

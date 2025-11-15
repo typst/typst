@@ -1,13 +1,16 @@
 use std::mem;
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::default_math_class;
+use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+
+// Picked by gut feeling.
+const MAX_DEPTH: u32 = 256;
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -46,6 +49,8 @@ fn markup(p: &mut Parser, at_start: bool, wrap_trivia: bool, stop_set: SyntaxSet
 /// Parses a sequence of markup expressions.
 fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+    let Some(p) = p.check_depth_until(stop_set) else { return };
+
     at_start |= p.had_newline();
     let mut nesting: usize = 0;
     // Keep going if we're at a nested right-bracket regardless of the stop set.
@@ -80,6 +85,8 @@ pub(super) fn reparse_markup(
 /// headings, strong/emph, lists/enums, etc. This is also the entry point for
 /// parsing math equations and embedded code expressions.
 fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     match p.current() {
         SyntaxKind::LeftBracket => {
             *nesting += 1;
@@ -221,29 +228,34 @@ fn math(p: &mut Parser, stop_set: SyntaxSet) {
 }
 
 /// Parses a sequence of math expressions. Returns the number of expressions
-/// parsed.
+/// parsed (including errors).
 fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+    let Some(p) = p.check_depth_until(stop_set) else { return 1 };
+
     let mut count = 0;
     while !p.at_set(stop_set) {
         if p.at_set(set::MATH_EXPR) {
             math_expr(p);
-            count += 1;
         } else {
             p.unexpected();
         }
+        count += 1;
     }
     count
 }
 
 /// Parses a single math expression: This includes math elements like
-/// attachment, fractions, and roots, and embedded code expressions.
+/// attachment, fractions, roots, and embedded code expressions.
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, SyntaxKind::End)
+    math_expr_prec(p, 0, syntax_set!())
 }
 
-/// Parses a math expression with at least the given precedence.
-fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
+/// Parses a math expression with at least the given precedence, possibly
+/// chaining with another operator by returning early.
+fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
@@ -253,185 +265,181 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
-            if min_prec < 3
-                && p.directly_at(SyntaxKind::MathText)
-                && p.current_text() == "("
-            {
+            if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
                 continuable = false;
             }
         }
 
+        SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
+            math_delimited(p);
+        }
+        SyntaxKind::RightBrace if p.current_text() == "|]" => {
+            p.convert_and_eat(SyntaxKind::MathShorthand);
+        }
         SyntaxKind::Dot
+        | SyntaxKind::Bang
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
+        | SyntaxKind::RightBrace
         | SyntaxKind::RightParen => {
             p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
-            // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
-            continuable = math_class(p.current_text()) == Some(MathClass::Alphabetic)
-                || p.current_text().chars().all(char::is_alphabetic);
-            if !maybe_delimited(p) {
-                p.eat();
-            }
+        SyntaxKind::MathText => {
+            continuable = is_math_alphabetic(p.current_text());
+            p.eat();
         }
 
-        SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
-        SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::Linebreak
+        | SyntaxKind::MathAlignPoint
+        | SyntaxKind::MathShorthand => p.eat(),
+
+        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
             continuable = true;
             p.eat();
         }
 
         SyntaxKind::Root => {
-            if min_prec < 3 {
-                p.eat();
-                let m2 = p.marker();
-                math_expr_prec(p, 2, stop);
-                math_unparen(p, m2);
-                p.wrap(m, SyntaxKind::MathRoot);
-            }
-        }
-
-        SyntaxKind::Prime => {
-            // Means that there is nothing to attach the prime to.
-            continuable = true;
-            while p.at(SyntaxKind::Prime) {
-                let m2 = p.marker();
-                p.eat();
-                // Eat the group until the space.
-                while p.eat_if_direct(SyntaxKind::Prime) {}
-                p.wrap(m2, SyntaxKind::MathPrimes);
-            }
+            p.eat();
+            let m2 = p.marker();
+            math_expr_prec(p, MATH_ROOT_PREC, syntax_set!());
+            math_unparen(p, m2);
+            p.wrap(m, SyntaxKind::MathRoot);
         }
 
         _ => p.expected("expression"),
     }
 
-    if continuable && min_prec < 3 && !p.had_trivia() && maybe_delimited(p) {
+    // Maybe recognize an implicit function call: a 'continuable' token followed
+    // by delimiters will group as one with the precedence of a normal function.
+    // E.g. `a(b)/c` parses as `(a(b))/c` when `a` is continuable.
+    if continuable
+        && MATH_FUNC_PREC >= min_prec
+        && !p.had_trivia()
+        && p.at_set(syntax_set!(LeftBrace, LeftParen))
+    {
+        math_delimited(p);
         p.wrap(m, SyntaxKind::Math);
     }
 
-    // Whether there were _any_ primes in the loop.
-    let mut primed = false;
-
-    while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::MathText) && p.current_text() == "!" {
-            p.eat();
-            p.wrap(m, SyntaxKind::Math);
-            continue;
-        }
-
-        let prime_marker = p.marker();
-        if p.eat_if_direct(SyntaxKind::Prime) {
-            // Eat as many primes as possible.
-            while p.eat_if_direct(SyntaxKind::Prime) {}
-            p.wrap(prime_marker, SyntaxKind::MathPrimes);
-
-            // Will not be continued, so need to wrap the prime as attachment.
-            if p.at(stop) {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            primed = true;
-            continue;
-        }
-
-        let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
-            // No attachments, so we need to wrap primes as attachment.
-            if primed {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            break;
+    // Parse infix and postfix operators. The general form of a parsed op looks
+    // like: `MathAttach[ MathText("x"), Hat("^"), MathText("2") ]`.
+    while !p.at_set(stop_set)
+        && let op_kind = p.current()
+        && let had_trivia = p.had_trivia()
+        && let Some((wrapper, infix_assoc, prec)) = math_op(op_kind, had_trivia)
+        && prec >= min_prec
+    {
+        // Prepare a chaining set for the attachment operators.
+        let mut chain_set = if wrapper == SyntaxKind::MathAttach {
+            // Hat can chain with Underscore, Underscore can chain with Hat, and
+            // Prime can chain with either (but prime can't interrupt a chain,
+            // see below).
+            syntax_set!(Hat, Underscore).remove(op_kind)
+        } else {
+            syntax_set!()
         };
 
-        if primed && kind == SyntaxKind::MathFrac {
-            p.wrap(m, SyntaxKind::MathAttach);
+        // Eat the operator itself.
+        if op_kind == SyntaxKind::Bang {
+            p.convert_and_eat(SyntaxKind::MathText);
+        } else {
+            p.eat();
         }
 
-        if prec < min_prec {
-            break;
-        }
-
-        match assoc {
-            ast::Assoc::Left => prec += 1,
-            ast::Assoc::Right => {}
-        }
-
-        if kind == SyntaxKind::MathFrac {
+        // Slash is the only operator that removes parens from its left operand.
+        if wrapper == SyntaxKind::MathFrac {
             math_unparen(p, m);
         }
 
-        p.eat();
-        let m2 = p.marker();
-        math_expr_prec(p, prec, stop);
-        math_unparen(p, m2);
-
-        if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
-            let m3 = p.marker();
-            math_expr_prec(p, prec, SyntaxKind::End);
-            math_unparen(p, m3);
+        // Parse the operator's right operand.
+        if let Some(assoc) = infix_assoc {
+            let prec = match assoc {
+                ast::Assoc::Left => prec + 1,
+                ast::Assoc::Right => prec,
+            };
+            let m_rhs = p.marker();
+            math_expr_prec(p, prec, chain_set);
+            math_unparen(p, m_rhs);
         }
 
-        p.wrap(m, kind);
+        // Avoid interrupting a chain when initially parsing a prime.
+        // For `a^b'_c^d` the grouping is `(a^(b')_c)^d` and not `a^(b'_c^d)`.
+        if !(op_kind == SyntaxKind::MathPrimes && p.at_set(stop_set)) {
+            // Parse chained attachment operators as a single attachment.
+            while p.at_set(chain_set) {
+                chain_set = chain_set.remove(p.current());
+                p.eat();
+                let m_chain_rhs = p.marker();
+                math_expr_prec(p, prec, chain_set);
+                math_unparen(p, m_chain_rhs);
+            }
+        }
+
+        // Finish the operator by wrapping from its left operand.
+        p.wrap(m, wrapper);
     }
 }
 
-/// Precedence and wrapper kinds for the binary math operators.
-fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
-    match kind {
-        SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Slash => {
-            Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
-        }
-        _ => None,
-    }
+// These are declared here so they're easier to compare with `math_op`.
+const MATH_FUNC_PREC: u8 = 2;
+const MATH_ROOT_PREC: u8 = 2;
+
+/// Precedence and wrapper kinds for infix and postfix math operators.
+fn math_op(
+    kind: SyntaxKind,
+    had_trivia: bool,
+) -> Option<(SyntaxKind, Option<ast::Assoc>, u8)> {
+    let op = match kind {
+        SyntaxKind::Slash => (SyntaxKind::MathFrac, Some(ast::Assoc::Left), 1),
+        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 2),
+        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 2),
+        SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 2),
+        SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 3),
+        _ => return None,
+    };
+    Some(op)
 }
 
-/// Try to parse delimiters based on the current token's unicode math class.
-fn maybe_delimited(p: &mut Parser) -> bool {
-    let open = math_class(p.current_text()) == Some(MathClass::Opening);
-    if open {
-        math_delimited(p);
+/// Whether text counts as alphabetic in math. For the `Text` and `MathText`
+/// kinds, this causes them to group with parens as an implicit function call.
+fn is_math_alphabetic(text: &str) -> bool {
+    if let Some((0, c)) = text.char_indices().next_back() {
+        // Just a single character.
+        c.is_alphabetic() || default_math_class(c) == Some(MathClass::Alphabetic)
+    } else {
+        // Multiple characters.
+        text.chars().all(char::is_alphabetic)
     }
-    open
 }
 
 /// Parse matched delimiters in math: `[x + y]`.
+///
+/// The lexer produces `{Left,Right}{Brace,Paren}` for delimiters, and it's our
+/// job to convert them back to `MathText` or `MathShorthand` before eating.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    p.eat();
-    let m2 = p.marker();
-    while !p.at_set(syntax_set!(Dollar, End)) {
-        if math_class(p.current_text()) == Some(MathClass::Closing) {
-            p.wrap(m2, SyntaxKind::Math);
-            // We could be at the shorthand `|]`, which shouldn't be converted
-            // to a `Text` kind.
-            if p.at(SyntaxKind::RightParen) {
-                p.convert_and_eat(SyntaxKind::MathText);
-            } else {
-                p.eat();
-            }
-            p.wrap(m, SyntaxKind::MathDelimited);
-            return;
-        }
-
-        if p.at_set(set::MATH_EXPR) {
-            math_expr(p);
-        } else {
-            p.unexpected();
-        }
+    if p.current_text() == "[|" {
+        p.convert_and_eat(SyntaxKind::MathShorthand);
+    } else {
+        p.convert_and_eat(SyntaxKind::MathText);
     }
-
-    p.wrap(m, SyntaxKind::Math);
+    let m_body = p.marker();
+    math_exprs(p, syntax_set!(Dollar, End, RightBrace, RightParen));
+    if p.at_set(syntax_set!(RightBrace, RightParen)) {
+        p.wrap(m_body, SyntaxKind::Math);
+        if p.current_text() == "|]" {
+            p.convert_and_eat(SyntaxKind::MathShorthand);
+        } else {
+            p.convert_and_eat(SyntaxKind::MathText);
+        }
+        p.wrap(m, SyntaxKind::MathDelimited);
+    } else {
+        // If we had no closing delimiter, just produce a math sequence.
+        p.wrap(m, SyntaxKind::Math);
+    }
 }
 
 /// Remove one set of parentheses (if any) from a previously parsed expression
@@ -453,29 +461,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     }
 }
 
-/// The unicode math class of a string. Only returns `Some` if `text` has
-/// exactly one unicode character or is a math shorthand string (currently just
-/// `[|`, `||`, `|]`) and then only returns `Some` if there is a math class
-/// defined for that character.
-fn math_class(text: &str) -> Option<MathClass> {
-    match text {
-        "[|" => return Some(MathClass::Opening),
-        "|]" => return Some(MathClass::Closing),
-        "||" => return Some(MathClass::Fence),
-        _ => {}
-    }
-
-    let mut chars = text.chars();
-    chars
-        .next()
-        .filter(|_| chars.next().is_none())
-        .and_then(default_math_class)
-}
-
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
     let m = p.marker();
-    p.convert_and_eat(SyntaxKind::LeftParen);
+    p.assert(SyntaxKind::LeftParen);
 
     let mut positional = true;
     let mut has_arrays = false;
@@ -526,52 +515,39 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
     let m = p.marker();
     let start = p.current_start();
 
-    if p.at(SyntaxKind::Dot) {
+    let mut arg_kind = None;
+
+    if p.at(SyntaxKind::Dot)
+        && let Some(spread) = p.lexer.maybe_math_spread_arg(start)
+    {
         // Parses a spread argument: `..args`.
-        if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
-            p.token.node = spread;
-            p.eat();
-            let m_arg = p.marker();
-            // TODO: Refactor to combine with the other call to `math_exprs`.
-            let count =
-                math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
-            if count == 0 {
-                let dots = vec![
-                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
-                    SyntaxNode::leaf(SyntaxKind::MathText, "."),
-                ];
-                p[m] = SyntaxNode::inner(SyntaxKind::Math, dots);
-            } else {
-                if count > 1 {
-                    p.wrap(m_arg, SyntaxKind::Math);
-                }
-                p.wrap(m, SyntaxKind::Spread);
-            }
-            return true;
-        }
-    }
-
-    let mut positional = true;
-    if p.at_set(syntax_set!(MathText, MathIdent, Underscore)) {
+        arg_kind = Some(SyntaxKind::Spread);
+        p.token.node = spread;
+        p.eat();
+    } else if p.at_set(syntax_set!(MathText, MathIdent, Underscore))
+        && let Some(named) = p.lexer.maybe_math_named_arg(start)
+    {
         // Parses a named argument: `thickness: #12pt`.
-        if let Some(named) = p.lexer.maybe_math_named_arg(start) {
-            p.token.node = named;
-            let text = p.current_text();
-            p.eat();
-            p.convert_and_eat(SyntaxKind::Colon);
-            if !seen.insert(text) {
-                p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
-            }
-            positional = false;
+        arg_kind = Some(SyntaxKind::Named);
+        p.token.node = named;
+        let text = p.current_text();
+        p.eat();
+        p.convert_and_eat(SyntaxKind::Colon);
+        if !seen.insert(text) {
+            p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
         }
     }
 
-    // Parses a normal positional argument.
-    let arg = p.marker();
+    // Parses the argument itself.
+    let m_arg = p.marker();
     let count = math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
+
     if count == 0 {
-        // Named argument requires a value.
-        if !positional {
+        // This can't happen due to checks in `Lexer::maybe_math_spread_arg`.
+        assert_ne!(arg_kind, Some(SyntaxKind::Spread));
+
+        // Named arguments require a value.
+        if arg_kind == Some(SyntaxKind::Named) {
             p.expected("expression");
         }
 
@@ -579,25 +555,25 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
         // any `SyntaxKind::Array` elements created in `math_args`.
         // (And if we don't follow by wrapping in an array, it has no effect.)
         // The difference in node layout without this would look like:
-        // Expression: `$ mat( ;) $`
-        // - Correct:   [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
-        // - Incorrect: [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
+        // - Expression: `$ mat( ;) $`
+        // - Correct:    [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
+        // - Incorrect:  [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
         p.flush_trivia();
     }
 
     // Wrap math function arguments to join adjacent math content or create an
     // empty 'Math' node for when we have 0 args. We don't wrap when
     // `count == 1`, since wrapping would change the type of the expression
-    // from potentially non-content to content. Ex: `$ func(#12pt) $` would
-    // change the type from size to content if wrapped.
+    // from potentially non-content to content. E.g. `$ func(#12pt) $` would
+    // change the type of `#12pt` from size to content if wrapped.
     if count != 1 {
-        p.wrap(arg, SyntaxKind::Math);
+        p.wrap(m_arg, SyntaxKind::Math);
     }
 
-    if !positional {
-        p.wrap(m, SyntaxKind::Named);
+    if let Some(kind) = arg_kind {
+        p.wrap(m, kind);
     }
-    positional
+    arg_kind != Some(SyntaxKind::Named)
 }
 
 /// Parses the contents of a code block.
@@ -610,6 +586,8 @@ fn code(p: &mut Parser, stop_set: SyntaxSet) {
 /// Parses a sequence of code expressions.
 fn code_exprs(p: &mut Parser, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
+    let Some(p) = p.check_depth_until(stop_set) else { return };
+
     while !p.at_set(stop_set) {
         p.with_nl_mode(AtNewline::ContextualContinue, |p| {
             if !p.at_set(set::CODE_EXPR) {
@@ -662,6 +640,8 @@ fn code_expr(p: &mut Parser) {
 
 /// Parses a code expression with at least the given precedence.
 fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     let m = p.marker();
     if !atomic && p.at_set(set::UNARY_OP) {
         let op = ast::UnOp::from_kind(p.current()).unwrap();
@@ -1375,6 +1355,8 @@ fn pattern<'s>(
     seen: &mut FxHashSet<&'s str>,
     dupe: Option<&'s str>,
 ) {
+    let Some(p) = &mut p.increase_depth() else { return };
+
     match p.current() {
         SyntaxKind::Underscore => p.eat(),
         SyntaxKind::LeftParen => destructuring_or_parenthesized(p, reassignment, seen),
@@ -1563,6 +1545,8 @@ struct Parser<'s> {
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
     memo: MemoArena,
+    /// The current expression nesting depth.
+    depth: u32,
 }
 
 /// A single token returned from the lexer with a cached [`SyntaxKind`] and a
@@ -1672,6 +1656,7 @@ impl<'s> Parser<'s> {
             balanced: true,
             nodes,
             memo: Default::default(),
+            depth: 0,
         }
     }
 
@@ -1788,16 +1773,6 @@ impl<'s> Parser<'s> {
         at
     }
 
-    /// Eat the token only if at `kind` with no preceding trivia. Returns `true`
-    /// if eaten.
-    fn eat_if_direct(&mut self, kind: SyntaxKind) -> bool {
-        let at = self.directly_at(kind);
-        if at {
-            self.eat();
-        }
-        at
-    }
-
     /// Assert that we are at the given [`SyntaxKind`] and eat it. This should
     /// be used when moving between functions that expect to start with a
     /// specific token.
@@ -1837,6 +1812,19 @@ impl<'s> Parser<'s> {
         let from = from.0.min(to);
         let children = self.nodes.drain(from..to).collect();
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
+    }
+
+    /// Wrap the nodes from a marker up to (but excluding) the current token in
+    /// a new [error node](`SyntaxNode::error`) with the given message. This is
+    /// an easy interface for creating a syntax error _after_ having parsed its
+    /// children.
+    fn wrap_error(&mut self, from: Marker, message: impl Into<EcoString>) {
+        let to = self.before_trivia().0;
+        let from = from.0.min(to);
+        let text: EcoString =
+            self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
+        self.nodes
+            .insert(from, SyntaxNode::error(SyntaxError::new(message), text));
     }
 
     /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
@@ -2087,5 +2075,63 @@ impl Parser<'_> {
             start -= 1;
         }
         self.nodes.drain(start..end);
+    }
+
+    /// Check if the maximum depth has been exceeded. If so, generate an error
+    /// and try to make a best effort recovery using the `stop_set` as a guide.
+    ///
+    /// This function isn't strictly necessary, but it is an optimization to
+    /// generate one combined error instead of an error message for every
+    /// balanced set of tokens. In the pathological case an error would be
+    /// generated by [`Self::increase_depth`] for every single token until
+    /// the `stop_set` of the parent function is reached.
+    fn check_depth_until(&mut self, stop_set: SyntaxSet) -> Option<&mut Self> {
+        if self.depth < MAX_DEPTH {
+            Some(self)
+        } else {
+            self.depth_check_error(Some(stop_set));
+            None
+        }
+    }
+
+    /// Check if the maximum depth has been exceeded. If so, generate an error
+    /// and try to make a best effort recovery. Otherwise increase the depth and
+    /// return a handle that automatically decreases it again when dropped.
+    fn increase_depth(&mut self) -> Option<impl DerefMut<Target = Self>> {
+        if self.depth < MAX_DEPTH {
+            self.depth += 1;
+            Some(defer(self, |p| p.depth -= 1))
+        } else {
+            self.depth_check_error(None);
+            None
+        }
+    }
+
+    /// Generate an error for an exceeded maximum depth check.
+    fn depth_check_error(&mut self, stop_set: Option<SyntaxSet>) {
+        let m = self.marker();
+
+        let mut balance: usize = 0;
+        // This function has to guarantee some sort of forward progress,
+        // otherwise the parser might loop indefinitely. One token is eaten in
+        // all cases, if that token is an opening delimiter, try to balance the
+        // opening and closing grouping delimiters before continuing.
+        self.with_nl_mode(AtNewline::Continue, |p| {
+            loop {
+                if p.at_set(syntax_set!(LeftBracket, LeftBrace, LeftParen)) {
+                    balance = balance.saturating_add(1);
+                } else if p.at_set(syntax_set!(RightBracket, RightBrace, RightParen)) {
+                    balance = balance.saturating_sub(1);
+                }
+                p.eat();
+
+                let at_stop = stop_set.is_none_or(|s| p.at_set(s));
+                if (balance == 0 && at_stop) || p.end() {
+                    break;
+                }
+            }
+        });
+
+        self.wrap_error(m, "maximum parsing depth exceeded");
     }
 }
