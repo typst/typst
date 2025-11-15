@@ -14,6 +14,8 @@
   + c
     - d
   + e
+    - 1
+    - 2
 - f
 
 --- list-tags-wide-with-nested-list pdftags pdfstandard(ua-1) ---
@@ -26,8 +28,6 @@
   - c
 
     - d
-
-  - e
 
 - f
 
