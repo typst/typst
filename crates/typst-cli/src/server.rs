@@ -7,7 +7,7 @@ use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
 use typst::diag::{StrResult, bail};
 
-use crate::args::{Input, ServerArgs};
+use crate::args::{FileInput, ServerArgs};
 
 /// Serves HTML with live reload.
 pub struct HtmlServer {
@@ -17,7 +17,7 @@ pub struct HtmlServer {
 
 impl HtmlServer {
     /// Create a new HTTP server that serves live HTML.
-    pub fn new(input: &Input, args: &ServerArgs) -> StrResult<Self> {
+    pub fn new(input: &FileInput, args: &ServerArgs) -> StrResult<Self> {
         let reload = !args.no_reload;
         let (addr, server) = start_server(args.port)?;
 

@@ -80,8 +80,11 @@ pub enum Command {
     /// Initializes a new project from a template.
     Init(InitCommand),
 
-    /// Processes an input file to extract provided metadata.
+    /// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
     Query(QueryCommand),
+
+    /// Evaluates a piece of Typst code.
+    Eval(EvalCommand),
 
     /// Lists all discovered fonts in system and custom font paths.
     Fonts(FontsCommand),
@@ -137,12 +140,12 @@ pub struct InitCommand {
     pub package: PackageArgs,
 }
 
-/// Processes an input file to extract provided metadata.
+/// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: Input,
+    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: FileInput,
 
     /// Defines which elements to retrieve.
     pub selector: String,
@@ -174,6 +177,40 @@ pub struct QueryCommand {
     pub world: WorldArgs,
 
     /// Processing arguments.
+    #[clap(flatten)]
+    pub process: ProcessArgs,
+}
+
+/// Evaluates a piece of Typst code.
+#[derive(Debug, Clone, Parser)]
+pub struct EvalCommand {
+    /// The piece of Typst code to evaluate. Use `-` to read input from stdin.
+    #[clap(value_parser = string_input_value_parser())]
+    pub expression: StringInput,
+
+    /// The file to evaluate the code in. Can be used to introspect the document.
+    #[clap(long = "in", value_hint = ValueHint::FilePath)]
+    pub r#in: Option<PathBuf>,
+
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
+    /// The format to serialize in.
+    #[clap(long = "format", default_value_t)]
+    pub format: SerializationFormat,
+
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
+    #[clap(long)]
+    pub pretty: bool,
+
+    /// The world arguments.
+    #[clap(flatten)]
+    pub world: WorldArgs,
+
+    /// The processing arguments.
     #[clap(flatten)]
     pub process: ProcessArgs,
 }
@@ -244,8 +281,8 @@ pub struct InfoCommand {
 #[derive(Debug, Clone, Args)]
 pub struct CompileArgs {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: Input,
+    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: FileInput,
 
     /// Path to output file (PDF, PNG, SVG, or HTML). Use `-` to write output to
     /// stdout.
@@ -336,7 +373,7 @@ pub struct CompileArgs {
     pub timings: Option<Option<PathBuf>>,
 }
 
-/// Arguments for the construction of a world. Shared by compile, watch, and
+/// Arguments for the construction of a world. Shared by compile, watch, eval, and
 /// query.
 #[derive(Debug, Clone, Args)]
 pub struct WorldArgs {
@@ -468,18 +505,36 @@ macro_rules! display_possible_values {
 
 /// An input that is either stdin or a real path.
 #[derive(Debug, Clone)]
-pub enum Input {
+pub enum FileInput {
     /// Stdin, represented by `-`.
     Stdin,
     /// A non-empty path.
     Path(PathBuf),
 }
 
-impl Display for Input {
+impl Display for FileInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Input::Stdin => f.pad("stdin"),
-            Input::Path(path) => path.display().fmt(f),
+            FileInput::Stdin => f.pad("stdin"),
+            FileInput::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
+/// An input that is either stdin or a string.
+#[derive(Debug, Clone)]
+pub enum StringInput {
+    /// Stdin, represented by `-`.
+    Stdin,
+    /// A string.
+    String(String),
+}
+
+impl Display for StringInput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            StringInput::Stdin => f.pad("stdin"),
+            StringInput::String(string) => string.fmt(f),
         }
     }
 }
@@ -713,14 +768,27 @@ fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
 }
 
 /// The clap value parser used by `SharedArgs.input`
-fn input_value_parser() -> impl TypedValueParser<Value = Input> {
+fn file_input_value_parser() -> impl TypedValueParser<Value = FileInput> {
     clap::builder::OsStringValueParser::new().try_map(|value| {
         if value.is_empty() {
             Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
         } else if value == "-" {
-            Ok(Input::Stdin)
+            Ok(FileInput::Stdin)
         } else {
-            Ok(Input::Path(value.into()))
+            Ok(FileInput::Path(value.into()))
+        }
+    })
+}
+
+/// The clap value parser used by `EvalCommand.statement`
+fn string_input_value_parser() -> impl TypedValueParser<Value = StringInput> {
+    clap::builder::NonEmptyStringValueParser::new().try_map(|value| {
+        if value.is_empty() {
+            Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+        } else if value == "-" {
+            Ok(StringInput::Stdin)
+        } else {
+            Ok(StringInput::String(value))
         }
     })
 }

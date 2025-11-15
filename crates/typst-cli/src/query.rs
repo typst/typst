@@ -1,34 +1,38 @@
 use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
-use typst::diag::{HintedStrResult, StrResult, Warned, bail};
+use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
-use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Scope};
 use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
-use crate::args::{QueryCommand, Target};
+use crate::args::{FileInput, QueryCommand, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
-    let mut world = SystemWorld::new(&command.input, &command.world, &command.process)?;
+    let mut world =
+        SystemWorld::new(Some(&command.input), &command.world, &command.process)?;
 
     // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let Warned { output, warnings } = match command.target {
+    let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
             .map(|output| output.map(|document| document.introspector)),
     };
+
+    // Add deprecation warning to warnings
+    warnings.push(deprecation_warning(command));
 
     match output {
         // Retrieve and print query results.
@@ -67,6 +71,8 @@ fn retrieve(
         world.track(),
         // TODO: propagate warnings
         Sink::new().track_mut(),
+        Introspector::default().track(),
+        Context::none().track(),
         &command.selector,
         Span::detached(),
         SyntaxMode::Code,
@@ -107,4 +113,19 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
     } else {
         crate::serialize(&mapped, command.format, command.pretty)
     }
+}
+
+/// Format the deprecation warning with the specific invocation of `typst eval` needed to replace `typst query`.
+fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
+    let alternative_eval_command = match &command.input {
+        FileInput::Path(path) => eco_format!(
+            "typst eval 'query({})' --in {}",
+            command.selector,
+            path.display()
+        ),
+        FileInput::Stdin => eco_format!("typst eval 'query({})'", command.selector),
+    };
+
+    SourceDiagnostic::warning(Span::detached(), "`typst query` command is deprecated")
+        .with_hint(eco_format!("use `{}` instead", alternative_eval_command))
 }

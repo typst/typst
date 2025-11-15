@@ -26,9 +26,9 @@ use crate::diag::{
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value, elem,
+    Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
+    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
@@ -1064,6 +1064,8 @@ impl ElemRenderer<'_> {
             self.world,
             // TODO: propagate warnings
             Sink::new().track_mut(),
+            Introspector::default().track(),
+            Context::none().track(),
             math,
             self.span,
             SyntaxMode::Math,

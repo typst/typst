@@ -98,10 +98,13 @@ pub fn eval(
 ///
 /// Everything in the output is associated with the given `span`.
 #[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
 pub fn eval_string(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
     sink: TrackedMut<Sink>,
+    introspector: Tracked<Introspector>,
+    context: Tracked<Context>,
     string: &str,
     span: Span,
     mode: SyntaxMode,
@@ -122,21 +125,19 @@ pub fn eval_string(
     }
 
     // Prepare the engine.
-    let introspector = Introspector::default();
     let traced = Traced::default();
     let engine = Engine {
         routines,
         world,
-        introspector: Protected::new(introspector.track()),
+        introspector: Protected::new(introspector),
         traced: traced.track(),
         sink,
         route: Route::default(),
     };
 
     // Prepare VM.
-    let context = Context::none();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, context.track(), scopes, root.span());
+    let mut vm = Vm::new(engine, context, scopes, root.span());
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.

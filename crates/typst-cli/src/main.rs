@@ -3,6 +3,7 @@ mod compile;
 mod completions;
 mod deps;
 mod download;
+mod eval;
 mod fonts;
 mod greet;
 mod info;
@@ -77,6 +78,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Watch(command) => crate::watch::watch(&mut timer, command)?,
         Command::Init(command) => crate::init::init(command)?,
         Command::Query(command) => crate::query::query(command)?,
+        Command::Eval(command) => crate::eval::eval(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command)?,
         Command::Completions(command) => crate::completions::completions(command),
