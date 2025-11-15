@@ -12,6 +12,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -32,7 +33,7 @@ use typst_library::model::{
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use typst_syntax::Span;
+use typst_syntax::{Span, is_cjk};
 use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
 /// Realize content into a flat list of well-known, styled items.
@@ -185,9 +186,9 @@ enum SpaceState {
     /// A following space will be collapsed.
     Destructive,
     /// A following space will be kept unless a destructive element follows.
-    Supportive,
+    Supportive { ends_in_cjk: bool },
     /// A space exists at this index.
-    Space(usize),
+    Space { index: usize, had_newline: bool, prev_cjk: bool },
 }
 
 impl<'a> State<'a, '_, '_, '_> {
@@ -1147,8 +1148,8 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
 /// Collects the element's merged textual representation into the bump arena.
 /// This merging also takes into account space collapsing so that we don't need
 /// to call `collapse_spaces` on every textual group, performing yet another
-/// linear pass. We only collapse the spaces elements themselves on the cold
-/// path where there is an actual match.
+/// linear pass. We only collapse the space elements themselves on the cold
+/// path when there is an actual match.
 fn find_regex_match_in_elems<'a>(
     s: &State,
     elems: &[Pair<'a>],
@@ -1164,8 +1165,14 @@ fn find_regex_match_in_elems<'a>(
             continue;
         }
 
+        if let Some(elem) = content.to_packed::<TextElem>()
+            && let SpaceState::Space { had_newline: true, prev_cjk: true, .. } = space
+            && elem.text.chars().next().is_some_and(is_cjk)
+        {
+            buf.pop();
+        }
         let linebreak = content.is::<LinebreakElem>();
-        if linebreak && let SpaceState::Space(_) = space {
+        if linebreak && let SpaceState::Space { .. } = space {
             buf.pop();
         }
 
@@ -1179,21 +1186,24 @@ fn find_regex_match_in_elems<'a>(
         }
 
         current = styles;
-        space = if content.is::<SpaceElem>() {
-            if space != SpaceState::Supportive {
-                continue;
-            }
+        space = if let Some(elem) = content.to_packed::<SpaceElem>() {
+            let SpaceState::Supportive { ends_in_cjk } = space else { continue };
             buf.push(' ');
-            SpaceState::Space(0)
+            SpaceState::Space {
+                index: 0,
+                had_newline: elem.had_newline,
+                prev_cjk: ends_in_cjk,
+            }
         } else if linebreak {
             buf.push('\n');
             SpaceState::Destructive
         } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
             buf.push(if elem.double.get(styles) { '"' } else { '\'' });
-            SpaceState::Supportive
+            SpaceState::Supportive { ends_in_cjk: false }
         } else if let Some(elem) = content.to_packed::<TextElem>() {
             buf.push_str(&elem.text);
-            SpaceState::Supportive
+            let ends_in_cjk = buf.chars().next_back().is_some_and(is_cjk);
+            SpaceState::Supportive { ends_in_cjk }
         } else {
             panic!("tried to find regex match in non-textual elements");
         };
@@ -1373,20 +1383,45 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         // Determine the next state.
         if content.is::<TagElem>() {
             // Nothing to do.
-        } else if content.is::<SpaceElem>() {
-            if state != SpaceState::Supportive {
-                continue;
+        } else if let Some(elem) = content.to_packed::<SpaceElem>() {
+            match &mut state {
+                SpaceState::Destructive => continue,
+                SpaceState::Space { had_newline, index, .. } => {
+                    // TODO: Maybe also check that the styles are the same?
+                    if elem.had_newline && !*had_newline {
+                        // If one space in a row has a newline, treat them all as
+                        // having a newline. I'm not fully sure this is desirable.
+                        *had_newline = elem.had_newline;
+                        // TODO: Is overwriting the buffer here necessary?
+                        buf[*index].0 = SpaceElem::shared_with_newline();
+                    }
+                    continue;
+                }
+                SpaceState::Supportive { ends_in_cjk } => {
+                    state = SpaceState::Space {
+                        index: k,
+                        had_newline: elem.had_newline,
+                        prev_cjk: *ends_in_cjk,
+                    };
+                }
             }
-            state = SpaceState::Space(k);
         } else if content.is::<LinebreakElem>() {
             destruct_space(buf, &mut k, &mut state);
         } else if let Some(elem) = content.to_packed::<HElem>() {
             if elem.amount.is_fractional() || elem.weak.get(styles) {
                 destruct_space(buf, &mut k, &mut state);
             }
+        } else if let Some(elem) = content.to_packed::<TextElem>() {
+            if let SpaceState::Space { had_newline: true, prev_cjk: true, .. } = state
+                && elem.text.chars().next().is_some_and(is_cjk)
+            {
+                destruct_space(buf, &mut k, &mut state);
+            }
+            let ends_in_cjk = elem.text.chars().next_back().is_some_and(is_cjk);
+            state = SpaceState::Supportive { ends_in_cjk };
         } else {
-            state = SpaceState::Supportive;
-        };
+            state = SpaceState::Supportive { ends_in_cjk: false };
+        }
 
         // Copy over normal elements (in place).
         if k < i {
@@ -1403,7 +1438,7 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
 
 /// Deletes a preceding space if any.
 fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
-    if let SpaceState::Space(s) = *state {
+    if let SpaceState::Space { index: s, .. } = *state {
         buf.copy_within(s + 1..*end, s);
         *end -= 1;
     }
