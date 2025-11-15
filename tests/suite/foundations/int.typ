@@ -30,7 +30,7 @@
 #int(10pt)
 
 --- int-constructor-bad-value paged ---
-// Error: 6-12 invalid integer: nope
+// Error: 6-12 invalid integer: invalid digit found while parsing integer
 #int("nope")
 
 --- int-constructor-float-too-large paged ---
