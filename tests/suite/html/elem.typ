@@ -15,8 +15,9 @@ Text
 #metadata("Hi") <l>
 
 --- html-elem-custom html ---
-#html.elem("my-element")[Hi]
+#html.elem("my-element")[Hi there]
 #html.elem("custom-button")[Hi]
+#html.elem("another-one-here")[Hi]
 #html.elem("multi-word-component")[Hi]
 #html.elem("element-")[Hi]
 

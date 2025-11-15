@@ -310,9 +310,9 @@ int main() {
 
 ```html.j2
 <tbody>
-  {% for row in data.rows %}
+  {% for some_row in data.rows %}
   <tr>
-      {% for column in row %}
+      {% for column in some_row %}
       <td>{{ column }}</td>
       {% endfor %}
   </tr>
