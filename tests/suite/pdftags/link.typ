@@ -15,7 +15,7 @@ A random location <somewhere>
 #link(<somewhere>)[link to somewhere]
 
 --- link-tags-contact-prefix pdftags pdfstandard(ua-1) ---
-#link("mailto:hello@typst.app")
+#link("mailto:hello@typ.app")
 
 #link("tel:123")
 
