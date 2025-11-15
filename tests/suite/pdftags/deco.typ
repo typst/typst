@@ -1,5 +1,5 @@
 --- deco-tags-underline pdftags pdfstandard(ua-1) ---
-#show: underline.with(stroke: red)
+#show: underline.with(stroke: green)
 
 // The content in this paragraph is grouped into one span tag with the
 // corresponding text attributes.
