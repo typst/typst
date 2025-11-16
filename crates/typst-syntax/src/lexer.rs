@@ -857,6 +857,14 @@ impl Lexer<'_> {
             _ => Err(eco_format!("invalid number suffix: {suffix}")),
         };
 
+        if base == 10
+            && !is_float
+            && i64::from_str_radix(number, base).is_err()
+            && number.parse::<f64>().is_ok()
+        {
+            is_float = true;
+        }
+
         let number_result = if is_float && number.parse::<f64>().is_err() {
             // The only invalid case should be when a float lacks digits after
             // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
