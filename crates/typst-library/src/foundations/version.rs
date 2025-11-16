@@ -204,19 +204,16 @@ impl TryFrom<&typst_syntax::TypstVersion> for Version {
     fn try_from(value: &typst_syntax::TypstVersion) -> Result<Self, Self::Error> {
         macro_rules! digit {
             ($name:ident) => {
-                if let Ok(value) = u32::try_from(value.$name()) {
-                    value
-                } else {
-                    bail!(
-                        "invalid Typst {} version {} cannot be converted into version number",
-                        stringify!($name),
-                        value.$name(),
-                    );
-                }
+                u32::try_from(value.$name()).map_err(|err| format!(
+                    "invalid Typst {} version {} cannot be converted into version number: {:?}",
+                    stringify!($name),
+                    value.$name(),
+                    err,
+                ))
             };
         }
 
-        Ok(Self::from_iter([digit!(major), digit!(minor), digit!(patch)]))
+        Ok(Self::from_iter([digit!(major)?, digit!(minor)?, digit!(patch)?]))
     }
 }
 
