@@ -595,7 +595,8 @@ pub struct TextElem {
     ///
     /// Sometimes fonts contain alternative glyphs for the same codepoint.
     /// Setting this to `{true}` switches to these by enabling the OpenType
-    /// `salt` font feature.
+    /// `salt` font feature. An integer may be used to select between multiple
+    /// alternates.
     ///
     /// ```example
     /// #set text(
@@ -608,9 +609,9 @@ pub struct TextElem {
     /// #set text(alternates: true)
     /// 0, a, g, ß
     /// ```
-    #[default(false)]
+    #[default(Alternates::default())]
     #[ghost]
-    pub alternates: bool,
+    pub alternates: Alternates,
 
     /// Which stylistic sets to apply. Font designers can categorize alternative
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
@@ -1166,6 +1167,17 @@ impl Resolve for TextDir {
     }
 }
 
+/// A selection into the Stylistic Alternates.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Alternates(u32);
+
+cast! {
+    Alternates,
+    self => self.0.into_value(),
+    v: bool => Self(v as u32),
+    v: u32 => Self(v)
+}
+
 /// A set of stylistic sets to enable.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
@@ -1285,8 +1297,9 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         }
     }
 
-    if styles.get(TextElem::alternates) {
-        feat(b"salt", 1);
+    match styles.get(TextElem::alternates).0 {
+        0 => {}
+        v => feat(b"salt", v),
     }
 
     for set in styles.get(TextElem::stylistic_set).sets() {
