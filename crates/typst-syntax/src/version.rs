@@ -42,24 +42,18 @@ impl TypstVersion {
     /// variable holds a version definition that doesn't conform to SemVer.
     pub fn new() -> &'static Self {
         TYPST_VERSION_REF.get_or_init(|| {
-            let maybe_version = if let Some(raw) = option_env!("TYPST_VERSION") {
-                match semver::Version::parse(raw) {
+            option_env!("TYPST_VERSION")
+                .or(option_env!("CARGO_PKG_VERSION"))
+                .ok_or(VersionError::Unknown)
+                .and_then(|raw| match semver::Version::parse(raw) {
                     Ok(version) => Ok(Self { version, raw }),
                     Err(_) => Err(VersionError::Invalid(raw)),
-                }
-            } else if let Some(raw) = option_env!("CARGO_PKG_VERSION") {
-                match semver::Version::parse(raw) {
-                    Ok(version) => Ok(Self { version, raw }),
-                    Err(_) => Err(VersionError::Invalid(raw)),
-                }
-            } else {
-                Err(VersionError::Unknown)
-            };
-            // NOTE: Strictly speaking we could return the `Result` instance and call it a day, but
-            // then all callers of this code must handle that. The code previously didn't do
-            // anything beyond unwrapping the versions parsed from `CARGO_PKG_VERSION` anyway, so
-            // we might as well do it here once and be done with it.
-            maybe_version.expect("typst version number must be known")
+                })
+                // NOTE: Strictly speaking we could return the `Result` instance and call it a day,
+                // but then all callers of this code must handle that. The code previously didn't
+                // do anything beyond unwrapping the versions parsed from `CARGO_PKG_VERSION`
+                // anyway, so we might as well do it here once and be done with it.
+                .expect("Typst version number must be known")
         })
     }
 
