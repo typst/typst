@@ -234,7 +234,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             self.float(placed, &regions, false, false)?;
         }
 
-        distribute(self, regions)
+        distribute(self, regions, self.config.columns.dir.axis())
     }
 
     /// Lays out an item with floating placement.

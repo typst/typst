@@ -1,6 +1,7 @@
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
+    Abs, Axes, Axis, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel,
+    Size,
 };
 use typst_utils::Numeric;
 
@@ -11,13 +12,18 @@ use super::{
 
 /// Distributes as many children as fit from `composer.work` into the first
 /// region and returns the resulting frame.
-pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame> {
+pub fn distribute(
+    composer: &mut Composer,
+    regions: Regions,
+    axis: Axis,
+) -> FlowResult<Frame> {
     let mut distributor = Distributor {
         composer,
         regions,
         items: vec![],
         sticky: None,
         stickable: None,
+        axis,
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
@@ -62,6 +68,8 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// blocks are supposed to always be in the same page as the subsequent
     /// frame, but that is impossible in that case, which is thus pathological.
     stickable: Option<bool>,
+    /// The text direction for this distribution run.
+    axis: Axis,
 }
 
 /// A snapshot of the distribution state.
@@ -163,7 +171,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return;
         }
 
-        self.regions.size.y -= amount;
+        *(self.regions.size.axis_length_mut(self.axis.other())) -= amount;
         self.items.push(Item::Abs(amount, weakness));
     }
 
@@ -182,7 +190,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || amount > prev_amount)
                     {
-                        self.regions.size.y -= amount - prev_amount;
+                        *(self.regions.size.axis_length_mut(self.axis.other())) -=
+                            amount - prev_amount;
                         *item = Item::Abs(amount, weakness);
                     }
                     return false;
@@ -200,7 +209,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for (i, item) in self.items.iter().enumerate().rev() {
             match *item {
                 Item::Abs(amount, 1..) => {
-                    self.regions.size.y += amount;
+                    *(self.regions.size.axis_length_mut(self.axis.other())) += amount;
                     self.items.remove(i);
                     break;
                 }
@@ -224,22 +233,29 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes a line of a paragraph.
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
-        // If the line doesn't fit and a followup region may improve things,
-        // finish the region.
-        if !self.regions.size.y.fits(line.frame.height()) && self.regions.may_progress() {
+        // The flow axis is either X(LTR, RTL), or Y(TTB, BTT), depending on the text direction.
+        // The cross axis is the axis perpendicular to the flow axis.
+        let cross_axis = self.axis.other();
+        let cross_len = self.regions.size.axis_length(cross_axis);
+
+        // If the line doesn't fit on the primary axis and a followup region
+        // may improve things, finish the region.
+        if !cross_len.fits(line.frame.axis_length(cross_axis))
+            && self.regions.may_progress()
+        {
             return Err(Stop::Finish(false));
         }
 
-        // If the line's need, which includes its own height and that of
+        // If the line's need, which includes its own length and that of
         // following lines grouped by widow/orphan prevention, does not fit into
         // the current region, but does fit into the next region, finish the
         // region.
-        if !self.regions.size.y.fits(line.need)
+        if !cross_len.fits(line.need)
             && self
                 .regions
                 .iter()
                 .nth(1)
-                .is_some_and(|region| region.y.fits(line.need))
+                .is_some_and(|region| region.axis_length(cross_axis).fits(line.need))
         {
             return Err(Stop::Finish(false));
         }
@@ -249,6 +265,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes an unbreakable block.
     fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
+        let cross_axis = self.axis.other();
+        let cross_len = self.regions.size.axis_length(cross_axis);
+
         // Lay out the block.
         let frame = single.layout(
             self.composer.engine,
@@ -266,7 +285,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
+        if !cross_len.fits(frame.axis_length(cross_axis)) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -378,7 +397,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         )?;
 
         // Push an item for the frame.
-        self.regions.size.y -= frame.height();
+        let cross_axis = self.axis.other();
+        *(self.regions.size.axis_length_mut(cross_axis)) -= frame.axis_length(cross_axis);
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -392,15 +412,16 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // distribution shrinks. We make the spacing occupied by weak
             // spacing temporarily available again because it can collapse if it
             // ends up at a break due to the float.
+            let cross_axis = self.axis.other();
             let weak_spacing = self.weak_spacing();
-            self.regions.size.y += weak_spacing;
+            *(self.regions.size.axis_length_mut(cross_axis)) += weak_spacing;
             self.composer.float(
                 placed,
                 &self.regions,
                 self.items.iter().any(|item| matches!(item, Item::Frame(..))),
                 true,
             )?;
-            self.regions.size.y -= weak_spacing;
+            *(self.regions.size.axis_length_mut(cross_axis)) -= weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer
@@ -460,20 +481,26 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         self.trim_spacing();
 
         let mut frs = Fr::zero();
-        let mut used = Size::zero();
         let mut has_fr_child = false;
+
+        let flow_axis = self.axis;
+        let cross_axis = self.axis.other();
+        let region_flow_len = region.size.axis_length(flow_axis);
+        let region_cross_len = region.size.axis_length(cross_axis);
+        let mut used_flow_len = Abs::zero();
+        let mut used_cross_len = Abs::zero();
 
         // Determine the amount of used space and the sum of fractionals.
         for item in &self.items {
             match item {
-                Item::Abs(v, _) => used.y += *v,
+                Item::Abs(v, _) => used_cross_len += *v,
                 Item::Fr(v, child) => {
                     frs += *v;
                     has_fr_child |= child.is_some();
                 }
                 Item::Frame(frame, _) => {
-                    used.y += frame.height();
-                    used.x.set_max(frame.width());
+                    used_cross_len += frame.axis_length(cross_axis);
+                    used_flow_len.set_max(frame.axis_length(flow_axis));
                 }
                 Item::Tag(_) | Item::Placed(..) => {}
             }
@@ -481,9 +508,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // When we have fractional spacing, occupy the remaining space with it.
         let mut fr_space = Abs::zero();
-        if frs.get() > 0.0 && region.size.y.is_finite() {
-            fr_space = region.size.y - used.y;
-            used.y = region.size.y;
+        if frs.get() > 0.0 && region_cross_len.is_finite() {
+            fr_space = region_cross_len - used_cross_len;
+            used_cross_len = region_cross_len;
         }
 
         // Lay out fractionally sized blocks.
@@ -492,33 +519,55 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             for item in &self.items {
                 let Item::Fr(v, Some(single)) = item else { continue };
                 let length = v.share(frs, fr_space);
-                let pod = Region::new(Size::new(region.size.x, length), region.expand);
+                let pod = Region::new(
+                    self.axis.consider_axis(Size::new, region_flow_len, length),
+                    region.expand,
+                );
                 let frame = single.layout(self.composer.engine, pod)?;
-                used.x.set_max(frame.width());
+                used_flow_len.set_max(frame.axis_length(flow_axis));
                 fr_frames.push(frame);
             }
         }
 
+        // TODO: consider direction
         // Also consider the width of insertions for alignment.
         if !region.expand.x {
-            used.x.set_max(self.composer.insertion_width());
+            used_flow_len.set_max(self.composer.insertion_width());
         }
 
         // Determine the region's size.
+        let used = self.axis.consider_axis(Size::new, used_flow_len, used_cross_len);
         let size = region.expand.select(region.size, used.min(region.size));
-        let free = size.y - used.y;
+        let free = size.axis_length(cross_axis) - used_cross_len;
 
         let mut output = Frame::soft(size);
         let mut ruler = FixedAlignment::Start;
         let mut offset = Abs::zero();
         let mut fr_frames = fr_frames.into_iter();
 
+        // Starts from top for horizontal text directions.
+        // Starts from right for vertical text directions.
+        let calc_offset = |total_offset: Abs| -> Abs {
+            match self.axis {
+                Axis::X => total_offset,
+                Axis::Y => size.x - total_offset,
+            }
+        };
+
+        let flow_alignment = |align: Axes<FixedAlignment>| -> FixedAlignment {
+            match self.axis {
+                Axis::X => align.x,
+                Axis::Y => align.y,
+            }
+        };
+
         // Position all items.
         for item in self.items {
             match item {
                 Item::Tag(tag) => {
-                    let y = offset + ruler.position(free);
-                    let pos = Point::with_y(y);
+                    let final_offset = calc_offset(offset + ruler.position(free));
+                    let pos =
+                        self.axis.consider_axis(Point::new, Abs::zero(), final_offset);
                     output.push(pos, FrameItem::Tag(tag.clone()));
                 }
                 Item::Abs(v, _) => {
@@ -528,23 +577,36 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     let length = v.share(frs, fr_space);
                     if let Some(single) = single {
                         let frame = fr_frames.next().unwrap();
-                        let x = single.align.x.position(size.x - frame.width());
-                        let pos = Point::new(x, offset);
+                        let flow_offset = flow_alignment(single.align).position(
+                            size.axis_length(self.axis) - frame.axis_length(self.axis),
+                        );
+                        let pos = self.axis.consider_axis(
+                            Point::new,
+                            flow_offset,
+                            calc_offset(offset),
+                        );
                         output.push_frame(pos, frame);
                     }
                     offset += length;
                 }
                 Item::Frame(frame, align) => {
-                    ruler = ruler.max(align.y);
+                    ruler = match self.axis {
+                        Axis::X => ruler.max(align.y),
+                        Axis::Y => ruler.min(align.x),
+                    };
 
-                    let x = align.x.position(size.x - frame.width());
-                    let y = offset + ruler.position(free);
-                    let pos = Point::new(x, y);
-                    offset += frame.height();
+                    let flow_offset = flow_alignment(align).position(
+                        size.axis_length(self.axis) - frame.axis_length(self.axis),
+                    );
+                    let cross_offset = calc_offset(offset + ruler.position(free));
+                    let pos =
+                        self.axis.consider_axis(Point::new, flow_offset, cross_offset);
+                    offset += frame.axis_length(self.axis.other());
 
                     output.push_frame(pos, frame);
                 }
                 Item::Placed(frame, placed) => {
+                    // TODO: support vertical text direction
                     let x = placed.align_x.position(size.x - frame.width());
                     let y = match placed.align_y.unwrap_or_default() {
                         Some(align) => align.position(size.y - frame.height()),

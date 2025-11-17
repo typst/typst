@@ -51,7 +51,7 @@ use crate::foundations::{
     NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, StyleChain,
     cast, dict, elem,
 };
-use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
+use crate::layout::{Abs, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
@@ -393,6 +393,34 @@ pub struct TextElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
     #[ghost]
     pub bottom_edge: BottomEdge,
+
+    /// The left end of the conceptual frame around the text used for layout and
+    /// positioning (for vertical text). This affects the size of containers that hold text.
+    ///
+    /// ```example
+    /// #set rect(inset: 0pt)
+    /// #set text(size: 20pt)
+    ///
+    /// #set text(left-edge: "ideographic")
+    /// #rect(fill: aqua)[Typst]
+    /// ```
+    #[default(LeftEdge::Metric(LeftEdgeMetric::Ideographic))]
+    #[ghost]
+    pub left_edge: LeftEdge,
+
+    /// The right end of the conceptual frame around the text used for layout and
+    /// positioning (for vertical text). This affects the size of containers that hold text.
+    ///
+    /// ```example
+    /// #set rect(inset: 0pt)
+    /// #set text(size: 20pt)
+    ///
+    /// #set text(right-edge: "ideographic")
+    /// #rect(fill: aqua)[Typst]
+    /// ```
+    #[default(RightEdge::Metric(RightEdgeMetric::Ideographic))]
+    #[ghost]
+    pub right_edge: RightEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
@@ -1098,7 +1126,7 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
     }
 }
 
-/// Specifies the top edge of text.
+/// Specifies the bottom edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BottomEdge {
     /// An edge specified via font metrics or bounding box.
@@ -1140,6 +1168,74 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
     }
 }
 
+/// Specifies the left edge of text (for vertical layout).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum LeftEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(LeftEdgeMetric),
+    /// An edge specified as a length.
+    Length(Length),
+}
+
+cast! {
+    LeftEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
+    v: LeftEdgeMetric => Self::Metric(v),
+    v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the left edge of text (for vertical layout).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum LeftEdgeMetric {
+    /// The ideographic edge (for CJK vertical text).
+    Ideographic,
+}
+
+impl TryInto<HorizontalFontMetric> for LeftEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<HorizontalFontMetric, Self::Error> {
+        Ok(HorizontalFontMetric::Ideographic)
+    }
+}
+
+/// Specifies the right edge of text (for vertical layout).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum RightEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(RightEdgeMetric),
+    /// An edge specified as a length.
+    Length(Length),
+}
+
+cast! {
+    RightEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
+    v: RightEdgeMetric => Self::Metric(v),
+    v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the right edge of text (for vertical layout).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum RightEdgeMetric {
+    /// The ideographic edge (for CJK vertical text).
+    Ideographic,
+}
+
+impl TryInto<HorizontalFontMetric> for RightEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<HorizontalFontMetric, Self::Error> {
+        Ok(HorizontalFontMetric::Ideographic)
+    }
+}
+
 /// The direction of text and inline objects in their line.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct TextDir(pub Smart<Dir>);
@@ -1148,9 +1244,6 @@ cast! {
     TextDir,
     self => self.0.into_value(),
     v: Smart<Dir> => {
-        if v.is_custom_and(|dir| dir.axis() == Axis::Y) {
-            bail!("text direction must be horizontal");
-        }
         Self(v)
     },
 }

@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Neg};
 
 use typst_utils::Numeric;
 
-use crate::layout::{Abs, Axes, Point, Ratio};
+use crate::layout::{Abs, Axes, Axis, Point, Ratio};
 
 /// A size in 2D.
 pub type Size = Axes<Abs>;
@@ -26,6 +26,22 @@ impl Size {
     /// Converts to a ratio of width to height.
     pub fn aspect_ratio(self) -> Ratio {
         Ratio::new(self.x / self.y)
+    }
+
+    /// The length along the axis
+    pub fn axis_length(&self, axis: Axis) -> Abs {
+        match axis {
+            Axis::X => self.x,
+            Axis::Y => self.y,
+        }
+    }
+
+    /// The length along the axis
+    pub fn axis_length_mut(&mut self, axis: Axis) -> &mut Abs {
+        match axis {
+            Axis::X => &mut self.x,
+            Axis::Y => &mut self.y,
+        }
     }
 }
 

@@ -9,7 +9,7 @@ use typst_utils::{LazyHash, Numeric};
 
 use crate::foundations::{Dict, Label, Value, cast, dict};
 use crate::introspection::{Location, Tag};
-use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
+use crate::layout::{Abs, Axes, Axis, FixedAlignment, Length, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
@@ -108,6 +108,11 @@ impl Frame {
         self.size.y
     }
 
+    /// The length of the frame along the axis
+    pub fn axis_length(&self, axis: Axis) -> Abs {
+        self.size.axis_length(axis)
+    }
+
     /// The vertical position of the frame's baseline.
     pub fn baseline(&self) -> Abs {
         self.baseline.unwrap_or(self.size.y)
@@ -134,6 +139,16 @@ impl Frame {
     /// The distance from the baseline to the bottom of the frame.
     pub fn descent(&self) -> Abs {
         self.size.y - self.baseline()
+    }
+
+    /// The horizontal position of the frame's leading edge (for vertical layout).
+    pub fn leading(&self) -> Abs {
+        Abs::zero()
+    }
+
+    /// The horizontal position of the frame's trailing edge (for vertical layout).
+    pub fn trailing(&self) -> Abs {
+        self.size.x
     }
 
     /// An iterator over the items inside this frame alongside their positions

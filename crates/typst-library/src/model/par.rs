@@ -206,6 +206,7 @@ pub struct ParElem {
     /// #show ". ": it => it + parbreak()
     /// #lorem(55)
     /// ```
+    // TODO: default to 1.25em when text direction is vertical.
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 

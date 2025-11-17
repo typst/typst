@@ -13,23 +13,26 @@ pub fn finalize(
     expand: bool,
     locator: &mut SplitLocator<'_>,
 ) -> SourceResult<Fragment> {
-    // Determine the resulting width: Full width of the region if we should
-    // expand or there's fractional spacing, fit-to-width otherwise.
-    let width = if !region.x.is_finite()
+    let flow_len = region.axis_length(p.config.dir.axis());
+    let cross_len = region.axis_length(p.config.dir.axis().other());
+
+    // Determine the resulting length: Full flow dimension of the region if we should
+    // expand or there's fractional spacing, fit-to-length otherwise.
+    let length = if !flow_len.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        region.x.min(
+        flow_len.min(
             p.config.hanging_indent
-                + lines.iter().map(|line| line.width).max().unwrap_or_default(),
+                + lines.iter().map(|line| line.length).max().unwrap_or_default(),
         )
     } else {
-        region.x
+        flow_len
     };
 
     // Stack the lines into one frame per region.
     lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, locator))
+        .map(|line| commit(engine, p, line, length, cross_len, locator))
         .collect::<SourceResult<_>>()
         .map(Fragment::frames)
 }

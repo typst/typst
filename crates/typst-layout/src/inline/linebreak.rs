@@ -142,11 +142,11 @@ impl Trim {
 pub fn linebreak<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
-    width: Abs,
+    length: Abs,
 ) -> Vec<Line<'a>> {
     match p.config.linebreaks {
-        Linebreaks::Simple => linebreak_simple(engine, p, width),
-        Linebreaks::Optimized => linebreak_optimized(engine, p, width),
+        Linebreaks::Simple => linebreak_simple(engine, p, length),
+        Linebreaks::Optimized => linebreak_optimized(engine, p, length),
     }
 }
 
@@ -157,7 +157,7 @@ pub fn linebreak<'a>(
 fn linebreak_simple<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
-    width: Abs,
+    length: Abs,
 ) -> Vec<Line<'a>> {
     let mut lines = Vec::with_capacity(16);
     let mut start = 0;
@@ -170,7 +170,7 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
-        if !width.fits(attempt.width)
+        if !length.fits(attempt.length)
             && let Some((last_attempt, last_end)) = last.take()
         {
             lines.push(last_attempt);
@@ -181,7 +181,7 @@ fn linebreak_simple<'a>(
         // Finish the current line if there is a mandatory line break (i.e. due
         // to "\n") or if the line doesn't fit horizontally already since then
         // no shorter line will be possible.
-        if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
+        if breakpoint == Breakpoint::Mandatory || !length.fits(attempt.length) {
             lines.push(attempt);
             start = end;
             last = None;
@@ -217,17 +217,17 @@ fn linebreak_simple<'a>(
 fn linebreak_optimized<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
-    width: Abs,
+    length: Abs,
 ) -> Vec<Line<'a>> {
     let metrics = CostMetrics::compute(p);
 
     // Determines the exact costs of a likely good layout through Knuth-Plass
     // with approximate metrics. We can use this cost as an upper bound to prune
     // the search space in our proper optimization pass below.
-    let upper_bound = linebreak_optimized_approximate(engine, p, width, &metrics);
+    let upper_bound = linebreak_optimized_approximate(engine, p, length, &metrics);
 
     // Using the upper bound, perform exact optimized linebreaking.
-    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound)
+    linebreak_optimized_bounded(engine, p, length, &metrics, upper_bound)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style, but with an upper
@@ -312,7 +312,7 @@ fn linebreak_optimized_bounded<'a>(
             // lower bound in that case.
             if line_ratio > 0.0
                 && line_lower_bound.is_none()
-                && !attempt.has_negative_width_items()
+                && !attempt.has_negative_length_items(p.config.dir)
             {
                 line_lower_bound = Some(line_cost);
             }
@@ -533,7 +533,7 @@ fn ratio_and_cost(
     let ratio = raw_ratio(
         p,
         available_width,
-        attempt.width,
+        attempt.length,
         attempt.stretchability(),
         attempt.shrinkability(),
         attempt.justifiables(),
@@ -965,7 +965,7 @@ impl Estimates {
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {
-                widths.push(range.len(), item.natural_width());
+                widths.push(range.len(), item.natural_length(p.config.dir));
             }
 
             widths.adjust(range.end);

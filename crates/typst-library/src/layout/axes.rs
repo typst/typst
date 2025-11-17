@@ -192,6 +192,20 @@ impl Axis {
             Self::Y => Self::X,
         }
     }
+
+    /// Executes a function with the two arguments swapped if the axis is vertical,
+    /// and executes without swapping if the axis is horizontal.
+    /// In general, arg1 should be the flow element,
+    /// and arg2 should be the cross element.
+    pub fn consider_axis<F, A, R>(self, func: F, arg1: A, arg2: A) -> R
+    where
+        F: FnOnce(A, A) -> R,
+    {
+        match self {
+            Axis::X => func(arg1, arg2),
+            Axis::Y => func(arg2, arg1),
+        }
+    }
 }
 
 cast! {
