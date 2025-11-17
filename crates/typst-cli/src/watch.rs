@@ -35,7 +35,7 @@ pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResu
     // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
         match SystemWorld::new(
-            &command.args.input,
+            Some(&command.args.input),
             &command.args.world,
             &command.args.process,
         ) {

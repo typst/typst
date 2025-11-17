@@ -40,9 +40,12 @@ pub fn compile(
     command: &'static CompileCommand,
 ) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
-    let mut world =
-        SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
-            .map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(
+        Some(&command.args.input),
+        &command.args.world,
+        &command.args.process,
+    )
+    .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 
