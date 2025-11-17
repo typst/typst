@@ -353,15 +353,35 @@ impl State {
 
     /// Updates the value of the state.
     ///
-    /// The update will be in effect at the position where the returned content
-    /// is inserted into the document. If you don't put the output into the
-    /// document, nothing happens! This would be the case, for example, if you
-    /// write `{let _ = state("key").update(7)}`. State updates are always
-    /// applied in layout order and in that case, Typst wouldn't know when to
-    /// update the state.
+    /// Returns an invisible piece of [content] that must be inserted into the
+    /// document to take effect. This invisible content tells Typst that the
+    /// specified update should take place wherever the content is inserted into
+    /// the document.
+    ///
+    /// State is a part of your document and runs like a thread embedded in the
+    /// document content. The value of a state is the result of all state
+    /// updates that happened in the document up until that point.
+    ///
+    /// That's why `state.update` returns an invisible sliver of content that
+    /// you need to return and include in the document — a state update that is
+    /// not "placed" in the document does not happen, and "when" it happens is
+    /// determined by where you place it. That's also why you need [context] to
+    /// read state: You need to use the current document position to know where
+    /// on the state's "thread" you are.
+    ///
+    /// Storing a state update in a variable (e.g.
+    /// `{let my-update = state("key").update(c => c * 2)}`) will have no effect
+    /// by itself. Only once you insert the variable `[#my-update]` somewhere
+    /// into the document content, the update will take effect — at the position
+    /// where it was inserted. You can also use `[#my-update]` multiple times at
+    /// different positions. Then, the update will take effect multiple times as
+    /// well.
     ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
-    /// [`final`]($state.final), this function does not require [context].
+    /// [`final`]($state.final), this function does not require [context]. This
+    /// is because, to create the state update, we do not need to know where in
+    /// the document we are. We only need this information to resolve the
+    /// state's value.
     #[func]
     pub fn update(
         self,
