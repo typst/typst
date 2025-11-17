@@ -1,9 +1,11 @@
+use std::fmt::Write;
+
 use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
-use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Scope};
+use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Repr, Scope};
 use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
@@ -117,15 +119,36 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
 
 /// Format the deprecation warning with the specific invocation of `typst eval` needed to replace `typst query`.
 fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
-    let alternative_eval_command = match &command.input {
-        FileInput::Path(path) => eco_format!(
-            "typst eval 'query({})' --in {}",
-            command.selector,
-            path.display()
-        ),
-        FileInput::Stdin => eco_format!("typst eval 'query({})'", command.selector),
+    let query = {
+        let mut buf = format!("query({})", command.selector);
+        let access = |field: &str| {
+            if typst::syntax::is_ident(field) {
+                eco_format!(".{field}")
+            } else {
+                eco_format!(".at({})", field.repr())
+            }
+        };
+        match (command.one, &command.field) {
+            (false, None) => {}
+            (false, Some(field)) => {
+                write!(buf, ".map(it => it{})", access(field)).unwrap()
+            }
+            (true, None) => write!(buf, ".first()").unwrap(),
+            (true, Some(field)) => write!(buf, ".first(){}", access(field)).unwrap(),
+        }
+        shell_escape::escape(buf.into())
     };
 
-    SourceDiagnostic::warning(Span::detached(), "`typst query` command is deprecated")
-        .with_hint(eco_format!("use `{}` instead", alternative_eval_command))
+    let eval_command = match &command.input {
+        FileInput::Path(path) => {
+            eco_format!("typst eval {query} --in {}", path.display())
+        }
+        FileInput::Stdin => eco_format!("typst eval {query}"),
+    };
+
+    SourceDiagnostic::warning(
+        Span::detached(),
+        "the `typst query` subcommand is deprecated",
+    )
+    .with_hint(eco_format!("use `{}` instead", eval_command))
 }
