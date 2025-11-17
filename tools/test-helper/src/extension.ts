@@ -124,7 +124,7 @@ class TestHelper {
     const lenses = [];
     for (let nr = 0; nr < document.lineCount; nr++) {
       const line = document.lineAt(nr);
-      const re = /^--- ([\d\w-]+)(( [\d\w-]+)*) ---$/;
+      const re = /^--- ([\d\w-]+)(( [\d\w-\(\)]+)*) ---$/;
       const m = line.text.match(re);
       if (!m) {
         continue;
@@ -401,12 +401,7 @@ type Bucket = "store" | "ref";
 type Format = "html" | "render";
 
 function getUri(name: string, bucket: Bucket, format: Format) {
-  let path;
-  if (bucket === "ref" && format === "render") {
-    path = `tests/ref/${name}.png`;
-  } else {
-    path = `tests/${bucket}/${format}/${name}.${EXTENSION[format]}`;
-  }
+  let path = `tests/${bucket}/${format}/${name}.${EXTENSION[format]}`;
   return vscode.Uri.joinPath(getWorkspaceRoot(), path);
 }
 
@@ -420,8 +415,8 @@ async function getWebviewContent(
     stderr: string;
   }
 ): Promise<string> {
+  const showRender = attrs.includes("paged");
   const showHtml = attrs.includes("html");
-  const showRender = !showHtml || attrs.includes("render");
 
   const stdout = output?.stdout
     ? `<h2>Standard output</h2><pre class="output">${escape(
