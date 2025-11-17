@@ -172,9 +172,14 @@ pub struct SourceDiagnostic {
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
     pub trace: EcoVec<Spanned<Tracepoint>>,
-    /// Additional hints to the user, indicating how this problem could be avoided
-    /// or worked around.
-    pub hints: EcoVec<EcoString>,
+    /// Additional hints to the user.
+    ///
+    /// - When the span is detached, these are generic hints. The CLI renders
+    ///   them as a list at the bottom, each prefixed with `hint: `.
+    ///
+    /// - When a span is given, the hint is related to a secondary piece of code
+    ///   and will be annotated at that code.
+    pub hints: EcoVec<Spanned<EcoString>>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -211,7 +216,12 @@ impl SourceDiagnostic {
 
     /// Adds a single hint to the diagnostic.
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.hints.push(hint.into());
+        self.hints.push(Spanned::detached(hint.into()));
+    }
+
+    /// Adds a single hint specific to a source code location to the diagnostic.
+    pub fn spanned_hint(&mut self, hint: impl Into<EcoString>, span: Span) {
+        self.hints.push(Spanned::new(hint.into(), span));
     }
 
     /// Adds a single hint to the diagnostic.
@@ -220,9 +230,21 @@ impl SourceDiagnostic {
         self
     }
 
-    /// Adds user-facing hints to the diagnostic.
+    /// Adds a single hint specific to a source code location to the diagnostic.
+    pub fn with_spanned_hint(mut self, hint: impl Into<EcoString>, span: Span) -> Self {
+        self.spanned_hint(hint, span);
+        self
+    }
+
+    /// Adds multiple user-facing hints to the diagnostic.
     pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
-        self.hints.extend(hints);
+        self.hints.extend(hints.into_iter().map(Spanned::detached));
+        self
+    }
+
+    /// Adds a single tracepoint to the diagnostic.
+    pub fn with_tracepoint(mut self, tracepoint: Tracepoint, span: Span) -> Self {
+        self.trace.push(Spanned::new(tracepoint, span));
         self
     }
 }
@@ -234,7 +256,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             span: error.span,
             message: error.message,
             trace: eco_vec![],
-            hints: error.hints,
+            hints: error.hints.into_iter().map(Spanned::detached).collect(),
         }
     }
 }

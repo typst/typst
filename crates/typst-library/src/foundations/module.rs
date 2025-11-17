@@ -47,7 +47,6 @@ use crate::foundations::{Content, Scope, Value, repr, ty};
 /// constructor]($dictionary/#constructor).
 #[ty(cast)]
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
     name: Option<EcoString>,

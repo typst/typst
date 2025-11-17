@@ -1,4 +1,4 @@
---- break-tags-nested-parbreak pdftags nopdfua ---
+--- break-tags-nested-parbreak pdftags ---
 #let target = "tel:123"
 
 Start of the first paragraph #link(target)[
@@ -9,7 +9,7 @@ Start of the first paragraph #link(target)[
   ]
 ] Part of the second paragraph.
 
---- break-tags-nested-parbreak-with-nested-groups pdftags nopdfua ---
+--- break-tags-nested-parbreak-with-nested-groups pdftags ---
 #let target = "tel:123"
 
 Start of the first paragraph #link(target)[
@@ -22,5 +22,5 @@ Start of the first paragraph #link(target)[
   ]
 ] Part of the second paragraph.
 
---- break-tags-issue-7020 pdftags nopdfua ---
+--- break-tags-issue-7020 pdftags ---
 Foo #quote($$ + parbreak())

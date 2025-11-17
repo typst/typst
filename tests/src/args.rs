@@ -1,7 +1,10 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
+
+use crate::collect::TestStages;
 
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
@@ -26,23 +29,16 @@ pub struct CliArguments {
     /// Updates the reference output of non-passing tests.
     #[arg(short, long, group = "action")]
     pub update: bool,
+    /// Specify which test targets/outputs to run.
+    ///
+    /// This is useful to only update specific reference outputs of a test.
+    #[arg(long, value_delimiter = ',')]
+    pub stages: Vec<TestStage>,
     /// The scaling factor to render the output image with.
     ///
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
     pub scale: f32,
-    /// Whether to run the tests in extended mode, including PDF and SVG
-    /// export.
-    ///
-    /// This is used in CI.
-    #[arg(long, env = "TYPST_TESTS_EXTENDED")]
-    pub extended: bool,
-    /// Runs PDF export.
-    #[arg(long)]
-    pub pdf: bool,
-    /// Runs SVG export.
-    #[arg(long)]
-    pub svg: bool,
     /// Displays the syntax tree before running tests.
     ///
     /// Note: This is ignored if using '--syntax-compare'.
@@ -83,14 +79,31 @@ pub struct CliArguments {
 }
 
 impl CliArguments {
-    /// Whether to run PDF export.
-    pub fn pdf(&self) -> bool {
-        self.pdf || self.extended
+    /// The stages which should be run depending on the `--stages` flag.
+    pub fn stages(&self) -> TestStages {
+        static CACHED: AtomicU8 = AtomicU8::new(0xFF);
+
+        if CACHED.load(Ordering::Relaxed) == 0xFF {
+            let mut stages = TestStages::empty();
+            if self.stages.is_empty() {
+                stages = TestStages::all();
+            } else {
+                for &s in self.stages.iter() {
+                    stages |= s.into();
+                }
+
+                stages = stages.with_implied();
+            };
+
+            CACHED.store(stages.bits(), Ordering::Relaxed);
+        }
+
+        TestStages::from_bits(CACHED.load(Ordering::Relaxed)).unwrap()
     }
 
-    /// Whether to run SVG export.
-    pub fn svg(&self) -> bool {
-        self.svg || self.extended
+    /// Whether the stage should be run depending on the `--stages` flag.
+    pub fn should_run(&self, stage: TestStages) -> bool {
+        self.stages().intersects(stage)
     }
 }
 
@@ -102,4 +115,27 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum TestStage {
+    Paged,
+    Render,
+    Pdf,
+    Pdftags,
+    Svg,
+    Html,
+}
+
+impl From<TestStage> for TestStages {
+    fn from(value: TestStage) -> Self {
+        match value {
+            TestStage::Paged => TestStages::PAGED,
+            TestStage::Render => TestStages::RENDER,
+            TestStage::Pdf => TestStages::PDF,
+            TestStage::Pdftags => TestStages::PDFTAGS,
+            TestStage::Svg => TestStages::SVG,
+            TestStage::Html => TestStages::HTML,
+        }
+    }
 }

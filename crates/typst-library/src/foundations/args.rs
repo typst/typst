@@ -41,7 +41,6 @@ use crate::foundations::{
 /// ```
 #[ty(scope, cast, name = "arguments")]
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Args {
     /// The callsite span for the function. This is not the span of the argument
     /// list itself, but of the whole function call.
@@ -392,7 +391,6 @@ impl Add for Args {
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,

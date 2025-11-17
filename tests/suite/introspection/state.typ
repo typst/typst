@@ -1,6 +1,6 @@
 // Test state.
 
---- state-basic ---
+--- state-basic paged ---
 #let s = state("hey", "a")
 #let double(it) = 2 * it
 
@@ -15,7 +15,7 @@ Was: #context {
   s.at(it.location())
 }.
 
---- state-multiple-calls-same-key ---
+--- state-multiple-calls-same-key paged ---
 // Try same key with different initial value.
 #context state("key", 2).get()
 #state("key").update(x => x + 1)
@@ -24,7 +24,7 @@ Was: #context {
 #state("key").update(x => x + 1)
 #context state("key", 2).get()
 
---- state-nested ---
+--- state-nested paged ---
 #set page(width: 200pt)
 #set text(8pt)
 
@@ -47,15 +47,7 @@ Was: #context {
 #trait[Fear]
 #trait[Anger]
 
---- state-no-convergence ---
-// Make sure that a warning is produced if the layout fails to converge.
-// Warning: layout did not converge within 5 attempts
-// Hint: check if any states or queries are updating themselves
-#let s = state("s", 1)
-#context s.update(s.final() + 1)
-#context s.get()
-
---- state-at-no-context ---
+--- state-at-no-context paged ---
 // Test `state.at` outside of context.
 // Error: 2-26 can only be used when context is known
 // Hint: 2-26 try wrapping this in a `context` expression

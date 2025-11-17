@@ -111,7 +111,7 @@ pub struct EquationElem {
     /// ```example
     /// #math.equation(
     ///   alt: "integral from 1 to infinity of a x squared plus b with respect to x",
-    ///   $ integral_1^oo a x^2 + b med d x $,
+    ///   $ integral_1^oo a x^2 + b dif x $,
     /// )
     /// ```
     pub alt: Option<EcoString>,

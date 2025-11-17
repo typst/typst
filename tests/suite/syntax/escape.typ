@@ -1,6 +1,6 @@
 // Test escape sequences.
 
---- escape ---
+--- escape paged ---
 // Escapable symbols.
 \\ \/ \[ \] \{ \} \# \* \_ \+ \= \~ \
 \` \$ \" \' \< \> \@ \( \) \A
@@ -25,12 +25,12 @@ let f() , ; : | + - /= == 12 "string"
 // Escaped dot.
 10\. May
 
---- escape-invalid-codepoint ---
+--- escape-invalid-codepoint paged ---
 // Unicode codepoint does not exist.
 // Error: 1-11 invalid Unicode codepoint: FFFFFF
 \u{FFFFFF}
 
---- escape-unclosed ---
+--- escape-unclosed paged ---
 // Unterminated.
 // Error: 1-6 unclosed Unicode escape sequence
 \u{41[*Bold*]

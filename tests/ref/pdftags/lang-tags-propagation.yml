@@ -5,7 +5,7 @@ lang: "nl"
     - Content: page=0 mcid=0
 - Tag: L
   /Lang: "es-CO"
-  /Numbering: Circle
+  /ListNumbering: Circle
   /K:
     - Tag: LI
       /K:
@@ -19,7 +19,7 @@ lang: "nl"
               /K:
                 - Content: page=0 mcid=2
     - Tag: L
-      /Numbering: Circle
+      /ListNumbering: Circle
       /K:
         - Tag: LI
           /K:
