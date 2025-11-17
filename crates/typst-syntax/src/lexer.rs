@@ -340,7 +340,8 @@ impl Lexer<'_> {
         F: FnMut(SyntaxKind, &Scanner),
     {
         // Language tag.
-        if !self.s.eat_until(|c: char| c.is_whitespace() || c == '`').is_empty() {
+        let tag = self.s.eat_until(|c: char| c.is_whitespace() || c == '`');
+        if !tag.is_empty() {
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 
