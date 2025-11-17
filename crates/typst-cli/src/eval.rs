@@ -1,6 +1,3 @@
-use crate::args::{EvalCommand, Target};
-use crate::world::SystemWorld;
-use crate::{compile::print_diagnostics, set_failed};
 use comemo::Track;
 use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
@@ -9,6 +6,11 @@ use typst::syntax::{Span, SyntaxMode};
 use typst::{World, engine::Sink, introspection::Introspector, layout::PagedDocument};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
+
+use crate::args::{EvalCommand, Target};
+use crate::compile::print_diagnostics;
+use crate::set_failed;
+use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
@@ -46,7 +48,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                     &[]
                 }
             };
-            // Collect additional warnings from code evaluation
+            // Collect additional warnings from evaluating the expression.
             warnings.extend(sink.warnings());
 
             print_diagnostics(
@@ -74,7 +76,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     Ok(())
 }
 
-/// Evaluates the expression with code SyntaxMode and no scope.
+/// Evaluates the expression with code syntax mode and no scope.
 fn evaluate_expression(
     expression: String,
     sink: &mut Sink,

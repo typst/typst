@@ -81,8 +81,9 @@ use ecow::EcoString;
 use typst_syntax::{Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
+use crate::engine::Engine;
+use crate::introspection::Introspector;
 use crate::{Feature, Features};
-use crate::{engine::Engine, introspection::Introspector};
 
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {

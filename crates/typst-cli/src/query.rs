@@ -33,7 +33,7 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
             .map(|output| output.map(|document| document.introspector)),
     };
 
-    // Add deprecation warning to warnings
+    // Add deprecation warning.
     warnings.push(deprecation_warning(command));
 
     match output {

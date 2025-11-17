@@ -103,10 +103,10 @@ impl SystemWorld {
                 .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
         } else if matches!(input, Some(Input::Stdin)) {
-            // Return the special id of STDIN
+            // Return the special id of STDIN.
             *STDIN_ID
         } else {
-            // Return the special id of EMPTY/no input at all otherwise
+            // Return the special id of EMPTY/no input at all otherwise.
             *EMPTY_ID
         };
 
@@ -430,9 +430,9 @@ fn system_path(
 
 /// Reads a file from a `FileId`.
 ///
-/// If the ID represents stdin it will read from standard input,
-/// else if it represents empty/no input at all it will return an empty vector,
-/// otherwise it gets the file path of the ID and reads the file from disk.
+/// - If the ID represents stdin it will read from standard input.
+/// - If it represents empty/no input at all it will return an empty vector.
+/// - Otherwise, it gets the file path of the ID and reads the file from disk.
 fn read(
     id: FileId,
     project_root: &Path,
