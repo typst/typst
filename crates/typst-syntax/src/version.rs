@@ -25,6 +25,25 @@ pub struct TypstVersion {
     raw: &'static str,
 }
 
+/// Bundle an environment variable key with its value.
+struct EnvWithSource {
+    /// The key of the environment variable that has been read.
+    key: &'static str,
+    /// The value read from the environment variable.
+    value: &'static str,
+}
+
+/// Construct an environment variable key along with its value.
+///
+/// This is glue code necessitated by the fact that `option_env!` expects a string literal as
+/// argument. In order to prevent typing the env name twice, we wrap it into a macro that does this
+/// for us.
+macro_rules! env_with_source {
+    ($key:literal) => {
+        option_env!($key).map(|value| EnvWithSource { key: $key, value })
+    };
+}
+
 impl TypstVersion {
     /// Get the Typst version.
     ///
@@ -42,11 +61,11 @@ impl TypstVersion {
     /// variable holds a version definition that doesn't conform to SemVer.
     pub fn new() -> &'static Self {
         TYPST_VERSION_REF.get_or_init(|| {
-            option_env!("TYPST_VERSION")
-                .or(option_env!("CARGO_PKG_VERSION"))
+            env_with_source!("TYPST_VERSION")
+                .or(env_with_source!("CARGO_PKG_VERSION"))
                 .ok_or(VersionError::Unknown)
-                .and_then(|raw| match semver::Version::parse(raw) {
-                    Ok(version) => Ok(Self { version, raw }),
+                .and_then(|raw| match semver::Version::parse(raw.value) {
+                    Ok(version) => Ok(Self { version, raw: raw.value }),
                     Err(_) => Err(VersionError::Invalid(raw)),
                 })
                 // NOTE: Strictly speaking we could return the `Result` instance and call it a day,
@@ -81,9 +100,9 @@ impl TypstVersion {
 }
 
 /// Custom error type for Typst compiler version detection.
-pub enum VersionError {
+enum VersionError {
     /// Invalid version number (failed to parse)
-    Invalid(&'static str),
+    Invalid(EnvWithSource),
     /// Unknown version number (not defined)
     Unknown,
 }
@@ -93,7 +112,11 @@ impl std::fmt::Debug for VersionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Invalid(raw) => {
-                writeln!(f, "failed to parse semantic version from {raw:?}")
+                writeln!(
+                    f,
+                    "failed to parse {:?} from variable {:?} as semantic version number",
+                    raw.value, raw.key
+                )
             }
             Self::Unknown => writeln!(
                 f,
