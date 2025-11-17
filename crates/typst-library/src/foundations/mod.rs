@@ -301,8 +301,12 @@ pub fn eval(
         engine.routines,
         engine.world,
         TrackedMut::reborrow_mut(&mut engine.sink),
-        // We create a new, detached introspector for evaluation, this is same behavior as has always been in eval_string
-        // We could extend to pass engine.introspector, but that is protected and may have unintended side effects
+        // We create a new, detached introspector for string evaluation. Passing
+        // the real introspector should not have any consequences with
+        // `Context::none`, but also no benefits. We might want to pass through
+        // the context and introspector in the future, to allow introspection
+        // when calling `eval` from within a context expression, but this should
+        // be well-considered.
         Introspector::default().track(),
         Context::none().track(),
         &text,
