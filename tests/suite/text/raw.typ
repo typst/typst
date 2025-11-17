@@ -305,6 +305,21 @@ int main() {
 </html>
 ```
 
+--- raw-highlight-html-jinja2 paged ---
+#set page(width: auto)
+
+```html.j2
+<tbody>
+  {% for row in data.rows %}
+  <tr>
+      {% for column in row %}
+      <td>{{ column }}</td>
+      {% endfor %}
+  </tr>
+  {% endfor %}
+</tbody>
+```
+
 --- raw-blocky paged ---
 // Test various raw parsing edge cases.
 
