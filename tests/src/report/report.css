@@ -45,10 +45,6 @@ a:hover {
     background-color: #1e1e1e;
 }
 
-.test-link {
-
-}
-
 .diff-container {
     font-size: 10pt;
     flex: 6;
@@ -110,6 +106,11 @@ table.diff-area {
     border-spacing: 0;
 }
 
+tr {
+    padding: 0;
+    margin: 0;
+}
+
 .col-line-gutter {
     width: 4em;
     min-width: 4em;
@@ -120,6 +121,8 @@ table.diff-area {
     width: 50%;
     min-width: 50%;
     max-width: 50%;
+    margin: 0;
+    padding: 0;
 }
 
 .diff-header {
@@ -130,8 +133,9 @@ table.diff-area {
 }
 
 .diff-line {
-    min-height: 1.5em;
-    height: 1.5em;
+    vertical-align: top;
+    min-height: calc(1.5em + 2px);
+    height: calc(1.5em + 2px);
     line-height: 1.5em;
 }
 
@@ -151,21 +155,26 @@ table.diff-area {
 
 .diff-gap {
     text-align: center;
-    background-color: #3a528228;
+    user-select: none;
     font-size: 1.2em;
-    vertical-align: bottom;
+    background-color: #3a528228;
     color: #5a92c2;
 }
 
 .diff-end {}
 
 .line-gutter {
-    vertical-align: baseline;
     text-align: right;
     user-select: none;
     color: #a0a0a0;
     padding-left: 4px;
     padding-right: 4px;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 1px;
+    margin-bottom: 1px;
 }
 
 .line-gutter.diff-empty {
@@ -193,14 +202,14 @@ table.diff-area {
     padding-bottom: 0;
 }
 
-.line-body.diff-del {
-    vertical-align: top;
-}
-
 .line-text {
     display: inline-block;
+    vertical-align: baseline;
     white-space: pre-wrap;
-    margin: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 1px;
+    margin-bottom: 1px;
 }
 
 .span-del {
