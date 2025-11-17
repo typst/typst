@@ -1,5 +1,5 @@
-use crate::args::{EvalCommand, FileInput, StringInput, Target};
-use crate::world::{SystemWorld, decode_utf8, read_from_stdin};
+use crate::args::{EvalCommand, Target};
+use crate::world::SystemWorld;
 use crate::{compile::print_diagnostics, set_failed};
 use comemo::Track;
 use ecow::eco_format;
@@ -12,11 +12,8 @@ use typst_html::HtmlDocument;
 
 /// Execute a query command.
 pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
-    let mut world = SystemWorld::new(
-        command.r#in.clone().map(FileInput::Path).as_ref(),
-        &command.world,
-        &command.process,
-    )?;
+    let mut world =
+        SystemWorld::new(command.r#in.as_ref(), &command.world, &command.process)?;
 
     // Reset everything and ensure that the main file is present.
     world.reset();
@@ -34,12 +31,12 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
         // Retrieve and print evaluation results.
         Ok(introspector) => {
             let mut sink = Sink::new();
-            let expression = match &command.expression {
-                StringInput::Stdin => read_expression_from_stdin()?,
-                StringInput::String(expression) => expression.clone(),
-            };
-            let eval_result =
-                evaluate_expression(expression, &mut sink, &world, &introspector);
+            let eval_result = evaluate_expression(
+                command.expression.clone(),
+                &mut sink,
+                &world,
+                &introspector,
+            );
             let errors = match &eval_result {
                 Err(errors) => errors.as_slice(),
                 Ok(value) => {
@@ -95,11 +92,4 @@ fn evaluate_expression(
         SyntaxMode::Code,
         Scope::default(),
     )
-}
-
-/// Reads a statement from stdin, decoding it from UTF-8.
-fn read_expression_from_stdin() -> HintedStrResult<String> {
-    let result = read_from_stdin()?;
-    let statement = decode_utf8(&result)?;
-    Ok(statement.into())
 }

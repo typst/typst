@@ -19,7 +19,7 @@ use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
-    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, FileInput, Output,
+    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
@@ -56,7 +56,7 @@ pub struct CompileConfig {
     /// Whether we are watching.
     pub watching: bool,
     /// Path to input Typst file or stdin.
-    pub input: FileInput,
+    pub input: Input,
     /// Path to output file (PDF, PNG, SVG, or HTML).
     pub output: Output,
     /// The format of the output file.
@@ -127,7 +127,7 @@ impl CompileConfig {
         };
 
         let output = args.output.clone().unwrap_or_else(|| {
-            let FileInput::Path(path) = &input else {
+            let Input::Path(path) = &input else {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             Output::Path(path.with_extension(

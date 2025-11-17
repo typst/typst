@@ -145,8 +145,8 @@ pub struct InitCommand {
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: FileInput,
+    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: Input,
 
     /// Defines which elements to retrieve.
     pub selector: String,
@@ -185,14 +185,13 @@ pub struct QueryCommand {
 /// Evaluates a piece of Typst code, optionally in the context of a document.
 #[derive(Debug, Clone, Parser)]
 pub struct EvalCommand {
-    /// The piece of Typst code to evaluate. Use `-` to read input from stdin.
-    #[clap(value_parser = string_input_value_parser())]
-    pub expression: StringInput,
+    /// The piece of Typst code to evaluate.
+    pub expression: String,
 
     /// A file in whose context to evaluate the code. Can be used to
-    /// introspect the document.
-    #[clap(long = "in", value_hint = ValueHint::FilePath)]
-    pub r#in: Option<PathBuf>,
+    /// introspect the document. Use `-` to read input from stdin.
+    #[clap(long = "in", value_hint = ValueHint::FilePath, value_parser = input_value_parser())]
+    pub r#in: Option<Input>,
 
     /// The target to compile for.
     #[clap(long, default_value_t)]
@@ -283,8 +282,8 @@ pub struct InfoCommand {
 #[derive(Debug, Clone, Args)]
 pub struct CompileArgs {
     /// Path to input Typst file. Use `-` to read input from stdin.
-    #[clap(value_parser = file_input_value_parser(), value_hint = ValueHint::FilePath)]
-    pub input: FileInput,
+    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: Input,
 
     /// Path to output file (PDF, PNG, SVG, or HTML). Use `-` to write output to
     /// stdout.
@@ -507,36 +506,18 @@ macro_rules! display_possible_values {
 
 /// An input that is either stdin or a real path.
 #[derive(Debug, Clone)]
-pub enum FileInput {
+pub enum Input {
     /// Stdin, represented by `-`.
     Stdin,
     /// A non-empty path.
     Path(PathBuf),
 }
 
-impl Display for FileInput {
+impl Display for Input {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            FileInput::Stdin => f.pad("stdin"),
-            FileInput::Path(path) => path.display().fmt(f),
-        }
-    }
-}
-
-/// An input that is either stdin or a string.
-#[derive(Debug, Clone)]
-pub enum StringInput {
-    /// Stdin, represented by `-`.
-    Stdin,
-    /// A string.
-    String(String),
-}
-
-impl Display for StringInput {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            StringInput::Stdin => f.pad("stdin"),
-            StringInput::String(string) => string.fmt(f),
+            Input::Stdin => f.pad("stdin"),
+            Input::Path(path) => path.display().fmt(f),
         }
     }
 }
@@ -777,27 +758,14 @@ fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
 }
 
 /// The clap value parser used by `SharedArgs.input`
-fn file_input_value_parser() -> impl TypedValueParser<Value = FileInput> {
+fn input_value_parser() -> impl TypedValueParser<Value = Input> {
     clap::builder::OsStringValueParser::new().try_map(|value| {
         if value.is_empty() {
             Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
         } else if value == "-" {
-            Ok(FileInput::Stdin)
+            Ok(Input::Stdin)
         } else {
-            Ok(FileInput::Path(value.into()))
-        }
-    })
-}
-
-/// The clap value parser used by `EvalCommand.statement`
-fn string_input_value_parser() -> impl TypedValueParser<Value = StringInput> {
-    clap::builder::NonEmptyStringValueParser::new().try_map(|value| {
-        if value.is_empty() {
-            Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
-        } else if value == "-" {
-            Ok(StringInput::Stdin)
-        } else {
-            Ok(StringInput::String(value))
+            Ok(Input::Path(value.into()))
         }
     })
 }

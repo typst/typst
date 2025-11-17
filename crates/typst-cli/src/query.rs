@@ -12,7 +12,7 @@ use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
-use crate::args::{FileInput, QueryCommand, Target};
+use crate::args::{Input, QueryCommand, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -140,10 +140,10 @@ fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
     };
 
     let eval_command = match &command.input {
-        FileInput::Path(path) => {
+        Input::Path(path) => {
             eco_format!("typst eval {query} --in {}", path.display())
         }
-        FileInput::Stdin => eco_format!("typst eval {query}"),
+        Input::Stdin => eco_format!("typst eval {query}"),
     };
 
     SourceDiagnostic::warning(

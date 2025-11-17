@@ -17,7 +17,7 @@ use typst_kit::fonts::Fonts;
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Feature, FileInput, FontArgs, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -56,7 +56,7 @@ pub struct SystemWorld {
 impl SystemWorld {
     /// Create a new system world.
     pub fn new(
-        input: Option<&FileInput>,
+        input: Option<&Input>,
         world_args: &'static WorldArgs,
         process_args: &ProcessArgs,
     ) -> Result<Self, WorldCreationError> {
@@ -71,7 +71,7 @@ impl SystemWorld {
 
         // Resolve the system-global input path.
         let input_path = match input {
-            Some(FileInput::Path(path)) => {
+            Some(Input::Path(path)) => {
                 Some(path.canonicalize().map_err(|err| match err.kind() {
                     io::ErrorKind::NotFound => {
                         WorldCreationError::InputNotFound(path.clone())
@@ -102,7 +102,7 @@ impl SystemWorld {
             let main_path = VirtualPath::within_root(path, &root)
                 .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
-        } else if matches!(input, Some(FileInput::Stdin)) {
+        } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN
             *STDIN_ID
         } else {
@@ -456,7 +456,7 @@ fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
 }
 
 /// Read from stdin.
-pub fn read_from_stdin() -> FileResult<Vec<u8>> {
+fn read_from_stdin() -> FileResult<Vec<u8>> {
     let mut buf = Vec::new();
     let result = io::stdin().read_to_end(&mut buf);
     match result {
@@ -468,7 +468,7 @@ pub fn read_from_stdin() -> FileResult<Vec<u8>> {
 }
 
 /// Decode UTF-8 with an optional BOM.
-pub fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
+fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
 }
