@@ -17,6 +17,7 @@ use typst_library::introspection::{
 use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_utils::Protected;
 
 use self::collect::{Item, collect};
 use self::finalize::finalize;
@@ -37,7 +38,7 @@ pub fn layout_document(
     layout_document_impl(
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -59,6 +60,7 @@ fn layout_document_impl(
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
+    let introspector = Protected::from_raw(introspector);
     let mut locator = Locator::root().split();
     let mut engine = Engine {
         routines,

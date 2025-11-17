@@ -313,8 +313,7 @@ impl Lexer<'_> {
     /// below.
     ///
     /// ### The initial line:
-    /// - A valid Typst identifier immediately following the opening delimiter
-    ///   is parsed as the language tag.
+    /// - Text until the first whitespace or backtick is parsed as the language tag.
     /// - We check the rest of the line and if all characters are whitespace,
     ///   trim it. Otherwise we trim a single leading space if present.
     ///   - If more trimmed characters follow on future lines, they will be
@@ -341,8 +340,8 @@ impl Lexer<'_> {
         F: FnMut(SyntaxKind, &Scanner),
     {
         // Language tag.
-        if self.s.eat_if(is_id_start) {
-            self.s.eat_while(is_id_continue);
+        let tag = self.s.eat_until(|c: char| c.is_whitespace() || c == '`');
+        if !tag.is_empty() {
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 
@@ -643,8 +642,15 @@ impl Lexer<'_> {
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                let (kind, node) = self.math_ident_or_field(start);
-                return (kind, Some(node));
+                let (last_index, _) =
+                    self.s.from(start).grapheme_indices(true).next_back().unwrap();
+                if last_index == 0 {
+                    // If this was just a single grapheme.
+                    SyntaxKind::MathText
+                } else {
+                    let (kind, node) = self.math_ident_or_field(start);
+                    return (kind, Some(node));
+                }
             }
 
             // Other math atoms.
@@ -689,7 +695,6 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
-            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -698,14 +703,8 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
-            if len > c.len_utf8() {
-                // Grapheme clusters are treated as normal text and stay grouped
-                // This may need to change in the future.
-                SyntaxKind::Text
-            } else {
-                SyntaxKind::MathText
-            }
         }
+        SyntaxKind::MathText
     }
 
     /// Handle named arguments in math function call.

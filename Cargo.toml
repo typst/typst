@@ -5,7 +5,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.14.0"
-rust-version = "1.88" # also change in ci.yml
+rust-version = "1.89" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2024"
 homepage = "https://typst.app"
@@ -77,8 +77,8 @@ image = { version = "0.25.5", default-features = false, features = ["png", "jpeg
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
-krilla = { version = "0.5.0", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = "0.2"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "e5639c6", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "e5639c6" }
 kurbo = "0.12"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -168,3 +168,5 @@ manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
+# See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
+derived_hash_with_manual_eq = "allow"

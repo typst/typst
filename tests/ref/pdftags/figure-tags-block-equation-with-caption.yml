@@ -9,12 +9,7 @@
     - Tag: Formula
       /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
       /Placement: Block
-      /BBox:
-        page: 0
-        left:    33.655
-        top:     10.000
-        right:   85.743
-        bottom:  19.108
+      /BBox: [ 33.656,  23.080,  85.743,  32.188]
       /K:
         - Content: page=0 mcid=0
         - Content: page=0 mcid=1

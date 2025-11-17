@@ -1,4 +1,4 @@
---- grid-tags-rowspan pdftags ---
+--- grid-tags-rowspan pdftags pdfstandard(ua-1) ---
 #grid(
   columns: 4,
   stroke: 1pt,
@@ -10,7 +10,7 @@
   [b],
 )
 
---- grid-tags-cell-breaking pdftags ---
+--- grid-tags-cell-breaking pdftags pdfstandard(ua-1) ---
 // The second paragraph contains marked content from page 1 and 2
 #set page(width: 5cm, height: 3cm)
 #grid(
@@ -26,7 +26,7 @@
   [Rampage],
 )
 
---- grid-tags-rowspan-split-3 pdftags ---
+--- grid-tags-rowspan-split-3 pdftags pdfstandard(ua-1) ---
 #set page(height: 5em)
 #grid(
   columns: 2,
@@ -37,7 +37,7 @@
   [a], [b],
 )
 
---- grid-tags-internal-grid-layout-breaking-bibliography pdftags ---
+--- grid-tags-internal-grid-layout-breaking-bibliography pdftags pdfstandard(ua-1) ---
 #set page(height: 140pt)
 
 #cite(label("DBLP:books/lib/Knuth86a"))

@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{Label, NativeElement};
@@ -45,7 +44,7 @@ pub fn identify_link_targets(
             .query(&LinkElem::ELEM.select())
             .iter()
             .map(|elem| elem.to_packed::<LinkElem>().unwrap())
-            .filter_map(|elem| match elem.dest.resolve(introspector.track()) {
+            .filter_map(|elem| match elem.dest.resolve_with_introspector(introspector) {
                 Ok(Destination::Location(loc)) => Some(loc),
                 _ => None,
             }),

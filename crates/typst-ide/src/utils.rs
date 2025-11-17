@@ -8,6 +8,7 @@ use typst::foundations::{Scope, Value};
 use typst::introspection::Introspector;
 use typst::syntax::{LinkedNode, SyntaxKind};
 use typst::text::{FontInfo, FontStyle};
+use typst::utils::Protected;
 
 use crate::IdeWorld;
 
@@ -22,7 +23,7 @@ where
     let mut engine = Engine {
         routines: &typst::ROUTINES,
         world: world.upcast().track(),
-        introspector: introspector.track(),
+        introspector: Protected::new(introspector.track()),
         traced: traced.track(),
         sink: sink.track_mut(),
         route: Route::default(),

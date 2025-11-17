@@ -7,7 +7,10 @@ use crate::foundations::{
     Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
     StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::{Counter, CounterKey, Locatable, Tagged};
+use crate::introspection::{
+    Counter, CounterKey, Locatable, PageNumberingIntrospection,
+    PageSupplementIntrospection, QueryLabelIntrospection, Tagged,
+};
 use crate::math::EquationElem;
 use crate::model::{
     BibliographyElem, CiteElem, DirectLinkElem, Figurable, FootnoteElem, Numbering,
@@ -203,14 +206,16 @@ impl Synthesize for Packed<RefElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
+        let span = self.span();
         let citation = to_citation(self, engine, styles)?;
 
         let elem = self.as_mut();
         elem.citation = Some(Some(citation));
         elem.element = Some(None);
 
-        if !BibliographyElem::has(engine, elem.target)
-            && let Ok(found) = engine.introspector.query_label(elem.target).cloned()
+        if !BibliographyElem::has(engine, elem.target, span)
+            && let Ok(found) =
+                engine.introspect(QueryLabelIntrospection(elem.target, span))
         {
             elem.element = Some(Some(found));
             return Ok(());
@@ -227,8 +232,8 @@ impl Packed<RefElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        let elem = engine.introspector.query_label(self.target);
         let span = self.span();
+        let elem = engine.introspect(QueryLabelIntrospection(self.target, span));
 
         let form = self.form.get(styles);
         if form == RefForm::Page {
@@ -237,28 +242,27 @@ impl Packed<RefElem> {
 
             let loc = elem.location().unwrap();
             let numbering = engine
-                .introspector
-                .page_numbering(loc)
+                .introspect(PageNumberingIntrospection(loc, span))
                 .ok_or_else(|| eco_format!("cannot reference without page numbering"))
                 .hint(eco_format!(
                     "you can enable page numbering with `#set page(numbering: \"1\")`"
                 ))
                 .at(span)?;
-            let supplement = engine.introspector.page_supplement(loc);
+            let supplement = engine.introspect(PageSupplementIntrospection(loc, span));
 
             return realize_reference(
                 self,
                 engine,
                 styles,
                 Counter::new(CounterKey::Page),
-                numbering.clone(),
+                numbering,
                 supplement,
                 elem,
             );
         }
         // RefForm::Normal
 
-        if BibliographyElem::has(engine, self.target) {
+        if BibliographyElem::has(engine, self.target, span) {
             if let Ok(elem) = elem {
                 bail!(
                     span,
@@ -332,8 +336,9 @@ fn realize_reference(
     supplement: Content,
     elem: Content,
 ) -> SourceResult<Content> {
+    let span = reference.span();
     let loc = elem.location().unwrap();
-    let numbers = counter.display_at_loc(engine, loc, styles, &numbering.trimmed())?;
+    let numbers = counter.display_at(engine, loc, styles, &numbering.trimmed(), span)?;
 
     let supplement = match reference.supplement.get_ref(styles) {
         Smart::Auto => supplement,
@@ -352,9 +357,9 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    content = content.spanned(reference.span());
+    content = content.spanned(span);
 
-    Ok(DirectLinkElem::new(loc, content, Some(alt)).pack())
+    Ok(DirectLinkElem::new(loc, content, Some(alt)).pack().spanned(span))
 }
 
 /// Turn a reference into a citation.

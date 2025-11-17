@@ -14,7 +14,7 @@ use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
@@ -33,7 +33,7 @@ pub fn html_document(
     html_document_impl(
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -55,6 +55,7 @@ fn html_document_impl(
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
+    let introspector = Protected::from_raw(introspector);
     let mut locator = Locator::root().split();
     let mut engine = Engine {
         routines,
@@ -106,7 +107,7 @@ fn html_document_impl(
         leaves.extend(notes);
         leaves
     } else {
-        FootnoteContainer::unsupported_with_custom_dom(&engine)?;
+        FootnoteContainer::unsupported_with_custom_dom(&mut engine)?;
         &nodes
     };
 

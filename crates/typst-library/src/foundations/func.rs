@@ -134,7 +134,6 @@ use crate::foundations::{
 /// called on.
 #[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -321,7 +320,7 @@ impl Func {
                 closure,
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
