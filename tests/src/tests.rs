@@ -6,9 +6,9 @@ mod custom;
 mod logger;
 mod output;
 mod pdftags;
+mod report;
 mod run;
 mod world;
-mod diff;
 
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;

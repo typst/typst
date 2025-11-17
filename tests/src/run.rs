@@ -17,7 +17,7 @@ use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestWorld, system_path};
-use crate::{ARGS, STORE_PATH, custom, output};
+use crate::{ARGS, STORE_PATH, custom, output, report};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
 
@@ -355,7 +355,7 @@ impl<'a> Runner<'a> {
                 let old_str = std::str::from_utf8(&old_ref).ok();
                 let new_str = std::str::from_utf8(new_ref_data).ok();
                 if let Some((a, b)) = old_str.zip(new_str) {
-                    self.result.diff = Some(crate::diff::text_diff(
+                    self.result.diff = Some(report::text_diff(
                         self.test.name.clone(),
                         (&ref_path, a),
                         (&live_path, b),
