@@ -81,6 +81,7 @@ pub enum Command {
     Init(InitCommand),
 
     /// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
+    #[command(hide = true)]
     Query(QueryCommand),
 
     /// Evaluates a piece of Typst code, optionally in the context of a document.
