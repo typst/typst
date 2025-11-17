@@ -2,9 +2,9 @@ use std::io::{self, IsTerminal, StderrLock, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use crate::STORE_PATH;
 use crate::collect::Test;
-use crate::diff::TextFileDiff;
+use crate::report::TextFileDiff;
+use crate::{STORE_PATH, report};
 
 /// The result of running a single test.
 pub struct TestResult {
@@ -108,8 +108,9 @@ impl<'a> Logger<'a> {
     pub fn finish(self) -> bool {
         let Self { selected, passed, failed, skipped, diffs, .. } = self;
 
-        let doc = crate::diff::diff_doc(diffs);
-        std::fs::write(Path::new(STORE_PATH).join("report.html"), doc).unwrap();
+        if let Some(report) = report::generate(diffs) {
+            std::fs::write(Path::new(STORE_PATH).join("report.html"), report).unwrap();
+        }
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");

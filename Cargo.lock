@@ -3359,6 +3359,7 @@ version = "0.14.0"
 dependencies = [
  "bitflags 2.9.1",
  "clap",
+ "codespan-reporting",
  "comemo",
  "ecow",
  "hayro-syntax",
@@ -3371,6 +3372,7 @@ dependencies = [
  "rustc-hash",
  "serde_yaml 0.9.34+deprecated",
  "similar",
+ "smallvec",
  "tiny-skia",
  "typst",
  "typst-assets",

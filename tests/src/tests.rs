@@ -8,7 +8,7 @@ mod output;
 mod pdftags;
 mod run;
 mod world;
-mod diff;
+mod report;
 
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;

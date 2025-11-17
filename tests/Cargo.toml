@@ -26,6 +26,7 @@ typst-svg = { workspace = true }
 typst-utils = { workspace = true }
 bitflags = { workspace = true }
 clap = { workspace = true }
+codespan-reporting = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 hayro-syntax = { workspace = true }
@@ -38,6 +39,7 @@ regex = { workspace = true }
 rustc-hash = { workspace = true }
 serde_yaml = { workspace = true }
 similar = { workspace = true }
+smallvec = { workspace = true }
 tiny-skia = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
