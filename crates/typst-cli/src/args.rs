@@ -83,7 +83,7 @@ pub enum Command {
     /// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
     Query(QueryCommand),
 
-    /// Evaluates a piece of Typst code.
+    /// Evaluates a piece of Typst code, optionally in the context of a document.
     Eval(EvalCommand),
 
     /// Lists all discovered fonts in system and custom font paths.
@@ -181,14 +181,15 @@ pub struct QueryCommand {
     pub process: ProcessArgs,
 }
 
-/// Evaluates a piece of Typst code.
+/// Evaluates a piece of Typst code, optionally in the context of a document.
 #[derive(Debug, Clone, Parser)]
 pub struct EvalCommand {
     /// The piece of Typst code to evaluate. Use `-` to read input from stdin.
     #[clap(value_parser = string_input_value_parser())]
     pub expression: StringInput,
 
-    /// The file to evaluate the code in. Can be used to introspect the document.
+    /// A file in whose context to evaluate the code. Can be used to
+    /// introspect the document.
     #[clap(long = "in", value_hint = ValueHint::FilePath)]
     pub r#in: Option<PathBuf>,
 
