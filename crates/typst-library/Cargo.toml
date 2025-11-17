@@ -71,6 +71,9 @@ usvg = { workspace = true }
 utf8_iter = { workspace = true }
 wasmi = { workspace = true }
 xmlwriter = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-highlight = { workspace = true }
+wasmtime = { workspace = true }
 
 [dev-dependencies]
 typst-dev-assets = { workspace = true }

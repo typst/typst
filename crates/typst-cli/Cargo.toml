@@ -57,6 +57,8 @@ toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+tree-sitter = { workspace = true }
+tree-sitter-highlight = { workspace = true }
 
 [build-dependencies]
 chrono = { workspace = true }

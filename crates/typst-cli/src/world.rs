@@ -42,6 +42,9 @@ pub struct SystemWorld {
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
     slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    /// Map from name of language to the tree-sitter grammar for it.
+    /// Multiple names can map to a single language.
+    tree_sitter_languages: Mutex<typst::text::tree_sitter::Languages>,
     /// Holds information about where packages are stored.
     package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -140,6 +143,9 @@ impl SystemWorld {
             root,
             main,
             library: LazyHash::new(library),
+            tree_sitter_languages: Mutex::new(
+                typst::text::tree_sitter::Languages::default(),
+            ),
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
             slots: Mutex::new(FxHashMap::default()),
@@ -227,6 +233,19 @@ impl World for SystemWorld {
         // comemo's validation may invoke this function with an invalid index. This is
         // impossible in typst-cli but possible if a custom tool mutates the fonts.
         self.fonts.get(index)?.get()
+    }
+
+    fn tree_sitter_language(
+        &self,
+        name: String,
+        aliases: Vec<String>,
+        wasm: &[u8],
+    ) -> Option<tree_sitter::Language> {
+        Some(self.tree_sitter_languages.lock().insert(
+            name.clone(),
+            aliases.clone().into(),
+            wasm,
+        ))
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
