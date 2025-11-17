@@ -42,14 +42,15 @@ use smallvec::SmallVec;
 use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::World;
-use crate::diag::{HintedStrResult, SourceResult, StrResult, bail, warning};
+use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, error, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, StyleChain,
-    cast, dict, elem,
+    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
@@ -725,7 +726,8 @@ pub struct TextElem {
     /// - If given an array of strings, sets the features identified by the
     ///   strings to `{1}`.
     /// - If given a dictionary mapping to numbers, sets the features
-    ///   identified by the keys to the values.
+    ///   identified by the keys to the values. This allows interacting with
+    ///   non-boolean features such as `swsh`.
     ///
     /// ```example:"Give an array of strings"
     /// // Enable the `frac` feature manually.
@@ -1244,6 +1246,50 @@ pub enum NumberWidth {
 pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
 cast! {
+    Tag,
+    v: Str => {
+        // Tags must: https://learn.microsoft.com/en-us/typography/opentype/spec/otff#data-types
+        // - be one to four bytes in length
+        // - be representable as printable ASCII (0x20..=0x7E)
+        // - contain at least one character that isn't padding (0x20, space)
+        // - padding may only appear at the end of a tag
+
+        if !(1..=4).contains(&v.len()) {
+            let e = error!(
+                "feature tag must be one to four bytes in length";
+                hint: "found {} bytes", v.len()
+            );
+
+            return Err(match v.grapheme_indices(true).find(|(_, v)| v.len() > 1) {
+                Some((i,v)) => e.with_hint(
+                    eco_format!("found multi-byte cluster '{v}' in grapheme {}", i+1)
+                ),
+                None => e
+            })
+        }
+
+        let mut within_padding = false;
+        for (i, &v) in v.as_bytes().iter().enumerate() {
+            match v {
+                0x20 if i == 0 => {
+                    bail!("feature tag must contain at least one non-space character")
+                }
+                0x20 => within_padding = true,
+                0x21 ..= 0x7E => if within_padding {
+                    bail!("spaces may only appear as padding at the end of a feature tag")
+                },
+                .. 0x20 | 0x7F .. => bail!(
+                    "feature tag must be printable ASCII";
+                    hint: "found: U+{v:04X}"
+                )
+            }
+        }
+
+        Self::from_bytes_lossy(v.as_bytes())
+    }
+}
+
+cast! {
     FontFeatures,
     self => self.0
         .into_iter()
@@ -1256,18 +1302,26 @@ cast! {
         .into_value(),
     values: Array => Self(values
         .into_iter()
-        .map(|v| {
-            let tag = v.cast::<EcoString>()?;
-            Ok((Tag::from_bytes_lossy(tag.as_bytes()), 1))
-        })
+        .enumerate()
+        .map(|(i, v)| Ok((
+            v.clone().cast::<Tag>()
+                .hint(eco_format!(
+                    "occurred in tag at index {i}, '{}'",
+                    v.cast::<EcoString>().unwrap_or_default()
+                ))
+                .hint("to set features with custom values, consider supplying a `dictionary`")?,
+            1
+        )))
         .collect::<HintedStrResult<_>>()?),
     values: Dict => Self(values
         .into_iter()
-        .map(|(k, v)| {
-            let num = v.cast::<u32>()?;
-            let tag = Tag::from_bytes_lossy(k.as_bytes());
-            Ok((tag, num))
-        })
+        .enumerate()
+        .map(|(i, (k, v))| Ok((
+            k.clone().into_value().cast::<Tag>().hint(
+                eco_format!("occurred in tag at index {i}, '{k}'")
+            )?,
+            v.cast::<u32>()?
+        )))
         .collect::<HintedStrResult<_>>()?),
 }
 
@@ -1499,5 +1553,37 @@ mod tests {
     #[test]
     fn test_text_elem_size() {
         assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
+    }
+
+    #[test]
+    fn test_text_tag_parsing() {
+        let tag = |v: &[u8]| {
+            std::str::from_utf8(v)
+                .unwrap()
+                .into_value()
+                .cast::<Tag>()
+                .map_or_else(|_| None, |v| Some(v.0.to_be_bytes()))
+        };
+
+        // Valid tags; standard and padded forms.
+        assert_eq!(tag(b"feat"), Some(*b"feat"));
+        assert_eq!(tag(b"a"), Some(*b"a   "));
+
+        // Empty tag.
+        assert_eq!(tag(b""), None);
+
+        // Padding errors.
+        assert_eq!(tag(b" "), None);
+        assert_eq!(tag(b" a"), None);
+        assert_eq!(tag(b"a b"), None);
+
+        // Overlong tag.
+        assert_eq!(tag(b"foobar"), None);
+
+        // Explicit range.
+        assert_eq!(tag(&[0x19]), None);
+        assert_eq!(tag(&[0x21]), Some(*b"!   "));
+        assert_eq!(tag(&[0x7E]), Some(*b"~   "));
+        assert_eq!(tag(&[0x7F]), None);
     }
 }
