@@ -141,3 +141,60 @@ $
   1 / ([item]) quad
   1 /  [item]
 $
+
+--- math-lr-sym-call paged ---
+$
+  ceil.l(x) \
+  floor.l(x) \
+
+  paren.l(x) \
+  paren.l.flat(x) \
+  paren.l.closed(x) \
+  paren.l.stroked(x) \
+
+  brace.l(x) \
+  brace.l.stroked(x) \
+
+  bracket.l(x) \
+  bracket.l.tick.t(x) \
+  bracket.l.tick.b(x) \
+  bracket.l.stroked(x) \
+
+  shell.l(x) \
+  shell.l.stroked(x) \
+  shell.l.filled(x) \
+
+  bag.l(x) \
+
+  mustache.l(x) \
+  mustache.r(x) \
+
+  fence.l(x) \
+  fence.l.double(x) \
+
+  chevron.l(x) \
+  chevron.l.curly(x) \
+  chevron.l.dot(x) \
+  chevron.l.closed(x) \
+  chevron.l.double(x) \
+
+  corner.l.t(x) \
+  corner.l.b(x) \
+
+  bar(x) \
+  bar.double(x) \
+  bar.triple(x) \
+  fence.dotted(x) \
+$
+
+--- math-lr-sym-call-size paged ---
+$ bracket.l(x, size: #200%) $
+
+--- math-lr-sym-call-extra-arg paged ---
+// Error: 16-28 unexpected argument: nope
+$ bracket.l(x, nope: "nope") $
+
+--- math-lr-sym-func-repr paged ---
+// The outline thing is just a roundabout way to force a cast from symbol to
+// function...
+#test(repr(outline(indent: sym.chevron.l.curly).indent), "(..) => ..")
