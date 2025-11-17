@@ -53,7 +53,9 @@ impl TypstVersion {
                 // but then all callers of this code must handle that. The code previously didn't
                 // do anything beyond unwrapping the versions parsed from `CARGO_PKG_VERSION`
                 // anyway, so we might as well do it here once and be done with it.
-                .expect("Typst version number must be known")
+                .expect(
+                    "Typst version number should be available through the environment",
+                )
         })
     }
 
@@ -79,7 +81,6 @@ impl TypstVersion {
 }
 
 /// Custom error type for Typst compiler version detection.
-#[derive(Debug)]
 pub enum VersionError {
     /// Invalid version number (failed to parse)
     Invalid(&'static str),
@@ -87,15 +88,16 @@ pub enum VersionError {
     Unknown,
 }
 
-impl std::fmt::Display for VersionError {
+// For pretty printing the error in panic messages
+impl std::fmt::Debug for VersionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Invalid(raw) => {
-                writeln!(f, "failed to parse SemVer version from '{raw:?}'")
+                writeln!(f, "failed to parse semantic version from {raw:?}")
             }
             Self::Unknown => writeln!(
                 f,
-                "no version was specified at compile time, typst version is unknown"
+                "no version was specified at compile time, Typst version is unknown"
             ),
         }
     }
