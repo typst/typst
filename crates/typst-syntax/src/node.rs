@@ -914,18 +914,12 @@ impl LinkedNode<'_> {
             SyntaxKind::Markup => Some(SyntaxMode::Markup),
             SyntaxKind::Text => Some(SyntaxMode::Markup),
             // Either in math or in markup
-            SyntaxKind::Space => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
+            SyntaxKind::Space => self.parent().and_then(|parent| parent.mode()),
             // Either in math or in markup
-            SyntaxKind::Linebreak => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
+            SyntaxKind::Linebreak => self.parent().and_then(|parent| parent.mode()),
             SyntaxKind::Parbreak => Some(SyntaxMode::Markup),
             // Either in math or in markup
-            SyntaxKind::Escape => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
+            SyntaxKind::Escape => self.parent().and_then(|parent| parent.mode()),
             SyntaxKind::Shorthand => Some(SyntaxMode::Markup),
             SyntaxKind::SmartQuote => Some(SyntaxMode::Markup),
             SyntaxKind::Strong => Some(SyntaxMode::Markup),
@@ -1055,14 +1049,14 @@ impl LinkedNode<'_> {
             // Mode of FieldAccess and FuncCall is determined by the leftmost leaf
             // `callee` of `FuncCall` and leftmost `Ident` of a `FieldAccess` chain.
             SyntaxKind::FieldAccess => {
-                self.leftmost_leaf().map_or(None, |leaf| match leaf.kind() {
+                self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
                     SyntaxKind::MathIdent => Some(SyntaxMode::Math),
                     SyntaxKind::Ident => Some(SyntaxMode::Code),
                     _ => None,
                 })
             }
             SyntaxKind::FuncCall => {
-                self.leftmost_leaf().map_or(None, |leaf| match leaf.kind() {
+                self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
                     SyntaxKind::MathIdent => Some(SyntaxMode::Math),
                     SyntaxKind::Ident => Some(SyntaxMode::Code),
                     _ => None,
