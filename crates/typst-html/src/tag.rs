@@ -249,6 +249,8 @@ pub fn is_inline_by_default(tag: HtmlTag) -> bool {
             | self::sup
             | self::var
             | self::u
+            | self::ins
+            | self::del
     )
 }
 
