@@ -1441,7 +1441,7 @@ cast! {
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
     static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetDataBorrowed> =
-        LazyLock::new(|| CodePointSetData::new::<DefaultIgnorableCodePoint>());
+        LazyLock::new(CodePointSetData::new::<DefaultIgnorableCodePoint>);
     DEFAULT_IGNORABLE_DATA.contains(c)
 }
 

@@ -105,7 +105,7 @@ impl Accent {
     pub fn is_bottom(&self) -> bool {
         static COMBINING_CLASS_DATA: LazyLock<
             CodePointMapDataBorrowed<CanonicalCombiningClass>,
-        > = LazyLock::new(|| CodePointMapData::new());
+        > = LazyLock::new(CodePointMapData::new);
 
         matches!(COMBINING_CLASS_DATA.get(self.0), CanonicalCombiningClass::Below)
     }
