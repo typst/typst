@@ -38,7 +38,7 @@ static SEGMENTER: LazyLock<LineSegmenterBorrowed> =
 
 /// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: LazyLock<CodePointMapDataBorrowed<LineBreak>> =
-    LazyLock::new(|| CodePointMapData::new());
+    LazyLock::new(CodePointMapData::new);
 
 // Zero width space.
 const ZWS: char = '\u{200B}';
