@@ -34,9 +34,9 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use icu_properties::sets::CodePointSetData;
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_blob::BlobDataProvider;
+use icu_properties::CodePointSetData;
+use icu_properties::CodePointSetDataBorrowed;
+use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
@@ -1440,15 +1440,9 @@ cast! {
 /// Whether a codepoint is Unicode `Default_Ignorable`.
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
-    static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
-        icu_properties::sets::load_default_ignorable_code_point(
-            &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
-                .unwrap()
-                .as_deserializing(),
-        )
-        .unwrap()
-    });
-    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
+    static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetDataBorrowed> =
+        LazyLock::new(|| CodePointSetData::new::<DefaultIgnorableCodePoint>());
+    DEFAULT_IGNORABLE_DATA.contains(c)
 }
 
 /// Checks for font families that are not available.

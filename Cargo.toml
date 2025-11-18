@@ -68,11 +68,11 @@ hayro-svg = { version = "0.2.0", default-features = false }
 hayro-syntax = "0.4.0"
 heck = "0.5"
 hypher = "0.1.4"
-icu_properties = { version = "1.4", features = ["serde"] }
-icu_provider = { version = "1.4", features = ["sync"] }
-icu_provider_adapters = "1.4"
-icu_provider_blob = "1.4"
-icu_segmenter = { version = "1.4", features = ["serde"] }
+icu_properties = { version = "2.1.1", features = ["serde"] }
+icu_provider = { version = "2.1.1", features = ["sync"] }
+icu_provider_adapters = "2.1.1"
+icu_provider_blob = "2.1.1"
+icu_segmenter = { version = "2.1.1", features = ["serde"] }
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }

@@ -2,16 +2,14 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::LineBreak;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_adapters::fork::ForkByKeyProvider;
-use icu_provider_blob::BlobDataProvider;
-use icu_segmenter::LineSegmenter;
+use icu_properties::props::LineBreak;
+use icu_properties::{CodePointMapData, CodePointMapDataBorrowed};
+use icu_segmenter::options::LineBreakOptions;
+use icu_segmenter::{LineSegmenter, LineSegmenterBorrowed};
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::TextElem;
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -34,28 +32,13 @@ const MIN_RATIO: f64 = -1.0;
 const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
 
-/// The ICU blob data.
-fn blob() -> BlobDataProvider {
-    BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap()
-}
-
 /// The general line break segmenter.
-static SEGMENTER: LazyLock<LineSegmenter> =
-    LazyLock::new(|| LineSegmenter::try_new_lstm_with_buffer_provider(&blob()).unwrap());
-
-/// The line break segmenter for Chinese/Japanese text.
-static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
-    let cj_blob =
-        BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
-            .unwrap();
-    let cj_provider = ForkByKeyProvider::new(cj_blob, blob());
-    LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
-});
+static SEGMENTER: LazyLock<LineSegmenterBorrowed> =
+    LazyLock::new(|| LineSegmenter::new_lstm(LineBreakOptions::default()));
 
 /// The Unicode line break properties for each code point.
-static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| {
-    icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
-});
+static LINEBREAK_DATA: LazyLock<CodePointMapDataBorrowed<LineBreak>> =
+    LazyLock::new(|| CodePointMapData::new());
 
 // Zero width space.
 const ZWS: char = '\u{200B}';
@@ -94,10 +77,9 @@ impl Breakpoint {
 
             // Trim linebreaks.
             Self::Mandatory => {
-                let lb = LINEBREAK_DATA.as_borrowed();
                 let trimmed = line.trim_end_matches(|c| {
                     matches!(
-                        lb.get(c),
+                        LINEBREAK_DATA.get(c),
                         LineBreak::MandatoryBreak
                             | LineBreak::CarriageReturn
                             | LineBreak::LineFeed
@@ -690,14 +672,9 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
     }
 
     let hyphenate = p.config.hyphenate != Some(false);
-    let lb = LINEBREAK_DATA.as_borrowed();
-    let segmenter = match p.config.lang {
-        Some(Lang::CHINESE | Lang::JAPANESE) => &CJ_SEGMENTER,
-        _ => &SEGMENTER,
-    };
 
     let mut last = 0;
-    let mut iter = segmenter.segment_str(text).peekable();
+    let mut iter = SEGMENTER.segment_str(text).peekable();
 
     loop {
         // Special case for links. UAX #14 doesn't handle them well.
@@ -725,7 +702,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             Breakpoint::Mandatory
         } else {
             const OBJ_REPLACE: char = '\u{FFFC}';
-            match lb.get(c) {
+            match LINEBREAK_DATA.get(c) {
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
@@ -760,7 +737,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, &lb, last, segment, &mut f);
+                    hyphenations(p, &LINEBREAK_DATA, last, segment, &mut f);
                 }
                 last += segment.len();
             }
