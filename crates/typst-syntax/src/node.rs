@@ -903,7 +903,6 @@ impl LinkedNode<'_> {
     ///
     /// Would be `None` if can not determine.
     pub fn mode(&self) -> Option<SyntaxMode> {
-        println!("!! self: {:?}", self);
         match self.kind() {
             SyntaxKind::End => None,
             SyntaxKind::Error => None,
@@ -1057,16 +1056,16 @@ impl LinkedNode<'_> {
             // It's either in code or in math, the later case is only possible if
             // the leftmost leaf is a `MathIdent`.
             SyntaxKind::FieldAccess => {
-                self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
-                    SyntaxKind::MathIdent => Some(SyntaxMode::Math),
-                    _ => Some(SyntaxMode::Code),
+                self.leftmost_leaf().map(|leaf| match leaf.kind() {
+                    SyntaxKind::MathIdent => SyntaxMode::Math,
+                    _ => SyntaxMode::Code,
                 })
             }
             SyntaxKind::FuncCall => {
-                self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
+                self.leftmost_leaf().map(|leaf| match leaf.kind() {
                     // Eagerly return
-                    SyntaxKind::MathIdent => Some(SyntaxMode::Math),
-                    _ => Some(SyntaxMode::Code),
+                    SyntaxKind::MathIdent => SyntaxMode::Math,
+                    _ => SyntaxMode::Code,
                 })
             }
             // `Args` is always within a `FuncCall`.
