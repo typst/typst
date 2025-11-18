@@ -903,6 +903,7 @@ impl LinkedNode<'_> {
     ///
     /// Would be `None` if can not determine.
     pub fn mode(&self) -> Option<SyntaxMode> {
+        println!("!! self: {:?}", self);
         match self.kind() {
             SyntaxKind::End => None,
             SyntaxKind::Error => None,
@@ -1052,19 +1053,20 @@ impl LinkedNode<'_> {
             SyntaxKind::Unary => Some(SyntaxMode::Code),
             SyntaxKind::Binary => Some(SyntaxMode::Code),
             // Mode of FieldAccess and FuncCall is determined by the leftmost leaf
-            // `callee` of `FuncCall` and leftmost `Ident` of a `FieldAccess` chain.
+            // `callee` of `FuncCall` and leftmost expr of a `FieldAccess` chain.
+            // It's either in code or in math, the later case is only possible if
+            // the leftmost leaf is a `MathIdent`.
             SyntaxKind::FieldAccess => {
                 self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
                     SyntaxKind::MathIdent => Some(SyntaxMode::Math),
-                    SyntaxKind::Ident => Some(SyntaxMode::Code),
-                    _ => None,
+                    _ => Some(SyntaxMode::Code),
                 })
             }
             SyntaxKind::FuncCall => {
                 self.leftmost_leaf().and_then(|leaf| match leaf.kind() {
+                    // Eagerly return
                     SyntaxKind::MathIdent => Some(SyntaxMode::Math),
-                    SyntaxKind::Ident => Some(SyntaxMode::Code),
-                    _ => None,
+                    _ => Some(SyntaxMode::Code),
                 })
             }
             // `Args` is always within a `FuncCall`.
@@ -1315,6 +1317,14 @@ mod tests {
         // FieldAccess
         let source = Source::detached("#a.b");
         let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
+        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+
+        // FieldAccess corner case
+        let source = Source::detached("#$$.at()");
+        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
+        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        let source = Source::detached("#[].at()");
+        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
         assert_eq!(node.mode(), Some(SyntaxMode::Code));
 
         // Args, FuncCall, Spread
