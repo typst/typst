@@ -14,8 +14,10 @@
   html.td(class: "line-body diff-" + kind)[
     #html.pre(class: "line-text")[
       #for span in spans {
-        if span.emph and kind in ("add", "del"){
-          html.span(class: "span-" + kind, [#span.text])
+        if span.emph and kind == "del" {
+          html.del([#span.text])
+        } else if span.emph and kind == "add" {
+          html.ins([#span.text])
         } else {
           [#span.text]
         }
@@ -42,9 +44,13 @@
 #html.div(class: "container")[
   #html.div(class: "sidebar-container")[
     #html.div(class: "sidebar")[
-      #for test in sys.inputs.diffs {
-        link("#" + test.name)[#test.name]
-      }
+      #html.ul(class: "sidebar-list")[
+        #for test in sys.inputs.diffs {
+          html.li[
+            #link("#" + test.name)[#test.name]
+          ]
+        }
+      ]
     ]
   ]
   #html.div(class: "diff-container")[
@@ -78,7 +84,8 @@
               ]
             }
             #html.tr(class: "diff-line")[
-              #html.td(colspan: 4, class: "diff-end")
+              #diff-cells((kind: "end", nr: 0, spans: ()))
+              #diff-cells((kind: "end", nr: 0, spans: ()))
             ]
           ]
         ]
