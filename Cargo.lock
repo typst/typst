@@ -935,8 +935,7 @@ checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 [[package]]
 name = "hayagriva"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cb69425736f184173b3ca6e27fcba440a61492a790c786b1c6af7e06a03e575"
+source = "git+https://github.com/thuiop/hayagriva?branch=add-number-offset#d1766516d239be76300e06ec3da52b681d81ff1a"
 dependencies = [
  "biblatex",
  "ciborium",
