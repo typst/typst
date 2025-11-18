@@ -211,8 +211,8 @@ impl BibliographyElem {
         let citations_and_bib = introspector
             .query(&Selector::Or(eco_vec![CiteElem::ELEM.select(), Self::ELEM.select()]));
         for (i, citation) in citations_and_bib.iter().enumerate() {
-            if citation.elem() == CiteElem::ELEM && !citation_map.contains_key(&citation.location().unwrap()) {
-                let citation_key = citation.to_packed::<CiteElem>().unwrap().key;
+            if let Some(citation_elem) = citation.to_packed::<CiteElem>() && !citation_map.contains_key(&citation.location().unwrap()) {
+                let citation_key = citation_elem.key;
                 if let Some(next_bib) = citations_and_bib[i + 1..]
                     .iter()
                     .filter_map(|content| {
@@ -698,6 +698,7 @@ impl Works {
             .at(elem.span())
     }
 
+    /// Specifies whether the given bibliography should have an hanging indent
     pub fn hanging_indent(&self, elem: &Packed<BibliographyElem>) -> bool {
         self.works.get(&elem.location().unwrap()).unwrap().hanging_indent
     }
@@ -870,7 +871,7 @@ impl<'a> Generator<'a> {
                     Smart::Custom(style) => style.derived.get(),
                 };
 
-                self.infos.entry(bibliography_location).or_insert(vec![]).push(
+                self.infos.entry(bibliography_location).or_default().push(
                     GroupInfo {
                         location,
                         subinfos,
