@@ -113,6 +113,13 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
     // An existing reference: "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
@@ -841,6 +848,12 @@ fn resolve_global_callee<'a>(
 fn complete_code(ctx: &mut CompletionContext) -> bool {
     if ctx.leaf.mode() != Some(SyntaxMode::Code) {
         return false;
+    }
+
+    if ctx.leaf.kind() == SyntaxKind::Hash {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
     }
 
     // An existing identifier: "{ pa| }".
