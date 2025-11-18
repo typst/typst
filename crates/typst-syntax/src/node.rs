@@ -1026,12 +1026,11 @@ impl LinkedNode<'_> {
             // `Ident` is in math if it's parent is in math and it's previous sibling is not a `Hash`.
             // Otherwise, it's in code.
             SyntaxKind::Ident => {
-                if self
-                    .parent()
-                    .map_or(false, |parent| parent.mode() == Some(SyntaxMode::Math))
+                if self.parent().map(|parent| parent.mode()).flatten()
+                    == Some(SyntaxMode::Math)
                     && self
                         .prev_sibling_kind()
-                        .map_or(true, |kind| kind != SyntaxKind::Hash)
+                        .is_none_or(|kind| kind != SyntaxKind::Hash)
                 {
                     Some(SyntaxMode::Math)
                 } else {
