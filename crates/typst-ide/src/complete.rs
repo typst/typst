@@ -12,8 +12,8 @@ use typst::foundations::{
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
-    is_ident,
+    FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
+    is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
@@ -52,9 +52,9 @@ pub fn autocomplete(
         || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
-        || complete_markup(&mut ctx)
+        || complete_code(&mut ctx)
         || complete_math(&mut ctx)
-        || complete_code(&mut ctx);
+        || complete_markup(&mut ctx);
 
     Some((ctx.from, ctx.completions))
 }
@@ -109,32 +109,8 @@ fn complete_comments(ctx: &mut CompletionContext) -> bool {
 /// Complete in markup mode.
 fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Bail if we aren't even in markup.
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
-    ) {
+    if ctx.leaf.mode() != Some(SyntaxMode::Markup) {
         return false;
-    }
-
-    // Start of an interpolated identifier: "#|".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // An existing identifier: "#pa|".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Start of a reference: "@|".
-    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
-        ctx.from = ctx.cursor;
-        ctx.label_completions();
-        return true;
     }
 
     // An existing reference: "@he|".
@@ -291,28 +267,8 @@ fn markup_completions(ctx: &mut CompletionContext) {
 
 /// Complete in math mode.
 fn complete_math(ctx: &mut CompletionContext) -> bool {
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-    ) {
+    if ctx.leaf.mode() != Some(SyntaxMode::Math) {
         return false;
-    }
-
-    // Start of an interpolated identifier: "$#|$".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Behind existing interpolated identifier: "$#pa|$".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
@@ -883,14 +839,7 @@ fn resolve_global_callee<'a>(
 
 /// Complete in code mode.
 fn complete_code(ctx: &mut CompletionContext) -> bool {
-    if matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathRoot)
-    ) {
+    if ctx.leaf.mode() != Some(SyntaxMode::Code) {
         return false;
     }
 
@@ -1710,6 +1659,18 @@ mod tests {
     fn test_autocomplete_math_scope() {
         test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
         test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
+    /// Test that autocomplete of parameter in math works correctly.
+    #[test]
+    fn test_autocomplete_math_func_call() {
+        test("$f(#col)$", -3)
+            .must_include(["colbreak"])
+            .must_exclude(["colon"]);
+        test("$f(col)$", -3)
+            .must_include(["colon"])
+            .must_exclude(["colbreak"]);
+        test("$#box(c)$", -3).must_include(["clip"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
