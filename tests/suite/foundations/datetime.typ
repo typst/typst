@@ -1,5 +1,7 @@
 --- datetime-constructor-empty paged ---
 // Error: 2-12 at least one of date or time must be fully specified
+// Hint: 2-12 add arguments `hour`, `minute`, and `second` to get a valid time
+// Hint: 2-12 add arguments `year`, `month`, and `day` to get a valid date
 #datetime()
 
 --- datetime-constructor-time-invalid paged ---
@@ -75,22 +77,22 @@
 --- datetime-display-missing-closing-bracket paged ---
 --- datetime-incomplete-time-1 paged ---
 // Error: 2-34 time is incomplete
-// Hint: 2-34 add `hour` field to get a valid time
+// Hint: 2-34 add argument `hour` to get a valid time
 #datetime(minute: 14, second: 30)
 
 --- datetime-incomplete-time-2 paged ---
 // Error: 2-20 time is incomplete
-// Hint: 2-20 add `minute` and `second` fields to get a valid time
+// Hint: 2-20 add arguments `minute` and `second` to get a valid time
 #datetime(hour: 14)
 
 --- datetime-incomplete-date-1 paged ---
 // Error: 2-31 date is incomplete
-// Hint: 2-31 add `month` field to get a valid date
+// Hint: 2-31 add argument `month` to get a valid date
 #datetime(year: 2014, day: 30)
 
 --- datetime-incomplete-date-2 paged ---
 // Error: 2-20 date is incomplete
-// Hint: 2-20 add `year` and `day` fields to get a valid date
+// Hint: 2-20 add arguments `year` and `day` to get a valid date
 #datetime(month: 5)
 
 --- datetime-display-missing-closing-bracket ---

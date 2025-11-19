@@ -275,12 +275,13 @@ impl Datetime {
         #[named]
         second: Option<u8>,
     ) -> HintedStrResult<Datetime> {
-        fn format_missing_fields(fields: Vec<&str>) -> String {
-            match fields.as_slice() {
-                [] => String::new(),
-                [field] => format!("{field} field"),
-                [fields @ .., field] => {
-                    format!("{} and {field} fields", fields.join(", "))
+        fn format_missing_arguments(args: Vec<&str>) -> EcoString {
+            match args.as_slice() {
+                [] => EcoString::new(),
+                [arg] => eco_format!("argument {arg}"),
+                [arg1, arg2] => eco_format!("arguments {arg1} and {arg2}"),
+                [args @ .., tail] => {
+                    eco_format!("arguments {}, and {tail}", args.join(", "))
                 }
             }
         }
@@ -293,16 +294,16 @@ impl Datetime {
             }
             (None, None, None) => None,
             (hour, minute, second) => {
-                let time_fields = [
+                let time_args = [
                     if hour.is_none() { Some("`hour`") } else { None },
                     if minute.is_none() { Some("`minute`") } else { None },
                     if second.is_none() { Some("`second`") } else { None },
                 ];
-                let missing_fields =
-                    format_missing_fields(time_fields.into_iter().flatten().collect());
+                let missing_args =
+                    format_missing_arguments(time_args.into_iter().flatten().collect());
                 bail!(
                     "time is incomplete";
-                    hint: "add {missing_fields} to get a valid time"
+                    hint: "add {missing_args} to get a valid time"
                 )
             }
         };
@@ -316,16 +317,16 @@ impl Datetime {
             }
             (None, None, None) => None,
             (year, month, day) => {
-                let date_fields = [
+                let date_args = [
                     if year.is_none() { Some("`year`") } else { None },
                     if month.is_none() { Some("`month`") } else { None },
                     if day.is_none() { Some("`day`") } else { None },
                 ];
-                let missing_fields =
-                    format_missing_fields(date_fields.into_iter().flatten().collect());
+                let missing_args =
+                    format_missing_arguments(date_args.into_iter().flatten().collect());
                 bail!(
                     "date is incomplete";
-                    hint: "add {missing_fields} to get a valid date"
+                    hint: "add {missing_args} to get a valid date"
                 )
             }
         };
@@ -337,7 +338,10 @@ impl Datetime {
             (Some(date), None) => Datetime::Date(date),
             (None, Some(time)) => Datetime::Time(time),
             (None, None) => {
-                bail!("at least one of date or time must be fully specified")
+                bail!("at least one of date or time must be fully specified";
+                    hint: "add arguments `hour`, `minute`, and `second` to get a valid time";
+                    hint: "add arguments `year`, `month`, and `day` to get a valid date"
+                )
             }
         })
     }
