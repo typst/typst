@@ -16,7 +16,7 @@
 #set text(lang: "he", font: ("PT Sans", "Noto Serif Hebrew"))
 בנייה נכונה של משפטים ארוכים דורשת ידע בשפה. אז בואו נדבר על מזג האוויר.
 
---- overhang-label ---
+--- overhang-label paged ---
 // Test that labels do not interfere with hanging punctuation.
 #set page(width: 130pt)
 #set par(justify: true)
