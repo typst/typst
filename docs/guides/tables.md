@@ -1264,13 +1264,14 @@ style:
 
 This example renders the same as the previous one, but we first load the CSV and
 then transform each row using `map`. The function we pass to `map` is applied to
-every row, and it returns a new array that replaces the original row. Here, we
-use `slice(2, 4)` to extract only the third and fourth columns, since these are
-the ones we want to keep. Because `moore` is a two-dimensional array (each row
-is itself an array), the result of mapping is still a nested array. The `flatten`
-function then converts this nested structure into a one-dimensional array, which
-the `table` function requires when spreading the data. Finally, we explicitly
-specify `columns: 2` because we are keeping exactly two columns from each row.
+each row of the data and returns a new array that replaces the original row.
+Here, we use `{.slice(2, 4)}` to extract only the third and fourth column, since
+these are the ones we want to keep. Because `moore` is a two-dimensional array
+(each row is itself an array), the result of mapping is still a nested array.
+The `flatten` function converts this nested structure into a one-dimensional
+array, which is required when spreading the data into the `table` function.
+Finally, we explicitly specify `{columns: 2}` because we are keeping exactly two
+columns from each row.
 
 Now that we have nice code for our table, we should try to also make the table
 itself nice! The transistor counts go from millions in 1995 to trillions in 2021
