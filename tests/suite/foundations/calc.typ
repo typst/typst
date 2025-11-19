@@ -72,6 +72,10 @@
 // Error: 27-39 divisor must not be zero
 #calc.rem(decimal("4.0"), decimal("0"))
 
+--- calc-rem-overflow paged ---
+// Error: 2-43 dividend too small compared to divisor
+#calc.rem(int("-9223372036854775808"), -1)
+
 --- calc-div-euclid paged ---
 // Test the `div-euclid` function.
 #test(calc.div-euclid(7, 3), 2)
@@ -96,6 +100,10 @@
 --- calc-div-euclid-divisor-zero-3 paged ---
 // Error: 35-50 divisor must not be zero
 #calc.div-euclid(decimal("3.00"), decimal("0.00"))
+
+--- calc-div-euclid-too-large paged ---
+// Error: 2-50 the result is too large
+#calc.div-euclid(int("-9223372036854775808"), -1)
 
 --- calc-rem-euclid paged ---
 // Test the `rem-euclid` function.
@@ -122,6 +130,10 @@
 // Error: 35-50 divisor must not be zero
 #calc.rem-euclid(decimal("3.00"), decimal("0.00"))
 
+--- calc-rem-euclid-overflow paged ---
+// Error: 2-50 dividend too small compared to divisor
+#calc.rem-euclid(int("-9223372036854775808"), -1)
+
 --- calc-quo paged ---
 // Test the `quo` function.
 #test(calc.quo(1, 1), 1)
@@ -143,6 +155,10 @@
 --- calc-quo-divisor-zero-3 paged ---
 // Error: 27-41 divisor must not be zero
 #calc.quo(decimal("4.0"), decimal("0.0"))
+
+--- calc-quo-too-large paged ---
+// Error: 2-43 the result is too large
+#calc.quo(int("-9223372036854775808"), -1)
 
 --- calc-min-and-max paged ---
 // Test the `min` and `max` functions.
@@ -297,6 +313,10 @@
 #test(calc.gcd(272557, 272557), 272557)
 #test(calc.gcd(0, 0), 0)
 #test(calc.gcd(7, 0), 7)
+
+--- calc-gcd-too-large paged ---
+// Error: 2-43 the result is too large
+#calc.gcd(int("-9223372036854775808"), -1)
 
 --- calc-lcm paged ---
 // Test the `lcm` function.

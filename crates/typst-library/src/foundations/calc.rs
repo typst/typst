@@ -573,15 +573,15 @@ pub fn gcd(
     a: i64,
     /// The second integer.
     b: i64,
-) -> i64 {
+) -> StrResult<i64> {
     let (mut a, mut b) = (a, b);
     while b != 0 {
         let temp = b;
-        b = a % b;
+        b = a.checked_rem(b).ok_or_else(too_large)?;
         a = temp;
     }
 
-    a.abs()
+    Ok(a.abs())
 }
 
 /// Calculates the least common multiple of two integers.
@@ -600,7 +600,7 @@ pub fn lcm(
         return Ok(a.abs());
     }
 
-    Ok(a.checked_div(gcd(a, b))
+    Ok(a.checked_div(gcd(a, b)?)
         .and_then(|gcd| gcd.checked_mul(b))
         .map(|v| v.abs())
         .ok_or_else(too_large)?)
@@ -893,8 +893,7 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if given a [`decimal`] input and the dividend is too small in
-/// magnitude compared to the divisor.
+/// This can error if the dividend is too small in magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem(7, 3) \
@@ -918,7 +917,7 @@ pub fn rem(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a % b)),
+            |a, b| a.checked_rem(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a % b)),
             |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
@@ -932,6 +931,8 @@ pub fn rem(
 ///
 /// The result of this computation is that of a division rounded to the integer
 /// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+///
+/// This can error if the dividend is too small in magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.div-euclid(7, 3) \
@@ -956,7 +957,7 @@ pub fn div_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.div_euclid(b))),
+            |a, b| a.checked_div_euclid(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a.div_euclid(b))),
             |a, b| a.checked_div_euclid(b).map(DecNum::Decimal),
         )
@@ -973,8 +974,8 @@ pub fn div_euclid(
 /// magnitude than the divisor and the dividend is negative. This only applies
 /// for floating point inputs.
 ///
-/// In addition, this can error if given a [`decimal`] input and the dividend is
-/// too small in magnitude compared to the divisor.
+/// In addition, this can error if the dividend is too small in magnitude
+/// compared to the divisor.
 ///
 /// ```example
 /// #calc.rem-euclid(7, 3) \
@@ -999,7 +1000,7 @@ pub fn rem_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.rem_euclid(b))),
+            |a, b| a.checked_rem_euclid(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a.rem_euclid(b))),
             |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
         )
@@ -1012,8 +1013,8 @@ pub fn rem_euclid(
 /// Calculates the quotient (floored division) of two numbers.
 ///
 /// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// error if the resulting number is larger than the maximum 64-bit signed integer
+/// or smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
@@ -1035,7 +1036,7 @@ pub fn quo(
     let divided = dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a / b)),
+            |a, b| a.checked_div(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a / b)),
             |a, b| a.checked_div(b).map(DecNum::Decimal),
         )
