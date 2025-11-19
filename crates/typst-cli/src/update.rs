@@ -46,7 +46,7 @@ macro_rules! determine_asset {
 /// pre-compiled asset from the downloaded release.
 pub fn update(command: &UpdateCommand) -> StrResult<()> {
     if let Some(ref version) = command.version {
-        // NOTE: Although [`typst_syntax::TypstVersion`] uses the [`semver`] crate under the hood
+        // NOTE: Although [`typst_utils::TypstVersion`] uses the [`semver`] crate under the hood
         // right now, we consider this an implementation detail that is not currently exposed.
         let current_tag = typst::version().raw().parse().unwrap();
 
@@ -230,7 +230,7 @@ fn extract_binary_from_tar_xz(data: &[u8]) -> StrResult<Vec<u8>> {
 
 /// Compare the release version to the CLI version to see if an update is needed.
 fn update_needed(release: &Release) -> StrResult<bool> {
-    // NOTE: Although [`typst_syntax::TypstVersion`] uses the [`semver`] crate under the hood right
+    // NOTE: Although [`typst_utils::TypstVersion`] uses the [`semver`] crate under the hood right
     // now, we consider this an implementation detail that is not currently exposed.
     let current_tag: Version = typst::version().raw().parse().unwrap();
     let new_tag: Version = release

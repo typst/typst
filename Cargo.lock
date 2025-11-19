@@ -3334,7 +3334,6 @@ version = "0.14.1"
 dependencies = [
  "ecow",
  "rustc-hash",
- "semver",
  "serde",
  "toml",
  "typst-timing",
@@ -3396,6 +3395,7 @@ dependencies = [
  "portable-atomic",
  "rayon",
  "rustc-hash",
+ "semver",
  "siphasher",
  "thin-vec",
  "unicode-math-class",

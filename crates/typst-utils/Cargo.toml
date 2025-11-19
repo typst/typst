@@ -1,6 +1,8 @@
 [package]
 name = "typst-utils"
 description = "Utilities for Typst."
+# NOTE: If this is ever changed, the `TypstVersion` type probably no longer
+# represents the actual version of Typst and must be refactored!
 version = { workspace = true }
 rust-version = { workspace = true }
 authors = { workspace = true }
@@ -17,6 +19,7 @@ once_cell = { workspace = true }
 portable-atomic = { workspace = true }
 rayon = { workspace = true }
 rustc-hash = { workspace = true }
+semver = { workspace = true }
 siphasher = { workspace = true }
 thin-vec = { workspace = true }
 unicode-math-class = { workspace = true }

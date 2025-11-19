@@ -13,6 +13,7 @@ mod pico;
 mod protected;
 mod round;
 mod scalar;
+mod version;
 
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
@@ -23,6 +24,7 @@ pub use self::pico::{PicoStr, ResolvedPicoStr};
 pub use self::protected::Protected;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
+pub use self::version::TypstVersion;
 
 #[doc(hidden)]
 pub use once_cell;

@@ -197,11 +197,11 @@ impl Repr for Version {
     }
 }
 
-impl TryFrom<&typst_syntax::TypstVersion> for Version {
+impl TryFrom<&typst_utils::TypstVersion> for Version {
     type Error = EcoString;
 
     /// Try to convert the Typst compiler version into a [`Version`] object.
-    fn try_from(value: &typst_syntax::TypstVersion) -> Result<Self, Self::Error> {
+    fn try_from(value: &typst_utils::TypstVersion) -> Result<Self, Self::Error> {
         macro_rules! digit {
             ($name:ident) => {
                 u32::try_from(value.$name()).map_err(|err| format!(

@@ -7,7 +7,7 @@ pub fn module(inputs: Dict) -> Module {
     let mut scope = Scope::deduplicating();
     scope.define(
         "version",
-        Version::try_from(typst_syntax::TypstVersion::new())
+        Version::try_from(typst_utils::TypstVersion::new())
             .expect("Typst compiler version must be valid"),
     );
     scope.define("inputs", inputs);
