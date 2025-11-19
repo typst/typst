@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
+use arrayvec::ArrayVec;
 use ecow::{EcoString, EcoVec, eco_format};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
@@ -275,16 +276,17 @@ impl Datetime {
         #[named]
         second: Option<u8>,
     ) -> HintedStrResult<Datetime> {
-        fn format_missing_arguments(args: Vec<&str>) -> EcoString {
+        fn format_missing_args(args: ArrayVec<&str, 3>) -> EcoString {
             match args.as_slice() {
-                [] => EcoString::new(),
-                [arg] => eco_format!("argument {arg}"),
-                [arg1, arg2] => eco_format!("arguments {arg1} and {arg2}"),
+                [] => unreachable!(),
+                [arg] => eco_format!("the {arg} argument"),
+                [arg1, arg2] => eco_format!("the {arg1} and {arg2} arguments"),
                 [args @ .., tail] => {
-                    eco_format!("arguments {}, and {tail}", args.join(", "))
+                    eco_format!("the {}, and {tail} arguments", args.join(", "))
                 }
             }
         }
+
         let time = match (hour, minute, second) {
             (Some(hour), Some(minute), Some(second)) => {
                 match time::Time::from_hms(hour, minute, second) {
@@ -294,16 +296,15 @@ impl Datetime {
             }
             (None, None, None) => None,
             (hour, minute, second) => {
-                let time_args = [
+                let args = [
                     if hour.is_none() { Some("`hour`") } else { None },
                     if minute.is_none() { Some("`minute`") } else { None },
                     if second.is_none() { Some("`second`") } else { None },
                 ];
-                let missing_args =
-                    format_missing_arguments(time_args.into_iter().flatten().collect());
                 bail!(
                     "time is incomplete";
-                    hint: "add {missing_args} to get a valid time"
+                    hint: "add {} to get a valid time",
+                    format_missing_args(args.into_iter().flatten().collect())
                 )
             }
         };
@@ -317,16 +318,15 @@ impl Datetime {
             }
             (None, None, None) => None,
             (year, month, day) => {
-                let date_args = [
+                let args = [
                     if year.is_none() { Some("`year`") } else { None },
                     if month.is_none() { Some("`month`") } else { None },
                     if day.is_none() { Some("`day`") } else { None },
                 ];
-                let missing_args =
-                    format_missing_arguments(date_args.into_iter().flatten().collect());
                 bail!(
                     "date is incomplete";
-                    hint: "add {missing_args} to get a valid date"
+                    hint: "add {} to get a valid date",
+                    format_missing_args(args.into_iter().flatten().collect())
                 )
             }
         };
@@ -338,9 +338,10 @@ impl Datetime {
             (Some(date), None) => Datetime::Date(date),
             (None, Some(time)) => Datetime::Time(time),
             (None, None) => {
-                bail!("at least one of date or time must be fully specified";
-                    hint: "add arguments `hour`, `minute`, and `second` to get a valid time";
-                    hint: "add arguments `year`, `month`, and `day` to get a valid date"
+                bail!(
+                    "at least one of date or time must be fully specified";
+                    hint: "add the `hour`, `minute`, and `second` arguments to get a valid time";
+                    hint: "add the `year`, `month`, and `day` arguments to get a valid date"
                 )
             }
         })
