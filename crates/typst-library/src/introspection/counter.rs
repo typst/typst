@@ -260,9 +260,15 @@ impl Counter {
     ///
     /// This coupling between the counter type and the remaining standard
     /// library is not great ...
-    fn matching_numbering(&self, styles: StyleChain) -> Option<Numbering> {
+    fn matching_numbering(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        loc: Location,
+        span: Span,
+    ) -> Option<Numbering> {
         match self.0 {
-            CounterKey::Page => styles.get_cloned(PageElem::numbering),
+            CounterKey::Page => loc.page_numbering(engine, span),
             CounterKey::Selector(Selector::Elem(func, _)) => {
                 if func == HeadingElem::ELEM {
                     styles.get_cloned(HeadingElem::numbering)
@@ -369,7 +375,9 @@ impl Counter {
 
         let numbering = numbering
             .custom()
-            .or_else(|| self.matching_numbering(context.styles().ok()?))
+            .or_else(|| {
+                self.matching_numbering(engine, context.styles().ok()?, location, span)
+            })
             .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
         if at.is_custom() {

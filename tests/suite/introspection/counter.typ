@@ -110,6 +110,15 @@ B
   footer: context align(center, counter(page).display())
 )
 
+--- counter-page-location-display paged ---
+// Counter display should use location's numbering.
+#set page(numbering: "i")
+Second page <first>
+#context counter(page).display(at: locate(<second>))
+#set page(numbering: "A")
+First page <second>
+#context counter(page).display(at: locate(<first>))
+
 --- counter-figure paged ---
 // Count figures.
 #figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]
