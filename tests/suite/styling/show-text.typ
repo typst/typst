@@ -42,7 +42,7 @@ AA (8)
 
 --- show-text-regex-word-boundary paged ---
 // Test caseless match and word boundaries.
-#show regex("(?i)\bworld\b"): [🌍]
+#show regex("(?i)\\bworld\\b"): [🌍]
 
 Treeworld, the World of worlds, is a world.
 
@@ -62,7 +62,7 @@ Treeworld, the World of worlds, is a world.
 --- show-text-regex-character-class paged ---
 // This is a fun one.
 #set par(justify: true)
-#show regex("\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
+#show regex("\\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
 #lorem(5)
 
 --- show-text-regex-case-insensitive paged ---
