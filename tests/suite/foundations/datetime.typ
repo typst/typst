@@ -74,7 +74,6 @@
 #test(datetime(day: 1, month: 3, year: 2001).ordinal(), 31 + 28 + 1);
 #test(datetime(day: 31, month: 12, year: 2001).ordinal(), 365);
 
---- datetime-display-missing-closing-bracket paged ---
 --- datetime-incomplete-time-1 paged ---
 // Error: 2-34 time is incomplete
 // Hint: 2-34 add argument `hour` to get a valid time
