@@ -101,7 +101,7 @@ comment spans lines
 #set heading(numbering: "1.1.a.")
 = State of the Art
 
---- heading-hanging-indent-auto-cj-punct ---
+--- heading-hanging-indent-auto-cj-punct paged ---
 #set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC", fallback: false)
 
 // If the numbering ends with a CJ punctuation and its width is allowed to be shrunk or stretched,
