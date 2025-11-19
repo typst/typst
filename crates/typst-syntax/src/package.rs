@@ -7,6 +7,7 @@ use std::str::FromStr;
 use ecow::{EcoString, eco_format};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use typst_utils::TypstVersion;
 use unscanny::Scanner;
 
 use crate::is_ident;
@@ -364,7 +365,7 @@ pub struct PackageVersion {
 impl PackageVersion {
     /// The current compiler version.
     pub fn compiler() -> Self {
-        Self::try_from(crate::TypstVersion::new())
+        Self::try_from(TypstVersion::new())
             .expect("Typst compiler version must be representable as package version")
     }
 
@@ -475,10 +476,10 @@ impl<'de> Deserialize<'de> for PackageVersion {
     }
 }
 
-impl TryFrom<&crate::TypstVersion> for PackageVersion {
+impl TryFrom<&TypstVersion> for PackageVersion {
     type Error = EcoString;
 
-    fn try_from(value: &crate::TypstVersion) -> Result<Self, Self::Error> {
+    fn try_from(value: &TypstVersion) -> Result<Self, Self::Error> {
         macro_rules! digit {
             ($name:ident) => {
                 u32::try_from(value.$name()).map_err(|err| format!(
