@@ -95,7 +95,7 @@
 // Hint: 2-20 add arguments `year` and `day` to get a valid date
 #datetime(month: 5)
 
---- datetime-display-missing-closing-bracket ---
+--- datetime-display-missing-closing-bracket paged ---
 // Error: 27-34 missing closing bracket for bracket at index 0
 #datetime.today().display("[year")
 
