@@ -56,27 +56,27 @@
   #html.div(class: "diff-container")[
     #for diff in sys.inputs.diffs {
       html.div(class: "file-diff", id: diff.name)[
-        #html.input(type: "checkbox", class: "collapse-diff")
-        #html.table(class: "diff-area")[
-          #html.colgroup[
-            #html.col(span: 1, class: "col-line-gutter")
-            #html.col(span: 1, class: "col-line-body")
-            #html.col(span: 1, class: "col-line-gutter")
-            #html.col(span: 1, class: "col-line-body")
-          ]
-
-          #html.thead(class: "diff-header")[
-            #html.tr[
-              #html.th(colspan: 2)[
-                #link("../../" + diff.left.path)[#diff.left.path]
+        #html.details(open: true)[
+          #html.summary(class: "diff-summary")[
+            #html.div(class: "diff-spacer")
+            #html.h1(class: "diff-header")[
+              #html.div(class: "diff-header-split")[
+                *#link("../../" + diff.left.path)[#diff.left.path]*
               ]
-              #html.th(colspan: 2)[
-                #link("../../" + diff.right.path)[#diff.right.path]
+              #html.div(class: "diff-header-split")[
+                *#link("../../" + diff.right.path)[#diff.right.path]*
               ]
             ]
           ]
 
-          #html.tbody(class: "diff-body")[
+          #html.table(class: "diff-area")[
+            #html.colgroup[
+              #html.col(span: 1, class: "col-line-gutter")
+              #html.col(span: 1, class: "col-line-body")
+              #html.col(span: 1, class: "col-line-gutter")
+              #html.col(span: 1, class: "col-line-body")
+            ]
+
             #for (l, r) in diff.left.lines.zip(diff.right.lines){
               html.tr(class: "diff-line")[
                 #diff-cells(l)
@@ -91,5 +91,7 @@
         ]
       ]
     }
+
+    #html.div(class: "diff-scroll-padding")
   ]
 ]
