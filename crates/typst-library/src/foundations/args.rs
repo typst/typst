@@ -276,6 +276,10 @@ cast! {
 }
 
 impl Args {
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     fn get(&self, key: &ArgumentKey) -> Option<&Value> {
         let item = match key {
             &ArgumentKey::Index(index) => {
