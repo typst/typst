@@ -318,6 +318,12 @@ impl Args {
         args.take()
     }
 
+    /// The number of arguments, positional or named.
+    #[func(title = "Length")]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///

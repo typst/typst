@@ -1,5 +1,12 @@
 // Test arguments.
 
+--- arguments-len ---
+#test(arguments().len(), 0)
+#test(arguments("hello").len(), 1)
+#test(arguments(a: "world").len(), 1)
+#test(arguments(a: "hey", 14).len(), 2)
+#test(arguments(0, 1, a: 2, 3).len(), 4)
+
 --- arguments-at ---
 #let args = arguments(0, 1, a: 2, 3)
 #test(args.at(0), 0)
