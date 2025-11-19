@@ -87,7 +87,7 @@
 #test(repr(-0987654321), "-987654321")
 #test(repr(4 - 8), "-4")
 
---- int-parse-large-literals ---
+--- int-parse-large-literals paged ---
 #import "../loading/edge-case.typ": large-integer, representable-integer
 
 #for (name, source) in representable-integer {
