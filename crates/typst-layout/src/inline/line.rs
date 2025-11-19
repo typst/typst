@@ -722,19 +722,19 @@ impl<'a> Items<'a> {
         self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
-    /// Access the first glyph with non-zero advance in the line.
+    /// Access the first glyph with non-zero advance before any non-text item.
     pub fn leading_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        for (_, item) in self.0.iter() {
-            let Item::Text(text) = &**item else { continue };
-            if let Some(glyph) = text
-                .glyphs
-                .iter()
-                .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-            {
-                return Some((text, glyph));
-            }
-        }
-        None
+        self.iter()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Access the last item (skipping tags), if it is text.
@@ -747,20 +747,21 @@ impl<'a> Items<'a> {
         self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
-    /// Access the last glyph with non-zero advance in the line.
+    /// Access the last glyph with non-zero advance before any non-text item.
     pub fn trailing_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        for (_, item) in self.0.iter().rev() {
-            let Item::Text(text) = &**item else { continue };
-            if let Some(glyph) = text
-                .glyphs
-                .iter()
-                .rev()
-                .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-            {
-                return Some((text, glyph));
-            }
-        }
-        None
+        self.iter()
+            .rev()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    .rev()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Reorder the items starting at the given index to RTL.
