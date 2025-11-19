@@ -14,7 +14,7 @@ use typst_library::math::LrElem;
 use typst_library::routines::Routines;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, Protected};
 
 use crate::{
     Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
@@ -202,6 +202,7 @@ pub fn eval_closure(
     scopes.top = closure.captured.clone();
 
     // Prepare the engine.
+    let introspector = Protected::from_raw(introspector);
     let engine = Engine {
         routines,
         world,

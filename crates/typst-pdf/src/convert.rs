@@ -8,7 +8,6 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
-use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
@@ -20,7 +19,7 @@ use typst_library::layout::{
     Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::{Font, Locale};
+use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -41,49 +40,6 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
-    let (mut document, mut gc) = setup(typst_document, options)?;
-
-    convert_pages(&mut gc, &mut document)?;
-    attach_files(&gc, &mut document)?;
-    let (doc_lang, tree) = tags::resolve(&mut gc)?;
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc, doc_lang));
-    document.set_tag_tree(tree);
-
-    finish(document, gc, options.standards.config)
-}
-
-pub fn tag_tree(
-    typst_document: &PagedDocument,
-    options: &PdfOptions,
-) -> SourceResult<String> {
-    let (mut document, mut gc) = setup(typst_document, options)?;
-    convert_pages(&mut gc, &mut document)?;
-    attach_files(&gc, &mut document)?;
-    let (doc_lang, tree) = tags::resolve(&mut gc)?;
-
-    let mut output = String::new();
-    if let Some(lang) = doc_lang
-        && lang != Locale::DEFAULT
-    {
-        output = format!("lang: \"{}\"\n---\n", lang.rfc_3066());
-    }
-    tree.output(&mut output).unwrap();
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc, doc_lang));
-    document.set_tag_tree(tree);
-
-    finish(document, gc, options.standards.config)?;
-
-    Ok(output)
-}
-
-fn setup<'a>(
-    typst_document: &'a PagedDocument,
-    options: &'a PdfOptions,
-) -> SourceResult<(Document, GlobalContext<'a>)> {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -95,13 +51,13 @@ fn setup<'a>(
         render_svg_glyph_fn: render_svg_glyph,
     };
 
-    let document = Document::new_with(settings);
+    let mut document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
     let tags = tags::init(typst_document, options)?;
 
-    let gc = GlobalContext::new(
+    let mut gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
@@ -109,7 +65,15 @@ fn setup<'a>(
         tags,
     );
 
-    Ok((document, gc))
+    convert_pages(&mut gc, &mut document)?;
+    attach_files(&gc, &mut document)?;
+    let (doc_lang, tree) = tags::resolve(&mut gc)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc, doc_lang));
+    document.set_tag_tree(tree);
+
+    finish(document, gc, options.standards.config)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -399,8 +363,8 @@ pub(crate) fn handle_group(
     Ok(())
 }
 
-#[typst_macros::time(name = "finish export")]
 /// Finish a krilla document and handle export errors.
+#[typst_macros::time(name = "finish export")]
 fn finish(
     document: Document,
     gc: GlobalContext,
@@ -411,11 +375,11 @@ fn finish(
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
-            KrillaError::Font(f, s) => {
+            KrillaError::Font(f, err) => {
                 let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(
                     Span::detached(),
-                    "failed to process font {font_str}: {s}";
+                    "failed to process font {font_str} ({err})";
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst"
                 );
@@ -427,9 +391,9 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
-            KrillaError::Image(_, loc) => {
+            KrillaError::Image(_, loc, err) => {
                 let span = to_span(loc);
-                bail!(span, "failed to process image");
+                bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();

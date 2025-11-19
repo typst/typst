@@ -23,6 +23,7 @@ lang: "de"
           /Placement: Block
           /K:
             - Content: page=0 mcid=2
+              /Lang: "fr"
         - Tag: P
           /K:
             - Content: page=0 mcid=4

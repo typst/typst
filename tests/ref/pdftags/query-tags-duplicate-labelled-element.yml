@@ -1,22 +1,12 @@
 - Tag: Figure
   /Alt: "Text saying: hello there"
   /Placement: Block
-  /BBox:
-    page: 0
-    left:    38.225
-    top:      9.600
-    right:   81.495
-    bottom:  16.680
+  /BBox: [ 38.225,  28.480,  81.495,  35.560]
   /K:
     - Content: page=0 mcid=0
 - Tag: Figure
   /Alt: "Text saying: hello there"
   /Placement: Block
-  /BBox:
-    page: 0
-    left:    38.225
-    top:     28.180
-    right:   81.495
-    bottom:  35.260
+  /BBox: [ 38.225,   9.900,  81.495,  16.980]
   /K:
     - Content: page=0 mcid=1

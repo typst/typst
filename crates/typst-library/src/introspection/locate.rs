@@ -1,6 +1,7 @@
 use comemo::Tracked;
+use typst_syntax::Span;
 
-use crate::diag::HintedStrResult;
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Context, LocatableSelector, func};
 use crate::introspection::Location;
@@ -26,6 +27,7 @@ use crate::introspection::Location;
 pub fn locate(
     engine: &mut Engine,
     context: Tracked<Context>,
+    span: Span,
     /// A selector that should match exactly one element. This element will be
     /// located.
     ///
@@ -34,6 +36,6 @@ pub fn locate(
     /// - a [`location`] retrieved from some queried element via the
     ///   [`location()`]($content.location) method on content.
     selector: LocatableSelector,
-) -> HintedStrResult<Location> {
-    selector.resolve_unique(engine.introspector, context)
+) -> SourceResult<Location> {
+    selector.resolve_unique(engine, context, span)
 }

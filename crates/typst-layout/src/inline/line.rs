@@ -651,7 +651,7 @@ fn add_par_line_marker(
     // and to be valid (to have a location).
     let mut marker = marker.clone();
     let key = typst_utils::hash128(&marker);
-    let loc = locator.next_location(engine.introspector, key);
+    let loc = locator.next_location(engine, key, marker.span());
     marker.set_location(loc);
 
     // Create start and end tags through which we can search for this line's

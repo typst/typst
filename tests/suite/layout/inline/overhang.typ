@@ -1,6 +1,6 @@
 // Test micro-typographical shenanigans.
 
---- overhang ---
+--- overhang paged ---
 // Test hanging punctuation.
 // TODO: This test was broken at some point.
 #set page(width: 130pt, margin: 15pt)
@@ -23,7 +23,8 @@
 #set text(size: 11pt)
 #block(stroke: 0.5pt + blue, width: 4cm)[This is a text with just, the right length.]
 #block(stroke: 0.5pt + blue, width: 4cm)[This is a text with just,<label> the right length.]
---- overhang-lone ---
+
+--- overhang-lone paged ---
 // Test that lone punctuation doesn't overhang into the margin.
 #set page(margin: 0pt)
 #set align(end)

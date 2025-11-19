@@ -1,5 +1,6 @@
 //! Interaction between document parts.
 
+mod convergence;
 mod counter;
 #[path = "here.rs"]
 mod here_;
@@ -14,6 +15,7 @@ mod query_;
 mod state;
 mod tag;
 
+pub use self::convergence::*;
 pub use self::counter::*;
 pub use self::here_::*;
 pub use self::introspector::*;

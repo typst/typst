@@ -90,7 +90,7 @@ fn generate_tags<T: NativeElement>(
     engine: &mut Engine,
 ) -> (Content, Location, u128) {
     let key = typst_utils::hash128(&cell);
-    let loc = locator.next_location(engine.introspector, key);
+    let loc = locator.next_location(engine, key, cell.span());
     cell.set_location(loc);
     (cell.pack(), loc, key)
 }

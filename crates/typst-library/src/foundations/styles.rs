@@ -209,7 +209,7 @@ impl Debug for Styles {
 
 impl Repr for Styles {
     fn repr(&self) -> EcoString {
-        "..".into()
+        "styles(..)".into()
     }
 }
 

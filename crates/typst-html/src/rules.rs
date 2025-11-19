@@ -1,13 +1,16 @@
 use std::num::NonZeroUsize;
 
-use comemo::Track;
-use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
+use comemo::{Track, Tracked};
+use ecow::{EcoString, EcoVec, eco_format};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
+    Target,
 };
-use typst_library::introspection::Counter;
+use typst_library::introspection::{
+    Counter, History, Introspect, Introspector, Location, QueryIntrospection,
+};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
@@ -25,6 +28,7 @@ use typst_library::text::{
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
+use typst_syntax::Span;
 use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
@@ -160,24 +164,22 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 };
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
-    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+    let span = elem.span();
+    let dest = elem.dest.resolve(engine, span)?;
 
     let href = match dest {
         Destination::Url(url) => Some(url.clone().into_inner()),
         Destination::Location(location) => {
             let id = engine
-                .introspector
-                .html_id(location)
-                .cloned()
+                .introspect(HtmlIdIntrospection(location, span))
                 .ok_or("failed to determine link anchor")
-                .at(elem.span())?;
+                .at(span)?;
             Some(eco_format!("#{id}"))
         }
         Destination::Position(_) => {
-            engine.sink.warn(warning!(
-                elem.span(),
-                "positional link was ignored during HTML export"
-            ));
+            engine
+                .sink
+                .warn(warning!(span, "positional link was ignored during HTML export"));
             None
         }
     };
@@ -187,6 +189,39 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .with_body(Some(elem.body.clone()))
         .pack())
 };
+
+/// Resolves the DOM element ID assigned to the linked-to element with the given
+/// location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct HtmlIdIntrospection(Location, Span);
+
+impl Introspect for HtmlIdIntrospection {
+    type Output = Option<EcoString>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.html_id(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        let introspector = history.final_introspector();
+        let what = match introspector.query_first(&Selector::Location(self.0)) {
+            Some(content) => content.elem().name(),
+            None => "element",
+        };
+        warning!(
+            self.1,
+            "HTML element ID assigned to the destination {what} did not stabilize"
+        )
+        .with_hint(history.hint("IDs", |id| match id {
+            Some(id) => id.clone(),
+            None => "(no ID)".into(),
+        }))
+    }
+}
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     Ok(LinkElem::new(
@@ -209,7 +244,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     if let Some(numbering) = elem.numbering.get_ref(styles).as_ref() {
         let location = elem.location().unwrap();
         let numbering = Counter::of(HeadingElem::ELEM)
-            .display_at_loc(engine, location, styles, numbering)?
+            .display_at(engine, location, styles, numbering, span)?
             .spanned(span);
         realized = numbering + SpaceElem::shared().clone() + realized;
     }
@@ -329,8 +364,12 @@ impl FootnoteContainer {
     }
 
     /// Fails with an error if there are footnotes.
-    pub fn unsupported_with_custom_dom(engine: &Engine) -> SourceResult<()> {
-        let markers = engine.introspector.query(&FootnoteMarker::ELEM.select());
+    pub fn unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
+        let markers = engine.introspect(QueryIntrospection(
+            FootnoteMarker::ELEM.select(),
+            Span::detached(),
+        ));
+
         if markers.is_empty() {
             return Ok(());
         }
@@ -351,8 +390,10 @@ impl FootnoteContainer {
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
-const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
-    let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
+    let notes =
+        engine.introspect(QueryIntrospection(FootnoteElem::ELEM.select(), elem.span()));
+
     if notes.is_empty() {
         return Ok(Content::empty());
     }
@@ -485,7 +526,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
-    let works = Works::generate(engine).at(span)?;
+    let works = Works::with_bibliography(engine, elem.clone())?;
     let references = works.references(elem, styles)?;
 
     let items = references.iter().map(|(prefix, reference, loc)| {

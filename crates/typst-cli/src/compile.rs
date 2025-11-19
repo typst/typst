@@ -35,11 +35,17 @@ type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
-pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<()> {
+pub fn compile(
+    timer: &mut Timer,
+    command: &'static CompileCommand,
+) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
-    let mut world =
-        SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
-            .map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(
+        Some(&command.args.input),
+        &command.args.world,
+        &command.args.process,
+    )
+    .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 
@@ -635,10 +641,20 @@ pub fn print_diagnostics(
             diagnostic
                 .hints
                 .iter()
-                .map(|e| (eco_format!("hint: {e}")).into())
+                .filter(|s| s.span.is_detached())
+                .map(|s| (eco_format!("hint: {}", s.v)).into())
                 .collect(),
         )
-        .with_labels(label(world, diagnostic.span).into_iter().collect());
+        .with_labels(
+            label(world, diagnostic.span)
+                .into_iter()
+                .chain(diagnostic.hints.iter().filter_map(|hint| {
+                    let id = hint.span.id()?;
+                    let range = world.range(hint.span)?;
+                    Some(Label::secondary(id, range).with_message(&hint.v))
+                }))
+                .collect(),
+        );
 
         term::emit(&mut terminal::out(), &config, world, &diag)?;
 
