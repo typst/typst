@@ -1,6 +1,6 @@
 // Test polygons.
 
---- polygon ---
+--- polygon paged ---
 #set page(width: 50pt)
 #set polygon(stroke: 0.75pt, fill: blue)
 
@@ -33,7 +33,7 @@
 // Regular polygon; should have equal side lengths
 #for k in range(3, 9) {polygon.regular(size: 30pt, vertices: k,)}
 
---- polygon-line-join ---
+--- polygon-line-join paged ---
 // Line joins
 #stack(
   dir: ltr,
@@ -48,11 +48,11 @@
     (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
 )
 
---- polygon-bad-point-array ---
+--- polygon-bad-point-array paged ---
 // Error: 10-17 array must contain exactly two items
 // Hint: 10-17 the first item determines the value for the X axis and the second item the value for the Y axis
 #polygon((50pt,))
 
---- polygon-infinite-size ---
+--- polygon-infinite-size paged ---
 // Error: 2-57 cannot create polygon with infinite size
 #polygon((0pt, 0pt), (0pt, 1pt), (float.inf * 1pt, 0pt))
