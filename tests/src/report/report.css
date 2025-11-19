@@ -3,6 +3,7 @@
 
     --size-xxxxsmall: 4px;
     --size-xxxsmall: 8px;
+    --size-large: 40px;
 
     --line-margin: 1px;
 
@@ -82,7 +83,7 @@ ins {
 .sidebar {
     height: calc(100% - 2 * var(--size-xxxsmall));
     margin: var(--size-xxxsmall) 0;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 var(--radius-menu) var(--radius-menu) 0;
     background-color: var(--layer-2);
     overflow: scroll;
 }
@@ -106,6 +107,10 @@ ul.sidebar-list {
     height: 100%;
 }
 
+.diff-scroll-padding {
+    height: 80vh;
+}
+
 .file-diff {
     position: relative;
     margin: var(--size-xxxsmall);
@@ -116,50 +121,83 @@ ul.sidebar-list {
     overflow: clip;
 }
 
-.file-diff:has(.collapse-diff:checked) {
-    .diff-body {
-        display: none;
-    }
-}
-
-/* Checkbox styled as a chevron */
-input[type="checkbox"].collapse-diff {
-    position: absolute;
+summary.diff-summary {
+    position: sticky;
     top: 0;
-    right: 0;
-    z-index: 100;
+    height: var(--size-large);
+    background-color: var(--layer-2);
 
-    appearance: none;
-    display: grid;
-    place-content: center;
-
-    background-color: transparent;
-    border: none;
-    width: 3em;
-    height: 3em;
-    padding: 0;
-    margin: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }
 
-input[type="checkbox"].collapse-diff::before {
+summary.diff-summary:focus {
+    outline-offset: -3px;
+    border-radius: var(--radius-menu);
+}
+
+summary.diff-summary::after {
+    width: var(--size-large);
+    height: var(--size-large);
     content: "\2039";
-    font-size: 1.6em;
+    font-size: 1.8em;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
     transition: 120ms transform cubic-bezier(0.1, 0.6, 0.3, 0.3);
+    transform: rotate(0deg);
+}
+
+details[open] summary.diff-summary:after {
     transform: rotate(-90deg);
 }
 
-input[type="checkbox"].collapse-diff:checked::before {
-    transform: rotate(0deg);
+.diff-spacer {
+    width: var(--size-large);
+    height: var(--size-large);
+}
+
+.diff-header {
+    flex: 1;
+    height: var(--size-large);
+    font-size: var(--font-size-body);
+    margin: 0;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.diff-header-split {
+    flex: 1;
+    height: var(--size-large);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.diff-header-split:nth-child(1) {
+    border-right: var(--border-toolbar-button);
+}
+/* box-sizing: border-box doesn't seem to have any effect on flex layout leading
+*  to a 1px misalignement between the border inside the header and the table
+*  body. So just add an invisible border to the right header as well. */
+.diff-header-split:nth-child(2) {
+    border-left: 1px solid transparent;
 }
 
 table.diff-area {
     width: 100%;
     border-style: none;
     border-spacing: 0;
-
-    th:nth-child(1) {
-        border-right: var(--border-toolbar-button);
-    }
+    table-layout: fixed;
 
     td.line-body:nth-child(2) {
         border-right: var(--border-panel);
@@ -185,13 +223,6 @@ tr {
     width: 50%;
     min-width: 50%;
     max-width: 50%;
-}
-
-.diff-header {
-    height: 3em;
-    background-color: var(--layer-2);
-    position: sticky;
-    top: 0;
 }
 
 .diff-line {
@@ -232,7 +263,7 @@ tr {
     user-select: none;
     color: var(--text-gutter-active);
     padding: 0 var(--size-xxxxsmall);
-    margin: var(--line-maring) 0;
+    margin: var(--line-margin) 0;
     border-right: var(--border-panel);
 }
 
@@ -252,5 +283,5 @@ tr {
     display: inline-block;
     vertical-align: baseline;
     white-space: pre-wrap;
-    margin: var(--line-maring) 0;
+    margin: var(--line-margin) 0;
 }
