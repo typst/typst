@@ -35,11 +35,17 @@ type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
-pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<()> {
+pub fn compile(
+    timer: &mut Timer,
+    command: &'static CompileCommand,
+) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
-    let mut world =
-        SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
-            .map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(
+        Some(&command.args.input),
+        &command.args.world,
+        &command.args.process,
+    )
+    .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 

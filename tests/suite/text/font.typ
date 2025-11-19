@@ -1,6 +1,6 @@
 // Test configuring font properties.
 
---- text-font-properties ---
+--- text-font-properties paged ---
 // Set same font size in three different ways.
 #text(20pt)[A]
 #text(2em)[A]
@@ -41,7 +41,7 @@ Emoji: 🐪, 🌋, 🏞
 #set text(font: ("PT Sans", "Twitter Color Emoji"), fallback: false)
 2π = 𝛼 + 𝛽. ✅
 
---- text-call-body ---
+--- text-call-body paged ---
 // Test string body.
 #text("Text") \
 #text(red, "Text") \
@@ -49,23 +49,23 @@ Emoji: 🐪, 🌋, 🏞
 #text([Text], teal, font: "IBM Plex Serif") \
 #text(forest, font: "New Computer Modern", [Text]) \
 
---- text-bad-argument ---
+--- text-bad-argument paged ---
 // Error: 11-16 unexpected argument
 #set text(false)
 
---- text-style-bad ---
+--- text-style-bad paged ---
 // Error: 18-24 expected "normal", "italic", or "oblique"
 #set text(style: "bold", weight: "thin")
 
---- text-bad-extra-argument ---
+--- text-bad-extra-argument paged ---
 // Error: 23-27 unexpected argument
 #set text(size: 10pt, 12pt)
 
---- text-bad-named-argument ---
+--- text-bad-named-argument paged ---
 // Error: 11-31 unexpected argument: something
 #set text(something: "invalid")
 
---- text-unknown-font-family-warning ---
+--- text-unknown-font-family-warning paged ---
 #text(font: "libertinus serif")[I exist,]
 // Warning: 13-26 unknown font family: nonexistent
 #text(font: "nonexistent")[but]
@@ -77,7 +77,7 @@ I
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
 
---- issue-5499-text-fill-in-clip-block ---
+--- issue-5499-text-fill-in-clip-block paged ---
 
 #let t = tiling(
   size: (30pt, 30pt),
@@ -108,12 +108,12 @@ I
   text(fill: t, "Hello")
 })
 
---- text-font-types ---
+--- text-font-types paged ---
 #let ubuntu = (name: "Ubuntu", covers: regex("[\u{20}-\u{FFFF}]"))
 #set text(font: ubuntu)
 #set text(font: (ubuntu, "Ubuntu"))
 
---- text-font-covers-chinese ---
+--- text-font-covers-chinese paged ---
 // Without ranges, the quotation mark is using the Latin font.
 #set text(font: ("Ubuntu", "Noto Serif CJK SC"))
 分别设置“中文”和English字体
@@ -126,7 +126,7 @@ I
 #set text(font: ((name: "Ubuntu", covers: "latin-in-cjk"), "Noto Serif CJK SC"))
 分别设置“中文”和English字体
 
---- text-font-covers-numbers ---
+--- text-font-covers-numbers paged ---
 // Change font only for numbers.
 #set text(font: (
   (name: "PT Sans", covers: regex("[0-9]")),
@@ -135,7 +135,7 @@ I
 
 The number 123.
 
---- text-font-covers-repeat ---
+--- text-font-covers-repeat paged ---
 // Repeatedly use the same font.
 #set text(font: (
   (name: "Libertinus Serif", covers: regex("[0-9]")),
@@ -144,7 +144,7 @@ The number 123.
 
 The number 123.
 
---- text-font-covers-riffle ---
+--- text-font-covers-riffle paged ---
 // Repeatedly use two fonts alternately.
 #set text(font: (
   (name: "Noto Color Emoji", covers: regex("[🔗⛓‍💥]")),
@@ -163,17 +163,17 @@ The number 123.
 // but not:
 #text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑")
 
---- text-font-covers-bad-1 ---
+--- text-font-covers-bad-1 paged ---
 // Error: 17-59 coverage regex may only use dot, letters, and character classes
 // Hint: 17-59 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("20-FFFF")))
 
---- text-font-covers-bad-2 ---
+--- text-font-covers-bad-2 paged ---
 // Error: 17-65 coverage regex may only use dot, letters, and character classes
 // Hint: 17-65 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))
 
---- text-font-covers-reflection ---
+--- text-font-covers-reflection paged ---
 // reflect "latin-in-cjk" covers
 #set text(font: (name: "Ubuntu", covers: "latin-in-cjk"))
 #context test(text.font, (name: "ubuntu", covers: "latin-in-cjk"))
@@ -186,16 +186,16 @@ The number 123.
 #set text(font: ((name: "Ubuntu", covers: regex("\d")), "IBM Plex Serif"))
 #context test(text.font, ((name: "ubuntu", covers: regex("\d")), "ibm plex serif"))
 
---- issue-5262-text-negative-size ---
+--- issue-5262-text-negative-size paged ---
 #set text(-1pt)
 
 a
 
---- issue-5940-text-negative-size-panic ---
+--- issue-5940-text-negative-size-panic paged ---
 #set align(center)
 #set text(-10pt)
 Hello
 
---- empty-text-font-array ---
+--- empty-text-font-array paged ---
 // Error: 17-19 font fallback list must not be empty
 #set text(font: ())

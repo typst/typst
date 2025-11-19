@@ -1,16 +1,13 @@
 - Tag: Figure
   /Alt: "alt text"
   /Placement: Block
-  /BBox:
-    page: 0
-    left:     9.500
-    top:      9.500
-    right:  110.500
-    bottom:  76.332
+  /BBox: [  9.500,   9.500, 110.500,  76.332]
   /K:
     - Tag: Link
       /K:
-        - Annotation: page=0 index=0
+        - Annotation: page=0 subtype=Link
+          /Contents: "https://github.com/typst/typst"
+          /URI: "https://github.com/typst/typst"
         - Content: page=0 mcid=0
     - Content: page=0 mcid=1
     - Content: page=0 mcid=2

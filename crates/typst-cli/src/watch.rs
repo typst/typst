@@ -21,7 +21,7 @@ use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
-pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
+pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
     let Output::Path(output) = &config.output else {
@@ -35,7 +35,7 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
     // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
         match SystemWorld::new(
-            &command.args.input,
+            Some(&command.args.input),
             &command.args.world,
             &command.args.process,
         ) {
@@ -52,6 +52,14 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
             Err(err) => return Err(err.into()),
         }
     };
+
+    // Eagerly scan fonts if we expect to need them so that it's not counted as
+    // part of the displayed compilation time. The duration of font scanning is
+    // heavily system-dependant, so it could result in confusion why compilation
+    // is so much faster/slower.
+    if config.output_format.is_paged() {
+        world.scan_fonts();
+    }
 
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;

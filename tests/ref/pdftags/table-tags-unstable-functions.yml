@@ -1,11 +1,6 @@
 - Tag: Table
   /Summary: "The table summary"
-  /BBox:
-    page: 0
-    left:     9.500
-    top:      9.500
-    right:  110.500
-    bottom:  69.820
+  /BBox: [  9.500,   9.500, 110.500,  69.820]
   /BorderColor: #000000
   /BorderThickness:   1.000
   /K:

@@ -313,8 +313,7 @@ impl Lexer<'_> {
     /// below.
     ///
     /// ### The initial line:
-    /// - A valid Typst identifier immediately following the opening delimiter
-    ///   is parsed as the language tag.
+    /// - Text until the first whitespace or backtick is parsed as the language tag.
     /// - We check the rest of the line and if all characters are whitespace,
     ///   trim it. Otherwise we trim a single leading space if present.
     ///   - If more trimmed characters follow on future lines, they will be
@@ -341,8 +340,8 @@ impl Lexer<'_> {
         F: FnMut(SyntaxKind, &Scanner),
     {
         // Language tag.
-        if self.s.eat_if(is_id_start) {
-            self.s.eat_while(is_id_continue);
+        let tag = self.s.eat_until(|c: char| c.is_whitespace() || c == '`');
+        if !tag.is_empty() {
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 

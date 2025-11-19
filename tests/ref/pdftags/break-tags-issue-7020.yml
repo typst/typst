@@ -1,7 +1,7 @@
 - Tag: P
   /K:
     - Content: page=0 mcid=0
-- Tag: InlineQuote
+- Tag: Quote
   /Placement: Block
   /K:
     - Tag: P

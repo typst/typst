@@ -1,4 +1,4 @@
---- show-where-optional-field-raw ---
+--- show-where-optional-field-raw paged ---
 // Test that where selectors also trigger on set rule fields.
 #show raw.where(block: false): box.with(
   fill: luma(220),
@@ -9,7 +9,7 @@
 
 This is #raw("fn main() {}") some text.
 
---- show-where-optional-field-text ---
+--- show-where-optional-field-text paged ---
 // Note: This show rule is horribly inefficient because it triggers for
 // every individual text element. But it should still work.
 #show text.where(lang: "de"): set text(red)
@@ -23,7 +23,7 @@ Hallo Welt!
 #set text(lang: "en")
 Hello World!
 
---- show-where-folding-text-size ---
+--- show-where-folding-text-size paged ---
 // Test that folding is taken into account.
 #set text(5pt)
 #set text(2em)
@@ -38,7 +38,7 @@ Hello World!
   10pt blue
 ]
 
---- show-where-folding-stroke ---
+--- show-where-folding-stroke paged ---
 // Test again that folding is taken into account.
 #set rect(width: 40pt, height: 10pt)
 #set rect(stroke: blue)
@@ -57,7 +57,7 @@ Hello World!
   rect()
 }
 
---- show-where-resolving-length ---
+--- show-where-resolving-length paged ---
 // Test that resolving is *not* taken into account.
 #set line(start: (1em, 1em + 2pt))
 
@@ -71,7 +71,7 @@ Hello World!
 }
 
 
---- show-where-resolving-hyphenate ---
+--- show-where-resolving-hyphenate paged ---
 // Test again that resolving is *not* taken into account.
 #set text(hyphenate: auto)
 
