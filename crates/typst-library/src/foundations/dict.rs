@@ -270,12 +270,21 @@ impl Dict {
     }
 
     /// Produces a new dictionary with only the pairs from the original one for
-    /// which the value passes test.
+    /// which the given function returns `{true}`.
     ///
     /// ```example
     /// #{
     ///   (a: 0, b: 1, c: 2)
     ///     .filter(v => v > 0)
+    /// }
+    /// ```
+    ///
+    /// ```example:"Filtering based on the key instead of the value"
+    /// #{
+    ///   (a: 0, b: 1, c: 2)
+    ///     .pairs()
+    ///     .filter(((k, v)) => k != "a")
+    ///     .to-dict()
     /// }
     /// ```
     #[func]
