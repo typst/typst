@@ -7,7 +7,6 @@ use std::str::FromStr;
 use ecow::{EcoString, eco_format};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_utils::TypstVersion;
 use unscanny::Scanner;
 
 use crate::is_ident;
@@ -364,9 +363,18 @@ pub struct PackageVersion {
 
 impl PackageVersion {
     /// The current compiler version.
+    ///
+    /// # Panics
+    ///
+    /// If any version component of the Typst version overflows the numeric range of the respective
+    /// version component here.
     pub fn compiler() -> Self {
-        Self::try_from(TypstVersion::new())
-            .expect("Typst compiler version must be representable as package version")
+        let typst_version = typst_utils::TypstVersion::new();
+        Self {
+            major: u32::try_from(typst_version.major()).unwrap(),
+            minor: u32::try_from(typst_version.minor()).unwrap(),
+            patch: u32::try_from(typst_version.patch()).unwrap(),
+        }
     }
 
     /// Performs an `==` match with the given version bound. Version elements
@@ -473,29 +481,6 @@ impl<'de> Deserialize<'de> for PackageVersion {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
-    }
-}
-
-impl TryFrom<&TypstVersion> for PackageVersion {
-    type Error = EcoString;
-
-    fn try_from(value: &TypstVersion) -> Result<Self, Self::Error> {
-        macro_rules! digit {
-            ($name:ident) => {
-                u32::try_from(value.$name()).map_err(|err| format!(
-                    "invalid Typst {} version {} cannot be converted into version number: {:?}",
-                    stringify!($name),
-                    value.$name(),
-                    err,
-                ))
-            };
-        }
-
-        Ok(Self {
-            major: digit!(major)?,
-            minor: digit!(minor)?,
-            patch: digit!(patch)?,
-        })
     }
 }
 
