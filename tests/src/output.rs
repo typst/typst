@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 use std::str::FromStr;
 
 use ecow::EcoString;
@@ -8,6 +9,7 @@ use rustc_hash::FxBuildHasher;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
+use typst::foundations::Bytes;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
@@ -15,7 +17,8 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput};
-use crate::pdftags;
+use crate::report::DiffKind;
+use crate::{pdftags, report};
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
@@ -143,6 +146,9 @@ pub trait OutputType: Sized {
 
     /// Produce a hash from the live output.
     fn make_hash(live: &Self::Live) -> HashedRef;
+
+    /// Generate data necessary to make a HTML diff.
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> DiffKind;
 }
 
 /// An output type that produces file references.
@@ -192,6 +198,13 @@ impl OutputType for Render {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(stable_hash128(live.data()))
     }
+
+    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
+        DiffKind::Image(report::image_diff(
+            (path_a, Bytes::new(a.to_vec())),
+            (path_b, Bytes::new(b.to_vec())),
+        ))
+    }
 }
 
 impl FileOutputType for Render {
@@ -235,6 +248,10 @@ impl OutputType for Pdf {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(stable_hash128(live))
     }
+
+    fn make_diff(_: (&Path, &[u8]), _: (&Path, &[u8])) -> DiffKind {
+        todo!()
+    }
 }
 
 impl HashOutputType for Pdf {
@@ -273,6 +290,12 @@ impl OutputType for Pdftags {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(stable_hash128(live))
     }
+
+    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
+        let a = std::str::from_utf8(a).unwrap();
+        let b = std::str::from_utf8(b).unwrap();
+        DiffKind::Text(report::text_diff((path_a, a), (path_b, b)))
+    }
 }
 
 impl FileOutputType for Pdftags {
@@ -308,6 +331,10 @@ impl OutputType for Svg {
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(stable_hash128(live))
     }
+
+    fn make_diff(_: (&Path, &[u8]), _: (&Path, &[u8])) -> DiffKind {
+        todo!()
+    }
 }
 
 impl HashOutputType for Svg {
@@ -336,6 +363,12 @@ impl OutputType for Html {
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(stable_hash128(live))
+    }
+
+    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
+        let a = std::str::from_utf8(a).unwrap();
+        let b = std::str::from_utf8(b).unwrap();
+        DiffKind::Text(report::text_diff((path_a, a), (path_b, b)))
     }
 }
 
