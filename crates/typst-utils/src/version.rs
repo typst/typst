@@ -4,7 +4,7 @@
 ///
 /// The order of the variables resembles the order of precedence, with earlier variables being
 /// processed first if set.
-const TYPST_VERSION_ENV_VARIABLES: [(&'static str, Option<&'static str>); 2] = [
+const TYPST_VERSION_ENV_VARIABLES: [(&str, Option<&'static str>); 2] = [
     ("TYPST_VERSION", option_env!("TYPST_VERSION")),
     ("CARGO_PKG_VERSION", option_env!("CARGO_PKG_VERSION")),
 ];
@@ -53,8 +53,7 @@ impl TypstVersion {
                         };
                     }
                     Err(err) => panic!(
-                        "failed to parse {:?} from variable {:?} as semantic version number: {:?}",
-                        value, key, err,
+                        "failed to parse {value:?} from variable {key:?} as semantic version number: {err:?}",
                     ),
                 }
             }
