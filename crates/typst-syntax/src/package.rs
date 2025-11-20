@@ -363,11 +363,6 @@ pub struct PackageVersion {
 
 impl PackageVersion {
     /// The current compiler version.
-    ///
-    /// # Panics
-    ///
-    /// If any version component of the Typst version overflows the numeric range of the respective
-    /// version component here.
     pub fn compiler() -> Self {
         let typst_version = typst_utils::TypstVersion::new();
         Self {
