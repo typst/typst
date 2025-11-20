@@ -3009,6 +3009,7 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "typst-timing",
+ "typst-utils",
  "ureq",
  "xz2",
  "zip",

@@ -27,6 +27,7 @@ typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
@@ -66,7 +67,7 @@ clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
-typst = { workspace = true }
+typst-utils = { workspace = true }
 
 [features]
 default = ["embed-fonts", "http-server"]
