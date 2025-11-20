@@ -57,7 +57,7 @@ pub fn numbering(
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
-    /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `㈀`, `㈎`, `㉠`, `㉮`, `*`, `١`,
+    /// `あ`, `い`, `ア`, `イ`, `א`, `ㄱ`, `가`, `㈀`, `㈎`, `㉠`, `㉮`, `*`, `١`,
     /// `۱`, `१`, `১`, `ক`, `①`, and `⓵`.
     /// They are replaced by the number in the sequence,
     /// preserving the original case.
