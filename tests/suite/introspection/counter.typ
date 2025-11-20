@@ -114,10 +114,10 @@ B
 // Counter display should use location's numbering.
 #set page(numbering: "i")
 Second page <first>
-#context counter(page).display(at: locate(<second>))
+#context counter(page).display(at: <second>)
 #set page(numbering: "A")
 First page <second>
-#context counter(page).display(at: locate(<first>))
+#context counter(page).display(at: <first>)
 
 --- counter-figure paged ---
 // Count figures.
