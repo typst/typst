@@ -11,7 +11,8 @@ use typst_html::HtmlDocument;
 use typst_syntax::{FileId, Source, Span, Spanned, VirtualPath};
 use typst_utils::LazyHash;
 
-static DIFF_STYLE: &str = include_str!("report.css");
+static REPORT_STYLE: &str = include_str!("report.css");
+static REPORT_SCRIPT: &str = include_str!("report.js");
 static REPORT_TEMPLATE: &str = include_str!("report.typ");
 
 const ANSII_RED: &str = "\x1b[91m";
@@ -79,16 +80,114 @@ impl World for ReportWorld {
     }
 }
 
+pub struct TestReport {
+    pub name: EcoString,
+    pub diffs: Vec<DiffKind>,
+}
+
+impl TestReport {
+    pub fn new(name: EcoString) -> Self {
+        Self { name, diffs: Vec::new() }
+    }
+}
+
+impl IntoValue for TestReport {
+    fn into_value(self) -> Value {
+        Value::Dict(dict! {
+            "name" => self.name.into_value(),
+            "diffs" => self.diffs.into_value(),
+        })
+    }
+}
+
+pub enum DiffKind {
+    Text(TextFileDiff),
+    Image(ImageFileDiff),
+}
+
+impl IntoValue for DiffKind {
+    fn into_value(self) -> Value {
+        match self {
+            DiffKind::Text(diff) => diff.into_value(),
+            DiffKind::Image(diff) => diff.into_value(),
+        }
+    }
+}
+
+pub fn generate(mut reports: Vec<TestReport>) -> Option<String> {
+    reports.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let inputs = dict! {
+        "reports" => reports.into_value(),
+        "style" => REPORT_STYLE.into_value(),
+        "script" => REPORT_SCRIPT.into_value(),
+    };
+    let vpath = VirtualPath::new("report.typ");
+    let source = Source::new(FileId::new(None, vpath), REPORT_TEMPLATE.into());
+    let world = ReportWorld::new(source, inputs);
+    let Warned { output, warnings } = typst::compile::<HtmlDocument>(&world);
+    print_diagnostics(&world, &warnings);
+
+    let doc = output.inspect_err(|errors| print_diagnostics(&world, errors)).ok()?;
+    typst_html::html(&doc)
+        .inspect_err(|errors| print_diagnostics(&world, errors))
+        .ok()
+}
+
+fn print_diagnostics(world: &ReportWorld, diags: &[SourceDiagnostic]) {
+    for diag in diags {
+        let SourceDiagnostic { severity, span, message, trace: _, hints } = diag;
+        if diag.message == "html export is under active development and incomplete" {
+            continue;
+        }
+
+        let severity = typst_utils::display(|f| match severity {
+            Severity::Error => write!(f, "{ANSII_RED}error{ANSII_CLEAR}"),
+            Severity::Warning => write!(f, "{ANSII_YELLOW}warning{ANSII_CLEAR}"),
+        });
+        eprintln!("{severity}: {message}");
+
+        print_code_lines(world, *span);
+        for Spanned { v: message, span } in hints {
+            eprintln!("{ANSII_BLUE}hint{ANSII_CLEAR}: {message}");
+            if !span.is_detached() {
+                print_code_lines(world, *span);
+            }
+        }
+        eprintln!();
+    }
+}
+
+fn print_code_lines(world: &ReportWorld, span: Span) {
+    let lines = world.source.lines();
+    if let Some(range) = span.range().or_else(|| world.source.range(span)) {
+        let (line_idx, col_idx) = lines.byte_to_line_column(range.start).unwrap();
+        let end_line_idx = lines.byte_to_line(range.start).unwrap();
+
+        let line_nr = line_idx + 1;
+        let col_nr = col_idx + 1;
+        eprintln!(
+            "     {ANSII_BLUE}┌─{ANSII_CLEAR} tests/src/report.typ:{line_nr}:{col_nr}"
+        );
+        for line_idx in line_idx..=end_line_idx {
+            let line_range = lines.line_to_range(line_idx).unwrap();
+            let line = &lines.text()[line_range].trim_end();
+            let line_nr = line_idx + 1;
+            eprintln!("{ANSII_BLUE}{line_nr:>4} │{ANSII_CLEAR} {line}");
+        }
+        eprintln!("     {ANSII_BLUE}│{ANSII_CLEAR}");
+    }
+}
+
 pub struct TextFileDiff {
-    name: EcoString,
     left: Lines,
     right: Lines,
 }
 
 impl IntoValue for TextFileDiff {
-    fn into_value(self) -> typst::foundations::Value {
+    fn into_value(self) -> Value {
         Value::Dict(dict! {
-            "name" => self.name.into_value(),
+            "kind" => "text",
             "left" => self.left.into_value(),
             "right" => self.right.into_value(),
         })
@@ -155,76 +254,8 @@ impl IntoValue for TextSpan {
     }
 }
 
-pub fn generate(mut diffs: Vec<TextFileDiff>) -> Option<String> {
-    diffs.sort_by(|a, b| a.name.cmp(&b.name));
-
-    let inputs = dict! {
-        "diffs" => diffs.into_value(),
-        "style" => DIFF_STYLE.into_value(),
-    };
-    let vpath = VirtualPath::new("report.typ");
-    let source = Source::new(FileId::new(None, vpath), REPORT_TEMPLATE.into());
-    let world = ReportWorld::new(source, inputs);
-    let Warned { output, warnings } = typst::compile::<HtmlDocument>(&world);
-    print_diagnostics(&world, &warnings);
-
-    let doc = output.inspect_err(|errors| print_diagnostics(&world, errors)).ok()?;
-    typst_html::html(&doc)
-        .inspect_err(|errors| print_diagnostics(&world, errors))
-        .ok()
-}
-
-fn print_diagnostics(world: &ReportWorld, diags: &[SourceDiagnostic]) {
-    for diag in diags {
-        let SourceDiagnostic { severity, span, message, trace: _, hints } = diag;
-        if diag.message == "html export is under active development and incomplete" {
-            continue;
-        }
-
-        let severity = typst_utils::display(|f| match severity {
-            Severity::Error => write!(f, "{ANSII_RED}error{ANSII_CLEAR}"),
-            Severity::Warning => write!(f, "{ANSII_YELLOW}warning{ANSII_CLEAR}"),
-        });
-        eprintln!("{severity}: {message}");
-
-        print_code_lines(world, *span);
-        for Spanned { v: message, span } in hints {
-            eprintln!("{ANSII_BLUE}hint{ANSII_CLEAR}: {message}");
-            if !span.is_detached() {
-                print_code_lines(world, *span);
-            }
-        }
-        eprintln!();
-    }
-}
-
-fn print_code_lines(world: &ReportWorld, span: Span) {
-    let lines = world.source.lines();
-    if let Some(range) = span.range().or_else(|| world.source.range(span)) {
-        let (line_idx, col_idx) = lines.byte_to_line_column(range.start).unwrap();
-        let end_line_idx = lines.byte_to_line(range.start).unwrap();
-
-        let line_nr = line_idx + 1;
-        let col_nr = col_idx + 1;
-        eprintln!(
-            "     {ANSII_BLUE}┌─{ANSII_CLEAR} tests/src/report.typ:{line_nr}:{col_nr}"
-        );
-        for line_idx in line_idx..=end_line_idx {
-            let line_range = lines.line_to_range(line_idx).unwrap();
-            let line = &lines.text()[line_range].trim_end();
-            let line_nr = line_idx + 1;
-            eprintln!("{ANSII_BLUE}{line_nr:>4} │{ANSII_CLEAR} {line}");
-        }
-        eprintln!("     {ANSII_BLUE}│{ANSII_CLEAR}");
-    }
-}
-
 /// Create a rich HTML text diff.
-pub fn text_diff(
-    name: EcoString,
-    (path_a, a): (&Path, &str),
-    (path_b, b): (&Path, &str),
-) -> TextFileDiff {
+pub fn text_diff((path_a, a): (&Path, &str), (path_b, b): (&Path, &str)) -> TextFileDiff {
     let diff = TextDiff::from_lines(a, b);
 
     let mut left = Vec::new();
@@ -274,7 +305,6 @@ pub fn text_diff(
     }
 
     TextFileDiff {
-        name,
         left: Lines::new(path_a, left),
         right: Lines::new(path_b, right),
     }
@@ -313,4 +343,50 @@ fn line_spans(change: &InlineChange<str>) -> SmallVec<[TextSpan; 3]> {
             TextSpan { emph, text: span.into() }
         })
         .collect()
+}
+
+pub struct ImageFileDiff {
+    left: Image,
+    right: Image,
+}
+
+impl IntoValue for ImageFileDiff {
+    fn into_value(self) -> Value {
+        Value::Dict(dict! {
+            "kind" => "image",
+            "left" => self.left.into_value(),
+            "right" => self.right.into_value(),
+        })
+    }
+}
+
+pub struct Image {
+    path: EcoString,
+    data: Bytes,
+}
+
+impl Image {
+    pub fn new(path: &Path, data: Bytes) -> Self {
+        let path = eco_format!("{}", path.display());
+        Self { path, data }
+    }
+}
+
+impl IntoValue for Image {
+    fn into_value(self) -> Value {
+        Value::Dict(dict! {
+            "path" => self.path.into_value(),
+            "data" => self.data.into_value(),
+        })
+    }
+}
+
+pub fn image_diff(
+    (path_a, a): (&Path, Bytes),
+    (path_b, b): (&Path, Bytes),
+) -> ImageFileDiff {
+    ImageFileDiff {
+        left: Image::new(path_a, a),
+        right: Image::new(path_b, b),
+    }
 }

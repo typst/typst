@@ -129,7 +129,7 @@ impl Default for TestBase {
 
 /// Holds the processed data for a file ID.
 #[derive(Clone)]
-struct FileSlot {
+pub(crate) struct FileSlot {
     id: FileId,
     source: OnceLock<FileResult<Source>>,
     file: OnceLock<FileResult<Bytes>>,
@@ -137,12 +137,12 @@ struct FileSlot {
 
 impl FileSlot {
     /// Create a new file slot.
-    fn new(id: FileId) -> Self {
+    pub(crate) fn new(id: FileId) -> Self {
         Self { id, file: OnceLock::new(), source: OnceLock::new() }
     }
 
     /// Retrieve the source for this file.
-    fn source(&mut self) -> FileResult<Source> {
+    pub(crate) fn source(&mut self) -> FileResult<Source> {
         self.source
             .get_or_init(|| {
                 let buf = read(&system_path(self.id)?)?;
@@ -153,7 +153,7 @@ impl FileSlot {
     }
 
     /// Retrieve the file's bytes.
-    fn file(&mut self) -> FileResult<Bytes> {
+    pub(crate) fn file(&mut self) -> FileResult<Bytes> {
         self.file
             .get_or_init(|| {
                 read(&system_path(self.id)?).map(|cow| match cow {
