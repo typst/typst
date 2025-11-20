@@ -2,11 +2,11 @@ use std::num::{
     IntErrorKind, NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize,
 };
 
-use ecow::{EcoString, eco_format};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{SourceResult, StrResult, bail};
+use crate::diag::{SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::foundations::{
     Base, Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
@@ -68,45 +68,38 @@ impl i64 {
         base: Spanned<Base>,
     ) -> SourceResult<i64> {
         Ok(match value.v {
-            ToInt::Int(n) => {
-                if matches!(base.v, Base::User(_)) {
-                    bail!(base.span, "base is only supported for strings");
-                }
-
-                n
-            }
+            ToInt::Int(n) => match base.v {
+                Base::User(_) => bail!(base.span, "base is only supported for strings"),
+                _ => n,
+            },
             ToInt::Str(s) => {
-                let b = base.v.value();
-                if !(2..=36).contains(&b) {
-                    bail!(base.span, "base must be between 2 and 36");
-                }
-
-                // Replace minus sign at the start with `-`
-                let s: &str = if s.as_str().starts_with(repr::MINUS_SIGN) {
-                    &s.as_str().replacen(repr::MINUS_SIGN, "-", 1)
-                } else {
-                    &s
+                let base_value = base.v.value();
+                let radix: u32 = match base_value {
+                    2..=36 => base_value.try_into().unwrap(),
+                    _ => bail!(base.span, "base must be between 2 and 36"),
                 };
-                match std::primitive::i64::from_str_radix(s, b.try_into().unwrap()) {
-                    Ok(n) => n,
-                    Err(e) => {
-                        let error = match e.kind() {
-                            IntErrorKind::Empty => "can't parse an empty string",
-                            IntErrorKind::InvalidDigit => {
-                                "invalid digit found while parsing integer"
-                            }
-                            IntErrorKind::PosOverflow => {
-                                "the integer is too large to fit into a signed 64-bit integer"
-                            }
-                            IntErrorKind::NegOverflow => {
-                                "the integer is too small to fit into a signed 64-bit integer"
-                            }
-                            // This shouldn't ever happen :)
-                            IntErrorKind::Zero => "zero couldn't be represented",
-                            _ => "unknown error",
-                        };
-                        bail!(value.span, "invalid integer: {error}")
+
+                match s.strip_prefix('-').or_else(|| s.strip_prefix(repr::MINUS_SIGN)) {
+                    // Negative (without minus)
+                    Some(s) => {
+                        // Parse the digits part into u64
+                        //  => abs(i64::MIN) fits into u64
+                        let bigger = u64::from_str_radix(&s, radix)
+                            .map_err(|e| parse_str_error(*e.kind(), value.span))?;
+
+                        // Number wouldn't fit into i64
+                        if bigger > i64::MIN.unsigned_abs() {
+                            return Err(parse_str_error(
+                                IntErrorKind::NegOverflow,
+                                value.span,
+                            ));
+                        }
+
+                        bigger.wrapping_neg() as i64
                     }
+                    // Positive
+                    None => i64::from_str_radix(&s, radix)
+                        .map_err(|e| parse_str_error(*e.kind(), value.span))?,
                 }
             }
         })
@@ -433,6 +426,27 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
     } else {
         Ok(f as i64)
     }
+}
+
+#[cold]
+fn parse_str_error(kind: IntErrorKind, span: Span) -> EcoVec<SourceDiagnostic> {
+    let error = match kind {
+        IntErrorKind::Empty => "empty string isn't a valid integer",
+        IntErrorKind::InvalidDigit => "invalid digit found while parsing integer",
+        IntErrorKind::PosOverflow => {
+            "the integer is too large to fit into a signed 64-bit integer"
+        }
+        IntErrorKind::NegOverflow => {
+            "the integer is too small to fit into a signed 64-bit integer"
+        }
+        IntErrorKind::Zero => unreachable!(),
+        _ => "unhandled number parsing error",
+    };
+
+    return eco_vec![SourceDiagnostic::error(
+        span,
+        eco_format!("invalid integer: {error}")
+    )];
 }
 
 macro_rules! signed_int {
