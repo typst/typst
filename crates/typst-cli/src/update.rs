@@ -46,7 +46,7 @@ macro_rules! determine_asset {
 /// pre-compiled asset from the downloaded release.
 pub fn update(command: &UpdateCommand) -> StrResult<()> {
     if let Some(ref version) = command.version {
-        let current_tag = typst::version().raw().parse().unwrap();
+        let current_tag = typst::utils::version().raw().parse().unwrap();
 
         if version < &Version::new(0, 8, 0) {
             eprintln!(
@@ -228,7 +228,7 @@ fn extract_binary_from_tar_xz(data: &[u8]) -> StrResult<Vec<u8>> {
 
 /// Compare the release version to the CLI version to see if an update is needed.
 fn update_needed(release: &Release) -> StrResult<bool> {
-    let current_tag: Version = typst::version().raw().parse().unwrap();
+    let current_tag: Version = typst::utils::version().raw().parse().unwrap();
     let new_tag: Version = release
         .tag_name
         .strip_prefix('v')

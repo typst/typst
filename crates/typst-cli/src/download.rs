@@ -43,7 +43,7 @@ impl<T: Display> Progress for PrintDownload<T> {
 
 /// Returns a new downloader.
 pub fn downloader() -> Downloader {
-    let user_agent = format!("typst/{}", typst::version().raw());
+    let user_agent = format!("typst/{}", typst::utils::version().raw());
     match ARGS.cert.clone() {
         Some(cert) => Downloader::with_path(user_agent, cert),
         None => Downloader::new(user_agent),

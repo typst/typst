@@ -4,7 +4,7 @@ use crate::foundations::{Dict, Module, Scope, Version};
 
 /// A module with system-related things.
 pub fn module(inputs: Dict) -> Module {
-    let typst_version = typst_utils::TypstVersion::new();
+    let typst_version = typst_utils::version();
     let version = Version::from_iter([
         typst_version.major(),
         typst_version.minor(),

@@ -364,7 +364,7 @@ pub struct PackageVersion {
 impl PackageVersion {
     /// The current compiler version.
     pub fn compiler() -> Self {
-        let typst_version = typst_utils::TypstVersion::new();
+        let typst_version = typst_utils::version();
         Self {
             major: typst_version.major(),
             minor: typst_version.minor(),
