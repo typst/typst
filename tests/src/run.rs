@@ -16,8 +16,9 @@ use typst_syntax::{FileId, Lines, VirtualPath};
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
+use crate::report::TestReport;
 use crate::world::{TestWorld, system_path};
-use crate::{ARGS, STORE_PATH, custom, output, report};
+use crate::{ARGS, STORE_PATH, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
 
@@ -79,7 +80,7 @@ impl<'a> Runner<'a> {
                 errors: String::new(),
                 infos: String::new(),
                 mismatched_output: false,
-                diff: None,
+                report: None,
             },
             not_annotated: String::new(),
         }
@@ -347,20 +348,19 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_output = true;
-            if let Ok(old_ref) = old_ref_data {
+            if let Ok(old_ref_data) = old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
 
-                let old_str = std::str::from_utf8(&old_ref).ok();
-                let new_str = std::str::from_utf8(new_ref_data).ok();
-                if let Some((a, b)) = old_str.zip(new_str) {
-                    self.result.diff = Some(report::text_diff(
-                        self.test.name.clone(),
-                        (&ref_path, a),
-                        (&live_path, b),
-                    ))
-                }
+                let report = self
+                    .result
+                    .report
+                    .get_or_insert_with(|| TestReport::new(self.test.name.clone()));
+                report.diffs.push(T::make_diff(
+                    (&ref_path, &old_ref_data),
+                    (&live_path, new_ref_data),
+                ));
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
