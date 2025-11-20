@@ -1,5 +1,14 @@
 //! Typst version information.
 
+/// List of environment variables (with values) to read the Typst version from.
+///
+/// The order of the variables resembles the order of precedence, with earlier variables being
+/// processed first if set.
+const TYPST_VERSION_ENV_VARIABLES: [(&'static str, Option<&'static str>); 2] = [
+    ("TYPST_VERSION", option_env!("TYPST_VERSION")),
+    ("CARGO_PKG_VERSION", option_env!("CARGO_PKG_VERSION")),
+];
+
 /// Typst version definition.
 ///
 /// This structure contains the current Typst version. To query the precise version number, refer
@@ -21,13 +30,9 @@ pub struct TypstVersion {
 impl TypstVersion {
     /// Get the Typst version.
     ///
-    /// The raw Typst version is read from the following environment variables in order of
-    /// precedence:
-    ///
-    /// - `TYPST_VERSION`
-    /// - `CARGO_PKG_VERSION`
-    ///
-    /// Once that is obtained, it is parsed into a SemVer-compatible version structure.
+    /// The raw Typst version is read from the environment variables mentioned in
+    /// [`TYPST_VERSION_ENV_VARIABLES`]. Once that is obtained, it is parsed into a
+    /// SemVer-compatible version structure.
     ///
     /// # Panics
     ///
@@ -35,29 +40,25 @@ impl TypstVersion {
     /// variable holds a version definition that doesn't conform to SemVer.
     pub fn new() -> &'static Self {
         crate::singleton!(TypstVersion, {
-            if let Some(raw) = option_env!("TYPST_VERSION") {
-                match semver::Version::parse(raw) {
-                    Ok(version) => Self { version, raw },
+            for (key, maybe_value) in TYPST_VERSION_ENV_VARIABLES {
+                let Some(value) = maybe_value else { continue };
+
+                match semver::Version::parse(value) {
+                    Ok(version) => {
+                        return TypstVersion {
+                            major: version.major.try_into().unwrap(),
+                            minor: version.minor.try_into().unwrap(),
+                            patch: version.patch.try_into().unwrap(),
+                            raw: value,
+                        };
+                    }
                     Err(err) => panic!(
                         "failed to parse {:?} from variable {:?} as semantic version number: {:?}",
-                        raw,
-                        "TYPST_VERSION",
-                        err,
+                        value, key, err,
                     ),
                 }
-            } else if let Some(raw) = option_env!("CARGO_PKG_VERSION") {
-                match semver::Version::parse(raw) {
-                    Ok(version) => Self { version, raw },
-                    Err(err) => panic!(
-                        "failed to parse {:?} from variable {:?} as semantic version number: {:?}",
-                        raw,
-                        "CARGO_PKG_VERSION",
-                        err,
-                    ),
-                }
-            } else {
-                panic!("no version was specified at compile time, Typst version is unknown");
             }
+            panic!("no version was specified at compile time, Typst version is unknown");
         })
     }
 
