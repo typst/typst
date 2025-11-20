@@ -371,9 +371,9 @@ impl PackageVersion {
     pub fn compiler() -> Self {
         let typst_version = typst_utils::TypstVersion::new();
         Self {
-            major: u32::try_from(typst_version.major()).unwrap(),
-            minor: u32::try_from(typst_version.minor()).unwrap(),
-            patch: u32::try_from(typst_version.patch()).unwrap(),
+            major: typst_version.major(),
+            minor: typst_version.minor(),
+            patch: typst_version.patch(),
         }
     }
 
