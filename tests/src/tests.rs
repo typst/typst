@@ -193,7 +193,7 @@ fn run_parser_test(
         errors: String::new(),
         infos: String::new(),
         mismatched_output: false,
-        diff: None,
+        report: None,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
