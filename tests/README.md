@@ -5,7 +5,7 @@ Top level directory structure:
 - `src`: Testing code.
 - `suite`: Input files. Mostly organized in parallel to the code. Each file can
            contain multiple tests, each of which is a section of Typst code
-           following `--- {name} ---`.
+           following `--- {name} {attr}+ ---`.
 - `ref`: References which the output is compared with to determine whether a
          test passed or failed.
 - `store`: Store for PNG, PDF, and SVG output files produced by the tests.
@@ -54,27 +54,39 @@ You may find more options in the help message:
 cargo testit --help
 ```
 
-To make the integration tests go faster they don't generate PDFs or SVGs by
-default. Pass the `--pdf` or `--svg` flag to generate those. Mind that PDFs and
-SVGs are **not** tested automatically at the moment, so you should always check
-the output manually when making changes.
+### Test stages
+By default, the integration tests run all _stages,_ which also generates PDFs
+and SVGs. To make them go faster while developing, you can pass the `--stages`
+flag to only run certain targets/outputs. The available stages are the following
+ones:
+
+- `paged`: Compile the paged target and produce `render`, `pdf`, and `svg`
+  outputs.
+  - `render`: Produce `render` (`png`) output.
+  - `pdf`: Produce `pdf` output.
+  - `pdftags`: Produce `pdftags` output.
+  - `svg` Produce `svg` output.
+- `html`: Compile the `html` target and produce `html` output.
+
+You can specify multiple pages, separated by commas:
 ```bash
-cargo testit --pdf
+cargo testit --stages html,pdftags
 ```
 
 ## Writing tests
-The syntax for an individual test is `--- {name} {attr}* ---` followed by some
+The syntax for an individual test is `--- {name} {attr}+ ---` followed by some
 Typst code that should be tested. The name must be globally unique in the test
-suite, so that tests can be easily migrated across files. A test name can be
-followed by space-separated attributes. For instance, `--- my-test html ---`
-adds the `html` modifier to `my-test`, instructing the test runner to also
-test HTML output. The following attributes are currently defined:
+suite, so that tests can be easily migrated across files. A test name is
+followed by space-separated attributes. At least one test target must be
+specified. For instance, `--- my-test html ---` adds the `html` target to
+`my-test`, instructing the test runner to test HTML output. The following
+attributes are currently defined:
 
-- `render`: Tests paged output against a reference image (the default, only
-  needs to be specified when `html` is also specified to enable both at the
-  same)
-- `html`: Tests HTML output against a reference HTML file. Disables the `render`
-  default.
+- `paged`: Tests paged output against a reference image.
+- `html`: Tests HTML output against a reference HTML file.
+- `pdftags`: Tests the output of the PDF tag tree.
+- `pdfstandard({standard})`: Sets the PDF standard used for testing PDFs and the
+  PDF tag tree.
 - `large`: Permits a reference image size exceeding 20 KiB. Should be used
   sparingly.
 
@@ -82,7 +94,9 @@ There are, broadly speaking, three kinds of tests:
 
 - Tests that just ensure that the code runs successfully: Those typically make
   use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
-  to ensure certain properties hold when executing the Typst code.
+  to ensure certain properties hold when executing the Typst code. Generic
+  scripting tests that don't depend on the target should use `paged` as the test
+  target.
 
 - Tests that ensure the code emits particular diagnostic messages: Those have
   inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
@@ -93,10 +107,11 @@ There are, broadly speaking, three kinds of tests:
 
 - Tests that ensure certain output is produced:
 
-  - Visual output: By default, the compiler produces paged output, renders it
-    with the `typst-render` crate, and compares it against a reference image
-    stored in the repository. The test runner automatically detects whether a
-    test has visual output and requires a reference image in this case.
+  - Visual output: When a test has the `paged` attribute, the compiler produces
+    paged output, renders it with the `typst-render` crate, and compares it
+    against a reference image stored in the repository. The test runner
+    automatically detects whether a test has visual output and requires a
+    reference image in this case.
 
     To prevent bloat, it is important that the test images are kept as small as
     possible. To that effect, the test runner enforces a maximum size of 20 KiB.
@@ -107,8 +122,11 @@ There are, broadly speaking, three kinds of tests:
 
   - HTML output: When a test has the `html` attribute, the compiler produces
     HTML output and compares it against a reference file stored in the
-    repository. By default, this enables testing of paged output, but you can
-    test both at once by passing both `render` and `html` as attributes.
+    repository.
+
+  - PDF tags output: When a test has the `pdftags` attribute, the compiler
+    produces a human readable tag tree formatted as a YAML document and compares
+    it against a reference file stored in the repository.
 
 If you have the choice between writing a test using assertions or using
 reference images, prefer assertions. This makes the test easier to understand
@@ -120,6 +138,11 @@ update the reference output used for comparison. For this, you can use the
 `--update` flag:
 ```bash
 cargo testit --exact my-test-name --update
+```
+You can also pass the `--stages` flag to only update specific reference output.
+See [Test stages](#test-stages) for more details.
+```bash
+cargo testit --exact my-test-name --update --stages=render
 ```
 
 For visual tests, this will generally generate compressed reference images (to
