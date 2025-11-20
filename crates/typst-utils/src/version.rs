@@ -1,15 +1,4 @@
-use std::sync::OnceLock;
-
-/// Static reference to the Typst version.
-///
-/// Refer to [`TypstVersion::new`] for a controlled way to obtain the locks content. By wrapping
-/// [`TypstVersion`] into this structure we achieve two things:
-///
-/// 1. We have a singleton instance, so no matter how much code uses the version information it is
-///    never duplicated.
-/// 2. It has a `'static` lifetime, which makes it convenient to use pretty much anywhere in the
-///    code.
-static TYPST_VERSION_REF: OnceLock<TypstVersion> = OnceLock::new();
+//! Typst version information.
 
 /// Typst version definition.
 ///
@@ -17,7 +6,7 @@ static TYPST_VERSION_REF: OnceLock<TypstVersion> = OnceLock::new();
 /// to the [`TypstVersion::major()`], [`TypstVersion::minor()`] and [`TypstVersion::patch()`]
 /// functions. You can read the underlying, raw version string (e.g. for CLI output) with
 /// [`TypstVersion::raw`].
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct TypstVersion {
     /// Typst major version number.
     major: u32,
@@ -45,7 +34,7 @@ impl TypstVersion {
     /// If all the environment variables mentioned above are undefined, or if an environment
     /// variable holds a version definition that doesn't conform to SemVer.
     pub fn new() -> &'static Self {
-        TYPST_VERSION_REF.get_or_init(|| {
+        crate::singleton!(TypstVersion, {
             if let Some(raw) = option_env!("TYPST_VERSION") {
                 match semver::Version::parse(raw) {
                     Ok(version) => Self { version, raw },
@@ -90,5 +79,26 @@ impl TypstVersion {
     /// Return the raw, unparsed version string.
     pub fn raw(&self) -> &'static str {
         self.raw
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn version_is_singleton() {
+        let one_version = TypstVersion::new();
+        let other_version = TypstVersion::new();
+
+        assert!(std::ptr::eq(one_version, other_version));
+    }
+
+    #[test]
+    fn version_copy_is_not_singleton() {
+        let one_version = TypstVersion::new();
+        let other_version = &(one_version.clone());
+
+        assert!(!std::ptr::eq(one_version, other_version));
     }
 }
