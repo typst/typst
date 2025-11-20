@@ -55,16 +55,18 @@ cargo testit --help
 ```
 
 ### Test stages
-By default the integration tests run all stages, which also generates PDFs and
-SVGs. To make them go faster while developing, you can pass the `--stages` flag
-to only run certain targets/outputs.
-The available stages are the following ones:
-- `paged`: Compile the paged target and run `render`, `pdf`, and `svg` outputs.
-  - `render`: Run `render` (`png`) output.
-  - `pdf`: Run `pdf` output.
-  - `pdftags`: Run `pdftags` output.
-  - `svg` Run `svg` output.
-- `html`: Compile and run the `html` target and output.
+By default, the integration tests run all _stages,_ which also generates PDFs
+and SVGs. To make them go faster while developing, you can pass the `--stages`
+flag to only run certain targets/outputs. The available stages are the following
+ones:
+
+- `paged`: Compile the paged target and produce `render`, `pdf`, and `svg`
+  outputs.
+  - `render`: Produce `render` (`png`) output.
+  - `pdf`: Produce `pdf` output.
+  - `pdftags`: Produce `pdftags` output.
+  - `svg` Produce `svg` output.
+- `html`: Compile the `html` target and produce `html` output.
 
 You can specify multiple pages, separated by commas:
 ```bash
@@ -92,7 +94,9 @@ There are, broadly speaking, three kinds of tests:
 
 - Tests that just ensure that the code runs successfully: Those typically make
   use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
-  to ensure certain properties hold when executing the Typst code.
+  to ensure certain properties hold when executing the Typst code. Generic
+  scripting tests that don't depend on the target should use `paged` as the test
+  target.
 
 - Tests that ensure the code emits particular diagnostic messages: Those have
   inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
