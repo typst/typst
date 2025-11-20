@@ -1,14 +1,5 @@
 //! Typst version information.
 
-/// List of environment variables (with values) to read the Typst version from.
-///
-/// The order of the variables resembles the order of precedence, with earlier variables being
-/// processed first if set.
-const TYPST_VERSION_ENV_VARIABLES: [(&str, Option<&'static str>); 2] = [
-    ("TYPST_VERSION", option_env!("TYPST_VERSION")),
-    ("CARGO_PKG_VERSION", option_env!("CARGO_PKG_VERSION")),
-];
-
 /// Typst version definition.
 ///
 /// This structure contains the current Typst version. To query the precise version number, refer
@@ -30,9 +21,13 @@ pub struct TypstVersion {
 impl TypstVersion {
     /// Get the Typst version.
     ///
-    /// The raw Typst version is read from the environment variables mentioned in
-    /// [`TYPST_VERSION_ENV_VARIABLES`]. Once that is obtained, it is parsed into a
-    /// SemVer-compatible version structure.
+    /// The raw Typst version is read from the following environment variables in order of
+    /// precedence:
+    ///
+    /// - `TYPST_VERSION`
+    /// - `CARGO_PKG_VERSION`
+    ///
+    /// Once that is obtained, it is parsed into a SemVer-compatible version structure.
     ///
     /// # Panics
     ///
@@ -40,7 +35,12 @@ impl TypstVersion {
     /// variable holds a version definition that doesn't conform to SemVer.
     pub fn new() -> &'static Self {
         crate::singleton!(TypstVersion, {
-            for (key, maybe_value) in TYPST_VERSION_ENV_VARIABLES {
+            let env_vars = [
+                ("TYPST_VERSION", option_env!("TYPST_VERSION")),
+                ("CARGO_PKG_VERSION", option_env!("CARGO_PKG_VERSION")),
+            ];
+
+            for (key, maybe_value) in env_vars {
                 let Some(value) = maybe_value else { continue };
 
                 match semver::Version::parse(value) {
