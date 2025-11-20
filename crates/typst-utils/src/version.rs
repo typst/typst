@@ -19,8 +19,12 @@ static TYPST_VERSION_REF: OnceLock<TypstVersion> = OnceLock::new();
 /// [`TypstVersion::raw`].
 #[derive(Debug)]
 pub struct TypstVersion {
-    /// Parsed Typst version according to semantic versioning.
-    version: semver::Version,
+    /// Typst major version number.
+    major: u32,
+    /// Typst minor version number.
+    minor: u32,
+    /// Typst patch version number.
+    patch: u32,
     /// Raw, unmodified version string.
     raw: &'static str,
 }
@@ -69,18 +73,18 @@ impl TypstVersion {
     }
 
     /// Return the Typst major version.
-    pub fn major(&self) -> u64 {
-        self.version.major
+    pub fn major(&self) -> u32 {
+        self.major
     }
 
     /// Return the Typst minor version.
-    pub fn minor(&self) -> u64 {
-        self.version.minor
+    pub fn minor(&self) -> u32 {
+        self.minor
     }
 
     /// Return the Typst patch version.
-    pub fn patch(&self) -> u64 {
-        self.version.patch
+    pub fn patch(&self) -> u32 {
+        self.patch
     }
 
     /// Return the raw, unparsed version string.

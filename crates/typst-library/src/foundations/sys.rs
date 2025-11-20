@@ -11,9 +11,9 @@ use crate::foundations::{Dict, Module, Scope, Version};
 pub fn module(inputs: Dict) -> Module {
     let typst_version = typst_utils::TypstVersion::new();
     let version = Version::from_iter([
-        u32::try_from(typst_version.major()).unwrap(),
-        u32::try_from(typst_version.minor()).unwrap(),
-        u32::try_from(typst_version.patch()).unwrap(),
+        typst_version.major(),
+        typst_version.minor(),
+        typst_version.patch(),
     ]);
 
     let mut scope = Scope::deduplicating();
