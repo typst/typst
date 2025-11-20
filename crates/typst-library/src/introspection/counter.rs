@@ -266,24 +266,26 @@ impl Counter {
         styles: StyleChain,
         loc: Location,
         span: Span,
-    ) -> Option<Numbering> {
-        match self.0 {
+    ) -> SourceResult<Option<Numbering>> {
+        Ok(match self.0 {
             CounterKey::Page => loc.page_numbering(engine, span),
-            CounterKey::Selector(Selector::Elem(func, _)) => {
-                if func == HeadingElem::ELEM {
-                    styles.get_cloned(HeadingElem::numbering)
-                } else if func == FigureElem::ELEM {
-                    styles.get_cloned(FigureElem::numbering)
-                } else if func == EquationElem::ELEM {
-                    styles.get_cloned(EquationElem::numbering)
-                } else if func == FootnoteElem::ELEM {
-                    Some(styles.get_cloned(FootnoteElem::numbering))
-                } else {
-                    None
-                }
-            }
+            CounterKey::Selector(Selector::Elem(func, _)) => engine
+                .introspect(NumberingAtIntrospection(func, loc, span))?
+                .or_else(|| {
+                    if func == HeadingElem::ELEM {
+                        styles.get_cloned(HeadingElem::numbering)
+                    } else if func == FigureElem::ELEM {
+                        styles.get_cloned(FigureElem::numbering)
+                    } else if func == EquationElem::ELEM {
+                        styles.get_cloned(EquationElem::numbering)
+                    } else if func == FootnoteElem::ELEM {
+                        Some(styles.get_cloned(FootnoteElem::numbering))
+                    } else {
+                        None
+                    }
+                }),
             _ => None,
-        }
+        })
     }
 }
 
@@ -377,6 +379,7 @@ impl Counter {
             .custom()
             .or_else(|| {
                 self.matching_numbering(engine, context.styles().ok()?, location, span)
+                    .ok()?
             })
             .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
@@ -805,6 +808,53 @@ impl Introspect for CounterFinalIntrospection {
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
         format_convergence_warning(&self.0, self.1, history)
+    }
+}
+
+/// Retrieves a counter at a specific location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct NumberingAtIntrospection(Element, Location, Span);
+
+impl Introspect for NumberingAtIntrospection {
+    type Output = SourceResult<Option<Numbering>>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let Some(content) = introspector.content_at(self.1) else {
+            return Ok(None);
+        };
+
+        let numbering = if self.0 == HeadingElem::ELEM {
+            content
+                .to_packed::<HeadingElem>()
+                .and_then(|elem| elem.numbering.as_option().clone())
+                .flatten()
+        } else if self.0 == FigureElem::ELEM {
+            content
+                .to_packed::<FigureElem>()
+                .and_then(|elem| elem.numbering.as_option().clone())
+                .flatten()
+        } else if self.0 == EquationElem::ELEM {
+            content
+                .to_packed::<EquationElem>()
+                .and_then(|elem| elem.numbering.as_option().clone())
+                .flatten()
+        } else if self.0 == FootnoteElem::ELEM {
+            content
+                .to_packed::<FootnoteElem>()
+                .and_then(|elem| elem.numbering.as_option().clone())
+        } else {
+            None
+        };
+
+        Ok(numbering)
+    }
+
+    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
+        warning!(self.2, "is a warning even needed here")
     }
 }
 

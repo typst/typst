@@ -304,6 +304,11 @@ impl Introspector {
             .copied()
             .min_by_key(|loc| self.loc_index(loc).wrapping_sub(anchor))
     }
+
+    /// Gets the content at the given location, if any.
+    pub fn content_at(&self, location: Location) -> Option<&Content> {
+        self.get_by_loc(&location)
+    }
 }
 
 impl Debug for Introspector {
