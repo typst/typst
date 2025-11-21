@@ -1,31 +1,9 @@
-use typst_library::diag::{SourceResult, warning};
+use typst_library::diag::warning;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Axis, Rel};
-use typst_library::math::StretchElem;
 use typst_utils::Get;
 
-use super::{MathContext, MathFragment, stretch_axes};
-
-/// Lays out a [`StretchElem`].
-#[typst_macros::time(name = "math.stretch", span = elem.span())]
-pub fn layout_stretch(
-    elem: &Packed<StretchElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    stretch_fragment(
-        ctx.engine,
-        &mut fragment,
-        None,
-        None,
-        elem.size.resolve(styles),
-        Abs::zero(),
-    );
-    ctx.push(fragment);
-    Ok(())
-}
+use super::{MathFragment, stretch_axes};
 
 /// Attempts to stretch the given fragment by/to the amount given in stretch.
 pub fn stretch_fragment(

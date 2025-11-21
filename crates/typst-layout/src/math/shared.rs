@@ -3,7 +3,7 @@ use typst_library::layout::{Abs, Em};
 use typst_library::text::{FontFamily, TextElem};
 use typst_utils::singleton;
 
-use super::{MathFragment, MathRun};
+use super::MathFragment;
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
@@ -29,7 +29,7 @@ pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> 
 }
 
 /// Determine the positions of the alignment points, according to the input rows combined.
-pub fn alignments(rows: &[MathRun]) -> AlignmentResult {
+pub fn alignments(rows: &[Vec<MathFragment>]) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
     let mut pending_width = Abs::zero();
