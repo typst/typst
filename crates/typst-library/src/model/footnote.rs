@@ -216,10 +216,7 @@ pub struct FootnoteEntry {
     /// ```example
     /// #show footnote.entry: it => {
     ///   let loc = it.note.location()
-    ///   numbering(
-    ///     "1: ",
-    ///     ..counter(footnote).at(loc),
-    ///   )
+    ///   counter(footnote).display(at: loc, "1: ")
     ///   it.note.body
     /// }
     ///

@@ -49,7 +49,7 @@ In #context counter(heading).display()
 
 At Beta, it was #context {
   let it = query(heading).find(it => it.body == [Beta])
-  numbering(it.numbering, ..counter(heading).at(it.location()))
+  counter(heading).display(at: it.location())
 }
 
 --- counter-page paged ---
@@ -109,6 +109,15 @@ B
   margin: (bottom: 20pt),
   footer: context align(center, counter(page).display())
 )
+
+--- counter-page-location-display paged ---
+// Counter display should use location's numbering.
+#set page(numbering: "i")
+Second page <first>
+#context counter(page).display(at: <second>)
+#set page(numbering: "A")
+First page <second>
+#context counter(page).display(at: <first>)
 
 --- counter-figure paged ---
 // Count figures.
@@ -183,3 +192,25 @@ B
 #let line = [A #s B #tree #s #tree #s #tree C #s D #s]
 #line \
 #line
+
+--- counter-display-at paged ---
+// Test displaying counter at a given location.
+#set heading(numbering: "1.1")
+
+= One
+#figure(
+  kind: "fig",
+  numbering: (..nums) => numbering(
+    "1.1",
+    ..((counter(heading).get().first(),) + nums.pos()),
+  ),
+  supplement: [Fig],
+)[blah] <blah>
+
+= Two
+#context [
+  #let fig = query(<blah>).first()
+  #fig.counter.display(fig.numbering) \
+  #numbering(fig.numbering, ..fig.counter.at(fig.location())) \
+  #fig.counter.display(at: fig.location()) \
+]

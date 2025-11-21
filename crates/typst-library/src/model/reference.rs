@@ -127,10 +127,7 @@ use crate::text::TextElem;
 ///   // Skip all other references.
 ///   if el == none or el.func() != eq { return it }
 ///   // Override equation references.
-///   link(el.location(), numbering(
-///     el.numbering,
-///     ..counter(eq).at(el.location())
-///   ))
+///   link(el.location(), counter(eq).display(at: el.location()))
 /// }
 ///
 /// = Beginnings <beginning>
