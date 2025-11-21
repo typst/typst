@@ -593,10 +593,6 @@ impl FrameFragment {
         Self { class, ..self }
     }
 
-    pub fn with_limits(self, limits: Limits) -> Self {
-        Self { limits, ..self }
-    }
-
     pub fn with_spaced(self, spaced: bool) -> Self {
         Self { spaced, ..self }
     }
