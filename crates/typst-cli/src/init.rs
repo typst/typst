@@ -74,10 +74,6 @@ fn scaffold_project(
     package_path: &Path,
     template: &TemplateInfo,
 ) -> StrResult<()> {
-    if project_dir.exists() {
-        bail!("project directory already exists (at {})", project_dir.display());
-    }
-
     let template_dir = package_path.join(template.path.as_str());
     if !template_dir.exists() {
         bail!("template directory does not exist (at {})", template_dir.display());
