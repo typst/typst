@@ -84,13 +84,13 @@ impl i64 {
                     Some(s) => {
                         // Parse the digits part into u64
                         //  => abs(i64::MIN) fits into u64
-                        let bigger = u64::from_str_radix(&s, radix)
-                            .map_err(|e| parse_str_error(*e.kind(), value.span))?;
+                        let bigger = u64::from_str_radix(s, radix)
+                            .map_err(|e| parse_str_error(e.kind(), value.span))?;
 
                         // Number wouldn't fit into i64
                         if bigger > i64::MIN.unsigned_abs() {
                             return Err(parse_str_error(
-                                IntErrorKind::NegOverflow,
+                                &IntErrorKind::NegOverflow,
                                 value.span,
                             ));
                         }
@@ -99,7 +99,7 @@ impl i64 {
                     }
                     // Positive
                     None => i64::from_str_radix(&s, radix)
-                        .map_err(|e| parse_str_error(*e.kind(), value.span))?,
+                        .map_err(|e| parse_str_error(e.kind(), value.span))?,
                 }
             }
         })
@@ -429,7 +429,7 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
 }
 
 #[cold]
-fn parse_str_error(kind: IntErrorKind, span: Span) -> EcoVec<SourceDiagnostic> {
+fn parse_str_error(kind: &IntErrorKind, span: Span) -> EcoVec<SourceDiagnostic> {
     let error = match kind {
         IntErrorKind::Empty => "empty string isn't a valid integer",
         IntErrorKind::InvalidDigit => "invalid digit found while parsing integer",
@@ -443,10 +443,7 @@ fn parse_str_error(kind: IntErrorKind, span: Span) -> EcoVec<SourceDiagnostic> {
         _ => "unhandled number parsing error",
     };
 
-    return eco_vec![SourceDiagnostic::error(
-        span,
-        eco_format!("invalid integer: {error}")
-    )];
+    eco_vec![SourceDiagnostic::error(span, eco_format!("invalid integer: {error}"))]
 }
 
 macro_rules! signed_int {
