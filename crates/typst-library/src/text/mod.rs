@@ -45,7 +45,7 @@ use typst_utils::singleton;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::World;
-use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, error, warning};
+use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
@@ -1254,35 +1254,29 @@ cast! {
         // - contain at least one character that isn't padding (0x20, space)
         // - padding may only appear at the end of a tag
 
-        if !(1..=4).contains(&v.len()) {
-            let e = error!(
-                "feature tag must be one to four bytes in length";
-                hint: "found {} bytes", v.len()
-            );
+        if let Some(cluster) = v.graphemes(true).find(|v| {
+            !v.as_bytes().iter().all(|v| (0x20..=0x7E).contains(v))
+        }) {
+            bail!(
+                "feature tag may contain only printable ASCII characters";
+                hint: "you may refer to https://typst.app/tools/ascii-table/";
+                hint: "found invalid cluster {}", cluster.repr();
+            )
+        }
 
-            return Err(match v.grapheme_indices(true).find(|(_, v)| v.len() > 1) {
-                Some((i,v)) => e.with_hint(
-                    eco_format!("found multi-byte cluster '{v}' in grapheme {}", i+1)
-                ),
-                None => e
-            })
+        if !(1..=4).contains(&v.len()) {
+            bail!(
+                "feature tag must be one to four characters in length";
+                hint: "found {} characters", v.len();
+            );
         }
 
         let mut within_padding = false;
         for (i, &v) in v.as_bytes().iter().enumerate() {
-            match v {
-                0x20 if i == 0 => {
-                    bail!("feature tag must contain at least one non-space character")
-                }
-                0x20 => within_padding = true,
-                0x21 ..= 0x7E => if within_padding {
-                    bail!("spaces may only appear as padding at the end of a feature tag")
-                },
-                .. 0x20 | 0x7F .. => bail!(
-                    "feature tag must be printable ASCII";
-                    hint: "found: U+{v:04X}"
-                )
+            if (within_padding && v != b' ') || (i == 0 && v == b' ') {
+                bail!("spaces may only appear as padding following a feature tag")
             }
+            within_padding |= b' ' == v;
         }
 
         Self::from_bytes_lossy(v.as_bytes())
@@ -1304,12 +1298,15 @@ cast! {
         .into_iter()
         .enumerate()
         .map(|(i, v)| Ok((
-            v.clone().cast::<Tag>()
-                .hint(eco_format!(
-                    "occurred in tag at index {i}, '{}'",
-                    v.cast::<EcoString>().unwrap_or_default()
-                ))
-                .hint("to set features with custom values, consider supplying a `dictionary`")?,
+            v.clone().cast::<Tag>().hint(tag_hint_helper(i, &v)).map_err(|e| {
+                // Append a hint if the value is a string containing the
+                // assignment operator `=` or another type was supplied.
+                if v.cast::<Str>().map_or(true, |v| v.as_str().contains('=')) {
+                    e.with_hint("to set features with custom values, consider supplying a `dictionary`")
+                } else {
+                    e
+                }
+            })?,
             1
         )))
         .collect::<HintedStrResult<_>>()?),
@@ -1317,12 +1314,14 @@ cast! {
         .into_iter()
         .enumerate()
         .map(|(i, (k, v))| Ok((
-            k.clone().into_value().cast::<Tag>().hint(
-                eco_format!("occurred in tag at index {i}, '{k}'")
-            )?,
-            v.cast::<u32>()?
+            k.clone().into_value().cast::<Tag>().hint(tag_hint_helper(i, &k))?,
+            v.cast::<u32>().hint(tag_hint_helper(i, &k))?
         )))
         .collect::<HintedStrResult<_>>()?),
+}
+
+fn tag_hint_helper(index: usize, key: &impl Repr) -> EcoString {
+    eco_format!("occurred in tag at index {index}, {}", key.repr())
 }
 
 impl Fold for FontFeatures {
@@ -1562,7 +1561,7 @@ mod tests {
                 .unwrap()
                 .into_value()
                 .cast::<Tag>()
-                .map_or_else(|_| None, |v| Some(v.0.to_be_bytes()))
+                .map_or(None, |v| Some(v.0.to_be_bytes()))
         };
 
         // Valid tags; standard and padded forms.
