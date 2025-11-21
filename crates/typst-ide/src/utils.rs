@@ -6,7 +6,7 @@ use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
 use typst::introspection::Introspector;
-use typst::syntax::{LinkedNode, SyntaxKind};
+use typst::syntax::{LinkedNode, SyntaxMode};
 use typst::text::{FontInfo, FontStyle};
 use typst::utils::Protected;
 
@@ -109,15 +109,7 @@ pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
 
 /// The global definitions at the given node.
 pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
-    let in_math = matches!(
-        leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-    ) && leaf
-        .prev_leaf()
-        .is_none_or(|prev| !matches!(prev.kind(), SyntaxKind::Hash));
+    let in_math = leaf.mode() == Some(SyntaxMode::Math);
 
     let library = world.library();
     if in_math { library.math.scope() } else { library.global.scope() }
