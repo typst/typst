@@ -621,23 +621,14 @@ fn layout_op(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let fragment = ctx.layout_into_fragment(&elem.text, styles)?;
-    let italics = fragment.italics_correction();
-    let accent_attach = fragment.accent_attach();
-    let text_like = fragment.is_text_like();
-
-    ctx.push(
-        FrameFragment::new(styles, fragment.into_frame())
-            .with_class(MathClass::Large)
-            .with_italics_correction(italics)
-            .with_accent_attach(accent_attach)
-            .with_text_like(text_like)
-            .with_limits(if elem.limits.get(styles) {
-                Limits::Display
-            } else {
-                Limits::Never
-            }),
-    );
+    let mut fragment = ctx.layout_into_fragment(&elem.text, styles)?;
+    fragment.set_class(MathClass::Large);
+    fragment.set_limits(if elem.limits.get(styles) {
+        Limits::Display
+    } else {
+        Limits::Never
+    });
+    ctx.push(fragment);
     Ok(())
 }
 
