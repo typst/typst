@@ -28,8 +28,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
-    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem, Works,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -541,7 +541,7 @@ fn prepare(
         tagged: elem.can::<dyn Tagged>(),
     };
     if elem.location().is_none() && flags.any() {
-        let loc = locator.next_location(engine.introspector, key);
+        let loc = locator.next_location(engine, key, elem.span());
         elem.set_location(loc);
     }
 
@@ -1099,7 +1099,8 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let s = grouped.end();
 
     // Separate children with different bibliographies
-    let citation_map = BibliographyElem::assign_citations(s.engine.introspector);
+    let works = Works::generate(s.engine,Span::detached())?;
+    let citation_map = &works.citation_map;
     let mut map = HashMap::new();
     let mut key_order: Vec<Location> = vec![];
     for child in children.clone() {

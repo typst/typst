@@ -110,7 +110,7 @@ Guide]($guides/accessibility/#textual-representations).
 ```example
 #math.equation(
   alt: "d S equals delta q divided by T",
-  $ d "S" = (delta q) / T $,
+  $ dif S = (delta q) / T $,
 )
 ```
 

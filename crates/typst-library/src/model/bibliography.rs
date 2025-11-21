@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -17,20 +17,20 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt, PicoStr, Protected};
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
-    StrResult, bail, error, warning,
+    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
-use crate::engine::{Engine, Sink};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value, elem,
+    elem, Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label, NativeElement, OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{
+    History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
+};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
@@ -165,30 +165,32 @@ pub struct BibliographyElem {
 }
 
 impl BibliographyElem {
-    /// Find the document's bibliographies.
-    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Vec<Packed<Self>>> {
-        let query = introspector.query(&Self::ELEM.select());
-        if query.len() == 0 {
+    /// Find the document's bibliography.
+    pub fn find(engine: &mut Engine, span: Span) -> StrResult<Vec<Packed<Self>>> {
+        let elems = engine.introspect(QueryIntrospection(Self::ELEM.select(), span));
+
+        if elems.len() == 0 {
             bail!("the document does not contain a bibliography");
         };
 
-        Ok(query
+        Ok(elems
             .into_iter()
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect())
     }
 
-    #[comemo::memoize]
     pub fn assign_citations(
-        introspector: Tracked<Introspector>,
+        engine: &mut Engine,
+        span: Span,
     ) -> FxHashMap<Location, Location> {
-        let bibliographies: Vec<Packed<Self>> = introspector
-            .query(&Self::ELEM.select())
+        let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
+        let bibliographies: Vec<Packed<Self>> = engine
+            .introspect(QueryIntrospection(Self::ELEM.select(),span))
             .into_iter()
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect();
-
-        let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
+        let citations_and_bib = engine
+            .introspect(QueryIntrospection(Selector::Or(eco_vec![CiteElem::ELEM.select(), BibliographyElem::ELEM.select()]),span));
 
         // First citations from bibliographies with selectors
         for bibliography in &bibliographies {
@@ -196,7 +198,7 @@ impl BibliographyElem {
                 &bibliography.target.get_ref(StyleChain::default())
             {
                 let bibliography_location = bibliography.location().unwrap();
-                let bibliography_citations = introspector.query(&bibliography_selector);
+                let bibliography_citations = engine.introspect(QueryIntrospection(bibliography_selector.clone(),span));
                 for citation in bibliography_citations {
                     citation_map
                         .entry(citation.location().unwrap())
@@ -208,8 +210,6 @@ impl BibliographyElem {
         // Find the bibliography for the remaining citations. Priority order:
         // 1. First following auto bibliography containing the label
         // 2. First preceding auto bibliography containing the label
-        let citations_and_bib = introspector
-            .query(&Selector::Or(eco_vec![CiteElem::ELEM.select(), Self::ELEM.select()]));
         for (i, citation) in citations_and_bib.iter().enumerate() {
             if let Some(citation_elem) = citation.to_packed::<CiteElem>() && !citation_map.contains_key(&citation.location().unwrap()) {
                 let citation_key = citation_elem.key;
@@ -261,10 +261,9 @@ impl BibliographyElem {
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(engine: &Engine, key: Label) -> bool {
+    pub fn has(engine: &mut Engine, key: Label, span: Span) -> bool {
         engine
-            .introspector
-            .query(&Self::ELEM.select())
+            .introspect(QueryIntrospection(Self::ELEM.select(), span))
             .iter()
             .any(|elem| elem.to_packed::<Self>().unwrap().sources.derived.has(key))
     }
@@ -645,6 +644,7 @@ pub struct Works {
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Works for each bibliography
     pub works: FxHashMap<Location, IndivWorks>,
+    pub citation_map: FxHashMap<Location,Location>
 }
 
 pub struct IndivWorks {
@@ -657,9 +657,27 @@ pub struct IndivWorks {
 
 impl Works {
     /// Generate all citations and the whole bibliography.
-    pub fn generate(engine: &Engine) -> StrResult<Arc<Works>> {
-        Self::generate_impl(engine.routines, engine.world, engine.introspector)
+    pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
+        Self::generate_impl(
+            engine.routines,
+            engine.world,
+            engine.introspector.into_raw(),
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
+            engine.route.track(),
+        ).at(span)
     }
+
+    // /// Generate all citations and the whole bibliography, given an existing
+    // /// bibliography (no need to query it).
+    // pub fn with_bibliography(
+    //     engine: &mut Engine,
+    //     bibliography: Packed<BibliographyElem>,
+    // ) -> SourceResult<Arc<Works>> {
+    //     let span = bibliography.span();
+    //     let groups = engine.introspect(CiteGroupIntrospection(span));
+    //     Self::generate_impl(engine.routines, engine.world, vec![bibliography], groups).at(span)
+    // }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
@@ -667,10 +685,23 @@ impl Works {
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
+        route: Tracked<Route>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, introspector)?;
+        let introspector = Protected::from_raw(introspector);
+        let mut engine = Engine {
+            routines,
+            world,
+            introspector,
+            traced,
+            sink,
+            route: Route::extend(route),
+        };
+        let citation_map = BibliographyElem::assign_citations(&mut engine,Span::detached());
+        let mut generator = Generator::new(&mut engine, &citation_map)?;
         let rendered = generator.drive();
-        let works = generator.display(&rendered)?;
+        let works = generator.display(&rendered,citation_map)?;
         Ok(Arc::new(works))
     }
 
@@ -701,6 +732,34 @@ impl Works {
     /// Specifies whether the given bibliography should have an hanging indent
     pub fn hanging_indent(&self, elem: &Packed<BibliographyElem>) -> bool {
         self.works.get(&elem.location().unwrap()).unwrap().hanging_indent
+    }
+}
+
+/// Retrieves all citation groups in the document.
+///
+/// This is separate from `QueryIntrospection` so that we can customize the
+/// diagnostic as the `CiteGroup` is internal. The default query message is also
+/// not that helpful in this case.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CiteGroupIntrospection(Span);
+
+impl Introspect for CiteGroupIntrospection {
+    type Output = EcoVec<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query(&CiteGroup::ELEM.select())
+    }
+
+    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
+        warning!(
+            self.0, "citation grouping did not stabilize";
+            hint: "this can happen if the citations and bibliographies in the \
+                   document did not stabilize by the end of the third layout iteration"
+        )
     }
 }
 
@@ -749,13 +808,12 @@ struct CiteInfo {
 impl<'a> Generator<'a> {
     /// Create a new generator
     fn new(
-        routines: &'a Routines,
-        world: Tracked<'a, dyn World + 'a>,
-        introspector: Tracked<Introspector>,
+        engine: &mut Engine<'a>,
+        citation_map: &FxHashMap<Location,Location>,
     ) -> StrResult<Self> {
-        let bibliographies = BibliographyElem::find(introspector)?;
-        let citation_groups_all = introspector.query(&CiteGroup::ELEM.select());
-        let citation_map = BibliographyElem::assign_citations(introspector);
+        let dummy_span = Span::detached();
+        let bibliographies = BibliographyElem::find(engine, dummy_span)?;
+        let citation_groups_all = engine.introspect(CiteGroupIntrospection(dummy_span));
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
             let bibliography_location = bibliography.location().unwrap();
@@ -772,8 +830,8 @@ impl<'a> Generator<'a> {
             groups.insert(bibliography_location, bibliography_groups);
         }
         Ok(Self {
-            routines,
-            world,
+            routines: engine.routines,
+            world: engine.world,
             bibliographies,
             groups,
             infos: FxHashMap::default(),
@@ -925,7 +983,7 @@ impl<'a> Generator<'a> {
     }
 
     /// Displays hayagriva's output as content for the citations and references.
-    fn display(&mut self, rendered: &Vec<hayagriva::Rendered>) -> StrResult<Works> {
+    fn display(&mut self, rendered: &Vec<hayagriva::Rendered>, citation_map: FxHashMap<Location,Location>) -> StrResult<Works> {
         let mut works = FxHashMap::default();
         let citations = self.display_citations(rendered)?;
         for (bibliography, rendered_indiv) in
@@ -939,7 +997,7 @@ impl<'a> Generator<'a> {
                 IndivWorks { references, hanging_indent },
             );
         }
-        Ok(Works { citations, works })
+        Ok(Works { citations, works, citation_map })
     }
 
     /// Display the citation groups.
@@ -1195,6 +1253,8 @@ impl ElemRenderer<'_> {
             self.world,
             // TODO: propagate warnings
             Sink::new().track_mut(),
+            Introspector::default().track(),
+            Context::none().track(),
             math,
             self.span,
             SyntaxMode::Math,

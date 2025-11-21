@@ -132,8 +132,6 @@ pub enum SyntaxKind {
     Slash,
     /// The superscript operator in math: `^`.
     Hat,
-    /// The prime in math: `'`.
-    Prime,
     /// The field access and method call operator: `.`.
     Dot,
     /// The assignment operator: `=`.
@@ -164,6 +162,8 @@ pub enum SyntaxKind {
     Arrow,
     /// A root: `√`, `∛` or `∜`.
     Root,
+    /// An exclamation mark; groups with directly preceding text in math: `!`.
+    Bang,
 
     /// The `not` operator.
     Not,
@@ -436,7 +436,6 @@ impl SyntaxKind {
             Self::Minus => "minus",
             Self::Slash => "slash",
             Self::Hat => "hat",
-            Self::Prime => "prime",
             Self::Dot => "dot",
             Self::Eq => "equals sign",
             Self::EqEq => "equality operator",
@@ -452,6 +451,7 @@ impl SyntaxKind {
             Self::Dots => "dots",
             Self::Arrow => "arrow",
             Self::Root => "root",
+            Self::Bang => "exclamation mark",
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",

@@ -1,4 +1,4 @@
---- issue-4571-panic-when-compiling-invalid-file ---
+--- issue-4571-panic-when-compiling-invalid-file paged ---
 // Test that trying to parse the following does not result in a panic.
 
 // Error: 1:9-10 unclosed delimiter

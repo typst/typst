@@ -13,11 +13,11 @@ use typst::syntax::{FileId, Lines, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
-use typst_kit::fonts::{FontSlot, Fonts};
+use typst_kit::fonts::Fonts;
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -25,6 +25,11 @@ use crate::package;
 /// This is to ensure that a file is read in the correct way.
 static STDIN_ID: LazyLock<FileId> =
     LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+
+/// Static `FileId` allocated for empty/no input at all.
+/// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
+static EMPTY_ID: LazyLock<FileId> =
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -36,10 +41,8 @@ pub struct SystemWorld {
     main: FileId,
     /// Typst's standard library.
     library: LazyHash<Library>,
-    /// Metadata about discovered fonts.
-    book: LazyHash<FontBook>,
-    /// Locations of and storage for lazily loaded fonts.
-    fonts: Vec<FontSlot>,
+    /// Metadata about discovered fonts and lazily loaded fonts.
+    fonts: LazyLock<Fonts, Box<dyn Fn() -> Fonts + Send + Sync>>,
     /// Maps file ids to source files and buffers.
     slots: Mutex<FxHashMap<FileId, FileSlot>>,
     /// Holds information about where packages are stored.
@@ -53,8 +56,8 @@ pub struct SystemWorld {
 impl SystemWorld {
     /// Create a new system world.
     pub fn new(
-        input: &Input,
-        world_args: &WorldArgs,
+        input: Option<&Input>,
+        world_args: &'static WorldArgs,
         process_args: &ProcessArgs,
     ) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
@@ -67,9 +70,8 @@ impl SystemWorld {
         }
 
         // Resolve the system-global input path.
-        let input = match input {
-            Input::Stdin => None,
-            Input::Path(path) => {
+        let input_path = match input {
+            Some(Input::Path(path)) => {
                 Some(path.canonicalize().map_err(|err| match err.kind() {
                     io::ErrorKind::NotFound => {
                         WorldCreationError::InputNotFound(path.clone())
@@ -77,6 +79,7 @@ impl SystemWorld {
                     _ => WorldCreationError::Io(err),
                 })?)
             }
+            _ => None,
         };
 
         // Resolve the system-global root directory.
@@ -84,7 +87,7 @@ impl SystemWorld {
             let path = world_args
                 .root
                 .as_deref()
-                .or_else(|| input.as_deref().and_then(|i| i.parent()))
+                .or_else(|| input_path.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -94,14 +97,17 @@ impl SystemWorld {
             })?
         };
 
-        let main = if let Some(path) = &input {
+        let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::within_root(path, &root)
                 .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
-        } else {
-            // Return the special id of STDIN otherwise
+        } else if matches!(input, Some(Input::Stdin)) {
+            // Return the special id of STDIN.
             *STDIN_ID
+        } else {
+            // Return the special id of EMPTY/no input at all otherwise.
+            *EMPTY_ID
         };
 
         let library = {
@@ -124,12 +130,6 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
-        let mut fonts = Fonts::searcher();
-        fonts.include_system_fonts(!world_args.font.ignore_system_fonts);
-        #[cfg(feature = "embed-fonts")]
-        fonts.include_embedded_fonts(!world_args.font.ignore_embedded_fonts);
-        let fonts = fonts.search_with(&world_args.font.font_paths);
-
         let now = match world_args.creation_timestamp {
             Some(time) => Now::Fixed(time),
             None => Now::System(OnceLock::new()),
@@ -140,8 +140,7 @@ impl SystemWorld {
             root,
             main,
             library: LazyHash::new(library),
-            book: LazyHash::new(fonts.book),
-            fonts: fonts.fonts,
+            fonts: LazyLock::new(Box::new(|| scan_fonts(&world_args.font))),
             slots: Mutex::new(FxHashMap::default()),
             package_storage: package::storage(&world_args.package),
             now,
@@ -200,6 +199,13 @@ impl SystemWorld {
             }
         })
     }
+
+    /// Forcibly scan fonts instead of doing it lazily upon the first access.
+    ///
+    /// Does nothing if the fonts were already scanned.
+    pub fn scan_fonts(&mut self) {
+        LazyLock::force(&self.fonts);
+    }
 }
 
 impl World for SystemWorld {
@@ -208,7 +214,7 @@ impl World for SystemWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
+        &self.fonts.book
     }
 
     fn main(&self) -> FileId {
@@ -224,9 +230,10 @@ impl World for SystemWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        // comemo's validation may invoke this function with an invalid index. This is
-        // impossible in typst-cli but possible if a custom tool mutates the fonts.
-        self.fonts.get(index)?.get()
+        // comemo's validation may invoke this function with an invalid index.
+        // This is impossible in typst-cli but possible if a custom tool mutates
+        // the fonts.
+        self.fonts.slots.get(index)?.get()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -390,6 +397,16 @@ impl<T: Clone> SlotCell<T> {
     }
 }
 
+/// Discovers the fonts as specified by the CLI flags.
+#[typst_macros::time(name = "scan fonts")]
+fn scan_fonts(args: &FontArgs) -> Fonts {
+    let mut fonts = Fonts::searcher();
+    fonts.include_system_fonts(!args.ignore_system_fonts);
+    #[cfg(feature = "embed-fonts")]
+    fonts.include_embedded_fonts(!args.ignore_embedded_fonts);
+    fonts.search_with(&args.font_paths)
+}
+
 /// Resolves the path of a file id on the system, downloading a package if
 /// necessary.
 fn system_path(
@@ -413,17 +430,18 @@ fn system_path(
 
 /// Reads a file from a `FileId`.
 ///
-/// If the ID represents stdin it will read from standard input,
-/// otherwise it gets the file path of the ID and reads the file from disk.
+/// - If the ID represents stdin it will read from standard input.
+/// - If it represents empty/no input at all it will return an empty vector.
+/// - Otherwise, it gets the file path of the ID and reads the file from disk.
 fn read(
     id: FileId,
     project_root: &Path,
     package_storage: &PackageStorage,
 ) -> FileResult<Vec<u8>> {
-    if id == *STDIN_ID {
-        read_from_stdin()
-    } else {
-        read_from_disk(&system_path(project_root, id, package_storage)?)
+    match id {
+        id if id == *EMPTY_ID => Ok(Vec::new()),
+        id if id == *STDIN_ID => read_from_stdin(),
+        _ => read_from_disk(&system_path(project_root, id, package_storage)?),
     }
 }
 

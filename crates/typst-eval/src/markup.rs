@@ -2,7 +2,6 @@ use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
     Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
-use typst_library::math::EquationElem;
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
     StrongElem, Supplement, TermItem, Url,
@@ -264,15 +263,5 @@ impl Eval for ast::TermItem<'_> {
         let term = self.term().eval(vm)?;
         let description = self.description().eval(vm)?;
         Ok(TermItem::new(term, description).pack())
-    }
-}
-
-impl Eval for ast::Equation<'_> {
-    type Output = Content;
-
-    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let body = self.body().eval(vm)?;
-        let block = self.block();
-        Ok(EquationElem::new(body).with_block(block).pack())
     }
 }

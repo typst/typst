@@ -7,6 +7,7 @@ use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::SmartQuoter;
+use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::{HtmlElem, HtmlNode};
@@ -24,7 +25,7 @@ pub fn html_block_fragment(
     html_block_fragment_impl(
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -50,6 +51,7 @@ fn html_block_fragment_impl(
     styles: StyleChain,
     whitespace: Whitespace,
 ) -> SourceResult<EcoVec<HtmlNode>> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {

@@ -1019,7 +1019,7 @@ dependencies = [
  "log",
  "rustc-hash",
  "smallvec",
- "zune-jpeg",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -1281,8 +1281,8 @@ dependencies = [
  "image-webp",
  "num-traits",
  "png",
- "zune-core",
- "zune-jpeg",
+ "zune-core 0.4.12",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -1437,8 +1437,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199be5f63da6e19b71051fd5276258a8e55449ac48e2e7492c68238f38ca9f3b"
+source = "git+https://github.com/LaurenzV/krilla?rev=e5639c6#e5639c6a22e763cae577212b87074bb3f0ffd3cc"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1462,14 +1461,13 @@ dependencies = [
  "tiny-skia-path",
  "xmp-writer",
  "yoke 0.8.0",
- "zune-jpeg",
+ "zune-jpeg 0.5.5",
 ]
 
 [[package]]
 name = "krilla-svg"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3eec075c9507dfdbfb4b9bc3b2aeac074ed422b61bcfd93517616d6b3d19c3"
+source = "git+https://github.com/LaurenzV/krilla?rev=e5639c6#e5639c6a22e763cae577212b87074bb3f0ffd3cc"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2274,7 +2272,7 @@ dependencies = [
  "svgtypes",
  "tiny-skia",
  "usvg",
- "zune-jpeg",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -2937,6 +2935,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 name = "typst"
 version = "0.14.0"
 dependencies = [
+ "arrayvec",
  "comemo",
  "ecow",
  "rustc-hash",
@@ -3340,11 +3339,15 @@ dependencies = [
  "clap",
  "comemo",
  "ecow",
+ "hayro-syntax",
+ "indexmap 2.7.1",
  "oxipng",
  "parking_lot",
  "rayon",
  "regex",
+ "roxmltree",
  "rustc-hash",
+ "serde_yaml 0.9.34+deprecated",
  "tiny-skia",
  "typst",
  "typst-assets",
@@ -3355,6 +3358,7 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "typst-syntax",
+ "typst-utils",
  "unscanny",
  "walkdir",
 ]
@@ -4127,10 +4131,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
 
 [[package]]
+name = "zune-core"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "111f7d9820f05fd715df3144e254d6fc02ee4088b0644c0ffd0efc9e6d9d2773"
+
+[[package]]
 name = "zune-jpeg"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99a5bab8d7dedf81405c4bb1f2b83ea057643d9cb28778cea9eecddeedd2e028"
 dependencies = [
- "zune-core",
+ "zune-core 0.4.12",
+]
+
+[[package]]
+name = "zune-jpeg"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6fb7703e32e9a07fb3f757360338b3a567a5054f21b5f52a666752e333d58e"
+dependencies = [
+ "zune-core 0.5.0",
 ]

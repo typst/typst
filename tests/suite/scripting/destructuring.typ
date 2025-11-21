@@ -1,21 +1,21 @@
---- destructuring-group-1 ---
+--- destructuring-group-1 paged ---
 // This wasn't allowed.
 #let ((x)) = 1
 #test(x, 1)
 
---- destructuring-group-2 ---
+--- destructuring-group-2 paged ---
 // This also wasn't allowed.
 #let ((a, b)) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
---- destructuring-dict-underscore ---
+--- destructuring-dict-underscore paged ---
 // Here, `best` was accessed as a variable, where it shouldn't have.
 #{
   (best: _) = (best: "brr")
 }
 
---- destructuring-dict-array-at ---
+--- destructuring-dict-array-at paged ---
 // Same here.
 #{
   let array = (1, 2, 3, 4)
@@ -23,79 +23,79 @@
   test(array, (1, "baz", 3, 4))
 }
 
---- destructuring-dict-bad ---
+--- destructuring-dict-bad paged ---
 // Error: 7-10 expected identifier, found group
 // Error: 12-14 expected pattern, found integer
 #let ((a): 10) = "world"
 
---- destructuring-bad-duplicate ---
+--- destructuring-bad-duplicate paged ---
 // Here, `a` is not duplicate, where it was previously identified as one.
 #let f((a: b), (c,), a) = (a, b, c)
 #test(f((a: 1), (2,), 3), (3, 1, 2))
 
---- destructuring-non-atomic ---
+--- destructuring-non-atomic paged ---
 // Ensure that we can't have non-atomic destructuring.
 #let x = 1
 #let c = [#() = ()]
 #test(c.children.last(), [()])
 
---- destructuring-let-array ---
+--- destructuring-let-array paged ---
 // Simple destructuring.
 #let (a, b) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
---- destructuring-let-array-single-item ---
+--- destructuring-let-array-single-item paged ---
 #let (a,) = (1,)
 #test(a, 1)
 
---- destructuring-let-array-placeholders ---
+--- destructuring-let-array-placeholders paged ---
 // Destructuring with multiple placeholders.
 #let (a, _, c, _) = (1, 2, 3, 4)
 #test(a, 1)
 #test(c, 3)
 
---- destructuring-let-array-with-sink-at-end ---
+--- destructuring-let-array-with-sink-at-end paged ---
 // Destructuring with a sink.
 #let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, 2)
 #test(c, (3, 4, 5, 6))
 
---- destructuring-let-array-with-sink-in-middle ---
+--- destructuring-let-array-with-sink-in-middle paged ---
 // Destructuring with a sink in the middle.
 #let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, (2, 3, 4, 5))
 #test(c, 6)
 
---- destructuring-let-array-with-sink-at-start-empty ---
+--- destructuring-let-array-with-sink-at-start-empty paged ---
 // Destructuring with an empty sink.
 #let (..a, b, c) = (1, 2)
 #test(a, ())
 #test(b, 1)
 #test(c, 2)
 
---- destructuring-let-array-with-sink-in-middle-empty ---
+--- destructuring-let-array-with-sink-in-middle-empty paged ---
 // Destructuring with an empty sink.
 #let (a, ..b, c) = (1, 2)
 #test(a, 1)
 #test(b, ())
 #test(c, 2)
 
---- destructuring-let-array-with-sink-at-end-empty ---
+--- destructuring-let-array-with-sink-at-end-empty paged ---
 // Destructuring with an empty sink.
 #let (a, b, ..c) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 #test(c, ())
 
---- destructuring-let-array-with-sink-empty ---
+--- destructuring-let-array-with-sink-empty paged ---
 // Destructuring with an empty sink and empty array.
 #let (..a) = ()
 #test(a, ())
 
---- destructuring-let-array-with-unnamed-sink ---
+--- destructuring-let-array-with-unnamed-sink paged ---
 // Destructuring with unnamed sink.
 #let (a, .., b) = (1, 2, 3, 4)
 #test(a, 1)
@@ -119,107 +119,107 @@
 // Error: 7-14 expected pattern, found function call
 #let (a.at(0),) = (1,)
 
---- destructuring-let-empty-array ---
+--- destructuring-let-empty-array paged ---
 #let () = ()
 
---- destructuring-let-empty-array-too-many-elements ---
+--- destructuring-let-empty-array-too-many-elements paged ---
 // Error: 6-8 too many elements to destructure
 // Hint: 6-8 the provided array has a length of 2, but the pattern expects an empty array
 #let () = (1, 2)
 
---- destructuring-let-array-too-few-elements ---
+--- destructuring-let-array-too-few-elements paged ---
 // Error: 6-15 not enough elements to destructure
 // Hint: 6-15 the provided array has a length of 2, but the pattern expects 3 elements
 #let (a, b, c) = (1, 2)
 
---- destructuring-let-array-too-few-elements-with-sink ---
+--- destructuring-let-array-too-few-elements-with-sink paged ---
 // Error: 6-20 not enough elements to destructure
 // Hint: 6-20 the provided array has a length of 2, but the pattern expects at least 3 elements
 #let (..a, b, c, d) = (1, 2)
 
---- destructuring-let-array-too-few-elements-with-sink-1-element ---
+--- destructuring-let-array-too-few-elements-with-sink-1-element paged ---
 // Error: 6-14 not enough elements to destructure
 // Hint: 6-14 the provided array has a length of 0, but the pattern expects at least 1 element
 #let (..a, b) = ()
 
---- destructuring-let-array-bool-invalid ---
+--- destructuring-let-array-bool-invalid paged ---
 // Error: 6-12 cannot destructure boolean
 #let (a, b) = true
 
---- destructuring-let-dict ---
+--- destructuring-let-dict paged ---
 // Simple destructuring.
 #let (a: a, b, x: c) = (a: 1, b: 2, x: 3)
 #test(a, 1)
 #test(b, 2)
 #test(c, 3)
 
---- destructuring-let-dict-with-sink-at-end ---
+--- destructuring-let-dict-with-sink-at-end paged ---
 // Destructuring with a sink.
 #let (a: _, ..b) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2, c: 3))
 
---- destructuring-let-dict-with-sink-in-middle ---
+--- destructuring-let-dict-with-sink-in-middle paged ---
 // Destructuring with a sink in the middle.
 #let (a: _, ..b, c: _) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2))
 
---- destructuring-let-dict-with-sink-at-end-empty ---
+--- destructuring-let-dict-with-sink-at-end-empty paged ---
 // Destructuring with an empty sink.
 #let (a: _, ..b) = (a: 1)
 #test(b, (:))
 
---- destructuring-let-dict-with-sink-empty ---
+--- destructuring-let-dict-with-sink-empty paged ---
 // Destructuring with an empty sink and empty dict.
 #let (..a) = (:)
 #test(a, (:))
 
---- destructuring-let-dict-with-unnamed-sink ---
+--- destructuring-let-dict-with-unnamed-sink paged ---
 // Destructuring with unnamed sink.
 #let (a, ..) = (a: 1, b: 2)
 #test(a, 1)
 
---- destructuring-let-nested ---
+--- destructuring-let-nested paged ---
 // Nested destructuring.
 #let ((a, b), (key: c)) = ((1, 2), (key: 3))
 #test((a, b, c), (1, 2, 3))
 
---- destructuring-let-dict-key-string-invalid ---
+--- destructuring-let-dict-key-string-invalid paged ---
 // Keyed destructuring is not currently supported.
 // Error: 7-18 expected pattern, found string
 #let ("spacy key": val) = ("spacy key": 123)
 #val
 
---- destructuring-let-dict-key-expr-invalid ---
+--- destructuring-let-dict-key-expr-invalid paged ---
 // Keyed destructuring is not currently supported.
 #let x = "spacy key"
 // Error: 7-10 expected identifier, found group
 #let ((x): v) = ("spacy key": 123)
 
---- destructuring-let-array-trailing-placeholders ---
+--- destructuring-let-array-trailing-placeholders paged ---
 // Trailing placeholders.
 // Error: 6-21 not enough elements to destructure
 // Hint: 6-21 the provided array has a length of 1, but the pattern expects 5 elements
 #let (a, _, _, _, _) = (1,)
 #test(a, 1)
 
---- destructuring-let-dict-patterns-invalid ---
+--- destructuring-let-dict-patterns-invalid paged ---
 // Error: 10-13 expected pattern, found string
 // Error: 18-19 expected pattern, found integer
 #let (a: "a", b: 2) = (a: 1, b: 2)
 
---- destructuring-let-dict-shorthand-missing-key ---
+--- destructuring-let-dict-shorthand-missing-key paged ---
 // Error: 10-11 dictionary does not contain key "b"
 #let (a, b) = (a: 1)
 
---- destructuring-let-dict-missing-key ---
+--- destructuring-let-dict-missing-key paged ---
 // Error: 10-11 dictionary does not contain key "b"
 #let (a, b: b) = (a: 1)
 
---- destructuring-let-dict-from-array ---
+--- destructuring-let-dict-from-array paged ---
 // Error: 7-11 cannot destructure named pattern from an array
 #let (a: a, b) = (1, 2, 3)
 
---- destructuring-during-loop-continue ---
+--- destructuring-during-loop-continue paged ---
 // Test continue while destructuring.
 // Should output "one = I \ two = II \ one = I".
 #for num in (1, 2, 3, 1) {
@@ -233,7 +233,7 @@
   [#word = #roman \ ]
 }
 
---- destructuring-assign ---
+--- destructuring-assign paged ---
 // Test destructuring assignments.
 
 #let a = none
@@ -275,7 +275,7 @@
 #test(a, ((2, 3, 4), 2))
 #test(b, 1)
 
---- destructuring-assign-commas ---
+--- destructuring-assign-commas paged ---
 // Test comma placement in destructuring assignment.
 #let array = (1, 2, 3)
 #((key: array.at(1)) = (key: "hi"))
@@ -293,7 +293,7 @@
 #((array.at(1)) = ("hi",))
 #test(array, (1, ("hi",), 3))
 
---- destructuring-assign-nested ---
+--- destructuring-assign-nested paged ---
 // Test nested destructuring assignment.
 #let a
 #let b
@@ -301,80 +301,80 @@
 #(((a, b), (key: c)) = ((1, 2), (key: 3)))
 #test((a, b, c), (1, 2, 3))
 
---- destructuring-assign-nested-invalid ---
+--- destructuring-assign-nested-invalid paged ---
 #let array = (1, 2, 3)
 // Error: 3-17 cannot destructure string
 #((array.at(1),) = ("hi"))
 #test(array, (1, ("hi",), 3))
 
---- issue-3275-normal-variable ---
+--- issue-3275-normal-variable paged ---
 // Normal variable.
 #for x in (1, 2) {}
 #for x in (a: 1, b: 2) {}
 #for x in "foo" {}
 #for x in bytes("😊") {}
 
---- issue-3275-placeholder ---
+--- issue-3275-placeholder paged ---
 // Placeholder.
 #for _ in (1, 2) {}
 #for _ in (a: 1, b: 2) {}
 #for _ in "foo" {}
 #for _ in bytes("😊") {}
 
---- issue-3275-destructuring ---
+--- issue-3275-destructuring paged ---
 // Destructuring.
 #for (a,b,c) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}
 #for (a, ..) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}
 #for (k, v)  in (a: 1, b: 2, c: 3) {}
 #for (.., v) in (a: 1, b: 2, c: 3) {}
 
---- issue-3275-loop-over-content ---
+--- issue-3275-loop-over-content paged ---
 // Error: 11-17 cannot loop over content
 #for x in [1, 2] {}
 
---- issue-3275-loop-over-arguments ---
+--- issue-3275-loop-over-arguments paged ---
 // Error: 11-25 cannot loop over arguments
 #for _ in arguments("a") {}
 
---- issue-3275-loop-over-integer ---
+--- issue-3275-loop-over-integer paged ---
 // Error: 16-21 cannot loop over integer
 #for (x, y) in 12306 {}
 
---- issue-3275-destructuring-loop-over-content ---
+--- issue-3275-destructuring-loop-over-content paged ---
 // Error: 16-22 cannot loop over content
 #for (x, y) in [1, 2] {}
 
---- issue-3275-destructuring-loop-over-string ---
+--- issue-3275-destructuring-loop-over-string paged ---
 // Error: 6-12 cannot destructure values of string
 #for (x, y) in "foo" {}
 
---- issue-3275-destructuring-loop-over-string-array ---
+--- issue-3275-destructuring-loop-over-string-array paged ---
 // Error: 6-12 cannot destructure string
 #for (x, y) in ("foo", "bar") {}
 
---- issue-3275-destructuring-loop-over-bytes ---
+--- issue-3275-destructuring-loop-over-bytes paged ---
 // Error: 6-12 cannot destructure values of bytes
 #for (x, y) in bytes("😊") {}
 
---- issue-3275-destructuring-loop-over-bytes-array ---
+--- issue-3275-destructuring-loop-over-bytes-array paged ---
 // Error: 6-12 cannot destructure bytes
 #for (x, y) in (bytes((1,2)), bytes((1,2))) {}
 
---- issue-3275-destructuring-loop-over-int-array ---
+--- issue-3275-destructuring-loop-over-int-array paged ---
 // Error: 6-12 cannot destructure integer
 #for (x, y) in (1, 2) {}
 
---- issue-3275-destructuring-loop-over-2d-array-1 ---
+--- issue-3275-destructuring-loop-over-2d-array-1 paged ---
 // Error: 6-12 not enough elements to destructure
 // Hint: 6-12 the provided array has a length of 1, but the pattern expects 2 elements
 #for (x, y) in ((1,), (2,)) {}
 
---- issue-3275-destructuring-loop-over-2d-array-2 ---
+--- issue-3275-destructuring-loop-over-2d-array-2 paged ---
 // Error: 6-12 too many elements to destructure
 // Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
 #for (x, y) in ((1,2,3), (4,5,6)) {}
 
---- issue-4573-destructuring-unclosed-delimiter ---
+--- issue-4573-destructuring-unclosed-delimiter paged ---
 // Tests a case where parsing within an incorrectly predicted paren expression
 // (the "outer" assignment) would put the parser in an invalid state when
 // reloading a stored prediction (the "inner" assignment) and cause a panic when

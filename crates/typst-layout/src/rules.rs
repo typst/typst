@@ -222,8 +222,8 @@ const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let span = elem.span();
     let body = elem.body.clone();
-    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    let alt = dest.alt_text(engine, styles)?;
+    let dest = elem.dest.resolve(engine, span)?;
+    let alt = dest.alt_text(engine, styles, span)?;
     // Manually construct link marker that spans the whole link elem, not just
     // the body.
     Ok(LinkMarker::new(body, Some(alt))
@@ -258,7 +258,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     if let Some(numbering) = elem.numbering.get_ref(styles).as_ref() {
         let location = elem.location().unwrap();
         let numbering = Counter::of(HeadingElem::ELEM)
-            .display_at_loc(engine, location, styles, numbering)?
+            .display_at(engine, location, styles, numbering, span)?
             .spanned(span);
         let align = styles.resolve(AlignElem::alignment);
 
@@ -267,7 +267,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
-            let link = LocatorLink::measure(location);
+            let link = LocatorLink::measure(location, span);
             let size = (engine.routines.layout_frame)(
                 engine,
                 &numbering,
@@ -473,7 +473,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let mut seq = vec![];
     seq.extend(elem.realize_title(styles));
 
-    let works = Works::generate(engine).at(span)?;
+    let works = Works::generate(engine, span)?;
     let references = works.references(elem, styles)?;
 
     if references.iter().any(|(prefix, ..)| prefix.is_some()) {

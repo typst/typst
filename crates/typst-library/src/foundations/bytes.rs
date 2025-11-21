@@ -43,7 +43,6 @@ use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty
 /// ```
 #[ty(scope, cast)]
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Bytes(Arc<LazyHash<dyn Bytelike>>);
 
 impl Bytes {
