@@ -14,8 +14,8 @@ use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
-    Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio,
+    Sides, Size, Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use typst_utils::hash128;
@@ -24,14 +24,23 @@ use xmlwriter::XmlWriter;
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 
+#[derive(Clone, Copy, Default)]
+pub struct SvgOptions {
+    pub render_bleed: bool,
+}
+
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(page: &Page) -> String {
-    let mut renderer = SVGRenderer::new();
-    renderer.write_header(page.frame.size());
+pub fn svg(page: &Page, opts: SvgOptions) -> String {
+    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
+    let size = page.frame.size() + bleed.sum_by_axis();
 
-    let state = State::new(page.frame.size(), Transform::identity());
-    renderer.render_page(&state, Transform::identity(), page);
+    let mut renderer = SVGRenderer::new();
+    renderer.write_header(size);
+
+    let state = State::new(size, Transform::identity());
+    let ts = Transform::translate(bleed.left, bleed.top);
+    renderer.render_page(&state, ts, page);
     renderer.finalize()
 }
 
@@ -256,7 +265,8 @@ impl<'a> SVGRenderer<'a> {
     /// Render a page with the given transform.
     fn render_page(&mut self, state: &State, ts: Transform, page: &Page) {
         if let Some(fill) = page.fill_or_white() {
-            let shape = Geometry::Rect(page.frame.size()).filled(fill);
+            let shape =
+                Geometry::Rect(page.frame.size() + page.bleed.sum_by_axis()).filled(fill);
             self.render_shape(state, &shape);
         }
 

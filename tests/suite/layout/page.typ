@@ -394,3 +394,23 @@ text
 #metadata(none)
 #set page(fill: red)
 2
+
+--- page-bleed paged ---
+#set page(
+  bleed: 20pt,
+  margin: 20pt,
+  height: 80pt,
+  width: 80pt,
+  background: rect(width: 100%, height: 100%, fill: gray),
+)
+#rect(width: 100%, height: 100%, fill: black)
+
+--- page-bleed-content-bleeding paged ---
+#set page(
+  bleed: 20pt,
+  margin: 20pt,
+  height: 80pt,
+  width: 80pt,
+)
+#set align(center + horizon)
+#rect(width: 100pt, height: 100pt, fill: black)
