@@ -1,3 +1,5 @@
+use std::num::IntErrorKind;
+
 use ecow::{EcoString, eco_format};
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_script::{Script, UnicodeScript};
@@ -829,6 +831,16 @@ impl Lexer<'_> {
 
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
+
+        // Parse large integer literals as floats
+        if base == 10
+            && !is_float
+            && let Err(e) = i64::from_str_radix(number, base)
+            && matches!(e.kind(), IntErrorKind::PosOverflow | IntErrorKind::NegOverflow)
+            && number.parse::<f64>().is_ok()
+        {
+            is_float = true;
+        }
 
         let mut suffix_result = match suffix {
             "" => Ok(None),
