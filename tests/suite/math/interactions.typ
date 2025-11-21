@@ -134,14 +134,6 @@ One number is $1$
 // Test immediately consecutive equations.
 $x$$y$
 
---- issue-2821-missing-fields paged ---
-// Issue #2821: Setting a figure's supplement to none removes the field
-#show figure.caption: it => {
-  assert(it.has("supplement"))
-  assert(it.supplement == none)
-}
-#figure([], caption: [], supplement: none)
-
 --- math-symbol-show-rule paged ---
 // Test using rules for symbols
 #show sym.tack: it => $#h(1em) it #h(1em)$
