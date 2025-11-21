@@ -28,12 +28,13 @@ pub fn greet() {
     let Some(data_dir) = dirs::data_dir() else { return };
     let path = data_dir.join("typst").join("greeted");
 
+    let version = typst::utils::version().raw();
     let prev_greet = std::fs::read_to_string(&path).ok();
-    if prev_greet.as_deref() == Some(crate::typst_version()) {
+    if prev_greet.as_deref() == Some(version) {
         return;
     };
 
-    std::fs::write(&path, crate::typst_version()).ok();
+    std::fs::write(&path, version).ok();
     print_and_exit(GREETING);
 }
 

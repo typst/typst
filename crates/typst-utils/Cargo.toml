@@ -17,6 +17,7 @@ once_cell = { workspace = true }
 portable-atomic = { workspace = true }
 rayon = { workspace = true }
 rustc-hash = { workspace = true }
+semver = { workspace = true }
 siphasher = { workspace = true }
 thin-vec = { workspace = true }
 unicode-math-class = { workspace = true }
