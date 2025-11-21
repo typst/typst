@@ -106,8 +106,7 @@ impl HttpDownloader {
         }
 
         // Configure native TLS.
-        let connector =
-            tls.build().map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+        let connector = tls.build().map_err(io::Error::other)?;
         builder = builder.tls_connector(Arc::new(connector));
 
         builder.build().get(url).call()

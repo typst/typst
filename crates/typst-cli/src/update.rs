@@ -7,7 +7,7 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{bail, StrResult};
-use typst_kit::package_downloads::http::HttpDownloader;
+use typst_kit::download::Downloader;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 

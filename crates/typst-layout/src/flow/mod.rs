@@ -7,13 +7,13 @@ mod distribute;
 
 pub(crate) use self::block::unbreakable_pod;
 
-use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::rc::Rc;
 
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
+use rustc_hash::FxHashSet;
 use typst_library::diag::{bail, At, SourceDiagnostic, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
@@ -25,6 +25,7 @@ use typst_library::layout::{
     Regions, Rel, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
+use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::TextElem;
 use typst_library::World;
@@ -98,8 +99,8 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count(styles),
-        elem.gutter(styles),
+        elem.count.get(styles),
+        elem.gutter.resolve(styles),
     )
 }
 
@@ -143,7 +144,7 @@ fn layout_fragment_impl(
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::LayoutFragment(&mut kind),
+        RealizationKind::LayoutFragment { kind: &mut kind },
         &mut engine,
         &mut locator,
         &arenas,
@@ -251,22 +252,24 @@ fn configuration<'x>(
 
             let gutter = column_gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
-            let dir = TextElem::dir_in(shared);
+            let dir = shared.resolve(TextElem::dir);
             ColumnConfig { count, width, gutter, dir }
         },
         footnote: FootnoteConfig {
-            separator: FootnoteEntry::separator_in(shared),
-            clearance: FootnoteEntry::clearance_in(shared),
-            gap: FootnoteEntry::gap_in(shared),
+            separator: shared
+                .get_cloned(FootnoteEntry::separator)
+                .artifact(ArtifactKind::Other),
+            clearance: shared.resolve(FootnoteEntry::clearance),
+            gap: shared.resolve(FootnoteEntry::gap),
             expand: regions.expand.x,
         },
         line_numbers: (mode == FlowMode::Root).then(|| LineNumberConfig {
-            scope: ParLine::numbering_scope_in(shared),
+            scope: shared.get(ParLine::numbering_scope),
             default_clearance: {
-                let width = if PageElem::flipped_in(shared) {
-                    PageElem::height_in(shared)
+                let width = if shared.get(PageElem::flipped) {
+                    shared.resolve(PageElem::height)
                 } else {
-                    PageElem::width_in(shared)
+                    shared.resolve(PageElem::width)
                 };
 
                 // Clamp below is safe (min <= max): if the font size is
@@ -303,7 +306,7 @@ struct Work<'a, 'b> {
     /// Identifies floats and footnotes that can be skipped if visited because
     /// they were already handled and incorporated as column or page level
     /// insertions.
-    skips: Rc<HashSet<Location>>,
+    skips: Rc<FxHashSet<Location>>,
 }
 
 impl<'a, 'b> Work<'a, 'b> {
@@ -316,7 +319,7 @@ impl<'a, 'b> Work<'a, 'b> {
             footnotes: EcoVec::new(),
             footnote_spill: None,
             tags: EcoVec::new(),
-            skips: Rc::new(HashSet::new()),
+            skips: Rc::new(FxHashSet::default()),
         }
     }
 

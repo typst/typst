@@ -3,12 +3,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, SourceResult};
-use crate::foundations::{func, scope, ty, Context, Fold, Repr, Resolve, StyleChain};
+use crate::diag::{HintedStrResult, SourceResult, bail};
+use crate::foundations::{Context, Fold, Repr, Resolve, StyleChain, func, scope, ty};
 use crate::layout::{Abs, Em};
 
 /// A size or distance, possibly expressed with contextual units.

@@ -7,9 +7,9 @@ use ecow::EcoString;
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::foundations::{
-    array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue, Repr, Smart,
+    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
@@ -70,6 +70,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Typst predefines color maps that you can use as stops. See the
+/// [`color`]($color/#predefined-color-maps) documentation for more details.
+///
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops depends on the dimensions
 /// of a container. This container can either be the shape that it is being
@@ -117,12 +120,12 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// #let spaces = (
 ///   ("Oklab", color.oklab),
 ///   ("Oklch", color.oklch),
-///   ("linear-RGB", color.linear-rgb),
 ///   ("sRGB", color.rgb),
+///   ("linear-RGB", color.linear-rgb),
 ///   ("CMYK", color.cmyk),
+///   ("Grayscale", color.luma),
 ///   ("HSL", color.hsl),
 ///   ("HSV", color.hsv),
-///   ("Grayscale", color.luma),
 /// )
 ///
 /// #for (name, space) in spaces {
@@ -157,10 +160,6 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// )
 /// ```
 ///
-/// # Presets
-/// Typst predefines color maps that you can use with your gradients. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
-///
 /// # Note on file sizes
 ///
 /// Gradients can be quite large, especially if they have many stops. This is
@@ -169,14 +168,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// consider the following:
 /// - SVG gradients are currently inefficiently encoded. This will be improved
 ///   in the future.
-/// - PDF gradients in the [`color.oklab`]($color.oklab), [`color.hsv`]($color.hsv),
-///   [`color.hsl`]($color.hsl), and [`color.oklch`]($color.oklch) color spaces
-///   are stored as a list of [`color.rgb`]($color.rgb) colors with extra stops
-///   in between. This avoids needing to encode these color spaces in your PDF
-///   file, but it does add extra stops to your gradient, which can increase
-///   the file size.
+/// - PDF gradients in the [`color.oklab`], [`color.hsv`], [`color.hsl`], and
+///   [`color.oklch`] color spaces are stored as a list of [`color.rgb`] colors
+///   with extra stops in between. This avoids needing to encode these color
+///   spaces in your PDF file, but it does add extra stops to your gradient,
+///   which can increase the file size.
 #[ty(scope, cast)]
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
     Radial(Arc<RadialGradient>),
@@ -288,7 +286,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -402,7 +400,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -427,10 +425,10 @@ impl Gradient {
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
-        /// The center of the last circle of the gradient.
+        /// The center of the circle of the gradient.
         ///
-        /// A value of `{(50%, 50%)}` means that the end circle is
-        /// centered inside of its container.
+        /// A value of `{(50%, 50%)}` means that the circle is centered inside
+        /// of its container.
         #[named]
         #[default(Axes::splat(Ratio::new(0.5)))]
         center: Axes<Ratio>,
@@ -550,7 +548,7 @@ impl Gradient {
     }
 
     /// Repeats this gradient a given number of times, optionally mirroring it
-    /// at each repetition.
+    /// at every second repetition.
     ///
     /// ```example
     /// #circle(
@@ -565,7 +563,17 @@ impl Gradient {
         &self,
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-        /// Whether to mirror the gradient at each repetition.
+        /// Whether to mirror the gradient at every second repetition, i.e.,
+        /// the first instance (and all odd ones) stays unchanged.
+        ///
+        /// ```example
+        /// #circle(
+        ///   radius: 40pt,
+        ///   fill: gradient
+        ///     .conic(green, black)
+        ///     .repeat(2, mirror: true)
+        /// )
+        /// ```
         #[named]
         #[default(false)]
         mirror: bool,
@@ -575,8 +583,7 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let mut stops = std::iter::repeat(self.stops_ref())
-            .take(n)
+        let mut stops = std::iter::repeat_n(self.stops_ref(), n)
             .enumerate()
             .flat_map(|(i, stops)| {
                 let mut stops = stops
@@ -885,11 +892,7 @@ impl Gradient {
     /// the special case of `auto`.
     pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.relative().unwrap_or_else(|| {
-            if on_text {
-                RelativeTo::Parent
-            } else {
-                RelativeTo::Self_
-            }
+            if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
     }
 
@@ -1079,7 +1082,7 @@ pub struct ConicGradient {
     pub stops: Vec<(Color, Ratio)>,
     /// The direction of this gradient.
     pub angle: Angle,
-    /// The center of last circle of this gradient.
+    /// The center of circle of this gradient.
     pub center: Axes<Ratio>,
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
@@ -1137,16 +1140,16 @@ impl Repr for ConicGradient {
 }
 
 /// What is the gradient relative to.
-#[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum RelativeTo {
-    /// The gradient is relative to itself (its own bounding box).
+    /// Relative to itself (its own bounding box).
     Self_,
-    /// The gradient is relative to its parent (the parent's bounding box).
+    /// Relative to its parent (the parent's bounding box).
     Parent,
 }
 
 /// A color stop.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct GradientStop {
     /// The color for this stop.
     pub color: Color,
@@ -1182,7 +1185,7 @@ cast! {
 }
 
 /// A ratio or an angle.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RatioOrAngle {
     Ratio(Ratio),
     Angle(Angle),
@@ -1277,24 +1280,17 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
 /// Sample the stops at a given position.
 fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> Color {
     let t = t.clamp(0.0, 1.0);
-    let mut low = 0;
-    let mut high = stops.len();
+    let mut j = stops.partition_point(|(_, ratio)| ratio.get() < t);
 
-    while low < high {
-        let mid = (low + high) / 2;
-        if stops[mid].1.get() < t {
-            low = mid + 1;
-        } else {
-            high = mid;
+    if j == 0 {
+        while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
+            j += 1;
         }
+        return stops[j].0;
     }
 
-    if low == 0 {
-        low = 1;
-    }
-
-    let (col_0, pos_0) = stops[low - 1];
-    let (col_1, pos_1) = stops[low];
+    let (col_0, pos_0) = stops[j - 1];
+    let (col_1, pos_1) = stops[j];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
     Color::mix_iter(

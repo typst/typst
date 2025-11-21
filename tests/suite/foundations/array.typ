@@ -179,6 +179,10 @@
 #test((2,).last(), 2)
 #test((1, 2, 3).first(), 1)
 #test((1, 2, 3).last(), 3)
+#test((1, 2).first(default: 99), 1)
+#test(().first(default: 99), 99)
+#test((1, 2).last(default: 99), 2)
+#test(().last(default: 99), 99)
 
 --- array-first-empty ---
 // Error: 2-12 array is empty
@@ -219,6 +223,8 @@
 #test(range(10).slice(2, 6), (2, 3, 4, 5))
 #test(range(10).slice(4, count: 3), (4, 5, 6))
 #test(range(10).slice(-5, count: 2), (5, 6))
+#test((1, 2, 3).slice(-3, count: 3), (1, 2, 3))
+#test((1, 2, 3).slice(-1, count: 1), (3,))
 #test((1, 2, 3).slice(2, -2), ())
 #test((1, 2, 3).slice(-2, 2), (2,))
 #test((1, 2, 3).slice(-3, 2), (1, 2))
@@ -227,6 +233,10 @@
 --- array-slice-out-of-bounds ---
 // Error: 2-30 array index out of bounds (index: 12, len: 10)
 #range(10).slice(9, count: 3)
+
+--- array-slice-out-of-bounds-from-back ---
+// Error: 2-31 array index out of bounds (index: 12, len: 10)
+#range(10).slice(-2, count: 4)
 
 --- array-slice-out-of-bounds-negative ---
 // Error: 2-24 array index out of bounds (index: -4, len: 3)
@@ -289,6 +299,11 @@
 #test((1,).join(), 1)
 #test(("a", "b", "c").join(), "abc")
 #test("(" + ("a", "b", "c").join(", ") + ")", "(a, b, c)")
+
+--- array-join-default ---
+#test(().join(default: "EMPTY", ", "), "EMPTY")
+#test(("hello",).join(default: "EMPTY", ", "), "hello")
+#test(("hello", "world").join(default: "EMPTY", ", "), "hello, world")
 
 --- array-join-bad-values ---
 // Error: 2-22 cannot join boolean with boolean
@@ -355,6 +370,12 @@
 #test((2, 1, 3, 10, 5, 8, 6, -7, 2).sorted(), (-7, 1, 2, 2, 3, 5, 6, 8, 10))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x), (-10, -7, -5, 1, 2, 2, 3, 6, 8))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x * x), (1, 2, 2, 3, -5, 6, -7, 8, -10))
+#test(("I", "the", "hi", "text").sorted(by: (x, y) => x.len() < y.len()), ("I", "hi", "the", "text"))
+#test(("I", "the", "hi", "text").sorted(key: x => x.len(), by: (x, y) => y < x), ("text", "the", "hi", "I"))
+
+--- array-sorted-invalid-by-function ---
+// Error: 2-39 expected boolean from `by` function, got string
+#(1, 2, 3).sorted(by: (_, _) => "hmm")
 
 --- array-sorted-key-function-positional-1 ---
 // Error: 12-18 unexpected argument

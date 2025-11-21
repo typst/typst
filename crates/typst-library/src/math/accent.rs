@@ -1,5 +1,12 @@
+use std::sync::LazyLock;
+
+use icu_properties::CanonicalCombiningClass;
+use icu_properties::maps::CodePointMapData;
+use icu_provider::AsDeserializingBufferProvider;
+use icu_provider_blob::BlobDataProvider;
+
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
+use crate::foundations::{Content, NativeElement, SymbolElem, cast, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 
@@ -13,8 +20,8 @@ use crate::math::Mathy;
 /// ```
 #[elem(Mathy)]
 pub struct AccentElem {
-    /// The base to which the accent is applied.
-    /// May consist of multiple letters.
+    /// The base to which the accent is applied. May consist of multiple
+    /// letters.
     ///
     /// ```example
     /// $arrow(A B C)$
@@ -51,9 +58,23 @@ pub struct AccentElem {
     pub accent: Accent,
 
     /// The size of the accent, relative to the width of the base.
-    #[resolve]
+    ///
+    /// ```example
+    /// $dash(A, size: #150%)$
+    /// ```
     #[default(Rel::one())]
     pub size: Rel<Length>,
+
+    /// Whether to remove the dot on top of lowercase i and j when adding a top
+    /// accent.
+    ///
+    /// This enables the `dtls` OpenType feature.
+    ///
+    /// ```example
+    /// $hat(dotless: #false, i)$
+    /// ```
+    #[default(true)]
+    pub dotless: bool,
 }
 
 /// An accent character.
@@ -64,6 +85,24 @@ impl Accent {
     /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
         Self(Self::combine(c).unwrap_or(c))
+    }
+
+    /// Whether this accent is a bottom accent or not.
+    pub fn is_bottom(&self) -> bool {
+        static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
+            LazyLock::new(|| {
+                icu_properties::maps::load_canonical_combining_class(
+                    &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
+                        .unwrap()
+                        .as_deserializing(),
+                )
+                .unwrap()
+            });
+
+        matches!(
+            COMBINING_CLASS_DATA.as_borrowed().get(self.0),
+            CanonicalCombiningClass::Below
+        )
     }
 }
 
@@ -103,10 +142,17 @@ macro_rules! accents {
                 /// The size of the accent, relative to the width of the base.
                 #[named]
                 size: Option<Rel<Length>>,
+                /// Whether to remove the dot on top of lowercase i and j when
+                /// adding a top accent.
+                #[named]
+                dotless: Option<bool>,
             ) -> Content {
                 let mut accent = AccentElem::new(base, Accent::new($primary));
                 if let Some(size) = size {
                     accent = accent.with_size(size);
+                }
+                if let Some(dotless) = dotless {
+                    accent = accent.with_dotless(dotless);
                 }
                 accent.pack()
             }
@@ -141,8 +187,8 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to_packed::<SymbolElem>() {
-        Some(elem) => Self::new(elem.text),
-        None => bail!("expected a symbol"),
+    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
+        Some(c) => Self::new(c),
+        _ => bail!("expected a single-codepoint symbol"),
     },
 }

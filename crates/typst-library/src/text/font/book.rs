@@ -3,11 +3,13 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{name_id, PlatformId, Tag};
+use ttf_parser::{PlatformId, Tag, name_id};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
-use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::text::{
+    Font, FontStretch, FontStyle, FontVariant, FontWeight, is_default_ignorable,
+};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -99,8 +101,12 @@ impl FontBook {
         variant: FontVariant,
         text: &str,
     ) -> Option<usize> {
-        // Find the fonts that contain the text's first non-space char ...
-        let c = text.chars().find(|c| !c.is_whitespace())?;
+        // Find the fonts that contain the text's first non-space and
+        // non-ignorable char ...
+        let c = text
+            .chars()
+            .find(|&c| !c.is_whitespace() && !is_default_ignorable(c))?;
+
         let ids = self
             .infos
             .iter()
@@ -160,7 +166,7 @@ impl FontBook {
                 current.variant.weight.distance(variant.weight),
             );
 
-            if best_key.map_or(true, |b| key < b) {
+            if best_key.is_none_or(|b| key < b) {
                 best = Some(id);
                 best_key = Some(key);
             }
@@ -186,7 +192,7 @@ pub struct FontInfo {
 
 bitflags::bitflags! {
     /// Bitflags describing characteristics of a font.
-    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct FontFlags: u32 {
@@ -194,6 +200,10 @@ bitflags::bitflags! {
         const MONOSPACE = 1 << 0;
         /// Glyphs have short strokes at their stems.
         const SERIF = 1 << 1;
+        /// Font face has a MATH table
+        const MATH = 1 << 2;
+        /// Font face has an fvar table
+        const VARIABLE = 1 << 3;
     }
 }
 
@@ -272,16 +282,17 @@ impl FontInfo {
 
         let mut flags = FontFlags::empty();
         flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
+        flags.set(FontFlags::MATH, ttf.tables().math.is_some());
+        flags.set(FontFlags::VARIABLE, ttf.is_variable());
 
         // Determine whether this is a serif or sans-serif font.
         if let Some(panose) = ttf
             .raw_face()
             .table(Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32..45))
+            && matches!(panose, [2, 2..=10, ..])
         {
-            if matches!(panose, [2, 2..=10, ..]) {
-                flags.insert(FontFlags::SERIF);
-            }
+            flags.insert(FontFlags::SERIF);
         }
 
         Some(FontInfo {
@@ -331,11 +342,7 @@ fn decode_mac_roman(coded: &[u8]) -> String {
     ];
 
     fn char_from_mac_roman(code: u8) -> char {
-        if code < 128 {
-            code as char
-        } else {
-            TABLE[(code - 128) as usize]
-        }
+        if code < 128 { code as char } else { TABLE[(code - 128) as usize] }
     }
 
     coded.iter().copied().map(char_from_mac_roman).collect()
@@ -391,10 +398,10 @@ fn typographic_family(mut family: &str) -> &str {
 
         // Also allow an extra modifier, but apply it only if it is separated it
         // from the text before it (to prevent false positives).
-        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s)) {
-            if let Some(stripped) = t.strip_suffix(SEPARATORS) {
-                trimmed = stripped;
-            }
+        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s))
+            && let Some(stripped) = t.strip_suffix(SEPARATORS)
+        {
+            trimmed = stripped;
         }
     }
 

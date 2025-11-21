@@ -1,29 +1,28 @@
 use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
-use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use typst::WorldExt;
 use typst::diag::{
-    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+    At, HintedStrResult, HintedString, Severity, SourceDiagnostic, SourceResult,
+    StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::html::HtmlDocument;
-use typst::layout::{Frame, Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Source, Span};
-use typst::WorldExt;
+use typst::layout::{Page, PageRanges, PagedDocument};
+use typst::syntax::{FileId, Lines, Span};
+use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
-    CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
-    PdfStandard, WatchCommand,
+    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
+    OutputFormat, PdfStandard, WatchCommand,
 };
+use crate::deps::write_deps;
 #[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
 use crate::timings::Timer;
@@ -36,7 +35,7 @@ type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
-pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
+pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
     let mut world =
         SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
@@ -46,6 +45,8 @@ pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
 
 /// A preprocessed `CompileCommand`.
 pub struct CompileConfig {
+    /// Static warnings to emit after compilation.
+    pub warnings: Vec<HintedString>,
     /// Whether we are watching.
     pub watching: bool,
     /// Path to input Typst file or stdin.
@@ -63,11 +64,14 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// One (or multiple comma-separated) PDF standards that Typst will enforce
-    /// conformance with.
+    /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
-    /// A path to write a Makefile rule describing the current compilation.
-    pub make_deps: Option<PathBuf>,
+    /// Whether to write PDF (accessibility) tags.
+    pub tagged: bool,
+    /// A destination to write a list of dependencies to.
+    pub deps: Option<Output>,
+    /// The format to use for dependencies.
+    pub deps_format: DepsFormat,
     /// The PPI (pixels per inch) to use for PNG export.
     pub ppi: f32,
     /// The export cache for images, used for caching output files in `typst
@@ -80,18 +84,22 @@ pub struct CompileConfig {
 
 impl CompileConfig {
     /// Preprocess a `CompileCommand`, producing a compilation config.
-    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+    pub fn new(command: &CompileCommand) -> HintedStrResult<Self> {
         Self::new_impl(&command.args, None)
     }
 
     /// Preprocess a `WatchCommand`, producing a compilation config.
-    pub fn watching(command: &WatchCommand) -> StrResult<Self> {
+    pub fn watching(command: &WatchCommand) -> HintedStrResult<Self> {
         Self::new_impl(&command.args, Some(command))
     }
 
     /// The shared implementation of [`CompileConfig::new`] and
     /// [`CompileConfig::watching`].
-    fn new_impl(args: &CompileArgs, watch: Option<&WatchCommand>) -> StrResult<Self> {
+    fn new_impl(
+        args: &CompileArgs,
+        watch: Option<&WatchCommand>,
+    ) -> HintedStrResult<Self> {
+        let mut warnings = Vec::new();
         let input = args.input.clone();
 
         let output_format = if let Some(specified) = args.format {
@@ -130,18 +138,41 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let pdf_standards = {
-            let list = args
-                .pdf_standard
-                .iter()
-                .map(|standard| match standard {
-                    PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-                    PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-                    PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-                })
-                .collect::<Vec<_>>();
-            PdfStandards::new(&list)?
-        };
+        let tagged = !args.no_pdf_tags && pages.is_none();
+        if output_format == OutputFormat::Pdf && pages.is_some() && !args.no_pdf_tags {
+            warnings.push(
+                HintedString::from("using --pages implies --no-pdf-tags").with_hints([
+                    "the resulting PDF will be inaccessible".into(),
+                    "add --no-pdf-tags to silence this warning".into(),
+                ]),
+            );
+        }
+
+        if !tagged {
+            const ACCESSIBLE: &[(PdfStandard, &str)] = &[
+                (PdfStandard::A_1a, "PDF/A-1a"),
+                (PdfStandard::A_2a, "PDF/A-2a"),
+                (PdfStandard::A_3a, "PDF/A-3a"),
+                (PdfStandard::UA_1, "PDF/UA-1"),
+            ];
+
+            for (standard, name) in ACCESSIBLE {
+                if args.pdf_standard.contains(standard) {
+                    if args.no_pdf_tags {
+                        bail!("cannot disable PDF tags when exporting a {name} document");
+                    } else {
+                        bail!(
+                            "cannot disable PDF tags when exporting a {name} document";
+                            hint: "using --pages implies --no-pdf-tags"
+                        );
+                    }
+                }
+            }
+        }
+
+        let pdf_standards = PdfStandards::new(
+            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )?;
 
         #[cfg(feature = "http-server")]
         let server = match watch {
@@ -153,19 +184,48 @@ impl CompileConfig {
             _ => None,
         };
 
+        let mut deps = args.deps.clone();
+        let mut deps_format = args.deps_format;
+
+        if let Some(path) = &args.make_deps
+            && deps.is_none()
+        {
+            deps = Some(Output::Path(path.clone()));
+            deps_format = DepsFormat::Make;
+            warnings.push(
+                "--make-deps is deprecated, use --deps and --deps-format instead".into(),
+            );
+        }
+
+        match (&output, &deps, watch) {
+            (Output::Stdout, _, Some(_)) => {
+                bail!("cannot write document to stdout in watch mode");
+            }
+            (_, Some(Output::Stdout), Some(_)) => {
+                bail!("cannot write dependencies to stdout in watch mode")
+            }
+            (Output::Stdout, Some(Output::Stdout), _) => {
+                bail!("cannot write both output and dependencies to stdout")
+            }
+            _ => {}
+        }
+
         Ok(Self {
+            warnings,
             watching: watch.is_some(),
             input,
             output,
             output_format,
             pages,
             pdf_standards,
+            tagged,
             creation_timestamp: args.world.creation_timestamp,
-            make_deps: args.make_deps.clone(),
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
             export_cache: ExportCache::new(),
+            deps,
+            deps_format,
             #[cfg(feature = "http-server")]
             server,
         })
@@ -179,19 +239,26 @@ impl CompileConfig {
 pub fn compile_once(
     world: &mut SystemWorld,
     config: &mut CompileConfig,
-) -> StrResult<()> {
+) -> HintedStrResult<()> {
     let start = std::time::Instant::now();
     if config.watching {
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, warnings } = compile_and_export(world, config);
+    let Warned { output, mut warnings } = compile_and_export(world, config);
 
-    match output {
-        // Export the PDF / PNG.
-        Ok(outputs) => {
+    // Add static warnings (for deprecated CLI flags and such).
+    for warning in config.warnings.iter() {
+        warnings.push(
+            SourceDiagnostic::warning(Span::detached(), warning.message())
+                .with_hints(warning.hints().iter().map(Into::into)),
+        );
+    }
+
+    match &output {
+        // Print success message and possibly warnings.
+        Ok(_) => {
             let duration = start.elapsed();
-
             if config.watching {
                 if warnings.is_empty() {
                     Status::Success(duration).print(config).unwrap();
@@ -203,11 +270,10 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
-            write_make_deps(world, config, outputs)?;
             open_output(config)?;
         }
 
-        // Print diagnostics.
+        // Print failure message and diagnostics.
         Err(errors) => {
             set_failed();
 
@@ -215,9 +281,14 @@ pub fn compile_once(
                 Status::Error.print(config).unwrap();
             }
 
-            print_diagnostics(world, &errors, &warnings, config.diagnostic_format)
+            print_diagnostics(world, errors, &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
+    }
+
+    if let Some(dest) = &config.deps {
+        write_deps(world, dest, config.deps_format, output.as_deref().ok())
+            .map_err(|err| eco_format!("failed to create dependency file ({err})"))?;
     }
 
     Ok(())
@@ -295,11 +366,13 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             })
         }
     };
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
+        tagged: config.tagged,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config
@@ -325,7 +398,7 @@ fn convert_datetime<Tz: chrono::TimeZone>(
 }
 
 /// An image format to export in.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 enum ImageExportFormat {
     Png,
     Svg,
@@ -350,7 +423,7 @@ fn export_image(
         .iter()
         .enumerate()
         .filter(|(i, _)| {
-            config.pages.as_ref().map_or(true, |exported_page_ranges| {
+            config.pages.as_ref().is_none_or(|exported_page_ranges| {
                 exported_page_ranges.includes_page_index(*i)
             })
         })
@@ -389,7 +462,7 @@ fn export_image(
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
                     if config.watching
-                        && config.export_cache.is_cached(*i, &page.frame)
+                        && config.export_cache.is_cached(*i, page)
                         && path.exists()
                     {
                         return Ok(Output::Path(path.to_path_buf()));
@@ -462,16 +535,6 @@ fn export_image_page(
     Ok(())
 }
 
-impl Output {
-    fn write(&self, buffer: &[u8]) -> StrResult<()> {
-        match self {
-            Output::Stdout => std::io::stdout().write_all(buffer),
-            Output::Path(path) => fs::write(path, buffer),
-        }
-        .map_err(|err| eco_format!("{err}"))
-    }
-}
-
 /// Caches exported files so that we can avoid re-exporting them if they haven't
 /// changed.
 ///
@@ -492,8 +555,8 @@ impl ExportCache {
 
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
-    pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
-        let hash = typst::utils::hash128(frame);
+    pub fn is_cached(&self, i: usize, page: &Page) -> bool {
+        let hash = typst::utils::hash128(page);
 
         let mut cache = self.cache.upgradable_read();
         if i >= cache.len() {
@@ -503,110 +566,6 @@ impl ExportCache {
 
         cache.with_upgraded(|cache| std::mem::replace(&mut cache[i], hash) == hash)
     }
-}
-
-/// Writes a Makefile rule describing the relationship between the output and
-/// its dependencies to the path specified by the --make-deps argument, if it
-/// was provided.
-fn write_make_deps(
-    world: &mut SystemWorld,
-    config: &CompileConfig,
-    outputs: Vec<Output>,
-) -> StrResult<()> {
-    let Some(ref make_deps_path) = config.make_deps else { return Ok(()) };
-    let Ok(output_paths) = outputs
-        .into_iter()
-        .filter_map(|o| match o {
-            Output::Path(path) => Some(path.into_os_string().into_string()),
-            Output::Stdout => None,
-        })
-        .collect::<Result<Vec<_>, _>>()
-    else {
-        bail!("failed to create make dependencies file because output path was not valid unicode")
-    };
-    if output_paths.is_empty() {
-        bail!("failed to create make dependencies file because output was stdout")
-    }
-
-    // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
-    // perfect as some special characters can't be escaped.
-    fn munge(s: &str) -> String {
-        let mut res = String::with_capacity(s.len());
-        let mut slashes = 0;
-        for c in s.chars() {
-            match c {
-                '\\' => slashes += 1,
-                '$' => {
-                    res.push('$');
-                    slashes = 0;
-                }
-                ':' => {
-                    res.push('\\');
-                    slashes = 0;
-                }
-                ' ' | '\t' => {
-                    // `munge`'s source contains a comment here that says: "A
-                    // space or tab preceded by 2N+1 backslashes represents N
-                    // backslashes followed by space..."
-                    for _ in 0..slashes + 1 {
-                        res.push('\\');
-                    }
-                    slashes = 0;
-                }
-                '#' => {
-                    res.push('\\');
-                    slashes = 0;
-                }
-                _ => slashes = 0,
-            };
-            res.push(c);
-        }
-        res
-    }
-
-    fn write(
-        make_deps_path: &Path,
-        output_paths: Vec<String>,
-        root: PathBuf,
-        dependencies: impl Iterator<Item = PathBuf>,
-    ) -> io::Result<()> {
-        let mut file = File::create(make_deps_path)?;
-        let current_dir = std::env::current_dir()?;
-        let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
-
-        for (i, output_path) in output_paths.into_iter().enumerate() {
-            if i != 0 {
-                file.write_all(b" ")?;
-            }
-            file.write_all(munge(&output_path).as_bytes())?;
-        }
-        file.write_all(b":")?;
-        for dependency in dependencies {
-            let relative_dependency = match dependency.strip_prefix(&root) {
-                Ok(root_relative_dependency) => {
-                    relative_root.join(root_relative_dependency)
-                }
-                Err(_) => dependency,
-            };
-            let Some(relative_dependency) = relative_dependency.to_str() else {
-                // Silently skip paths that aren't valid unicode so we still
-                // produce a rule that will work for the other paths that can be
-                // processed.
-                continue;
-            };
-
-            file.write_all(b" ")?;
-            file.write_all(munge(relative_dependency).as_bytes())?;
-        }
-        file.write_all(b"\n")?;
-
-        Ok(())
-    }
-
-    write(make_deps_path, output_paths, world.root().to_owned(), world.dependencies())
-        .map_err(|err| {
-            eco_format!("failed to create make dependencies file due to IO error ({err})")
-        })
 }
 
 /// Opens the output if desired.
@@ -705,7 +664,7 @@ fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
     type Name = String;
-    type Source = Source;
+    type Source = Lines<String>;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
         let vpath = id.vpath();
@@ -763,5 +722,29 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
                 CodespanError::IndexTooLarge { given, max }
             }
         })
+    }
+}
+
+impl From<PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: PdfStandard) -> Self {
+        match standard {
+            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            PdfStandard::A_1a => typst_pdf::PdfStandard::A_1a,
+            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            PdfStandard::A_2a => typst_pdf::PdfStandard::A_2a,
+            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            PdfStandard::A_3a => typst_pdf::PdfStandard::A_3a,
+            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+            PdfStandard::UA_1 => typst_pdf::PdfStandard::Ua_1,
+        }
     }
 }

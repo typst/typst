@@ -21,6 +21,85 @@ $ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
 #let here = text.with(font: "Noto Sans")
 $#here[f] := #here[Hi there]$.
 
+--- math-root-show-rule-1 ---
+#show "√": set text(red, font: "Noto Sans Math")
+$ root(2, (a + b) / c) $
+
+--- math-root-show-rule-2 ---
+#show "√": set text(2em)
+$ sqrt(2) $
+
+--- math-root-show-rule-3 ---
+// Test cursed show rule.
+#show "√": "!"
+$ sqrt(2) root(2, 2) $
+
+--- math-root-show-rule-4 ---
+#show math.root: set text(red)
+$ sqrt(x + y) root(4, 2) $
+
+--- math-root-show-rule-5 ---
+#show math.root: it => {
+  show "√": set text(purple) if it.index == none
+  it
+}
+$ sqrt(1/2) root(3, 1/2) $
+
+--- math-delim-show-rule-1 ---
+#show regex("\[|\]"): set text(green, font: "Noto Sans Math")
+$ mat(delim: \[, a, b, c; d, e, f; g, h, i) quad [x + y] $
+
+--- math-delim-show-rule-2 ---
+#show math.vec: it => {
+  show regex("\(|\)"): set text(blue)
+  it
+}
+$ vec(1, 0, 0), mat(1; 0; 0), (1), binom(n, k) $
+
+--- math-delim-show-rule-3 ---
+#show "⏟": set text(fuchsia)
+$ underbrace(1 + 1 = 2, "obviously") $
+
+--- math-delim-show-rule-4 ---
+#show "{": set text(navy)
+$ cases(x + y + z = 0, 2x - y = 0, -5y + 2z = 0) $
+
+--- math-delim-show-rule-5 ---
+#show regex("\(|\)"): set text(1.5em)
+$ 10 dot (9 - 5) dot (1/2 - 1) $
+
+--- math-primes-show-rule ---
+#show math.primes: set text(maroon)
+$f'(x), f''''''(x)$
+
+--- math-glyph-show-rule ---
+#show "+": set text(orange, font: "Noto Sans Math")
+$ 1 + 1 = +2 $
+#show "+": text(2em)[#sym.plus.o]
+$ 1 + 1 = +2 $
+
+--- math-accent-show-rule-1 ---
+#show "\u{0302}": set text(blue, font: "XITS Math")
+$hat(x)$, $hat(hat(x))$, x\u{0302}
+
+--- math-accent-show-rule-2 ---
+#let rhat(x) = {
+  show "\u{0302}": set text(red)
+  math.hat(x)
+}
+$hat(x)$, $rhat(x)$, $hat(rhat(x))$, $rhat(hat(x))$, x\u{0302}
+
+--- math-accent-show-rule-3 ---
+#show math.accent: it => {
+  show "\u{0300}": set text(green)
+  it
+}
+$grave(x)$, x\u{0300}
+
+--- math-accent-show-rule-4 ---
+#show "\u{0302}": box(inset: (bottom: 5pt), text(0.5em, sym.diamond.small))
+$hat(X)$, $hat(x)$
+
 --- math-box-without-baseline ---
 // Test boxes without a baseline act as if the baseline is at the base
 #{

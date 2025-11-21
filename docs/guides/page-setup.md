@@ -4,7 +4,7 @@ description: |
   Typst. Learn how to create appealing and clear layouts and get there quickly.
 ---
 
-# Page setup guide
+# Page Setup Guide
 Your page setup is a big part of the first impression your document gives. Line
 lengths, margins, and columns influence
 [appearance](https://practicaltypography.com/page-margins.html) and
@@ -206,7 +206,6 @@ label exists on the current page:
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
-  let page-counter =
   let matches = query(<big-table>)
   let current = counter(page).get()
   let has-table = matches.any(m =>
@@ -218,7 +217,7 @@ label exists on the current page:
     #h(1fr)
     National Academy of Sciences
   ]
-}))
+})
 
 #lorem(100)
 #pagebreak()

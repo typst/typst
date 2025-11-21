@@ -1,11 +1,11 @@
 //! Download and unpack packages and package indices.
+
 use std::path::{Path, PathBuf};
 
 use crate::package_downloads::{Downloader, PackageDownloader, Progress};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
-use serde::Deserialize;
-use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
+use typst_library::diag::{PackageError, PackageResult, StrResult};
 use typst_syntax::package::{
     PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
 };
@@ -15,6 +15,24 @@ pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
 /// The default vendor sub directory within the project root.
 pub const DEFAULT_VENDOR_SUBDIR: &str = "vendor";
+
+/// Attempts to infer the default package cache directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::cache_dir`].
+pub fn default_package_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
+/// Attempts to infer the default package directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::data_dir`].
+pub fn default_package_path() -> Option<PathBuf> {
+    dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
 
 /// Holds information about where packages should be stored and downloads them
 /// on demand, if possible.
@@ -66,12 +84,8 @@ impl PackageStorage {
         Self {
             package_vendor_path: package_vendor_path
                 .or_else(|| workdir.map(|workdir| workdir.join(DEFAULT_VENDOR_SUBDIR))),
-            package_cache_path: package_cache_path.or_else(|| {
-                dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
-            package_path: package_path.or_else(|| {
-                dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
+            package_cache_path: package_cache_path.or_else(default_package_cache_path),
+            package_path: package_path.or_else(default_package_path),
             downloader,
             index,
         }
@@ -88,7 +102,8 @@ impl PackageStorage {
         self.package_path.as_deref()
     }
 
-    /// Make a package available in the on-disk.
+    /// Makes a package available on-disk and returns the path at which it is
+    /// located (will be either in the cache or package directory).
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
@@ -132,7 +147,7 @@ impl PackageStorage {
         Err(PackageError::NotFound(spec.clone()))
     }
 
-    /// Try to determine the latest version of a package.
+    /// Tries to determine the latest version of a package.
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
@@ -159,7 +174,7 @@ impl PackageStorage {
     ///
     /// # Panics
     /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
-    pub fn download_package(
+    fn download_package(
         &self,
         spec: &PackageSpec,
         package_dir: &Path,
@@ -178,57 +193,40 @@ impl PackageStorage {
     }
 }
 
-/// Minimal information required about a package to determine its latest
-/// version.
-#[derive(Deserialize)]
-struct MinimalPackageInfo {
-    name: String,
-    version: PackageVersion,
-}
+// /// Minimal information required about a package to determine its latest
+// /// version.
+// #[derive(Deserialize)]
+// struct MinimalPackageInfo {
+//     name: String,
+//     version: PackageVersion,
+// }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// /// A temporary directory that is a automatically cleaned up.
+// struct Tempdir(PathBuf);
 
-    #[test]
-    fn lazy_deser_index() {
-        let storage = PackageStorage::with_index(
-            None,
-            None,
-            None,
-            None,
-            Downloader::new(Some(PathBuf::from("typst/test"))),
-            OnceCell::with_value(vec![
-                serde_json::from_value(serde_json::json!({
-                    "name": "charged-ieee",
-                    "version": "0.1.0",
-                    "entrypoint": "lib.typ",
-                }))
-                .unwrap(),
-                serde_json::from_value(serde_json::json!({
-                    "name": "unequivocal-ams",
-                    // This version number is currently not valid, so this package
-                    // can't be parsed.
-                    "version": "0.2.0-dev",
-                    "entrypoint": "lib.typ",
-                }))
-                .unwrap(),
-            ]),
-        );
+// impl Tempdir {
+//     /// Creates a directory at the path and auto-cleans it.
+//     fn create(path: PathBuf) -> io::Result<Self> {
+//         std::fs::create_dir_all(&path)?;
+//         Ok(Self(path))
+//     }
+// }
 
-        let ieee_version = storage.determine_latest_version(&VersionlessPackageSpec {
-            namespace: "preview".into(),
-            name: "charged-ieee".into(),
-        });
-        assert_eq!(ieee_version, Ok(PackageVersion { major: 0, minor: 1, patch: 0 }));
+// impl Drop for Tempdir {
+//     fn drop(&mut self) {
+//         _ = fs::remove_dir_all(&self.0);
+//     }
+// }
 
-        let ams_version = storage.determine_latest_version(&VersionlessPackageSpec {
-            namespace: "preview".into(),
-            name: "unequivocal-ams".into(),
-        });
-        assert_eq!(
-            ams_version,
-            Err("failed to find package @preview/unequivocal-ams".into())
-        )
-    }
-}
+// impl AsRef<Path> for Tempdir {
+//     fn as_ref(&self) -> &Path {
+//         &self.0
+//     }
+// }
+
+// /// Enriches an I/O error with a message and turns it into a
+// /// `PackageError::Other`.
+// #[cold]
+// fn error(message: &str, err: io::Error) -> PackageError {
+//     PackageError::Other(Some(eco_format!("{message}: {err}")))
+// }

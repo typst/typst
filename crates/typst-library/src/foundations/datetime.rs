@@ -2,23 +2,22 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
-use time::{format_description, Month, PrimitiveDateTime};
+use time::{Month, PrimitiveDateTime, format_description};
 
-use crate::diag::{bail, StrResult};
+use crate::World;
+use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value,
+    Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
 };
-use crate::World;
 
 /// Represents a date, a time, or a combination of both.
 ///
 /// Can be created by either specifying a custom datetime using this type's
-/// constructor function or getting the current date with
-/// [`datetime.today`]($datetime.today).
+/// constructor function or getting the current date with [`datetime.today`].
 ///
 /// # Example
 /// ```example
@@ -134,7 +133,7 @@ use crate::World;
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
 #[ty(scope, cast)]
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),

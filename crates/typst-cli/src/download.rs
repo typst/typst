@@ -8,8 +8,8 @@ use codespan_reporting::term::termcolor::WriteColor;
 use typst::utils::format_duration;
 use typst_kit::package_downloads::{DownloadState, Downloader, Progress};
 
-use crate::terminal::{self, TermOut};
 use crate::ARGS;
+use crate::terminal::{self, TermOut};
 
 /// Prints download progress by writing `downloading {0}` followed by repeatedly
 /// updating the last terminal line.

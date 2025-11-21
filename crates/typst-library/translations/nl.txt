@@ -6,3 +6,6 @@ heading = Hoofdstuk
 outline = Inhoudsopgave
 raw = Listing
 page = pagina
+footnote = Voetnoot
+email = e-mail
+telephone = Telefoon

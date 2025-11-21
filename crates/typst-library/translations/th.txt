@@ -1,0 +1,11 @@
+figure = รูปที่
+table = ตารางที่
+# equation =
+bibliography = บรรณานุกรม
+# heading =
+outline = สารบัญ
+# raw =
+page = หน้า
+# footnote =
+# email =
+# telephone =

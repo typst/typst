@@ -44,3 +44,14 @@ $ root(2, x) quad
 $ √2^3 = sqrt(2^3) $
 $ √(x+y) quad ∛x quad ∜x $
 $ (√2+3) = (sqrt(2)+3) $
+
+--- math-root-syntax-prec ---
+// Precedence of root syntax with other math operators.
+$ √a/b ∛a_b ∜f' √n! \
+  √a b^c  √a (b)^c  √a(b)^c $
+
+--- math-root-frame-size-index ---
+// Test size of final frame when there is an index.
+$ a root(, 3)         & a root(., 3) \
+  a sqrt(3)           & a root(2, 3) \
+  a root(#h(-1em), 3) & a root(123, 3) $

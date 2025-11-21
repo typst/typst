@@ -1,17 +1,16 @@
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::Span;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::World;
+use crate::diag::{At, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
-    LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
-    Value,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
+    Selector, Str, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::routines::Routines;
-use crate::World;
 
 /// Manages stateful parts of your document.
 ///
@@ -24,18 +23,18 @@ use crate::World;
 ///
 /// ```typ
 /// // This doesn't work!
-/// #let x = 0
+/// #let star = 0
 /// #let compute(expr) = {
-///   x = eval(
-///     expr.replace("x", str(x))
+///   star = eval(
+///     expr.replace("⭐", str(star))
 ///   )
-///   [New value is #x. ]
+///   [New value is #star.]
 /// }
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ + 3") \
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// # State and document markup { #state-and-markup }
@@ -88,18 +87,18 @@ use crate::World;
 /// Our initial example would now look like this:
 ///
 /// ```example
-/// #let s = state("x", 0)
-/// #let compute(expr) = [
-///   #s.update(x =>
-///     eval(expr.replace("x", str(x)))
+/// #let star = state("star", 0)
+/// #let compute(expr) = {
+///   star.update(old =>
+///     eval(expr.replace("⭐", str(old)))
 ///   )
-///   New value is #context s.get().
-/// ]
+///   [New value is #context star.get().]
+/// }
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ + 3") \
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// State managed by Typst is always updated in layout order, not in evaluation
@@ -110,22 +109,22 @@ use crate::World;
 /// but they still show the correct results:
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
-/// >>> #let compute(expr) = [
-/// >>>   #s.update(x =>
-/// >>>     eval(expr.replace("x", str(x)))
+/// >>> #let star = state("star", 0)
+/// >>> #let compute(expr) = {
+/// >>>   star.update(old =>
+/// >>>     eval(expr.replace("⭐", str(old)))
 /// >>>   )
-/// >>>   New value is #context s.get().
-/// >>> ]
+/// >>>   [New value is #context star.get().]
+/// >>> }
 /// <<< ...
 ///
 /// #let more = [
-///   #compute("x * 2") \
-///   #compute("x - 5")
+///   #compute("⭐ * 2") \
+///   #compute("⭐ - 5")
 /// ]
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
+/// #compute("⭐ + 3") \
 /// #more
 /// ```
 ///
@@ -141,23 +140,23 @@ use crate::World;
 /// methods gives us the value of the state at the end of the document.
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
-/// >>> #let compute(expr) = [
-/// >>>   #s.update(x => {
-/// >>>     eval(expr.replace("x", str(x)))
-/// >>>   })
-/// >>>   New value is #context s.get().
-/// >>> ]
+/// >>> #let star = state("star", 0)
+/// >>> #let compute(expr) = {
+/// >>>   star.update(old =>
+/// >>>     eval(expr.replace("⭐", str(old)))
+/// >>>   )
+/// >>>   [New value is #context star.get().]
+/// >>> }
 /// <<< ...
 ///
 /// Value at `<here>` is
-/// #context s.at(<here>)
+/// #context star.at(<here>)
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
+/// #compute("⭐ + 3") \
 /// *Here.* <here> \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// # A word of caution { #caution }
@@ -174,9 +173,9 @@ use crate::World;
 ///
 /// ```example
 /// // This is bad!
-/// #let s = state("x", 1)
-/// #context s.update(s.final() + 1)
-/// #context s.get()
+/// #let x = state("key", 1)
+/// #context x.update(x.final() + 1)
+/// #context x.get()
 /// ```
 ///
 /// In general, you should try not to generate state updates from within context
@@ -259,12 +258,12 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        select_where!(StateUpdateElem, Key => self.key.clone())
+        select_where!(StateUpdateElem, key => self.key.clone())
     }
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        StateUpdateElem::elem().select()
+        StateUpdateElem::ELEM.select()
     }
 }
 
@@ -274,8 +273,31 @@ impl State {
     #[func(constructor)]
     pub fn construct(
         /// The key that identifies this state.
+        ///
+        /// Any [updates]($state.update) to the state will be identified with
+        /// the string key. If you construct multiple states with the same
+        /// `key`, then updating any one will affect all of them.
         key: Str,
         /// The initial value of the state.
+        ///
+        /// If you construct multiple states with the same `key` but different
+        /// `init` values, they will each use their own initial value but share
+        /// updates. Specifically, the value of a state at some location in the
+        /// document will be computed from that state's initial value and all
+        /// preceding updates for the state's key.
+        ///
+        /// ```example
+        /// #let banana = state("key", "🍌")
+        /// #let broccoli = state("key", "🥦")
+        ///
+        /// #banana.update(it => it + "😋")
+        ///
+        /// #context [
+        ///   - #state("key", "🍎").get()
+        ///   - #banana.get()
+        ///   - #broccoli.get()
+        /// ]
+        /// ```
         #[default]
         init: Value,
     ) -> State {
@@ -329,7 +351,7 @@ impl State {
         Ok(sequence.last().unwrap().clone())
     }
 
-    /// Update the value of the state.
+    /// Updates the value of the state.
     ///
     /// The update will be in effect at the position where the returned content
     /// is inserted into the document. If you don't put the output into the
@@ -337,13 +359,44 @@ impl State {
     /// write `{let _ = state("key").update(7)}`. State updates are always
     /// applied in layout order and in that case, Typst wouldn't know when to
     /// update the state.
+    ///
+    /// In contrast to [`get`]($state.get), [`at`]($state.at), and
+    /// [`final`]($state.final), this function does not require [context].
     #[func]
     pub fn update(
         self,
         span: Span,
-        /// If given a non function-value, sets the state to that value. If
-        /// given a function, that function receives the previous state and has
-        /// to return the new state.
+        /// A value to update to or a function to update with.
+        ///
+        /// - If given a non-function value, sets the state to that value.
+        /// - If given a function, that function receives the state's previous
+        ///   value and has to return the state's new value.
+        ///
+        /// When updating the state based on its previous value, you should
+        /// prefer the function form instead of retrieving the previous value
+        /// from the [context]($context). This allows the compiler to resolve
+        /// the final state efficiently, minimizing the number of
+        /// [layout iterations]($context/#compiler-iterations) required.
+        ///
+        /// In the following example, `{fill.update(f => not f)}` will paint odd
+        /// [items in the bullet list]($list.item) as expected. However, if it's
+        /// replaced with `{context fill.update(not fill.get())}`, then layout
+        /// will not converge within 5 attempts, as each update will take one
+        /// additional iteration to propagate.
+        ///
+        /// ```example
+        /// #let fill = state("fill", false)
+        ///
+        /// #show list.item: it => {
+        ///   fill.update(f => not f)
+        ///   context {
+        ///     set text(fill: fuchsia) if fill.get()
+        ///     it
+        ///   }
+        /// }
+        ///
+        /// #lorem(5).split().map(list.item).join()
+        /// ```
         update: StateUpdate,
     ) -> Content {
         StateUpdateElem::new(self.key, update).pack().spanned(span)
@@ -372,8 +425,8 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[elem(Construct, Locatable, Show)]
-struct StateUpdateElem {
+#[elem(Construct, Locatable)]
+pub struct StateUpdateElem {
     /// The key that identifies the state.
     #[required]
     key: Str,
@@ -387,11 +440,5 @@ struct StateUpdateElem {
 impl Construct for StateUpdateElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
-    }
-}
-
-impl Show for Packed<StateUpdateElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
     }
 }

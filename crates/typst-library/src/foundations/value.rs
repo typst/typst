@@ -4,19 +4,19 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_syntax::{ast, Span};
+use typst_syntax::{Span, ast};
 use typst_utils::ArcExt;
 
 use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
-    fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
-    Decimal, Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module,
-    NativeElement, NativeType, NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles,
-    Symbol, SymbolElem, Type, Version,
+    Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
+    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
+    NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol, SymbolElem, Type,
+    Version, fields, ops, repr,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};
@@ -157,7 +157,9 @@ impl Value {
     /// Try to access a field on the value.
     pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Symbol(symbol) => {
+                symbol.clone().modified(sink, field).map(Self::Symbol)
+            }
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
             Self::Content(content) => content.field_by_name(field),
@@ -292,8 +294,7 @@ impl Repr for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        // No way to emit deprecation warnings here :(
-        ops::equal(self, other, &mut ())
+        ops::equal(self, other)
     }
 }
 
@@ -380,7 +381,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a typst value")
+        formatter.write_str("a Typst value")
     }
 
     fn visit_bool<E: Error>(self, v: bool) -> Result<Self::Value, E> {
@@ -403,6 +404,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(v.into_value())
     }
 
+    fn visit_i128<E: Error>(self, v: i128) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
     fn visit_u8<E: Error>(self, v: u8) -> Result<Self::Value, E> {
         Ok(v.into_value())
     }
@@ -416,6 +421,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u128<E: Error>(self, v: u128) -> Result<Self::Value, E> {
         Ok(v.into_value())
     }
 

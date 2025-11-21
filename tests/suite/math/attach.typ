@@ -121,8 +121,8 @@ $a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.lo
 
 --- math-attach-integral ---
 // Test default of scripts attachments on integrals at display size.
-$ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
-$integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
+$ integral.inter_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
+$integral.inter_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator ---
 // Test default of limit attachments on large operators at display size only.
@@ -179,7 +179,7 @@ $ a0 + a1 + a0_2 \
 #{
   let var = $x^1$
   for i in range(24) {
-    var = $var$    
+    var = $var$
   }
   $var_2$
 }
@@ -189,3 +189,9 @@ $ a0 + a1 + a0_2 \
 // sequence of extended shapes).
 $lr(size: #130%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
+
+--- math-attach-missing-sides ---
+// Test attachments that are missing a side.
+// Error: 23-24 unexpected underscore
+$ a _ b (d _) (d'_ ) (_ c) $
+

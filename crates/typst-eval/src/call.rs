@@ -1,23 +1,23 @@
 use comemo::{Tracked, TrackedMut};
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
+use typst_library::World;
 use typst_library::diag::{
-    bail, error, At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
-    Trace, Tracepoint,
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
+    bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, Content, Context, Func, NativeElement, Scope,
-    Scopes, SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
+    NativeElement, Scope, Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
-use typst_library::World;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::LazyHash;
 
-use crate::{call_method_mut, is_mutating_method, Access, Eval, FlowEvent, Route, Vm};
+use crate::{Access, Eval, FlowEvent, Route, Vm, call_method_mut, is_mutating_method};
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
@@ -25,19 +25,22 @@ impl Eval for ast::FuncCall<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();
-        let in_math = in_math(callee);
         let callee_span = callee.span();
         let args = self.args();
-        let trailing_comma = args.trailing_comma();
 
         vm.engine.route.check_call_depth().at(span)?;
 
         // Try to evaluate as a call to an associated function or field.
-        let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {
+        let (callee_value, args_value) = if let ast::Expr::FieldAccess(access) = callee {
             let target = access.target();
             let field = access.field();
             match eval_field_call(target, field, args, span, vm)? {
-                FieldCall::Normal(callee, args) => (callee, args),
+                FieldCall::Normal(callee, args) => {
+                    if vm.inspected == Some(callee_span) {
+                        vm.trace(callee.clone());
+                    }
+                    (callee, args)
+                }
                 FieldCall::Resolved(value) => return Ok(value),
             }
         } else {
@@ -45,9 +48,15 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func_result = callee.clone().cast::<Func>();
-        if in_math && func_result.is_err() {
-            return wrap_args_in_math(callee, callee_span, args, trailing_comma);
+        let func_result = callee_value.clone().cast::<Func>();
+
+        if func_result.is_err() && in_math(callee) {
+            return wrap_args_in_math(
+                callee_value,
+                callee_span,
+                args_value,
+                args.trailing_comma(),
+            );
         }
 
         let func = func_result
@@ -56,8 +65,11 @@ impl Eval for ast::FuncCall<'_> {
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
-            func.call(&mut vm.engine, vm.context, args)
-                .trace(vm.world(), point, span)
+            func.call(&mut vm.engine, vm.context, args_value).trace(
+                vm.world(),
+                point,
+                span,
+            )
         };
 
         // Stacker is broken on WASM.
@@ -142,7 +154,7 @@ impl Eval for ast::Closure<'_> {
 
         // Define the closure.
         let closure = Closure {
-            node: self.to_untyped().clone(),
+            node: ClosureNode::Closure(self.to_untyped().clone()),
             defaults,
             captured,
             num_pos_params: self
@@ -171,9 +183,15 @@ pub fn eval_closure(
     context: Tracked<Context>,
     mut args: Args,
 ) -> SourceResult<Value> {
-    let (name, params, body) = match closure.node.cast::<ast::Closure>() {
-        Some(node) => (node.name(), node.params(), node.body()),
-        None => (None, ast::Params::default(), closure.node.cast().unwrap()),
+    let (name, params, body) = match closure.node {
+        ClosureNode::Closure(ref node) => {
+            let closure =
+                node.cast::<ast::Closure>().expect("node to be an `ast::Closure`");
+            (closure.name(), closure.params(), closure.body())
+        }
+        ClosureNode::Context(ref node) => {
+            (None, ast::Params::default(), node.cast().unwrap())
+        }
     };
 
     // Don't leak the scopes from the call site. Instead, we use the scope
@@ -404,12 +422,14 @@ fn wrap_args_in_math(
     if trailing_comma {
         body += SymbolElem::packed(',');
     }
-    Ok(Value::Content(
-        callee.display().spanned(callee_span)
-            + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
-                .pack()
-                .spanned(args.span),
-    ))
+
+    let formatted = callee.display().spanned(callee_span)
+        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
+            .pack()
+            .spanned(args.span);
+
+    args.finish()?;
+    Ok(Value::Content(formatted))
 }
 
 /// Provide a hint if the callee is a shadowed standard library function.
@@ -466,7 +486,7 @@ impl<'a> CapturesVisitor<'a> {
             }
 
             // Code and content blocks create a scope.
-            Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
+            Some(ast::Expr::CodeBlock(_) | ast::Expr::ContentBlock(_)) => {
                 self.internal.enter();
                 for child in node.children() {
                     self.visit(child);
@@ -516,7 +536,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // A let expression contains a binding, but that binding is only
             // active after the body is evaluated.
-            Some(ast::Expr::Let(expr)) => {
+            Some(ast::Expr::LetBinding(expr)) => {
                 if let Some(init) = expr.init() {
                     self.visit(init.to_untyped());
                 }
@@ -529,7 +549,7 @@ impl<'a> CapturesVisitor<'a> {
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
-            Some(ast::Expr::For(expr)) => {
+            Some(ast::Expr::ForLoop(expr)) => {
                 self.visit(expr.iterable().to_untyped());
                 self.internal.enter();
 
@@ -544,7 +564,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // An import contains items, but these are active only after the
             // path is evaluated.
-            Some(ast::Expr::Import(expr)) => {
+            Some(ast::Expr::ModuleImport(expr)) => {
                 self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
                     for item in items.iter() {

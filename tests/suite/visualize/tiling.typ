@@ -10,11 +10,11 @@
 #set page(width: auto, height: auto, margin: 0pt)
 
 #let t = tiling(size: (10pt, 10pt), {
-    place(line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
-    place(line(stroke: 4pt, start: (100%,0%), end: (200%, 100%)))
-    place(line(stroke: 4pt, start: (0%,100%), end: (100%, 200%)))
-    place(line(stroke: 4pt, start: (-100%,0%), end: (0%, 100%)))
-    place(line(stroke: 4pt, start: (0%,-100%), end: (100%, 0%)))
+  place(line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
+  place(line(stroke: 4pt, start: (100%, 0%), end: (200%, 100%)))
+  place(line(stroke: 4pt, start: (0%, 100%), end: (100%, 200%)))
+  place(line(stroke: 4pt, start: (-100%, 0%), end: (0%, 100%)))
+  place(line(stroke: 4pt, start: (0%, -100%), end: (100%, 0%)))
 })
 #rect(width: 50pt, height: 50pt, fill: t)
 
@@ -51,13 +51,13 @@
 #box(
   width: 8pt,
   height: 1pt,
-  fill: tiling(size: (1pt, 1pt), square(size: 1pt, fill: black))
+  fill: tiling(size: (1pt, 1pt), square(size: 1pt, fill: black)),
 )
 #v(-1em)
 #box(
   width: 8pt,
   height: 1pt,
-  fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black))
+  fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black)),
 )
 
 --- tiling-zero-sized ---
@@ -93,7 +93,7 @@
 
 #set page(width: 100pt, height: 100pt)
 
-#rect(fill: t(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)
+#rect(fill: t(spacing: (10pt, 10pt)), width: 100%, height: 100%, stroke: 1pt)
 
 --- tiling-stroke ---
 // Test tiling on strokes
@@ -103,13 +103,14 @@
     size: 50pt,
     fill: tiling(
       size: (5pt, 5pt),
-      align(horizon + center, circle(fill: blue, radius: 2.5pt))
+      align(horizon + center, circle(fill: blue, radius: 2.5pt)),
     ),
-    stroke: 7.5pt + tiling(
-      size: (5pt, 5pt),
-      align(horizon + center, circle(fill: red, radius: 2.5pt))
-    )
-  )
+    stroke: 7.5pt
+      + tiling(
+        size: (5pt, 5pt),
+        align(horizon + center, circle(fill: red, radius: 2.5pt)),
+      ),
+  ),
 )
 
 --- tiling-stroke-relative-parent ---
@@ -123,11 +124,14 @@
     fill: tiling(size: (5pt, 5pt), circle(radius: 2.5pt, fill: blue)),
     align(center + horizon, circle(
       radius: 15pt,
-      stroke: 7.5pt + tiling(
-        size: (5pt, 5pt), circle(radius: 2.5pt, fill: red), relative: "parent"
-      ),
-    ))
-  )
+      stroke: 7.5pt
+        + tiling(
+          size: (5pt, 5pt),
+          circle(radius: 2.5pt, fill: red),
+          relative: "parent",
+        ),
+    )),
+  ),
 )
 
 --- tiling-text ---
@@ -137,13 +141,13 @@
 #let t = tiling(
   size: (30pt, 30pt),
   relative: "parent",
-  square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
 );
 
 #set page(
   width: 140pt,
   height: 140pt,
-  fill: t
+  fill: t,
 )
 
 #rotate(45deg, scale(x: 50%, y: 70%, rect(
@@ -161,5 +165,6 @@
 #set page(width: auto, height: auto, margin: 0pt)
 
 // Warning: 10-17 the name `pattern` is deprecated, use `tiling` instead
+// Hint: 10-17 it will be removed in Typst 0.15.0
 #let t = pattern(size: (10pt, 10pt), line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
 #rect(width: 50pt, height: 50pt, fill: t)

@@ -1,6 +1,6 @@
 //! Modifiable symbols.
 
-use crate::foundations::{Module, Scope, Symbol, Value};
+use crate::foundations::{Deprecation, Module, Scope, Symbol, Value};
 
 /// Hook up all `symbol` definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -23,7 +23,7 @@ fn extend_scope_from_codex_module(scope: &mut Scope, module: codex::Module) {
 
         let scope_binding = scope.define(name, value);
         if let Some(message) = binding.deprecation {
-            scope_binding.deprecated(message);
+            scope_binding.deprecated(Deprecation::new().with_message(message));
         }
     }
 }
@@ -39,7 +39,7 @@ impl From<codex::Module> for Scope {
 impl From<codex::Symbol> for Symbol {
     fn from(symbol: codex::Symbol) -> Self {
         match symbol {
-            codex::Symbol::Single(c) => Symbol::single(c),
+            codex::Symbol::Single(value) => Symbol::single(value),
             codex::Symbol::Multi(list) => Symbol::list(list),
         }
     }

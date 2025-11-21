@@ -1,8 +1,8 @@
-use typst_library::diag::{At, DeprecationSink, HintedStrResult, SourceResult};
-use typst_library::foundations::{ops, IntoValue, Value};
+use typst_library::diag::{At, HintedStrResult, SourceResult};
+use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{access_dict, Access, Eval, Vm};
+use crate::{Access, Eval, Vm, access_dict};
 
 impl Eval for ast::Unary<'_> {
     type Output = Value;
@@ -23,22 +23,22 @@ impl Eval for ast::Binary<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self.op() {
-            ast::BinOp::Add => apply_binary_with_sink(self, vm, ops::add),
+            ast::BinOp::Add => apply_binary(self, vm, ops::add),
             ast::BinOp::Sub => apply_binary(self, vm, ops::sub),
             ast::BinOp::Mul => apply_binary(self, vm, ops::mul),
             ast::BinOp::Div => apply_binary(self, vm, ops::div),
             ast::BinOp::And => apply_binary(self, vm, ops::and),
             ast::BinOp::Or => apply_binary(self, vm, ops::or),
-            ast::BinOp::Eq => apply_binary_with_sink(self, vm, ops::eq),
-            ast::BinOp::Neq => apply_binary_with_sink(self, vm, ops::neq),
+            ast::BinOp::Eq => apply_binary(self, vm, ops::eq),
+            ast::BinOp::Neq => apply_binary(self, vm, ops::neq),
             ast::BinOp::Lt => apply_binary(self, vm, ops::lt),
             ast::BinOp::Leq => apply_binary(self, vm, ops::leq),
             ast::BinOp::Gt => apply_binary(self, vm, ops::gt),
             ast::BinOp::Geq => apply_binary(self, vm, ops::geq),
-            ast::BinOp::In => apply_binary_with_sink(self, vm, ops::in_),
-            ast::BinOp::NotIn => apply_binary_with_sink(self, vm, ops::not_in),
+            ast::BinOp::In => apply_binary(self, vm, ops::in_),
+            ast::BinOp::NotIn => apply_binary(self, vm, ops::not_in),
             ast::BinOp::Assign => apply_assignment(self, vm, |_, b| Ok(b)),
-            ast::BinOp::AddAssign => apply_assignment_with_sink(self, vm, ops::add),
+            ast::BinOp::AddAssign => apply_assignment(self, vm, ops::add),
             ast::BinOp::SubAssign => apply_assignment(self, vm, ops::sub),
             ast::BinOp::MulAssign => apply_assignment(self, vm, ops::mul),
             ast::BinOp::DivAssign => apply_assignment(self, vm, ops::div),
@@ -65,18 +65,6 @@ fn apply_binary(
     op(lhs, rhs).at(binary.span())
 }
 
-/// Apply a basic binary operation, with the possiblity of deprecations.
-fn apply_binary_with_sink(
-    binary: ast::Binary,
-    vm: &mut Vm,
-    op: impl Fn(Value, Value, &mut dyn DeprecationSink) -> HintedStrResult<Value>,
-) -> SourceResult<Value> {
-    let span = binary.span();
-    let lhs = binary.lhs().eval(vm)?;
-    let rhs = binary.rhs().eval(vm)?;
-    op(lhs, rhs, &mut (&mut vm.engine, span)).at(span)
-}
-
 /// Apply an assignment operation.
 fn apply_assignment(
     binary: ast::Binary,
@@ -88,36 +76,16 @@ fn apply_assignment(
 
     // An assignment to a dictionary field is different from a normal access
     // since it can create the field instead of just modifying it.
-    if binary.op() == ast::BinOp::Assign {
-        if let ast::Expr::FieldAccess(access) = lhs {
-            let dict = access_dict(vm, access)?;
-            dict.insert(access.field().get().clone().into(), rhs);
-            return Ok(Value::None);
-        }
+    if binary.op() == ast::BinOp::Assign
+        && let ast::Expr::FieldAccess(access) = lhs
+    {
+        let dict = access_dict(vm, access)?;
+        dict.insert(access.field().get().clone().into(), rhs);
+        return Ok(Value::None);
     }
 
     let location = binary.lhs().access(vm)?;
     let lhs = std::mem::take(&mut *location);
     *location = op(lhs, rhs).at(binary.span())?;
-    Ok(Value::None)
-}
-
-/// Apply an assignment operation, with the possiblity of deprecations.
-fn apply_assignment_with_sink(
-    binary: ast::Binary,
-    vm: &mut Vm,
-    op: fn(Value, Value, &mut dyn DeprecationSink) -> HintedStrResult<Value>,
-) -> SourceResult<Value> {
-    let rhs = binary.rhs().eval(vm)?;
-    let location = binary.lhs().access(vm)?;
-    let lhs = std::mem::take(&mut *location);
-    let mut sink = vec![];
-    let span = binary.span();
-    *location = op(lhs, rhs, &mut (&mut sink, span)).at(span)?;
-    if !sink.is_empty() {
-        for warning in sink {
-            vm.engine.sink.warn(warning);
-        }
-    }
     Ok(Value::None)
 }

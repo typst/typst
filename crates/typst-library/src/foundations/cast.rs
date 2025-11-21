@@ -9,19 +9,19 @@ use std::ops::Add;
 
 use ecow::eco_format;
 use smallvec::SmallVec;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{Span, Spanned, SyntaxMode};
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
 use crate::foundations::{
-    array, repr, Fold, NativeElement, Packed, Repr, Str, Type, Value,
+    Fold, NativeElement, Packed, Repr, Str, Type, Value, array, repr,
 };
 
 /// Determine details of a type.
 ///
 /// Type casting works as follows:
 /// - [`Reflect for T`](Reflect) describes the possible Typst values for `T`
-///    (for documentation and autocomplete).
+///   (for documentation and autocomplete).
 /// - [`IntoValue for T`](IntoValue) is for conversion from `T -> Value`
 ///   (infallible)
 /// - [`FromValue for T`](FromValue) is for conversion from `Value -> T`
@@ -262,14 +262,18 @@ impl FromValue for Value {
 
 impl<T: NativeElement + FromValue> FromValue for Packed<T> {
     fn from_value(mut value: Value) -> HintedStrResult<Self> {
+        let mut span = Span::detached();
         if let Value::Content(content) = value {
             match content.into_packed::<T>() {
                 Ok(packed) => return Ok(packed),
-                Err(content) => value = Value::Content(content),
+                Err(content) => {
+                    span = content.span();
+                    value = Value::Content(content)
+                }
             }
         }
         let val = T::from_value(value)?;
-        Ok(Packed::new(val))
+        Ok(Packed::new(val).spanned(span))
     }
 }
 
@@ -287,7 +291,7 @@ impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, PartialEq, Hash, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -347,13 +351,14 @@ impl CastInfo {
                     msg.hint(eco_format!("use `label({})` to create a label", s.repr()));
                 }
             }
-        } else if let Value::Decimal(_) = found {
-            if !matching_type && parts.iter().any(|p| p == "float") {
-                msg.hint(eco_format!(
-                    "if loss of precision is acceptable, explicitly cast the \
+        } else if let Value::Decimal(_) = found
+            && !matching_type
+            && parts.iter().any(|p| p == "float")
+        {
+            msg.hint(eco_format!(
+                "if loss of precision is acceptable, explicitly cast the \
                      decimal to a float with `float(value)`"
-                ));
-            }
+            ));
         }
 
         msg
@@ -430,7 +435,7 @@ impl<T, const N: usize> Container for SmallVec<[T; N]> {
 }
 
 /// An uninhabitable type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Never {}
 
 impl Reflect for Never {
@@ -457,6 +462,21 @@ impl FromValue for Never {
     fn from_value(value: Value) -> HintedStrResult<Self> {
         Err(Self::error(&value))
     }
+}
+
+cast! {
+    SyntaxMode,
+    self => IntoValue::into_value(match self {
+        SyntaxMode::Markup => "markup",
+        SyntaxMode::Math => "math",
+        SyntaxMode::Code => "code",
+    }),
+    /// Evaluate as markup, as in a Typst file.
+    "markup" => SyntaxMode::Markup,
+    /// Evaluate as math, as in an equation.
+    "math" => SyntaxMode::Math,
+    /// Evaluate as code, as after a hash.
+    "code" => SyntaxMode::Code,
 }
 
 cast! {

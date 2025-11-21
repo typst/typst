@@ -1,0 +1,11 @@
+figure = شكل
+table = جدول
+# equation =
+bibliography = کتابیات
+# heading =
+outline = فہرست عنوانات
+# raw =
+page = صفحہ
+# footnote =
+# email =
+# telephone =

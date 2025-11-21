@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -7,12 +6,13 @@ use std::{fmt, fs, io, mem};
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{eco_format, EcoString};
 use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, Lines, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World};
+use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
@@ -41,7 +41,7 @@ pub struct SystemWorld {
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
-    slots: Mutex<HashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<FileId, FileSlot>>,
     /// Holds information about where packages are stored.
     package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -117,15 +117,18 @@ impl SystemWorld {
                 .iter()
                 .map(|&feature| match feature {
                     Feature::Html => typst::Feature::Html,
+                    Feature::A11yExtras => typst::Feature::A11yExtras,
                 })
                 .collect();
 
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
-        let fonts = Fonts::searcher()
-            .include_system_fonts(!world_args.font.ignore_system_fonts)
-            .search_with(&world_args.font.font_paths);
+        let mut fonts = Fonts::searcher();
+        fonts.include_system_fonts(!world_args.font.ignore_system_fonts);
+        #[cfg(feature = "embed-fonts")]
+        fonts.include_embedded_fonts(!world_args.font.ignore_embedded_fonts);
+        let fonts = fonts.search_with(&world_args.font.font_paths);
 
         let now = match world_args.creation_timestamp {
             Some(time) => Now::Fixed(time),
@@ -142,7 +145,7 @@ impl SystemWorld {
             library: LazyHash::new(library),
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
-            slots: Mutex::new(HashMap::new()),
+            slots: Mutex::new(FxHashMap::default()),
             package_storage: package::storage(&world_args.package, Some(workdir)),
             now,
         })
@@ -176,6 +179,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
@@ -184,10 +188,20 @@ impl SystemWorld {
         }
     }
 
-    /// Lookup a source file by id.
+    /// Lookup line metadata for a file by id.
     #[track_caller]
-    pub fn lookup(&self, id: FileId) -> Source {
-        self.source(id).expect("file id does not point to any source file")
+    pub fn lookup(&self, id: FileId) -> Lines<String> {
+        self.slot(id, |slot| {
+            if let Some(source) = slot.source.get() {
+                let source = source.as_ref().expect("file is not valid");
+                source.lines().clone()
+            } else if let Some(bytes) = slot.file.get() {
+                let bytes = bytes.as_ref().expect("file is not valid");
+                Lines::try_from(bytes).expect("file is not valid utf-8")
+            } else {
+                panic!("file id does not point to any source file");
+            }
+        })
     }
 }
 
@@ -213,7 +227,9 @@ impl World for SystemWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        self.fonts[index].get()
+        // comemo's validation may invoke this function with an invalid index. This is
+        // impossible in typst-cli but possible if a custom tool mutates the fonts.
+        self.fonts.get(index)?.get()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -340,6 +356,11 @@ impl<T: Clone> SlotCell<T> {
         self.accessed = false;
     }
 
+    /// Gets the contents of the cell.
+    fn get(&self) -> Option<&FileResult<T>> {
+        self.data.as_ref()
+    }
+
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
@@ -347,10 +368,10 @@ impl<T: Clone> SlotCell<T> {
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
-        if mem::replace(&mut self.accessed, true) {
-            if let Some(data) = &self.data {
-                return data.clone();
-            }
+        if mem::replace(&mut self.accessed, true)
+            && let Some(data) = &self.data
+        {
+            return data.clone();
         }
 
         // Read and hash the file.
@@ -358,10 +379,10 @@ impl<T: Clone> SlotCell<T> {
         let fingerprint = timed!("hashing file", typst::utils::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
-        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {
-            if let Some(data) = &self.data {
-                return data.clone();
-            }
+        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint
+            && let Some(data) = &self.data
+        {
+            return data.clone();
         }
 
         let prev = self.data.take().and_then(Result::ok);

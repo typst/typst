@@ -1,16 +1,16 @@
 // Test setting the document language.
 
---- text-lang ---
+--- text-lang render pdftags ---
 // without any region
 #set text(font: "Noto Serif CJK TC", lang: "zh")
 #outline()
 
---- text-lang-unknown-region ---
+--- text-lang-unknown-region render pdftags ---
 // with unknown region configured
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "XX")
 #outline()
 
---- text-lang-region ---
+--- text-lang-region render pdftags ---
 // with region configured
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "TW")
 #outline()
