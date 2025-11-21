@@ -34,6 +34,9 @@ jobs:
             bits: 32
     runs-on: ${{ matrix.os }}
     steps:
+      # Don't modify file line endings (EOL) on checkout (Windows).
+      # https://github.com/actions/checkout/issues/135
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - if: startsWith(matrix.os, 'ubuntu-') && matrix.bits == 32
         run: |
