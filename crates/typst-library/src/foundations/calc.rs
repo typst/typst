@@ -564,6 +564,9 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 
 /// Calculates the greatest common divisor of two integers.
 ///
+/// This will error if the result of integer division would be larger than the
+/// maximum 64-bit signed integer.
+///
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
@@ -893,7 +896,9 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if the dividend is too small in magnitude compared to the divisor.
+/// This can error if the dividend is too small in magnitude compared to the
+/// divisor, or if the result of integer division would be larger than the
+/// maximum 64-bit signed integer.
 ///
 /// ```example
 /// #calc.rem(7, 3) \
@@ -930,9 +935,11 @@ pub fn rem(
 /// Performs euclidean division of two numbers.
 ///
 /// The result of this computation is that of a division rounded to the integer
-/// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+/// `{n}` such that the dividend is greater than or equal to `{n}` times
+/// the divisor.
 ///
-/// This can error if the dividend is too small in magnitude compared to the divisor.
+/// This can error if the resulting number is larger than the maximum value or
+/// smaller than the minimum value for its type.
 ///
 /// ```example
 /// #calc.div-euclid(7, 3) \
@@ -1013,8 +1020,8 @@ pub fn rem_euclid(
 /// Calculates the quotient (floored division) of two numbers.
 ///
 /// Note that this function will always return an [integer]($int), and will
-/// error if the resulting number is larger than the maximum 64-bit signed integer
-/// or smaller than the minimum for that type.
+/// error if the resulting number is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
