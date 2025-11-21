@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
+use std::collections::HashMap;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
@@ -20,15 +21,15 @@ use typst_library::foundations::{
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{
-    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+    Locatable, Location, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem, Works,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -1087,9 +1088,8 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
-    let span = select_span(elems);
     let trunk = elems[0].1;
-    let children = elems
+    let children: Vec<Packed<CiteElem>> = elems
         .iter()
         .filter_map(|(c, _)| c.to_packed::<CiteElem>())
         .cloned()
@@ -1097,8 +1097,31 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
 
     // Create and visit the citation group.
     let s = grouped.end();
-    let elem = CiteGroup::new(children).pack().spanned(span);
-    visit(s, s.store(elem), trunk)
+
+    // Separate children with different bibliographies
+    let works = Works::generate(s.engine,Span::detached())?;
+    let citation_map = &works.citation_map;
+    let mut map = HashMap::new();
+    let mut key_order: Vec<Location> = vec![];
+    for child in children.clone() {
+        if let Some(bib_loc) = citation_map.get(&child.location().unwrap()) {
+            let entry = map.entry(bib_loc);
+            entry
+                .or_insert_with(|| {
+                    key_order.push(*bib_loc);
+                    vec![]
+                })
+                .push(child);
+        }
+    }
+
+    for key in key_order {
+        let sub_children = map.get(&key).unwrap();
+        let span = Span::find(sub_children.iter().map(|c| c.span()));
+        let elem = CiteGroup::new(sub_children.clone()).pack().spanned(span);
+        visit(s, s.store(elem), trunk)?;
+    }
+    return Ok(());
 }
 
 /// Builds the `ListLike` element from `ListItemLike` elements.
