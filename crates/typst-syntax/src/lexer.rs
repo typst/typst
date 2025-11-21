@@ -1,5 +1,6 @@
-use ecow::{EcoString, eco_format};
 use std::num::IntErrorKind;
+
+use ecow::{EcoString, eco_format};
 use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_math_class::MathClass;
