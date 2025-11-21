@@ -218,7 +218,7 @@ impl CompileConfig {
             _ => {}
         }
 
-        let image_render_options = ImageRenderOptions { render_bleed: args.render_bleed };
+        let image_render_options = ImageRenderOptions { render_bleed: false };
 
         Ok(Self {
             warnings,

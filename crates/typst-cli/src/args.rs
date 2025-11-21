@@ -337,12 +337,6 @@ pub struct CompileArgs {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
-    /// By default, PNG and SVG outputs exclude the bleed from the final
-    /// artwork. Enable this flag to include the bleed in the final output.
-    /// This option has no effect when exporting other formats.
-    #[arg(long = "render-bleed")]
-    pub render_bleed: bool,
-
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
     #[clap(long = "make-deps", value_name = "PATH", hide = true)]
