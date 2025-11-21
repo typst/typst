@@ -6,7 +6,9 @@ use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
-use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
+use typst_syntax::package::{
+    PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
+};
 
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
@@ -27,7 +29,7 @@ pub struct PackageStorage {
     /// The downloader used for fetching the index and packages.
     downloader: Downloader,
     /// The cached index of the default namespace.
-    index: OnceCell<Vec<serde_json::Value>>,
+    index: OnceCell<Vec<PackageInfo>>,
 }
 
 impl PackageStorage {
@@ -40,17 +42,26 @@ impl PackageStorage {
         downloader: Downloader,
         workdir: Option<PathBuf>,
     ) -> Self {
-        Self::with_index(package_cache_path, package_path, downloader, OnceCell::new())
+        Self::with_index(
+            package_vendor_path,
+            workdir,
+            package_cache_path,
+            package_path,
+            downloader,
+            OnceCell::new(),
+        )
     }
 
     /// Creates a new package storage with a pre-defined index.
     ///
     /// Useful for testing.
     fn with_index(
+        package_vendor_path: Option<PathBuf>,
+        workdir: Option<PathBuf>,
         package_cache_path: Option<PathBuf>,
         package_path: Option<PathBuf>,
         downloader: Downloader,
-        index: OnceCell<Vec<serde_json::Value>>,
+        index: OnceCell<Vec<PackageInfo>>,
     ) -> Self {
         Self {
             package_vendor_path: package_vendor_path
@@ -126,32 +137,6 @@ impl PackageStorage {
         &self,
         spec: &VersionlessPackageSpec,
     ) -> StrResult<PackageVersion> {
-        if spec.namespace == DEFAULT_NAMESPACE {
-            // For `DEFAULT_NAMESPACE`, download the package index and find the latest
-            // version.
-            self.download_index()?
-                .iter()
-                .filter_map(|value| MinimalPackageInfo::deserialize(value).ok())
-                .filter(|package| package.name == spec.name)
-                .map(|package| package.version)
-                .max()
-                .ok_or_else(|| eco_format!("failed to find package {spec}"))
-        } else {
-            // For other namespaces, search locally. We only search in the data
-            // directory and not the cache directory, because the latter is not
-            // intended for storage of local packages.
-            let subdir = format!("{}/{}", spec.namespace, spec.name);
-            self.package_path
-                .iter()
-                .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
-                .flatten()
-                .filter_map(|entry| entry.ok())
-                .map(|entry| entry.path())
-                .filter_map(|path| path.file_name()?.to_string_lossy().parse().ok())
-                .max()
-                .ok_or_else(|| eco_format!("please specify the desired version"))
-        }
-
         self.download_index(spec)?
             .iter()
             .filter(|package| package.name == spec.name)
@@ -161,7 +146,10 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&[serde_json::Value]> {
+    pub fn download_index(
+        &self,
+        spec: &VersionlessPackageSpec,
+    ) -> StrResult<&[PackageInfo]> {
         self.index
             .get_or_try_init(|| self.downloader.download_index(spec))
             .map(AsRef::as_ref)
@@ -207,20 +195,24 @@ mod tests {
         let storage = PackageStorage::with_index(
             None,
             None,
-            Downloader::new("typst/test"),
+            None,
+            None,
+            Downloader::new(Some(PathBuf::from("typst/test"))),
             OnceCell::with_value(vec![
-                serde_json::json!({
+                serde_json::from_value(serde_json::json!({
                     "name": "charged-ieee",
                     "version": "0.1.0",
                     "entrypoint": "lib.typ",
-                }),
-                serde_json::json!({
+                }))
+                .unwrap(),
+                serde_json::from_value(serde_json::json!({
                     "name": "unequivocal-ams",
                     // This version number is currently not valid, so this package
                     // can't be parsed.
                     "version": "0.2.0-dev",
                     "entrypoint": "lib.typ",
-                }),
+                }))
+                .unwrap(),
             ]),
         );
 
