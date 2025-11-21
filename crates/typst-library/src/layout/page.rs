@@ -218,7 +218,8 @@ pub struct PageElem {
     /// 1. The first number is the current page number.
     /// 2. The second number is the total number of pages. In a numbering
     ///    pattern, the second number can be omitted. If a function is passed,
-    ///    it will always receive both numbers.
+    ///    it will receive one argument in the context of links or references,
+    ///    and two arguments when producing the visible page numbers.
     ///
     /// These are logical numbers controlled by the page counter, and may thus
     /// not match the physical numbers. Specifically, they are the
