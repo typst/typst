@@ -1,33 +1,30 @@
-use codex::styling::{MathStyle, to_style};
-use ecow::EcoString;
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
+use typst_library::foundations::Resolve;
 use typst_library::layout::{Abs, Size};
-use typst_library::math::{EquationElem, MathSize};
+use typst_library::math::{EquationElem, GlyphItem, MathProperties, MathSize, TextItem};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
 use typst_syntax::{Span, is_newline};
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
 
-use super::{
-    FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun, has_dtls_feat,
-    style_dtls,
-};
+use crate::math::run::MathFragmentsExt;
+use crate::math::stretch::stretch_fragment;
 
-/// Lays out a [`TextElem`].
+use super::{FrameFragment, GlyphFragment, MathContext, MathFragment};
+
+/// Lays out a [`TextItem`].
 pub fn layout_text(
-    elem: &Packed<TextElem>,
+    item: &TextItem,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<()> {
-    let text = &elem.text;
-    let span = elem.span();
+    let text = &item.text;
+    let span = props.span;
     let fragment = if text.contains(is_newline) {
-        layout_text_lines(text.split(is_newline), span, ctx, styles)?
+        layout_text_lines(text.split(is_newline), span, ctx, props)?
     } else {
-        layout_inline_text(text, span, ctx, styles)?
+        layout_inline_text(text, span, ctx, props)?
     };
     ctx.push(fragment);
     Ok(())
@@ -38,7 +35,7 @@ fn layout_text_lines<'a>(
     lines: impl Iterator<Item = &'a str>,
     span: Span,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<FrameFragment> {
     let mut fragments = vec![];
     for (i, line) in lines.enumerate() {
@@ -46,13 +43,13 @@ fn layout_text_lines<'a>(
             fragments.push(MathFragment::Linebreak);
         }
         if !line.is_empty() {
-            fragments.push(layout_inline_text(line, span, ctx, styles)?.into());
+            fragments.push(layout_inline_text(line, span, ctx, props)?.into());
         }
     }
-    let mut frame = MathRun::new(fragments).into_frame(styles);
-    let axis = ctx.font().math().axis_height.resolve(styles);
+    let mut frame = fragments.into_frame(props.styles);
+    let axis = ctx.font().math().axis_height.resolve(props.styles);
     frame.set_baseline(frame.height() / 2.0 + axis);
-    Ok(FrameFragment::new(styles, frame))
+    Ok(FrameFragment::new(props, frame))
 }
 
 /// Layout the given text string into a [`FrameFragment`] after styling all
@@ -61,30 +58,20 @@ fn layout_inline_text(
     text: &str,
     span: Span,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<FrameFragment> {
-    let variant = styles.get(EquationElem::variant);
-    let bold = styles.get(EquationElem::bold);
-    // Disable auto-italic.
-    let italic = styles.get(EquationElem::italic).or(Some(false));
-
     if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
         // Small optimization for numbers. Note that this lays out slightly
         // differently to normal text and is worth re-evaluating in the future.
         let mut fragments = vec![];
-        for unstyled_c in text.chars() {
-            // This is fine as ascii digits and '.' can never end up as more
-            // than a single char after styling.
-            let style = MathStyle::select(unstyled_c, variant, bold, italic);
-            let c = to_style(unstyled_c, style).next().unwrap();
-
+        for c in text.chars() {
             // This won't panic as ASCII digits and '.' will never end up as
             // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
+            let glyph = GlyphFragment::new_char(ctx, props.styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
-        let frame = MathRun::new(fragments).into_frame(styles);
-        Ok(FrameFragment::new(styles, frame).with_text_like(true))
+        let frame = fragments.into_frame(props.styles);
+        Ok(FrameFragment::new(props, frame).with_text_like(true))
     } else {
         let local = [
             TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
@@ -92,12 +79,8 @@ fn layout_inline_text(
         ]
         .map(|p| p.wrap());
 
-        let styles = styles.chain(&local);
-        let styled_text: EcoString = text
-            .chars()
-            .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
-            .collect();
-        let elem = TextElem::packed(styled_text).spanned(span);
+        let styles = props.styles.chain(&local);
+        let elem = TextElem::packed(text).spanned(span);
 
         // There isn't a natural width for a paragraph in a math environment;
         // because it will be placed somewhere probably not at the left margin
@@ -113,70 +96,42 @@ fn layout_inline_text(
         )?
         .into_frame();
 
-        Ok(FrameFragment::new(styles, frame)
-            .with_class(MathClass::Alphabetic)
-            .with_text_like(true)
-            .with_spaced(true))
+        Ok(FrameFragment::new(props, frame).with_text_like(true))
     }
 }
 
-/// Layout a single character in the math font with the correct styling applied
-/// (includes auto-italics).
-pub fn layout_symbol(
-    elem: &Packed<SymbolElem>,
+/// Layout a single character in the math font.
+pub fn layout_glyph(
+    item: &GlyphItem,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<()> {
-    let variant = styles.get(EquationElem::variant);
-    let bold = styles.get(EquationElem::bold);
-    let italic = styles.get(EquationElem::italic);
-    let dtls = style_dtls();
-    let has_dtls_feat = has_dtls_feat(ctx.font());
-    for cluster in elem.text.graphemes(true) {
-        // Switch dotless char to normal when we have the dtls OpenType feature.
-        // This should happen before the main styling pass.
-        let mut enable_dtls = false;
-        let text: EcoString = cluster
-            .chars()
-            .flat_map(|mut c| {
-                if has_dtls_feat && let Some(d) = try_dotless(c) {
-                    enable_dtls = true;
-                    c = d;
-                }
-                to_style(c, MathStyle::select(c, variant, bold, italic))
-            })
-            .collect();
-        let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
-
-        if let Some(mut glyph) =
-            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())
-        {
-            if glyph.class == MathClass::Large {
-                if styles.get(EquationElem::size) == MathSize::Display {
-                    let height = glyph
-                        .item
-                        .font
-                        .math()
-                        .display_operator_min_height
-                        .at(glyph.item.size);
-                    glyph.stretch_vertical(ctx.engine, height, Abs::zero());
-                };
-                // TeXbook p 155. Large operators are always vertically centered on
-                // the axis.
-                glyph.center_on_axis();
-            }
-            ctx.push(glyph);
+    if let Some(mut glyph) =
+        GlyphFragment::new(ctx.engine.world, props.styles, &item.text, props.span)
+    {
+        if glyph.class == MathClass::Large {
+            if props.styles.get(EquationElem::size) == MathSize::Display {
+                let height = glyph
+                    .item
+                    .font
+                    .math()
+                    .display_operator_min_height
+                    .at(glyph.item.size);
+                glyph.stretch_vertical(ctx.engine, height, Abs::zero());
+            };
+            // TeXbook p 155. Large operators are always vertically centered on
+            // the axis.
+            glyph.center_on_axis();
         }
+        glyph.class = props.class;
+        if item.mid_stretched.is_some() {
+            glyph.mid_stretched = Some(false);
+        }
+        let mut glyph = glyph.into();
+        if let Some((stretch, _)) = item.stretch {
+            stretch_fragment(ctx.engine, &mut glyph, None, None, stretch, Abs::zero());
+        }
+        ctx.push(glyph);
     }
     Ok(())
-}
-
-/// The non-dotless version of a dotless character that can be used with the
-/// `dtls` OpenType feature.
-pub fn try_dotless(c: char) -> Option<char> {
-    match c {
-        'ı' => Some('i'),
-        'ȷ' => Some('j'),
-        _ => None,
-    }
 }

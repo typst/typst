@@ -2,9 +2,7 @@ use std::iter::once;
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
-use typst_library::math::{
-    EquationElem, LeftRightAlternator, MEDIUM, MathSize, THICK, THIN,
-};
+use typst_library::math::{EquationElem, LeftRightAlternator, MathProperties, MathSize};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
@@ -12,120 +10,33 @@ use super::{FrameFragment, MathFragment, alignments};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 
-/// A linear collection of [`MathFragment`]s.
-#[derive(Debug, Default, Clone)]
-pub struct MathRun(Vec<MathFragment>);
+pub trait MathFragmentsExt {
+    fn rows(&self) -> Vec<Vec<MathFragment>>;
+    fn row_count(&self) -> usize;
+    fn ascent(&self) -> Abs;
+    fn descent(&self) -> Abs;
+    fn into_frame(self, styles: StyleChain) -> Frame;
+    fn into_fragment(self, styles: StyleChain) -> MathFragment;
+    fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder;
+    fn into_line_frame(self, points: &[Abs], alternator: LeftRightAlternator) -> Frame;
+    fn into_par_items(self) -> Vec<InlineItem>;
+    fn is_multiline(&self) -> bool;
+}
 
-impl MathRun {
-    /// Takes the given [`MathFragment`]s and do some basic processing.
-    pub fn new(fragments: Vec<MathFragment>) -> Self {
-        let iter = fragments.into_iter().peekable();
-        let mut last: Option<usize> = None;
-        let mut space: Option<MathFragment> = None;
-        let mut resolved: Vec<MathFragment> = vec![];
-
-        for mut fragment in iter {
-            match fragment {
-                // Keep space only if supported by spaced fragments.
-                MathFragment::Space(_) => {
-                    if last.is_some() {
-                        space = Some(fragment);
-                    }
-                    continue;
-                }
-
-                // Explicit spacing disables automatic spacing.
-                MathFragment::Spacing(width, weak) => {
-                    last = None;
-                    space = None;
-
-                    if weak {
-                        match resolved.last_mut() {
-                            None => continue,
-                            Some(MathFragment::Spacing(prev, true)) => {
-                                *prev = (*prev).max(width);
-                                continue;
-                            }
-                            Some(_) => {}
-                        }
-                    }
-
-                    resolved.push(fragment);
-                    continue;
-                }
-
-                // Alignment points are resolved later.
-                MathFragment::Align => {
-                    resolved.push(fragment);
-                    continue;
-                }
-
-                // New line, new things.
-                MathFragment::Linebreak => {
-                    resolved.push(fragment);
-                    space = None;
-                    last = None;
-                    continue;
-                }
-
-                _ => {}
-            }
-
-            // Convert variable operators into binary operators if something
-            // precedes them and they are not preceded by a operator or comparator.
-            if fragment.class() == MathClass::Vary
-                && matches!(
-                    last.map(|i| resolved[i].class()),
-                    Some(
-                        MathClass::Normal
-                            | MathClass::Alphabetic
-                            | MathClass::Closing
-                            | MathClass::Fence
-                    )
-                )
-            {
-                fragment.set_class(MathClass::Binary);
-            }
-
-            // Insert spacing between the last and this non-ignorant item.
-            if !fragment.is_ignorant() {
-                if let Some(i) = last
-                    && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
-                {
-                    resolved.insert(i + 1, s);
-                }
-
-                last = Some(resolved.len());
-            }
-
-            resolved.push(fragment);
-        }
-
-        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
-            resolved.pop();
-        }
-
-        Self(resolved)
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, MathFragment> {
-        self.0.iter()
-    }
-
+impl MathFragmentsExt for Vec<MathFragment> {
     /// Split by linebreaks, and copy [`MathFragment`]s into rows.
-    pub fn rows(&self) -> Vec<Self> {
-        self.0
-            .split(|frag| matches!(frag, MathFragment::Linebreak))
-            .map(|slice| Self(slice.to_vec()))
+    fn rows(&self) -> Vec<Self> {
+        self.split(|frag| matches!(frag, MathFragment::Linebreak))
+            .map(|slice| slice.to_vec())
             .collect()
     }
 
-    pub fn row_count(&self) -> usize {
+    fn row_count(&self) -> usize {
         let mut count =
-            1 + self.0.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
+            1 + self.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
 
         // A linebreak at the very end does not introduce an extra row.
-        if let Some(f) = self.0.last()
+        if let Some(f) = self.last()
             && matches!(f, MathFragment::Linebreak)
         {
             count -= 1
@@ -133,7 +44,7 @@ impl MathRun {
         count
     }
 
-    pub fn ascent(&self) -> Abs {
+    fn ascent(&self) -> Abs {
         self.iter()
             .filter(|e| affects_row_height(e))
             .map(|e| e.ascent())
@@ -141,7 +52,7 @@ impl MathRun {
             .unwrap_or_default()
     }
 
-    pub fn descent(&self) -> Abs {
+    fn descent(&self) -> Abs {
         self.iter()
             .filter(|e| affects_row_height(e))
             .map(|e| e.descent())
@@ -149,7 +60,7 @@ impl MathRun {
             .unwrap_or_default()
     }
 
-    pub fn into_frame(self, styles: StyleChain) -> Frame {
+    fn into_frame(self, styles: StyleChain) -> Frame {
         if !self.is_multiline() {
             self.into_line_frame(&[], LeftRightAlternator::Right)
         } else {
@@ -157,9 +68,9 @@ impl MathRun {
         }
     }
 
-    pub fn into_fragment(self, styles: StyleChain) -> MathFragment {
-        if self.0.len() == 1 {
-            return self.0.into_iter().next().unwrap();
+    fn into_fragment(self, styles: StyleChain) -> MathFragment {
+        if self.len() == 1 {
+            return self.into_iter().next().unwrap();
         }
 
         // Fragments without a math_size are ignored: the notion of size do not
@@ -169,7 +80,7 @@ impl MathRun {
             .filter(|e| e.math_size().is_some())
             .all(|e| e.is_text_like());
 
-        FrameFragment::new(styles, self.into_frame(styles))
+        FrameFragment::new(&MathProperties::default(styles), self.into_frame(styles))
             .with_text_like(text_like)
             .into()
     }
@@ -177,7 +88,7 @@ impl MathRun {
     /// Returns a builder that lays out the [`MathFragment`]s into a possibly
     /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
     /// points computed from them as a whole.
-    pub fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
+    fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
         let alignments = alignments(&rows);
@@ -192,7 +103,7 @@ impl MathRun {
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {
-            if i == row_count - 1 && row.0.is_empty() {
+            if i == row_count - 1 && row.is_empty() {
                 continue;
             }
 
@@ -215,7 +126,7 @@ impl MathRun {
 
     /// Lay out [`MathFragment`]s into a one-row [`Frame`], using the
     /// caller-provided alignment points.
-    pub fn into_line_frame(
+    fn into_line_frame(
         self,
         points: &[Abs],
         mut alternator: LeftRightAlternator,
@@ -250,7 +161,7 @@ impl MathRun {
         };
         let mut x = next_x().unwrap_or_default();
 
-        for fragment in self.0.into_iter() {
+        for fragment in self.into_iter() {
             if matches!(fragment, MathFragment::Align) {
                 x = next_x().unwrap_or(x);
                 continue;
@@ -269,7 +180,7 @@ impl MathRun {
     /// Convert this run of math fragments into a vector of inline items for
     /// paragraph layout. Creates multiple fragments when relation or binary
     /// operators are present to allow for line-breaking opportunities later.
-    pub fn into_par_items(self) -> Vec<InlineItem> {
+    fn into_par_items(self) -> Vec<InlineItem> {
         let mut items = vec![];
 
         let mut x = Abs::zero();
@@ -286,9 +197,7 @@ impl MathRun {
 
         let mut space_is_visible = false;
 
-        let is_space = |f: &MathFragment| {
-            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_, _))
-        };
+        let is_space = |f: &MathFragment| matches!(f, MathFragment::Space(_));
         let is_line_break_opportunity = |class, next_fragment| match class {
             // Don't split when two relations are in a row or when preceding a
             // closing parenthesis.
@@ -299,7 +208,7 @@ impl MathRun {
             _ => false,
         };
 
-        let mut iter = self.0.into_iter().peekable();
+        let mut iter = self.into_iter().peekable();
         while let Some(fragment) = iter.next() {
             if space_is_visible && is_space(&fragment) {
                 items.push(InlineItem::Space(fragment.width(), true));
@@ -352,14 +261,8 @@ impl MathRun {
         items
     }
 
-    pub fn is_multiline(&self) -> bool {
+    fn is_multiline(&self) -> bool {
         self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
-    }
-}
-
-impl<T: Into<MathFragment>> From<T> for MathRun {
-    fn from(fragment: T) -> Self {
-        Self(vec![fragment.into()])
     }
 }
 
@@ -388,50 +291,4 @@ fn affects_row_height(fragment: &MathFragment) -> bool {
         fragment,
         MathFragment::Align | MathFragment::Linebreak | MathFragment::Tag(_)
     )
-}
-
-/// Create the spacing between two fragments in a given style.
-fn spacing(
-    l: &MathFragment,
-    space: Option<MathFragment>,
-    r: &MathFragment,
-) -> Option<MathFragment> {
-    use MathClass::*;
-
-    let resolve = |v: Em, size_ref: &MathFragment| -> Option<MathFragment> {
-        let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
-        Some(MathFragment::Spacing(width, false))
-    };
-    let script = |f: &MathFragment| f.math_size().is_some_and(|s| s <= MathSize::Script);
-
-    match (l.class(), r.class()) {
-        // No spacing before punctuation; thin spacing after punctuation, unless
-        // in script size.
-        (_, Punctuation) => None,
-        (Punctuation, _) if !script(l) => resolve(THIN, l),
-
-        // No spacing after opening delimiters and before closing delimiters.
-        (Opening, _) | (_, Closing) => None,
-
-        // Thick spacing around relations, unless followed by a another relation
-        // or in script size.
-        (Relation, Relation) => None,
-        (Relation, _) if !script(l) => resolve(THICK, l),
-        (_, Relation) if !script(r) => resolve(THICK, r),
-
-        // Medium spacing around binary operators, unless in script size.
-        (Binary, _) if !script(l) => resolve(MEDIUM, l),
-        (_, Binary) if !script(r) => resolve(MEDIUM, r),
-
-        // Thin spacing around large operators, unless to the left of
-        // an opening delimiter. TeXBook, p170
-        (Large, Opening | Fence) => None,
-        (Large, _) => resolve(THIN, l),
-        (_, Large) => resolve(THIN, r),
-
-        // Spacing around spaced frames.
-        _ if (l.is_spaced() || r.is_spaced()) => space,
-
-        _ => None,
-    }
 }
