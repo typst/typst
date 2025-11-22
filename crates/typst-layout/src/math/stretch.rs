@@ -1,34 +1,13 @@
-use typst_library::diag::{SourceResult, warning};
-use typst_library::foundations::{Packed, StyleChain};
+use typst_library::diag::warning;
+use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Axis, Rel};
-use typst_library::math::StretchElem;
 use typst_utils::Get;
 
-use super::{MathContext, MathFragment, stretch_axes};
-
-/// Lays out a [`StretchElem`].
-#[typst_macros::time(name = "math.stretch", span = elem.span())]
-pub fn layout_stretch(
-    elem: &Packed<StretchElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    stretch_fragment(
-        ctx,
-        &mut fragment,
-        None,
-        None,
-        elem.size.resolve(styles),
-        Abs::zero(),
-    );
-    ctx.push(fragment);
-    Ok(())
-}
+use super::{MathFragment, stretch_axes};
 
 /// Attempts to stretch the given fragment by/to the amount given in stretch.
 pub fn stretch_fragment(
-    ctx: &mut MathContext,
+    engine: &mut Engine,
     fragment: &mut MathFragment,
     axis: Option<Axis>,
     relative_to: Option<Abs>,
@@ -56,7 +35,7 @@ pub fn stretch_fragment(
                 // As far as we know, there aren't any glyphs that have both
                 // vertical and horizontal constructions. So for the time being, we
                 // will assume that a glyph cannot have both.
-                ctx.engine.sink.warn(warning!(
+                engine.sink.warn(warning!(
                    glyph.item.span,
                    "glyph has both vertical and horizontal constructions";
                    hint: "this is probably a font bug";
@@ -69,7 +48,12 @@ pub fn stretch_fragment(
 
     let relative_to_size = relative_to.unwrap_or_else(|| size.get(stretch_axis));
 
-    glyph.stretch(ctx, stretch.relative_to(relative_to_size), short_fall, stretch_axis);
+    glyph.stretch(
+        engine,
+        stretch.relative_to(relative_to_size),
+        short_fall,
+        stretch_axis,
+    );
 
     if stretch_axis == Axis::Y {
         glyph.center_on_axis();

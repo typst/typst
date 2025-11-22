@@ -105,6 +105,10 @@ impl Accent {
 
     /// Whether this accent is a bottom accent or not.
     pub fn is_bottom(&self) -> bool {
+        if matches!(self.0, '⏟' | '⎵' | '⏝' | '⏡') {
+            return true;
+        }
+
         static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
             LazyLock::new(|| {
                 icu_properties::maps::load_canonical_combining_class(
