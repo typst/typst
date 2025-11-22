@@ -193,3 +193,30 @@ pub const value: HtmlAttr = HtmlAttr::constant("value");
 pub const width: HtmlAttr = HtmlAttr::constant("width");
 pub const wrap: HtmlAttr = HtmlAttr::constant("wrap");
 pub const writingsuggestions: HtmlAttr = HtmlAttr::constant("writingsuggestions");
+
+/// MathML attributes.
+/// (Only a subset of the ones defined in MathML Core at the moment.)
+pub mod mathml {
+    use super::HtmlAttr;
+
+    pub const display: HtmlAttr = HtmlAttr::constant("display");
+    pub const linethickness: HtmlAttr = HtmlAttr::constant("linethickness");
+    pub const mathvariant: HtmlAttr = HtmlAttr::constant("mathvariant");
+    pub const form: HtmlAttr = HtmlAttr::constant("form");
+    pub const fence: HtmlAttr = HtmlAttr::constant("fence");
+    pub const separator: HtmlAttr = HtmlAttr::constant("separator");
+    pub const lspace: HtmlAttr = HtmlAttr::constant("lspace");
+    pub const rspace: HtmlAttr = HtmlAttr::constant("rspace");
+    pub const stretchy: HtmlAttr = HtmlAttr::constant("stretchy");
+    pub const symmetric: HtmlAttr = HtmlAttr::constant("symmetric");
+    pub const maxsize: HtmlAttr = HtmlAttr::constant("maxsize");
+    pub const minsize: HtmlAttr = HtmlAttr::constant("minsize");
+    pub const largeop: HtmlAttr = HtmlAttr::constant("largeop");
+    pub const movablelimits: HtmlAttr = HtmlAttr::constant("movablelimits");
+    pub const width: HtmlAttr = HtmlAttr::constant("width");
+    pub const height: HtmlAttr = HtmlAttr::constant("height");
+    pub const accent: HtmlAttr = HtmlAttr::constant("accent");
+    pub const accentunder: HtmlAttr = HtmlAttr::constant("accentunder");
+    pub const columnspan: HtmlAttr = HtmlAttr::constant("columnspan");
+    pub const rowspan: HtmlAttr = HtmlAttr::constant("rowspan");
+}
