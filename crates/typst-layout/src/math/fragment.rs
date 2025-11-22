@@ -5,12 +5,13 @@ use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use typst_library::World;
 use typst_library::diag::warning;
+use typst_library::engine::Engine;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
-use typst_library::math::{EquationElem, MathSize};
+use typst_library::math::{EquationElem, MathProperties, MathSize};
 use typst_library::text::{Font, TextElem, features, language, variant};
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
@@ -30,7 +31,6 @@ const MAX_REPEATS: usize = 1024;
 pub enum MathFragment {
     Glyph(GlyphFragment),
     Frame(FrameFragment),
-    Spacing(Abs, bool),
     Space(Abs),
     Linebreak,
     Align,
@@ -42,7 +42,6 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.size,
             Self::Frame(fragment) => fragment.frame.size(),
-            Self::Spacing(amount, _) => Size::with_x(*amount),
             Self::Space(amount) => Size::with_x(*amount),
             _ => Size::zero(),
         }
@@ -52,7 +51,6 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.size.x,
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount, _) => *amount,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -82,19 +80,10 @@ impl MathFragment {
         }
     }
 
-    pub fn is_ignorant(&self) -> bool {
-        match self {
-            Self::Frame(fragment) => fragment.ignorant,
-            Self::Tag(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn class(&self) -> MathClass {
         match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Frame(fragment) => fragment.class,
-            Self::Spacing(_, _) => MathClass::Space,
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
@@ -127,37 +116,6 @@ impl MathFragment {
             Self::Frame(fragment) => Some(fragment.font_size),
             _ => None,
         }
-    }
-
-    pub fn set_class(&mut self, class: MathClass) {
-        match self {
-            Self::Glyph(glyph) => glyph.class = class,
-            Self::Frame(fragment) => fragment.class = class,
-            _ => {}
-        }
-    }
-
-    pub fn set_limits(&mut self, limits: Limits) {
-        match self {
-            Self::Glyph(glyph) => glyph.limits = limits,
-            Self::Frame(fragment) => fragment.limits = limits,
-            _ => {}
-        }
-    }
-
-    pub fn is_spaced(&self) -> bool {
-        if self.class() == MathClass::Fence {
-            return true;
-        }
-
-        matches!(
-            self,
-            MathFragment::Frame(FrameFragment {
-                spaced: true,
-                class: MathClass::Normal | MathClass::Alphabetic,
-                ..
-            })
-        )
     }
 
     pub fn is_text_like(&self) -> bool {
@@ -197,14 +155,6 @@ impl MathFragment {
         }
     }
 
-    pub fn limits(&self) -> Limits {
-        match self {
-            MathFragment::Glyph(glyph) => glyph.limits,
-            MathFragment::Frame(fragment) => fragment.limits,
-            _ => Limits::Never,
-        }
-    }
-
     pub fn fill(&self) -> Option<Paint> {
         match self {
             Self::Glyph(glyph) => Some(glyph.item.fill.clone()),
@@ -214,23 +164,23 @@ impl MathFragment {
 
     pub fn stretch_vertical(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         height: Abs,
         short_fall: Abs,
     ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_vertical(ctx, height, short_fall)
+            glyph.stretch_vertical(engine, height, short_fall)
         }
     }
 
     pub fn stretch_horizontal(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         width: Abs,
         short_fall: Abs,
     ) {
         if let Self::Glyph(glyph) = self {
-            glyph.stretch_horizontal(ctx, width, short_fall)
+            glyph.stretch_horizontal(engine, width, short_fall)
         }
     }
 
@@ -296,7 +246,6 @@ pub struct GlyphFragment {
     pub accent_attach: (Abs, Abs),
     pub math_size: MathSize,
     pub class: MathClass,
-    pub limits: Limits,
     pub extended_shape: bool,
     pub mid_stretched: Option<bool>,
     // External frame stuff.
@@ -349,7 +298,6 @@ impl GlyphFragment {
         };
 
         let c = text.chars().next().unwrap();
-        let limits = Limits::for_char(c);
         let class = styles
             .get(EquationElem::class)
             .or_else(|| default_math_class(c))
@@ -360,7 +308,6 @@ impl GlyphFragment {
             // Math
             math_size: styles.get(EquationElem::size),
             class,
-            limits,
             mid_stretched: None,
             // Math in need of updating.
             extended_shape: false,
@@ -451,21 +398,21 @@ impl GlyphFragment {
     /// Try to stretch a glyph to a desired height.
     pub fn stretch_vertical(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         height: Abs,
         short_fall: Abs,
     ) {
-        self.stretch(ctx, height, short_fall, Axis::Y)
+        self.stretch(engine, height, short_fall, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
     pub fn stretch_horizontal(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         width: Abs,
         short_fall: Abs,
     ) {
-        self.stretch(ctx, width, short_fall, Axis::X)
+        self.stretch(engine, width, short_fall, Axis::X)
     }
 
     /// Try to stretch a glyph to a desired width or height.
@@ -473,7 +420,7 @@ impl GlyphFragment {
     /// The resulting frame may not have the exact desired width or height.
     pub fn stretch(
         &mut self,
-        ctx: &mut MathContext,
+        engine: &mut Engine,
         target: Abs,
         short_fall: Abs,
         axis: Axis,
@@ -526,7 +473,7 @@ impl GlyphFragment {
         let min_overlap = min_connector_overlap(&self.item.font)
             .unwrap_or_default()
             .at(self.item.size);
-        assemble(ctx, self, assembly, min_overlap, target, axis);
+        assemble(engine, self, assembly, min_overlap, target, axis);
     }
 
     /// Vertically adjust the fragment's frame so that it is centered
@@ -558,47 +505,29 @@ pub struct FrameFragment {
     pub font_size: Abs,
     pub class: MathClass,
     pub math_size: MathSize,
-    pub limits: Limits,
-    pub spaced: bool,
     pub base_ascent: Abs,
     pub base_descent: Abs,
     pub italics_correction: Abs,
     pub accent_attach: (Abs, Abs),
     pub text_like: bool,
-    pub ignorant: bool,
 }
 
 impl FrameFragment {
-    pub fn new(styles: StyleChain, frame: Frame) -> Self {
+    pub fn new(props: &MathProperties, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let base_descent = frame.descent();
         let accent_attach = frame.width() / 2.0;
         Self {
-            frame: frame.modified(&FrameModifiers::get_in(styles)),
-            font_size: styles.resolve(TextElem::size),
-            class: styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
-            math_size: styles.get(EquationElem::size),
-            limits: Limits::Never,
-            spaced: false,
+            frame: frame.modified(&FrameModifiers::get_in(props.styles)),
+            font_size: props.styles.resolve(TextElem::size),
+            class: props.class,
+            math_size: props.size,
             base_ascent,
             base_descent,
             italics_correction: Abs::zero(),
             accent_attach: (accent_attach, accent_attach),
             text_like: false,
-            ignorant: false,
         }
-    }
-
-    pub fn with_class(self, class: MathClass) -> Self {
-        Self { class, ..self }
-    }
-
-    pub fn with_limits(self, limits: Limits) -> Self {
-        Self { limits, ..self }
-    }
-
-    pub fn with_spaced(self, spaced: bool) -> Self {
-        Self { spaced, ..self }
     }
 
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
@@ -619,10 +548,6 @@ impl FrameFragment {
 
     pub fn with_text_like(self, text_like: bool) -> Self {
         Self { text_like, ..self }
-    }
-
-    pub fn with_ignorant(self, ignorant: bool) -> Self {
-        Self { ignorant, ..self }
     }
 }
 
@@ -728,7 +653,7 @@ fn glyph_construction(
 
 /// Assemble a glyph from parts.
 fn assemble(
-    ctx: &mut MathContext,
+    engine: &mut Engine,
     base: &mut GlyphFragment,
     assembly: GlyphAssembly,
     min_overlap: Abs,
@@ -759,7 +684,7 @@ fn assemble(
                 if max_overlap < min_overlap {
                     // This condition happening is indicative of a bug in the
                     // font.
-                    ctx.engine.sink.warn(warning!(
+                    engine.sink.warn(warning!(
                        base.item.span,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
@@ -877,63 +802,4 @@ fn parts(
         let count = if part.part_flags.extender() { repeat } else { 1 };
         std::iter::repeat_n(part, count)
     })
-}
-
-pub fn has_dtls_feat(font: &Font) -> bool {
-    font.ttf()
-        .tables()
-        .gsub
-        .and_then(|gsub| gsub.features.index(ttf_parser::Tag::from_bytes(b"dtls")))
-        .is_some()
-}
-
-/// Describes in which situation a frame should use limits for attachments.
-#[derive(Debug, Copy, Clone)]
-pub enum Limits {
-    /// Always scripts.
-    Never,
-    /// Display limits only in `display` math.
-    Display,
-    /// Always limits.
-    Always,
-}
-
-impl Limits {
-    /// The default limit configuration if the given character is the base.
-    pub fn for_char(c: char) -> Self {
-        match default_math_class(c) {
-            Some(MathClass::Large) => {
-                if is_integral_char(c) {
-                    Limits::Never
-                } else {
-                    Limits::Display
-                }
-            }
-            Some(MathClass::Relation) => Limits::Always,
-            _ => Limits::Never,
-        }
-    }
-
-    /// The default limit configuration for a math class.
-    pub fn for_class(class: MathClass) -> Self {
-        match class {
-            MathClass::Large => Self::Display,
-            MathClass::Relation => Self::Always,
-            _ => Self::Never,
-        }
-    }
-
-    /// Whether limits should be displayed in this context.
-    pub fn active(&self, styles: StyleChain) -> bool {
-        match self {
-            Self::Always => true,
-            Self::Display => styles.get(EquationElem::size) == MathSize::Display,
-            Self::Never => false,
-        }
-    }
-}
-
-/// Determines if the character is one of a variety of integral signs.
-fn is_integral_char(c: char) -> bool {
-    ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }

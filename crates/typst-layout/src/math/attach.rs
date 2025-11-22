@@ -6,17 +6,13 @@
 use typst_utils::OptionExt;
 
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
-use typst_library::math::{
-    AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
-};
+use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Size};
+use typst_library::math::{EquationElem, MathProperties, PrimesItem, ScriptsItem};
 use typst_library::text::Font;
 
-use super::{
-    FrameFragment, Limits, MathContext, MathFragment, stretch_fragment,
-    style_for_subscript, style_for_superscript,
-};
+use crate::math::stretch::stretch_fragment;
+
+use super::{FrameFragment, MathContext, MathFragment};
 
 macro_rules! measure {
     ($e: ident, $attr: ident) => {
@@ -24,55 +20,32 @@ macro_rules! measure {
     };
 }
 
-/// Lays out an [`AttachElem`].
-#[typst_macros::time(name = "math.attach", span = elem.span())]
-pub fn layout_attach(
-    elem: &Packed<AttachElem>,
+/// Lays out an [`ScriptsItem`].
+#[typst_macros::time(name = "math.attach", span = props.span)]
+pub fn layout_scripts(
+    item: &ScriptsItem,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<()> {
-    let merged = elem.merge_base();
-    let elem = merged.as_ref().unwrap_or(elem);
-    let stretch = stretch_size(styles, elem);
-
-    let mut base = ctx.layout_into_fragment(&elem.base, styles)?;
-    let sup_style = style_for_superscript(styles);
-    let sup_style_chain = styles.chain(&sup_style);
-    let tl = elem.tl.get_cloned(sup_style_chain);
-    let tr = elem.tr.get_cloned(sup_style_chain);
-    let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
-    let t = elem.t.get_cloned(sup_style_chain);
-
-    let sub_style = style_for_subscript(styles);
-    let sub_style_chain = styles.chain(&sub_style);
-    let bl = elem.bl.get_cloned(sub_style_chain);
-    let br = elem.br.get_cloned(sub_style_chain);
-    let b = elem.b.get_cloned(sub_style_chain);
-
-    let limits = base.limits().active(styles);
-    let (t, tr) = match (t, tr) {
-        (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
-        (Some(t), None) if !limits => (None, Some(t)),
-        (t, tr) => (t, tr),
-    };
-    let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
+    let mut base = ctx.layout_into_fragment(&item.base)?;
 
     macro_rules! layout {
-        ($content:ident, $style_chain:ident) => {
-            $content
-                .map(|elem| ctx.layout_into_fragment(&elem, $style_chain))
-                .transpose()
+        ($content:ident) => {
+            item.$content
+                .as_ref()
+                .map(|script| ctx.layout_into_fragment(&script))
+                .transpose()?
         };
     }
 
     // Layout the top and bottom attachments early so we can measure their
     // widths, in order to calculate what the stretch size is relative to.
-    let t = layout!(t, sup_style_chain)?;
-    let b = layout!(b, sub_style_chain)?;
-    if let Some(stretch) = stretch {
+    let t = layout!(top);
+    let b = layout!(bottom);
+    if let Some(stretch) = item.base_target {
         let relative_to_width = measure!(t, width).max(measure!(b, width));
         stretch_fragment(
-            ctx,
+            ctx.engine,
             &mut base,
             Some(Axis::X),
             Some(relative_to_width),
@@ -82,112 +55,48 @@ pub fn layout_attach(
     }
 
     let fragments = [
-        layout!(tl, sup_style_chain)?,
+        layout!(top_left),
         t,
-        layout!(tr, sup_style_chain)?,
-        layout!(bl, sub_style_chain)?,
+        layout!(top_right),
+        layout!(bottom_left),
         b,
-        layout!(br, sub_style_chain)?,
+        layout!(bottom_right),
     ];
 
-    layout_attachments(ctx, styles, base, fragments)
+    layout_attachments(ctx, props, base, fragments)
 }
 
-/// Lays out a [`PrimeElem`].
-#[typst_macros::time(name = "math.primes", span = elem.span())]
+/// Lays out a [`PrimesItem`].
+#[typst_macros::time(name = "math.primes", span = props.span)]
 pub fn layout_primes(
-    elem: &Packed<PrimesElem>,
+    item: &PrimesItem,
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<()> {
-    match elem.count {
-        count @ 1..=4 => {
-            let c = match count {
-                1 => '′',
-                2 => '″',
-                3 => '‴',
-                4 => '⁗',
-                _ => unreachable!(),
-            };
-            let f = ctx.layout_into_fragment(
-                &SymbolElem::packed(c).spanned(elem.span()),
-                styles,
-            )?;
-            ctx.push(f);
-        }
-        count => {
-            // Custom amount of primes
-            let prime = ctx
-                .layout_into_fragment(
-                    &SymbolElem::packed('′').spanned(elem.span()),
-                    styles,
-                )?
-                .into_frame();
-            let width = prime.width() * (count + 1) as f64 / 2.0;
-            let mut frame = Frame::soft(Size::new(width, prime.height()));
-            frame.set_baseline(prime.ascent());
+    let prime = ctx.layout_into_fragment(&item.prime)?.into_frame();
+    let width = prime.width() * (item.count + 1) as f64 / 2.0;
+    let mut frame = Frame::soft(Size::new(width, prime.height()));
+    frame.set_baseline(prime.ascent());
 
-            for i in 0..count {
-                frame.push_frame(
-                    Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
-                    prime.clone(),
-                )
-            }
-            ctx.push(FrameFragment::new(styles, frame).with_text_like(true));
-        }
+    for i in 0..item.count {
+        frame.push_frame(
+            Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
+            prime.clone(),
+        )
     }
+    ctx.push(FrameFragment::new(props, frame).with_text_like(true));
     Ok(())
-}
-
-/// Lays out a [`ScriptsElem`].
-#[typst_macros::time(name = "math.scripts", span = elem.span())]
-pub fn layout_scripts(
-    elem: &Packed<ScriptsElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    fragment.set_limits(Limits::Never);
-    ctx.push(fragment);
-    Ok(())
-}
-
-/// Lays out a [`LimitsElem`].
-#[typst_macros::time(name = "math.limits", span = elem.span())]
-pub fn layout_limits(
-    elem: &Packed<LimitsElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    let limits = if elem.inline.get(styles) { Limits::Always } else { Limits::Display };
-    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    fragment.set_limits(limits);
-    ctx.push(fragment);
-    Ok(())
-}
-
-/// Get the size to stretch the base to.
-fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs>> {
-    // Extract from an EquationElem.
-    let mut base = &elem.base;
-    while let Some(equation) = base.to_packed::<EquationElem>() {
-        base = &equation.body;
-    }
-
-    base.to_packed::<StretchElem>()
-        .map(|stretch| stretch.size.resolve(styles))
 }
 
 /// Lay out the attachments.
-fn layout_attachments(
+pub fn layout_attachments(
     ctx: &mut MathContext,
-    styles: StyleChain,
+    props: &MathProperties,
     base: MathFragment,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
-    let class = base.class();
-    let (font, size) = base.font(ctx, styles);
-    let cramped = styles.get(EquationElem::cramped);
+    let (font, size) = base.font(ctx, props.styles);
+    let cramped = props.styles.get(EquationElem::cramped);
 
     // Calculate the distance from the base's baseline to the superscripts' and
     // subscripts' baseline.
@@ -287,7 +196,7 @@ fn layout_attachments(
     layout!(b, b_x, b_y); // lower-limit
 
     // Done! Note that we retain the class of the base.
-    ctx.push(FrameFragment::new(styles, frame).with_class(class));
+    ctx.push(FrameFragment::new(props, frame));
 
     Ok(())
 }
