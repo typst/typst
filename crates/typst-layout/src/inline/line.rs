@@ -6,7 +6,7 @@ use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{variant, Lang, TextElem};
+use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;

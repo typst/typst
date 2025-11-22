@@ -1,9 +1,9 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
-use crate::{analyze_import, IdeWorld};
+use crate::{IdeWorld, analyze_import};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(

@@ -8,11 +8,11 @@ use std::borrow::Cow;
 use std::cell::LazyCell;
 
 use arrayvec::ArrayVec;
-use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use bumpalo::Bump;
+use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{bail, At, SourceResult};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,

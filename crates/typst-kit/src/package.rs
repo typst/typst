@@ -113,12 +113,13 @@ impl PackageStorage {
 
         // Read from vendor dir if it exists.
         if let Some(vendor_dir) = &self.package_vendor_path
-            && let Ok(true) = vendor_dir.try_exists() {
-                let dir = vendor_dir.join(&subdir);
-                if dir.exists() {
-                    return Ok(dir);
-                }
+            && let Ok(true) = vendor_dir.try_exists()
+        {
+            let dir = vendor_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
             }
+        }
 
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);

@@ -14,7 +14,8 @@ mod text;
 mod underover;
 
 use comemo::Tracked;
-use typst_library::diag::{warning, At, SourceResult};
+use typst_library::World;
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, Style, StyleChain, SymbolElem,
@@ -29,16 +30,15 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    variant, Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
+    Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, variant,
 };
-use typst_library::World;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
 use unicode_math_class::MathClass;
 
 use self::fragment::{
-    has_dtls_feat, stretch_axes, FrameFragment, GlyphFragment, Limits, MathFragment,
+    FrameFragment, GlyphFragment, Limits, MathFragment, has_dtls_feat, stretch_axes,
 };
 use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;

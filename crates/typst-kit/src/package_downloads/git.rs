@@ -1,5 +1,5 @@
 use crate::package_downloads::{DownloadState, PackageDownloader, Progress};
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use gix::remote::fetch::Shallow;
 use std::fmt::Debug;
 use std::num::NonZero;

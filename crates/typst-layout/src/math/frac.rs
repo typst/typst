@@ -11,8 +11,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    style_for_denominator, style_for_numerator, FrameFragment, MathContext,
-    DELIM_SHORT_FALL,
+    DELIM_SHORT_FALL, FrameFragment, MathContext, style_for_denominator,
+    style_for_numerator,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);

@@ -5,7 +5,7 @@ use std::{
 
 use ecow::eco_format;
 use typst::{
-    diag::{bail, HintedStrResult, Warned},
+    diag::{HintedStrResult, Warned, bail},
     layout::PagedDocument,
 };
 use typst_kit::package::{DEFAULT_PACKAGES_SUBDIR, DEFAULT_VENDOR_SUBDIR};
@@ -95,7 +95,10 @@ fn copy_deps(
                     }
                 }
                 Err(err) => {
-                    bail!("failed to check existence of a package inside the vendor directory: {:?}", err);
+                    bail!(
+                        "failed to check existence of a package inside the vendor directory: {:?}",
+                        err
+                    );
                 }
                 _ => {}
             }

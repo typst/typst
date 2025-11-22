@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -928,11 +928,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 

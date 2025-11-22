@@ -20,7 +20,7 @@
 //!
 //! [git] contains functionality for handling package downloads through git repositories.
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};

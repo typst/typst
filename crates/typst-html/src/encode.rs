@@ -1,13 +1,13 @@
 use std::fmt::Write;
 
-use ecow::{eco_format, EcoString};
-use typst_library::diag::{bail, At, SourceResult, StrResult};
+use ecow::{EcoString, eco_format};
+use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::foundations::Repr;
 use typst_library::introspection::Introspector;
 use typst_syntax::Span;
 
 use crate::{
-    attr, charsets, tag, HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, tag,
 };
 
 /// Encodes an HTML document into a string.
@@ -282,11 +282,7 @@ impl RawMode {
             {
                 // Template literals can be multi-line, so indent may change
                 // the semantics of the JavaScript.
-                if text.contains('`') {
-                    Self::Wrap
-                } else {
-                    Self::Indent
-                }
+                if text.contains('`') { Self::Wrap } else { Self::Indent }
             }
             tag::style => Self::Indent,
             _ => Self::Keep,

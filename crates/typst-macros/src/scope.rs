@@ -2,9 +2,9 @@ use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::punctuated::Punctuated;
-use syn::{parse_quote, MetaNameValue, Result, Token};
+use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{foundations, BareType};
+use crate::util::{BareType, foundations};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {

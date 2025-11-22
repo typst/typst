@@ -3,9 +3,10 @@ use std::fmt::{self, Debug, Formatter};
 use az::SaturatingAs;
 use comemo::Tracked;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
-use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
-use typst_library::diag::{bail, warning, At, HintedStrResult, SourceResult};
+use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use typst_library::World;
+use typst_library::diag::{At, HintedStrResult, SourceResult, bail, warning};
 use typst_library::foundations::{Repr, StyleChain};
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -13,16 +14,15 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{
-    features, language, variant, Font, FontFamily, FontVariant, Glyph, TextElem, TextItem,
+    Font, FontFamily, FontVariant, Glyph, TextElem, TextItem, features, language, variant,
 };
 use typst_library::visualize::Paint;
-use typst_library::World;
 use typst_syntax::Span;
-use typst_utils::{default_math_class, Get};
+use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{families, MathContext};
+use super::{MathContext, families};
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
 

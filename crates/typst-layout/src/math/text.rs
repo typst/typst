@@ -1,4 +1,4 @@
-use codex::styling::{to_style, MathStyle};
+use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
@@ -7,13 +7,13 @@ use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
-use typst_syntax::{is_newline, Span};
+use typst_syntax::{Span, is_newline};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    has_dtls_feat, style_dtls, FrameFragment, GlyphFragment, MathContext, MathFragment,
-    MathRun,
+    FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun, has_dtls_feat,
+    style_dtls,
 };
 
 /// Lays out a [`TextElem`].

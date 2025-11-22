@@ -7,6 +7,7 @@ mod run;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
+use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
@@ -16,11 +17,10 @@ use typst_library::introspection::{
 use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
-use typst_library::World;
 
-use self::collect::{collect, Item};
+use self::collect::{Item, collect};
 use self::finalize::finalize;
-use self::run::{layout_blank_page, layout_page_run, LayoutedPage};
+use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
 
 /// Layout content into a document.
 ///

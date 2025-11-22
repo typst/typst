@@ -14,8 +14,8 @@ use typst_library::math::{
 use typst_library::text::Font;
 
 use super::{
-    stretch_fragment, style_for_subscript, style_for_superscript, FrameFragment, Limits,
-    MathContext, MathFragment,
+    FrameFragment, Limits, MathContext, MathFragment, stretch_fragment,
+    style_for_subscript, style_for_superscript,
 };
 
 macro_rules! measure {

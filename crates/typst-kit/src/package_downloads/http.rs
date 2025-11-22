@@ -14,12 +14,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::package_downloads::{
-    DownloadState, PackageDownloader, Progress, DEFAULT_NAMESPACE,
+    DEFAULT_NAMESPACE, DownloadState, PackageDownloader, Progress,
 };
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::OnceCell;
-use typst_library::diag::{bail, PackageError, PackageResult};
+use typst_library::diag::{PackageError, PackageResult, bail};
 use typst_syntax::package::{PackageInfo, PackageSpec, VersionlessPackageSpec};
 use ureq::Response;
 
