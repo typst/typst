@@ -207,6 +207,11 @@ impl Display {
             tag::video => Self::Inline,
             tag::wbr => Self::Inline,
 
+            // MathML Core elements.
+            tag::mathml::mtable => Self::InlineTable,
+            tag::mathml::mtr => Self::TableRow,
+            tag::mathml::mtd => Self::TableCell,
+
             // We don't make any assumptions about unknown elements.
             _ => return None,
         })
