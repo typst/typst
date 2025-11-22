@@ -1,0 +1,14 @@
+[jobs.testit]
+command = [
+    "cargo",
+    "testit",
+    "--exact",
+
+    "html-elem-custom",
+    "deco-tags-underline",
+    "title",
+    "link-tags-contact-prefix",
+    "list-tags-wide-with-nested-list",
+    "list-tags-mixed-with-enum",
+    "raw-highlight-html-jinja2",
+]
