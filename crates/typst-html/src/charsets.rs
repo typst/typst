@@ -2,7 +2,7 @@
 
 /// Check whether a character is in a tag name.
 pub const fn is_valid_in_tag_name(c: char) -> bool {
-    c.is_ascii_alphanumeric()
+    c.is_ascii_alphanumeric() || c == '-'
 }
 
 /// Check whether a character is valid in an attribute name.
