@@ -26,6 +26,7 @@ ecow = { workspace = true }
 palette = { workspace = true }
 rustc-hash = { workspace = true }
 time = { workspace = true }
+unicode-math-class = { workspace = true }
 
 [lints]
 workspace = true
