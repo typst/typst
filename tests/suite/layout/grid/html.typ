@@ -10,7 +10,7 @@
     [the],
     [second],
     [row],
-    table.hline(stroke: red),
+    table.hline(stroke: red)
   ),
 
   table.cell(x: 1, rowspan: 2)[Baz],
@@ -24,7 +24,11 @@
   table.cell(colspan: 2)[3],
   [4],
 
-  table.footer([The], [last], [row]),
+  table.footer(
+    [The],
+    [last],
+    [row],
+  ),
 )
 
 --- col-gutter-table html ---
@@ -33,7 +37,7 @@
   column-gutter: 3pt,
   [a], [b], [c],
   [d], [e], [f],
-  [g], [h], [i],
+  [g], [h], [i]
 )
 
 --- row-gutter-table html ---
@@ -42,7 +46,7 @@
   row-gutter: 3pt,
   [a], [b], [c],
   [d], [e], [f],
-  [g], [h], [i],
+  [g], [h], [i]
 )
 
 --- col-row-gutter-table html ---
@@ -51,15 +55,19 @@
   gutter: 3pt,
   [a], [b], [c],
   [d], [e], [f],
-  [g], [h], [i],
+  [g], [h], [i]
 )
 
 --- multi-header-table html ---
 #table(
   columns: 2,
 
-  table.header([First], [Header]),
-  table.header([Second], [Header]),
+  table.header(
+    [First], [Header]
+  ),
+  table.header(
+    [Second], [Header]
+  ),
   table.header(
     [Level 2], [Header],
     level: 2,
@@ -82,8 +90,12 @@
 #table(
   columns: 2,
 
-  table.header([First], [Header]),
-  table.header([Second], [Header]),
+  table.header(
+    [First], [Header]
+  ),
+  table.header(
+    [Second], [Header]
+  ),
   table.header(
     [Level 2], [Header],
     level: 2,
@@ -109,7 +121,8 @@
   [Body], [Cells],
 
   table.header(
-    [One Last Header], [For Good Measure],
+    [One Last Header],
+    [For Good Measure],
     repeat: false,
     level: 4,
   ),

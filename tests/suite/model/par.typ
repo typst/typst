@@ -28,7 +28,9 @@ I'm a paragraph.
   columns: 3,
 
   // No paragraphs.
-  [A], block[B], block[C *D*],
+  [A],
+  block[B],
+  block[C *D*],
 
   // Paragraphs.
   par[E],
@@ -42,10 +44,14 @@ I'm a paragraph.
   ],
 
   // Paragraphs.
-  parbreak() + [H], [I] + parbreak(), parbreak() + [J] + parbreak(),
+  parbreak() + [H],
+  [I] + parbreak(),
+  parbreak() +  [J] + parbreak(),
 
   // Paragraphs.
-  [K #v(10pt)], [#v(10pt) L], [#place[] M],
+  [K #v(10pt)],
+  [#v(10pt) L],
+  [#place[] M],
 
   // Paragraphs.
   [

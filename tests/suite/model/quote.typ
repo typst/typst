@@ -105,7 +105,7 @@ When you said that #quote[he surely meant that #quote[she intended to say #quote
 --- quote-attribution-link html ---
 #quote(
   block: true,
-  attribution: link("https://typst.app/home")[typst.com],
+  attribution: link("https://typst.app/home")[typst.com]
 )[
   Compose papers faster
 ]

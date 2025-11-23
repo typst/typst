@@ -150,7 +150,7 @@
     text(luma(100), box(width: 1fr, repeat[--·--]))
     [ ]
     it.page()
-  }),
+  })
 )
 
 #counter(page).update(3)

@@ -37,7 +37,7 @@
   path(
     stroke: 5pt,
     closed: true,
-    (0pt, 30pt),
+    (0pt,  30pt),
     (30pt, 30pt),
     (15pt, 0pt),
   ),

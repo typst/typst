@@ -23,7 +23,7 @@
 )
 #let one = symbol(
   "1",
-  ("emoji", "1️"),
+  ("emoji", "1️")
 )
 
 #envelope
@@ -42,7 +42,7 @@
 --- symbol-constructor-invalid-modifier ---
 // Error: 2:3-2:24 invalid symbol modifier: " id!"
 #symbol(
-  ("invalid. id!", "x"),
+  ("invalid. id!", "x")
 )
 
 --- symbol-constructor-duplicate-modifier ---
@@ -95,7 +95,7 @@
 // Hint: 3:3-3:16 variant value must be exactly one grapheme cluster
 #symbol(
   "",
-  ("empty", ""),
+  ("empty", "")
 )
 
 --- symbol-constructor-multi-cluster-variant-value ---
@@ -105,7 +105,7 @@
 // Hint: 3:3-3:14 variant value must be exactly one grapheme cluster
 #symbol(
   "aa",
-  ("b", "bb"),
+  ("b", "bb")
 )
 
 --- symbol-unknown-modifier ---

@@ -18,7 +18,7 @@
 #set page(
   width: 100pt,
   height: 30pt,
-  fill: gradient.linear(red, purple, space: oklab),
+  fill: gradient.linear(red, purple, space: oklab)
 )
 
 --- gradient-linear-oklch ---
@@ -26,7 +26,7 @@
 #set page(
   width: 100pt,
   height: 30pt,
-  fill: gradient.linear(red, purple, space: oklch),
+  fill: gradient.linear(red, purple, space: oklch)
 )
 
 --- gradient-linear-hsv ---
@@ -34,7 +34,7 @@
 #set page(
   width: 100pt,
   height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsv),
+  fill: gradient.linear(red, purple, space: color.hsv)
 )
 
 --- gradient-linear-hsl ---
@@ -42,7 +42,7 @@
 #set page(
   width: 100pt,
   height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsl),
+  fill: gradient.linear(red, purple, space: color.hsl)
 )
 
 --- gradient-linear-relative-parent ---
@@ -103,7 +103,7 @@
 #rect(
   height: 40pt,
   width: 100%,
-  fill: gradient.linear(..color.map.inferno).repeat(2, mirror: true),
+  fill: gradient.linear(..color.map.inferno).repeat(2, mirror: true)
 )
 
 --- gradient-linear-repeat-and-mirror-2 ---
@@ -117,21 +117,21 @@
 #rect(
   height: 40pt,
   width: 100%,
-  fill: gradient.linear(..color.map.rainbow).repeat(5, mirror: true),
+  fill: gradient.linear(..color.map.rainbow).repeat(5, mirror: true)
 )
 
 --- gradient-linear-sharp-and-repeat ---
 #rect(
   height: 40pt,
   width: 100%,
-  fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: false),
+  fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: false)
 )
 
 --- gradient-linear-sharp-repeat-and-mirror ---
 #rect(
   height: 40pt,
   width: 100%,
-  fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: true),
+  fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: true)
 )
 
 --- gradient-linear-sharp ---
@@ -171,8 +171,8 @@
   square(
     size: 50pt,
     fill: gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%)),
-    stroke: 10pt + gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%)),
-  ),
+    stroke: 10pt + gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%))
+  )
 )
 
 --- gradient-linear-stroke-relative-parent ---
@@ -187,8 +187,8 @@
     circle(
       radius: 18pt,
       stroke: 5pt + gradient.linear(red, blue, relative: "parent").sharp(4),
-    ),
-  ),
+    )
+  )
 )
 
 --- gradient-linear-line ---
@@ -215,7 +215,6 @@
     size: 50pt,
     fill: gradient.radial(..color.map.rainbow, space: color.hsl, center: (0%, 100%)),
   ),
-
   square(
     size: 50pt,
     fill: gradient.radial(..color.map.rainbow, space: color.hsl, center: (100%, 0%)),
@@ -315,7 +314,7 @@
 #set page(
   width: 100pt,
   height: 100pt,
-  fill: gradient.conic(red, purple, space: oklab),
+  fill: gradient.conic(red, purple, space: oklab)
 )
 
 --- gradient-conic-oklch ---
@@ -323,7 +322,7 @@
 #set page(
   width: 100pt,
   height: 100pt,
-  fill: gradient.conic(red, purple, space: oklch),
+  fill: gradient.conic(red, purple, space: oklch)
 )
 
 --- gradient-conic-hsv ---
@@ -331,7 +330,7 @@
 #set page(
   width: 100pt,
   height: 100pt,
-  fill: gradient.conic(red, purple, space: color.hsv),
+  fill: gradient.conic(red, purple, space: color.hsv)
 )
 
 --- gradient-conic-hsl ---
@@ -339,7 +338,7 @@
 #set page(
   width: 100pt,
   height: 100pt,
-  fill: gradient.conic(red, purple, space: color.hsl),
+  fill: gradient.conic(red, purple, space: color.hsl)
 )
 
 --- gradient-conic-relative-parent ---
@@ -378,8 +377,8 @@
   square(
     size: 50pt,
     fill: black,
-    stroke: 10pt + gradient.conic(red, blue),
-  ),
+    stroke: 10pt + gradient.conic(red, blue)
+  )
 )
 
 --- gradient-conic-text ---
@@ -474,7 +473,7 @@ Hello #strike[World]! \
     height: 20pt,
     fill: gradient.linear(..preset),
     align(center + horizon, smallcaps(name)),
-  )),
+  ))
 )
 
 // Test that gradients are applied correctly on equations.
@@ -505,13 +504,11 @@ $ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 
-$
-  A = mat(
-    1, 2, 3;
-    4, 5, 6;
-    7, 8, 9
-  )
-$
+$ A = mat(
+  1, 2, 3;
+  4, 5, 6;
+  7, 8, 9
+) $
 
 --- gradient-math-underover ---
 // Test on underover
@@ -526,13 +523,11 @@ $ overline("hello, world!") $
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow, dir: ttb))
 #show math.equation: box
 
-$
-  A = mat(
-    1, 2, 3;
-    4, 5, 6;
-    7, 8, 9
-  )
-$
+$ A = mat(
+  1, 2, 3;
+  4, 5, 6;
+  7, 8, 9
+) $
 
 $ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 
@@ -544,38 +539,32 @@ $ x_"1,2" = frac(-b plus.minus sqrt(b^2 - 4 a c), 2 a) $
 $ hat(x) = bar x bar = vec(x, y, z) = tilde(x) = dot(x) $
 $ x prime = vec(1, 2, delim: "[") $
 $ sum_(i in NN) 1 + i $
-$
-  attach(
-    Pi, t: alpha, b: beta,
-    tl: 1, tr: 2+3, bl: 4+5, br: 6,
-  )
-$
+$ attach(
+  Pi, t: alpha, b: beta,
+  tl: 1, tr: 2+3, bl: 4+5, br: 6,
+) $
 
 --- gradient-math-radial ---
 // Test radial gradient
 #show math.equation: set text(fill: gradient.radial(..color.map.rainbow, center: (30%, 30%)))
 #show math.equation: box
 
-$
-  A = mat(
-    1, 2, 3;
-    4, 5, 6;
-    7, 8, 9
-  )
-$
+$ A = mat(
+  1, 2, 3;
+  4, 5, 6;
+  7, 8, 9
+) $
 
 --- gradient-math-conic ---
 // Test conic gradient
 #show math.equation: set text(fill: gradient.conic(red, blue, angle: 45deg))
 #show math.equation: box
 
-$
-  A = mat(
-    1, 2, 3;
-    4, 5, 6;
-    7, 8, 9
-  )
-$
+$ A = mat(
+  1, 2, 3;
+  4, 5, 6;
+  7, 8, 9
+) $
 
 
 --- gradient-kind ---
@@ -617,11 +606,11 @@ $
 --- gradient-repeat ---
 #test(
   gradient.linear(red, green, blue).repeat(2).stops(),
-  ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%)),
+  ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
 )
 #test(
   gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
-  ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%)),
+  ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
 
 --- issue-2902-gradient-oklch-panic ---
@@ -653,13 +642,13 @@ $
 #rect(
   width: 100%,
   height: 10pt,
-  fill: gradient.linear(violet, blue),
+  fill: gradient.linear(violet, blue)
 )
 
 #rect(
   width: 100%,
   height: 10pt,
-  fill: gradient.linear(rgb(violet), rgb(blue)),
+  fill: gradient.linear(rgb(violet), rgb(blue))
 )
 
 // In PDF format, this gradient can look different from the others.
@@ -667,7 +656,7 @@ $
 #rect(
   width: 100%,
   height: 10pt,
-  fill: gradient.linear(violet, blue, space: cmyk),
+  fill: gradient.linear(violet, blue, space: cmyk)
 )
 
 --- issue-5819-gradient-repeat ---
@@ -686,14 +675,14 @@ $
     (red, 0%),
     (green, 0%),
     (blue, 100%),
-  ),
+  )
 )
 #rect(
   fill: gradient.linear(
     (red, 0%),
     (green, 100%),
     (blue, 100%),
-  ),
+  )
 )
 #rect(
   fill: gradient.linear(
@@ -701,7 +690,7 @@ $
     (red, 50%),
     (green, 50%),
     (blue, 100%),
-  ),
+  )
 )
 
 --- issue-6680-gradient-linear-with-aspect-correction ---

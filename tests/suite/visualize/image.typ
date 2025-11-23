@@ -17,7 +17,7 @@
 #image("/assets/images/f2t.jpg", width: 100pt, alt: "width: 100pt")
 #image("/assets/images/f2t.jpg", width: 30% + 50pt, alt: "width: calc(30% + 50pt)")
 #image("/assets/images/f2t.jpg", height: 75%, alt: "height: 75%")
-#image("/assets/images/f2t.jpg", height: 80pt, alt: "height: 80pt")
+#image("/assets/images/f2t.jpg", height: 80pt, alt: "height: 80pt")  
 #image("/assets/images/f2t.jpg", height: 20% + 40pt, alt: "height: calc(20% + 40pt)")
 
 --- image-sizing ---
@@ -73,7 +73,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 #figure(
   image("/assets/images/chinese.svg"),
-  caption: [Bilingual text],
+  caption: [Bilingual text]
 )
 
 --- image-svg-auto-detection ---
@@ -84,7 +84,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
     <rect fill="red" stroke="black" x="25" y="25" width="150" height="100"/>
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-jpg1 ---
@@ -95,7 +95,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
     <image href="../../../assets/images/f2t.jpg" />
     <circle r="32" cx="24" cy="40" fill="none" stroke="red" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-jpg2 ---
@@ -106,7 +106,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
     <image href="file://../../../assets/images/f2t.jpg" />
     <circle r="32" cx="24" cy="40" fill="none" stroke="blue" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-many-formats ---
@@ -121,7 +121,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="do-not-add-image-with-this-name.png" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-url ---
@@ -131,7 +131,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="https://somedomain.com/image.png" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-pdf ---
@@ -141,7 +141,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="../../../assets/images/diagrams.pdf" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-csv ---
@@ -151,7 +151,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="../../../assets/data/bad.csv" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-absolute1 ---
@@ -161,7 +161,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="/home/user/foo.svg" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-svg-linked-absolute2 ---
@@ -171,39 +171,15 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="file:///home/user/foo.svg" />
   </svg>
-  ```.text,
+  ```.text
 ))
 
 --- image-pixmap-rgb8 ---
 #image(
   bytes((
-    0xFF,
-    0x00,
-    0x00,
-    0x00,
-    0xFF,
-    0x00,
-    0x00,
-    0x00,
-    0xFF,
-    0x80,
-    0x00,
-    0x00,
-    0x00,
-    0x80,
-    0x00,
-    0x00,
-    0x00,
-    0x80,
-    0x80,
-    0x80,
-    0x00,
-    0x00,
-    0x80,
-    0x80,
-    0x80,
-    0x00,
-    0x80,
+    0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+    0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80,
+    0x80, 0x80, 0x00, 0x00, 0x80, 0x80, 0x80, 0x00, 0x80,
   )),
   format: (
     encoding: "rgb8",
@@ -216,42 +192,9 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pixmap-rgba8 ---
 #image(
   bytes((
-    0xFF,
-    0x00,
-    0x00,
-    0xFF,
-    0x00,
-    0xFF,
-    0x00,
-    0xFF,
-    0x00,
-    0x00,
-    0xFF,
-    0xFF,
-    0xFF,
-    0x00,
-    0x00,
-    0x80,
-    0x00,
-    0xFF,
-    0x00,
-    0x80,
-    0x00,
-    0x00,
-    0xFF,
-    0x80,
-    0xFF,
-    0x00,
-    0x00,
-    0x10,
-    0x00,
-    0xFF,
-    0x00,
-    0x10,
-    0x00,
-    0x00,
-    0xFF,
-    0x10,
+    0xFF, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
+    0xFF, 0x00, 0x00, 0x80, 0x00, 0xFF, 0x00, 0x80, 0x00, 0x00, 0xFF, 0x80,
+    0xFF, 0x00, 0x00, 0x10, 0x00, 0xFF, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x10,
   )),
   format: (
     encoding: "rgba8",
@@ -286,33 +229,9 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-scaling-methods render html ---
 #let img(scaling) = image(
   bytes((
-    0xFF,
-    0x00,
-    0x00,
-    0x00,
-    0xFF,
-    0x00,
-    0x00,
-    0x00,
-    0xFF,
-    0x80,
-    0x00,
-    0x00,
-    0x00,
-    0x80,
-    0x00,
-    0x00,
-    0x00,
-    0x80,
-    0x80,
-    0x80,
-    0x00,
-    0x00,
-    0x80,
-    0x80,
-    0x80,
-    0x00,
-    0x80,
+    0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+    0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80,
+    0x80, 0x80, 0x00, 0x00, 0x80, 0x80, 0x80, 0x00, 0x80,
   )),
   format: (
     encoding: "rgb8",
@@ -365,19 +284,13 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Test parsing from svg data
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
 // Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(
-  `<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text,
-  format: "svg",
-)
+#image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-bad-svg ---
 // Error: 15-152 failed to parse SVG (missing root node at 1:1)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
 // Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(
-  `<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text,
-  format: "svg",
-)
+#image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-detect-format ---
 // Test format auto detect
@@ -476,8 +389,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #table(
   columns: 1 + rotations.len(),
   table.header(
-    [],
-    ..rotations.map(v => raw(str(v), lang: "typc")),
+    [], ..rotations.map(v => raw(str(v), lang: "typc")),
   ),
   `PNG`, ..rotations.map(v => with-rotation("/assets/images/f2t.png", 0x85, v)),
   // JPEG has special handing in PDF export (no recoding, so instead we use a

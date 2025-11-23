@@ -1,10 +1,7 @@
 // Test citations and bibliographies.
 
 --- bibliography-basic render html pdftags ---
-#show: it => context {
-  set page(width: 200pt) if target() == "paged"
-  it
-}
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details
 See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distress[p.~5].
@@ -34,10 +31,7 @@ This is close to piratery! @arrgh
 And quark! @quark
 
 --- bibliography-multiple-files render html ---
-#show: it => context {
-  set page(width: 200pt) if target() == "paged"
-  it
-}
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 #set heading(numbering: "1.")
 #show bibliography: set heading(numbering: "1.")
