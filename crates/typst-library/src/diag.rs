@@ -1,5 +1,6 @@
 //! Diagnostics.
 
+use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -889,4 +890,47 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
     };
 
     LoadError { pos: pos.into(), message }
+}
+
+/// Assert a condition, on failure generate an internal compiler error with the
+/// provided message.
+#[track_caller]
+pub fn assert_internal(cond: bool, msg: &str) -> HintedStrResult<()> {
+    if !cond { Err(internal_error(msg)) } else { Ok(()) }
+}
+
+pub trait ExpectInternal<T> {
+    /// Analog to [`Option::expect`] but instead of panicking generate an
+    /// internal compiler error with the provided message.
+    fn expect_internal(self, msg: &str) -> HintedStrResult<T>;
+}
+
+impl<T> ExpectInternal<T> for Option<T> {
+    #[track_caller]
+    fn expect_internal(self, msg: &str) -> HintedStrResult<T> {
+        match self {
+            Some(val) => Ok(val),
+            None => Err(internal_error(msg)),
+        }
+    }
+}
+
+#[track_caller]
+fn internal_error(msg: &str) -> HintedString {
+    let loc = std::panic::Location::caller();
+    let mut error = error!(
+        "internal error: {msg} (occurred at {loc})";
+        hint: "please report this as a bug"
+    );
+
+    if cfg!(debug_assertions) {
+        let backtrace = Backtrace::capture();
+        if backtrace.status() == BacktraceStatus::Captured {
+            error.hint(eco_format!("compiler backtrace:\n{backtrace}"));
+        } else {
+            error.hint("set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace");
+        }
+    }
+
+    error
 }
