@@ -210,49 +210,42 @@ impl BibliographyElem {
         // Find the bibliography for the remaining citations. Priority order:
         // 1. First following auto bibliography containing the label
         // 2. First preceding auto bibliography containing the label
+        let bib_indexes: Vec<usize> = citations_and_bib
+             .iter()
+             .enumerate()
+             .filter(|(_,c)| { c.elem() == Self::ELEM })
+             .map(|(i,_)| { i })
+             .collect();
+
+        fn is_valid_bib(bib_index: usize, i: usize, citation_key: Label, citations_and_bib: &EcoVec<Content>, forward: bool) -> Option<&Packed<BibliographyElem>> {
+            let bibliography = citations_and_bib[bib_index].to_packed::<BibliographyElem>().unwrap();
+            if (bib_index > i) == forward
+                && bibliography.target.get_ref(StyleChain::default()).is_auto()
+                && bibliography.sources.derived.has(citation_key) {
+                Some(bibliography)
+            }
+            else {
+                None
+            }
+        }
+
         for (i, citation) in citations_and_bib.iter().enumerate() {
             if let Some(citation_elem) = citation.to_packed::<CiteElem>() && !citation_map.contains_key(&citation.location().unwrap()) {
                 let citation_key = citation_elem.key;
-                if let Some(next_bib) = citations_and_bib[i + 1..]
+                if let Some(next_bib) = bib_indexes
                     .iter()
-                    .filter_map(|content| {
-                        if content.elem() == Self::ELEM {
-                            Some(content.to_packed::<Self>().unwrap().clone())
-                        }
-                        else {
-                            None
-                        }
-                    })
-                    .filter(|bibliography| {
-                        bibliography.target.get_ref(StyleChain::default()).is_auto()
-                            && bibliography.sources.derived.has(citation_key)
-                    })
+                    .filter_map(|&bib_index| is_valid_bib(bib_index, i, citation_key, &citations_and_bib, true))
+                    .chain(
+                        bib_indexes
+                        .iter()
+                        .rev()
+                        .filter_map(|&bib_index| is_valid_bib(bib_index, i, citation_key, &citations_and_bib, false))
+                    )
                     .next()
                 {
                     citation_map
                         .entry(citation.location().unwrap())
                         .or_insert(next_bib.location().unwrap());
-                }
-                else if let Some(prev_bib) = citations_and_bib[..i]
-                    .iter()
-                    .rev()
-                    .filter_map(|content| {
-                        if content.elem() == Self::ELEM {
-                            Some(content.to_packed::<Self>().unwrap().clone())
-                        }
-                        else {
-                            None
-                        }
-                    })
-                    .filter(|bibliography| {
-                        bibliography.target.get_ref(StyleChain::default()).is_auto()
-                            && bibliography.sources.derived.has(citation_key)
-                    })
-                    .next()
-                {
-                    citation_map
-                        .entry(citation.location().unwrap())
-                        .or_insert(prev_bib.location().unwrap());
                 }
             }
         }
