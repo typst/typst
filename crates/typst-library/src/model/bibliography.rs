@@ -707,9 +707,8 @@ impl Works {
         elem: &Packed<BibliographyElem>,
         styles: StyleChain,
     ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
-        self.works
-            .get(&elem.location().unwrap())
-            .unwrap()
+        if let Some(indiv_works) = self.works.get(&elem.location().unwrap()) {
+            indiv_works
             .references
             .as_deref()
             .ok_or_else(|| match elem.style.get_ref(styles).source {
@@ -722,6 +721,11 @@ impl Works {
                 }
             })
             .at(elem.span())
+
+        }
+        else {
+            bail!(elem.span(),"Bibliography not found in global bibliography")
+        }
     }
 
     /// Specifies whether the given bibliography should have an hanging indent
