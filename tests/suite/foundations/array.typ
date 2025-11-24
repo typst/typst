@@ -470,12 +470,38 @@
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths paged ---
-// Error: 2-26 cannot compare 3em with 2pt
+// Error: 2-26 cannot compare 2pt with 3em
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 paged ---
 // Error: 42-52 unexpected argument
 #((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
+
+--- array-sorted-comparision-crashed paged ---
+// Error: 2-23:11 cannot compare string and none
+#(
+  "context",
+  "raw term",
+  "judgmental equality",
+  "metatheory",
+  "indexed inductive-recursive type",
+  "indexed inductive type",
+  "contextual",
+  "universe",
+  "cumulation",
+  "normal form",
+  "neutral form",
+  "renaming",
+  "canonical form",
+  "semantics",
+  "interpretation",
+  "model",
+  "consistent",
+  none,
+  "consistent",
+  "independent",
+  "contermodel",
+).sorted()
 
 --- issue-3014-mix-array-dictionary paged ---
 // Error: 8-17 expected expression, found named pair
