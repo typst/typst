@@ -471,7 +471,7 @@ fn place_explicit_lines<F>(
     ) -> Option<&mut PrioritzedStroke>,
 {
     for line in lines.iter().flat_map(|lines| lines.iter()) {
-        let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end);
+        let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end).min(inline_end);
         let explicit_stroke = || PrioritzedStroke {
             stroke: line.stroke.clone(),
             priority: StrokePriority::ExplicitLine,
