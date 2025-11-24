@@ -4,8 +4,9 @@ use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
-use typst_library::diag::{SourceDiagnostic, SourceResult, error};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
@@ -49,7 +50,7 @@ impl<'a> Resolver<'a> {
 }
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
-    gc.tags.tree.assert_finished_traversal();
+    gc.tags.tree.assert_finished_traversal().at(Span::detached())?;
 
     if !disabled(gc) {
         context::finish(&mut gc.tags.tree);
