@@ -74,7 +74,7 @@ headings become dark blue while all other text stays black.
 But this stays black.
 ```
 
-Note that the `page` element cannot be targeted by a show rule. Writing `#show page: ..` currently has no effect.
+Note that the [`page`]($page) cannot be targeted by a show rule. Writing `{#show page: ..}` currently has no effect.
 
 With show-set rules you can mix and match properties from different functions to
 achieve many different effects. But they still limit you to what is predefined
