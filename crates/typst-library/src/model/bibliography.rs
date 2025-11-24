@@ -217,9 +217,11 @@ impl BibliographyElem {
              .map(|(i,_)| { i })
              .collect();
 
-        fn is_valid_bib(bib_index: usize, i: usize, citation_key: Label, citations_and_bib: &EcoVec<Content>, forward: bool) -> Option<&Packed<BibliographyElem>> {
+        // Checks that the bib is after (before if forward is false) the citation and contains the
+        // citation_key label
+        fn is_valid_bib(bib_index: usize, citation_index: usize, citation_key: Label, citations_and_bib: &EcoVec<Content>, forward: bool) -> Option<&Packed<BibliographyElem>> {
             let bibliography = citations_and_bib[bib_index].to_packed::<BibliographyElem>().unwrap();
-            if (bib_index > i) == forward
+            if (bib_index > citation_index) == forward
                 && bibliography.target.get_ref(StyleChain::default()).is_auto()
                 && bibliography.sources.derived.has(citation_key) {
                 Some(bibliography)
