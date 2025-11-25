@@ -17,7 +17,8 @@ use crate::foundations::{
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{
-    History, Introspect, Introspector, Locatable, Location, Tag, Unqueriable,
+    History, Introspect, Introspector, Locatable, Location, QueryFirstIntrospection, Tag,
+    Unqueriable,
 };
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
@@ -260,22 +261,54 @@ impl Counter {
     ///
     /// This coupling between the counter type and the remaining standard
     /// library is not great ...
-    fn matching_numbering(&self, styles: StyleChain) -> Option<Numbering> {
+    fn matching_numbering(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        loc: Location,
+        span: Span,
+    ) -> Option<Numbering> {
         match self.0 {
-            CounterKey::Page => styles.get_cloned(PageElem::numbering),
-            CounterKey::Selector(Selector::Elem(func, _)) => {
-                if func == HeadingElem::ELEM {
-                    styles.get_cloned(HeadingElem::numbering)
-                } else if func == FigureElem::ELEM {
-                    styles.get_cloned(FigureElem::numbering)
-                } else if func == EquationElem::ELEM {
-                    styles.get_cloned(EquationElem::numbering)
-                } else if func == FootnoteElem::ELEM {
-                    Some(styles.get_cloned(FootnoteElem::numbering))
-                } else {
-                    None
-                }
-            }
+            CounterKey::Page => loc.page_numbering(engine, span),
+            CounterKey::Selector(Selector::Elem(func, _)) => engine
+                .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
+                .and_then(|content| {
+                    if func == HeadingElem::ELEM {
+                        content
+                            .to_packed::<HeadingElem>()
+                            .and_then(|elem| elem.numbering.as_option().clone())
+                            .flatten()
+                    } else if func == FigureElem::ELEM {
+                        content
+                            .to_packed::<FigureElem>()
+                            .and_then(|elem| elem.numbering.as_option().clone())
+                            .flatten()
+                    } else if func == EquationElem::ELEM {
+                        content
+                            .to_packed::<EquationElem>()
+                            .and_then(|elem| elem.numbering.as_option().clone())
+                            .flatten()
+                    } else if func == FootnoteElem::ELEM {
+                        content
+                            .to_packed::<FootnoteElem>()
+                            .and_then(|elem| elem.numbering.as_option().clone())
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| {
+                    if func == HeadingElem::ELEM {
+                        styles.get_cloned(HeadingElem::numbering)
+                    } else if func == FigureElem::ELEM {
+                        styles.get_cloned(FigureElem::numbering)
+                    } else if func == EquationElem::ELEM {
+                        styles.get_cloned(EquationElem::numbering)
+                    } else if func == FootnoteElem::ELEM {
+                        Some(styles.get_cloned(FootnoteElem::numbering))
+                    } else {
+                        None
+                    }
+                }),
             _ => None,
         }
     }
@@ -353,7 +386,9 @@ impl Counter {
 
         let numbering = numbering
             .custom()
-            .or_else(|| self.matching_numbering(context.styles().ok()?))
+            .or_else(|| {
+                self.matching_numbering(engine, context.styles().ok()?, location, span)
+            })
             .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
         state.display(engine, context, &numbering)
