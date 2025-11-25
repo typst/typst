@@ -82,9 +82,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             // Don't export this page.
             continue;
         } else {
+            // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
+            // PDF 2.0 doesn't define an explicit limit, but krilla and probably
+            // some viewers won't handle pages that have zero sized pages.
             let mut settings = PageSettings::new(
-                typst_page.frame.width().to_f32(),
-                typst_page.frame.height().to_f32(),
+                typst_page.frame.width().to_f32().max(3.0),
+                typst_page.frame.height().to_f32().max(3.0),
             );
 
             if let Some(label) = typst_page
