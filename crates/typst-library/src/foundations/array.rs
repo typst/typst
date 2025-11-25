@@ -894,7 +894,7 @@ impl Array {
         #[named]
         by: Option<Func>,
     ) -> SourceResult<Array> {
-        let mut are_in_order = move |mut x, mut y| {
+        let mut are_in_order = |mut x, mut y| {
             match by.clone() {
                 Some(by) => {
                     if let Some(f) = &key {
