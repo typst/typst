@@ -57,19 +57,13 @@ Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 
 --- issue-7301-link-tags-empty-link-body pdftags ---
-// Error: internal error: expected link ancestor in logical tree (occurred at crates/typst-pdf/src/link.rs:88:10)
-// Hint: please report this as a bug
-// Hint: set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace
 #link("asf")[#none\ #none]
 
 --- issue-7301-link-tags-empty-link-body-linebreak pdftags ---
-// Error: internal error: expected link ancestor in logical tree (occurred at crates/typst-pdf/src/link.rs:88:10)
-// Hint: please report this as a bug
-// Hint: set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace
 #link("asf", linebreak())
 
 --- issue-7301-link-tags-empty-link-body-footnote pdftags ---
-// Error: internal error: expected link ancestor in logical tree (occurred at crates/typst-pdf/src/link.rs:88:10)
-// Hint: please report this as a bug
-// Hint: set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace
 #footnote(numbering: it => "", [asdf])
+
+--- issue-7301-link-tags-empty-link-body-mutliple pdftags ---
+#link("asf")[#none\ #none] #link("asf")[#none\ #none]
