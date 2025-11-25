@@ -47,7 +47,7 @@
   let elements = query(selector(figure).after(here()))
   for it in elements [
     Figure
-    #counter(figure).display(at: it.location(), it.numbering):
+    #counter(figure).display(at: it.location()):
     #it.caption.body
     #box(width: 1fr, repeat[.])
     #counter(page).at(it.location()).first() \
