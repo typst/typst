@@ -92,3 +92,7 @@ $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, s
 $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
+
+--- math-accent-bidirectional-arrow paged ---
+// Test bidirectional arrow accent, arrow.l.r symbol includes a variation selector 
+$arrow.l.r(A), accent(B, arrow.l.r), arrow.l.r(x + y)$

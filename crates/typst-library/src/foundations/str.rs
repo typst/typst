@@ -809,6 +809,25 @@ impl From<Str> for String {
     }
 }
 
+/// Extracts the base character from a string that forms a single grapheme cluster.
+///
+/// Returns `Some(char)` if the string is either:
+/// - A single codepoint, or
+/// - Multiple codepoints that form one grapheme cluster (e.g., base char + variation selector)
+///
+/// Returns `None` for empty strings or strings with multiple grapheme clusters.
+pub fn extract_base_char(s: &str) -> Option<char> {
+    let mut chars = s.chars();
+    match (chars.next(), chars.next()) {
+        (Some(c), None) => Some(c),
+        (Some(c), Some(_)) => {
+            let mut g = s.graphemes(true);
+            (g.next().is_some() && g.next().is_none()).then_some(c)
+        }
+        _ => None,
+    }
+}
+
 cast! {
     char,
     self => Value::Str(self.into()),

@@ -240,9 +240,10 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
 cast! {
     Accent,
     self => self.0.into_value(),
-    v: char => Self::new(v),
-    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
+    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| {
+        crate::foundations::extract_base_char(&elem.text)
+    }) {
         Some(c) => Self::new(c),
-        _ => bail!("expected a single-codepoint symbol"),
+        _ => bail!("expected exactly one character"),
     },
 }
