@@ -412,10 +412,10 @@ fn finish(
         Ok(r) => Ok(r),
         Err(e) => match e {
             KrillaError::Font(f, err) => {
-                let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(
                     Span::detached(),
-                    "failed to process font {font_str} ({err})";
+                    "failed to process {} ({err})",
+                    display_font(gc.fonts_backward.get(&f));
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst"
                 );
@@ -536,8 +536,9 @@ fn convert_error(
         ),
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
-            "{prefix} the text '{text}' cannot be displayed using {}",
-            display_font(gc.fonts_backward.get(f).unwrap());
+            "{prefix} the text `{}` could not be displayed with {}",
+            text.repr(),
+            display_font(gc.fonts_backward.get(f));
             hint: "try using a different font"
         ),
         ValidationError::NoCodepointMapping(_, _, loc) => {
@@ -576,8 +577,8 @@ fn convert_error(
         }
         ValidationError::RestrictedLicense(f) => error!(
             Span::detached(),
-            "{prefix} license of font {} is too restrictive",
-            display_font(gc.fonts_backward.get(f).unwrap()).repr();
+            "{prefix} license of {} is too restrictive",
+            display_font(gc.fonts_backward.get(f));
             hint: "the font has specified \"Restricted License embedding\" in its metadata";
             hint: "restrictive font licenses are prohibited by {} because they limit the suitability for archival",
             validator.as_str()
