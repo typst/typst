@@ -1,242 +1,47 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
-use typst_library::math::{
-    OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
-    UnderbraceElem, UnderbracketElem, UnderlineElem, UnderparenElem, UndershellElem,
-};
+use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
+use typst_library::math::{LineItem, MathProperties};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
-use typst_syntax::Span;
 
-use super::{
-    FrameFragment, LeftRightAlternator, MathContext, MathRun, stack, style_cramped,
-    style_for_subscript, style_for_superscript,
-};
-
-const BRACE_GAP: Em = Em::new(0.25);
-const BRACKET_GAP: Em = Em::new(0.25);
-const PAREN_GAP: Em = Em::new(0.25);
-const SHELL_GAP: Em = Em::new(0.25);
-
-/// A marker to distinguish under- and overlines.
-enum Position {
-    Under,
-    Over,
-}
-
-/// Lays out an [`UnderlineElem`].
-#[typst_macros::time(name = "math.underline", span = elem.span())]
-pub fn layout_underline(
-    elem: &Packed<UnderlineElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Under)
-}
-
-/// Lays out an [`OverlineElem`].
-#[typst_macros::time(name = "math.overline", span = elem.span())]
-pub fn layout_overline(
-    elem: &Packed<OverlineElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Over)
-}
-
-/// Lays out an [`UnderbraceElem`].
-#[typst_macros::time(name = "math.underbrace", span = elem.span())]
-pub fn layout_underbrace(
-    elem: &Packed<UnderbraceElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏟',
-        BRACE_GAP,
-        Position::Under,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`OverbraceElem`].
-#[typst_macros::time(name = "math.overbrace", span = elem.span())]
-pub fn layout_overbrace(
-    elem: &Packed<OverbraceElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏞',
-        BRACE_GAP,
-        Position::Over,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`UnderbracketElem`].
-#[typst_macros::time(name = "math.underbracket", span = elem.span())]
-pub fn layout_underbracket(
-    elem: &Packed<UnderbracketElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⎵',
-        BRACKET_GAP,
-        Position::Under,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`OverbracketElem`].
-#[typst_macros::time(name = "math.overbracket", span = elem.span())]
-pub fn layout_overbracket(
-    elem: &Packed<OverbracketElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⎴',
-        BRACKET_GAP,
-        Position::Over,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`UnderparenElem`].
-#[typst_macros::time(name = "math.underparen", span = elem.span())]
-pub fn layout_underparen(
-    elem: &Packed<UnderparenElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏝',
-        PAREN_GAP,
-        Position::Under,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`OverparenElem`].
-#[typst_macros::time(name = "math.overparen", span = elem.span())]
-pub fn layout_overparen(
-    elem: &Packed<OverparenElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏜',
-        PAREN_GAP,
-        Position::Over,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`UndershellElem`].
-#[typst_macros::time(name = "math.undershell", span = elem.span())]
-pub fn layout_undershell(
-    elem: &Packed<UndershellElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏡',
-        SHELL_GAP,
-        Position::Under,
-        elem.span(),
-    )
-}
-
-/// Lays out an [`OvershellElem`].
-#[typst_macros::time(name = "math.overshell", span = elem.span())]
-pub fn layout_overshell(
-    elem: &Packed<OvershellElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    layout_underoverspreader(
-        ctx,
-        styles,
-        &elem.body,
-        elem.annotation.get_ref(styles),
-        '⏠',
-        SHELL_GAP,
-        Position::Over,
-        elem.span(),
-    )
-}
+use super::{FrameFragment, MathContext};
 
 /// layout under- or overlined content.
-fn layout_underoverline(
+/// Lays out an [`LineItem`].
+#[typst_macros::time(name = "math.underline", span = props.span)]
+#[typst_macros::time(name = "math.overline", span = props.span)]
+pub fn layout_line(
+    item: &LineItem,
     ctx: &mut MathContext,
-    styles: StyleChain,
-    body: &Content,
-    span: Span,
-    position: Position,
+    props: &MathProperties,
 ) -> SourceResult<()> {
     let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_adjust);
-    match position {
-        Position::Under => {
-            content = ctx.layout_into_fragment(body, styles)?;
+    if item.under {
+        content = ctx.layout_into_fragment(&item.base)?;
 
-            let (font, size) = content.font(ctx, styles);
-            let sep = font.math().underbar_extra_descender.at(size);
-            bar_height = font.math().underbar_rule_thickness.at(size);
-            let gap = font.math().underbar_vertical_gap.at(size);
-            extra_height = sep + bar_height + gap;
+        let (font, size) = content.font(ctx, props.styles);
+        let sep = font.math().underbar_extra_descender.at(size);
+        bar_height = font.math().underbar_rule_thickness.at(size);
+        let gap = font.math().underbar_vertical_gap.at(size);
+        extra_height = sep + bar_height + gap;
 
-            line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
-            content_pos = Point::zero();
-            baseline = content.ascent();
-            line_adjust = -content.italics_correction();
-        }
-        Position::Over => {
-            let cramped = style_cramped();
-            let styles = styles.chain(&cramped);
-            content = ctx.layout_into_fragment(body, styles)?;
+        line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
+        content_pos = Point::zero();
+        baseline = content.ascent();
+        line_adjust = -content.italics_correction();
+    } else {
+        content = ctx.layout_into_fragment(&item.base)?;
 
-            let (font, size) = content.font(ctx, styles);
-            let sep = font.math().overbar_extra_ascender.at(size);
-            bar_height = font.math().overbar_rule_thickness.at(size);
-            let gap = font.math().overbar_vertical_gap.at(size);
-            extra_height = sep + bar_height + gap;
+        let (font, size) = content.font(ctx, props.styles);
+        let sep = font.math().overbar_extra_ascender.at(size);
+        bar_height = font.math().overbar_rule_thickness.at(size);
+        let gap = font.math().overbar_vertical_gap.at(size);
+        extra_height = sep + bar_height + gap;
 
-            line_pos = Point::with_y(sep + bar_height / 2.0);
-            content_pos = Point::with_y(extra_height);
-            baseline = content.ascent() + extra_height;
-            line_adjust = Abs::zero();
-        }
+        line_pos = Point::with_y(sep + bar_height / 2.0);
+        content_pos = Point::with_y(extra_height);
+        baseline = content.ascent() + extra_height;
+        line_adjust = Abs::zero();
     }
 
     let width = content.width();
@@ -244,8 +49,7 @@ fn layout_underoverline(
     let size = Size::new(width, height);
     let line_width = width + line_adjust;
 
-    let content_class = content.class();
-    let content_is_text_like = content.is_text_like();
+    let content_text_like = content.is_text_like();
     let content_italics_correction = content.italics_correction();
     let mut frame = Frame::soft(size);
     frame.set_baseline(baseline);
@@ -254,71 +58,19 @@ fn layout_underoverline(
         line_pos,
         FrameItem::Shape(
             Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
-                paint: styles.get_ref(TextElem::fill).as_decoration(),
+                paint: props.styles.get_ref(TextElem::fill).as_decoration(),
                 thickness: bar_height,
                 ..FixedStroke::default()
             }),
-            span,
+            props.span,
         ),
     );
 
     ctx.push(
-        FrameFragment::new(styles, frame)
-            .with_class(content_class)
-            .with_text_like(content_is_text_like)
-            .with_italics_correction(content_italics_correction),
+        FrameFragment::new(props, frame)
+            .with_italics_correction(content_italics_correction)
+            .with_text_like(content_text_like),
     );
-
-    Ok(())
-}
-
-/// Layout an over- or underbrace-like object.
-#[allow(clippy::too_many_arguments)]
-fn layout_underoverspreader(
-    ctx: &mut MathContext,
-    styles: StyleChain,
-    body: &Content,
-    annotation: &Option<Content>,
-    c: char,
-    gap: Em,
-    position: Position,
-    span: Span,
-) -> SourceResult<()> {
-    let gap = gap.resolve(styles);
-    let body = ctx.layout_into_run(body, styles)?;
-    let body_class = body.class();
-    let body = body.into_fragment(styles);
-    let mut glyph =
-        ctx.layout_into_fragment(&SymbolElem::packed(c).spanned(span), styles)?;
-    glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
-
-    let mut rows = vec![];
-    let baseline = match position {
-        Position::Under => {
-            rows.push(MathRun::new(vec![body]));
-            rows.push(glyph.into());
-            if let Some(annotation) = annotation {
-                let under_style = style_for_subscript(styles);
-                let annotation_styles = styles.chain(&under_style);
-                rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
-            }
-            0
-        }
-        Position::Over => {
-            if let Some(annotation) = annotation {
-                let over_style = style_for_superscript(styles);
-                let annotation_styles = styles.chain(&over_style);
-                rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
-            }
-            rows.push(glyph.into());
-            rows.push(MathRun::new(vec![body]));
-            rows.len() - 1
-        }
-    };
-
-    let frame =
-        stack(rows, FixedAlignment::Center, gap, baseline, LeftRightAlternator::Right);
-    ctx.push(FrameFragment::new(styles, frame).with_class(body_class));
 
     Ok(())
 }

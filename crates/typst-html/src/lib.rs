@@ -9,6 +9,7 @@ mod dom;
 mod encode;
 mod fragment;
 mod link;
+mod mathml;
 mod rules;
 mod tag;
 mod typed;
@@ -22,6 +23,7 @@ use ecow::EcoString;
 use typst_library::Category;
 use typst_library::foundations::{Content, Module, Scope};
 use typst_library::introspection::Location;
+use typst_library::math::EquationElem;
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -123,6 +125,7 @@ impl HtmlElem {
     fn is_inline(elem: &Content) -> bool {
         elem.to_packed::<HtmlElem>()
             .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
+            || is_inline_equation(elem)
     }
 }
 
@@ -142,4 +145,10 @@ pub struct FrameElem {
     #[positional]
     #[required]
     pub body: Content,
+}
+
+/// Checks whether the given element is an inline EquationElem.
+fn is_inline_equation(elem: &Content) -> bool {
+    elem.to_packed::<EquationElem>()
+        .is_some_and(|elem| elem.block.as_option().is_some_and(|block| !block))
 }
