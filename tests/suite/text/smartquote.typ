@@ -60,8 +60,21 @@
 "Equus cucumeris sem non edit" prima sententia in 'telephono' prolata fuit.
 
 --- smartquote-empty paged ---
-// Test single pair of quotes.
-""
+// Test pairs of empty quotes in multiple languages.
+#text(lang: "en")[""]
+#text(lang: "de")[""]
+#text(lang: "de", region: "CH")[""]
+#text(lang: "es")[""]
+#text(lang: "es", region: "MX")[""]
+#text(lang: "fr")[""]
+#text(lang: "fr", region: "CH")[""]
+#text(lang: "fi")[""]
+#text(lang: "el")[""]
+#text(lang: "he")[""]
+#text(lang: "ro")[""]
+#text(lang: "ru")[""]
+#text(lang: "uk")[""]
+#text(lang: "it")[""]
 
 --- smartquote-apostrophe paged ---
 // Test sentences with numbers and apostrophes.
