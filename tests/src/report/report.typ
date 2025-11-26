@@ -17,7 +17,29 @@
   minus: "M2 7.375v1.25h12v-1.25z",
 )
 
-#let svg-icon(path) = {
+#let svg-icon-cache = state("svg-icon-cache", (:))
+#let svg-icon(path) = context {
+  let cached-id = svg-icon-cache.get().at(path, default: none)
+  if cached-id != none {
+    return html.elem(
+      "svg",
+      attrs: (
+        xmlns: "http://www.w3.org/2000/svg",
+        width: "16",
+        height: "16",
+        fill: "currentColor",
+      ),
+    )[
+      #html.elem("use", attrs: (href: "#" + cached-id))
+    ]
+  }
+
+  let id = "svg-icon-" + str(svg-icon-cache.get().len())
+  svg-icon-cache.update(cache => {
+    cache.insert(path, id)
+    cache
+  })
+
   html.elem(
     "svg",
     attrs: (
@@ -27,7 +49,7 @@
       fill: "currentColor",
     ),
   )[
-    #html.elem("path", attrs: (d: path))
+    #html.elem("path", attrs: (id: id, d: path))
   ]
 }
 
@@ -73,7 +95,8 @@
 }
 
 #let text-diff(diff) = {
-  html.table(class: "text-diff")[
+  let open-by-default = diff.left.lines.len() < 200
+  let content = html.table(class: "text-diff")[
     #html.colgroup[
       #html.col(span: 1, class: "col-line-gutter")
       #html.col(span: 1, class: "col-line-body")
@@ -92,6 +115,7 @@
       #diff-cells((kind: "end", nr: 0, spans: ()))
     ]
   ]
+  (content, open-by-default)
 }
 
 #let image-diff(diff, n) = {
@@ -143,7 +167,7 @@
     ]
   }
 
-  html.div(class: "image-diff")[
+  let content = html.div(class: "image-diff")[
     #html.div(class: "image-controls")[
       #html.fieldset(class: "control-group")[
         #radio-icon-button(
@@ -253,6 +277,8 @@
       ]
     ]
   ]
+
+  (content, true)
 }
 
 #show: conf.with(
@@ -278,8 +304,17 @@
     #for report in sys.inputs.reports {
       let first = true
       for diff in report.diffs {
-        let content = [
-          #html.details(open: true)[
+        let (diff-content, open-by-default) = if diff.kind == "text" {
+          text-diff(diff)
+        } else if diff.kind == "image" {
+          num-image-diffs += 1
+          image-diff(diff, num-image-diffs)
+        } else {
+          panic("unhandled diff kind: " + diff.kind)
+        }
+
+        let file-diff = [
+          #html.details(open: open-by-default)[
             #html.summary(class: "diff-summary")[
               #html.h1(class: "diff-header")[
                 #html.div(class: "diff-header-split")[
@@ -292,23 +327,16 @@
               #html.div(class: "diff-spacer")
             ]
 
-            #if diff.kind == "text" {
-              text-diff(diff)
-            } else if diff.kind == "image" {
-              num-image-diffs += 1
-              image-diff(diff, num-image-diffs)
-            } else {
-              panic("unhandled diff kind: " + diff.kind)
-            }
+            #diff-content
           ]
         ]
 
-        // Add
+        // Add an id to the first file diff of a test.
         if first {
-          html.div(class: "file-diff", id: report.name, content)
+          html.div(class: "file-diff", id: report.name, file-diff)
           first = false
         } else {
-          html.div(class: "file-diff", content)
+          html.div(class: "file-diff", file-diff)
         }
       }
     }

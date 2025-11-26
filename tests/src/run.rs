@@ -203,9 +203,11 @@ impl<'a> Runner<'a> {
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
         let output = self.run_test::<T>(doc);
+        let saved = self.save_live::<T>(&output);
         if self.test.attrs.should_check_ref(T::OUTPUT) {
-            self.check_file_ref::<T>(&output)
+            self.check_file_ref::<T>(&saved)
         }
+        drop(saved);
         output.map(|(_, live)| live)
     }
 
@@ -215,9 +217,11 @@ impl<'a> Runner<'a> {
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
         let output = self.run_test::<T>(doc);
+        let live = self.save_live::<T>(&output);
         if self.test.attrs.should_check_ref(T::OUTPUT) {
-            self.check_hash_ref::<T>(&output)
+            self.check_hash_ref::<T>(&live)
         }
+        drop(live);
         output.map(|(_, live)| live)
     }
 
@@ -226,9 +230,8 @@ impl<'a> Runner<'a> {
         &mut self,
         doc: Option<&'d T::Doc>,
     ) -> Option<(&'d T::Doc, T::Live)> {
-        let live_path = T::OUTPUT.live_path(&self.test.name);
-
-        let output = doc.and_then(|doc| match T::make_live(self.test, doc) {
+        let doc = doc?;
+        match T::make_live(self.test, doc) {
             Ok(live) => Some((doc, live)),
             Err(errors) => {
                 if errors.is_empty() {
@@ -240,14 +243,20 @@ impl<'a> Runner<'a> {
                 }
                 None
             }
-        });
+        }
+    }
 
+    fn save_live<'d, T: OutputType>(
+        &mut self,
+        output: &'d Option<(&'d T::Doc, T::Live)>,
+    ) -> Option<(&'d T::Doc, &'d T::Live, impl AsRef<[u8]> + use<'d, T>)> {
         let skippable = match &output {
             Some((doc, live)) => T::is_skippable(doc, live).unwrap_or(true),
             None => false,
         };
 
-        match &output {
+        let live_path = T::OUTPUT.live_path(&self.test.name);
+        match output {
             Some((doc, live)) if !skippable => {
                 // Convert and save live version.
                 let live_data = T::save_live(doc, live);
@@ -256,7 +265,7 @@ impl<'a> Runner<'a> {
                 let hash = T::make_hash(live);
                 let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
                 std::fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
-                std::fs::write(&hash_path, live_data).unwrap();
+                std::fs::write(&hash_path, &live_data).unwrap();
 
                 // Create a link in the store directory.
                 std::fs::remove_file(&live_path).ok();
@@ -268,25 +277,28 @@ impl<'a> Runner<'a> {
                 std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
                 #[cfg(target_family = "windows")]
                 std::os::windows::fs::symlink_file(&link_path, &live_path).unwrap();
+                Some((doc, live, live_data))
             }
             _ => {
                 // Clean live output.
                 std::fs::remove_file(&live_path).ok();
+                None
             }
         }
-
-        output
     }
 
     /// Check that the document output matches the existing file reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_file_ref<T: FileOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
+    fn check_file_ref<T: FileOutputType>(
+        &mut self,
+        output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let ref_path = T::OUTPUT.file_ref_path(&self.test.name);
 
         let old_ref_data = std::fs::read(&ref_path);
-        let Some((doc, live)) = output else {
+        let Some((doc, live, _)) = output else {
             if old_ref_data.is_ok() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
@@ -314,7 +326,7 @@ impl<'a> Runner<'a> {
             return;
         }
 
-        let new_ref_data = T::make_ref(live);
+        let new_ref_data = T::save_ref(live);
         let new_ref_data = new_ref_data.as_ref();
         if crate::ARGS.update {
             if skippable {
@@ -357,7 +369,7 @@ impl<'a> Runner<'a> {
                     .result
                     .report
                     .get_or_insert_with(|| TestReport::new(self.test.name.clone()));
-                report.diffs.push(T::make_diff(
+                report.diffs.extend(T::make_diff(
                     (&ref_path, &old_ref_data),
                     (&live_path, new_ref_data),
                 ));
@@ -371,11 +383,14 @@ impl<'a> Runner<'a> {
     /// Check that the document output matches the existing hashed reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
+    fn check_hash_ref<T: HashOutputType>(
+        &mut self,
+        output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
         let source_path = self.test.source.id().vpath();
-        let old_ref_hash =
+        let old_hash =
             if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
                 hashed_refs.get(&self.test.name)
             } else {
@@ -394,8 +409,8 @@ impl<'a> Runner<'a> {
                 entry.get().get(&self.test.name)
             };
 
-        let Some((doc, live)) = output else {
-            if old_ref_hash.is_some() {
+        let Some((doc, live, live_data)) = output else {
+            if old_hash.is_some() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", self.test.name);
             }
@@ -412,14 +427,14 @@ impl<'a> Runner<'a> {
 
         // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && old_ref_hash.is_none() {
+        if skippable && old_hash.is_none() {
             return;
         }
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        let new_ref_hash = T::make_hash(live);
-        if old_ref_hash.as_ref().is_some_and(|h| *h == new_ref_hash) {
+        let new_hash = T::make_hash(live);
+        if old_hash.as_ref().is_some_and(|h| *h == new_hash) {
             return;
         }
 
@@ -434,23 +449,42 @@ impl<'a> Runner<'a> {
                     "removed reference hash ({})", ref_path.display()
                 );
             } else {
-                hashed_refs.update(self.test.name.clone(), new_ref_hash);
+                hashed_refs.update(self.test.name.clone(), new_hash);
                 log!(
                     into: self.result.infos,
-                    "updated reference hash ({}, {new_ref_hash})",
+                    "updated reference hash ({}, {new_hash})",
                     ref_path.display(),
                 );
             }
         } else {
             self.result.mismatched_output = true;
-            if let Some(old_ref_hash) = old_ref_hash {
+            if let Some(old_hash) = old_hash {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
-                log!(self, "  old       | {old_ref_hash}");
-                log!(self, "  new       | {new_ref_hash}");
+                log!(self, "  old       | {old_hash}");
+                log!(self, "  new       | {new_hash}");
+
+                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+
+                if let Ok(old_live_data) = std::fs::read(&old_hash_path) {
+                    let report = self
+                        .result
+                        .report
+                        .get_or_insert_with(|| TestReport::new(self.test.name.clone()));
+                    report.diffs.extend(T::make_diff(
+                        (&old_hash_path, &old_live_data),
+                        (&new_hash_path, live_data.as_ref()),
+                    ));
+                } else {
+                    // TODO: Here we could check out a previous version of the
+                    // repository and generate the live data.
+                    log!(self, "couldn't find old live data {}", old_hash_path.display());
+                }
             } else {
-                log!(self, "missing reference output");
+                log!(self, "missing reference hash");
                 log!(self, "  live      | {}", live_path.display());
+                log!(self, "  new       | {new_hash}");
             }
         }
     }

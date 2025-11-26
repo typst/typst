@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use ecow::{EcoString, eco_format};
 use similar::{ChangeTag, InlineChange, TextDiff};
@@ -256,7 +257,9 @@ impl IntoValue for TextSpan {
 
 /// Create a rich HTML text diff.
 pub fn text_diff((path_a, a): (&Path, &str), (path_b, b): (&Path, &str)) -> TextFileDiff {
-    let diff = TextDiff::from_lines(a, b);
+    let diff = TextDiff::configure()
+        .timeout(Duration::from_millis(500))
+        .diff_lines(a, b);
 
     let mut left = Vec::new();
     let mut right = Vec::new();
@@ -382,11 +385,11 @@ impl IntoValue for Image {
 }
 
 pub fn image_diff(
-    (path_a, a): (&Path, Bytes),
-    (path_b, b): (&Path, Bytes),
+    (path_a, a): (&Path, &[u8]),
+    (path_b, b): (&Path, &[u8]),
 ) -> ImageFileDiff {
     ImageFileDiff {
-        left: Image::new(path_a, a),
-        right: Image::new(path_b, b),
+        left: Image::new(path_a, Bytes::new(a.to_vec())),
+        right: Image::new(path_b, Bytes::new(b.to_vec())),
     }
 }
