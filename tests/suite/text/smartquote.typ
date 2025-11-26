@@ -198,4 +198,4 @@ $i$'s $i$ 's
 
 --- issue-6853-smartquotes-around-html-frame html ---
 #set text(lang: "fr")
-"#box(html.frame[foo])"
+"#box(html.frame[])"
