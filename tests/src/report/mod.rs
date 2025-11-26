@@ -382,11 +382,11 @@ impl IntoValue for Image {
 }
 
 pub fn image_diff(
-    (path_a, a): (&Path, Bytes),
-    (path_b, b): (&Path, Bytes),
+    (path_a, a): (&Path, &[u8]),
+    (path_b, b): (&Path, &[u8]),
 ) -> ImageFileDiff {
     ImageFileDiff {
-        left: Image::new(path_a, a),
-        right: Image::new(path_b, b),
+        left: Image::new(path_a, Bytes::new(a.to_vec())),
+        right: Image::new(path_b, Bytes::new(b.to_vec())),
     }
 }
