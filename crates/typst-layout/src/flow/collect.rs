@@ -15,7 +15,7 @@ use typst_library::introspection::{
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem,
     Fr, Fragment, Frame, FrameParent, Inherit, PagebreakElem, PlaceElem, PlacementScope,
-    Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
+    Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem, layout_and_modify,
 };
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
@@ -24,7 +24,6 @@ use typst_utils::{Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
-use crate::modifiers::layout_and_modify;
 
 /// Collects all elements of the flow into prepared children. These are much
 /// simpler to handle than the raw elements.

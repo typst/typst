@@ -9,7 +9,8 @@ use typst_library::engine::Engine;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
+    Abs, Axes, Axis, Corner, Em, Frame, FrameItem, FrameModifiers, FrameModify, Point,
+    Size, VAlignment,
 };
 use typst_library::math::{EquationElem, Limits, MathSize};
 use typst_library::text::{Font, TextElem, features, language, variant};
@@ -21,7 +22,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{MathContext, families};
 use crate::math::shaping::{Glyphs, ShapedGlyph, ShapedText, shape};
-use crate::modifiers::{FrameModifiers, FrameModify};
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
