@@ -892,16 +892,23 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
     LoadError { pos: pos.into(), message }
 }
 
-/// Assert a condition, on failure generate an internal compiler error with the
-/// provided message.
+/// Asserts a condition, generating an internal compiler error with the provided
+/// message on failure.
 #[track_caller]
 pub fn assert_internal(cond: bool, msg: &str) -> HintedStrResult<()> {
     if !cond { Err(internal_error(msg)) } else { Ok(()) }
 }
 
+/// Generates an internal compiler error with the provided message.
+#[track_caller]
+pub fn panic_internal(msg: &str) -> HintedStrResult<()> {
+    Err(internal_error(msg))
+}
+
+/// Adds a method analogous to [`Option::expect`] that raises an internal
+/// compiler error instead of panicking.
 pub trait ExpectInternal<T> {
-    /// Analog to [`Option::expect`] but instead of panicking generate an
-    /// internal compiler error with the provided message.
+    /// Extracts the value, producing an internal error if `self` is `None`.
     fn expect_internal(self, msg: &str) -> HintedStrResult<T>;
 }
 
@@ -915,6 +922,8 @@ impl<T> ExpectInternal<T> for Option<T> {
     }
 }
 
+/// The shared internal implementation of [`assert_internal`] and
+/// [`expect_internal`].
 #[track_caller]
 fn internal_error(msg: &str) -> HintedString {
     let loc = std::panic::Location::caller();
