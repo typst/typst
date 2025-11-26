@@ -22,5 +22,5 @@ Start of the first paragraph #link(target)[
   ]
 ] Part of the second paragraph.
 
---- break-tags-issue-7020 pdftags ---
+--- issue-7020-break-tags pdftags ---
 Foo #quote($$ + parbreak())

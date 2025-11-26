@@ -82,9 +82,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             // Don't export this page.
             continue;
         } else {
+            // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
+            // PDF 2.0 doesn't define an explicit limit, but krilla and probably
+            // some viewers won't handle pages that have zero sized pages.
             let mut settings = PageSettings::new(
-                typst_page.frame.width().to_f32(),
-                typst_page.frame.height().to_f32(),
+                typst_page.frame.width().to_f32().max(3.0),
+                typst_page.frame.height().to_f32().max(3.0),
             );
 
             if let Some(label) = typst_page
@@ -376,10 +379,10 @@ fn finish(
         Ok(r) => Ok(r),
         Err(e) => match e {
             KrillaError::Font(f, err) => {
-                let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(
                     Span::detached(),
-                    "failed to process font {font_str} ({err})";
+                    "failed to process {} ({err})",
+                    display_font(gc.fonts_backward.get(&f));
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst"
                 );
@@ -500,8 +503,9 @@ fn convert_error(
         ),
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
-            "{prefix} the text '{text}' cannot be displayed using {}",
-            display_font(gc.fonts_backward.get(f).unwrap());
+            "{prefix} the text `{}` could not be displayed with {}",
+            text.repr(),
+            display_font(gc.fonts_backward.get(f));
             hint: "try using a different font"
         ),
         ValidationError::NoCodepointMapping(_, _, loc) => {
@@ -540,8 +544,8 @@ fn convert_error(
         }
         ValidationError::RestrictedLicense(f) => error!(
             Span::detached(),
-            "{prefix} license of font {} is too restrictive",
-            display_font(gc.fonts_backward.get(f).unwrap()).repr();
+            "{prefix} license of {} is too restrictive",
+            display_font(gc.fonts_backward.get(f));
             hint: "the font has specified \"Restricted License embedding\" in its metadata";
             hint: "restrictive font licenses are prohibited by {} because they limit the suitability for archival",
             validator.as_str()
