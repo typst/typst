@@ -9,7 +9,6 @@ use rustc_hash::FxBuildHasher;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
-use typst::foundations::Bytes;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
@@ -129,6 +128,8 @@ pub trait OutputType: Sized {
     type Doc;
     /// The type that represents live output.
     type Live;
+    /// The number of HTML diffs produced by this output.
+    type Diffs: IntoIterator<Item = DiffKind>;
 
     /// The test output format.
     const OUTPUT: TestOutput;
@@ -148,13 +149,13 @@ pub trait OutputType: Sized {
     fn make_hash(live: &Self::Live) -> HashedRef;
 
     /// Generate data necessary to make a HTML diff.
-    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> DiffKind;
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> Self::Diffs;
 }
 
 /// An output type that produces file references.
 pub trait FileOutputType: OutputType {
     /// Produces the reference output from the live output.
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]>;
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
     fn matches(old: &[u8], new: &Self::Live) -> bool;
@@ -171,6 +172,7 @@ pub struct Render;
 impl OutputType for Render {
     type Doc = PagedDocument;
     type Live = tiny_skia::Pixmap;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Render;
 
@@ -199,16 +201,13 @@ impl OutputType for Render {
         HashedRef(stable_hash128(live.data()))
     }
 
-    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
-        DiffKind::Image(report::image_diff(
-            (path_a, Bytes::new(a.to_vec())),
-            (path_b, Bytes::new(b.to_vec())),
-        ))
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> [DiffKind; 1] {
+        [DiffKind::Image(report::image_diff(a, b))]
     }
 }
 
 impl FileOutputType for Render {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         let opts = oxipng::Options::max_compression();
         let data = live.encode_png().unwrap();
         oxipng::optimize_from_memory(&data, &opts).unwrap()
@@ -225,6 +224,7 @@ pub struct Pdf;
 impl OutputType for Pdf {
     type Doc = PagedDocument;
     type Live = Vec<u8>;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
@@ -249,8 +249,8 @@ impl OutputType for Pdf {
         HashedRef(stable_hash128(live))
     }
 
-    fn make_diff(_: (&Path, &[u8]), _: (&Path, &[u8])) -> DiffKind {
-        todo!()
+    fn make_diff(a: (&Path, &[u8]), b: (&Path, &[u8])) -> [DiffKind; 1] {
+        [DiffKind::Image(report::image_diff(a, b))]
     }
 }
 
@@ -272,6 +272,7 @@ pub struct Pdftags;
 impl OutputType for Pdftags {
     type Doc = Vec<u8>;
     type Live = String;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Pdftags;
 
@@ -291,15 +292,19 @@ impl OutputType for Pdftags {
         HashedRef(stable_hash128(live))
     }
 
-    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
-        let a = std::str::from_utf8(a).unwrap();
-        let b = std::str::from_utf8(b).unwrap();
-        DiffKind::Text(report::text_diff((path_a, a), (path_b, b)))
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 1] {
+        [DiffKind::Text(report::text_diff(
+            (path_a, std::str::from_utf8(a).unwrap()),
+            (path_b, std::str::from_utf8(b).unwrap()),
+        ))]
     }
 }
 
 impl FileOutputType for Pdftags {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
@@ -313,6 +318,7 @@ pub struct Svg;
 impl OutputType for Svg {
     type Doc = PagedDocument;
     type Live = String;
+    type Diffs = [DiffKind; 2];
 
     const OUTPUT: TestOutput = TestOutput::Svg;
 
@@ -332,8 +338,17 @@ impl OutputType for Svg {
         HashedRef(stable_hash128(live))
     }
 
-    fn make_diff(_: (&Path, &[u8]), _: (&Path, &[u8])) -> DiffKind {
-        todo!()
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 2] {
+        [
+            DiffKind::Image(report::image_diff((path_a, a), (path_b, b))),
+            DiffKind::Text(report::text_diff(
+                (path_a, std::str::from_utf8(a).unwrap()),
+                (path_b, std::str::from_utf8(b).unwrap()),
+            )),
+        ]
     }
 }
 
@@ -346,6 +361,7 @@ pub struct Html;
 impl OutputType for Html {
     type Doc = HtmlDocument;
     type Live = String;
+    type Diffs = [DiffKind; 1];
 
     const OUTPUT: TestOutput = TestOutput::Html;
 
@@ -365,15 +381,19 @@ impl OutputType for Html {
         HashedRef(stable_hash128(live))
     }
 
-    fn make_diff((path_a, a): (&Path, &[u8]), (path_b, b): (&Path, &[u8])) -> DiffKind {
-        let a = std::str::from_utf8(a).unwrap();
-        let b = std::str::from_utf8(b).unwrap();
-        DiffKind::Text(report::text_diff((path_a, a), (path_b, b)))
+    fn make_diff(
+        (path_a, a): (&Path, &[u8]),
+        (path_b, b): (&Path, &[u8]),
+    ) -> [DiffKind; 1] {
+        [DiffKind::Text(report::text_diff(
+            (path_a, std::str::from_utf8(a).unwrap()),
+            (path_b, std::str::from_utf8(b).unwrap()),
+        ))]
     }
 }
 
 impl FileOutputType for Html {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
