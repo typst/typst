@@ -195,3 +195,7 @@ Does not apply across #html.div["block-level] elements".
 
 --- issue-5146-smartquotes-after-equations paged ---
 $i$'s $i$ 's
+
+--- issue-6853-smartquotes-around-html-frame html ---
+#set text(lang: "fr")
+"#box(html.frame[foo])"
