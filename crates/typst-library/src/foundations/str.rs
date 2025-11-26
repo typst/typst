@@ -169,7 +169,7 @@ impl Str {
                 if b == 1 && n > 0 {
                     bail!(
                         base.span, "base must be between 2 and 36";
-                        hint: "generate a unary representation with `\"1\" * {}`", n
+                        hint: "generate a unary representation with `\"1\" * {n}`";
                     );
                 }
                 if b < 2 || b > 36 {

@@ -218,7 +218,7 @@ pub fn root(
         if index.v % 2 == 0 {
             bail!(
                 index.span,
-                "negative numbers do not have a real nth root when n is even"
+                "negative numbers do not have a real nth root when n is even",
             );
         } else {
             Ok(-(-radicand).powf(1.0 / index.v as f64))

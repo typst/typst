@@ -275,7 +275,7 @@ pub struct TextElem {
                 bail!(
                     paint.span,
                     "gradients and tilings on text must be relative to the parent";
-                    hint: "make sure to set `relative: auto` on your text fill"
+                    hint: "make sure to set `relative: auto` on your text fill";
                 );
             }
         paint.map(|paint| paint.v)
@@ -929,7 +929,7 @@ cast! {
             ) => {}
             _ => bail!(
                 "coverage regex may only use dot, letters, and character classes";
-                hint: "the regex is applied to each letter individually"
+                hint: "the regex is applied to each letter individually";
             ),
         }
         Covers::Regex(regex)
@@ -1463,8 +1463,10 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 {
                     engine.sink.warn(warning!(
                         list.span,
-                        "variable fonts are not currently supported and may render incorrectly";
-                        hint: "try installing a static version of \"{}\" instead", family.as_str()
+                        "variable fonts are not currently supported and may render \
+                         incorrectly";
+                        hint: "try installing a static version of \"{}\" instead",
+                            family.as_str();
                     ))
                 }
             }

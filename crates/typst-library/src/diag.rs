@@ -18,35 +18,35 @@ use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
-/// Early-return with a [`StrResult`] or [`SourceResult`].
+/// Early-return with an error for common result types used in Typst. If you
+/// need to interact with the produced errors more, consider using `error!` or
+/// `warning!` instead.
 ///
-/// If called with just a string and format args, returns with a
-/// `StrResult`. If called with a span, a string and format args, returns
-/// a `SourceResult`.
+/// The main usage is `bail!(span, "message with {}", "formatting")`, which will
+/// early-return an error for a [`SourceResult`]. If you leave out the span, it
+/// will return an error for a [`StrResult`] or [`HintedStrResult`] instead.
 ///
-/// You can also emit hints with the `; hint: "..."` syntax.
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
 ///
 /// ```ignore
-/// bail!("bailing with a {}", "string result");
-/// bail!(span, "bailing with a {}", "source result");
+/// bail!("returning a {} error with no span", "formatted"); // StrResult (no span)
+/// bail!(span, "returning a {} error", "formatted"); // SourceResult (has a span)
 /// bail!(
-///     span, "bailing with a {}", "source result";
-///     hint: "hint 1"
-/// );
-/// bail!(
-///     span, "bailing with a {}", "source result";
-///     hint: "hint 1";
-///     hint: "hint 2";
-/// );
+///     span, "returning a {} error", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
+/// ); // SourceResult
 /// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
-    // For bail!("just a {}", "string")
+    // If we don't have a span, forward to `error!` to create a `StrResult` or
+    // `HintedStrResult`.
     (
-        $fmt:literal $(, $arg:expr)*
+        $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         return Err($crate::diag::error!(
             $fmt $(, $arg)*
@@ -54,12 +54,12 @@ macro_rules! __bail {
         ))
     };
 
-    // For bail!(error!(..))
+    // Just early return for a `SourceResult`: `bail!(some_error)`.
     ($error:expr) => {
         return Err(::ecow::eco_vec![$error])
     };
 
-    // For bail(span, ...)
+    // For `bail(span, ...)`, we reuse `error!` and produce a `SourceResult`.
     ($($tts:tt)*) => {
         return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
     };
@@ -67,67 +67,84 @@ macro_rules! __bail {
 
 /// Construct an [`EcoString`], [`HintedString`] or [`SourceDiagnostic`] with
 /// severity `Error`.
+///
+/// If you just want to quickly return an error, consider the `bail!` macro.
+/// If you want to create a warning, use the `warning!` macro.
+///
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
+///
+/// ```ignore
+/// error!("a {} error with no span", "formatted"); // EcoString, same as `eco_format!`
+/// error!(span, "an error with a {} message", "formatted"); // SourceDiagnostic
+/// error!(
+///     span, "an error with a {} message", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
+/// ); // SourceDiagnostic
+/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
-    // For bail!("just a {}", "string").
+    // For `error!("just a {}", "string")`.
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::eco_format!($fmt, $($arg),*).into()
+        $crate::diag::eco_format!($fmt $(, $arg)*).into()
     };
 
-    // For bail!("a hinted {}", "string"; hint: "some hint"; hint: "...")
+    // For `error!("a hinted {}", "string"; hint: "some hint"; hint: "...")`
     (
-        $fmt:literal $(, $arg:expr)*
+        $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::HintedString::new(
-            $crate::diag::eco_format!($fmt, $($arg),*)
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 
-    // For bail!(span, ...)
+    // For `error!(span, ...)`
     (
-        $span:expr, $fmt:literal $(, $arg:expr)*
+        $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::SourceDiagnostic::error(
             $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        )  $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 }
 
-/// Construct a [`SourceDiagnostic`] with severity `Warning`.
+/// Construct a [`SourceDiagnostic`] with severity `Warning`. To use the warning
+/// you will need to add it to a sink, likely inside the [`Engine`], e.g.
+/// `engine.sink.warn(warning!(...))`.
 ///
-/// You can also emit hints with the `; hint: "..."` syntax.
+/// If you want to return early or construct an error, consider the `bail!` or
+/// `error!` macros instead.
+///
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
 ///
 /// ```ignore
-/// warning!(span, "warning with a {}", "source result");
+/// warning!(span, "warning with a {} message", "formatted");
 /// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1"
-/// );
-/// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1";
-///     hint: "hint 2";
+///     span, "warning with a {} message", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
 /// );
 /// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __warning {
     (
-        $span:expr,
-        $fmt:literal $(, $arg:expr)*
+        $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 }
 
@@ -140,7 +157,8 @@ pub use {
     ecow::{eco_format, EcoString},
 };
 
-/// A result that can carry multiple source errors.
+/// A result that can carry multiple source errors. The recommended way to
+/// create an error for this type is with the `bail!` macro.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
 /// An output alongside warnings generated while producing it.
@@ -159,7 +177,8 @@ impl<T> Warned<T> {
     }
 }
 
-/// An error or warning in a source or text file.
+/// An error or warning in a source or text file. The recommended way to create
+/// one is with the `error!` or `warning!` macros.
 ///
 /// The contained spans will only be detached if any of the input source files
 /// were detached.
@@ -346,7 +365,8 @@ impl<T> Trace<T> for SourceResult<T> {
     }
 }
 
-/// A result type with a string error message.
+/// A result type with a string error message. The recommended way to create an
+/// error for this type is with the [`bail!`] macro.
 pub type StrResult<T> = Result<T, EcoString>;
 
 /// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
@@ -373,16 +393,18 @@ where
     }
 }
 
-/// A result type with a string error message and hints.
+/// A result type with a string error message and hints. The recommended way to
+/// create an error for this type is with the `bail!` macro.
 pub type HintedStrResult<T> = Result<T, HintedString>;
 
-/// A string message with hints.
+/// A string message with hints. The recommended way to create one is with the
+/// `error!` macro.
 ///
 /// This is internally represented by a vector of strings.
-/// The first element of the vector contains the message.
-/// The remaining elements are the hints.
-/// This is done to reduce the size of a HintedString.
-/// The vector is guaranteed to not be empty.
+/// - The first element of the vector contains the message.
+/// - The remaining elements are the hints.
+/// - This is done to reduce the size of a HintedString.
+/// - The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HintedString(EcoVec<EcoString>);
 

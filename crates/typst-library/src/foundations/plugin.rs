@@ -460,7 +460,7 @@ impl PluginInstance {
         // match the schema.
         if ty.params().iter().any(|&v| v != wasmi::core::ValType::I32) {
             bail!(
-                "plugin function `{func}` has a parameter that is not a 32-bit integer"
+                "plugin function `{func}` has a parameter that is not a 32-bit integer",
             );
         }
         if ty.results() != [wasmi::core::ValType::I32] {

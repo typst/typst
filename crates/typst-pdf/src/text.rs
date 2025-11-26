@@ -90,7 +90,7 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
             bail!(
                 Span::detached(),
                 "failed to process {}",
-                display_font(Some(&typst_font))
+                display_font(Some(&typst_font)),
             )
         }
     }

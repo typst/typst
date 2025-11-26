@@ -682,7 +682,7 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
         engine.sink.warn(warning!(
             span,
             "current font is not designed for math";
-            hint: "rendering may be poor"
+            hint: "rendering may be poor";
         ))
     }
 }

@@ -759,7 +759,7 @@ fn assemble(
                        base.item.span,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
-                       hint: "please file an issue at https://github.com/typst/typst/issues"
+                       hint: "please file an issue at https://github.com/typst/typst/issues";
                     ));
                 }
 
