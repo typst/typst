@@ -4,7 +4,6 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
-  TYPST_TESTS_EXTENDED: true
   PKG_CONFIG_i686-unknown-linux-gnu: /usr/bin/i686-linux-gnu-pkgconf
 
 jobs:
@@ -28,6 +27,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        arch: [amd64, arm64]
         bits: [64]
         include:
           - os: ubuntu-latest
@@ -45,15 +45,18 @@ jobs:
           targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.bits }}
+          key: diff-${{ matrix.bits }}
+          cache-directories: "tests/store"
       - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
-      - name: Upload rendered test output
+      - name: Upload test store
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: tests-rendered-${{ matrix.os }}-${{ matrix.bits }}
-          path: tests/store/render/**
+          name: tests-store-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          path: |
+            tests/store/report.html
+            tests/store/by-hash
           retention-days: 3
       - name: Update test artifacts
         if: failure()
@@ -64,7 +67,7 @@ jobs:
         if: failure() && env.updated_artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tests-updated-${{ matrix.os }}-${{ matrix.bits }}
+          name: tests-updated-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
           path: tests/ref/**
           retention-days: 3
 
