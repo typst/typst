@@ -6,12 +6,11 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
-use std::collections::HashMap;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
-use comemo::Track;
+use comemo::{Track, TrackedMut};
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
@@ -21,15 +20,14 @@ use typst_library::foundations::{
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{
-    Locatable, Location, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
-    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem, Works,
+    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -1090,7 +1088,7 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let elems = grouped.get();
     let trunk = elems[0].1;
     let children: Vec<Packed<CiteElem>> = elems
-        .iter()
+        .into_iter()
         .filter_map(|(c, _)| c.to_packed::<CiteElem>())
         .cloned()
         .collect();
@@ -1099,26 +1097,41 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let s = grouped.end();
 
     // Separate children with different bibliographies
-    let works = Works::generate(s.engine,Span::detached())?;
-    let citation_map = &works.citation_map;
-    let mut map = HashMap::new();
-    let mut key_order: Vec<Location> = vec![];
-    for child in children.clone() {
+    let mut children_iter = children.iter();
+    let citation_map = BibliographyElem::assign_citations(
+        s.engine.routines,
+        s.engine.world,
+        s.engine.introspector.into_raw(),
+        s.engine.traced,
+        TrackedMut::reborrow_mut(&mut s.engine.sink),
+        s.engine.route.track(),
+    );
+    let mut current_group = vec![];
+    let mut current_bib_loc = None;
+
+    while let Some(child) = children_iter.next()  {
         if let Some(bib_loc) = citation_map.get(&child.location().unwrap()) {
-            let entry = map.entry(bib_loc);
-            entry
-                .or_insert_with(|| {
-                    key_order.push(*bib_loc);
-                    vec![]
-                })
-                .push(child);
+            // For the first iteration
+            if current_bib_loc ==  None {
+                current_bib_loc = Some(*bib_loc);
+            }
+
+            if current_bib_loc == Some(*bib_loc)  {
+                current_group.push(child.clone());
+            }
+            else {
+                let span = Span::find(current_group.iter().map(|c| c.span()));
+                let elem = CiteGroup::new(current_group.clone()).pack().spanned(span);
+                visit(s, s.store(elem), trunk)?;
+                current_group.clear();
+                current_group.push(child.clone());
+                current_bib_loc = Some(*bib_loc);
+            }
         }
     }
-
-    for key in key_order {
-        let sub_children = map.get(&key).unwrap();
-        let span = Span::find(sub_children.iter().map(|c| c.span()));
-        let elem = CiteGroup::new(sub_children.clone()).pack().spanned(span);
+    if current_group.len() > 0 {
+        let span = Span::find(current_group.iter().map(|c| c.span()));
+        let elem = CiteGroup::new(current_group.clone()).pack().spanned(span);
         visit(s, s.store(elem), trunk)?;
     }
     return Ok(());

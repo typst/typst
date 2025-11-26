@@ -179,10 +179,24 @@ impl BibliographyElem {
             .collect())
     }
 
+    #[comemo::memoize]
     pub fn assign_citations(
-        engine: &mut Engine,
-        span: Span,
+        routines: &Routines,
+        world: Tracked<dyn World + '_>,
+        introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
+        route: Tracked<Route>,
     ) -> FxHashMap<Location, Location> {
+        let mut engine = Engine {
+            routines,
+            world,
+            introspector: Protected::from_raw(introspector),
+            traced,
+            sink,
+            route: Route::extend(route),
+        };
+        let span = Span::detached();
         let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
         let bibliographies: Vec<Packed<Self>> = engine
             .introspect(QueryIntrospection(Self::ELEM.select(),span))
@@ -639,7 +653,6 @@ pub struct Works {
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Works for each bibliography
     pub works: FxHashMap<Location, IndivWorks>,
-    pub citation_map: FxHashMap<Location,Location>
 }
 
 pub struct IndivWorks {
@@ -684,19 +697,25 @@ impl Works {
         sink: TrackedMut<Sink>,
         route: Tracked<Route>,
     ) -> StrResult<Arc<Works>> {
-        let introspector = Protected::from_raw(introspector);
         let mut engine = Engine {
             routines,
             world,
-            introspector,
+            introspector: Protected::from_raw(introspector),
             traced,
             sink,
             route: Route::extend(route),
         };
-        let citation_map = BibliographyElem::assign_citations(&mut engine,Span::detached());
+        let citation_map = BibliographyElem::assign_citations(
+            routines,
+            world,
+            introspector,
+            traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
+            route,
+        );
         let mut generator = Generator::new(&mut engine, &citation_map)?;
         let rendered = generator.drive();
-        let works = generator.display(&rendered,citation_map)?;
+        let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
     }
 
@@ -982,7 +1001,7 @@ impl<'a> Generator<'a> {
     }
 
     /// Displays hayagriva's output as content for the citations and references.
-    fn display(&mut self, rendered: &Vec<hayagriva::Rendered>, citation_map: FxHashMap<Location,Location>) -> StrResult<Works> {
+    fn display(&mut self, rendered: &Vec<hayagriva::Rendered>) -> StrResult<Works> {
         let mut works = FxHashMap::default();
         let citations = self.display_citations(rendered)?;
         for (bibliography, rendered_indiv) in
@@ -996,7 +1015,7 @@ impl<'a> Generator<'a> {
                 IndivWorks { references, hanging_indent },
             );
         }
-        Ok(Works { citations, works, citation_map })
+        Ok(Works { citations, works })
     }
 
     /// Display the citation groups.
