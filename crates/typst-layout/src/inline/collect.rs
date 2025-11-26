@@ -2,7 +2,8 @@ use typst_library::diag::warning;
 use typst_library::foundations::{Packed, Resolve};
 use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
-    Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
+    Abs, BoxElem, Dir, Fr, Frame, FrameModifiers, FrameModify, HElem, InlineElem,
+    InlineItem, Sizing, Spacing, layout_and_modify,
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
@@ -13,7 +14,6 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.

@@ -19,6 +19,7 @@ mod layout_;
 mod length;
 #[path = "measure.rs"]
 mod measure_;
+mod modifiers;
 mod pad;
 mod page;
 mod place;
@@ -51,6 +52,7 @@ pub use self::hide::*;
 pub use self::layout_::*;
 pub use self::length::*;
 pub use self::measure_::*;
+pub use self::modifiers::*;
 pub use self::pad::*;
 pub use self::page::*;
 pub use self::place::*;
