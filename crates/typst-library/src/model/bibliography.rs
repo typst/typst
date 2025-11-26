@@ -26,7 +26,9 @@ use crate::diag::{
 };
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    elem, Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label, NativeElement, OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value
+    Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
+    NativeElement, OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
@@ -199,12 +201,17 @@ impl BibliographyElem {
         let span = Span::detached();
         let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
         let bibliographies: Vec<Packed<Self>> = engine
-            .introspect(QueryIntrospection(Self::ELEM.select(),span))
+            .introspect(QueryIntrospection(Self::ELEM.select(), span))
             .into_iter()
             .map(|elem| elem.to_packed::<Self>().unwrap().clone())
             .collect();
-        let citations_and_bib = engine
-            .introspect(QueryIntrospection(Selector::Or(eco_vec![CiteElem::ELEM.select(), BibliographyElem::ELEM.select()]),span));
+        let citations_and_bib = engine.introspect(QueryIntrospection(
+            Selector::Or(eco_vec![
+                CiteElem::ELEM.select(),
+                BibliographyElem::ELEM.select()
+            ]),
+            span,
+        ));
 
         // First citations from bibliographies with selectors
         for bibliography in &bibliographies {
@@ -212,7 +219,8 @@ impl BibliographyElem {
                 &bibliography.target.get_ref(StyleChain::default())
             {
                 let bibliography_location = bibliography.location().unwrap();
-                let bibliography_citations = engine.introspect(QueryIntrospection(bibliography_selector.clone(),span));
+                let bibliography_citations = engine
+                    .introspect(QueryIntrospection(bibliography_selector.clone(), span));
                 for citation in bibliography_citations {
                     citation_map
                         .entry(citation.location().unwrap())
@@ -225,38 +233,52 @@ impl BibliographyElem {
         // 1. First following auto bibliography containing the label
         // 2. First preceding auto bibliography containing the label
         let bib_indexes: Vec<usize> = citations_and_bib
-             .iter()
-             .enumerate()
-             .filter(|(_,c)| { c.elem() == Self::ELEM })
-             .map(|(i,_)| { i })
-             .collect();
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.elem() == Self::ELEM)
+            .map(|(i, _)| i)
+            .collect();
 
         // Checks that the bib is after (before if forward is false) the citation and contains the
         // citation_key label
-        fn is_valid_bib(bib_index: usize, citation_index: usize, citation_key: Label, citations_and_bib: &EcoVec<Content>, forward: bool) -> Option<&Packed<BibliographyElem>> {
-            let bibliography = citations_and_bib[bib_index].to_packed::<BibliographyElem>().unwrap();
+        fn is_valid_bib(
+            bib_index: usize,
+            citation_index: usize,
+            citation_key: Label,
+            citations_and_bib: &EcoVec<Content>,
+            forward: bool,
+        ) -> Option<&Packed<BibliographyElem>> {
+            let bibliography =
+                citations_and_bib[bib_index].to_packed::<BibliographyElem>().unwrap();
             if (bib_index > citation_index) == forward
                 && bibliography.target.get_ref(StyleChain::default()).is_auto()
-                && bibliography.sources.derived.has(citation_key) {
+                && bibliography.sources.derived.has(citation_key)
+            {
                 Some(bibliography)
-            }
-            else {
+            } else {
                 None
             }
         }
 
         for (i, citation) in citations_and_bib.iter().enumerate() {
-            if let Some(citation_elem) = citation.to_packed::<CiteElem>() && !citation_map.contains_key(&citation.location().unwrap()) {
+            if let Some(citation_elem) = citation.to_packed::<CiteElem>()
+                && !citation_map.contains_key(&citation.location().unwrap())
+            {
                 let citation_key = citation_elem.key;
                 if let Some(next_bib) = bib_indexes
                     .iter()
-                    .filter_map(|&bib_index| is_valid_bib(bib_index, i, citation_key, &citations_and_bib, true))
-                    .chain(
-                        bib_indexes
-                        .iter()
-                        .rev()
-                        .filter_map(|&bib_index| is_valid_bib(bib_index, i, citation_key, &citations_and_bib, false))
-                    )
+                    .filter_map(|&bib_index| {
+                        is_valid_bib(bib_index, i, citation_key, &citations_and_bib, true)
+                    })
+                    .chain(bib_indexes.iter().rev().filter_map(|&bib_index| {
+                        is_valid_bib(
+                            bib_index,
+                            i,
+                            citation_key,
+                            &citations_and_bib,
+                            false,
+                        )
+                    }))
                     .next()
                 {
                     citation_map
@@ -673,7 +695,8 @@ impl Works {
             engine.traced,
             TrackedMut::reborrow_mut(&mut engine.sink),
             engine.route.track(),
-        ).at(span)
+        )
+        .at(span)
     }
 
     // /// Generate all citations and the whole bibliography, given an existing
@@ -728,22 +751,20 @@ impl Works {
     ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
         if let Some(indiv_works) = self.works.get(&elem.location().unwrap()) {
             indiv_works
-            .references
-            .as_deref()
-            .ok_or_else(|| match elem.style.get_ref(styles).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            })
-            .at(elem.span())
-
-        }
-        else {
-            bail!(elem.span(),"Bibliography not found in global bibliography")
+                .references
+                .as_deref()
+                .ok_or_else(|| match elem.style.get_ref(styles).source {
+                    CslSource::Named(style, _) => eco_format!(
+                        "CSL style \"{}\" is not suitable for bibliographies",
+                        style.display_name()
+                    ),
+                    CslSource::Normal(..) => {
+                        "CSL style is not suitable for bibliographies".into()
+                    }
+                })
+                .at(elem.span())
+        } else {
+            bail!(elem.span(), "Bibliography not found in global bibliography")
         }
     }
 
@@ -827,7 +848,7 @@ impl<'a> Generator<'a> {
     /// Create a new generator
     fn new(
         engine: &mut Engine<'a>,
-        citation_map: &FxHashMap<Location,Location>,
+        citation_map: &FxHashMap<Location, Location>,
     ) -> StrResult<Self> {
         let dummy_span = Span::detached();
         let bibliographies = BibliographyElem::find(engine, dummy_span)?;
@@ -947,15 +968,13 @@ impl<'a> Generator<'a> {
                     Smart::Custom(style) => style.derived.get(),
                 };
 
-                self.infos.entry(bibliography_location).or_default().push(
-                    GroupInfo {
-                        location,
-                        subinfos,
-                        span: first.span(),
-                        footnote: normal
-                            && style.settings.class == citationberg::StyleClass::Note,
-                    },
-                );
+                self.infos.entry(bibliography_location).or_default().push(GroupInfo {
+                    location,
+                    subinfos,
+                    span: first.span(),
+                    footnote: normal
+                        && style.settings.class == citationberg::StyleClass::Note,
+                });
 
                 driver.citation(CitationRequest::new(
                     items,

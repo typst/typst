@@ -27,7 +27,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem
+    BibliographyElem, CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -1109,17 +1110,16 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let mut current_group = vec![];
     let mut current_bib_loc = None;
 
-    while let Some(child) = children_iter.next()  {
+    while let Some(child) = children_iter.next() {
         if let Some(bib_loc) = citation_map.get(&child.location().unwrap()) {
             // For the first iteration
-            if current_bib_loc ==  None {
+            if current_bib_loc == None {
                 current_bib_loc = Some(*bib_loc);
             }
 
-            if current_bib_loc == Some(*bib_loc)  {
+            if current_bib_loc == Some(*bib_loc) {
                 current_group.push(child.clone());
-            }
-            else {
+            } else {
                 let span = Span::find(current_group.iter().map(|c| c.span()));
                 let elem = CiteGroup::new(current_group.clone()).pack().spanned(span);
                 visit(s, s.store(elem), trunk)?;
