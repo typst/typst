@@ -81,55 +81,55 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
             continue;
-        } else {
-            // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
-            // PDF 2.0 doesn't define an explicit limit, but krilla and probably
-            // some viewers won't handle pages that have zero sized pages.
-            let mut settings = PageSettings::new(
-                typst_page.frame.width().to_f32().max(3.0),
-                typst_page.frame.height().to_f32().max(3.0),
-            );
-
-            if let Some(label) = typst_page
-                .numbering
-                .as_ref()
-                .and_then(|num| PageLabel::generate(num, typst_page.number))
-                .or_else(|| {
-                    // When some pages were ignored from export, we show a page label with
-                    // the correct real (not logical) page number.
-                    // This is for consistency with normal output when pages have no numbering
-                    // and all are exported: the final PDF page numbers always correspond to
-                    // the real (not logical) page numbers. Here, the final PDF page number
-                    // will differ, but we can at least use labels to indicate what was
-                    // the corresponding real page number in the Typst document.
-                    gc.page_index_converter
-                        .has_skipped_pages()
-                        .then(|| PageLabel::arabic((i + 1) as u64))
-                })
-            {
-                settings = settings.with_page_label(label);
-            }
-
-            let mut page = document.start_page_with(settings);
-            let mut surface = page.surface();
-            let page_idx = gc.page_index_converter.pdf_page_index(i);
-            let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
-
-            tags::page(gc, &mut surface, |gc, surface| {
-                handle_frame(
-                    &mut fc,
-                    &typst_page.frame,
-                    typst_page.fill_or_transparent(),
-                    surface,
-                    gc,
-                )
-            })?;
-
-            surface.finish();
-
-            let link_annotations = fc.link_annotations.into_values().flatten();
-            tags::add_link_annotations(gc, &mut page, link_annotations);
         }
+
+        // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
+        // PDF 2.0 doesn't define an explicit limit, but krilla and probably
+        // some viewers won't handle pages that have zero sized pages.
+        let mut settings = PageSettings::new(
+            typst_page.frame.width().to_f32().max(3.0),
+            typst_page.frame.height().to_f32().max(3.0),
+        );
+
+        if let Some(label) = typst_page
+            .numbering
+            .as_ref()
+            .and_then(|num| PageLabel::generate(num, typst_page.number))
+            .or_else(|| {
+                // When some pages were ignored from export, we show a page label with
+                // the correct real (not logical) page number.
+                // This is for consistency with normal output when pages have no numbering
+                // and all are exported: the final PDF page numbers always correspond to
+                // the real (not logical) page numbers. Here, the final PDF page number
+                // will differ, but we can at least use labels to indicate what was
+                // the corresponding real page number in the Typst document.
+                gc.page_index_converter
+                    .has_skipped_pages()
+                    .then(|| PageLabel::arabic((i + 1) as u64))
+            })
+        {
+            settings = settings.with_page_label(label);
+        }
+
+        let mut page = document.start_page_with(settings);
+        let mut surface = page.surface();
+        let page_idx = gc.page_index_converter.pdf_page_index(i);
+        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+
+        tags::page(gc, &mut surface, |gc, surface| {
+            handle_frame(
+                &mut fc,
+                &typst_page.frame,
+                typst_page.fill_or_transparent(),
+                surface,
+                gc,
+            )
+        })?;
+
+        surface.finish();
+
+        let link_annotations = fc.link_annotations.into_values().flatten();
+        tags::add_link_annotations(gc, &mut page, link_annotations);
     }
 
     Ok(())
