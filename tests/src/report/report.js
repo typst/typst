@@ -1,26 +1,37 @@
 for (const imageDiff of document.getElementsByClassName("image-diff")) {
     const imageWrapper = imageDiff.querySelector(".image-diff-wrapper")
-    const frontImage = imageWrapper.querySelectorAll("img")[1]
+    const images = imageWrapper.querySelectorAll("img")
 
     const imageModes = imageDiff.querySelectorAll("input.image-view-mode")
-    const imageScale = imageDiff.querySelector("input.image-scale")
+    const imageZoom = imageDiff.querySelector("input.image-zoom")
+    const imageZoomPlus = imageDiff.querySelector("button.image-zoom-plus")
+    const imageZoomMinus = imageDiff.querySelector("button.image-zoom-minus")
     const imageAlignXControl = imageDiff.querySelector(".image-align-x-control")
     const imageBlendControl = imageDiff.querySelector(".image-blend-control")
     const imageBlend = imageDiff.querySelector("input.image-blend")
 
     const state = {
         imageWrapper: imageWrapper,
-        frontImage: frontImage,
+        images: images,
         imageModes: imageModes,
-        imageScale: imageScale,
+        imageZoom: imageZoom,
         imageAlignXControl: imageAlignXControl,
         imageBlendControl: imageBlendControl,
         imageBlend: imageBlend,
     }
 
-    imageScale.addEventListener("change", (e) => setImageScale(state))
-    imageScale.addEventListener("input", (e) => setImageScale(state))
-    setImageScale(state)
+    imageZoom.addEventListener("change", (e) => setImageZoom(state))
+    imageZoom.addEventListener("input", (e) => setImageZoom(state))
+    setImageZoom(state)
+
+    imageZoomMinus.addEventListener("click", (e) => {
+        imageZoom.stepDown()
+        setImageZoom(state)
+    })
+    imageZoomPlus.addEventListener("click", (e) => {
+        imageZoom.stepUp()
+        setImageZoom(state)
+    })
 
     imageBlend.addEventListener("change", (e) => setImageBlend(state))
     imageBlend.addEventListener("input", (e) => setImageBlend(state))
@@ -42,7 +53,7 @@ function imageModeChanged(state, mode) {
             state.imageBlendControl.disabled = true;
             break;
         }
-        case "fade": {
+        case "blend": {
             state.imageAlignXControl.disabled = false;
             state.imageBlendControl.disabled = false;
             break;
@@ -58,15 +69,16 @@ function imageModeChanged(state, mode) {
     setImageBlend(state)
 }
 
-function setImageScale(state) {
-    const scale = state.imageScale.value
+function setImageZoom(state) {
+    const scale = state.imageZoom.value
     state.imageWrapper.style.transform = `scale(${scale})`
 }
 
 function setImageBlend(state) {
     const mode = currentMode(state)
-    const opacity = state.imageBlend.value
-    state.frontImage.style.opacity = (mode == "fade") ? opacity : 1
+    const blend = state.imageBlend.value
+    state.images[0].style.opacity = (mode == "blend") ? (1 - blend) : 1
+    state.images[1].style.opacity = (mode == "blend") ? blend : 1
 }
 
 function currentMode(state) {
