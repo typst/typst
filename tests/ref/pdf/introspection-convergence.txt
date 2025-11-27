@@ -1,0 +1,10 @@
+1f9ab79b0df50b0937859e31322034a7 convergence-counter
+06266bfec787086c91513ae4b61ad95e convergence-measure
+80ca32d5b29facac06d27d21ca933b6f convergence-page
+7fed1395e922fa02f92bba80910df8d4 convergence-page-supplement
+ddb6413d6da45ce0a13d016c35ae4cd7 convergence-position
+bb4c6164ab43cf4cdbcec4186c9bb862 convergence-query
+6049f42517610dabc74cb67ed95a4ed3 convergence-query-first-and-unique
+d818f18617bd3769b4d7685c91534e22 convergence-state
+0590f35da532d1b02396a1df709265af convergence-state-converged-but-not-query
+c91e1957b620c61777158f03d5e2c72b convergence-state-errored

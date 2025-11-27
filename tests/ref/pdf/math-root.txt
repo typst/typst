@@ -1,0 +1,8 @@
+3a5e6bcda34149c47c3bfd740a3d51e5 math-root-basic
+785f9fab6a5644206f917e2c8b6c3676 math-root-frame-size-index
+572bfdf90b6c118b539f9b23d6d2ec76 math-root-large-body
+5386d0d8af4ebf69958ec03e32cfca59 math-root-large-index
+2675589f0e8c8b0190fbf46a8bf88a90 math-root-precomposed
+666812a8378edbf36590ea9563d221b1 math-root-radical-attachment
+4267eabc57f77ddd4164f73536f69a64 math-root-syntax
+5eb1814052f80d73b3a93c0041e9fa04 math-root-syntax-prec

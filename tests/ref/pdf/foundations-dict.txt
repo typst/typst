@@ -1,0 +1,15 @@
+5fa628456e03476c7fba1056017f9c0d dict-at-default
+b9f05ff23607f9edc79e07b1f011b59e dict-at-lvalue
+7e942b3f71dbe074732f66b4e89c9111 dict-basic-methods
+986eac6b7dfd0f4e077a0b8b51122f33 dict-basic-syntax
+1bd6685850055762ce3954d46b43804a dict-dynamic-duplicate-key
+6d774996c452cf8967d5231d833ae004 dict-fields
+60126edffb39186274319e3a223330eb dict-from-module
+2def47c9fea4d6b1b82d78d2f32c8403 dict-insert
+d43b5e96cf891680d2e76c3ce0e7e06c dict-insert-order
+e3e4eabbe0267a1c6fef4a0f2359854b dict-remove-order
+1dd3774238667765c3f21a9f7e179e92 dict-remove-with-default
+89cfb5043cc2514f22c85ca585eb3a35 issue-3154-dict-at-missing-default
+c3a4c6768a98883ca2e4cb7c4fb5b579 issue-3154-dict-syntax-missing-mutable
+12cfa0184e1602085a6b724d68c5dd52 issue-3232-dict-empty
+5284f559391373e0c63f5192d3aaa14a spread-into-dict

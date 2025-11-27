@@ -1,0 +1,3 @@
+43d7a95fe80a02774b1e8b03a5b020c0 baseline-box
+e8e1e2d947ad0f1793339a79db805ec2 baseline-text
+69db9d2e066e6a703c0eedf7c3a5d274 issue-2214-baseline-math

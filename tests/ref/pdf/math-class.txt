@@ -1,0 +1,6 @@
+412774203592bcc94d935e9e5b75b97f issue-4985-up-tack-is-normal-perp-is-relation
+b1ed8c5a3a2d6ff80d89d5fb1c4847ce math-class-chars
+f2dce7bdeb822cdaeb0b5f65da1ce275 math-class-content
+158eca28149749850190be7256e4665d math-class-exceptions
+56c624df2e4e4ba04319abd041981745 math-class-limits
+8f6caf1969b773fe4a808a2fc5698b00 math-class-nested

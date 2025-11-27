@@ -1,0 +1,7 @@
+1c127283816ea987bc0f8aed45c4b980 issue-5180-measure-inline-math-bounds
+1c127283816ea987bc0f8aed45c4b980 measure
+fe4d7dfa9b15e0a3968ed7c67bafcd85 measure-citation-deeply-nested
+3cbc84e94a7a791e3a8edcb4675572f6 measure-citation-in-flow
+7316f4e412b8b858a3eced504db8d854 measure-counter-multiple-times
+1da3ff5e18bccc0e86b282500e4918f7 measure-counter-width
+1c127283816ea987bc0f8aed45c4b980 measure-given-area

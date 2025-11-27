@@ -1,0 +1,9 @@
+1c127283816ea987bc0f8aed45c4b980 loop-break-basic
+1c127283816ea987bc0f8aed45c4b980 loop-break-join-basic
+37421f78722780817328e84d8f6b9a90 loop-break-join-in-first-arg
+1c127283816ea987bc0f8aed45c4b980 loop-break-join-in-last-arg
+1a34142a9cc92ac929b06c2b0276b2e8 loop-break-join-in-nested-blocks
+6924f969bfd09f9396c3d249b2684a2e loop-break-join-in-set-rule-args
+592e11fd14bfab0d94f7ac0cedac9508 loop-break-join-set-and-show
+1c127283816ea987bc0f8aed45c4b980 loop-continue-basic
+1c127283816ea987bc0f8aed45c4b980 loop-continue-join

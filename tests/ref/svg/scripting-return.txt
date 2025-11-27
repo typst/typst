@@ -1,0 +1,12 @@
+1c127283816ea987bc0f8aed45c4b980 return-discard-content
+1c127283816ea987bc0f8aed45c4b980 return-discard-content-nested
+1c127283816ea987bc0f8aed45c4b980 return-discard-loop
+1c127283816ea987bc0f8aed45c4b980 return-discard-markup
+1c127283816ea987bc0f8aed45c4b980 return-discard-not-content
+1c127283816ea987bc0f8aed45c4b980 return-discard-state
+1c127283816ea987bc0f8aed45c4b980 return-in-content-block
+1c127283816ea987bc0f8aed45c4b980 return-in-first-arg
+a79023de72f3e4a0daf916454c308103 return-in-nested-content-block
+1c127283816ea987bc0f8aed45c4b980 return-join
+1c127283816ea987bc0f8aed45c4b980 return-no-discard
+1c127283816ea987bc0f8aed45c4b980 return-with-value

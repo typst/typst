@@ -1,0 +1,14 @@
+782e6c5566d87f08574bd5dc91ca4489 color-cmyk-ops
+644783859bf815061993d3e7f64c38ac color-components
+24cb27e09a68cd9fa13b6996875347f2 color-conversion
+f2c6588dab3fb79387fb4630c6a977c6 color-luma
+86478a14dea0fa85407cec67147a787f color-luma-ops
+d9a77e3678565d11464f3771b9fa9072 color-opacify
+a9afa2355eba31d6f5bbac7e18e7a544 color-outside-srgb-gamut
+64b0229e3616f2812068269ef2b81ee6 color-rotate-hue
+096b2f731fdea7f7465e1c2d0b1447be color-saturation
+4b929a520d4d489674cd69476692c4a3 color-space
+847a04eb59ab9473d83df7c166490966 color-spaces
+82fd5efdf30d6fc9d19bdc89989e703c color-transparentize
+ca5e93aa7426f730b77e67f461c8fdc1 issue-4361-transparency-leak
+a8677efaed27fdbf6543c8167d8447be issue-color-mix-luma

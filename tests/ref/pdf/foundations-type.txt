@@ -1,0 +1,2 @@
+bad3124ffd3ea3a2ebde4a2b90e9d454 issue-2747-repr-auto-none
+d774d39b8a9703f9de4ee675f09c7c8e type

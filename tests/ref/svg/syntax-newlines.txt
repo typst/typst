@@ -1,0 +1,9 @@
+0c4ef94a00687824e334d3e886561694 newline-continuation-code
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-if-else-comment
+7f551bc2fd0d198d02204836fdd46fcf newline-continuation-markup
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-blank
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-block-comment-after
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-block-comment-between
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-comments-and-blanks
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-line-comment-after
+1c127283816ea987bc0f8aed45c4b980 newline-continuation-method-line-comment-between

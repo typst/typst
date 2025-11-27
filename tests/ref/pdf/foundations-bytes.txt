@@ -1,0 +1,6 @@
+de1e41190374e4a59ef1cfcaf456b80b bytes-addition
+35b3aef8a2b3261827e31dfe101c2695 bytes-array-conversion
+9b8bbe0275e36b0314e0a5a41cc4ff04 bytes-basic
+ea63a522bde24eefacc976ba5cfd5095 bytes-joining
+ff2e27563fe99427c4687cd0a22ab2f3 bytes-slice
+9333f2f6ba2dea8f225070889e7ffa48 bytes-string-conversion

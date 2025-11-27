@@ -1,0 +1,5 @@
+2502c27f5184e5907ebcceeea2a9b756 issue-3363-json-large-number
+1c127283816ea987bc0f8aed45c4b980 json
+1c127283816ea987bc0f8aed45c4b980 json-decode-deprecated
+1c127283816ea987bc0f8aed45c4b980 json-decode-number
+1c127283816ea987bc0f8aed45c4b980 json-encode-any
