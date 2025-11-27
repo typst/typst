@@ -477,7 +477,7 @@
 // Error: 42-52 unexpected argument
 #((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
 
---- array-sorted-non-total-order paged ---
+--- issue-6285-crashed-with-sorting-non-total-order paged ---
 // Error: 2-23:11 cannot compare string and none
 #(
   "context",
