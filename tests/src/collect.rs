@@ -50,11 +50,8 @@ impl Test {
     /// stages that are explicitly specified and those that are
     /// [implied](TestStages::with_implied).
     pub fn should_check(&self, output: TestOutput) -> bool {
-        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
         ARGS.required_stages()
             .intersects(self.attrs.implied_stages() & output.into())
-            && output != TestOutput::Pdf
-            && output != TestOutput::Svg
     }
 
     /// Whether this test stage should be run, test stages that are
