@@ -1,0 +1,13 @@
+- Tag: P
+  /K:
+    - Tag: Lbl
+      /K:
+        - Tag: Link
+          /K:
+            - Annotation: page=0 index=0
+    - Tag: Note
+      /K:
+        - Tag: Lbl
+          /K:
+            - Tag: Link
+        - Content: page=0 mcid=0
