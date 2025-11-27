@@ -420,7 +420,7 @@ impl<'a> SVGRenderer<'a> {
 #[derive(Debug, Clone)]
 struct Deduplicator<T> {
     kind: char,
-    vec: Vec<(u128, T)>,
+    vec: Vec<T>,
     present: FxHashMap<u128, Id>,
 }
 
@@ -443,17 +443,14 @@ impl<T> Deduplicator<T> {
     {
         *self.present.entry(hash).or_insert_with(|| {
             let index = self.vec.len();
-            self.vec.push((hash, f()));
-            Id(self.kind, hash, index)
+            self.vec.push(f());
+            Id(self.kind, index)
         })
     }
 
     /// Iterate over the elements alongside their ids.
     fn iter(&self) -> impl Iterator<Item = (Id, &T)> {
-        self.vec
-            .iter()
-            .enumerate()
-            .map(|(i, (id, v))| (Id(self.kind, *id, i), v))
+        self.vec.iter().enumerate().map(|(i, v)| (Id(self.kind, i), v))
     }
 
     /// Returns true if the deduplicator is empty.
@@ -464,11 +461,12 @@ impl<T> Deduplicator<T> {
 
 /// Identifies a `<def>`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-struct Id(char, u128, usize);
+struct Id(char, usize);
 
 impl Display for Id {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{:0X}", self.0, self.1)
+        let Id(kind, idx) = self;
+        write!(f, "{kind}{idx:X}")
     }
 }
 
