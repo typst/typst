@@ -1,0 +1,6 @@
+b7e8c6b7b0bc84a543587d7af4670cfc align-center-in-flow
+2531f23e6de56eb46ec27963e4300eb5 align-in-stack
+db801611f5fdda742bb1176b26711912 align-right
+3b8e76e52efce3982fbdd2661f3ac5de align-start-and-end
+e6789e9dbd0312f2e6a4ca8617417847 issue-1398-line-align
+30398fadd50c8795002f51bc17d7c7b4 issue-2213-align-fr

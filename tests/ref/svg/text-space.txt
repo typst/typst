@@ -1,0 +1,10 @@
+b6ccd110ec88a5c13a738dd56b270880 space-collapsing
+67e6a4a32963a891909b85b7f09f3466 space-collapsing-comments
+bec98eb4ea84adb61807c5f55655cead space-collapsing-linebreaks
+82fcd0ca36c882981ee455a570ae5c11 space-collapsing-stringy-linebreak
+7ca73fabd01e13c33b5c4fe63c3d9b66 space-collapsing-with-h
+d8d7ed1d7afe9de27e4e1515dc6b56bd space-ideographic-kept
+5878082863413d50ed08e8c38ab5cf89 space-thin-kept
+d097b15df9c7c4d9559321d3ae2660c9 space-trailing-linebreak
+c6c89613d171ed0fe51805e4eec073f5 text-font-change-after-space
+3011890764eba339b2c3efc60be196e8 text-font-just-a-space

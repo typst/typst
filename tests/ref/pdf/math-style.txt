@@ -1,0 +1,9 @@
+e22938bb7e9f098a572fdcdda7d83a06 issue-3650-italic-equation
+a18b727d74f872609d493126c85e5897 math-style
+f0d14edcd0ad04c1e1b4642c64b53bb0 math-style-dotless
+0c034af715a84f3236aaf6c3b168e655 math-style-exceptions
+03f2035f4f5f30e7d1730449341f65ed math-style-fallback
+abcb987e8d350c09baf4438f97ed62b1 math-style-greek-exceptions
+3cfa6d72efb82e07c41de21649e2f40a math-style-hebrew-exceptions
+1d09631e8ced07dc2adfbe84fc487924 math-style-italic-default
+c03c3f0d2b1693c27bc6beb0c1470afa math-style-script

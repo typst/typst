@@ -1,0 +1,3 @@
+25047d6eddb8fbfca70826bc658d1a94 fold-vec-order-meta
+2fc7437f56bbbfa4bc447956a7f9cc6c fold-vec-order-text-decos
+257ebc74a9b3a0c4bb6e240b23df6a45 fold-vec-order-text-features

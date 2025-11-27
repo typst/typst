@@ -1,0 +1,11 @@
+a7bb358c848c9763ed37daeb03cacd41 issue-5536-quote-inline-quotes-false
+be8e726e6582368794e432b11252a9e4 quote-block-spacing
+db24533a420ba49c5f20e50d017f1dc4 quote-cite-format-author-date
+0d1a203ce78c9077788a270d4af87e11 quote-cite-format-label-or-numeric
+98c963e42aa8c4405cd16dde6bc074f5 quote-cite-format-note
+7297a2de187713414d5c11bce5b04eec quote-dir-align
+922be9ffe58f00515544888c5fd4842e quote-dir-author-pos
+e8eff379ab1977211a17273b953eb8bd quote-inline
+b58de7aa570ad4f97bf2876b8bd25eb0 quote-nesting
+37cd703091f8b4ed2d4c309d0ddaa765 quote-nesting-custom
+c0c0dcc29e93b5ec4e8ff677c84d2cb5 quote-par

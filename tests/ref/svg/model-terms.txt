@@ -1,0 +1,13 @@
+af5f0de17cb1c64e74663c5e4544475f issue-1050-terms-indent
+f0324a65d193a90e83e2abed963d1154 issue-2530-term-item-panic
+633ddf5646b473e37f470e75794f2028 issue-5503-terms-in-align
+0bbcfa5b1c07007bf5f4a994d55c3952 issue-5719-terms-nested
+5d70a19e20a4985a91bc5aec5599cc19 terms-array-deprecated
+50789122eb0b822d0a1e558a7bb89a2c terms-built-in-loop
+a92ad79a202973566d458c0c877811a8 terms-constructor
+9273c6dc2aeb21054acbda8eb067c75c terms-grid
+548579e470986bda5cefc307c797df8c terms-multiline
+7ad664e26bfaa4e08c9ed25203b70e22 terms-par
+84e8a86562bf1ce26576f21b1eca12b9 terms-rtl
+6527973a61ee75973d19d9fa52efe2d9 terms-style-change-interrupted
+b517d6080f70e67f48e1eedea653219e terms-syntax-edge-cases

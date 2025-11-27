@@ -1,0 +1,3 @@
+ad8913afa9b6670c838cb4d108f590b8 smallcaps
+553eedfdd0b469a1472b0dc0cef5bd75 smallcaps-all
+ce3ad33c84f078422577cc027f73f945 smallcaps-show-rule

@@ -1,0 +1,11 @@
+09db5a6437f3b6b38829463ea8cfdb64 issue-1833-locate-place
+b6c11589e6abaee61e2ac5028598eec7 issue-1886-locate-after-metadata
+0609265cefefab9a762045323f7df247 issue-4029-locate-after-pagebreak
+2780606c7bf6932580df28c86de06add issue-4029-locate-after-par-and-pagebreak
+bfa800764d35069c70868d17f93a7d69 issue-4029-locate-after-spacing
+aa528f4afe15ca1d5176ec72f36a9555 locate-between-pages
+7e523f5494c0b03d595f0a6720b3128a locate-element-selector
+685d738a00a6327146f47a380b08140b locate-migrated-breakable
+7e523f5494c0b03d595f0a6720b3128a locate-position
+36c5db647437c224b4be638691b8f0a2 locate-position-trailing-tag
+686cdc180b2a5c6cb76677839f6922f9 locate-start-of-par

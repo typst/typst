@@ -1,0 +1,14 @@
+ab923cbc1a137d9e000c5a58c6066310 text-alternates-and-stylistic-sets
+7f12bdab3e042c9cea71990502dd52fd text-alternates-int
+9b890265d2b0e9482494d8f342a7380b text-features
+0ab48fe63546611795b97d411ac98740 text-kerning
+f63d178fb30d6a9e0b6f891fe1441ffd text-ligatures
+c57d8cf9e43cbc0a944c936de99780a3 text-number-type
+c0eab3cab8d2ff62c79ad795621de1b2 text-number-width
+0359b762b19dd120e00ad18cf9de07f9 text-slashed-zero-and-fractions
+f35c031a234ac8d40a5c8ff88fb2334d text-spacing
+635e33e898bac1856d27049fbd4785ef text-spacing-relative
+f76344ed5b193605a05dc95a7aaacb64 text-tracking-arabic
+ff143e99fde060940e8b14882eb344e8 text-tracking-changed-temporarily
+ce3baa9d85b2b22dcb44f5aa7a1bced3 text-tracking-mark-placement
+4baa37bcfce2de4be8b79f3e78fc2f13 text-tracking-negative

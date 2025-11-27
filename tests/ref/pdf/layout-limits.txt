@@ -1,0 +1,1 @@
+8f98cbefedb0ccbed828371a22ce6faf issue-1216-clamp-panic

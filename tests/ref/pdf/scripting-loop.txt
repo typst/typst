@@ -1,0 +1,4 @@
+915aa015bb387107c6f12471efffd66f loop-break-join-in-first-arg
+94e2ba3d392465c2f86c53f0bc186294 loop-break-join-in-nested-blocks
+70ea4fa8796b981da29200bda9569685 loop-break-join-in-set-rule-args
+550fe81659eeaedb19e3c984ef10932c loop-break-join-set-and-show

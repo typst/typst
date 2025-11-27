@@ -1,0 +1,3 @@
+2ab357cfe0d33fa0cc6c8e1c90c94640 closure-capture-in-lvalue
+f3235db90792c9e3a6a9fec9759f6d05 closure-without-params-non-atomic
+bcf82c74ed12a1e6587ae33ce0cee541 issue-non-atomic-closure

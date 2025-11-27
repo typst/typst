@@ -1,0 +1,5 @@
+f76b9b85c65b86ff2378e8b123f0ed92 issue-3700-deformed-stroke
+a2d78a4cfd2fea83cafb54edaa21befa stroke-composition
+28cfe021289639c0532e26be632d04a6 stroke-folding
+85db2f6cf7c723a644f885ee34f1874b stroke-text
+25ac31c7db1279a9e22e696574c9d299 stroke-zero-thickness

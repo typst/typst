@@ -1,0 +1,14 @@
+86dad83cc6d6fa751d9f3309974b4167 bidi-consecutive-embedded-ltr-runs
+8e41174b05c412d2558cf114f5d3e526 bidi-consecutive-embedded-rtl-runs
+5b9022567474401ad1fbe71b949bc848 bidi-en-he-top-level
+c1894f2dbe898d14b6784f98054dfb7b bidi-explicit-dir
+084d7a7d4690a84ddcc005f6556d19e0 bidi-manual-linebreak
+a31f6cd53a2c6482c9d1cc251816c63a bidi-nesting
+0f8be9c9b37389b7e0f8aa39a0164100 bidi-obj
+a5fe542eba5341835945cfb99c4ea353 bidi-raw
+752e0e10fed3446eb3dedc58ef655e3e bidi-spacing
+e2a691bbb9b267736697d97498306b7a bidi-whitespace-reset
+322919ac19ce481b374656d4668b7fcb issue-1373-bidi-tofus
+9a1e52971729db79d62f97e45165488c issue-5276-shaping-consecutive-ltr-with-lang
+2e285d02d116b25f4c0e5c59d6df3cba issue-5490-bidi-invalid-range
+109e14babfbedfaa4e2498fcc67bd416 issue-5490-bidi-invalid-range-2

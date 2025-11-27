@@ -1,0 +1,13 @@
+a3e264bc68eb70bbfcc598502f1749eb colbreak-weak
+315be829aa2a591dea60365f440de5fb columns-colbreak-after-place
+3bef1dcc30abc5ea55ad97a910e2c61c columns-empty-second-column
+32f19f5f75b94e86946f474ec6bc120d columns-in-auto-sized-rect
+d88ab462d31a95ebe59ad8c90bf967e7 columns-in-fixed-size-rect
+a59ad8fac4bf10a7f4918d5eaa27d685 columns-more-with-gutter
+c78a86b45fdfd743fa191a36584bb408 columns-one
+299825d72c6f86af6cec7fcf7d5c9c1d columns-page-height-auto
+408386b63eda27162b320d327d2eb37d columns-page-width-auto
+0deb319c4c7d234f1476857c4bf6723e columns-rtl
+b8819e8963be68006e2b1ef06b37fc78 columns-set-page
+410297ccb0df2dd04dd6e454cf82631e columns-set-page-colbreak-pagebreak
+27fa255b632f73f56d86ce348c7fa07a issue-columns-heading

@@ -1,0 +1,7 @@
+f0fc82001f47cb8a86d563408213f433 text-lang
+cfec3f0682bc4749ca49e5548edfb22d text-lang-hyphenate
+468c49f4505e27faa1192233c055ffa4 text-lang-region
+6551040022d5162968cf3267dd298437 text-lang-script-shaping
+7eab44b9e063aa8a0f26d96ec86a39db text-lang-shaping
+f0fc82001f47cb8a86d563408213f433 text-lang-unknown-region
+88a5237f0e8c3746c8e9bd6387b84c9d text-language-fallback-english

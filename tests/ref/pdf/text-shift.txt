@@ -1,0 +1,9 @@
+6bf4d6583a7424b86cd1fe6ee7be63a0 issue-7249-multiple-lookup-tables
+7ece231f126e2927b96a0111be58647c long-scripts
+121a37939a0e5787b6133415a432605c script-metrics-bundled-fonts
+dd5d3b587b97663992962c8af53930a7 sub-super
+89d24eae27b200bb9c75ed1b802c8026 sub-super-italic-compensation
+c60eeeee099f90cfc8611a8a9545a611 sub-super-non-typographic
+b7c450607c1d14c99170e5916d879690 sub-super-typographic
+5b05dd5010334b288cd5c9ae26fa0eb1 super-highlight
+9bbcfca44efa0d7683d7f2bc1c6f2a74 super-underline
