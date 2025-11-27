@@ -1,0 +1,9 @@
+2b9ebf6d6f5a35f9d6ee0d02189c2eb6 duration-add-and-subtract
+40195dba10a64d468fa9cade669bb1fa duration-add-and-subtract-dates
+8bce36dae65dfcdf558640b04920d359 duration-add-and-subtract-datetimes
+5a58da4cac266de62810f53f81a9287e duration-add-and-subtract-times
+39c20e122516a36dc5b203f4ef53485d duration-compare
+2c5c1026cdd368bf21349215084da747 duration-divide
+a887a16037ff5f27f63ebdf561840cdf duration-from-date-subtraction
+1e7908630dbace287bb82e674f64680b duration-multiply-with-number
+91bd3f2f2fcf06c605d99f39c612a38b duration-negate

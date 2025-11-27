@@ -1,0 +1,6 @@
+1c127283816ea987bc0f8aed45c4b980 decimal-constructor
+1c127283816ea987bc0f8aed45c4b980 decimal-constructor-float-literal
+3e18021f30dfc0f0f244b38c67623bdf decimal-display
+75f2af7ec3541e3b79749e80cbff0e0d decimal-display-round
+1c127283816ea987bc0f8aed45c4b980 decimal-repr
+1c127283816ea987bc0f8aed45c4b980 decimal-scale-is-observable

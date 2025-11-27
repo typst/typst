@@ -1,0 +1,9 @@
+33fa7f95a78e09168cbee1b3f02fed11 hide-image
+49b323b49f6e79d1ecbcab39cd5a4437 hide-line
+b8c734a10f6eb5b15173bdbacc48e471 hide-list
+adac3a298fa730cfd94e5017fd48f3da hide-polygon
+0b13bf4c162dd99938de235f4795fbd2 hide-rect
+78d94de175ab0b296a17253105815c92 hide-table
+229ebcba4a5b99212230edf80e246e9f hide-text
+7f551398eb460aa2a7d997bddd0bf6d3 issue-622-hide-meta-cite
+16cf2d0a0317cf43ac4a8d01d483e1b4 issue-622-hide-meta-outline

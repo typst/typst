@@ -1,0 +1,4 @@
+fc1d809b77273fb72211d40fe49498bc cbor-decode-deprecated
+1488e1272cbe821fb58d41401d69d157 cbor-decode-integer
+31d7be2ce4977fb2d8fc20a60ef5df15 cbor-encode-any
+a2c47eb10ae86a5ef9e87fb29272086b cbor-encode-bytes

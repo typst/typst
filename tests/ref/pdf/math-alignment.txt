@@ -1,0 +1,5 @@
+887560d4d43086418e77e56621543e9c issue-3973-math-equation-align
+313c4ce611000cfcfa1cba47b4a048bb math-align-implicit
+98ae605ccaf37685174b7be43ff3f4da math-align-post-fix
+149894997e86d4cabf37d18321d43e64 math-align-toggle
+34f6319fca3933edc1d8eab6eb74bf34 math-align-weird

@@ -1,0 +1,6 @@
+e362ff1e8a91bca837f5b65a1aae9f7d shorthand-dashes
+52e581beade38a4f80e350c46b5cf7b5 shorthand-ellipsis
+762886d820fa1d233a608ccd6b3c6bd3 shorthand-minus
+b2e2828654e0a40eab2573caaab8e96c shorthand-nbsp-and-shy-hyphen
+d5500a38c1eb87058c5c4bdcb421144c shorthand-nbsp-width
+3aa4856d9f51991a0811bd1c5df63a90 shorthands-math

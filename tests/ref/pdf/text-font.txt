@@ -1,0 +1,12 @@
+9822bcbfdc629c7e19ae8948214b94b7 issue-5262-text-negative-size
+3c8f96c160101105eca65af74c3ede3c issue-5499-text-fill-in-clip-block
+cbd1e06c35f8271013bfe0709c6523d0 issue-5940-text-negative-size-panic
+ded1390c46d4083bd0dc0bb3c9c7ca10 text-call-body
+8bfd0af90c7b56e7c24e480c1c10bbe2 text-font-covers-chinese
+c70b01b72d4344989163274b412e06cd text-font-covers-numbers
+d10ced7270a53ded535ec6ec9982a9a2 text-font-covers-reflection
+606d213ac3c4ee7ded5fa115e7ef0218 text-font-covers-repeat
+c8441b5f253c792e0539f52524a2a8c7 text-font-covers-riffle
+40a7f508ed32e64c1cf3984a644b2f2b text-font-properties
+a44083c331e35bad8e3f3710d6007515 text-font-types
+3685d5fba23de008d924e8afe1a93d8e text-unknown-font-family-warning

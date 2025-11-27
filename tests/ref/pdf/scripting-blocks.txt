@@ -1,0 +1,8 @@
+fa32c137d804778385d38e16632d197f code-block-basic-syntax
+4784299686dbf0a27d2919c5a063945a code-block-empty
+7d6a8ae9d8364fb85b88ba7ff2dcfbff code-block-join-expression-with-none
+55fee48638f485c536dbc080181bbfaf code-block-join-let-with-expression
+9238c1b11e40aac1ca9b99b7d8d9e55f code-block-let
+09119591a8c530d550756d8307992336 code-block-multiple-expressions-single-line
+af18d687dbea9ae2c50c614ee613fe88 code-block-nested-scopes
+1f3eff213bf1cf26eadd3378eee708bb code-block-single-expression

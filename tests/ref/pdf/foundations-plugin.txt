@@ -1,0 +1,4 @@
+acd8b6122e820397b80154f2314a7ff9 plugin-basic
+9fec036b0d0a6f095e766821e3c250d7 plugin-func
+8c5345c687f62641f7a3da43b8c9b8e2 plugin-import
+981ba91c2fc5870d4f88c2a29ffda5ab plugin-transition

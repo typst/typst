@@ -1,0 +1,15 @@
+248ae1185653e580467eb954291391de curve-close-intersection
+b2e176b10445f65c20fd491c52172e66 curve-close-smooth
+6f57244cbd99827c17a858c4a033a20b curve-close-straight
+0094afc64b299c1fe477d9ec2b43d82e curve-cubic-inflection
+caf3c4d084043049def4db3b63ac6779 curve-cubic-mirror
+e7065ceb40803275988b22086909f60c curve-fill-rule
+cb3bdfa2f1df25ce5fb29a6c84de1d62 curve-line
+992375f4216d0ba7573be20268dcc6a2 curve-move-multiple-even-odd
+2675003da425093dcc3d287147d6786b curve-move-multiple-non-zero
+bd64f51070bb836363521c4d41a7392f curve-move-single
+05c75f0ca85e1a3dc6143571feaf25df curve-multiple-non-closed
+18f19029ec4973bb353e644050324466 curve-quad-mirror
+dd6efd8ae9fffcc61e7deff4ba4fd398 curve-stroke-gradient
+b603ec3b3c7899074983ac7f5a67aa22 curve-stroke-gradient-sharp
+d66dc145ab5de70a2d010d81f0ee37cc issue-curve-in-sized-container

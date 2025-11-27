@@ -1,0 +1,15 @@
+c3cd4c1789b9e0881aada231a74af234 call-aliased-function
+68b1db1f39682f11b802075af3c75a55 call-args-lone-underscore
+e80c8f7f6e693312fd2f048984a1f676 call-args-spread-array-and-dict
+9ce25817c6d67a36533e1d5025e53674 call-args-spread-forward
+3409a076ce2d8871769c5e8c7b4822b7 call-args-spread-none
+afdbc79386815e80842003fd8fcbabac call-args-spread-override
+cb15af82d5ede9d820c9fa83688369bc call-args-spread-type-repr
+653aa81eee85a6717fb7dd6e5f35cf1e call-args-trailing-comma
+a87f287f706bc60384c49d01f6219b87 call-basic
+f7f15c3a45a9aa99babf2031ea5603b2 call-complex-callee-expression
+a34c5e1af0bbe4b6fe2aabc72c5adaa3 issue-3144-unexpected-arrow
+9a9c2269cb6ae7e22ceace96d4615f51 issue-3502-space-and-comments-around-destructuring-colon
+1960554a30a313656c7fae22d8c0e0ba issue-3502-space-around-dict-colon
+685265080362a51860d61d9070454e6a issue-3502-space-around-param-colon
+2068c3d34cb768e509840637444b0342 issue-886-args-sink

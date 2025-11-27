@@ -1,0 +1,11 @@
+9487d6b312e237bdd2f34755158604f7 closure-as-arg
+ff82ff66d9cddc942e7dd85655e2faee closure-capture-from-popped-stack-frame
+4bfc2340903836aa7cf42d2a70b53bce closure-capture-in-lvalue
+375acbb5ba2ff99db3b2ea5b127c00c5 closure-let-args
+4b997de060226057bb8a0ed6629bc1be closure-let-basic
+cd48a2d559f0733b5eb4a91f3f2783ac closure-shadows-outer-var
+ab883655be614f958c0172f6d6ea5daa closure-shadows-outer-var-for-loop
+2a18b85c28524dcfa299807eae1db4ad closure-shadows-outer-var-import
+a8eda0065aa16999b2e4ed8c1a27f755 closure-without-captures
+e4b75d9de119941792643f59caaab829 closure-without-params-non-atomic
+a4953b71087c7bfc6f8d1f9024569e83 issue-non-atomic-closure

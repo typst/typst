@@ -1,0 +1,17 @@
+9fc1867817b75e5b31e01b179e94d6c5 counter-basic-1
+1c127283816ea987bc0f8aed45c4b980 counter-basic-2
+77d18970d9b8d68f6fc9a700fd8cbff6 counter-figure
+b2f107b0b4bc5250d75e138c8bf6abae counter-heading
+1c127283816ea987bc0f8aed45c4b980 counter-huge
+493f9569374ae369fa7c9ea8f444ca3c counter-label
+2854deeb0a1f9e9a69d89310372eb8c1 counter-page
+b8469bd9128abc4a359becc9f3d3bae1 counter-page-between-pages
+9a39d145187eb4d85f71c470c187ec44 counter-page-display
+d4ff180be1df5c5032c337c531216bed counter-page-footer-before-set-page
+62e049339d3e86ba36a0d4bb1f58a03a counter-page-footer-only-update
+9946d2c5863a94d86ff260276d65d06c counter-page-header-before-set-page
+dd046618e33327b07d92b88a541f686b counter-page-header-only-update
+d394c63e874a402e5551798f465219ce counter-rtl
+9461f4e22e9780308d862be85798f3c5 issue-2480-counter-reset
+a945f6d43350a1b2756050a3d62664c7 issue-2480-counter-reset-2
+1c127283816ea987bc0f8aed45c4b980 issue-4626-counter-depth-skip

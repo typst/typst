@@ -1,0 +1,15 @@
+1c127283816ea987bc0f8aed45c4b980 dict-at-default
+1c127283816ea987bc0f8aed45c4b980 dict-at-lvalue
+1c127283816ea987bc0f8aed45c4b980 dict-basic-methods
+d4dd654da63f18b9f359a31b684181af dict-basic-syntax
+1c127283816ea987bc0f8aed45c4b980 dict-dynamic-duplicate-key
+1c127283816ea987bc0f8aed45c4b980 dict-fields
+1c127283816ea987bc0f8aed45c4b980 dict-from-module
+1c127283816ea987bc0f8aed45c4b980 dict-insert
+1c127283816ea987bc0f8aed45c4b980 dict-insert-order
+1c127283816ea987bc0f8aed45c4b980 dict-remove-order
+1c127283816ea987bc0f8aed45c4b980 dict-remove-with-default
+1c127283816ea987bc0f8aed45c4b980 issue-3154-dict-at-missing-default
+1c127283816ea987bc0f8aed45c4b980 issue-3154-dict-syntax-missing-mutable
+5a736a4bf2b1f8c0b0df8e7a980a8db9 issue-3232-dict-empty
+1c127283816ea987bc0f8aed45c4b980 spread-into-dict

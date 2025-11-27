@@ -1,0 +1,4 @@
+1c127283816ea987bc0f8aed45c4b980 toml
+1c127283816ea987bc0f8aed45c4b980 toml-decode-deprecated
+1c127283816ea987bc0f8aed45c4b980 toml-decode-integer
+1c127283816ea987bc0f8aed45c4b980 toml-encode-any

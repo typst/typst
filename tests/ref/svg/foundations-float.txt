@@ -1,0 +1,7 @@
+1c127283816ea987bc0f8aed45c4b980 float-constructor
+92dd5676bbf56859d988ef834a9be534 float-display
+1c127283816ea987bc0f8aed45c4b980 float-from-and-to-bytes
+1c127283816ea987bc0f8aed45c4b980 float-is-infinite
+1c127283816ea987bc0f8aed45c4b980 float-is-nan
+1c127283816ea987bc0f8aed45c4b980 float-repr
+1c127283816ea987bc0f8aed45c4b980 float-signum

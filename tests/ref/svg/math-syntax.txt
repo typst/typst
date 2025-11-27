@@ -1,0 +1,6 @@
+fb9cd79cc934711735ffa3f152078bb0 issue-2044-invalid-parsed-ident
+d236e67712c1033c77079c322e885d1c issue-4828-math-number-multi-char
+6ad1cdfc110bf67d05a2417865c30f42 math-common-symbols
+651c75b46f2fe5995f4241e0a00a62c3 math-shorthands
+fad2e74966c40199d999b872e26f4179 math-shorthands-noncontinuable
+255e62a6cf4db6fd6f0fdf8e4b5f3d2b math-unicode
