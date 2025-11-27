@@ -95,10 +95,7 @@ pub struct Attrs {
 impl Attrs {
     /// Whether the reference output should be compared and saved.
     pub fn should_check_ref(&self, output: TestOutput) -> bool {
-        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
         ARGS.should_run(self.stages & output.into())
-            && output != TestOutput::Pdf
-            && output != TestOutput::Svg
     }
 }
 
