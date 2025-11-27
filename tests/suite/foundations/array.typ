@@ -478,30 +478,8 @@
 #((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
 
 --- issue-6285-crashed-with-sorting-non-total-order paged ---
-// Error: 2-23:11 cannot compare string and none
-#(
-  "context",
-  "raw term",
-  "judgmental equality",
-  "metatheory",
-  "indexed inductive-recursive type",
-  "indexed inductive type",
-  "contextual",
-  "universe",
-  "cumulation",
-  "normal form",
-  "neutral form",
-  "renaming",
-  "canonical form",
-  "semantics",
-  "interpretation",
-  "model",
-  "consistent",
-  none,
-  "consistent",
-  "independent",
-  "contermodel",
-).sorted()
+// Error: 2-66 cannot compare string and none
+#(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()
 
 --- issue-3014-mix-array-dictionary paged ---
 // Error: 8-17 expected expression, found named pair
