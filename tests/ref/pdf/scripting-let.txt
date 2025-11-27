@@ -1,0 +1,4 @@
+cab8d86cf4c96984116ea727aabcc7ac let-basic
+35d3b49ef0ed54c86b8cbf0c50c8fa9c let-ident-parenthesized
+1f4ba99371b9b6759d836320043a4bc0 let-termination
+9d494d2a24bca8449d9f032cd2896a9d let-valid-idents

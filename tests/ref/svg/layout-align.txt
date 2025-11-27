@@ -1,0 +1,11 @@
+ff33288aa48942a1790bc1fbd0d2c3ea align-center-in-flow
+63c12f51a8901cd79982fe25190a077e align-in-stack
+8233a4812020b88d0c17c6655b442ad6 align-right
+28e1ce5ecf91111044ba533f3a2621e5 align-start-and-end
+1c127283816ea987bc0f8aed45c4b980 alignment-axis
+1c127283816ea987bc0f8aed45c4b980 alignment-fields-x
+1c127283816ea987bc0f8aed45c4b980 alignment-fields-y
+1c127283816ea987bc0f8aed45c4b980 alignment-inv
+1c127283816ea987bc0f8aed45c4b980 alignment-type
+676dc42ce77433f7ebe50fdfa760baf7 issue-1398-line-align
+d27335fd372e488224cf82d899c8a92a issue-2213-align-fr

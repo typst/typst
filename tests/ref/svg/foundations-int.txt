@@ -1,0 +1,8 @@
+1c127283816ea987bc0f8aed45c4b980 int-base-alternative
+1c127283816ea987bc0f8aed45c4b980 int-constructor
+9bd59c7f267e55b4195c27d70bcf82e5 int-display
+1c127283816ea987bc0f8aed45c4b980 int-from-and-to-bytes
+1c127283816ea987bc0f8aed45c4b980 int-parse-large-literals
+1c127283816ea987bc0f8aed45c4b980 int-repr
+1c127283816ea987bc0f8aed45c4b980 int-signum
+1c127283816ea987bc0f8aed45c4b980 issue-int-constructor

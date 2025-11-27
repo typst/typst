@@ -1,0 +1,16 @@
+7d163b956993d4632a21c063789a8caf heading-basic
+f8c240d12e0e625aab734cfb89863eac heading-block
+9b53eeced995b261762661e1d478b64d heading-hanging-indent-auto
+a83697647f939cc907f56a77c991d898 heading-hanging-indent-auto-center-align
+cee04c7edd2fbe8f9a99847b91e16023 heading-hanging-indent-length
+71f7fb797dcf31114992ac6325529bce heading-hanging-indent-zero
+3a7d6913a56666653b64ee2a741ceed3 heading-leading-whitespace
+2d11a6bf0e68a431a694eed2ebd278e6 heading-offset
+c8463968e1f981728861f3a31eabae8f heading-offset-and-level
+f63f35121538041fa18b91b987b90480 heading-par
+1e8b029af5d01abc590edca6e5285c65 heading-show-where
+a1e9148baf994bf71feb7a6190f51a9d heading-syntax-at-start
+ce96a0ad41463a420586d4a18a4958a0 heading-syntax-edge-cases
+886ec0c4087ca6f2c9cb1c79d6b35b14 heading-trailing-whitespace
+2d86b3252e309fad50ee3dda8aaee238 issue-5719-heading-nested
+c0983ec3273015a373a8809f9d33702e issue-7428-heading-numbering-errors

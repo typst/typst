@@ -1,0 +1,4 @@
+1c127283816ea987bc0f8aed45c4b980 cbor-decode-deprecated
+1c127283816ea987bc0f8aed45c4b980 cbor-decode-integer
+1c127283816ea987bc0f8aed45c4b980 cbor-encode-any
+1c127283816ea987bc0f8aed45c4b980 cbor-encode-bytes

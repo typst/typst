@@ -1,0 +1,5 @@
+be25cbe2fa6a09651cf6641cbeb359f4 issue-3363-json-large-number
+6eea0f53da8e64fa977dfc569d953d4f json
+e2840b7d6e8c2283d338c712ebd9e3d0 json-decode-deprecated
+0a859aae13e301dd2db6136e61ba104d json-decode-number
+369a221d873a0615f0b7b594449ea814 json-encode-any

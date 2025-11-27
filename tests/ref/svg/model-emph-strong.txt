@@ -1,0 +1,7 @@
+6aed337e40473e2d27ea4f9138c34018 emph-and-strong-call-in-word
+d6a4cd8102edadb1ebbe5242eea29594 emph-double-underscore-empty-hint
+1c127283816ea987bc0f8aed45c4b980 emph-empty-hint
+4a66c01485c2c541593f0ae16f10e6a5 emph-syntax
+e1a5cd4c9b16ddcfabae30779816813e strong-delta
+f29634f3e127c0e44dd9027e40560c71 strong-double-star-empty-hint
+1c127283816ea987bc0f8aed45c4b980 strong-empty-hint

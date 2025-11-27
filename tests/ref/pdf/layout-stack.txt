@@ -1,0 +1,7 @@
+82aaab98965f4b2375d737b7c44f1d4b issue-1240-stack-h-fr
+6071e13f7acebb2dc7694b6b50586e7d issue-1240-stack-v-fr
+0bd771071499d3f0489421b931398df7 stack-basic
+326507b7644bb4570c806a1a72ccf7b5 stack-fr
+b66f0f23451191d9d742eaf8f577e175 stack-overflow
+084c9b396a0aefe57f1664941b06db91 stack-rtl-align-and-fr
+3388793364cb01f056c24a6e7a00ec67 stack-spacing

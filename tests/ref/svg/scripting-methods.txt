@@ -1,0 +1,3 @@
+1c127283816ea987bc0f8aed45c4b980 method-multiline
+1c127283816ea987bc0f8aed45c4b980 method-mutating
+1c127283816ea987bc0f8aed45c4b980 method-whitespace

@@ -1,0 +1,4 @@
+25081d16d4c9f6badeb17e9a9c310667 toml
+30fd59dcfdac46f0064899fb30fb71fd toml-decode-deprecated
+00e0c8525d1d78e4cd8e7ca3132c172f toml-decode-integer
+956df76392b1560cd1ab660d9e6fb205 toml-encode-any

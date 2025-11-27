@@ -1,0 +1,9 @@
+42f2edb81d7ee6f01b2a872aa107d4c0 cjk-punctuation-adjustment-1
+d2f565584dea2cbc728490966f230077 cjk-punctuation-adjustment-2
+2146087d61500cc8fbcc19f59b421f95 cjk-punctuation-adjustment-3
+27214ab1bffce6d7d0e3a335d189f8ef issue-2538-cjk-latin-spacing-before-linebreak
+68f0a6704e238bd5cdcae2131ce6a25e issue-2650-cjk-latin-spacing-meta
+c5069f02f7e546352993e4e194fae2f6 issue-6539-cjk-latin-spacing-at-manual-linebreak
+7e3f91a326352bbcbfe50fc7a6693fee issue-7113-cjk-latin-spacing-shift
+a1f60f1f47043e71a507679788c7be84 text-chinese-basic
+d58ed2cbeeb5dbe519787b29f27c8bc4 text-cjk-latin-spacing

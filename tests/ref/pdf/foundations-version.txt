@@ -1,0 +1,4 @@
+6051f18bd2f581e726ce0c65b2846058 version-constructor
+f7b43855887f0edea5533a27401c5354 version-equality
+fd8609411bec03519f4785692f4db7e9 version-fields
+07fe8b6705a53f1ad0e68b1609107106 version-type

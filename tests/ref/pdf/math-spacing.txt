@@ -1,0 +1,9 @@
+7fe21c6d766252a93e17a9e6eed6462e issue-1052-math-number-spacing
+ea32e2e50e9a0a75097204edd7ab3269 math-spacing-basic
+f24eb95c6df7803fe9f95ef28c0c99c0 math-spacing-decorated
+cdc5999ebf4bea9a580f458ec307d5e1 math-spacing-ignorant
+a9ecc2ce2bccbb77af85a5cf4612563d math-spacing-kept-spaces
+5732af3a63bd03fdb65d512dc3296505 math-spacing-predefined
+d30adf60ebfb57947023b9627867aac5 math-spacing-script
+d1cc775a6575eb2a4dd2a9796c1d7563 math-spacing-set-comprehension
+8403ce85b1435d1f0862d154e04fcfe3 math-spacing-weak

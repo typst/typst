@@ -1,0 +1,5 @@
+48364528616dcfa0dc0867b654b9eba4 get-rule-basic
+39f1803d44a5409ee99b27359e87d87e get-rule-figure-caption-collision
+4ba9c9b49a6ccf91b0943f8e2cf49400 get-rule-folding
+392082789921eb1f2159437bdd671a1d get-rule-in-array-callback
+c3b3c9b6917ee717eb0dba9370f4335f get-rule-in-function

@@ -1,0 +1,6 @@
+2d5bc2a54d47f18d1c3338ce958b783e dir-axis
+c82c5b2f8a1bd20c777f7cd00e3b355d dir-end
+32e2dba69b878c612dd22e2e9607032a dir-from
+a8bba48c6acf000f0b94d028390ee142 dir-inv
+eaa7f32f9cce18f4419da4d51c7385b4 dir-sign
+dcc43775ae7f574b9cb1ba2b434043e0 dir-start

@@ -1,0 +1,7 @@
+92cd5992dc99647d36d6a3ce2d7448ed issue-rtl-safe-to-break-panic
+bae24be4cccf5df2bc8a6c984a2108aa shaping-emoji-bad-zwj
+b6d87fbc7e45a522dec4aa371d9c4560 shaping-emoji-basic
+2e29243cf2fc052cdd5aa018e963bfa0 shaping-font-fallback
+db5a54080a189840b2cdd280cf424e8d shaping-forced-script-font-feature-enabled
+a170a790d111cec6f37c727ffbd7e4cf shaping-forced-script-font-feature-inhibited
+73d77a44b8168633b691ea1e041b5702 shaping-script-separation

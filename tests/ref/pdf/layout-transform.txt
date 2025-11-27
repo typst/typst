@@ -1,0 +1,14 @@
+676c61f4aac9afe612ef201e32e3d721 transform-combinations
+173071b100a38aa067e1816c3f2e44ba transform-rotate
+e78df29dee5eb1cbba54203523a5d535 transform-rotate-and-scale
+ae2f6948dcd7768ea89c187f0257f949 transform-rotate-origin
+1c5c94fbff767d2d7c24a44deabc8781 transform-rotate-relative-sizing
+e8c0a14ca4f6a5fb27267ed9666869de transform-scale
+9b8e84e8b30043b2c9955b090bd2c156 transform-scale-abs-and-auto
+8a49356410df99a2b8aaf1c4731ac354 transform-scale-origin
+f5bd486571578f8eebd347d0a25d78f3 transform-scale-relative-sizing
+ab539aa57533486abd9518791407712b transform-skew
+f09715d3061b16d38926dcc1f0a8737a transform-skew-both-axes
+cbd502159ee870fc792a1e8df89b201d transform-skew-origin
+211674cc60b3e3609284ed2c131e217d transform-skew-relative-sizing
+900c4b64dfa5ae05ddefc73925434525 transform-tex-logo

@@ -1,0 +1,4 @@
+1c127283816ea987bc0f8aed45c4b980 recursion-named
+1c127283816ea987bc0f8aed45c4b980 recursion-named-returns-itself
+1c127283816ea987bc0f8aed45c4b980 recursion-shadowing
+1c127283816ea987bc0f8aed45c4b980 recursion-unnamed-does-not-return-itself

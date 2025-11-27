@@ -1,0 +1,6 @@
+f84b6e4dc31fe629aa48d89e82d6752f issue-1029-parameter-destructuring
+a62fd67f94707bf6e1cf5fe7dccbb9e7 params-sink-at-start
+93806547c44b21ff1b8f67c995c49dc9 params-sink-in-middle
+7f00a7af344339c1b843ca47241a0459 params-sink-named
+474e59ad019b8e2fcb409c05bd856f60 params-sink-unnamed
+3dde1207f6596c905aaf9433c9c9c993 params-sink-unnamed-empty

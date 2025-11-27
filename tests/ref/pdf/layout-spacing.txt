@@ -1,0 +1,9 @@
+9885ef7352dce96ce1beab0eb73fd725 issue-3624-spacing-behaviour
+7c12996d967956e0eb14a6be728e76a1 issue-4087
+3446aac8d20874abe0228c691fe9bdc5 issue-5244-consecutive-weak-space
+85b7665cf96d9e576d047869d489940a issue-5244-consecutive-weak-space-heading
+6ec4f3eb45c14e2ce76e00101ef4c602 issue-5253-consecutive-weak-space-math
+b8ccfeeb78d895dadf6d4bab016cdd56 spacing-h-and-v
+330c485ad2c8fb75974379a9416a7d93 spacing-rtl
+5f3da9d34e2bb85b65cd59aeb9e62be0 trim-weak-space-line-beginning
+d551fe480313ffd13b0d042926ac0a8f trim-weak-space-line-end

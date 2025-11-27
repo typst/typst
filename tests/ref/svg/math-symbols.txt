@@ -1,0 +1,2 @@
+1c127283816ea987bc0f8aed45c4b980 math-symbol-basic
+1c127283816ea987bc0f8aed45c4b980 math-symbol-double

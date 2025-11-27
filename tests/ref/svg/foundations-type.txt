@@ -1,0 +1,2 @@
+1c127283816ea987bc0f8aed45c4b980 issue-2747-repr-auto-none
+1c127283816ea987bc0f8aed45c4b980 type
