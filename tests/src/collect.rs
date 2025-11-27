@@ -635,7 +635,9 @@ impl<'a> Parser<'a> {
 
             match attr_name {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
+                "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
+                "svg" => self.set_attr(attr_name, &mut stages, TestStages::SVG),
                 "pdfstandard" => {
                     let Some(param) = attr_params.take() else {
                         self.error("expected parameter for `pdfstandard`");
