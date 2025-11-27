@@ -12,7 +12,7 @@ use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, cast, elem,
+    NativeFuncPtr, ParamInfo, Reflect, Scope, Symbol, SymbolElem, Type, cast, elem,
 };
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
@@ -241,7 +241,7 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| {
-        crate::foundations::extract_base_char(&elem.text)
+        Symbol::strip_text_presentation(&elem.text)
     }) {
         Some(c) => Self::new(c),
         _ => bail!("expected exactly one character"),

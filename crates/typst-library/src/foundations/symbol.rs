@@ -131,7 +131,7 @@ impl Symbol {
 
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
-        crate::foundations::extract_base_char(self.get())
+        Self::strip_text_presentation(self.get())
             .and_then(|c| {
                 crate::math::accent::get_accent_func(c)
                     .or_else(|| crate::math::get_lr_wrapper_func(c))
@@ -195,6 +195,21 @@ impl Symbol {
             .filter(|modifier| !modifier.is_empty() && !modifiers.contains(modifier))
             .collect::<BTreeSet<_>>()
             .into_iter()
+    }
+
+    /// Extracts the base character from a symbol value that can consist of one
+    /// char and an optional text presentation variation selector.
+    ///
+    /// Returns `Some(char)` if and only if the string is either:
+    /// - A single codepoint, or
+    /// - Two codepoints: A base character and a Unicode text presentation
+    ///   variation selector.
+    pub fn strip_text_presentation(value: &str) -> Option<char> {
+        let mut chars = value.chars();
+        match (chars.next(), chars.next(), chars.next()) {
+            (Some(c), None, None) | (Some(c), Some('\u{fe0e}'), None) => Some(c),
+            _ => None,
+        }
     }
 }
 

@@ -93,6 +93,23 @@ $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
 
---- math-accent-bidirectional-arrow paged ---
-// Test bidirectional arrow accent, arrow.l.r symbol includes a variation selector 
+--- issue-7437-math-accent-text-presentation paged ---
+// Make sure that the `arrow.l.r` symbol correctly works as an accent even
+// though it includes a text presentation variation selector.
 $arrow.l.r(A), accent(B, arrow.l.r), arrow.l.r(x + y)$
+
+--- issue-7437-math-accent-emoji-presentation paged ---
+// Check that we do not normalize an accent character with emoji presentation
+// variation selector to an accent.
+//
+// Since we already support arbitrary characters as accents, we might want to
+// support cluster like this one, too, but it should render as an emoji instead
+// of normalizing into the same accent as `arrow.l.r`, so it's better to keep
+// this an error for now.
+// Error: 12-31 expected exactly one character
+$accent(A, std.emoji.arrow.l.r)$
+
+--- issue-7437-math-accent-trailing-text paged ---
+// Test that we don't allow extra text after the text variation selector.
+// Error: 13-47 expected exactly one character
+$accent(A, #symbol("\u{2194}\u{fe0e}\u{fe0f}"))$
