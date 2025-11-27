@@ -4,10 +4,9 @@ use ecow::{EcoString, eco_format};
 use typst_library::foundations::Repr;
 use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
-use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
-use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{DedupId, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
@@ -61,10 +60,9 @@ impl SVGRenderer<'_> {
         gradient: &Gradient,
         size: Size,
         ts: Transform,
-    ) -> Id {
-        let gradient_id = self
-            .gradients
-            .insert_with(hash128(&(gradient, size.aspect_ratio())), || {
+    ) -> DedupId {
+        let gradient_id =
+            self.gradients.insert_with((gradient, size.aspect_ratio()), || {
                 (gradient.clone(), size.aspect_ratio())
             });
 
@@ -72,12 +70,11 @@ impl SVGRenderer<'_> {
             return gradient_id;
         }
 
-        self.gradient_refs
-            .insert_with(hash128(&(gradient_id, ts)), || GradientRef {
-                id: gradient_id,
-                kind: gradient.into(),
-                transform: ts,
-            })
+        self.gradient_refs.insert_with(&(gradient_id, ts), || GradientRef {
+            id: gradient_id,
+            kind: gradient.into(),
+            transform: ts,
+        })
     }
 
     pub(super) fn push_tiling(
@@ -85,15 +82,15 @@ impl SVGRenderer<'_> {
         tiling: &Tiling,
         size: Size,
         ts: Transform,
-    ) -> Id {
+    ) -> DedupId {
         let tiling_size = tiling.size() + tiling.spacing();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
         self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        let tiling_id = self.tilings.insert_with(hash128(tiling), || tiling.clone());
-        self.tiling_refs.insert_with(hash128(&(tiling_id, ts)), || TilingRef {
+        let tiling_id = self.tilings.insert_with(tiling, || tiling.clone());
+        self.tiling_refs.insert_with((tiling_id, ts), || TilingRef {
             id: tiling_id,
             transform: ts,
             ratio: Axes::new(
@@ -213,7 +210,7 @@ impl SVGRenderer<'_> {
                         };
                         let id = self
                             .conic_subgradients
-                            .insert_with(hash128(&subgradient), || subgradient);
+                            .insert_with(subgradient.clone(), || subgradient);
 
                         // Add the path to the pattern.
                         self.xml.start_element("path");
@@ -428,7 +425,7 @@ impl SVGRenderer<'_> {
 #[derive(Hash)]
 pub struct TilingRef {
     /// The ID of the deduplicated gradient
-    id: Id,
+    id: DedupId,
     /// The transform matrix to apply to the tiling.
     transform: Transform,
     /// The ratio of the size of the cell to the size of the filled area.
@@ -442,7 +439,7 @@ pub struct TilingRef {
 #[derive(Hash)]
 pub struct GradientRef {
     /// The ID of the deduplicated gradient
-    id: Id,
+    id: DedupId,
     /// The gradient kind (used to determine the SVG element to use)
     /// but without needing to clone the entire gradient.
     kind: GradientKind,
@@ -451,7 +448,7 @@ pub struct GradientRef {
 }
 
 /// A subgradient for conic gradients.
-#[derive(Hash)]
+#[derive(Clone, Hash)]
 pub struct SVGSubGradient {
     /// The center point of the gradient.
     center: Axes<Ratio>,

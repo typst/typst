@@ -6,12 +6,14 @@ mod shape;
 mod text;
 
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
-use rustc_hash::FxHashMap;
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
 use std::cell::LazyCell;
 use std::fmt::{self, Display, Formatter, Write};
+use std::hash::Hash;
 use std::ops::DerefMut;
 
 use ecow::EcoString;
@@ -20,7 +22,6 @@ use typst_library::layout::{
     Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
-use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
@@ -317,10 +318,9 @@ impl<'a> SVGRenderer<'a> {
 
         if let Some(clip_curve) = &group.clip {
             let offset = Point::new(state.transform.tx, state.transform.ty);
-            let hash = hash128(&(&clip_curve, &offset));
-            let id = self
-                .clip_paths
-                .insert_with(hash, || shape::convert_curve(offset, clip_curve));
+            let id = self.clip_paths.insert_with((clip_curve, offset), || {
+                shape::convert_curve(offset, clip_curve)
+            });
             group_writer.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
@@ -425,55 +425,47 @@ impl<'a> SVGRenderer<'a> {
 #[derive(Debug, Clone)]
 struct Deduplicator<T> {
     kind: char,
-    vec: Vec<(u128, T)>,
-    present: FxHashMap<u128, Id>,
+    map: IndexMap<u128, T, FxBuildHasher>,
 }
 
 impl<T> Deduplicator<T> {
     fn new(kind: char) -> Self {
-        Self {
-            kind,
-            vec: Vec::new(),
-            present: FxHashMap::default(),
-        }
+        Self { kind, map: IndexMap::default() }
     }
 
     /// Inserts a value into the vector. If the hash is already present, returns
     /// the index of the existing value and `f` will not be called. Otherwise,
     /// inserts the value and returns the id of the inserted value.
-    #[must_use = "returns the index of the inserted value"]
-    fn insert_with<F>(&mut self, hash: u128, f: F) -> Id
+    #[must_use = "returns the id of the inserted value"]
+    fn insert_with<K, F>(&mut self, key: K, f: F) -> DedupId
     where
+        K: Hash,
         F: FnOnce() -> T,
     {
-        *self.present.entry(hash).or_insert_with(|| {
-            let index = self.vec.len();
-            self.vec.push((hash, f()));
-            Id(self.kind, hash, index)
-        })
+        let hash = typst_utils::hash128(&key);
+        self.map.entry(hash).or_insert_with(f);
+        DedupId(self.kind, hash)
     }
 
     /// Iterate over the elements alongside their ids.
-    fn iter(&self) -> impl Iterator<Item = (Id, &T)> {
-        self.vec
-            .iter()
-            .enumerate()
-            .map(|(i, (id, v))| (Id(self.kind, *id, i), v))
+    fn iter(&self) -> impl Iterator<Item = (DedupId, &T)> {
+        self.map.iter().map(|(hash, v)| (DedupId(self.kind, *hash), v))
     }
 
     /// Returns true if the deduplicator is empty.
     fn is_empty(&self) -> bool {
-        self.vec.is_empty()
+        self.map.is_empty()
     }
 }
 
 /// Identifies a `<def>`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-struct Id(char, u128, usize);
+struct DedupId(char, u128);
 
-impl Display for Id {
+impl Display for DedupId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{:0X}", self.0, self.1)
+        let DedupId(kind, hash) = self;
+        write!(f, "{kind}{hash:X}")
     }
 }
 

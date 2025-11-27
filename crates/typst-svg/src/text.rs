@@ -10,7 +10,6 @@ use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{
     ExchangeFormat, FillRule, Image, Paint, RasterImage, RelativeTo,
 };
-use typst_utils::hash128;
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
@@ -81,8 +80,7 @@ impl SVGRenderer<'_> {
         let upem = text.font.units_per_em();
         let origin_ascender = text.font.metrics().ascender.at(Abs::pt(upem));
 
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
+        let id = self.glyphs.insert_with((&text.font, id), || RenderedGlyph::Image {
             url: data_url,
             width: upem,
             height: upem,
@@ -117,8 +115,7 @@ impl SVGRenderer<'_> {
         let x_min = ttf.global_bounding_box().x_min as f64;
         let y_max = ttf.global_bounding_box().y_max as f64;
 
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
+        let id = self.glyphs.insert_with((&text.font, id), || RenderedGlyph::Image {
             url: data_url,
             width,
             height,
@@ -146,8 +143,7 @@ impl SVGRenderer<'_> {
         let (image, bitmap_x_offset, bitmap_y_offset) =
             convert_bitmap_glyph_to_image(&text.font, id)?;
 
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || {
+        let id = self.glyphs.insert_with((&text.font, id), || {
             let width = image.width();
             let height = image.height();
             let url = crate::image::convert_image_to_base64_url(&image);
@@ -189,8 +185,9 @@ impl SVGRenderer<'_> {
     ) -> Option<()> {
         let scale = Ratio::new(scale);
         let path = convert_outline_glyph_to_path(&text.font, glyph_id, scale)?;
-        let hash = hash128(&(&text.font, glyph_id, scale));
-        let id = self.glyphs.insert_with(hash, || RenderedGlyph::Path(path));
+        let id = self
+            .glyphs
+            .insert_with((&text.font, glyph_id, scale), || RenderedGlyph::Path(path));
 
         let glyph_size = text.font.ttf().glyph_bounding_box(glyph_id)?;
         let width = glyph_size.width() as f64 * scale.get();
