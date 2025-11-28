@@ -301,7 +301,7 @@ pub fn jump_from_cursor<D: JumpInDocument>(
     };
 
     let span = node.span();
-    document.find_span(source, span)
+    document.find_span(span)
 }
 
 /// Jump to a position in the document, given a cursor position in a source
@@ -319,7 +319,7 @@ mod jump_in_document_sealed {
     use typst::{
         introspection::HtmlPosition,
         layout::{PagedDocument, Position},
-        syntax::{Source, Span},
+        syntax::Span,
     };
     use typst_html::HtmlDocument;
 
@@ -329,13 +329,13 @@ mod jump_in_document_sealed {
     pub trait JumpInDocument {
         type Position;
 
-        fn find_span(&self, source: &Source, span: Span) -> Vec<Self::Position>;
+        fn find_span(&self, span: Span) -> Vec<Self::Position>;
     }
 
     impl JumpInDocument for PagedDocument {
         type Position = Position;
 
-        fn find_span(&self, _: &Source, span: Span) -> Vec<Self::Position> {
+        fn find_span(&self, span: Span) -> Vec<Self::Position> {
             self.pages
                 .iter()
                 .enumerate()
@@ -352,8 +352,8 @@ mod jump_in_document_sealed {
     impl JumpInDocument for HtmlDocument {
         type Position = HtmlPosition;
 
-        fn find_span(&self, source: &Source, span: Span) -> Vec<Self::Position> {
-            find_in_elem(source, &self.root, span, &mut EcoVec::new())
+        fn find_span(&self, span: Span) -> Vec<Self::Position> {
+            find_in_elem(&self.root, span, &mut EcoVec::new())
         }
     }
 }
@@ -382,35 +382,24 @@ fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
 
 /// Find the position of a span in an HTML element.
 fn find_in_elem(
-    source: &Source,
     elem: &HtmlElement,
     span: Span,
     current_position: &mut EcoVec<usize>,
 ) -> Vec<HtmlPosition> {
     let mut result = Vec::new();
     let mut i = 0;
-    let mut last_text_start = None;
     for child in &elem.children {
         match child {
             HtmlNode::Element(e) => {
                 current_position.push(i);
-                for pos in find_in_elem(source, e, span, current_position) {
-                    result.push(pos)
-                }
+                result.extend(find_in_elem(e, span, current_position));
                 current_position.pop();
 
                 i += 1;
-                last_text_start = None;
             }
             HtmlNode::Text(_, node_span) => {
-                let text_start = last_text_start.get_or_insert(*node_span);
-
                 if *node_span == span {
-                    let span_range = source.range(*text_start);
-                    return vec![
-                        HtmlPosition::new(current_position.clone())
-                            .at_char(span_range.unwrap_or_default().start),
-                    ];
+                    return vec![HtmlPosition::new(current_position.clone())];
                 }
 
                 i += 1;
@@ -423,7 +412,6 @@ fn find_in_elem(
                 }
 
                 i += 1;
-                last_text_start = None;
             }
             _ => {}
         }
