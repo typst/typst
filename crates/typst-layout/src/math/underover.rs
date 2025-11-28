@@ -9,8 +9,8 @@ use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
-use crate::math::accent::place_accent;
-use crate::math::attach::layout_attachments;
+use super::accent::place_accent;
+use super::attach::layout_attachments;
 
 use super::{
     FrameFragment, MathContext, style_cramped, style_for_subscript, style_for_superscript,
