@@ -896,9 +896,8 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if the dividend is too small in magnitude compared to the
-/// divisor, or if the result of integer division would be larger than the
-/// maximum 64-bit signed integer.
+/// This can error if given a [`decimal`] input and the dividend is too small in
+/// magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem(7, 3) \
@@ -922,7 +921,8 @@ pub fn rem(
     dividend
         .apply2(
             divisor.v,
-            |a, b| a.checked_rem(b).map(DecNum::Int),
+            // `checked_rem` can only overflow on `i64::MIN % -1` which is mathematically zero.
+            |a, b| a.checked_rem(b).or(Some(0)).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a % b)),
             |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
@@ -981,8 +981,8 @@ pub fn div_euclid(
 /// magnitude than the divisor and the dividend is negative. This only applies
 /// for floating point inputs.
 ///
-/// In addition, this can error if the dividend is too small in magnitude
-/// compared to the divisor.
+/// In addition, this can error if given a [`decimal`] input and the dividend is
+/// too small in magnitude compared to the divisor.
 ///
 /// ```example
 /// #calc.rem-euclid(7, 3) \
@@ -1007,7 +1007,8 @@ pub fn rem_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| a.checked_rem_euclid(b).map(DecNum::Int),
+            // `checked_rem_euclid` can only overflow on `i64::MIN % -1` which is mathematically zero.
+            |a, b| a.checked_rem_euclid(b).or(Some(0)).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a.rem_euclid(b))),
             |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
         )

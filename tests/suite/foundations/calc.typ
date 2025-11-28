@@ -60,6 +60,10 @@
 #test(calc.rem(decimal("-7"), decimal("3")), decimal("-1"))
 #test(calc.rem(decimal("-7"), decimal("-3")), decimal("-1"))
 
+// Ensure `i64::MIN % -1` will not overflow and panic.
+#test(calc.rem(int("-9223372036854775808"), -1), 0)
+#test(calc.rem(float("-9223372036854775808"), -1.0), 0.0)
+
 --- calc-rem-divisor-zero-1 paged ---
 // Error: 14-15 divisor must not be zero
 #calc.rem(5, 0)
@@ -71,10 +75,6 @@
 --- calc-rem-divisor-zero-3 paged ---
 // Error: 27-39 divisor must not be zero
 #calc.rem(decimal("4.0"), decimal("0"))
-
---- calc-rem-overflow paged ---
-// Error: 2-43 dividend too small compared to divisor
-#calc.rem(int("-9223372036854775808"), -1)
 
 --- calc-div-euclid paged ---
 // Test the `div-euclid` function.
@@ -118,6 +118,10 @@
 #test(calc.rem-euclid(decimal("-7"), decimal("-3")), decimal("2"))
 #test(calc.rem-euclid(decimal("2.5"), decimal("2")), decimal("0.5"))
 
+// Ensure `i64::MIN % -1` will not overflow and panic.
+#test(calc.rem-euclid(int("-9223372036854775808"), -1), 0)
+#test(calc.rem-euclid(float("-9223372036854775808"), -1.0), 0.0)
+
 --- calc-rem-euclid-divisor-zero-1 paged ---
 // Error: 21-22 divisor must not be zero
 #calc.rem-euclid(5, 0)
@@ -129,10 +133,6 @@
 --- calc-rem-euclid-divisor-zero-3 paged ---
 // Error: 35-50 divisor must not be zero
 #calc.rem-euclid(decimal("3.00"), decimal("0.00"))
-
---- calc-rem-euclid-overflow paged ---
-// Error: 2-50 dividend too small compared to divisor
-#calc.rem-euclid(int("-9223372036854775808"), -1)
 
 --- calc-quo paged ---
 // Test the `quo` function.
