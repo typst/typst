@@ -60,6 +60,10 @@
 #test(calc.rem(decimal("-7"), decimal("3")), decimal("-1"))
 #test(calc.rem(decimal("-7"), decimal("-3")), decimal("-1"))
 
+// Ensure `i64::MIN % -1` will not overflow and panic.
+#test(calc.rem(int("-9223372036854775808"), -1), 0)
+#test(calc.rem(float("-9223372036854775808"), -1.0), 0.0)
+
 --- calc-rem-divisor-zero-1 paged ---
 // Error: 14-15 divisor must not be zero
 #calc.rem(5, 0)
@@ -97,6 +101,10 @@
 // Error: 35-50 divisor must not be zero
 #calc.div-euclid(decimal("3.00"), decimal("0.00"))
 
+--- calc-div-euclid-too-large paged ---
+// Error: 2-50 the result is too large
+#calc.div-euclid(int("-9223372036854775808"), -1)
+
 --- calc-rem-euclid paged ---
 // Test the `rem-euclid` function.
 #test(calc.rem-euclid(7, 3), 1)
@@ -109,6 +117,10 @@
 #test(calc.rem-euclid(decimal("-7"), decimal("3")), decimal("2"))
 #test(calc.rem-euclid(decimal("-7"), decimal("-3")), decimal("2"))
 #test(calc.rem-euclid(decimal("2.5"), decimal("2")), decimal("0.5"))
+
+// Ensure `i64::MIN % -1` will not overflow and panic.
+#test(calc.rem-euclid(int("-9223372036854775808"), -1), 0)
+#test(calc.rem-euclid(float("-9223372036854775808"), -1.0), 0.0)
 
 --- calc-rem-euclid-divisor-zero-1 paged ---
 // Error: 21-22 divisor must not be zero
@@ -143,6 +155,10 @@
 --- calc-quo-divisor-zero-3 paged ---
 // Error: 27-41 divisor must not be zero
 #calc.quo(decimal("4.0"), decimal("0.0"))
+
+--- calc-quo-too-large paged ---
+// Error: 2-43 the result is too large
+#calc.quo(int("-9223372036854775808"), -1)
 
 --- calc-min-and-max paged ---
 // Test the `min` and `max` functions.
@@ -297,6 +313,10 @@
 #test(calc.gcd(272557, 272557), 272557)
 #test(calc.gcd(0, 0), 0)
 #test(calc.gcd(7, 0), 7)
+
+--- calc-gcd-too-large paged ---
+// Error: 2-43 the result is too large
+#calc.gcd(int("-9223372036854775808"), -1)
 
 --- calc-lcm paged ---
 // Test the `lcm` function.
