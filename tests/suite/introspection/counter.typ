@@ -49,7 +49,7 @@ In #context counter(heading).display()
 
 At Beta, it was #context {
   let it = query(heading).find(it => it.body == [Beta])
-  numbering(it.numbering, ..counter(heading).at(it.location()))
+  counter(heading).display(at: it.location())
 }
 
 --- counter-page paged ---
@@ -102,23 +102,90 @@ B
 #set page(numbering: "1 / 1", margin: (bottom: 20pt))
 #counter(page).update(5)
 
---- counter-page-display paged ---
-// Counter display should use numbering from style chain.
+--- counter-display-at paged ---
+// Test displaying counter at a given location.
+#set heading(numbering: "1.1")
+
+= One
+#figure(
+  numbering: (..nums) => numbering(
+    "1.a",
+    ..((counter(heading).get().first(),) + nums.pos()),
+  ),
+  caption: [A blah]
+)[BLAH] <blah>
+
+= Two
+#context [
+  #let fig = query(<blah>).first()
+  // Displaying at the figure's location is correct.
+  #fig.counter.display(at: fig.location()) \
+  // The manual version does not provide the correct context for resolving the
+  // heading counter.
+  #numbering(fig.numbering, ..fig.counter.at(fig.location())) \
+  // Displaying with the numbering, but at the current location works, but does
+  // not give a useful result.
+  #fig.counter.display(fig.numbering) \
+]
+
+--- counter-display-matching-numbering-page paged ---
+// Counter display should use the page numbering at the location.
+#set page(numbering: "(i)", margin: (bottom: 20pt))
+#metadata(none) <first>
+Second page:
+#context counter(page).display(at: <second>)
+
 #set page(
   numbering: "A",
-  margin: (bottom: 20pt),
-  footer: context align(center, counter(page).display())
+  footer: align(center, {
+    "Page: "
+    context counter(page).display()
+  }),
 )
+#metadata(none) <second>
+First page:
+#context counter(page).display(at: <first>)
 
---- counter-matching-numbering paged ---
-// Tests that the counter infers the numbering from elements even if there is
-// no style chain entry.
+--- counter-display-matching-numbering-basic paged ---
+// Test that `counter(heading).display()` just works: It takes care of
+// using the correct location and numbering.
+#show heading: it => block(counter(heading).display() + [ ] + it.body)
+#heading(numbering: "1.")[One]
+#heading(numbering: "A.")[Two]
+
+--- counter-display-matching-numbering-full paged ---
+// Tests that the determination of the matching numbering is comprehensive for
+// all supported elements.
+
+// This should be overridden by the element's numbering.
+#set heading(numbering: "(i)")
 #set math.equation(block: true)
+
 #let funcs = (heading, figure, math.equation, footnote)
 #show selector.or(..funcs): it => counter(it.func()).display()
 #for f in funcs {
   block(f(numbering: "a)")[])
 }
+
+--- counter-display-matching-numbering-wrong paged ---
+// Test that we don't pick up a numbering unrelated to the counted element.
+#set heading(numbering: "A)")
+#set math.equation(numbering: "1.")
+= Hello
+$ 1 + 2 $ <eq>
+#context counter(heading).display(at: <eq>)
+
+--- counter-display-matching-numbering-fallback paged ---
+// Test fallback case where the matching numbering is determined from the style
+// chain instead of the element. Because there is no heading element at `<at>`,
+// we fall back to the style that is current at the counter display, not the
+// style that was current at the location. Ideally, we'd also handle this, but
+// its not trivial and this should be very rare.
+#set heading(numbering: "A)")
+= Hello
+#metadata(none) <at>
+#set heading(numbering: "I)")
+#context counter(heading).display(at: <at>)
 
 --- counter-figure paged ---
 // Count figures.
