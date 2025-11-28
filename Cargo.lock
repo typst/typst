@@ -3362,6 +3362,7 @@ dependencies = [
  "roxmltree",
  "rustc-hash",
  "serde_yaml 0.9.34+deprecated",
+ "siphasher",
  "tiny-skia",
  "typst",
  "typst-assets",

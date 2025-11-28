@@ -1,9 +1,11 @@
 use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use ecow::EcoString;
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
+use siphasher::sip128::{Hasher128, SipHasher13};
 use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
@@ -188,7 +190,7 @@ impl OutputType for Render {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live.data()))
+        HashedRef(stable_hash128(live.data()))
     }
 }
 
@@ -231,7 +233,7 @@ impl OutputType for Pdf {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(stable_hash128(live))
     }
 }
 
@@ -269,7 +271,7 @@ impl OutputType for Pdftags {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(stable_hash128(live))
     }
 }
 
@@ -304,7 +306,7 @@ impl OutputType for Svg {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(stable_hash128(live))
     }
 }
 
@@ -333,7 +335,7 @@ impl OutputType for Html {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(stable_hash128(live))
     }
 }
 
@@ -433,4 +435,29 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         tx.to_pt() as f32,
         ty.to_pt() as f32,
     )
+}
+
+/// Calculate a 128-bit siphash of a value. It hashes usize as u64 to produce
+/// stable hashes between 32-bit and 64-bit architectures.
+pub(crate) fn stable_hash128<T: Hash + ?Sized>(value: &T) -> u128 {
+    /// A hasher that
+    struct StableHasher(SipHasher13);
+
+    impl Hasher for StableHasher {
+        fn finish(&self) -> u64 {
+            self.0.finish()
+        }
+
+        fn write(&mut self, bytes: &[u8]) {
+            self.0.write(bytes);
+        }
+
+        fn write_usize(&mut self, i: usize) {
+            self.0.write_u64(i as u64);
+        }
+    }
+
+    let mut state = StableHasher(SipHasher13::new());
+    value.hash(&mut state);
+    state.0.finish128().as_u128()
 }
