@@ -350,8 +350,13 @@ impl Counter {
         engine.introspect(CounterAtIntrospection(self.clone(), loc, span))
     }
 
-    /// Displays the value of the counter with a numbering at the given location
-    /// and returns the formatted output.
+    /// Displays the value of the counter.
+    ///
+    /// You can provide both a custom numbering and a custom location. Both
+    /// default to `{auto}`, selecting sensible defaults (the numbering of
+    /// the counted element and the current location, respectively).
+    ///
+    /// Returns the formatted output.
     #[func(contextual)]
     pub fn display(
         self,
@@ -376,7 +381,12 @@ impl Counter {
         /// [labels]($label) and [locations]($location).
         ///
         /// If this is omitted or set to `{auto}`, this displays the counter at
-        /// the current location. This is equivalent to using `{here()}`.
+        /// the current location. This is equivalent to using
+        /// [`{here()}`]($here).
+        ///
+        /// The numbering will be executed with a context in which `{here()}`
+        /// resolves to the provided location, so that numberings which involve
+        /// further counters resolve correctly.
         #[named]
         #[default]
         at: Smart<LocatableSelector>,
