@@ -136,9 +136,10 @@ pub fn norm(
     delimited(body, '‖', '‖', size)
 }
 
-/// Gets the Left/Right wrapper function corresponding to a left delimiter, if
+/// Gets the Left/Right wrapper function corresponding to a symbol value, if
 /// any.
-pub fn get_lr_wrapper_func(left: char) -> Option<Func> {
+pub fn get_lr_wrapper_func(value: &str) -> Option<Func> {
+    let left = value.parse::<char>().ok()?;
     match left {
         // Unlike `round`, `abs`, and `norm`, `floor` and `ceil` are of type
         // `symbol` and cast to a function like other L/R symbols. We could thus
