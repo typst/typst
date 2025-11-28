@@ -110,6 +110,16 @@ B
   footer: context align(center, counter(page).display())
 )
 
+--- counter-matching-numbering paged ---
+// Tests that the counter infers the numbering from elements even if there is
+// no style chain entry.
+#set math.equation(block: true)
+#let funcs = (heading, figure, math.equation, footnote)
+#show selector.or(..funcs): it => counter(it.func()).display()
+#for f in funcs {
+  block(f(numbering: "a)")[])
+}
+
 --- counter-figure paged ---
 // Count figures.
 #figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]
