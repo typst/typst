@@ -60,8 +60,21 @@
 "Equus cucumeris sem non edit" prima sententia in 'telephono' prolata fuit.
 
 --- smartquote-empty paged ---
-// Test single pair of quotes.
-""
+// Test pairs of empty quotes in multiple languages.
+#text(lang: "en")[""]
+#text(lang: "de")[""]
+#text(lang: "de", region: "CH")[""]
+#text(lang: "es")[""]
+#text(lang: "es", region: "MX")[""]
+#text(lang: "fr")[""]
+#text(lang: "fr", region: "CH")[""]
+#text(lang: "fi")[""]
+#text(lang: "el")[""]
+#text(lang: "he")[""]
+#text(lang: "ro")[""]
+#text(lang: "ru")[""]
+#text(lang: "uk")[""]
+#text(lang: "it")[""]
 
 --- smartquote-apostrophe paged ---
 // Test sentences with numbers and apostrophes.
@@ -182,3 +195,7 @@ Does not apply across #html.div["block-level] elements".
 
 --- issue-5146-smartquotes-after-equations paged ---
 $i$'s $i$ 's
+
+--- issue-6853-smartquotes-around-html-frame html ---
+#set text(lang: "fr")
+"#box(html.frame[])"
