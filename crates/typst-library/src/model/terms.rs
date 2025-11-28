@@ -1,6 +1,5 @@
-use crate::diag::bail;
 use crate::foundations::{
-    Array, Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
+    Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
@@ -126,15 +125,7 @@ pub struct TermItem {
 
 cast! {
     TermItem,
-    array: Array => {
-        let mut iter = array.into_iter();
-        let (term, description) = match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => bail!("array must contain exactly two entries"),
-        };
-        Self::new(term, description)
-    },
-    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item")?,
 }
 
 impl ListLike for TermsElem {

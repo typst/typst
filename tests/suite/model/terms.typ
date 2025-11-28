@@ -3,8 +3,8 @@
 --- terms-constructor paged pdftags pdfstandard(ua-1) ---
 // Test with constructor.
 #terms(
-  ([One], [First]),
-  ([Two], [Second]),
+  terms.item([One], [First]),
+  terms.item([Two], [Second]),
 )
 
 --- terms-built-in-loop paged ---
