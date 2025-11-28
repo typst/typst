@@ -188,7 +188,7 @@ impl OutputType for Render {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live.data()))
+        HashedRef(typst_utils::stable_hash128(live.data()))
     }
 }
 
@@ -231,7 +231,7 @@ impl OutputType for Pdf {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(typst_utils::stable_hash128(live))
     }
 }
 
@@ -269,7 +269,7 @@ impl OutputType for Pdftags {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(typst_utils::stable_hash128(live))
     }
 }
 
@@ -304,7 +304,7 @@ impl OutputType for Svg {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(typst_utils::stable_hash128(live))
     }
 }
 
@@ -333,7 +333,7 @@ impl OutputType for Html {
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
-        HashedRef(typst_utils::hash128(live))
+        HashedRef(typst_utils::stable_hash128(live))
     }
 }
 
