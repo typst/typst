@@ -12,6 +12,11 @@ a vs #text(alternates: true)[a] \
 ß vs #text(stylistic-set: 5)[ß] \
 10 years ago vs #text(stylistic-set: (1, 2, 3))[10 years ago]
 
+--- text-alternates-int paged ---
+// Test selecting between multiple alternates.
+#set text(font: "Libertinus Serif")
+#text(alternates: false, [ß]) vs #text(alternates: true, [ß]) vs #text(alternates: 2, [ß])
+
 --- text-ligatures paged ---
 // Test text turning off (standard) ligatures of the font.
 #text(ligatures: false)[fi Qu] vs fi Qu \
@@ -59,8 +64,41 @@ fi vs. #text(features: (liga: 0))[No fi]
 // Error: 21-26 expected array or dictionary, found boolean
 #set text(features: false)
 
+--- text-features-non-ascii paged ---
+// Error: 21-30 feature tag may contain only printable ASCII characters
+// Hint: 21-30 you may refer to https://typst.app/tools/ascii-table/
+// Hint: 21-30 found invalid cluster "ƒ"
+// Hint: 21-30 occurred in tag at index 0, "ƒeat"
+#set text(features: ("ƒeat",))
+
+--- text-features-bad-padding paged ---
+// Error: 21-30 spaces may only appear as padding following a feature tag
+// Hint: 21-30 occurred in tag at index 0, " tag"
+#set text(features: (" tag",))
+
+--- text-features-empty-array paged ---
+// Error: 21-26 feature tag must be one to four characters in length
+// Hint: 21-26 found 0 characters
+// Hint: 21-26 occurred in tag at index 0, ""
+#set text(features: ("",))
+
+--- text-features-overlong-dict paged ---
+// Error: 21-41 feature tag must be one to four characters in length
+// Hint: 21-41 found 15 characters
+// Hint: 21-41 occurred in tag at index 0, "verylongfeature"
+#set text(features: (verylongfeature: 0))
+
+--- text-features-array-kv paged ---
+// Error: 21-32 feature tag must be one to four characters in length
+// Hint: 21-32 found 6 characters
+// Hint: 21-32 occurred in tag at index 0, "feat=2"
+// Hint: 21-32 to set features with custom values, consider supplying a `dictionary`
+#set text(features: ("feat=2",))
+
 --- text-features-bad-nested-type paged ---
 // Error: 21-35 expected string, found boolean
+// Hint: 21-35 occurred in tag at index 1, false
+// Hint: 21-35 to set features with custom values, consider supplying a `dictionary`
 #set text(features: ("tag", false))
 
 --- text-tracking-negative paged ---
