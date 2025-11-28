@@ -61,7 +61,7 @@ pub fn layout_accent(
         accent_styles,
         elem.size.resolve(styles),
         ACCENT_SHORT_FALL,
-        false,
+        true,
         elem.span(),
     )?;
 
@@ -87,7 +87,10 @@ pub fn place_accent(
     accent_styles: StyleChain,
     stretch_width: Rel<Abs>,
     short_fall: Em,
-    exact_frame_width: bool,
+    // If this is true, the final frame will derive its width solely from the
+    // base. If it's false, a large accent can make the final width exceed the
+    // base width.
+    force_body_width: bool,
     span: Span,
 ) -> SourceResult<Frame> {
     let top_accent = !accent.is_bottom();
@@ -110,7 +113,7 @@ pub fn place_accent(
     // Calculate the width of the final frame.
     let (width, base_x, accent_x) = {
         let base_attach = if top_accent { base_attach.0 } else { base_attach.1 };
-        if !exact_frame_width {
+        if force_body_width {
             (base.width(), Abs::zero(), base_attach - accent_attach)
         } else {
             let pre_width = accent_attach - base_attach;

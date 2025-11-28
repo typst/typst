@@ -277,7 +277,7 @@ fn layout_underoverspreader(
     let width = body.width().into();
 
     let frame =
-        place_accent(ctx, body, styles, accent, styles, width, Em::zero(), true, span)?;
+        place_accent(ctx, body, styles, accent, styles, width, Em::zero(), false, span)?;
     let base = FrameFragment::new(styles, frame).with_class(body_class);
     let Some(annotation) = annotation else {
         ctx.push(base);
