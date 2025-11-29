@@ -386,7 +386,8 @@ impl Construct for PageElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The page constructor is special: It doesn't create a page element.
         // Instead, it just ensures that the passed content lives in a separate
-        // page and styles it.
+        // page and styles it. Because no element node is produced, `show`
+        // rules can't match `page`; use `set` rules instead.
         let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([
