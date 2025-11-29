@@ -323,7 +323,7 @@ pub struct PageElem {
     ///     #set align(right)
     ///     #set text(8pt)
     ///     #counter(page).display(
-    ///       "1 of I",
+    ///       "1 of 1",
     ///       both: true,
     ///     )
     ///   ]
