@@ -11,7 +11,9 @@ use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Regex, Smart, StyleChain};
-use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
+use typst_library::layout::{
+    Abs, Dir, Em, Frame, FrameItem, FrameModifyText, Point, Rel, Size,
+};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
@@ -22,7 +24,6 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{Item, Range, SpanMapper, decorate};
-use crate::modifiers::FrameModifyText;
 
 const SHY: char = '\u{ad}';
 const SHY_STR: &str = "\u{ad}";

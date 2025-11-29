@@ -5,6 +5,7 @@ mod attach;
 mod cancel;
 mod equation;
 mod frac;
+mod ir;
 mod lr;
 mod matrix;
 mod op;
@@ -17,6 +18,7 @@ pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::equation::*;
 pub use self::frac::*;
+pub use self::ir::*;
 pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
@@ -146,4 +148,27 @@ pub struct ClassElem {
     /// The content to which the class is applied.
     #[required]
     pub body: Content,
+}
+
+/// An iterator that alternates between the `Left` and `Right` values, if the
+/// initial value is not `None`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum LeftRightAlternator {
+    None,
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::None => {}
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
+    }
 }
