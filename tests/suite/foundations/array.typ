@@ -470,12 +470,16 @@
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths paged ---
-// Error: 2-26 cannot compare 3em with 2pt
+// Error: 2-26 cannot compare 2pt with 3em
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 paged ---
 // Error: 42-52 unexpected argument
 #((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
+
+--- issue-6285-crashed-with-sorting-non-total-order paged ---
+// Error: 2-66 cannot compare string and none
+#(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()
 
 --- issue-3014-mix-array-dictionary paged ---
 // Error: 8-17 expected expression, found named pair
