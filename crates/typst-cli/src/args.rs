@@ -45,7 +45,11 @@ const AFTER_HELP: &str = color_print::cstr!("\
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
+    version = format!(
+        "{} ({})",
+        typst_utils::version().raw(),
+        typst_utils::version().commit().unwrap_or("unknown commit"),
+    ),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
