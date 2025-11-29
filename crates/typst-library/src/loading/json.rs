@@ -81,7 +81,19 @@ pub fn json(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    serde_json::from_slice(loaded.data.as_slice())
+    let raw = loaded.data.as_slice();
+    // If the file starts with a UTF-8 Byte Order Mark (BOM), return a
+    // friendly error message.
+    if raw.starts_with(b"\xef\xbb\xbf") {
+        return Err::<Value, _>(LoadError::new(
+            LineCol::one_based(1, 1),
+            "failed to parse JSON",
+            "Byte Order Mark (BOM) present at start of file, JSON requires UTF-8 without a BOM",
+        ))
+        .within(&loaded);
+    }
+
+    serde_json::from_slice(raw)
         .map_err(|err| {
             let pos = LineCol::one_based(err.line(), err.column());
             LoadError::new(pos, "failed to parse JSON", err)
