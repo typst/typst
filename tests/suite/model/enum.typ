@@ -3,6 +3,11 @@
 --- enum-function-call paged ---
 #enum[Embrace][Extend][Extinguish]
 
+--- enum-array-deprecated paged ---
+// Warning: 7-19 array to `enum.item` conversion is deprecated
+// Hint: 7-19 use `enum.item(number)[body]` instead
+#enum((1, [First]))
+
 --- enum-number-override-nested paged pdftags pdfstandard(ua-1) ---
 0. Before first!
 1. First.

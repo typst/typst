@@ -1,5 +1,6 @@
+use crate::diag::{bail, warning};
 use crate::foundations::{
-    Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
+    Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
@@ -97,6 +98,18 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
+    #[parse(
+        for item in args.items.iter() {
+            if item.name.is_none() && Array::castable(&item.value.v) {
+                engine.sink.warn(warning!(
+                    item.value.span,
+                    "array to `terms.item` conversion is deprecated";
+                    hint: "use `terms.item(term, description)` instead"
+                ));
+            }
+        }
+        args.all()?
+    )]
     pub children: Vec<Packed<TermItem>>,
 
     /// Whether we are currently within a term list.
@@ -125,7 +138,15 @@ pub struct TermItem {
 
 cast! {
     TermItem,
-    v: Content => v.unpack::<Self>().map_err(|_| "expected term item")?,
+    array: Array => {
+        let mut iter = array.into_iter();
+        let (term, description) = match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
+            _ => bail!("array must contain exactly two entries"),
+        };
+        Self::new(term, description)
+    },
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }
 
 impl ListLike for TermsElem {

@@ -2,7 +2,8 @@ use std::str::FromStr;
 
 use smallvec::SmallVec;
 
-use crate::foundations::{Content, Packed, Smart, Styles, cast, elem, scope};
+use crate::diag::{bail, warning};
+use crate::foundations::{Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope};
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
@@ -200,6 +201,18 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
+    #[parse(
+        for item in args.items.iter() {
+            if item.name.is_none() && Array::castable(&item.value.v) {
+                engine.sink.warn(warning!(
+                    item.value.span,
+                    "array to `enum.item` conversion is deprecated";
+                    hint: "use `enum.item(number)[body]` instead"
+                ));
+            }
+        }
+        args.all()?
+    )]
     pub children: Vec<Packed<EnumItem>>,
 
     /// The numbers of parent items.
@@ -229,6 +242,14 @@ pub struct EnumItem {
 
 cast! {
     EnumItem,
+    array: Array => {
+        let mut iter = array.into_iter();
+        let (number, body) = match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
+            _ => bail!("array must contain exactly two entries"),
+        };
+        Self::new(body).with_number(number)
+    },
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
 }
 

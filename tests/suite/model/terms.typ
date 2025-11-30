@@ -7,6 +7,11 @@
   terms.item([Two], [Second]),
 )
 
+--- terms-array-deprecated paged ---
+// Warning: 8-24 array to `terms.item` conversion is deprecated
+// Hint: 8-24 use `terms.item(term, description)` instead
+#terms(([One], [First]))
+
 --- terms-built-in-loop paged ---
 // Test joining.
 #for word in lorem(4).split().map(s => s.trim(".")) [
