@@ -11,12 +11,19 @@ pub fn fonts(command: &FontsCommand) {
     fonts.include_embedded_fonts(!command.font.ignore_embedded_fonts);
     let fonts = fonts.search_with(&command.font.font_paths);
 
-    for (name, infos) in fonts.book.families() {
-        println!("{name}");
+    for family in fonts.families_with_slots() {
+        println!("{}", family.family);
         if command.variants {
-            for info in infos {
-                let FontVariant { style, weight, stretch } = info.variant;
-                println!("- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}");
+            for variant in family.variants {
+                let FontVariant { style, weight, stretch } = variant.info.variant;
+                let path = variant
+                    .path
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "<embedded>".to_string());
+
+                println!(
+                    "- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}, Path: {path}"
+                );
             }
         }
     }
