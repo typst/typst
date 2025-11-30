@@ -6,7 +6,7 @@ use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::diag::{SourceDiagnostic, SourceResult, StrResult, bail, error};
 use crate::foundations::{
     Base, Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
@@ -75,7 +75,7 @@ impl i64 {
             ToInt::Str(s) => {
                 let base_value = base.v.value();
                 let radix: u32 = match base_value {
-                    2..=36 => base_value.try_into().unwrap(),
+                    2..=36 => base_value as u32,
                     _ => bail!(base.span, "base must be between 2 and 36"),
                 };
 
@@ -85,12 +85,13 @@ impl i64 {
                         // Parse the digits part into u64
                         //  => abs(i64::MIN) fits into u64
                         let bigger = u64::from_str_radix(s, radix)
-                            .map_err(|e| parse_str_error(e.kind(), value.span))?;
+                            .map_err(|e| parse_str_error(e.kind(), base, value.span))?;
 
                         // Number wouldn't fit into i64
                         if bigger > i64::MIN.unsigned_abs() {
                             return Err(parse_str_error(
                                 &IntErrorKind::NegOverflow,
+                                base,
                                 value.span,
                             ));
                         }
@@ -99,7 +100,7 @@ impl i64 {
                     }
                     // Positive
                     None => i64::from_str_radix(&s, radix)
-                        .map_err(|e| parse_str_error(e.kind(), value.span))?,
+                        .map_err(|e| parse_str_error(e.kind(), base, value.span))?,
                 }
             }
         })
@@ -429,21 +430,39 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
 }
 
 #[cold]
-fn parse_str_error(kind: &IntErrorKind, span: Span) -> EcoVec<SourceDiagnostic> {
+fn parse_str_error(
+    kind: &IntErrorKind,
+    base: Spanned<Base>,
+    span: Span,
+) -> EcoVec<SourceDiagnostic> {
+    let base = base.v.value();
     let error = match kind {
-        IntErrorKind::Empty => "empty string isn't a valid integer",
-        IntErrorKind::InvalidDigit => "invalid digit found while parsing integer",
-        IntErrorKind::PosOverflow => {
-            "the integer is too large to fit into a signed 64-bit integer"
+        IntErrorKind::Empty if base == 10 => {
+            error!(span, "expected an integer string (got an empty string)")
         }
-        IntErrorKind::NegOverflow => {
-            "the integer is too small to fit into a signed 64-bit integer"
+        IntErrorKind::Empty => {
+            error!(span, "expected a base {} integer string (got an empty string)", base)
         }
+        IntErrorKind::InvalidDigit if base == 10 => {
+            error!(span, "invalid digits for an integer")
+        }
+        IntErrorKind::InvalidDigit => {
+            error!(span, "invalid digits for a base {} integer", base)
+        }
+        IntErrorKind::PosOverflow => error!(
+            span, "invalid integer string";
+            hint: "number is too large to fit in a signed 64-bit integer";
+            hint: "try using a floating point number"
+        ),
+        IntErrorKind::NegOverflow => error!(
+            span, "invalid integer string";
+            hint: "number is too small to fit in a signed 64-bit integer";
+            hint: "try using a floating point number"
+        ),
         IntErrorKind::Zero => unreachable!(),
-        _ => "unhandled number parsing error",
+        _ => error!(span, "invalid integer string"),
     };
-
-    eco_vec![SourceDiagnostic::error(span, eco_format!("invalid integer: {error}"))]
+    eco_vec![error]
 }
 
 macro_rules! signed_int {

@@ -37,12 +37,20 @@
 #int(10pt)
 
 --- int-constructor-str-empty paged ---
-// Error: 6-8 invalid integer: empty string isn't a valid integer
+// Error: 6-8 expected an integer string (got an empty string)
 #int("")
 
+--- int-constructor-str-empty-based paged ---
+// Error: 6-8 expected a base 16 integer string (got an empty string)
+#int("", base: 16)
+
 --- int-constructor-bad-value paged ---
-// Error: 6-12 invalid integer: invalid digit found while parsing integer
+// Error: 6-12 invalid digits for an integer
 #int("nope")
+
+--- int-constructor-bad-value-based paged ---
+// Error: 6-11 invalid digits for a base 3 integer
+#int("123", base: 3)
 
 --- int-constructor-base-with-non-string paged ---
 // Error: 16-18 base is only supported for strings
@@ -57,11 +65,15 @@
 #int("0", base: 42)
 
 --- int-constructor-str-too-large paged ---
-// Error: 6-27 invalid integer: the integer is too large to fit into a signed 64-bit integer
+// Error: 6-27 invalid integer string
+// Hint: 6-27 number is too large to fit in a signed 64-bit integer
+// Hint: 6-27 try using a floating point number
 #int("9223372036854775808")
 
 --- int-constructor-str-too-small paged ---
-// Error: 6-28 invalid integer: the integer is too small to fit into a signed 64-bit integer
+// Error: 6-28 invalid integer string
+// Hint: 6-28 number is too small to fit in a signed 64-bit integer
+// Hint: 6-28 try using a floating point number
 #int("-9223372036854775809")
 
 --- int-constructor-float-too-large paged ---
