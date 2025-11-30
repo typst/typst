@@ -3,7 +3,9 @@ use std::str::FromStr;
 use smallvec::SmallVec;
 
 use crate::diag::{bail, warning};
-use crate::foundations::{Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope};
+use crate::foundations::{
+    Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
+};
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
