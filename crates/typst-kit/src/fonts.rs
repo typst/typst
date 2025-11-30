@@ -80,10 +80,48 @@ pub struct Fonts {
     pub slots: Vec<FontSlot>,
 }
 
+/// A single variant together with an optional filesystem path where the
+/// variant's font file is located. `path` is `None` for embedded fonts.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct VariantSlot {
+    pub info: FontInfo,
+    pub path: Option<PathBuf>,
+}
+
+/// A family and its variants with optional slot paths.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FamilyWithSlots {
+    pub family: String,
+    pub variants: Vec<VariantSlot>,
+}
+
 impl Fonts {
     /// Creates a new font searcer with the default settings.
     pub fn searcher() -> FontSearcher {
         FontSearcher::new()
+    }
+
+    /// Returns an owned collection of all font families together with the
+    /// corresponding `FontInfo` and an optional `PathBuf` where the font can
+    /// be found.
+    pub fn families_with_slots(&self) -> Vec<FamilyWithSlots> {
+        let mut res = Vec::new();
+
+        for (name, _) in self.book.families() {
+            let mut variants = Vec::new();
+            for id in self.book.select_family(&name.to_lowercase()) {
+                if let Some(info) = self.book.info(id) {
+                    let path = self
+                        .slots
+                        .get(id)
+                        .and_then(|slot| slot.path().map(|p| p.to_path_buf()));
+                    variants.push(VariantSlot { info: info.clone(), path });
+                }
+            }
+            res.push(FamilyWithSlots { family: name.to_string(), variants });
+        }
+
+        res
     }
 }
 
@@ -223,5 +261,67 @@ impl FontSearcher {
 impl Default for FontSearcher {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::OnceLock;
+    use typst_library::text::{
+        Coverage, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
+    };
+    use typst_utils::LazyHash;
+
+    #[test]
+    fn families_with_slots_returns_paths() {
+        let mut book = FontBook::new();
+
+        let info1 = FontInfo {
+            family: "TestFamily".to_string(),
+            variant: FontVariant::new(
+                FontStyle::Normal,
+                FontWeight::REGULAR,
+                FontStretch::NORMAL,
+            ),
+            flags: FontFlags::empty(),
+            coverage: Coverage::from_vec(vec![]),
+        };
+
+        let info2 = FontInfo {
+            family: "TestFamily".to_string(),
+            variant: FontVariant::new(
+                FontStyle::Italic,
+                FontWeight::BOLD,
+                FontStretch::NORMAL,
+            ),
+            flags: FontFlags::empty(),
+            coverage: Coverage::from_vec(vec![]),
+        };
+
+        book.push(info1.clone());
+        book.push(info2.clone());
+
+        let slots = vec![
+            FontSlot {
+                path: Some(PathBuf::from("/tmp/test-a.ttf")),
+                index: 0,
+                font: OnceLock::new(),
+            },
+            FontSlot { path: None, index: 0, font: OnceLock::new() },
+        ];
+
+        let fonts = Fonts { book: LazyHash::new(book), slots };
+
+        let families = fonts.families_with_slots();
+        assert_eq!(families.len(), 1);
+        assert_eq!(families[0].family, "TestFamily");
+        assert_eq!(families[0].variants.len(), 2);
+        assert_eq!(
+            families[0].variants[0].path.as_ref().and_then(|p| p.to_str()),
+            Some("/tmp/test-a.ttf")
+        );
+        assert!(families[0].variants[1].path.is_none());
     }
 }
