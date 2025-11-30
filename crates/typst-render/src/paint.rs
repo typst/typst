@@ -233,9 +233,17 @@ pub fn to_sk_paint<'a>(
 
             let offset = match relative {
                 RelativeTo::Self_ => {
-                    gradient_map.map(|(offset, _)| -offset).unwrap_or_default()
+                    let base_offset = gradient_map
+                        .map(|(offset, _)| -offset)
+                        .unwrap_or_default();
+                    Point::new(
+                        base_offset.x + tilings.dx(),
+                        base_offset.y + tilings.dy(),
+                    )
                 }
-                RelativeTo::Parent => Point::zero(),
+                RelativeTo::Parent => {
+                    Point::new(tilings.dx(), tilings.dy())
+                }
             };
 
             // Create the shader
@@ -245,8 +253,8 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
-                    .pre_translate(offset.x.to_f32(), offset.y.to_f32()),
+                    .pre_translate(offset.x.to_f32(), offset.y.to_f32())
+                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
             );
         }
     }
