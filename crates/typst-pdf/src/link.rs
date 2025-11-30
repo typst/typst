@@ -5,6 +5,7 @@ use krilla::geom as kg;
 use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
 use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
+use typst_library::visualize::Color;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
@@ -17,6 +18,7 @@ pub(crate) struct LinkAnnotation {
     pub span: Span,
     pub rects: Vec<kg::Rect>,
     pub target: Target,
+    pub border: Option<Color>,
 }
 
 pub(crate) enum LinkAnnotationKind {
@@ -79,6 +81,7 @@ pub(crate) fn handle_link(
                 span: Span::detached(),
                 rects: vec![rect],
                 target,
+                border: None,
             },
         );
         return Ok(());
@@ -88,6 +91,7 @@ pub(crate) fn handle_link(
         .expect_internal("expected link ancestor in logical tree")
         .at(Span::detached())?;
     let alt = link.alt.as_ref().map(Into::into);
+    let border = link.border;
 
     if gc.tags.tree.parent_artifact().is_some() {
         if gc.options.is_pdf_ua() {
@@ -108,6 +112,7 @@ pub(crate) fn handle_link(
                 span: link.span(),
                 rects: vec![rect],
                 target,
+                border,
             },
         );
         return Ok(());
@@ -136,6 +141,7 @@ pub(crate) fn handle_link(
                     span: link.span(),
                     rects: vec![rect],
                     target,
+                    border,
                 },
             );
             let group = gc.tags.tree.groups.get_mut(group_id);

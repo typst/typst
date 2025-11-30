@@ -1,3 +1,4 @@
+use krilla::annotation::LinkBorder;
 use krilla::configure::Validator;
 use krilla::geom as kg;
 use krilla::page::Page;
@@ -11,6 +12,7 @@ use typst_library::visualize::{Image, Shape};
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
+use crate::paint::convert_solid;
 use crate::tags::tree::Tree;
 
 pub use crate::tags::context::{AnnotationId, Tags};
@@ -130,12 +132,16 @@ pub fn add_link_annotations(
     annotations: impl IntoIterator<Item = LinkAnnotation>,
 ) {
     for a in annotations.into_iter() {
-        let link_annotation = if let [rect] = a.rects.as_slice() {
+        let mut link_annotation = if let [rect] = a.rects.as_slice() {
             krilla::annotation::LinkAnnotation::new(*rect, a.target)
         } else {
             let quads = a.rects.iter().map(|r| kg::Quadrilateral::from(*r)).collect();
             krilla::annotation::LinkAnnotation::new_with_quad_points(quads, a.target)
         };
+        if let Some(color) = a.border {
+            link_annotation = link_annotation
+                .with_border(LinkBorder::new(1.0, convert_solid(&color).0));
+        }
 
         let annotation = krilla::annotation::Annotation::new_link(link_annotation, a.alt)
             .with_location(Some(a.span.into_raw()));
