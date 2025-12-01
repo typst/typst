@@ -903,10 +903,12 @@ impl LinkedNode<'_> {
     fn as_parent(&self) -> Option<SyntaxMode> {
         self.parent().and_then(|parent| parent.mode())
     }
+
     #[inline]
     fn as_parent_or_default(&self, default: SyntaxMode) -> Option<SyntaxMode> {
         self.parent().map_or(Some(default), |parent| parent.mode())
     }
+
     /// Get the `SyntaxMode` of this node.
     ///
     /// Would be `None` if can not determine.
