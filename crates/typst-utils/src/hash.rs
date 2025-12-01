@@ -7,6 +7,13 @@ use std::sync::atomic::Ordering;
 use portable_atomic::AtomicU128;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
+/// Calculate a 128-bit siphash of a value.
+pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
+    let mut state = SipHasher13::new();
+    value.hash(&mut state);
+    state.finish128().as_u128()
+}
+
 /// A wrapper type with lazily-computed hash.
 ///
 /// This is useful if you want to pass large values of `T` to memoized
