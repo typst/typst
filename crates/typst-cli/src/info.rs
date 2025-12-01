@@ -511,13 +511,13 @@ fn write_value_simple(
     Ok(())
 }
 
-/// Writes a special value in magenta with optional right padding.
+/// Writes a special value in blue with optional right padding.
 fn write_value_special(
     out: &mut TermOut,
     val: impl Display,
     pad: Option<usize>,
 ) -> io::Result<()> {
-    out.set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))?;
+    out.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
     if let Some(pad) = pad {
         write!(out, "{val: <pad$}")?;
     } else {
