@@ -2,8 +2,10 @@
 
 --- math-accent-sym-call paged ---
 // Test function call.
-$grave(a), acute(b), hat(f), tilde(§), macron(ä), diaer(a), ä \
- breve(\&), dot(!), circle(a), caron(@), arrow(Z), arrow.l(Z)$
+$ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
+  dot(!), dot.double(a), diaer(a), dot.triple(a), dot.quad(a), circle(a), \
+  acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
+  harpoon(a), harpoon.lt(a) $
 
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $

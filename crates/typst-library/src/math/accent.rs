@@ -132,7 +132,8 @@ pub fn get_accent_func(value: &str) -> Option<Func> {
     Accent::combining(value).map(|accent| (&FUNCS[&accent]).into())
 }
 
-// Keep it synced with the documenting table above.
+// Keep it synced with the documenting table above and the
+// `math-accent-sym-call` test.`
 /// A list of accents, each with a list of alternative names.
 const ACCENTS: &[(char, &[&str])] = &[
     // Note: Symbols that can have a text presentation must explicitly have that
