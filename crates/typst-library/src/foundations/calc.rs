@@ -1046,7 +1046,15 @@ pub fn quo(
     let divided = dividend
         .apply2(
             divisor.v,
-            |a, b| a.checked_div(b).map(DecNum::Int),
+            |a, b| {
+                let q = a.checked_div(b)?;
+                // Round towards negative infinity if the fraction is negative.
+                Some(DecNum::Int(if (a < 0) != (b < 0) && a % b != 0 {
+                    q - 1
+                } else {
+                    q
+                }))
+            },
             |a, b| Some(DecNum::Float(a / b)),
             |a, b| a.checked_div(b).map(DecNum::Decimal),
         )

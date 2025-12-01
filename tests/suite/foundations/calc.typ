@@ -138,11 +138,17 @@
 // Test the `quo` function.
 #test(calc.quo(1, 1), 1)
 #test(calc.quo(5, 3), 1)
-#test(calc.quo(5, -3), -1)
+#test(calc.quo(5, -3), -2)
+#test(calc.quo(-5, 3), -2)
+#test(calc.quo(-5, -3), 1)
+#test(calc.quo(6, -3), -2)
+#test(calc.quo(-4, 5), -1)
+#test(calc.quo(-4, 5.), -1)
 #test(calc.quo(22.5, 10), 2)
 #test(calc.quo(9, 4.5), 2)
 #test(calc.quo(decimal("22.5"), 10), 2)
 #test(calc.quo(decimal("9"), decimal("4.5")), 2)
+#test(calc.quo(decimal("-9"), decimal("4.1")), -3)
 
 --- calc-quo-divisor-zero-1 paged ---
 // Error: 14-15 divisor must not be zero
