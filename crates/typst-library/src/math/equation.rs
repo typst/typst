@@ -111,6 +111,7 @@ pub struct EquationElem {
     /// ```example
     /// #math.equation(
     ///   alt: "integral from 1 to infinity of a x squared plus b with respect to x",
+    ///   block: true,
     ///   $ integral_1^oo a x^2 + b dif x $,
     /// )
     /// ```
