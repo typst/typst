@@ -672,22 +672,36 @@ impl From<Utf8Error> for LoadError {
     }
 }
 
-/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`]
-/// context.
-pub trait LoadedWithin<T> {
+/// Convert a [`LoadError`] or compatible [`Result`] to a [`SourceDiagnostic`]
+/// or [`SourceResult`] by adding the [`Loaded`] context.
+pub trait LoadedWithin {
+    /// The enriched type that has the context factored in.
+    type Output;
+
     /// Report an error, possibly in an external file.
-    fn within(self, loaded: &Loaded) -> SourceResult<T>;
+    fn within(self, loaded: &Loaded) -> Self::Output;
 }
 
-impl<T, E> LoadedWithin<T> for Result<T, E>
+impl<E> LoadedWithin for E
 where
     E: Into<LoadError>,
 {
-    fn within(self, loaded: &Loaded) -> SourceResult<T> {
-        self.map_err(|err| {
-            let LoadError { pos, message } = err.into();
-            load_err_in_text(loaded, pos, message)
-        })
+    type Output = SourceDiagnostic;
+
+    fn within(self, loaded: &Loaded) -> Self::Output {
+        let LoadError { pos, message } = self.into();
+        load_err_in_text(loaded, pos, message)
+    }
+}
+
+impl<T, E> LoadedWithin for Result<T, E>
+where
+    E: Into<LoadError>,
+{
+    type Output = SourceResult<T>;
+
+    fn within(self, loaded: &Loaded) -> Self::Output {
+        self.map_err(|err| eco_vec![err.within(loaded)])
     }
 }
 
@@ -697,7 +711,7 @@ fn load_err_in_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
     mut message: EcoString,
-) -> EcoVec<SourceDiagnostic> {
+) -> SourceDiagnostic {
     let pos = pos.into();
     // This also does UTF-8 validation. Only report an error in an external
     // file if it is human readable (valid UTF-8), otherwise fall back to
@@ -707,7 +721,7 @@ fn load_err_in_text(
         (LoadSource::Path(file_id), Ok(lines)) => {
             if let Some(range) = pos.range(&lines) {
                 let span = Span::from_range(file_id, range);
-                return eco_vec![SourceDiagnostic::error(span, message)];
+                return SourceDiagnostic::error(span, message);
             }
 
             // Either `ReportPos::None` was provided, or resolving the range
@@ -719,7 +733,7 @@ fn load_err_in_text(
                 let (line, col) = pair.numbers();
                 write!(&mut message, " at {line}:{col})").ok();
             }
-            eco_vec![SourceDiagnostic::error(span, message)]
+            SourceDiagnostic::error(span, message)
         }
         (LoadSource::Bytes, Ok(lines)) => {
             if let Some(pair) = pos.line_col(&lines) {
@@ -727,7 +741,7 @@ fn load_err_in_text(
                 let (line, col) = pair.numbers();
                 write!(&mut message, " at {line}:{col})").ok();
             }
-            eco_vec![SourceDiagnostic::error(loaded.source.span, message)]
+            SourceDiagnostic::error(loaded.source.span, message)
         }
         _ => load_err_in_invalid_text(loaded, pos, message),
     }
@@ -738,7 +752,7 @@ fn load_err_in_invalid_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
     mut message: EcoString,
-) -> EcoVec<SourceDiagnostic> {
+) -> SourceDiagnostic {
     let line_col = pos.into().try_line_col(&loaded.data).map(|p| p.numbers());
     match (loaded.source.v, line_col) {
         (LoadSource::Path(file), _) => {
@@ -765,7 +779,7 @@ fn load_err_in_invalid_text(
         }
         (LoadSource::Bytes, None) => (),
     }
-    eco_vec![SourceDiagnostic::error(loaded.source.span, message)]
+    SourceDiagnostic::error(loaded.source.span, message)
 }
 
 /// A position at which an error was reported.
