@@ -1,5 +1,6 @@
 //! Diagnostics.
 
+use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -17,35 +18,35 @@ use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
-/// Early-return with a [`StrResult`] or [`SourceResult`].
+/// Early-return with an error for common result types used in Typst. If you
+/// need to interact with the produced errors more, consider using `error!` or
+/// `warning!` instead.
 ///
-/// If called with just a string and format args, returns with a
-/// `StrResult`. If called with a span, a string and format args, returns
-/// a `SourceResult`.
+/// The main usage is `bail!(span, "message with {}", "formatting")`, which will
+/// early-return an error for a [`SourceResult`]. If you leave out the span, it
+/// will return an error for a [`StrResult`] or [`HintedStrResult`] instead.
 ///
-/// You can also emit hints with the `; hint: "..."` syntax.
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
 ///
 /// ```ignore
-/// bail!("bailing with a {}", "string result");
-/// bail!(span, "bailing with a {}", "source result");
+/// bail!("returning a {} error with no span", "formatted"); // StrResult (no span)
+/// bail!(span, "returning a {} error", "formatted"); // SourceResult (has a span)
 /// bail!(
-///     span, "bailing with a {}", "source result";
-///     hint: "hint 1"
-/// );
-/// bail!(
-///     span, "bailing with a {}", "source result";
-///     hint: "hint 1";
-///     hint: "hint 2";
-/// );
+///     span, "returning a {} error", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
+/// ); // SourceResult
 /// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
-    // For bail!("just a {}", "string")
+    // If we don't have a span, forward to `error!` to create a `StrResult` or
+    // `HintedStrResult`.
     (
-        $fmt:literal $(, $arg:expr)*
+        $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         return Err($crate::diag::error!(
             $fmt $(, $arg)*
@@ -53,12 +54,12 @@ macro_rules! __bail {
         ))
     };
 
-    // For bail!(error!(..))
+    // Just early return for a `SourceResult`: `bail!(some_error)`.
     ($error:expr) => {
         return Err(::ecow::eco_vec![$error])
     };
 
-    // For bail(span, ...)
+    // For `bail(span, ...)`, we reuse `error!` and produce a `SourceResult`.
     ($($tts:tt)*) => {
         return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
     };
@@ -66,67 +67,84 @@ macro_rules! __bail {
 
 /// Construct an [`EcoString`], [`HintedString`] or [`SourceDiagnostic`] with
 /// severity `Error`.
+///
+/// If you just want to quickly return an error, consider the `bail!` macro.
+/// If you want to create a warning, use the `warning!` macro.
+///
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
+///
+/// ```ignore
+/// error!("a {} error with no span", "formatted"); // EcoString, same as `eco_format!`
+/// error!(span, "an error with a {} message", "formatted"); // SourceDiagnostic
+/// error!(
+///     span, "an error with a {} message", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
+/// ); // SourceDiagnostic
+/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
-    // For bail!("just a {}", "string").
+    // For `error!("just a {}", "string")`.
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::eco_format!($fmt, $($arg),*).into()
+        $crate::diag::eco_format!($fmt $(, $arg)*).into()
     };
 
-    // For bail!("a hinted {}", "string"; hint: "some hint"; hint: "...")
+    // For `error!("a hinted {}", "string"; hint: "some hint"; hint: "...")`
     (
-        $fmt:literal $(, $arg:expr)*
+        $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::HintedString::new(
-            $crate::diag::eco_format!($fmt, $($arg),*)
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 
-    // For bail!(span, ...)
+    // For `error!(span, ...)`
     (
-        $span:expr, $fmt:literal $(, $arg:expr)*
+        $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::SourceDiagnostic::error(
             $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        )  $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 }
 
-/// Construct a [`SourceDiagnostic`] with severity `Warning`.
+/// Construct a [`SourceDiagnostic`] with severity `Warning`. To use the warning
+/// you will need to add it to a sink, likely inside the [`Engine`], e.g.
+/// `engine.sink.warn(warning!(...))`.
 ///
-/// You can also emit hints with the `; hint: "..."` syntax.
+/// If you want to return early or construct an error, consider the `bail!` or
+/// `error!` macros instead.
+///
+/// You can also add hints by separating the initial message with a semicolon
+/// and writing `hint: "..."`, see the example.
 ///
 /// ```ignore
-/// warning!(span, "warning with a {}", "source result");
+/// warning!(span, "warning with a {} message", "formatted");
 /// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1"
-/// );
-/// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1";
-///     hint: "hint 2";
+///     span, "warning with a {} message", "formatted";
+///     hint: "with multiple hints";
+///     hint: "the hints can have {} too", "formatting";
 /// );
 /// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __warning {
     (
-        $span:expr,
-        $fmt:literal $(, $arg:expr)*
+        $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
+        $(;)?
     ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
     };
 }
 
@@ -139,7 +157,8 @@ pub use {
     ecow::{eco_format, EcoString},
 };
 
-/// A result that can carry multiple source errors.
+/// A result that can carry multiple source errors. The recommended way to
+/// create an error for this type is with the `bail!` macro.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
 /// An output alongside warnings generated while producing it.
@@ -158,7 +177,8 @@ impl<T> Warned<T> {
     }
 }
 
-/// An error or warning in a source or text file.
+/// An error or warning in a source or text file. The recommended way to create
+/// one is with the `error!` or `warning!` macros.
 ///
 /// The contained spans will only be detached if any of the input source files
 /// were detached.
@@ -345,7 +365,8 @@ impl<T> Trace<T> for SourceResult<T> {
     }
 }
 
-/// A result type with a string error message.
+/// A result type with a string error message. The recommended way to create an
+/// error for this type is with the [`bail!`] macro.
 pub type StrResult<T> = Result<T, EcoString>;
 
 /// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
@@ -372,16 +393,18 @@ where
     }
 }
 
-/// A result type with a string error message and hints.
+/// A result type with a string error message and hints. The recommended way to
+/// create an error for this type is with the `bail!` macro.
 pub type HintedStrResult<T> = Result<T, HintedString>;
 
-/// A string message with hints.
+/// A string message with hints. The recommended way to create one is with the
+/// `error!` macro.
 ///
 /// This is internally represented by a vector of strings.
-/// The first element of the vector contains the message.
-/// The remaining elements are the hints.
-/// This is done to reduce the size of a HintedString.
-/// The vector is guaranteed to not be empty.
+/// - The first element of the vector contains the message.
+/// - The remaining elements are the hints.
+/// - This is done to reduce the size of a HintedString.
+/// - The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HintedString(EcoVec<EcoString>);
 
@@ -515,7 +538,7 @@ impl Display for FileError {
             Self::AccessDenied => f.pad("failed to load file (access denied)"),
             Self::IsDirectory => f.pad("failed to load file (is a directory)"),
             Self::NotSource => f.pad("not a Typst source file"),
-            Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
+            Self::InvalidUtf8 => f.pad("file is not valid UTF-8"),
             Self::Package(error) => error.fmt(f),
             Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
             Self::Other(None) => f.pad("failed to load file"),
@@ -644,47 +667,61 @@ impl From<Utf8Error> for LoadError {
         LoadError::new(
             start..end,
             "failed to convert to string",
-            "file is not valid utf-8",
+            "file is not valid UTF-8",
         )
     }
 }
 
-/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`]
-/// context.
-pub trait LoadedWithin<T> {
+/// Convert a [`LoadError`] or compatible [`Result`] to a [`SourceDiagnostic`]
+/// or [`SourceResult`] by adding the [`Loaded`] context.
+pub trait LoadedWithin {
+    /// The enriched type that has the context factored in.
+    type Output;
+
     /// Report an error, possibly in an external file.
-    fn within(self, loaded: &Loaded) -> SourceResult<T>;
+    fn within(self, loaded: &Loaded) -> Self::Output;
 }
 
-impl<T, E> LoadedWithin<T> for Result<T, E>
+impl<E> LoadedWithin for E
 where
     E: Into<LoadError>,
 {
-    fn within(self, loaded: &Loaded) -> SourceResult<T> {
-        self.map_err(|err| {
-            let LoadError { pos, message } = err.into();
-            load_err_in_text(loaded, pos, message)
-        })
+    type Output = SourceDiagnostic;
+
+    fn within(self, loaded: &Loaded) -> Self::Output {
+        let LoadError { pos, message } = self.into();
+        load_err_in_text(loaded, pos, message)
+    }
+}
+
+impl<T, E> LoadedWithin for Result<T, E>
+where
+    E: Into<LoadError>,
+{
+    type Output = SourceResult<T>;
+
+    fn within(self, loaded: &Loaded) -> Self::Output {
+        self.map_err(|err| eco_vec![err.within(loaded)])
     }
 }
 
 /// Report an error, possibly in an external file. This will delegate to
-/// [`load_err_in_invalid_text`] if the data isn't valid utf-8.
+/// [`load_err_in_invalid_text`] if the data isn't valid UTF-8.
 fn load_err_in_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
     mut message: EcoString,
-) -> EcoVec<SourceDiagnostic> {
+) -> SourceDiagnostic {
     let pos = pos.into();
-    // This also does utf-8 validation. Only report an error in an external
-    // file if it is human readable (valid utf-8), otherwise fall back to
+    // This also does UTF-8 validation. Only report an error in an external
+    // file if it is human readable (valid UTF-8), otherwise fall back to
     // `load_err_in_invalid_text`.
     let lines = Lines::try_from(&loaded.data);
     match (loaded.source.v, lines) {
         (LoadSource::Path(file_id), Ok(lines)) => {
             if let Some(range) = pos.range(&lines) {
                 let span = Span::from_range(file_id, range);
-                return eco_vec![SourceDiagnostic::error(span, message)];
+                return SourceDiagnostic::error(span, message);
             }
 
             // Either `ReportPos::None` was provided, or resolving the range
@@ -696,7 +733,7 @@ fn load_err_in_text(
                 let (line, col) = pair.numbers();
                 write!(&mut message, " at {line}:{col})").ok();
             }
-            eco_vec![SourceDiagnostic::error(span, message)]
+            SourceDiagnostic::error(span, message)
         }
         (LoadSource::Bytes, Ok(lines)) => {
             if let Some(pair) = pos.line_col(&lines) {
@@ -704,18 +741,18 @@ fn load_err_in_text(
                 let (line, col) = pair.numbers();
                 write!(&mut message, " at {line}:{col})").ok();
             }
-            eco_vec![SourceDiagnostic::error(loaded.source.span, message)]
+            SourceDiagnostic::error(loaded.source.span, message)
         }
         _ => load_err_in_invalid_text(loaded, pos, message),
     }
 }
 
-/// Report an error (possibly from an external file) that isn't valid utf-8.
+/// Report an error (possibly from an external file) that isn't valid UTF-8.
 fn load_err_in_invalid_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
     mut message: EcoString,
-) -> EcoVec<SourceDiagnostic> {
+) -> SourceDiagnostic {
     let line_col = pos.into().try_line_col(&loaded.data).map(|p| p.numbers());
     match (loaded.source.v, line_col) {
         (LoadSource::Path(file), _) => {
@@ -742,7 +779,7 @@ fn load_err_in_invalid_text(
         }
         (LoadSource::Bytes, None) => (),
     }
-    eco_vec![SourceDiagnostic::error(loaded.source.span, message)]
+    SourceDiagnostic::error(loaded.source.span, message)
 }
 
 /// A position at which an error was reported.
@@ -805,7 +842,7 @@ impl ReportPos {
     }
 
     /// Either gets the line/column pair, or tries to compute it from possibly
-    /// invalid utf-8 data.
+    /// invalid UTF-8 data.
     fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
         match self {
             &ReportPos::Full(_, pair) => Some(pair),
@@ -841,7 +878,7 @@ impl LineCol {
         Self::zero_based(line.saturating_sub(1), col.saturating_sub(1))
     }
 
-    /// Try to compute a line/column pair from possibly invalid utf-8 data.
+    /// Try to compute a line/column pair from possibly invalid UTF-8 data.
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
@@ -889,4 +926,56 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
     };
 
     LoadError { pos: pos.into(), message }
+}
+
+/// Asserts a condition, generating an internal compiler error with the provided
+/// message on failure.
+#[track_caller]
+pub fn assert_internal(cond: bool, msg: &str) -> HintedStrResult<()> {
+    if !cond { Err(internal_error(msg)) } else { Ok(()) }
+}
+
+/// Generates an internal compiler error with the provided message.
+#[track_caller]
+pub fn panic_internal(msg: &str) -> HintedStrResult<()> {
+    Err(internal_error(msg))
+}
+
+/// Adds a method analogous to [`Option::expect`] that raises an internal
+/// compiler error instead of panicking.
+pub trait ExpectInternal<T> {
+    /// Extracts the value, producing an internal error if `self` is `None`.
+    fn expect_internal(self, msg: &str) -> HintedStrResult<T>;
+}
+
+impl<T> ExpectInternal<T> for Option<T> {
+    #[track_caller]
+    fn expect_internal(self, msg: &str) -> HintedStrResult<T> {
+        match self {
+            Some(val) => Ok(val),
+            None => Err(internal_error(msg)),
+        }
+    }
+}
+
+/// The shared internal implementation of [`assert_internal`] and
+/// [`expect_internal`].
+#[track_caller]
+fn internal_error(msg: &str) -> HintedString {
+    let loc = std::panic::Location::caller();
+    let mut error = error!(
+        "internal error: {msg} (occurred at {loc})";
+        hint: "please report this as a bug"
+    );
+
+    if cfg!(debug_assertions) {
+        let backtrace = Backtrace::capture();
+        if backtrace.status() == BacktraceStatus::Captured {
+            error.hint(eco_format!("compiler backtrace:\n{backtrace}"));
+        } else {
+            error.hint("set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace");
+        }
+    }
+
+    error
 }

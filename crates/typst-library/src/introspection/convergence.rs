@@ -63,7 +63,7 @@ pub fn analyze(
             hint: "see {} additional warning{} for more details",
                 diags.len(),
                 if diags.len() > 1 { "s" } else { "" };
-            hint: "see https://typst.app/help/convergence for help",
+            hint: "see https://typst.app/help/convergence for help";
         );
         diags.insert(0, summary);
     }

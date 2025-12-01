@@ -756,7 +756,7 @@ impl OutlineEntry {
             if elem.can::<dyn Outlinable>() {
                 error!(
                     "{} must have a location", elem.func().name();
-                    hint: "try using a show rule to customize the outline.entry instead",
+                    hint: "try using a show rule to customize the outline.entry instead";
                 )
             } else {
                 error!("cannot outline {}", elem.func().name())

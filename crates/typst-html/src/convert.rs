@@ -140,7 +140,7 @@ fn handle(
         converter.engine.sink.warn(warning!(
             child.span(),
             "{} was ignored during HTML export",
-            child.elem().name()
+            child.elem().name(),
         ));
     }
     Ok(())

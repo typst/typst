@@ -147,7 +147,7 @@ fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
 /// Format the user-facing SVG decoding error message.
 fn format_usvg_error(error: usvg::Error) -> LoadError {
     let error = match error {
-        usvg::Error::NotAnUtf8Str => "file is not valid utf-8",
+        usvg::Error::NotAnUtf8Str => "file is not valid UTF-8",
         usvg::Error::MalformedGZip => "file is not compressed correctly",
         usvg::Error::ElementsLimitReached => "file is too large",
         usvg::Error::InvalidSize => "width, height, or viewbox is invalid",
