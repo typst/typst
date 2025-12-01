@@ -203,6 +203,7 @@ Finally, you can specify an alternative description on math using [`math.equatio
 ```typ
 #math.equation(
   alt: "a squared plus b squared equals c squared",
+  block: true,
   $ a^2 + b^2 = c^2 $,
 )
 ```
