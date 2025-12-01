@@ -42,14 +42,15 @@ use smallvec::SmallVec;
 use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::World;
-use crate::diag::{HintedStrResult, SourceResult, StrResult, bail, warning};
+use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, StyleChain,
-    cast, dict, elem,
+    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
@@ -595,7 +596,8 @@ pub struct TextElem {
     ///
     /// Sometimes fonts contain alternative glyphs for the same codepoint.
     /// Setting this to `{true}` switches to these by enabling the OpenType
-    /// `salt` font feature.
+    /// `salt` font feature. An integer may be used to select between multiple
+    /// alternates.
     ///
     /// ```example
     /// #set text(
@@ -608,9 +610,8 @@ pub struct TextElem {
     /// #set text(alternates: true)
     /// 0, a, g, ß
     /// ```
-    #[default(false)]
     #[ghost]
-    pub alternates: bool,
+    pub alternates: Alternates,
 
     /// Which stylistic sets to apply. Font designers can categorize alternative
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
@@ -724,7 +725,8 @@ pub struct TextElem {
     /// - If given an array of strings, sets the features identified by the
     ///   strings to `{1}`.
     /// - If given a dictionary mapping to numbers, sets the features
-    ///   identified by the keys to the values.
+    ///   identified by the keys to the values. This allows interacting with
+    ///   non-boolean features such as `swsh`.
     ///
     /// ```example:"Give an array of strings"
     /// // Enable the `frac` feature manually.
@@ -1166,6 +1168,17 @@ impl Resolve for TextDir {
     }
 }
 
+/// A selection into the Stylistic Alternates.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Alternates(u32);
+
+cast! {
+    Alternates,
+    self => self.0.into_value(),
+    v: bool => Self(v as u32),
+    v: u32 => Self(v)
+}
+
 /// A set of stylistic sets to enable.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
@@ -1232,6 +1245,43 @@ pub enum NumberWidth {
 pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
 cast! {
+    Tag,
+    v: Str => {
+        // Tags must: https://learn.microsoft.com/en-us/typography/opentype/spec/otff#data-types
+        // - be one to four bytes in length
+        // - be representable as printable ASCII (0x20..=0x7E)
+        // - contain at least one character that isn't padding (0x20, space)
+        // - padding may only appear at the end of a tag
+
+        if let Some(cluster) = v.graphemes(true).find(|v| {
+            !v.as_bytes().iter().all(|v| (0x20..=0x7E).contains(v))
+        }) {
+            bail!(
+                "feature tag may contain only printable ASCII characters";
+                hint: "found invalid cluster `{}`", cluster.repr();
+            )
+        }
+
+        if !(1..=4).contains(&v.len()) {
+            bail!(
+                "feature tag must be one to four characters in length";
+                hint: "found {} characters", v.len();
+            );
+        }
+
+        let mut within_padding = false;
+        for (i, &v) in v.as_bytes().iter().enumerate() {
+            if (within_padding && v != b' ') || (i == 0 && v == b' ') {
+                bail!("spaces may only appear as padding following a feature tag")
+            }
+            within_padding |= b' ' == v;
+        }
+
+        Self::from_bytes_lossy(v.as_bytes())
+    }
+}
+
+cast! {
     FontFeatures,
     self => self.0
         .into_iter()
@@ -1244,19 +1294,32 @@ cast! {
         .into_value(),
     values: Array => Self(values
         .into_iter()
-        .map(|v| {
-            let tag = v.cast::<EcoString>()?;
-            Ok((Tag::from_bytes_lossy(tag.as_bytes()), 1))
-        })
+        .enumerate()
+        .map(|(i, v)| Ok((
+            v.clone().cast::<Tag>().hint(tag_hint_helper(i, &v)).map_err(|e| {
+                // Append a hint if the value is a string containing the
+                // assignment operator `=` or another type was supplied.
+                if v.cast::<Str>().map_or(true, |v| v.as_str().contains('=')) {
+                    e.with_hint("to set features with custom values, consider supplying a dictionary")
+                } else {
+                    e
+                }
+            })?,
+            1
+        )))
         .collect::<HintedStrResult<_>>()?),
     values: Dict => Self(values
         .into_iter()
-        .map(|(k, v)| {
-            let num = v.cast::<u32>()?;
-            let tag = Tag::from_bytes_lossy(k.as_bytes());
-            Ok((tag, num))
-        })
+        .enumerate()
+        .map(|(i, (k, v))| Ok((
+            k.clone().into_value().cast::<Tag>().hint(tag_hint_helper(i, &k))?,
+            v.cast::<u32>().hint(tag_hint_helper(i, &k))?
+        )))
         .collect::<HintedStrResult<_>>()?),
+}
+
+fn tag_hint_helper(index: usize, key: &impl Repr) -> EcoString {
+    eco_format!("occurred in tag at index {index} (`{}`)", key.repr())
 }
 
 impl Fold for FontFeatures {
@@ -1285,8 +1348,9 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         }
     }
 
-    if styles.get(TextElem::alternates) {
-        feat(b"salt", 1);
+    match styles.get(TextElem::alternates).0 {
+        0 => {}
+        v => feat(b"salt", v),
     }
 
     for set in styles.get(TextElem::stylistic_set).sets() {
@@ -1486,5 +1550,37 @@ mod tests {
     #[test]
     fn test_text_elem_size() {
         assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
+    }
+
+    #[test]
+    fn test_text_tag_parsing() {
+        let tag = |v: &[u8]| {
+            std::str::from_utf8(v)
+                .unwrap()
+                .into_value()
+                .cast::<Tag>()
+                .map_or(None, |v| Some(v.0.to_be_bytes()))
+        };
+
+        // Valid tags; standard and padded forms.
+        assert_eq!(tag(b"feat"), Some(*b"feat"));
+        assert_eq!(tag(b"a"), Some(*b"a   "));
+
+        // Empty tag.
+        assert_eq!(tag(b""), None);
+
+        // Padding errors.
+        assert_eq!(tag(b" "), None);
+        assert_eq!(tag(b" a"), None);
+        assert_eq!(tag(b"a b"), None);
+
+        // Overlong tag.
+        assert_eq!(tag(b"foobar"), None);
+
+        // Explicit range.
+        assert_eq!(tag(&[0x19]), None);
+        assert_eq!(tag(&[0x21]), Some(*b"!   "));
+        assert_eq!(tag(&[0x7E]), Some(*b"~   "));
+        assert_eq!(tag(&[0x7F]), None);
     }
 }
