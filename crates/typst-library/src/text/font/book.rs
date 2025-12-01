@@ -248,7 +248,14 @@ impl FontInfo {
 
                 // Some fonts miss the relevant bits for italic or oblique, so
                 // we also try to infer that from the full name.
-                let italic = ttf.is_italic() || full.contains("italic");
+                //
+                // We do not use `ttf.is_italic()` because that also checks the
+                // italic angle which leads to false positives for some oblique
+                // fonts.
+                //
+                // See <https://github.com/typst/typst/issues/7479>.
+                let italic =
+                    ttf.style() == ttf_parser::Style::Italic || full.contains("italic");
                 let oblique = ttf.is_oblique()
                     || full.contains("oblique")
                     || full.contains("slanted");
