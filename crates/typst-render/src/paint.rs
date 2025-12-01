@@ -233,17 +233,11 @@ pub fn to_sk_paint<'a>(
 
             let offset = match relative {
                 RelativeTo::Self_ => {
-                    let base_offset = gradient_map
-                        .map(|(offset, _)| -offset)
-                        .unwrap_or_default();
-                    Point::new(
-                        base_offset.x + tilings.dx(),
-                        base_offset.y + tilings.dy(),
-                    )
+                    let base_offset =
+                        gradient_map.map(|(offset, _)| -offset).unwrap_or_default();
+                    Point::new(base_offset.x + tilings.dx(), base_offset.y + tilings.dy())
                 }
-                RelativeTo::Parent => {
-                    Point::new(tilings.dx(), tilings.dy())
-                }
+                RelativeTo::Parent => Point::new(tilings.dx(), tilings.dy()),
             };
 
             // Create the shader
