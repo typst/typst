@@ -250,12 +250,20 @@ impl Synthesize for Packed<HeadingElem> {
 
         if let Some((numbering, location)) =
             self.numbering.get_ref(styles).as_ref().zip(self.location())
+            // We are not early returning on error here because of
+            // https://github.com/typst/typst/issues/7428
+            //
+            // A more comprehensive fix might introduce the error catching logic
+            // of show rules for synthesis, too.
+            && let Ok(numbers) = self.counter().display_at(
+                engine,
+                location,
+                styles,
+                numbering,
+                self.span(),
+            )
         {
-            self.numbers = Some(
-                self.counter()
-                    .display_at(engine, location, styles, numbering, self.span())?
-                    .plain_text(),
-            );
+            self.numbers = Some(numbers.plain_text());
         }
 
         let elem = self.as_mut();

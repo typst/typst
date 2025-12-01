@@ -204,6 +204,6 @@ fn wrong_number_of_elements(
     error!(
         destruct.span(), "{quantifier} elements to destructure";
         hint: "the provided array has a length of {len}, \
-               but the pattern expects {expected}",
+               but the pattern expects {expected}";
     )
 }

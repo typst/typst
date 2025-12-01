@@ -892,7 +892,7 @@ impl Color {
         Ok(match self {
             Self::Luma(_) => bail!(
                 span, "cannot saturate grayscale color";
-                hint: "try converting your color to RGB first"
+                hint: "try converting your color to RGB first";
             ),
             Self::Hsl(c) => Self::Hsl(c.saturate(f)),
             Self::Hsv(c) => Self::Hsv(c.saturate(f)),
@@ -918,7 +918,7 @@ impl Color {
         Ok(match self {
             Self::Luma(_) => bail!(
                 span, "cannot desaturate grayscale color";
-                hint: "try converting your color to RGB first"
+                hint: "try converting your color to RGB first";
             ),
             Self::Hsl(c) => Self::Hsl(c.desaturate(f)),
             Self::Hsv(c) => Self::Hsv(c.desaturate(f)),

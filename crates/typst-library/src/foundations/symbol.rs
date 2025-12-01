@@ -131,13 +131,9 @@ impl Symbol {
 
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
-        self.get()
-            .parse::<char>()
-            .ok()
-            .and_then(|c| {
-                crate::math::accent::get_accent_func(c)
-                    .or_else(|| crate::math::get_lr_wrapper_func(c))
-            })
+        let value = self.get();
+        crate::math::accent::get_accent_func(value)
+            .or_else(|| crate::math::get_lr_wrapper_func(value))
             .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 
@@ -252,7 +248,7 @@ impl Symbol {
             if v.1.is_empty() || v.1.graphemes(true).nth(1).is_some() {
                 errors.push(error!(
                     span, "invalid variant value: {}", v.1.repr();
-                    hint: "variant value must be exactly one grapheme cluster"
+                    hint: "variant value must be exactly one grapheme cluster";
                 ));
             }
 
@@ -263,7 +259,7 @@ impl Symbol {
                         errors.push(error!(
                             span,
                             "invalid symbol modifier: {}",
-                            modifier.repr()
+                            modifier.repr(),
                         ));
                         continue 'variants;
                     }
@@ -278,7 +274,7 @@ impl Symbol {
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
                 errors.push(error!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
-                    hint: "modifiers are not ordered, so each one may appear only once"
+                    hint: "modifiers are not ordered, so each one may appear only once";
                 ));
                 continue 'variants;
             }
@@ -293,7 +289,8 @@ impl Symbol {
                 } else {
                     error!(
                         span, "duplicate variant: {}", v.0.repr();
-                        hint: "variants with the same modifiers are identical, regardless of their order"
+                        hint: "variants with the same modifiers are identical, \
+                               regardless of their order";
                     )
                 });
                 continue 'variants;

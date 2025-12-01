@@ -599,7 +599,7 @@ fn visit_styled<'a>(
             } else {
                 bail!(
                     style.span(),
-                    "document set rules are not allowed inside of containers"
+                    "document set rules are not allowed inside of containers",
                 );
             }
         } else if elem == TextElem::ELEM {
@@ -611,7 +611,7 @@ fn visit_styled<'a>(
             if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
                 bail!(
                     style.span(),
-                    "page configuration is not allowed inside of containers"
+                    "page configuration is not allowed inside of containers",
                 );
             }
 

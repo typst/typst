@@ -158,7 +158,7 @@ mod update {
         bail!(
             "self-updating is not enabled for this executable, \
              please update with the package manager or mechanism \
-             used for initial installation"
+             used for initial installation",
         )
     }
 }

@@ -44,6 +44,13 @@ use crate::visualize::{Color, Paint};
 /// invisible to Assistive Technology (AT) like screen readers. Only the body of
 /// the page is read by AT. Do not include vital information not included
 /// elsewhere in the document in these areas.
+///
+/// # Styling
+/// Note that the [`page`] element cannot be targeted by show rules; writing
+/// `{show page: ..}` has no effect. To repeat content on every page, you can
+/// instead configure the [`header`]($page.header), [`footer`]($page.footer),
+/// [`background`]($page.background), and [`foreground`]($page.foreground)
+/// properties with a set rule.
 #[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
@@ -218,7 +225,8 @@ pub struct PageElem {
     /// 1. The first number is the current page number.
     /// 2. The second number is the total number of pages. In a numbering
     ///    pattern, the second number can be omitted. If a function is passed,
-    ///    it will always receive both numbers.
+    ///    it will receive one argument in the context of links or references,
+    ///    and two arguments when producing the visible page numbers.
     ///
     /// These are logical numbers controlled by the page counter, and may thus
     /// not match the physical numbers. Specifically, they are the
@@ -386,7 +394,8 @@ impl Construct for PageElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The page constructor is special: It doesn't create a page element.
         // Instead, it just ensures that the passed content lives in a separate
-        // page and styles it.
+        // page and styles it. Because no element node is produced, `show`
+        // rules can't match `page`; use `set` rules instead.
         let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([

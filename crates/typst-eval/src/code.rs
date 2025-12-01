@@ -380,7 +380,7 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     let mut warning = warning!(
         *span,
         "this return unconditionally discards the content before it";
-        hint: "try omitting the `return` to automatically join all values"
+        hint: "try omitting the `return` to automatically join all values";
     );
 
     if tree.query_first_naive(selector).is_some() {
