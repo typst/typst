@@ -267,7 +267,7 @@ impl Packed<RefElem> {
                     self.target.repr();
                     hint: "change either the {}'s label or the \
                            bibliography key to resolve the ambiguity",
-                    elem.func().name(),
+                    elem.func().name();
                 );
             }
 

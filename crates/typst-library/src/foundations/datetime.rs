@@ -304,7 +304,7 @@ impl Datetime {
                 bail!(
                     "time is incomplete";
                     hint: "add {} to get a valid time",
-                    format_missing_args(args.into_iter().flatten().collect())
+                    format_missing_args(args.into_iter().flatten().collect());
                 )
             }
         };
@@ -326,7 +326,7 @@ impl Datetime {
                 bail!(
                     "date is incomplete";
                     hint: "add {} to get a valid date",
-                    format_missing_args(args.into_iter().flatten().collect())
+                    format_missing_args(args.into_iter().flatten().collect());
                 )
             }
         };
@@ -341,7 +341,7 @@ impl Datetime {
                 bail!(
                     "at least one of date or time must be fully specified";
                     hint: "add the `hour`, `minute`, and `second` arguments to get a valid time";
-                    hint: "add the `year`, `month`, and `day` arguments to get a valid date"
+                    hint: "add the `year`, `month`, and `day` arguments to get a valid date";
                 )
             }
         })

@@ -154,7 +154,7 @@ impl Args {
                 return error!(
                     item.span,
                     "the argument `{what}` is positional";
-                    hint: "try removing `{}:`", name,
+                    hint: "try removing `{}:`", name;
                 );
             }
         }

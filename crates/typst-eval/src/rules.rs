@@ -70,10 +70,11 @@ fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
         && (styles.has(BlockElem::above) || styles.has(BlockElem::below))
     {
         vm.engine.sink.warn(warning!(
-                recipe.span(),
-                "`show par: set block(spacing: ..)` has no effect anymore";
-                hint: "write `set par(spacing: ..)` instead";
-                hint: "this is specific to paragraphs as they are not considered blocks anymore"
-            ))
+            recipe.span(),
+            "`show par: set block(spacing: ..)` has no effect anymore";
+            hint: "write `set par(spacing: ..)` instead";
+            hint: "this is specific to paragraphs as they are not considered blocks \
+                   anymore";
+        ))
     }
 }
