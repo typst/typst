@@ -296,8 +296,10 @@ impl Packed<ImageElem> {
                     engine.sink.warn(warning!(
                         span,
                         "image contains foreign object";
-                        hint: "SVG images with foreign objects might render incorrectly in Typst";
-                        hint: "see https://github.com/typst/typst/issues/1421 for more information"
+                        hint: "SVG images with foreign objects might render incorrectly \
+                               in Typst";
+                        hint: "see https://github.com/typst/typst/issues/1421 for more \
+                               information";
                     ));
                 }
 
@@ -326,14 +328,14 @@ impl Packed<ImageElem> {
                                 span,
                                 "the PDF is encrypted or password-protected";
                                 hint: "such PDFs are currently not supported";
-                                hint: "preprocess the PDF to remove the encryption"
+                                hint: "preprocess the PDF to remove the encryption";
                             );
                         }
                         LoadPdfError::Invalid => {
                             bail!(
                                 span,
                                 "the PDF could not be loaded";
-                                hint: "perhaps the PDF file is malformed"
+                                hint: "perhaps the PDF file is malformed";
                             );
                         }
                     },
@@ -345,7 +347,8 @@ impl Packed<ImageElem> {
                         span,
                         "PDF contains optional content groups";
                         hint: "the image might display incorrectly in PDF export";
-                        hint: "preprocess the PDF to flatten or remove optional content groups"
+                        hint: "preprocess the PDF to flatten or remove optional content \
+                               groups";
                     ));
                 }
 
@@ -360,7 +363,7 @@ impl Packed<ImageElem> {
                     bail!(
                         span,
                         "page {page_num} does not exist";
-                        hint: "the document only has {num_pages} page{s}"
+                        hint: "the document only has {num_pages} page{s}";
                     );
                 };
 

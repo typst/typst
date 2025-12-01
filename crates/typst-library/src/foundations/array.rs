@@ -519,7 +519,7 @@ impl Array {
                     other_span,
                     "second array has different length ({}) from first array ({})",
                     other.len(),
-                    self.len()
+                    self.len(),
                 );
             }
             return Ok(self

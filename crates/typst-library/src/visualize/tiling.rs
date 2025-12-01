@@ -208,7 +208,7 @@ impl Tiling {
         if frame.width().is_zero() || frame.height().is_zero() {
             bail!(
                 span, "tile size must be non-zero";
-                hint: "try setting the size manually"
+                hint: "try setting the size manually";
             );
         }
 

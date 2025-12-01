@@ -634,7 +634,7 @@ impl Introspect for CiteGroupIntrospection {
         warning!(
             self.0, "citation grouping did not stabilize";
             hint: "this can happen if the citations and bibliographies in the \
-                   document did not stabilize by the end of the third layout iteration"
+                   document did not stabilize by the end of the third layout iteration";
         )
     }
 }
@@ -729,7 +729,7 @@ impl<'a> Generator<'a> {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        child.key.resolve()
+                        child.key.resolve(),
                     ));
                     continue;
                 };

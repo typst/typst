@@ -214,7 +214,7 @@ impl Introspect for HtmlIdIntrospection {
         };
         warning!(
             self.1,
-            "HTML element ID assigned to the destination {what} did not stabilize"
+            "HTML element ID assigned to the destination {what} did not stabilize",
         )
         .with_hint(history.hint("IDs", |id| match id {
             Some(id) => id.clone(),
@@ -263,7 +263,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             level, level + 1;
             hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
             hint: "you may want to restructure your document so that \
-                   it doesn't contain deep headings"
+                   it doesn't contain deep headings";
         ));
         HtmlElem::new(tag::div)
             .with_body(Some(realized))
@@ -381,7 +381,7 @@ impl FootnoteContainer {
                     marker.span(),
                     "footnotes are not currently supported in combination \
                      with a custom `<html>` or `<body>` element";
-                    hint: "you can still use footnotes with a custom footnote show rule"
+                    hint: "you can still use footnotes with a custom footnote show rule";
                 )
             })
             .collect())
@@ -793,7 +793,7 @@ const BLOCK_RULE: ShowFn<BlockElem> = |elem, _, styles| {
             bail!(
                 elem.span(),
                 "blocks with layout routines should not occur in \
-                 HTML export – this is a bug"
+                 HTML export – this is a bug";
             )
         }
     };

@@ -252,14 +252,14 @@ fn warn_or_error_for_html(
             "html export is under active development and incomplete";
             hint: "its behaviour may change at any time";
             hint: "do not rely on this feature for production use cases";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         ));
     } else {
         bail!(
             Span::detached(),
             "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         );
     }
     Ok(())

@@ -178,7 +178,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     {
         bail!(
             body.ident,
-            "cannot have public ghost fields and an auto-generated constructor"
+            "cannot have public ghost fields and an auto-generated constructor",
         );
     }
 
