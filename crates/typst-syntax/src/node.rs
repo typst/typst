@@ -899,6 +899,14 @@ impl LinkedNode<'_> {
 }
 
 impl LinkedNode<'_> {
+    #[inline]
+    fn as_parent(&self) -> Option<SyntaxMode> {
+        self.parent().and_then(|parent| parent.mode())
+    }
+    #[inline]
+    fn as_parent_or_default(&self, default: SyntaxMode) -> Option<SyntaxMode> {
+        self.parent().map_or(Some(default), |parent| parent.mode())
+    }
     /// Get the `SyntaxMode` of this node.
     ///
     /// Would be `None` if can not determine.
@@ -913,19 +921,13 @@ impl LinkedNode<'_> {
 
             SyntaxKind::Markup => Some(SyntaxMode::Markup),
             SyntaxKind::Text => Some(SyntaxMode::Markup),
-            // Either in math or in markup
-            SyntaxKind::Space => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
-            // Either in math or in markup
-            SyntaxKind::Linebreak => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
+            // Either in math or in markup.
+            SyntaxKind::Space => self.as_parent_or_default(SyntaxMode::Markup),
+            // Either in math or in markup.
+            SyntaxKind::Linebreak => self.as_parent_or_default(SyntaxMode::Markup),
             SyntaxKind::Parbreak => Some(SyntaxMode::Markup),
-            // Either in math or in markup
-            SyntaxKind::Escape => {
-                self.parent().map_or(Some(SyntaxMode::Markup), |parent| parent.mode())
-            }
+            // Either in math or in markup.
+            SyntaxKind::Escape => self.as_parent_or_default(SyntaxMode::Markup),
             SyntaxKind::Shorthand => Some(SyntaxMode::Markup),
             SyntaxKind::SmartQuote => Some(SyntaxMode::Markup),
             SyntaxKind::Strong => Some(SyntaxMode::Markup),
@@ -948,33 +950,43 @@ impl LinkedNode<'_> {
             SyntaxKind::TermMarker => Some(SyntaxMode::Markup),
             SyntaxKind::Equation => Some(SyntaxMode::Math),
 
-            SyntaxKind::Hash => Some(SyntaxMode::Code),
-            // Punctuations can be in all three modes
-            SyntaxKind::LeftBrace => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::RightBrace => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::LeftBracket => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::RightBracket => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::LeftParen => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::RightParen => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::Comma => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::Semicolon => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::Colon => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Math => Some(SyntaxMode::Math),
+            SyntaxKind::MathText => Some(SyntaxMode::Math),
+            SyntaxKind::MathIdent => Some(SyntaxMode::Math),
+            SyntaxKind::MathShorthand => Some(SyntaxMode::Math),
+            SyntaxKind::MathAlignPoint => Some(SyntaxMode::Math),
+            SyntaxKind::MathDelimited => Some(SyntaxMode::Math),
+            SyntaxKind::MathAttach => Some(SyntaxMode::Math),
+            SyntaxKind::MathPrimes => Some(SyntaxMode::Math),
+            SyntaxKind::MathFrac => Some(SyntaxMode::Math),
+            SyntaxKind::MathRoot => Some(SyntaxMode::Math),
 
-            // Either in code or in markup.
-            SyntaxKind::Star => self.parent().and_then(|parent| parent.mode()),
-            // Either in code or in markup.
-            SyntaxKind::Underscore => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Hash => Some(SyntaxMode::Code),
+            // Punctuations can be in all three modes.
+            SyntaxKind::LeftBrace => self.as_parent(),
+            SyntaxKind::RightBrace => self.as_parent(),
+            SyntaxKind::LeftBracket => self.as_parent(),
+            SyntaxKind::RightBracket => self.as_parent(),
+            SyntaxKind::LeftParen => self.as_parent(),
+            SyntaxKind::RightParen => self.as_parent(),
+            SyntaxKind::Comma => self.as_parent(),
+            SyntaxKind::Semicolon => self.as_parent(),
+            SyntaxKind::Colon => self.as_parent(),
+            // Either in code or in math.
+            SyntaxKind::Star => self.as_parent(),
+            // Either in math or in markup.
+            SyntaxKind::Underscore => self.as_parent(),
             SyntaxKind::Dollar => Some(SyntaxMode::Math),
             SyntaxKind::Plus => Some(SyntaxMode::Code),
             SyntaxKind::Minus => Some(SyntaxMode::Code),
             // Either in code or in math.
-            SyntaxKind::Slash => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Slash => self.as_parent(),
             // Either in code or in math.
-            SyntaxKind::Hat => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Hat => self.as_parent(),
             // Either in code or in math.
-            SyntaxKind::Dot => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Dot => self.as_parent(),
             // Either in code or in markup.
-            SyntaxKind::Eq => self.parent().and_then(|parent| parent.mode()),
+            SyntaxKind::Eq => self.as_parent(),
             SyntaxKind::EqEq => Some(SyntaxMode::Code),
             SyntaxKind::ExclEq => Some(SyntaxMode::Code),
             SyntaxKind::Lt => Some(SyntaxMode::Code),
@@ -985,21 +997,12 @@ impl LinkedNode<'_> {
             SyntaxKind::HyphEq => Some(SyntaxMode::Code),
             SyntaxKind::StarEq => Some(SyntaxMode::Code),
             SyntaxKind::SlashEq => Some(SyntaxMode::Code),
-            SyntaxKind::Dots => Some(SyntaxMode::Code),
+            // Either in math or in code,
+            // as a part of `Spread`
+            SyntaxKind::Dots => self.as_parent(),
             SyntaxKind::Arrow => Some(SyntaxMode::Code),
             SyntaxKind::Root => Some(SyntaxMode::Math),
             SyntaxKind::Bang => Some(SyntaxMode::Math),
-
-            SyntaxKind::Math => Some(SyntaxMode::Math),
-            SyntaxKind::MathText => Some(SyntaxMode::Math),
-            SyntaxKind::MathIdent => Some(SyntaxMode::Math),
-            SyntaxKind::MathShorthand => Some(SyntaxMode::Math),
-            SyntaxKind::MathAlignPoint => Some(SyntaxMode::Math),
-            SyntaxKind::MathAttach => Some(SyntaxMode::Math),
-            SyntaxKind::MathDelimited => Some(SyntaxMode::Math),
-            SyntaxKind::MathPrimes => Some(SyntaxMode::Math),
-            SyntaxKind::MathFrac => Some(SyntaxMode::Math),
-            SyntaxKind::MathRoot => Some(SyntaxMode::Math),
 
             SyntaxKind::Not => Some(SyntaxMode::Code),
             SyntaxKind::And => Some(SyntaxMode::Code),
@@ -1047,13 +1050,24 @@ impl LinkedNode<'_> {
             SyntaxKind::Parenthesized => Some(SyntaxMode::Code),
             SyntaxKind::Array => Some(SyntaxMode::Code),
             SyntaxKind::Dict => Some(SyntaxMode::Code),
-            SyntaxKind::Named => Some(SyntaxMode::Code),
+            // Either in code or in math,
+            // it's in math only when it's within an `Args` who is in math.
+            SyntaxKind::Named => {
+                if self.parent_kind() == Some(SyntaxKind::Args)
+                    && self.parent().and_then(|parent| parent.mode())
+                        == Some(SyntaxMode::Math)
+                {
+                    Some(SyntaxMode::Math)
+                } else {
+                    Some(SyntaxMode::Code)
+                }
+            }
             SyntaxKind::Keyed => Some(SyntaxMode::Code),
             SyntaxKind::Unary => Some(SyntaxMode::Code),
             SyntaxKind::Binary => Some(SyntaxMode::Code),
-            // Mode of FieldAccess and FuncCall is determined by the leftmost leaf
+            // Mode of `FieldAccess` and `FuncCall` is determined by the leftmost leaf
             // `callee` of `FuncCall` and leftmost expr of a `FieldAccess` chain.
-            // It's either in code or in math, the later case is only possible if
+            // It's either in code or in math, the latter case is only possible if
             // the leftmost leaf is a `MathIdent`.
             SyntaxKind::FieldAccess => {
                 self.leftmost_leaf().map(|leaf| match leaf.kind() {
@@ -1069,8 +1083,9 @@ impl LinkedNode<'_> {
                 })
             }
             // `Args` is always within a `FuncCall`.
-            SyntaxKind::Args => self.parent().and_then(|parent| parent.mode()),
-            SyntaxKind::Spread => Some(SyntaxMode::Code),
+            SyntaxKind::Args => self.as_parent(),
+            // `Spread` is always within an `Args`.
+            SyntaxKind::Spread => self.as_parent(),
             SyntaxKind::Closure => Some(SyntaxMode::Code),
             SyntaxKind::Params => Some(SyntaxMode::Code),
             SyntaxKind::LetBinding => Some(SyntaxMode::Code),
@@ -1174,401 +1189,232 @@ impl std::error::Error for Unnumberable {}
 mod tests {
     use super::*;
     use crate::Source;
+
+    #[track_caller]
+    fn test_mode_internal(
+        source: &Source,
+        cursor: usize,
+        expected_mode: Option<SyntaxMode>,
+    ) {
+        let node = LinkedNode::new(source.root()).leaf_at(cursor, Side::After).unwrap();
+        assert_eq!(node.mode(), expected_mode);
+    }
+
+    #[track_caller]
+    fn test_mode(source_str: &str, cursor: usize, expected_mode: Option<SyntaxMode>) {
+        let source = Source::detached(source_str);
+        test_mode_internal(&source, cursor, expected_mode);
+    }
+
+    #[track_caller]
+    fn test_modes(
+        source_str: &str,
+        cursors: impl IntoIterator<Item = usize>,
+        expected_mode: Option<SyntaxMode>,
+    ) {
+        let source = Source::detached(source_str);
+        for cursor in cursors {
+            test_mode_internal(&source, cursor, expected_mode);
+        }
+    }
+
     #[test]
     fn test_linked_node_mode() {
         // Shebang, LineComment, BlockComment
-        let source = Source::detached("#! typ");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), None);
-
-        let source = Source::detached("// xxx");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), None);
-
-        let source = Source::detached("/* xxx */");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), None);
+        test_mode("#! typ", 0, None);
+        test_mode("// xxx", 0, None);
+        test_mode("/* xxx */", 0, None);
 
         // Link
-        let source = Source::detached("https://typst.org");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("https://typst.org", 1, Some(SyntaxMode::Markup));
 
         // Text, Escaped
-        let source = Source::detached("a\\bcd");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_modes("a\\bcd", [0, 1], Some(SyntaxMode::Markup));
 
         // Space, Linebreak, Parbreak
-        let source = Source::detached("a   c\n\n d\\\nef");
-        //                             01234 5 678 9 012
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let node = LinkedNode::new(source.root()).leaf_at(5, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let node = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_modes("a   c\n\n d\\\nef", [1, 5, 9], Some(SyntaxMode::Markup));
 
         // SmartQuote
-        let source = Source::detached("\"abc\"");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_modes("\"abc\"", [0, 4], Some(SyntaxMode::Markup));
 
         // Shorthand
-        let source = Source::detached("a-?b");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("a-?b", 1, Some(SyntaxMode::Markup));
 
         // Emph
-        let source = Source::detached("_abcd_");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("_abcd_", 0, Some(SyntaxMode::Markup));
 
         // Raw, RawLang, RawDelim, RawTrimmed
-        let source = Source::detached("```typ {}   ```");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
-        let source = Source::detached("```  xx  ```");
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_modes("```typ {}   ```", [0, 3], Some(SyntaxMode::Markup));
+        test_mode("```  xx  ```", 3, Some(SyntaxMode::Markup));
 
         // Label
-        let source = Source::detached("<label>");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("<label>", 0, Some(SyntaxMode::Markup));
 
         // Ref, RefMarker
-        let source = Source::detached("@label");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("@label", 0, Some(SyntaxMode::Markup));
 
         // Heading, HeadingMarker
-        let source = Source::detached("= heading");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("= heading", 0, Some(SyntaxMode::Markup));
 
         // List, ListMarker
-        let source = Source::detached("- heading");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("- heading", 0, Some(SyntaxMode::Markup));
 
         // Enum, EnumMarker
-        let source = Source::detached("+ heading");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("+ heading", 0, Some(SyntaxMode::Markup));
 
         // Term, TermMarker
-        let source = Source::detached("+ heading");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("/ heading", 0, Some(SyntaxMode::Markup));
 
         // Code Block
-        let source = Source::detached("#{x;1}");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#{x;1}", [0, 1, 2, 3, 4], Some(SyntaxMode::Code));
 
         // Parenthesized
-        let source = Source::detached("#(x)");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("#(x)", 1, Some(SyntaxMode::Code));
 
         // Array
-        let source = Source::detached("#(1,2,x)");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#(1,2,x)", [1, 2], Some(SyntaxMode::Code));
 
-        // Dict
-        let source = Source::detached("#(first:1, \"last\": 1)");
-        //                             01234567890 12345 67890
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(7, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(17, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // Dict, Named, Keyed
+        test_modes("#(first:1, \"last\": 1)", [1, 7, 17], Some(SyntaxMode::Code));
 
         // Unary
-        let source = Source::detached("#{-x}");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("#{-x}", 2, Some(SyntaxMode::Code));
 
-        // Binary
-        let source = Source::detached("#{a + b}");
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // Binary, Slash in code
+        test_mode("#{a / b}", 4, Some(SyntaxMode::Code));
 
         // FieldAccess
-        let source = Source::detached("#a.b");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("#a.b", 2, Some(SyntaxMode::Code));
 
-        // FieldAccess corner case
-        let source = Source::detached("#$$.at()");
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let source = Source::detached("#[].at()");
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // FieldAccess corner cases
+        test_mode("#$$.at()", 3, Some(SyntaxMode::Code));
+        test_mode("#[].at()", 3, Some(SyntaxMode::Code));
 
         // Args, FuncCall, Spread
-        let source = Source::detached("#f(x, ..y)");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#f(x, ..y)", [2, 4, 6], Some(SyntaxMode::Code));
 
         // Closure, Params
-        let source = Source::detached("#{(x) => {}}");
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#{(x) => {}}", [3, 6], Some(SyntaxMode::Code));
 
         // LetBinding
-        let source = Source::detached("#let x = 1");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(7, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#let x = 1", [1, 7], Some(SyntaxMode::Code));
 
         // SetRule
-        let source = Source::detached("#set text()");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#set text()", [1, 4], Some(SyntaxMode::Code));
 
         // ShowRule
-        let source = Source::detached("#show text : it => it");
-        //-----------------------------012345678901234567890
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(11, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#show text : it => it", [1, 11], Some(SyntaxMode::Code));
 
         // Contextual
-        let source = Source::detached("#context 1");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(8, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#context 1", [1, 8], Some(SyntaxMode::Code));
 
         // WhileLoop
-        let source = Source::detached("#while true {break;continue;}");
-        //                             01234567890123456789012345678
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(13, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(19, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#while true {break;continue;}", [1, 13, 19], Some(SyntaxMode::Code));
 
         // ForLoop
-        let source = Source::detached("#for a in b {}");
-        //                             01234567890128
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(7, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#for a in b {}", [1, 7], Some(SyntaxMode::Code));
 
         // Conditional
-        let source = Source::detached("#if true {} else {}");
-        //                             0123456789012345678
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(12, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#if true {} else {}", [1, 12], Some(SyntaxMode::Code));
 
         // ModuleImport, ImportItems, ImportItemPath, RenamedImport
-        let source = Source::detached("#import \"lib.typ\" : a, b as d, e.f");
-        //                             01234567 89012345 6789012345678901234
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(8, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(21, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(25, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(32, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes(
+            "#import \"lib.typ\" : a, b as d, e.f",
+            [2, 8, 21, 25, 32],
+            Some(SyntaxMode::Code),
+        );
 
         // ModuleInclude
-        let source = Source::detached("#include \"lib.typ\"");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("#include \"lib.typ\"", 1, Some(SyntaxMode::Code));
 
         // FuncReturn
-        let source = Source::detached("#let f() = { return 1 }");
-        //                             12345678901234567890123
-        let node = LinkedNode::new(source.root()).leaf_at(13, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("#let f() = { return 1 }", 13, Some(SyntaxMode::Code));
 
         // Destructuring, DestructAssignment
-        let source = Source::detached("#{(x,_,..y) = (1,2, ..z)}");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(12, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes("#{(x, _, ..y) = (1, 2, ..z)}", [2, 14], Some(SyntaxMode::Code));
 
         // Code inside Markup
-        let source = Source::detached("= #1.1");
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("= #1.1", 3, Some(SyntaxMode::Code));
 
         // Dollar
-        let source = Source::detached("$ $");
-        let node = LinkedNode::new(source.root()).leaf_at(0, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$ $", 0, Some(SyntaxMode::Math));
 
         // MathIdent
-        let source = Source::detached("$arrow$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$arrow$", 1, Some(SyntaxMode::Math));
 
         // MathText
-        let source = Source::detached("$123.32$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$123.32$", 1, Some(SyntaxMode::Math));
+
+        // Space in Math
+        test_mode("$1 2 3$", 2, Some(SyntaxMode::Math));
 
         // Operator in Math
-        let source = Source::detached("$+12 * y!$");
-        //                             0123456789
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(5, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(8, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_modes("$+12 * y!", [1, 5, 8], Some(SyntaxMode::Math));
 
-        // MathFrac
-        let source = Source::detached("$1/2$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        // MathFrac, Slash in math
+        test_mode("$1/2$", 2, Some(SyntaxMode::Math));
 
         // MathPrimes
-        let source = Source::detached("$f''$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$f''$", 2, Some(SyntaxMode::Math));
 
-        // MathAttach
-        let source = Source::detached("$f_(x)^y$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(7, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        // MathAttach, Hat, Underscore in math
+        test_modes("$f_(x)^y$", [2, 3, 6, 7], Some(SyntaxMode::Math));
 
         // MathShorthand
-        let source = Source::detached("$a>=b$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$a>=b$", 2, Some(SyntaxMode::Math));
 
         // MathRoot
-        let source = Source::detached("$√x$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_modes("$√x$", [1, 2], Some(SyntaxMode::Math));
 
         // MathAlignment
-        let source = Source::detached("$&x$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$&x$", 1, Some(SyntaxMode::Math));
 
         // Escape
-        let source = Source::detached("$\\#$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$\\#$", 1, Some(SyntaxMode::Math));
 
         // FuncCall in math
-        let source = Source::detached("$f(x, sin(y), abs(z))$");
-        //                             0123456789012345678901
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(3, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(14, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
-        let node = LinkedNode::new(source.root()).leaf_at(17, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_modes(
+            "$ff(x, sin(y), abs(z))$",
+            [3, 4, 5, 7, 10, 15, 18],
+            Some(SyntaxMode::Math),
+        );
+
+        // FuncCall in math: Dots, Spread, Named
+        test_modes("$ff(..args, named: key)$", [4, 6, 16, 17], Some(SyntaxMode::Math));
 
         // FieldAccess in math
-        let source = Source::detached("$arrow.r$");
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$arrow.r$", 6, Some(SyntaxMode::Math));
 
         // Hash
-        let source = Source::detached("$#$");
-        let node = LinkedNode::new(source.root()).leaf_at(1, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("$#$", 1, Some(SyntaxMode::Code));
 
         // Ident
-        let source = Source::detached("$#pa$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("$#pa$", 2, Some(SyntaxMode::Code));
 
         // ContentBlock
-        let source = Source::detached("$#[x]$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Markup));
+        test_mode("$#[x]$", 2, Some(SyntaxMode::Markup));
 
         // CodeBlock
-        let source = Source::detached("$#{x}$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_mode("$#{x}$", 2, Some(SyntaxMode::Code));
 
         // FuncCall
-        let source = Source::detached("$#f(x)$");
-        let node = LinkedNode::new(source.root()).leaf_at(4, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        test_modes(
+            "$#f(x, ..args, named: key)$",
+            [3, 4, 5, 7, 9, 19, 20],
+            Some(SyntaxMode::Code),
+        );
 
         // Nested
-        let source = Source::detached("$#$x$$");
-        let node = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Math));
+        test_mode("$#$x$$", 2, Some(SyntaxMode::Math));
 
-        // Context-1
-        let source = Source::detached("$#context 1$");
-        let node = LinkedNode::new(source.root()).leaf_at(10, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // Context 1
+        test_mode("$#context 1$", 10, Some(SyntaxMode::Code));
 
-        // Context-2
-        let source = Source::detached("$#context $");
-        let node = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // Context Space
+        test_mode("$#context $", 9, Some(SyntaxMode::Code));
 
-        // Field access
-        let source = Source::detached("$#std.align$");
-        let node = LinkedNode::new(source.root()).leaf_at(5, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
-        let node = LinkedNode::new(source.root()).leaf_at(6, Side::After).unwrap();
-        assert_eq!(node.mode(), Some(SyntaxMode::Code));
+        // FieldAccess
+        test_modes("$#std.align$", [5, 6], Some(SyntaxMode::Code));
     }
 
     #[test]
