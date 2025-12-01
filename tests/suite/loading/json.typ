@@ -6,7 +6,8 @@
 #test(data.at(2).weight, 150)
 
 --- json-with-bom paged ---
-// Error: 7-43 failed to parse JSON (Byte Order Mark (BOM) present at start of file, JSON requires UTF-8 without a BOM at 1:1)
+// Error: 7-43 failed to parse JSON (unexpected Byte Order Mark at 1:1)
+// Hint: 7-43 JSON requires UTF-8 without a BOM
 #json(bytes("\u{FEFF}{\"name\": \"BOM\"}"))
 
 --- json-invalid paged ---
