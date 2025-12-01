@@ -411,8 +411,8 @@ pub fn tanh(
 pub fn asinh(
     /// The number whose inverse hyperbolic sine to calculate.
     value: Num,
-) -> Angle {
-    Angle::rad(value.float().asinh())
+) -> f64 {
+    value.float().asinh()
 }
 
 /// Calculates the inverse hyperbolic cosine of a number.
@@ -425,12 +425,12 @@ pub fn asinh(
 pub fn acosh(
     /// The number whose inverse hyperbolic cosine to calculate. Must be greater than or equal to 1.
     value: Spanned<Num>,
-) -> SourceResult<Angle> {
+) -> SourceResult<f64> {
     let val = value.v.float();
     if val < 1.0 {
         bail!(value.span, "value must be greater than or equal to 1");
     }
-    Ok(Angle::rad(val.acosh()))
+    Ok(val.acosh())
 }
 
 /// Calculates the inverse hyperbolic tangent of a number.
@@ -443,12 +443,12 @@ pub fn acosh(
 pub fn atanh(
     /// The number whose inverse hyperbolic tangent to calculate. Must be between -1 and 1 (exclusive).
     value: Spanned<Num>,
-) -> SourceResult<Angle> {
+) -> SourceResult<f64> {
     let val = value.v.float();
     if val <= -1.0 || val >= 1.0 {
         bail!(value.span, "value must be between -1 and 1 (exclusive)");
     }
-    Ok(Angle::rad(val.atanh()))
+    Ok(val.atanh())
 }
 
 /// Calculates the logarithm of a number.
