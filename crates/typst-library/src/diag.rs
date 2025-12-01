@@ -538,7 +538,7 @@ impl Display for FileError {
             Self::AccessDenied => f.pad("failed to load file (access denied)"),
             Self::IsDirectory => f.pad("failed to load file (is a directory)"),
             Self::NotSource => f.pad("not a Typst source file"),
-            Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
+            Self::InvalidUtf8 => f.pad("file is not valid UTF-8"),
             Self::Package(error) => error.fmt(f),
             Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
             Self::Other(None) => f.pad("failed to load file"),
@@ -667,7 +667,7 @@ impl From<Utf8Error> for LoadError {
         LoadError::new(
             start..end,
             "failed to convert to string",
-            "file is not valid utf-8",
+            "file is not valid UTF-8",
         )
     }
 }
@@ -692,15 +692,15 @@ where
 }
 
 /// Report an error, possibly in an external file. This will delegate to
-/// [`load_err_in_invalid_text`] if the data isn't valid utf-8.
+/// [`load_err_in_invalid_text`] if the data isn't valid UTF-8.
 fn load_err_in_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
     mut message: EcoString,
 ) -> EcoVec<SourceDiagnostic> {
     let pos = pos.into();
-    // This also does utf-8 validation. Only report an error in an external
-    // file if it is human readable (valid utf-8), otherwise fall back to
+    // This also does UTF-8 validation. Only report an error in an external
+    // file if it is human readable (valid UTF-8), otherwise fall back to
     // `load_err_in_invalid_text`.
     let lines = Lines::try_from(&loaded.data);
     match (loaded.source.v, lines) {
@@ -733,7 +733,7 @@ fn load_err_in_text(
     }
 }
 
-/// Report an error (possibly from an external file) that isn't valid utf-8.
+/// Report an error (possibly from an external file) that isn't valid UTF-8.
 fn load_err_in_invalid_text(
     loaded: &Loaded,
     pos: impl Into<ReportPos>,
@@ -828,7 +828,7 @@ impl ReportPos {
     }
 
     /// Either gets the line/column pair, or tries to compute it from possibly
-    /// invalid utf-8 data.
+    /// invalid UTF-8 data.
     fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
         match self {
             &ReportPos::Full(_, pair) => Some(pair),
@@ -864,7 +864,7 @@ impl LineCol {
         Self::zero_based(line.saturating_sub(1), col.saturating_sub(1))
     }
 
-    /// Try to compute a line/column pair from possibly invalid utf-8 data.
+    /// Try to compute a line/column pair from possibly invalid UTF-8 data.
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
