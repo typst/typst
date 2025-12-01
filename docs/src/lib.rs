@@ -893,7 +893,6 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, value, deprecation_message) in symbol.variants() {
             let value_char = value.parse::<char>().ok();
-
             let shorthand = |list: &[(&'static str, char)]| {
                 value_char.and_then(|c| {
                     list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
@@ -912,8 +911,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 }),
                 value: value.into(),
                 // Matches casting `Symbol` to `Accent`
-                accent: value_char
-                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
+                accent: typst::math::Accent::combining(value).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _, _)| other != &variant)
