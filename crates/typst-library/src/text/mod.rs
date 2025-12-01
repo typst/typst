@@ -610,7 +610,6 @@ pub struct TextElem {
     /// #set text(alternates: true)
     /// 0, a, g, ß
     /// ```
-    #[default(Alternates::default())]
     #[ghost]
     pub alternates: Alternates,
 
@@ -1259,8 +1258,7 @@ cast! {
         }) {
             bail!(
                 "feature tag may contain only printable ASCII characters";
-                hint: "you may refer to https://typst.app/tools/ascii-table/";
-                hint: "found invalid cluster {}", cluster.repr();
+                hint: "found invalid cluster `{}`", cluster.repr();
             )
         }
 
@@ -1302,7 +1300,7 @@ cast! {
                 // Append a hint if the value is a string containing the
                 // assignment operator `=` or another type was supplied.
                 if v.cast::<Str>().map_or(true, |v| v.as_str().contains('=')) {
-                    e.with_hint("to set features with custom values, consider supplying a `dictionary`")
+                    e.with_hint("to set features with custom values, consider supplying a dictionary")
                 } else {
                     e
                 }
@@ -1321,7 +1319,7 @@ cast! {
 }
 
 fn tag_hint_helper(index: usize, key: &impl Repr) -> EcoString {
-    eco_format!("occurred in tag at index {index}, {}", key.repr())
+    eco_format!("occurred in tag at index {index} (`{}`)", key.repr())
 }
 
 impl Fold for FontFeatures {
