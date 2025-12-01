@@ -147,20 +147,6 @@ impl MathRun {
             .unwrap_or_default()
     }
 
-    pub fn class(&self) -> MathClass {
-        // Predict the class of the output of 'into_fragment'
-        if self.0.len() == 1 {
-            self.0
-                .first()
-                .map(|fragment| fragment.class())
-                .unwrap_or(MathClass::Normal)
-        } else {
-            // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
-            // to MathClass::Normal for its class.
-            MathClass::Normal
-        }
-    }
-
     pub fn into_frame(self, styles: StyleChain) -> Frame {
         if !self.is_multiline() {
             self.into_line_frame(&[], LeftRightAlternator::Right)
