@@ -103,8 +103,9 @@ pub struct TermsElem {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,
-                    "array to `terms.item` conversion is deprecated";
-                    hint: "use `terms.item(term, description)` instead"
+                    "implicit conversion from array to `terms.item` is deprecated";
+                    hint: "use `terms.item(term, description)` instead";
+                    hint: "this conversion was never documented and is being phased out";
                 ));
             }
         }

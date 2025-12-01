@@ -208,8 +208,9 @@ pub struct EnumElem {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,
-                    "array to `enum.item` conversion is deprecated";
-                    hint: "use `enum.item(number)[body]` instead"
+                    "implicit conversion from array to `enum.item` is deprecated";
+                    hint: "use `enum.item(number)[body]` instead";
+                    hint: "this conversion was never documented and is being phased out";
                 ));
             }
         }

@@ -7,11 +7,6 @@
   terms.item([Two], [Second]),
 )
 
---- terms-array-deprecated paged ---
-// Warning: 8-24 array to `terms.item` conversion is deprecated
-// Hint: 8-24 use `terms.item(term, description)` instead
-#terms(([One], [First]))
-
 --- terms-built-in-loop paged ---
 // Test joining.
 #for word in lorem(4).split().map(s => s.trim(".")) [
@@ -91,6 +86,11 @@ Not in list
   / World: B // Paragraph because it's a wide term list.
 ]
 
+--- terms-array-deprecated paged ---
+// Warning: 8-24 implicit conversion from array to `terms.item` is deprecated
+// Hint: 8-24 use `terms.item(term, description)` instead
+// Hint: 8-24 this conversion was never documented and is being phased out
+#terms(([One], [First]))
 
 --- issue-1050-terms-indent paged ---
 #set page(width: 110pt)
