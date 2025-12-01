@@ -921,8 +921,9 @@ pub fn rem(
     dividend
         .apply2(
             divisor.v,
-            // `checked_rem` can only overflow on `i64::MIN % -1` which is mathematically zero.
-            |a, b| a.checked_rem(b).or(Some(0)).map(DecNum::Int),
+            // `checked_rem` can only overflow on `i64::MIN % -1` which is
+            // mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a % b)),
             |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
@@ -1007,8 +1008,9 @@ pub fn rem_euclid(
     dividend
         .apply2(
             divisor.v,
-            // `checked_rem_euclid` can only overflow on `i64::MIN % -1` which is mathematically zero.
-            |a, b| a.checked_rem_euclid(b).or(Some(0)).map(DecNum::Int),
+            // `checked_rem_euclid` can only overflow on `i64::MIN % -1` which
+            // is mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem_euclid(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a.rem_euclid(b))),
             |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
         )
