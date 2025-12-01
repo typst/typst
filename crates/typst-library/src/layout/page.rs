@@ -44,6 +44,13 @@ use crate::visualize::{Color, Paint};
 /// invisible to Assistive Technology (AT) like screen readers. Only the body of
 /// the page is read by AT. Do not include vital information not included
 /// elsewhere in the document in these areas.
+///
+/// # Styling
+/// Note that the [`page`] element cannot be targeted by show rules; writing
+/// `{show page: ..}` has no effect. To repeat content on every page, you can
+/// instead configure the [`header`]($page.header), [`footer`]($page.footer),
+/// [`background`]($page.background), and [`foreground`]($page.foreground)
+/// properties with a set rule.
 #[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
