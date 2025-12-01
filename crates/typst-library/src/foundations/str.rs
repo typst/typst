@@ -867,7 +867,7 @@ pub enum Base {
 }
 
 impl Base {
-    fn value(self) -> i64 {
+    pub fn value(self) -> i64 {
         match self {
             Self::Default => 10,
             Self::User(b) => b,
