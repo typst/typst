@@ -11,7 +11,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use clap::builder::{TypedValueParser, ValueParser};
+use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use semver::Version;
@@ -41,6 +42,10 @@ const AFTER_HELP: &str = color_print::cstr!("\
   <s>Forum for questions:</>      https://forum.typst.app/
 ");
 
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Blue.on_default());
+
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
 #[clap(
@@ -50,6 +55,7 @@ const AFTER_HELP: &str = color_print::cstr!("\
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
     max_term_width = 80,
+    styles = STYLES,
 )]
 pub struct CliArguments {
     /// The command to run.
