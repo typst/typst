@@ -262,8 +262,8 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .spanned(span);
         let align = styles.resolve(AlignElem::alignment);
 
-        // Add a weak space (of any width) to disable CJ punctuation adjustment.
-        // We select this specific width to make it reusable.
+        // Add a weak space (of any positive width) to disable CJ punctuation
+        // adjustment. We select this specific width to make it reusable.
         let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
         let numbering_and_spacing = numbering + spacing;
 
