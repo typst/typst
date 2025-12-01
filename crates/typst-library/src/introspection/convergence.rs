@@ -192,7 +192,8 @@ where
     }
 
     fn dyn_eq(&self, other: &Introspection) -> bool {
-        let Some(other) = (&*other.0 as &dyn Any).downcast_ref::<Self>() else {
+        let inner: &dyn Bounds = &*other.0;
+        let Some(other) = (inner as &dyn Any).downcast_ref::<Self>() else {
             return false;
         };
         self == other

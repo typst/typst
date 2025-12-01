@@ -259,9 +259,10 @@ impl AddAssign for Bytes {
             // Nothing to do
         } else if self.is_empty() {
             *self = rhs;
-        } else if let Some(vec) = Arc::get_mut(&mut self.0)
-            .and_then(|unique| (&mut **unique as &mut dyn Any).downcast_mut::<Vec<u8>>())
-        {
+        } else if let Some(vec) = Arc::get_mut(&mut self.0).and_then(|unique| {
+            let inner: &mut dyn Bytelike = &mut **unique;
+            (inner as &mut dyn Any).downcast_mut::<Vec<u8>>()
+        }) {
             vec.extend_from_slice(&rhs);
         } else {
             *self = Self::new([self.as_slice(), rhs.as_slice()].concat());

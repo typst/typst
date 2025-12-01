@@ -394,7 +394,8 @@ impl Block {
 
     /// Downcasts the block to the specified type.
     fn downcast<T: 'static>(&self, func: Element, id: u8) -> &T {
-        (&*self.0 as &dyn Any)
+        let inner: &dyn Blockable = &*self.0;
+        (inner as &dyn Any)
             .downcast_ref()
             .unwrap_or_else(|| block_wrong_type(func, id, self))
     }
