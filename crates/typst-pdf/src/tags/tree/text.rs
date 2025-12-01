@@ -266,7 +266,7 @@ fn compute_deco<'a>(
                 let span = elem.span();
                 *err = Some(error!(
                     span,
-                    "{validator} error: cannot combine underline, overline, or strike"
+                    "{validator} error: cannot combine underline, overline, or strike",
                 ));
             }
         }

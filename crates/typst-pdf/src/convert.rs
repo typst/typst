@@ -384,7 +384,7 @@ fn finish(
                     "failed to process {} ({err})",
                     display_font(gc.fonts_backward.get(&f));
                     hint: "make sure the font is valid";
-                    hint: "the used font might be unsupported by Typst"
+                    hint: "the used font might be unsupported by Typst";
                 );
             }
             KrillaError::Validation(ve) => {
@@ -402,7 +402,7 @@ fn finish(
                 let span = gc.image_to_spans.get(&image).unwrap();
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
-                    hint: "convert the image to 8 bit instead"
+                    hint: "convert the image to 8 bit instead";
                 )
             }
             KrillaError::Pdf(_, e, loc) => {
@@ -412,7 +412,7 @@ fn finish(
                     PdfError::InvalidPage(_) => bail!(
                         span,
                         "invalid page number for PDF file";
-                        hint: "please report this as a bug"
+                        hint: "please report this as a bug";
                     ),
                     PdfError::VersionMismatch(v) => {
                         let pdf_ver = v.as_str();
@@ -420,9 +420,10 @@ fn finish(
                         let cur_ver = config_ver.as_str();
                         bail!(span,
                             "the version of the PDF is too high";
-                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "the current export target is {cur_ver}, while the PDF \
+                                   has version {pdf_ver}";
                             hint: "raise the export target to {pdf_ver} or higher";
-                            hint: "or preprocess the PDF to convert it to a lower version"
+                            hint: "or preprocess the PDF to convert it to a lower version";
                         );
                     }
                 }
@@ -431,14 +432,14 @@ fn finish(
                 let span = to_span(loc);
                 bail!(span,
                     "duplicate tag id";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
             KrillaError::UnknownTagId(_, loc) => {
                 let span = to_span(loc);
                 bail!(span,
                     "unknown tag id";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
         },
@@ -456,57 +457,57 @@ fn convert_error(
         ValidationError::TooLongString => error!(
             Span::detached(),
             "{prefix} a PDF string is longer than 32767 characters";
-            hint: "ensure title and author names are short enough"
+            hint: "ensure title and author names are short enough";
         ),
         // Should in theory never occur, as krilla always trims font names.
         ValidationError::TooLongName => error!(
             Span::detached(),
             "{prefix} a PDF name is longer than 127 characters";
-            hint: "perhaps a font name is too long"
+            hint: "perhaps a font name is too long";
         ),
 
         ValidationError::TooLongArray => error!(
             Span::detached(),
             "{prefix} a PDF array is longer than 8191 elements";
-            hint: "this can happen if you have a very long text in a single line"
+            hint: "this can happen if you have a very long text in a single line";
         ),
         ValidationError::TooLongDictionary => error!(
             Span::detached(),
             "{prefix} a PDF dictionary has more than 4095 entries";
-            hint: "try reducing the complexity of your document"
+            hint: "try reducing the complexity of your document";
         ),
         ValidationError::TooLargeFloat => error!(
             Span::detached(),
             "{prefix} a PDF floating point number is larger than the allowed limit";
-            hint: "try exporting with a higher PDF version"
+            hint: "try exporting with a higher PDF version";
         ),
         ValidationError::TooManyIndirectObjects => error!(
             Span::detached(),
             "{prefix} the PDF has too many indirect objects";
-            hint: "reduce the size of your document"
+            hint: "reduce the size of your document";
         ),
         // Can only occur if we have 27+ nested clip paths
         ValidationError::TooHighQNestingLevel => error!(
             Span::detached(),
             "{prefix} the PDF has too high q nesting";
-            hint: "reduce the number of nested containers"
+            hint: "reduce the number of nested containers";
         ),
         ValidationError::ContainsPostScript(loc) => error!(
             to_span(*loc),
             "{prefix} the PDF contains PostScript code";
-            hint: "conic gradients are not supported in this PDF standard"
+            hint: "conic gradients are not supported in this PDF standard";
         ),
         ValidationError::MissingCMYKProfile => error!(
             Span::detached(),
             "{prefix} the PDF is missing a CMYK profile";
-            hint: "CMYK colors are not yet supported in this export mode"
+            hint: "CMYK colors are not yet supported in this export mode";
         ),
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
             "{prefix} the text `{}` could not be displayed with {}",
             text.repr(),
             display_font(gc.fonts_backward.get(f));
-            hint: "try using a different font"
+            hint: "try using a different font";
         ),
         ValidationError::NoCodepointMapping(_, _, loc) => {
             let msg = if loc.is_some() {
@@ -518,7 +519,7 @@ fn convert_error(
                 to_span(*loc),
                 "{prefix} {msg}";
                 hint: "for complex scripts like Arabic, it might not be \
-                       possible to produce a compliant document"
+                       possible to produce a compliant document";
             )
         }
         ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
@@ -530,7 +531,7 @@ fn convert_error(
             error!(
                 to_span(*loc),
                 "{prefix} {msg} the disallowed codepoint `{}`",
-                c.repr()
+                c.repr(),
             )
         }
         ValidationError::UnicodePrivateArea(_, _, c, loc) => {
@@ -539,16 +540,18 @@ fn convert_error(
                 to_span(*loc),
                 "{prefix} {msg} contains the codepoint `{}`", c.repr();
                 hint: "codepoints from the Unicode private area are \
-                       forbidden in this export mode",
+                       forbidden in this export mode";
             )
         }
         ValidationError::RestrictedLicense(f) => error!(
             Span::detached(),
             "{prefix} license of {} is too restrictive",
             display_font(gc.fonts_backward.get(f));
-            hint: "the font has specified \"Restricted License embedding\" in its metadata";
-            hint: "restrictive font licenses are prohibited by {} because they limit the suitability for archival",
-            validator.as_str()
+            hint: "the font has specified \"Restricted License embedding\" in its \
+                   metadata";
+            hint: "restrictive font licenses are prohibited by {} because they limit \
+                   the suitability for archival",
+            validator.as_str();
         ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
@@ -561,20 +564,20 @@ fn convert_error(
                         hint: "{hint1}";
                         hint: "or convert the image to a non-transparent one";
                         hint: "you might have to convert SVGs into \
-                               non-transparent bitmap images"
+                               non-transparent bitmap images";
                     )
                 } else {
                     error!(
                         span, "{prefix} the used fill or stroke has transparency";
                         hint: "{hint1}";
                         hint: "or don't use colors with transparency in \
-                               this export mode"
+                               this export mode";
                     )
                 }
             } else {
                 error!(
                     span, "{prefix} the PDF contains transparency";
-                    hint: "{hint1}"
+                    hint: "{hint1}";
                 )
             }
         }
@@ -583,12 +586,12 @@ fn convert_error(
             if loc.is_some() {
                 error!(
                     span, "{prefix} the image has smooth scaling";
-                    hint: "set the `scaling` attribute to `pixelated`"
+                    hint: "set the `scaling` attribute to `pixelated`";
                 )
             } else {
                 error!(
                     span, "{prefix} an image in the PDF has smooth scaling";
-                    hint: "set the `scaling` attribute of all images to `pixelated`"
+                    hint: "set the `scaling` attribute of all images to `pixelated`";
                 )
             }
         }
@@ -599,14 +602,14 @@ fn convert_error(
                 EmbedError::Existence => {
                     error!(
                         span, "{prefix} document contains an attached file";
-                        hint: "file attachments are not supported in this export mode"
+                        hint: "file attachments are not supported in this export mode";
                     )
                 }
                 EmbedError::MissingDate => {
                     error!(
                         span, "{prefix} document date is missing";
                         hint: "the document must have a date when attaching files";
-                        hint: "`set document(date: none)` must not be used in this case"
+                        hint: "`set document(date: none)` must not be used in this case";
                     )
                 }
                 EmbedError::MissingDescription => {
@@ -623,52 +626,52 @@ fn convert_error(
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing annotation alt text";
-                hint: "please report this as a bug"
+                hint: "please report this as a bug";
             )
         }
         ValidationError::MissingAltText(loc) => {
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing alt text";
-                hint: "make sure your images and equations have alt text"
+                hint: "make sure your images and equations have alt text";
             )
         }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";
-            hint: "set the language of the document"
+            hint: "set the language of the document";
         ),
         // Needs to be set by typst-pdf.
         ValidationError::MissingHeadingTitle => error!(
             Span::detached(),
             "{prefix} missing heading title";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::MissingDocumentOutline => error!(
             Span::detached(),
             "{prefix} missing document outline";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::MissingTagging => error!(
             Span::detached(),
             "{prefix} missing document tags";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::NoDocumentTitle => error!(
             Span::detached(),
             "{prefix} missing document title";
-            hint: "set the title with `set document(title: [...])`"
+            hint: "set the title with `set document(title: [...])`";
         ),
         ValidationError::MissingDocumentDate => error!(
             Span::detached(),
             "{prefix} missing document date";
-            hint: "set the date of the document"
+            hint: "set the date of the document";
         ),
         ValidationError::EmbeddedPDF(loc) => {
             error!(
                 to_span(*loc),
                 "embedding PDFs is currently not supported in this export mode";
-                hint: "try converting the PDF to an SVG before embedding it"
+                hint: "try converting the PDF to an SVG before embedding it";
             )
         }
     }

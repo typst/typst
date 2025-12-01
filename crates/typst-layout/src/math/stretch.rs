@@ -60,7 +60,7 @@ pub fn stretch_fragment(
                    glyph.item.span,
                    "glyph has both vertical and horizontal constructions";
                    hint: "this is probably a font bug";
-                   hint: "please file an issue at https://github.com/typst/typst/issues"
+                   hint: "please file an issue at https://github.com/typst/typst/issues";
                 ));
                 return;
             }

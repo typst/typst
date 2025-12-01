@@ -93,13 +93,13 @@ impl<'a> Collector<'a, '_, '_> {
             } else if child.is::<PagebreakElem>() {
                 bail!(
                     child.span(), "pagebreaks are not allowed inside of containers";
-                    hint: "try using a `#colbreak()` instead",
+                    hint: "try using a `#colbreak()` instead";
                 );
             } else {
                 self.engine.sink.warn(warning!(
                     child.span(),
                     "{} was ignored during paged export",
-                    child.func().name()
+                    child.func().name(),
                 ));
             }
         }
@@ -300,7 +300,7 @@ impl<'a> Collector<'a, '_, '_> {
             (false, Smart::Auto) => bail!(
                 elem.span(),
                 "automatic positioning is only available for floating placement";
-                hint: "you can enable floating placement with `place(float: true, ..)`"
+                hint: "you can enable floating placement with `place(float: true, ..)`";
             ),
             _ => {}
         }
@@ -309,7 +309,7 @@ impl<'a> Collector<'a, '_, '_> {
             bail!(
                 elem.span(),
                 "parent-scoped positioning is currently only available for floating placement";
-                hint: "you can enable floating placement with `place(float: true, ..)`"
+                hint: "you can enable floating placement with `place(float: true, ..)`";
             );
         }
 

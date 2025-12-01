@@ -208,7 +208,7 @@ impl assert {
                 bail!(
                     "equality assertion failed: value {} was not equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }
@@ -241,7 +241,7 @@ impl assert {
                 bail!(
                     "inequality assertion failed: value {} was equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }

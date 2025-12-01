@@ -1413,7 +1413,8 @@ impl CellGridResolver<'_, '_> {
                 bail!(
                     cell_span,
                     "cell's colspan would cause it to exceed the available column(s)";
-                    hint: "try placing the cell in another position or reducing its colspan"
+                    hint: "try placing the cell in another position or reducing its \
+                           colspan";
                 )
             }
 
@@ -1427,7 +1428,7 @@ impl CellGridResolver<'_, '_> {
                 bail!(
                     cell_span,
                     "cell would span an exceedingly large position";
-                    hint: "try reducing the cell's rowspan or colspan"
+                    hint: "try reducing the cell's rowspan or colspan";
                 )
             };
 
@@ -1499,7 +1500,7 @@ impl CellGridResolver<'_, '_> {
                 bail!(
                     cell_span,
                     "attempted to place a second cell at column {x}, row {y}";
-                    hint: "try specifying your cells in a different order"
+                    hint: "try specifying your cells in a different order";
                 );
             }
 
@@ -1522,8 +1523,10 @@ impl CellGridResolver<'_, '_> {
                     if slot.is_some() {
                         bail!(
                             cell_span,
-                            "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
-                            hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
+                            "cell would span a previously placed cell at column \
+                             {spanned_x}, row {spanned_y}";
+                            hint: "try specifying your cells in a different order or \
+                                   reducing the cell's rowspan or colspan";
                         )
                     }
                     *slot = Some(Entry::Merged { parent: resolved_index });
@@ -1727,8 +1730,10 @@ impl CellGridResolver<'_, '_> {
             if y == row_amount && line.position == LinePosition::After {
                 bail!(
                     line_span,
-                    "cannot place horizontal line at the 'bottom' position of the bottom border (y = {y})";
-                    hint: "set the line's position to 'top' or place it at a smaller 'y' index"
+                    "cannot place horizontal line at the 'bottom' position of the \
+                     bottom border (y = {y})";
+                    hint: "set the line's position to 'top' or place it at a smaller \
+                           'y' index";
                 );
             }
             let line = if line.position == LinePosition::After
@@ -1765,8 +1770,10 @@ impl CellGridResolver<'_, '_> {
             if x == columns && line.position == LinePosition::After {
                 bail!(
                     line_span,
-                    "cannot place vertical line at the 'end' position of the end border (x = {columns})";
-                    hint: "set the line's position to 'start' or place it at a smaller 'x' index"
+                    "cannot place vertical line at the 'end' position of the end border \
+                     (x = {columns})";
+                    hint: "set the line's position to 'start' or place it at a smaller \
+                           'x' index";
                 );
             }
             let line = if line.position == LinePosition::After
@@ -2018,7 +2025,7 @@ fn expand_row_group(
             "cell would cause {} to expand to non-empty row {}",
             group_kind.name(),
             first_available_row.saturating_sub(1);
-            hint: "try moving its cells to available rows"
+            hint: "try moving its cells to available rows";
         );
     }
 
@@ -2083,7 +2090,7 @@ fn expand_row_group(
                 bail!(
                     "cell would cause {} to expand to non-empty row {new_y}",
                     group_kind.name();
-                    hint: "try moving its cells to available rows",
+                    hint: "try moving its cells to available rows";
                 )
             }
         } else {
@@ -2115,7 +2122,7 @@ fn check_for_conflicting_cell_row(
     {
         bail!(
             "cell would conflict with header also spanning row {row}";
-            hint: "try moving the cell or the header"
+            hint: "try moving the cell or the header";
         );
     }
 
@@ -2134,7 +2141,7 @@ fn check_for_conflicting_cell_row(
 
         bail!(
             "cell would conflict with footer also spanning row {row}";
-            hint: "try reducing the cell's rowspan or moving the footer"
+            hint: "try reducing the cell's rowspan or moving the footer";
         );
     }
 
