@@ -177,7 +177,7 @@ fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => {
-            LoadError::new(pos, msg, "file is not valid utf-8")
+            LoadError::new(pos, msg, "file is not valid UTF-8")
         }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =

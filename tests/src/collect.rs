@@ -762,7 +762,7 @@ impl<'a> Parser<'a> {
         let start = self.parse_line_col()?;
         let lines = Lines::try_from(&bytes).expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid utf-8)",
+            that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;

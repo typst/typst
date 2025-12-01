@@ -852,7 +852,7 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid UTF-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
