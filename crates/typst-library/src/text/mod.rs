@@ -275,7 +275,7 @@ pub struct TextElem {
                 bail!(
                     paint.span,
                     "gradients and tilings on text must be relative to the parent";
-                    hint: "make sure to set `relative: auto` on your text fill"
+                    hint: "make sure to set `relative: auto` on your text fill";
                 );
             }
         paint.map(|paint| paint.v)
@@ -643,6 +643,11 @@ pub struct TextElem {
     /// #set text(ligatures: false)
     /// A fine ligature.
     /// ```
+    ///
+    /// Note that some programming fonts use other OpenType font features to
+    /// implement "ligatures," including the contextual alternates (`calt`)
+    /// feature, which is also enabled by default. Use the general
+    /// [`features`]($text.features) parameter to control such features.
     #[default(true)]
     #[ghost]
     pub ligatures: bool,
@@ -721,10 +726,18 @@ pub struct TextElem {
     /// - If given a dictionary mapping to numbers, sets the features
     ///   identified by the keys to the values.
     ///
-    /// ```example
+    /// ```example:"Give an array of strings"
     /// // Enable the `frac` feature manually.
     /// #set text(features: ("frac",))
     /// 1/2
+    /// ```
+    ///
+    /// ```example:"Give a dictionary mapping to numbers"
+    /// #set text(font: "Cascadia Code")
+    /// =>
+    /// // Disable the contextual alternates (`calt`) feature.
+    /// #set text(features: (calt: 0))
+    /// =>
     /// ```
     #[fold]
     #[ghost]
@@ -850,7 +863,13 @@ impl FontFamily {
 
 cast! {
     FontFamily,
-    self => self.name.into_value(),
+    self => match self.covers {
+        Some(covers) => dict![
+            "name" => self.name,
+            "covers" => covers
+        ].into_value(),
+        None => self.name.into_value()
+    },
     string: EcoString => Self::new(&string),
     mut v: Dict => {
         let ret = Self::with_coverage(
@@ -910,7 +929,7 @@ cast! {
             ) => {}
             _ => bail!(
                 "coverage regex may only use dot, letters, and character classes";
-                hint: "the regex is applied to each letter individually"
+                hint: "the regex is applied to each letter individually";
             ),
         }
         Covers::Regex(regex)
@@ -945,7 +964,7 @@ impl<'a> IntoIterator for &'a FontList {
 cast! {
     FontList,
     self => if self.0.len() == 1 {
-        self.0.into_iter().next().unwrap().name.into_value()
+        self.0.into_iter().next().unwrap().into_value()
     } else {
         self.0.into_value()
     },
@@ -1444,8 +1463,10 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 {
                     engine.sink.warn(warning!(
                         list.span,
-                        "variable fonts are not currently supported and may render incorrectly";
-                        hint: "try installing a static version of \"{}\" instead", family.as_str()
+                        "variable fonts are not currently supported and may render \
+                         incorrectly";
+                        hint: "try installing a static version of \"{}\" instead",
+                            family.as_str();
                     ))
                 }
             }

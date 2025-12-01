@@ -2,11 +2,11 @@ use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
     Element, Func, Recipe, Selector, ShowableSelector, Styles, Transformation,
 };
-use typst_library::layout::BlockElem;
+use typst_library::layout::{BlockElem, PageElem};
 use typst_library::model::ParElem;
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Eval, Vm};
+use crate::{Eval, Vm, hint_if_shadowed_std};
 
 impl Eval for ast::SetRule<'_> {
     type Output = Styles;
@@ -18,16 +18,17 @@ impl Eval for ast::SetRule<'_> {
             return Ok(Styles::new());
         }
 
-        let target = self.target();
-        let target = target
+        let target_expr = self.target();
+        let target = target_expr
             .eval(vm)?
             .cast::<Func>()
+            .map_err(|err| hint_if_shadowed_std(vm, &target_expr, err))
             .and_then(|func| {
                 func.element().ok_or_else(|| {
                     "only element functions can be used in set rules".into()
                 })
             })
-            .at(target.span())?;
+            .at(target_expr.span())?;
         let args = self.args().eval(vm)?.spanned(self.span());
         Ok(target.set(&mut vm.engine, args)?.spanned(self.span()).liftable())
     }
@@ -39,7 +40,12 @@ impl Eval for ast::ShowRule<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let selector = self
             .selector()
-            .map(|sel| sel.eval(vm)?.cast::<ShowableSelector>().at(sel.span()))
+            .map(|sel| {
+                sel.eval(vm)?
+                    .cast::<ShowableSelector>()
+                    .map_err(|err| hint_if_shadowed_std(vm, &sel, err))
+                    .at(sel.span())
+            })
             .transpose()?
             .map(|selector| selector.0);
 
@@ -50,9 +56,23 @@ impl Eval for ast::ShowRule<'_> {
         };
 
         let recipe = Recipe::new(selector, transform, self.span());
+        check_show_page_rule(vm, &recipe);
         check_show_par_set_block(vm, &recipe);
 
         Ok(recipe)
+    }
+}
+
+/// Warns that `show page` rules currently have no effect.
+fn check_show_page_rule(vm: &mut Vm, recipe: &Recipe) {
+    if let Some(Selector::Elem(elem, _)) = recipe.selector()
+        && *elem == Element::of::<PageElem>()
+    {
+        vm.engine.sink.warn(warning!(
+            recipe.span(),
+            "`show page` is not supported and has no effect";
+            hint: "customize pages with `set page(..)` instead";
+        ));
     }
 }
 
@@ -64,10 +84,11 @@ fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
         && (styles.has(BlockElem::above) || styles.has(BlockElem::below))
     {
         vm.engine.sink.warn(warning!(
-                recipe.span(),
-                "`show par: set block(spacing: ..)` has no effect anymore";
-                hint: "write `set par(spacing: ..)` instead";
-                hint: "this is specific to paragraphs as they are not considered blocks anymore"
-            ))
+            recipe.span(),
+            "`show par: set block(spacing: ..)` has no effect anymore";
+            hint: "write `set par(spacing: ..)` instead";
+            hint: "this is specific to paragraphs as they are not considered blocks \
+                   anymore";
+        ))
     }
 }

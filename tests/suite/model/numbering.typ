@@ -1,6 +1,6 @@
 // Test integrated numbering patterns.
 
---- numbering ---
+--- numbering paged ---
 #let t(pat: "1", step: 1, ..vals) = {
   let num = 0
   for val in vals.pos() {
@@ -87,6 +87,6 @@
 #t(pat: "⓵", 1, "⓵")
 #t(pat: "⓵", 10, "⓾")
 
---- numbering-negative ---
+--- numbering-negative paged ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)

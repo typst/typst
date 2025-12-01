@@ -1,4 +1,4 @@
---- measure ---
+--- measure paged ---
 // Test `measure`.
 #let f(lo, hi) = context {
   let h = measure[Hello].height
@@ -8,7 +8,7 @@
 #text(10pt, f(6pt, 8pt))
 #text(20pt, f(13pt, 14pt))
 
---- measure-given-area ---
+--- measure-given-area paged ---
 // Test `measure` given an area.
 #let text = lorem(100)
 
@@ -21,7 +21,7 @@
   assert(d2.height > 50pt)
 }
 
---- measure-counter-width ---
+--- measure-counter-width paged ---
 // Measure a counter. Tests that the introspector-assisted location assignment
 // is able to take `here()` from the context into account to find the closest
 // matching element instead of any single one. Crucially, we need to reuse
@@ -40,7 +40,7 @@
 #c.update(1)
 #f(it)
 
---- measure-citation-in-flow ---
+--- measure-citation-in-flow paged ---
 // Try measuring a citation that appears inline with other stuff. The
 // introspection-assisted location assignment will ensure that the citation
 // in the measurement is matched up with the real one.
@@ -55,7 +55,7 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- measure-citation-in-flow-different-span ---
+--- measure-citation-in-flow-different-span paged ---
 // When the citation has a different span, it stops working.
 #context {
   // Error: 22-29 cannot format citation in isolation
@@ -69,7 +69,7 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- measure-citation-deeply-nested ---
+--- measure-citation-deeply-nested paged ---
 // Nested the citation deeply to test that introspector-assisted measurement
 // is able to deal with memoization boundaries.
 #context {
@@ -81,7 +81,7 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- measure-counter-multiple-times ---
+--- measure-counter-multiple-times paged ---
 // When the thing we measure appears multiple times, we measure as if it was
 // the first one.
 #context {
@@ -93,9 +93,16 @@
   [#size.width] // 17pt
 }
 
---- issue-5180-measure-inline-math-bounds ---
+--- issue-5180-measure-inline-math-bounds paged ---
 #context {
   let height = measure(text(top-edge: "bounds", $x$)).height
   assert(height > 4pt)
   assert(height < 5pt)
+}
+
+--- measure-html html ---
+#context {
+  let (width, height) = measure(image("/assets/images/monkey.svg"))
+  test(width, 36pt)
+  test(height, 36pt)
 }

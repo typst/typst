@@ -3,12 +3,14 @@ use std::num::NonZeroU16;
 use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
-use typst_library::diag::{SourceDiagnostic, SourceResult, error};
+use smallvec::SmallVec;
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
-use crate::tags::context::{Annotations, BBoxCtx, Ctx};
+use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
@@ -48,7 +50,11 @@ impl<'a> Resolver<'a> {
 }
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
-    gc.tags.tree.assert_finished_traversal();
+    gc.tags.tree.assert_finished_traversal().at(Span::detached())?;
+
+    if !disabled(gc) {
+        context::finish(&mut gc.tags.tree);
+    }
 
     let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
     let GroupKind::Root(mut doc_lang) = root.kind else { unreachable!() };
@@ -157,8 +163,10 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
+    children.finish();
+
     // Omit the weak group if it is empty.
-    if group.weak && children.num_inserted == 0 {
+    if group.weak && nodes.is_empty() {
         return;
     }
 
@@ -175,8 +183,6 @@ fn resolve_group_node(
             _ => (),
         }
     }
-
-    children.finish();
 
     if rs.options.is_pdf_ua() {
         validate_children(rs, &tag, &nodes);
@@ -273,15 +279,13 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
         GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
         GroupKind::Grid(_, _) => Tag::Div.into(),
         GroupKind::GridCell(_, _) => Tag::Div.into(),
-        GroupKind::InternalGridCell(_) => {
-            unreachable!("should be swapped out in `close_group`")
-        }
         GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
         GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
         GroupKind::ListItemBody(_) => Tag::LBody.into(),
         GroupKind::TermsItemLabel(_) => Tag::Lbl.into(),
         GroupKind::TermsItemBody(_, _) => Tag::LBody.into(),
         GroupKind::BibEntry(_) => Tag::BibEntry.into(),
+        GroupKind::FigureWrapper(id) => rs.ctx.figures.get(*id).build_wrapper_tag()?,
         GroupKind::Figure(id, _, _) => rs.ctx.figures.get(*id).build_tag()?,
         GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
         GroupKind::Image(image, _, _) => {
@@ -320,14 +324,14 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
             if rs.last_heading_level.is_none() {
                 rs.errors.push(error!(
                     span,
-                    "{validator} error: the first heading must be of level 1"
+                    "{validator} error: the first heading must be of level 1",
                 ));
             } else {
                 rs.errors.push(error!(
                     span,
                     "{validator} error: skipped from heading level \
                      {prev_level} to {next_level}";
-                    hint: "heading levels must be consecutive"
+                    hint: "heading levels must be consecutive";
                 ));
             }
         }
@@ -341,7 +345,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
 struct Accumulator<'a> {
     nesting: ElementKind,
     buf: &'a mut Vec<Node>,
-    num_inserted: usize,
     // Whether the last node is a `Span` used to wrap marked content sequences
     // inside a grouping element. Groupings element may not contain marked
     // content sequences directly.
@@ -356,12 +359,11 @@ impl std::ops::Drop for Accumulator<'_> {
 
 impl<'a> Accumulator<'a> {
     fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, num_inserted: 0, grouping_span: None }
+        Self { nesting, buf, grouping_span: None }
     }
 
     fn push_buf(&mut self, node: Node) {
         self.buf.push(node);
-        self.num_inserted += 1;
     }
 
     fn push_grouping_span(&mut self) {
@@ -507,10 +509,11 @@ fn validate_children_groups(
     rs: &mut Resolver,
     parent: &TagKind,
     children: &[Node],
-    is_valid: impl Fn(&TagKind) -> bool,
+    mut is_valid: impl FnMut(&TagKind) -> bool,
 ) {
     let parent_span = to_span(parent.location());
 
+    let mut caption_spans = SmallVec::<[_; 3]>::new();
     let mut contains_leaf_nodes = false;
     for node in children {
         let Node::Group(child) = node else {
@@ -527,8 +530,30 @@ fn validate_children_groups(
                 span,
                 "{validator} error: invalid {parent} structure";
                 hint: "{parent} may not contain {child}";
-                hint: "this is probably caused by a show rule"
+                hint: "this is probably caused by a show rule";
             ));
+        } else if matches!(&child.tag, TagKind::Caption(_)) {
+            caption_spans.push(to_span(child.tag.location()));
+        }
+    }
+
+    if caption_spans.len() > 1 {
+        let validator = rs.options.standards.config.validator().as_str();
+        let parent = tag_name(parent);
+        let child = tag_name(&Tag::Caption.into());
+
+        let caption_error = |span| {
+            error!(
+                span,
+                "{validator} error: invalid {parent} structure";
+                hint: "{parent} may not contain multiple {child} tags";
+                hint: "avoid manually calling `figure.caption`";
+            )
+        };
+        if caption_spans.iter().all(|s| !s.is_detached()) {
+            rs.errors.extend(caption_spans.into_iter().map(caption_error));
+        } else {
+            rs.errors.push(caption_error(parent_span));
         }
     }
 
@@ -539,7 +564,7 @@ fn validate_children_groups(
             parent_span,
             "{validator} error: invalid {parent} structure";
             hint: "{parent} may not contain marked content directly";
-            hint: "this is probably caused by a show rule"
+            hint: "this is probably caused by a show rule";
         ));
     }
 }

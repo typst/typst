@@ -1,7 +1,7 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
-use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
-use crate::tags::groups::{Group, GroupKind, Groups, InternalGridCellKind};
+use crate::tags::context::{BBoxCtx, BBoxId, Ctx};
+use crate::tags::groups::{Group, GroupKind, Groups};
 use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
 use ecow::EcoVec;
@@ -9,7 +9,7 @@ use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use typst_library::diag::SourceDiagnostic;
+use typst_library::diag::{HintedStrResult, SourceDiagnostic, assert_internal};
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
 use typst_library::layout::{Inherit, PagedDocument};
@@ -74,22 +74,20 @@ impl Tree {
         Some(self.ctx.bboxes.get_mut(id))
     }
 
-    pub fn assert_finished_traversal(&self) {
-        assert_eq!(
-            self.prog_cursor + 1,
-            self.progressions.len(),
-            "tree traversal didn't complete properly"
-        );
-        assert_eq!(
-            self.break_cursor,
-            self.breaks.len(),
-            "tree traversal didn't complete properly"
-        );
-        assert_eq!(
-            self.unfinished_cursor,
-            self.unfinished.len(),
-            "tree traversal didn't complete properly"
-        );
+    pub fn assert_finished_traversal(&self) -> HintedStrResult<()> {
+        assert_internal(
+            self.prog_cursor + 1 == self.progressions.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        assert_internal(
+            self.break_cursor == self.breaks.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        assert_internal(
+            self.unfinished_cursor == self.unfinished.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        Ok(())
     }
 }
 
@@ -202,20 +200,6 @@ pub fn step_end_tag(tree: &mut Tree, surface: &mut Surface) {
 
     if let Some(brk) = consume_break(tree) {
         step_break(tree, surface, prev, next, brk);
-    } else if let Some(unfinished) = consume_unfinished(tree) {
-        // In logical children the whole traversal state is popped off the
-        // stack. For grid cells we're still in the same traversal state, so we
-        // need to update it accordingly. The groups can't be closed since they
-        // will be closed later, so we just update the state since we've still
-        // moved out of them.
-        let mut current = prev;
-        while current != unfinished.group_to_close {
-            let group = tree.groups.get(current);
-            tree.state.pop_group(surface, current, group);
-            current = group.parent;
-        }
-
-        close_group(tree, surface, unfinished.group_to_close);
     } else {
         close_group(tree, surface, prev);
     }
@@ -399,19 +383,26 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         GroupKind::LogicalParent(elem) => {
             let loc = elem.location().unwrap();
             // Insert logical children when closing the logical parent, so they
-            // are at the end of the group.
-            if let Some(children) = tree.logical_children.get(&loc) {
-                tree.groups.extend_groups(id, children.iter().copied());
+            // are at the end of the group. In some cases there might be
+            // multiple parent groups with the same location, only insert the
+            // children for the first parent group.
+            if let Some(located) = tree.groups.by_loc(&loc)
+                && located.id == id
+                && let Some(children) = tree.logical_children.get(&loc)
+            {
+                tree.groups.push_groups(id, children);
             }
+
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::LogicalChild(inherit, logical_parent) => {
-            // `GroupKind::LogicalParent` handles inserting of children at its
-            // end, see above. Children of table/grid cells are always ordered
-            // correctly and are treated a little bit differently
-            if tree.groups.get(semantic_parent).kind.is_grid_layout_cell() {
-                tree.groups.push_group(direct_parent, id);
-            } else if *inherit == Inherit::No {
+            if *inherit == Inherit::No {
+                // If this logical child doesn't inherit its parent's styles and
+                // is not inside of an artifact, inserting it into a parent that
+                // is inside of an artifact would mean the content will be
+                // discarded. If that's the case, ignore the logical parent
+                // structure and insert it wherever it appeared in the frame
+                // tree.
                 let logical_parent_is_in_artifact = 'artifact: {
                     let mut current = tree.groups.get(*logical_parent).parent;
                     while current != GroupId::INVALID {
@@ -424,15 +415,17 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                     false
                 };
 
-                // If this logical child is of kind `LogicalChildKind::Insert`
-                // and not inside of an artifact, inserting it into a parent
-                // that is inside of an artifact would mean the content will be
-                // discarded. If that's the case, ignore the logical parent
-                // structure and insert it wherever it appeared in the frame
-                // tree.
                 if tree.parent_artifact().is_none() && logical_parent_is_in_artifact {
                     tree.groups.push_group(direct_parent, id);
                 }
+            } else if !matches!(
+                tree.groups.get(direct_parent).kind,
+                GroupKind::LogicalParent(_)
+            ) {
+                // `GroupKind::LogicalParent` handles inserting of children at its
+                // end, see above. Children of table/grid cells are always ordered
+                // correctly and are treated a little bit differently.
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Outline(..) => {
@@ -449,8 +442,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
-        GroupKind::Table(table, ..) => {
-            context::build_table(tree, *table, id);
+        GroupKind::Table(..) => {
             tree.groups.push_group(direct_parent, id);
         }
         &GroupKind::TableCell(ref cell, tag, _) => {
@@ -464,9 +456,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
-        GroupKind::Grid(grid, _) => {
-            let grid_ctx = tree.ctx.grids.get(*grid);
-            context::build_grid(grid_ctx, &mut tree.groups, id);
+        GroupKind::Grid(..) => {
             tree.groups.push_group(direct_parent, id);
         }
         GroupKind::GridCell(cell, _) => {
@@ -478,11 +468,6 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 // Avoid panicking, the nesting will be validated later.
                 tree.groups.push_group(direct_parent, id);
             }
-        }
-        GroupKind::InternalGridCell(internal) => {
-            // Replace with the actual group kind.
-            tree.groups.get_mut(id).kind = internal.to_kind();
-            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::List(..) => {
             tree.groups.push_group(direct_parent, id);
@@ -537,13 +522,21 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 tree.groups.push_group(direct_parent, id);
             }
         }
+        GroupKind::FigureWrapper(..) => unreachable!("only generated below"),
         GroupKind::Figure(figure, ..) => {
-            context::build_figure(tree, *figure, direct_parent, id);
+            // Insert the wrapper.
+            let kind = GroupKind::FigureWrapper(*figure);
+            let wrapper = tree.groups.new_virtual(direct_parent, group.span, kind);
+            tree.groups.push_group(direct_parent, wrapper);
+
+            // Push the figure into the wrapper.
+            tree.groups.get_mut(id).parent = wrapper;
+            tree.groups.push_group(wrapper, id);
         }
         GroupKind::FigureCaption(..) => {
             if let GroupKind::Figure(figure, ..) = tree.groups.get(semantic_parent).kind {
                 let figure_ctx = tree.ctx.figures.get_mut(figure);
-                figure_ctx.caption = Some(id);
+                figure_ctx.captions.push(id);
             } else {
                 tree.groups.push_group(direct_parent, id);
             }
@@ -602,18 +595,7 @@ fn semantic_parent(tree: &Tree, direct_parent: GroupId) -> GroupId {
     let mut parent = direct_parent;
     loop {
         let group = tree.groups.get(parent);
-        // While paragraphs, do have a semantic meaning, they are automatically
-        // generated and may interfere with other more strongly structured
-        // nesting groups. For example the `TermsItemLabel` might be wrapped by
-        // a paragraph, out of which it is moved into the parent `LI`.
-        let non_semantic = matches!(
-            group.kind,
-            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
-                | GroupKind::Par(_)
-                | GroupKind::TextAttr(_)
-                | GroupKind::Transparent
-        );
-        if !non_semantic {
+        if group.kind.is_semantic() {
             return parent;
         }
 

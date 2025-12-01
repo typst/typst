@@ -58,7 +58,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         if !command.force && version < &current_tag {
             bail!(
                 "downgrading requires the --force flag: \
-                `typst update <VERSION> --force`"
+                `typst update <VERSION> --force`",
             );
         }
     }
@@ -75,7 +75,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         if !backup_path.exists() {
             bail!(
                 "unable to revert, no backup found (searched at {})",
-                backup_path.display()
+                backup_path.display(),
             );
         }
 

@@ -80,7 +80,7 @@ fn layout_inline_text(
 
             // This won't panic as ASCII digits and '.' will never end up as
             // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span)?.unwrap();
+            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -97,8 +97,6 @@ fn layout_inline_text(
             .chars()
             .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
             .collect();
-
-        let spaced = styled_text.graphemes(true).nth(1).is_some();
         let elem = TextElem::packed(styled_text).spanned(span);
 
         // There isn't a natural width for a paragraph in a math environment;
@@ -118,7 +116,7 @@ fn layout_inline_text(
         Ok(FrameFragment::new(styles, frame)
             .with_class(MathClass::Alphabetic)
             .with_text_like(true)
-            .with_spaced(spaced))
+            .with_spaced(true))
     }
 }
 
@@ -151,7 +149,7 @@ pub fn layout_symbol(
         let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
 
         if let Some(mut glyph) =
-            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())?
+            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())
         {
             if glyph.class == MathClass::Large {
                 if styles.get(EquationElem::size) == MathSize::Display {

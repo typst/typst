@@ -10,6 +10,9 @@ cargo-fuzz = true
 [dependencies]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
+typst-pdf = { workspace = true }
+typst-svg = { workspace = true }
+typst-html = { workspace = true }
 typst-render = { workspace = true }
 typst-syntax = { workspace = true }
 comemo = { workspace = true }
@@ -17,12 +20,18 @@ libfuzzer-sys = { workspace = true }
 
 [[bin]]
 name = "parse"
-path = "src/parse.rs"
+path = "src/bin/parse.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "compile"
-path = "src/compile.rs"
+name = "paged"
+path = "src/bin/paged.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "html"
+path = "src/bin/html.rs"
 test = false
 doc = false

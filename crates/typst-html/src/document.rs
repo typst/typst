@@ -14,7 +14,7 @@ use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
@@ -33,7 +33,7 @@ pub fn html_document(
     html_document_impl(
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -55,6 +55,7 @@ fn html_document_impl(
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
+    let introspector = Protected::from_raw(introspector);
     let mut locator = Locator::root().split();
     let mut engine = Engine {
         routines,
@@ -106,7 +107,7 @@ fn html_document_impl(
         leaves.extend(notes);
         leaves
     } else {
-        FootnoteContainer::unsupported_with_custom_dom(&engine)?;
+        FootnoteContainer::unsupported_with_custom_dom(&mut engine)?;
         &nodes
     };
 
@@ -177,7 +178,9 @@ fn root_element(output: OutputKind, info: &DocumentInfo) -> HtmlElement {
         OutputKind::Body(body) => body,
         OutputKind::Leaves(leaves) => HtmlElement::new(tag::body).with_children(leaves),
     };
-    HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()])
+    HtmlElement::new(tag::html)
+        .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066())
+        .with_children(eco_vec![head.into(), body.into()])
 }
 
 /// Generate a `<head>` element.

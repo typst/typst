@@ -1020,7 +1020,7 @@ dependencies = [
  "log",
  "rustc-hash",
  "smallvec",
- "zune-jpeg",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -1282,8 +1282,8 @@ dependencies = [
  "image-webp",
  "num-traits",
  "png",
- "zune-core",
- "zune-jpeg",
+ "zune-core 0.4.12",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -1438,8 +1438,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199be5f63da6e19b71051fd5276258a8e55449ac48e2e7492c68238f38ca9f3b"
+source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1463,14 +1462,13 @@ dependencies = [
  "tiny-skia-path",
  "xmp-writer",
  "yoke 0.8.0",
- "zune-jpeg",
+ "zune-jpeg 0.5.5",
 ]
 
 [[package]]
 name = "krilla-svg"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3eec075c9507dfdbfb4b9bc3b2aeac074ed422b61bcfd93517616d6b3d19c3"
+source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2275,7 +2273,7 @@ dependencies = [
  "svgtypes",
  "tiny-skia",
  "usvg",
- "zune-jpeg",
+ "zune-jpeg 0.4.14",
 ]
 
 [[package]]
@@ -2936,8 +2934,9 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
+ "arrayvec",
  "comemo",
  "ecow",
  "rustc-hash",
@@ -2954,12 +2953,12 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.13.1"
-source = "git+https://github.com/typst/typst-assets?rev=fbf00f9#fbf00f9539fdb0825bef4d39fb57d5986c51b756"
+version = "0.14.0"
+source = "git+https://github.com/typst/typst-assets?rev=d6a4834#d6a48348174f11bed3ab9f5dccdb6f4e894528d0"
 
 [[package]]
 name = "typst-cli"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "clap",
@@ -3005,12 +3004,12 @@ dependencies = [
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.13.1"
-source = "git+https://github.com/typst/typst-dev-assets?rev=5bb5393#5bb539377906613fab7994b3601e475eee794ada"
+version = "0.14.0"
+source = "git+https://github.com/typst/typst-dev-assets?rev=f46583d#f46583d68167e3512c1f4ebaf564a86c60862160"
 
 [[package]]
 name = "typst-docs"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "clap",
  "codex",
@@ -3036,7 +3035,7 @@ dependencies = [
 
 [[package]]
 name = "typst-eval"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -3054,19 +3053,22 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
  "typst",
  "typst-assets",
+ "typst-html",
+ "typst-pdf",
  "typst-render",
+ "typst-svg",
  "typst-syntax",
 ]
 
 [[package]]
 name = "typst-html"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bumpalo",
  "comemo",
@@ -3085,7 +3087,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -3102,7 +3104,7 @@ dependencies = [
 
 [[package]]
 name = "typst-kit"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "dirs",
  "ecow",
@@ -3126,13 +3128,14 @@ dependencies = [
 
 [[package]]
 name = "typst-layout"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "az",
  "bumpalo",
  "codex",
  "comemo",
  "ecow",
+ "either",
  "hypher",
  "icu_properties",
  "icu_provider",
@@ -3159,8 +3162,9 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
+ "arrayvec",
  "az",
  "bitflags 2.9.1",
  "bumpalo",
@@ -3224,7 +3228,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3234,7 +3238,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "az",
  "bytemuck",
@@ -3258,7 +3262,7 @@ dependencies = [
 
 [[package]]
 name = "typst-realize"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -3274,7 +3278,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -3292,7 +3296,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "base64",
  "comemo",
@@ -3314,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "ecow",
  "rustc-hash",
@@ -3331,17 +3335,21 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bitflags 2.9.1",
  "clap",
  "comemo",
  "ecow",
+ "hayro-syntax",
+ "indexmap 2.7.1",
  "oxipng",
  "parking_lot",
  "rayon",
  "regex",
+ "roxmltree",
  "rustc-hash",
+ "serde_yaml 0.9.34+deprecated",
  "tiny-skia",
  "typst",
  "typst-assets",
@@ -3352,13 +3360,14 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "typst-syntax",
+ "typst-utils",
  "unscanny",
  "walkdir",
 ]
 
 [[package]]
 name = "typst-timing"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "parking_lot",
  "serde",
@@ -3368,7 +3377,7 @@ dependencies = [
 
 [[package]]
 name = "typst-utils"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "once_cell",
  "portable-atomic",
@@ -3680,9 +3689,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi"
-version = "0.51.1"
+version = "0.51.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb4f6b71d5cb04a4615b9a8a2e522ba284c491ad847afd9e905d89be15e3efc0"
+checksum = "118030b2d125bc893e0cc5b1ce156eb41461f4373308cb5f2e3c698533b5e547"
 dependencies = [
  "spin",
  "wasmi_collections",
@@ -3693,24 +3702,24 @@ dependencies = [
 
 [[package]]
 name = "wasmi_collections"
-version = "0.51.1"
+version = "0.51.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a4a11fa090c4d742e5a77dbbc8efbbe1aa151db7335ca6850232e6cafbb1023"
+checksum = "653fa20efc966818934524dceb54b1b81e6f845bbcc2e155d6e9fc32becf667e"
 
 [[package]]
 name = "wasmi_core"
-version = "0.51.1"
+version = "0.51.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3e422fc1f4df78c9ded6ed48c4ca6d1f55f4609f04c99962fc07532e4db61d"
+checksum = "65701f60308c7e46cca85f273ad17e80c60998cc63d3fa168ac393f62b123038"
 dependencies = [
  "libm",
 ]
 
 [[package]]
 name = "wasmi_ir"
-version = "0.51.1"
+version = "0.51.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13fe9f9f1747ec81644e764c4dc798f063f5d54a495f0a3b4a375bce9af65399"
+checksum = "a6539f63bf2a6838f27876e2877f0b00a088e84f91e92445620cc6b977fde032"
 dependencies = [
  "wasmi_core",
 ]
@@ -4124,10 +4133,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
 
 [[package]]
+name = "zune-core"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "111f7d9820f05fd715df3144e254d6fc02ee4088b0644c0ffd0efc9e6d9d2773"
+
+[[package]]
 name = "zune-jpeg"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99a5bab8d7dedf81405c4bb1f2b83ea057643d9cb28778cea9eecddeedd2e028"
 dependencies = [
- "zune-core",
+ "zune-core 0.4.12",
+]
+
+[[package]]
+name = "zune-jpeg"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6fb7703e32e9a07fb3f757360338b3a567a5054f21b5f52a666752e333d58e"
+dependencies = [
+ "zune-core 0.5.0",
 ]

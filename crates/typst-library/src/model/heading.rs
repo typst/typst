@@ -72,7 +72,7 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// element of which there should be only one per document.
 ///
 /// For this reason, in HTML export, a [`title`] element will turn into an
-/// `<h1>` and headings turn into `<h2> and lower (a level 1 heading thus turns
+/// `<h1>` and headings turn into `<h2>` and lower (a level 1 heading thus turns
 /// into `<h2>`, a level 2 heading into `<h3>`, etc).
 #[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
@@ -250,12 +250,20 @@ impl Synthesize for Packed<HeadingElem> {
 
         if let Some((numbering, location)) =
             self.numbering.get_ref(styles).as_ref().zip(self.location())
+            // We are not early returning on error here because of
+            // https://github.com/typst/typst/issues/7428
+            //
+            // A more comprehensive fix might introduce the error catching logic
+            // of show rules for synthesis, too.
+            && let Ok(numbers) = self.counter().display_at(
+                engine,
+                location,
+                styles,
+                numbering,
+                self.span(),
+            )
         {
-            self.numbers = Some(
-                self.counter()
-                    .display_at_loc(engine, location, styles, numbering)?
-                    .plain_text(),
-            );
+            self.numbers = Some(numbers.plain_text());
         }
 
         let elem = self.as_mut();

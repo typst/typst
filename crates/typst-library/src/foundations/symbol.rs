@@ -12,8 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
 use crate::foundations::{
-    Array, Content, Func, NativeElement, NativeFunc, Packed, PlainText, Repr as _, cast,
-    elem, func, scope, ty,
+    Array, Content, Func, NativeElement, Packed, PlainText, Repr as _, cast, elem, func,
+    scope, ty,
 };
 
 /// A Unicode symbol.
@@ -131,30 +131,10 @@ impl Symbol {
 
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
-        match self.get() {
-            "⌈" => Ok(crate::math::ceil::func()),
-            "⌊" => Ok(crate::math::floor::func()),
-            "–" => Ok(crate::math::accent::dash::func()),
-            "⋅" | "\u{0307}" => Ok(crate::math::accent::dot::func()),
-            "¨" => Ok(crate::math::accent::dot_double::func()),
-            "\u{20db}" => Ok(crate::math::accent::dot_triple::func()),
-            "\u{20dc}" => Ok(crate::math::accent::dot_quad::func()),
-            "∼" => Ok(crate::math::accent::tilde::func()),
-            "´" => Ok(crate::math::accent::acute::func()),
-            "˝" => Ok(crate::math::accent::acute_double::func()),
-            "˘" => Ok(crate::math::accent::breve::func()),
-            "ˇ" => Ok(crate::math::accent::caron::func()),
-            "^" => Ok(crate::math::accent::hat::func()),
-            "`" => Ok(crate::math::accent::grave::func()),
-            "¯" => Ok(crate::math::accent::macron::func()),
-            "○" => Ok(crate::math::accent::circle::func()),
-            "→" => Ok(crate::math::accent::arrow::func()),
-            "←" => Ok(crate::math::accent::arrow_l::func()),
-            "↔" => Ok(crate::math::accent::arrow_l_r::func()),
-            "⇀" => Ok(crate::math::accent::harpoon::func()),
-            "↼" => Ok(crate::math::accent::harpoon_lt::func()),
-            _ => bail!("symbol {self} is not callable"),
-        }
+        let value = self.get();
+        crate::math::accent::get_accent_func(value)
+            .or_else(|| crate::math::get_lr_wrapper_func(value))
+            .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 
     /// Apply a modifier to the symbol.
@@ -268,7 +248,7 @@ impl Symbol {
             if v.1.is_empty() || v.1.graphemes(true).nth(1).is_some() {
                 errors.push(error!(
                     span, "invalid variant value: {}", v.1.repr();
-                    hint: "variant value must be exactly one grapheme cluster"
+                    hint: "variant value must be exactly one grapheme cluster";
                 ));
             }
 
@@ -279,7 +259,7 @@ impl Symbol {
                         errors.push(error!(
                             span,
                             "invalid symbol modifier: {}",
-                            modifier.repr()
+                            modifier.repr(),
                         ));
                         continue 'variants;
                     }
@@ -294,7 +274,7 @@ impl Symbol {
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
                 errors.push(error!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
-                    hint: "modifiers are not ordered, so each one may appear only once"
+                    hint: "modifiers are not ordered, so each one may appear only once";
                 ));
                 continue 'variants;
             }
@@ -309,7 +289,8 @@ impl Symbol {
                 } else {
                     error!(
                         span, "duplicate variant: {}", v.0.repr();
-                        hint: "variants with the same modifiers are identical, regardless of their order"
+                        hint: "variants with the same modifiers are identical, \
+                               regardless of their order";
                     )
                 });
                 continue 'variants;

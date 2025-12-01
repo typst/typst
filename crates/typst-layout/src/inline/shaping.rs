@@ -4,12 +4,13 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use az::SaturatingAs;
+use comemo::Tracked;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Smart, StyleChain};
+use typst_library::foundations::{Regex, Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
@@ -87,11 +88,6 @@ impl<'a> Glyphs<'a> {
     pub fn from_vec(glyphs: Vec<ShapedGlyph>) -> Self {
         let len = glyphs.len();
         Self { inner: Cow::Owned(glyphs), kept: 0..len }
-    }
-
-    /// Whether this glyph collection is using the owned representation.
-    pub fn is_owned(&self) -> bool {
-        matches!(self.inner, Cow::Owned(_))
     }
 
     /// Clone the internal glyph data to make it modifiable. Should be avoided
@@ -362,41 +358,49 @@ impl<'a> ShapedText<'a> {
             let glyphs: Vec<Glyph> = group
                 .iter()
                 .map(|shaped: &ShapedGlyph| {
-                    let adjustability_left = if justification_ratio < 0.0 {
-                        shaped.shrinkability().0
-                    } else {
-                        shaped.stretchability().0
-                    };
-                    let adjustability_right = if justification_ratio < 0.0 {
-                        shaped.shrinkability().1
-                    } else {
-                        shaped.stretchability().1
-                    };
+                    // Whether the glyph is _not_ trimmed end-of-line
+                    // whitespace. Trimmed whitespace has its advance width and
+                    // offset zeroed out and is not taken into account for
+                    // justification.
+                    let kept = self.glyphs.kept.contains(&i);
 
-                    let justification_left = adjustability_left * justification_ratio;
-                    let mut justification_right =
-                        adjustability_right * justification_ratio;
-                    if shaped.is_justifiable() {
-                        justification_right +=
-                            Em::from_abs(extra_justification, glyph_size)
-                    }
+                    let (x_advance, x_offset) = if kept {
+                        let adjustability_left = if justification_ratio < 0.0 {
+                            shaped.shrinkability().0
+                        } else {
+                            shaped.stretchability().0
+                        };
+                        let adjustability_right = if justification_ratio < 0.0 {
+                            shaped.shrinkability().1
+                        } else {
+                            shaped.stretchability().1
+                        };
 
-                    frame.size_mut().x += justification_left.at(glyph_size)
-                        + justification_right.at(glyph_size);
+                        let justification_left = adjustability_left * justification_ratio;
+                        let mut justification_right =
+                            adjustability_right * justification_ratio;
+                        if shaped.is_justifiable() {
+                            justification_right +=
+                                Em::from_abs(extra_justification, glyph_size)
+                        }
+
+                        frame.size_mut().x += justification_left.at(glyph_size)
+                            + justification_right.at(glyph_size);
+
+                        (
+                            shaped.x_advance + justification_left + justification_right,
+                            shaped.x_offset + justification_left,
+                        )
+                    } else {
+                        (Em::zero(), Em::zero())
+                    };
+                    i += 1;
 
                     // We may not be able to reach the offset completely if
                     // it exceeds u16, but better to have a roughly correct
                     // span offset than nothing.
                     let mut span = spans.span_at(shaped.range.start);
                     span.1 = span.1.saturating_add(span_offset.saturating_as());
-
-                    // Zero out the advance if the glyph was trimmed.
-                    let x_advance = if self.glyphs.kept.contains(&i) {
-                        shaped.x_advance + justification_left + justification_right
-                    } else {
-                        Em::zero()
-                    };
-                    i += 1;
 
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
@@ -419,7 +423,7 @@ impl<'a> ShapedText<'a> {
                     Glyph {
                         id: shaped.glyph_id,
                         x_advance,
-                        x_offset: shaped.x_offset + justification_left,
+                        x_offset,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
                         range: (shaped.range.start - range.start).saturating_as()
@@ -787,7 +791,7 @@ fn shape<'a>(
     let size = styles.resolve(TextElem::size);
     let shift_settings = styles.get(TextElem::shift_settings);
     let mut ctx = ShapingContext {
-        engine,
+        world: engine.world,
         size,
         glyphs: vec![],
         used: vec![],
@@ -824,13 +828,9 @@ fn shape<'a>(
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
-struct ShapingContext<'a, 'v> {
-    engine: &'a Engine<'v>,
+struct ShapingContext<'a> {
+    world: Tracked<'a, dyn World + 'a>,
     glyphs: Vec<ShapedGlyph>,
-    /// Font families that have been used with unlimited coverage.
-    ///
-    /// These font families are considered exhausted and will not be used again,
-    /// even if they are declared again (e.g., during fallback after normal selection).
     used: Vec<Font>,
     styles: StyleChain<'a>,
     size: Abs,
@@ -841,9 +841,98 @@ struct ShapingContext<'a, 'v> {
     shift_settings: Option<ShiftSettings>,
 }
 
+pub trait SharedShapingContext<'a> {
+    fn world(&self) -> Tracked<'a, dyn World + 'a>;
+
+    /// Font families that have been used with unlimited coverage.
+    ///
+    /// These font families are considered exhausted and will not be used again,
+    /// even if they are declared again (e.g., during fallback after normal selection).
+    fn used(&mut self) -> &mut Vec<Font>;
+
+    fn first(&self) -> Option<&Font>;
+
+    fn variant(&self) -> FontVariant;
+
+    fn fallback(&self) -> bool;
+}
+
+impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
+    fn world(&self) -> Tracked<'a, dyn World + 'a> {
+        self.world
+    }
+
+    fn used(&mut self) -> &mut Vec<Font> {
+        &mut self.used
+    }
+
+    fn first(&self) -> Option<&Font> {
+        self.used.first()
+    }
+
+    fn variant(&self) -> FontVariant {
+        self.variant
+    }
+
+    fn fallback(&self) -> bool {
+        self.fallback
+    }
+}
+
+pub fn get_font_and_covers<'a, C, F>(
+    ctx: &mut C,
+    text: &str,
+    mut families: impl Iterator<Item = &'a FontFamily>,
+    mut shape_tofus: F,
+) -> Option<(Font, Option<&'a Regex>)>
+where
+    C: SharedShapingContext<'a>,
+    F: FnMut(&mut C, &str, Font),
+{
+    // Find the next available family.
+    let world = ctx.world();
+    let book = world.book();
+    let mut selection = None;
+    let mut covers = None;
+    for family in families.by_ref() {
+        selection = book
+            .select(family.as_str(), ctx.variant())
+            .and_then(|id| world.font(id))
+            .filter(|font| !ctx.used().contains(font));
+        if selection.is_some() {
+            covers = family.covers();
+            break;
+        }
+    }
+
+    // Do font fallback if the families are exhausted and fallback is enabled.
+    if selection.is_none() && ctx.fallback() {
+        let first = ctx.first().map(Font::info);
+        selection = book
+            .select_fallback(first, ctx.variant(), text)
+            .and_then(|id| world.font(id))
+            .filter(|font| !ctx.used().contains(font));
+    }
+
+    // Extract the font id or shape notdef glyphs if we couldn't find any font.
+    let Some(font) = selection else {
+        if let Some(font) = ctx.used().first().cloned() {
+            shape_tofus(ctx, text, font);
+        }
+        return None;
+    };
+
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        ctx.used().push(font.clone());
+    }
+
+    Some((font, covers))
+}
+
 /// Shape text with font fallback using the `families` iterator.
 fn shape_segment<'a>(
-    ctx: &mut ShapingContext,
+    ctx: &mut ShapingContext<'a>,
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
@@ -856,43 +945,13 @@ fn shape_segment<'a>(
         return;
     }
 
-    // Find the next available family.
-    let world = ctx.engine.world;
-    let book = world.book();
-    let mut selection = None;
-    let mut covers = None;
-    for family in families.by_ref() {
-        selection = book
-            .select(family.as_str(), ctx.variant)
-            .and_then(|id| world.font(id))
-            .filter(|font| !ctx.used.contains(font));
-        if selection.is_some() {
-            covers = family.covers();
-            break;
-        }
-    }
-
-    // Do font fallback if the families are exhausted and fallback is enabled.
-    if selection.is_none() && ctx.fallback {
-        let first = ctx.used.first().map(Font::info);
-        selection = book
-            .select_fallback(first, ctx.variant, text)
-            .and_then(|id| world.font(id))
-            .filter(|font| !ctx.used.contains(font));
-    }
-
-    // Extract the font id or shape notdef glyphs if we couldn't find any font.
-    let Some(font) = selection else {
-        if let Some(font) = ctx.used.first().cloned() {
+    let Some((font, covers)) =
+        get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
             shape_tofus(ctx, base, text, font);
-        }
+        })
+    else {
         return;
     };
-
-    // This font has been exhausted and will not be used again.
-    if covers.is_none() {
-        ctx.used.push(font.clone());
-    }
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
@@ -1097,17 +1156,17 @@ fn determine_shift(
             // "subs"/"sups" to the feature list if supported by the font.
             // In case of a problem, we just early exit
             let gsub = font.rusty().tables().gsub?;
-            let subtable_index =
-                gsub.features.find(settings.kind.feature())?.lookup_indices.get(0)?;
-            let coverage = gsub
-                .lookups
-                .get(subtable_index)?
-                .subtables
-                .get::<SubstitutionSubtable>(0)?
-                .coverage();
+            let lookups = gsub.features.find(settings.kind.feature())?.lookup_indices;
             text.chars()
                 .all(|c| {
-                    font.rusty().glyph_index(c).is_some_and(|i| coverage.contains(i))
+                    let Some(i) = font.rusty().glyph_index(c) else { return false };
+                    lookups
+                        .into_iter()
+                        .flat_map(|i| gsub.lookups.get(i))
+                        .flat_map(|lookup| {
+                            lookup.subtables.into_iter::<SubstitutionSubtable>()
+                        })
+                        .any(|subtable| subtable.coverage().contains(i))
                 })
                 .then(|| {
                     // If we can use the OpenType feature, we can keep the text

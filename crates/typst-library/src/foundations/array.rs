@@ -286,6 +286,9 @@ impl Array {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
+        if end.is_some() && count.is_some() {
+            bail!("`end` and `count` are mutually exclusive");
+        }
         let start = self.locate(start, true)?;
         let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
@@ -516,7 +519,7 @@ impl Array {
                     other_span,
                     "second array has different length ({}) from first array ({})",
                     other.len(),
-                    self.len()
+                    self.len(),
                 );
             }
             return Ok(self
@@ -720,6 +723,7 @@ impl Array {
         last: Option<Value>,
         /// What to return if the array is empty.
         #[named]
+        #[default]
         default: Option<Value>,
     ) -> StrResult<Value> {
         let len = self.0.len();

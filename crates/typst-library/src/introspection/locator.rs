@@ -4,8 +4,11 @@ use std::sync::OnceLock;
 
 use comemo::{Track, Tracked};
 use rustc_hash::FxHashMap;
+use typst_syntax::Span;
 
-use crate::introspection::{Introspector, Location};
+use crate::diag::{SourceDiagnostic, warning};
+use crate::engine::Engine;
+use crate::introspection::{History, Introspect, Introspector, Location};
 
 /// Provides locations for elements in the document.
 ///
@@ -213,7 +216,7 @@ impl<'a> Locator<'a> {
                 Resolved::Hash(outer) => {
                     Resolved::Hash(typst_utils::hash128(&(self.local, outer)))
                 }
-                Resolved::Measure(anchor) => Resolved::Measure(anchor),
+                Resolved::Measure(anchor, span) => Resolved::Measure(anchor, span),
             },
         }
     }
@@ -232,7 +235,7 @@ enum Resolved {
     Hash(u128),
     /// Indicates that the locator is in measurement mode, with the given anchor
     /// location.
-    Measure(Location),
+    Measure(Location, Span),
 }
 
 /// A type that generates unique sublocators.
@@ -281,18 +284,59 @@ impl<'a> SplitLocator<'a> {
     /// Produces a unique location for an element.
     pub fn next_location(
         &mut self,
-        introspector: Tracked<Introspector>,
+        engine: &mut Engine,
         key: u128,
+        elem_span: Span,
     ) -> Location {
         match self.next_inner(key).resolve() {
             Resolved::Hash(hash) => Location::new(hash),
-            Resolved::Measure(anchor) => {
+            Resolved::Measure(anchor, measure_span) => {
+                let introspection =
+                    MeasureIntrospection { key, anchor, elem_span, measure_span };
+
                 // If we aren't able to find a matching element in the document,
                 // default to the anchor, so that it's at least remotely in
                 // the right area (so that counters can be resolved).
-                introspector.locator(key, anchor).unwrap_or(anchor)
+                engine.introspect(introspection).unwrap_or(anchor)
             }
         }
+    }
+}
+
+/// Tries to find the closest matching element in the document during
+/// measurement.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct MeasureIntrospection {
+    key: u128,
+    anchor: Location,
+    measure_span: Span,
+    elem_span: Span,
+}
+
+impl Introspect for MeasureIntrospection {
+    type Output = Option<Location>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.locator(self.key, self.anchor)
+    }
+
+    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
+        let mut diag = warning!(
+            self.measure_span, "a measured element did not stabilize";
+            hint: "measurement tries to resolve introspections by finding the \
+                   closest matching elements in the real document";
+        );
+        if !self.elem_span.is_detached() {
+            diag.spanned_hint(
+                "the closest match for this element did not stabilize",
+                self.elem_span,
+            );
+        }
+        diag
     }
 }
 
@@ -314,7 +358,7 @@ enum LinkKind<'a> {
     /// world of lifetime pain.
     Outer(Tracked<'a, Locator<'a>, <Locator<'static> as Track>::Call>),
     /// A link which indicates that we are in measurement mode.
-    Measure(Location),
+    Measure(Location, Span),
 }
 
 impl<'a> LocatorLink<'a> {
@@ -331,9 +375,9 @@ impl<'a> LocatorLink<'a> {
     ///
     /// Read the "Dealing with measurement" section of the [`Locator`] docs for
     /// more details.
-    pub fn measure(anchor: Location) -> Self {
+    pub fn measure(anchor: Location, span: Span) -> Self {
         LocatorLink {
-            kind: LinkKind::Measure(anchor),
+            kind: LinkKind::Measure(anchor, span),
             resolved: OnceLock::new(),
         }
     }
@@ -345,7 +389,7 @@ impl<'a> LocatorLink<'a> {
     fn resolve(&self) -> Resolved {
         *self.resolved.get_or_init(|| match self.kind {
             LinkKind::Outer(outer) => outer.resolve(),
-            LinkKind::Measure(anchor) => Resolved::Measure(anchor),
+            LinkKind::Measure(anchor, span) => Resolved::Measure(anchor, span),
         })
     }
 }

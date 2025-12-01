@@ -10,7 +10,9 @@ use crate::foundations::{
     Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
     elem, scope,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location, Tagged};
+use crate::introspection::{
+    Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
+};
 use crate::layout::{Abs, Em, Length, Ratio};
 use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
@@ -142,15 +144,16 @@ impl Packed<FootnoteElem> {
         let loc = self.declaration_location(engine).at(self.span())?;
         let numbering = self.numbering.get_ref(styles);
         let counter = Counter::of(FootnoteElem::ELEM);
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let num = counter.display_at(engine, loc, styles, numbering, self.span())?;
         Ok((Destination::Location(loc.variant(1)), num))
     }
 
     /// Returns the location of the definition of this footnote.
-    pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
+    pub fn declaration_location(&self, engine: &mut Engine) -> StrResult<Location> {
         match self.body {
             FootnoteBody::Reference(label) => {
-                let element = engine.introspector.query_label(label)?;
+                let element =
+                    engine.introspect(QueryLabelIntrospection(label, self.span()))?;
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
@@ -213,10 +216,7 @@ pub struct FootnoteEntry {
     /// ```example
     /// #show footnote.entry: it => {
     ///   let loc = it.note.location()
-    ///   numbering(
-    ///     "1: ",
-    ///     ..counter(footnote).at(loc),
-    ///   )
+    ///   counter(footnote).display(at: loc, "1: ")
     ///   it.note.body
     /// }
     ///
@@ -303,11 +303,11 @@ impl Packed<FootnoteEntry> {
         let Some(loc) = self.note.location() else {
             bail!(
                 self.span(), "footnote entry must have a location";
-                hint: "try using a query or a show rule to customize the footnote instead"
+                hint: "try using a query or a show rule to customize the footnote instead";
             );
         };
 
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let num = counter.display_at(engine, loc, styles, numbering, span)?;
         let alt = num.plain_text();
         let sup = SuperElem::new(num).pack().spanned(span);
         let prefix = DirectLinkElem::new(loc, sup, Some(alt)).pack().spanned(span);
@@ -330,3 +330,10 @@ cast! {
     FootnoteElem,
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
 }
+
+/// This is an empty element inserted by the HTML footnote rule to indicate the
+/// presence of the default footnote rule. It's only used by the error in
+/// `FootnoteContainer::unsupported_with_custom_dom` and could be removed if
+/// that's not needed anymore.
+#[elem(Locatable)]
+pub struct FootnoteMarker {}

@@ -60,11 +60,24 @@ pub fn layout_cell(
         && let Some((first, remainder)) = frames.split_first_mut()
     {
         let flags = TagFlags { introspectable: true, tagged: true };
-        first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
-        first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
-
-        for frame in remainder.iter_mut() {
-            frame.set_parent(FrameParent::new(loc, Inherit::Yes));
+        if remainder.is_empty() {
+            first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
+            first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
+        } else {
+            // If there is more than one frame, set the logical parent of all
+            // frames to the cell, which converts them to group frames. Then
+            // prepend the start and end tags containing no content. The first
+            // frame is also a logical child to guarantee correct ordering
+            // in the introspector, since logical children are currently
+            // inserted immediately after the start tag of the parent element
+            // preceding any content within the parent element's tags.
+            for frame in frames.iter_mut() {
+                frame.set_parent(FrameParent::new(loc, Inherit::Yes));
+            }
+            frames.first_mut().unwrap().prepend_multiple([
+                (Point::zero(), FrameItem::Tag(Tag::Start(elem, flags))),
+                (Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags))),
+            ]);
         }
     }
 
@@ -77,7 +90,7 @@ fn generate_tags<T: NativeElement>(
     engine: &mut Engine,
 ) -> (Content, Location, u128) {
     let key = typst_utils::hash128(&cell);
-    let loc = locator.next_location(engine.introspector, key);
+    let loc = locator.next_location(engine, key, cell.span());
     cell.set_location(loc);
     (cell.pack(), loc, key)
 }
