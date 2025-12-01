@@ -150,7 +150,7 @@ impl Symbol {
             "○" => Ok(crate::math::accent::circle::func()),
             "→" => Ok(crate::math::accent::arrow::func()),
             "←" => Ok(crate::math::accent::arrow_l::func()),
-            "↔" => Ok(crate::math::accent::arrow_l_r::func()),
+            "↔" | "↔\u{fe0e}" => Ok(crate::math::accent::arrow_l_r::func()),
             "⇀" => Ok(crate::math::accent::harpoon::func()),
             "↼" => Ok(crate::math::accent::harpoon_lt::func()),
             _ => bail!("symbol {self} is not callable"),
