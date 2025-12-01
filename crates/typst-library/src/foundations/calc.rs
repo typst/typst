@@ -407,7 +407,7 @@ pub fn tanh(
 /// #calc.asinh(0) \
 /// #calc.asinh(1)
 /// ```
-#[func(title = "Arsinh")]
+#[func(title = "Inverse Hyperbolic Sine")]
 pub fn asinh(
     /// The number whose inverse hyperbolic sine to calculate.
     value: Num,
@@ -421,7 +421,7 @@ pub fn asinh(
 /// #calc.acosh(1) \
 /// #calc.acosh(2.5)
 /// ```
-#[func(title = "Arcosh")]
+#[func(title = "Inverse Hyperbolic Cosine")]
 pub fn acosh(
     /// The number whose inverse hyperbolic cosine to calculate. Must be greater than or equal to 1.
     value: Spanned<Num>,
@@ -439,7 +439,7 @@ pub fn acosh(
 /// #calc.atanh(0) \
 /// #calc.atanh(0.5)
 /// ```
-#[func(title = "Artanh")]
+#[func(title = "Inverse Hyperbolic Tangent")]
 pub fn atanh(
     /// The number whose inverse hyperbolic tangent to calculate. Must be between -1 and 1 (exclusive).
     value: Spanned<Num>,
