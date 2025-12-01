@@ -127,11 +127,6 @@ Hey
 #show: columns.with(2)
 #lines(16)
 
---- show-page-warning paged ---
-// Warning: 2-17 `show page` is not supported and has no effect
-// Hint: 2-17 customize pages with `set page(..)` instead
-#show page: none
-
 --- show-bare-content-block paged ---
 // Test bare show in content block.
 A #[_B #show: c => [*#c*]; C_] D
