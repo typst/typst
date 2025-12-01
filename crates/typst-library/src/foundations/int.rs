@@ -443,12 +443,12 @@ fn parse_str_error(kind: &IntErrorKind, base: Spanned<Base>) -> HintedString {
         IntErrorKind::PosOverflow => error!(
             "integer value is too large";
             hint: "value does not fit into a signed 64-bit integer";
-            hint: "try using a floating point number"
+            hint: "try using a floating point number";
         ),
         IntErrorKind::NegOverflow => error!(
             "integer value is too small";
             hint: "value does not fit into a signed 64-bit integer";
-            hint: "try using a floating point number"
+            hint: "try using a floating point number";
         ),
         IntErrorKind::Zero => unreachable!(),
         _ => error!("invalid integer"),
