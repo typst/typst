@@ -71,7 +71,7 @@ fn check_show_page_rule(vm: &mut Vm, recipe: &Recipe) {
         vm.engine.sink.warn(warning!(
             recipe.span(),
             "`show page` is not supported and has no effect";
-            hint: "customize pages with `set page(..)` instead"
+            hint: "customize pages with `set page(..)` instead";
         ));
     }
 }
