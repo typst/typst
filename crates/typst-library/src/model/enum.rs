@@ -2,8 +2,10 @@ use std::str::FromStr;
 
 use smallvec::SmallVec;
 
-use crate::diag::bail;
-use crate::foundations::{Array, Content, Packed, Smart, Styles, cast, elem, scope};
+use crate::diag::{bail, warning};
+use crate::foundations::{
+    Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
+};
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
@@ -201,6 +203,19 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
+    #[parse(
+        for item in args.items.iter() {
+            if item.name.is_none() && Array::castable(&item.value.v) {
+                engine.sink.warn(warning!(
+                    item.value.span,
+                    "implicit conversion from array to `enum.item` is deprecated";
+                    hint: "use `enum.item(number)[body]` instead";
+                    hint: "this conversion was never documented and is being phased out";
+                ));
+            }
+        }
+        args.all()?
+    )]
     pub children: Vec<Packed<EnumItem>>,
 
     /// The numbers of parent items.
