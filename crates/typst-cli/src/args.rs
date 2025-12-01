@@ -43,10 +43,8 @@ const AFTER_HELP: &str = color_print::cstr!("\
 ");
 
 const STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Yellow.on_default().effects(Effects::BOLD))
-    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
-    .literal(AnsiColor::Green.on_default().effects(Effects::BOLD))
-    .placeholder(AnsiColor::Green.on_default());
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Blue.on_default());
 
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
