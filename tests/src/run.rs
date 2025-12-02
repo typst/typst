@@ -1,17 +1,15 @@
 use std::fmt::Write;
 use std::ops::Range;
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::LazyLock;
 
 use parking_lot::RwLock;
 use regex::{Captures, Regex};
-use rustc_hash::FxHashMap;
 use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, VirtualPath};
+use typst_syntax::FileId;
 
 use crate::collect::{
     FileSize, NoteKind, Test, TestOutputKind, TestStage, TestStages, TestTarget,
@@ -21,31 +19,23 @@ use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, STORE_PATH, custom, output};
 
-type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
-
 /// Runs a single test.
 ///
 /// Returns whether the test passed.
-pub fn run(hashes: &[RwLock<OutputHashes>], test: &Test) -> TestResult {
+pub fn run(hashes: &[RwLock<HashedRefs>], test: &Test) -> TestResult {
     Runner::new(hashes, test).run()
 }
 
 /// Write all hashed references that have been updated
-pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<OutputHashes>]) {
-    #[allow(clippy::iter_over_hash_type)]
-    for (source_path, hashed_refs) in hashes[T::INDEX].write().iter_mut() {
-        hashed_refs.sort();
-        if !hashed_refs.changed {
-            continue;
-        }
+pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<HashedRefs>]) {
+    let mut hashed_refs = hashes[T::INDEX].write();
+    hashed_refs.sort();
 
-        let ref_path =
-            T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
-        if hashed_refs.is_empty() {
-            std::fs::remove_file(ref_path).ok();
-        } else {
-            std::fs::write(ref_path, hashed_refs.to_string()).unwrap();
-        }
+    let ref_path = T::OUTPUT.hash_refs_path();
+    if hashed_refs.is_empty() {
+        std::fs::remove_file(ref_path).ok();
+    } else {
+        std::fs::write(ref_path, hashed_refs.to_string()).unwrap();
     }
 }
 
@@ -61,7 +51,7 @@ macro_rules! log {
 
 /// Runs a single test.
 pub struct Runner<'a> {
-    hashes: &'a [RwLock<OutputHashes>],
+    hashes: &'a [RwLock<HashedRefs>],
     test: &'a Test,
     world: TestWorld,
     /// In which targets the note has been seen.
@@ -72,7 +62,7 @@ pub struct Runner<'a> {
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(hashes: &'a [RwLock<OutputHashes>], test: &'a Test) -> Self {
+    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a Test) -> Self {
         Self {
             hashes,
             test,
@@ -261,7 +251,7 @@ impl<'a> Runner<'a> {
                     TestOutputKind::File => {
                         std::fs::write(&live_path, live_data).unwrap();
                     }
-                    TestOutputKind::Hash => {
+                    TestOutputKind::Hash(_) => {
                         // Write the file to a path of its hash.
                         let hash = T::make_hash(live);
                         let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
@@ -377,28 +367,10 @@ impl<'a> Runner<'a> {
     /// is provided.
     fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
-
-        let source_path = self.test.source.id().get().vpath();
-        let old_ref_hash =
-            if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
-                hashed_refs.get(&self.test.name)
-            } else {
-                let ref_path =
-                    T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
-                let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
-                let hashed_refs = HashedRefs::from_str(&string)
-                    .inspect_err(|e| {
-                        log!(self, "error parsing hashed refs: {e}");
-                    })
-                    .unwrap_or_default();
-
-                let mut hashes = self.hashes[T::INDEX].write();
-                let entry = hashes.entry(source_path).insert_entry(hashed_refs);
-                entry.get().get(&self.test.name)
-            };
+        let old_hash = self.hashes[T::INDEX].read().get(&self.test.name);
 
         let Some((doc, live)) = output else {
-            if old_ref_hash.is_some() {
+            if old_hash.is_some() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", self.test.name);
             }
@@ -415,22 +387,20 @@ impl<'a> Runner<'a> {
 
         // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && old_ref_hash.is_none() {
+        if skippable && old_hash.is_none() {
             return;
         }
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
         let new_ref_hash = T::make_hash(live);
-        if old_ref_hash.as_ref().is_some_and(|h| *h == new_ref_hash) {
+        if old_hash.as_ref().is_some_and(|h| *h == new_ref_hash) {
             return;
         }
 
         if crate::ARGS.update {
-            let mut hashes = self.hashes[T::INDEX].write();
-            let hashed_refs = hashes.get_mut(source_path).unwrap();
-            let ref_path =
-                T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
+            let mut hashed_refs = self.hashes[T::INDEX].write();
+            let ref_path = T::OUTPUT.hash_refs_path();
             if skippable {
                 hashed_refs.remove(&self.test.name);
                 log!(
@@ -447,7 +417,7 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_output = true;
-            if let Some(old_ref_hash) = old_ref_hash {
+            if let Some(old_ref_hash) = old_hash {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  old       | {old_ref_hash}");

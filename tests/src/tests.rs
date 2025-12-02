@@ -16,7 +16,6 @@ use std::time::Duration;
 use clap::Parser;
 use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
 use crate::collect::Test;
@@ -75,7 +74,7 @@ fn setup() {
 }
 
 fn test() {
-    let (tests, skipped) = match crate::collect::collect() {
+    let (hashes, tests, skipped) = match crate::collect::collect() {
         Ok(output) => output,
         Err(errors) => {
             eprintln!("failed to collect tests");
@@ -100,8 +99,7 @@ fn test() {
 
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
-    let hashes: [_; 2] = std::array::from_fn(|_| RwLock::new(FxHashMap::default()));
-
+    let hashes = hashes.map(RwLock::new);
     let runner = |test: &Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
