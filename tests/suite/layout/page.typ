@@ -348,6 +348,11 @@ A
   A
 ]
 
+--- page-set-html html ---
+// Warning: 2-16 page set rule was ignored during HTML export
+#set page("a4")
+Hi
+
 --- issue-2631-page-header-ordering ---
 #set text(6pt)
 #show heading: set text(6pt, weight: "regular")

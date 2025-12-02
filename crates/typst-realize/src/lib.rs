@@ -12,7 +12,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
@@ -608,16 +608,22 @@ fn visit_styled<'a>(
                 info.populate_locale(&local)
             }
         } else if elem == PageElem::ELEM {
-            if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
-                bail!(
+            match s.kind {
+                RealizationKind::LayoutDocument { .. } => {
+                    // When there are page styles, we "break free" from our show
+                    // rule cage.
+                    pagebreak = true;
+                    s.outside = true;
+                }
+                RealizationKind::HtmlDocument { .. } => s.engine.sink.warn(warning!(
+                    style.span(),
+                    "page set rule was ignored during HTML export"
+                )),
+                _ => bail!(
                     style.span(),
                     "page configuration is not allowed inside of containers"
-                );
+                ),
             }
-
-            // When there are page styles, we "break free" from our show rule cage.
-            pagebreak = true;
-            s.outside = true;
         }
     }
 
