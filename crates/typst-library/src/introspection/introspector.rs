@@ -386,13 +386,16 @@ impl IntrospectorBuilder {
     }
 
     /// Processes the tags in the frame.
-    pub fn discover_in_frame(
+    pub fn discover_in_frame<F>(
         &mut self,
         sink: &mut Vec<Pair>,
         frame: &Frame,
         page: NonZeroUsize,
         ts: Transform,
-    ) {
+        position_mapper: &mut F,
+    ) where
+        F: FnMut(DocumentPosition) -> DocumentPosition,
+    {
         for (pos, item) in frame.items() {
             match item {
                 FrameItem::Group(group) => {
@@ -402,10 +405,22 @@ impl IntrospectorBuilder {
 
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
-                        self.discover_in_frame(&mut nested, &group.frame, page, ts);
+                        self.discover_in_frame(
+                            &mut nested,
+                            &group.frame,
+                            page,
+                            ts,
+                            position_mapper,
+                        );
                         self.register_insertion(parent.location, nested);
                     } else {
-                        self.discover_in_frame(sink, &group.frame, page, ts);
+                        self.discover_in_frame(
+                            sink,
+                            &group.frame,
+                            page,
+                            ts,
+                            position_mapper,
+                        );
                     }
                 }
                 FrameItem::Tag(tag) => {
@@ -416,6 +431,7 @@ impl IntrospectorBuilder {
                             page,
                             point: pos.transform(ts),
                         }),
+                        position_mapper,
                     );
                 }
                 _ => {}
@@ -424,18 +440,21 @@ impl IntrospectorBuilder {
     }
 
     /// Handle a tag.
-    pub fn discover_in_tag(
+    pub fn discover_in_tag<F>(
         &mut self,
         sink: &mut Vec<Pair>,
         tag: &Tag,
         position: DocumentPosition,
-    ) {
+        position_mapper: &mut F,
+    ) where
+        F: FnMut(DocumentPosition) -> DocumentPosition,
+    {
         match tag {
             Tag::Start(elem, flags) => {
                 if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
-                        sink.push((elem.clone(), position));
+                        sink.push((elem.clone(), position_mapper(position)));
                     }
                 }
             }

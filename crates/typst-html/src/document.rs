@@ -1,3 +1,4 @@
+use std::convert::identity;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
@@ -10,7 +11,7 @@ use typst_library::foundations::{Content, StyleChain, Styles};
 use typst_library::introspection::{
     DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Location, Locator,
 };
-use typst_library::layout::{Position, Transform};
+use typst_library::layout::Transform;
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
@@ -141,6 +142,7 @@ fn introspect_html(
                         DocumentPosition::Html(HtmlPosition::new(
                             current_position.clone(),
                         )),
+                        &mut identity,
                     );
                     current_position.pop();
                 }
@@ -181,24 +183,18 @@ fn introspect_html(
                 HtmlNode::Frame(frame) => {
                     current_position.push(index);
 
-                    let mut nested = Vec::new();
                     builder.discover_in_frame(
-                        &mut nested,
+                        sink,
                         &frame.inner,
                         NonZeroUsize::ONE,
                         Transform::identity(),
+                        &mut |frame_position: DocumentPosition| {
+                            DocumentPosition::Html(
+                                HtmlPosition::new(current_position.clone())
+                                    .in_frame(frame_position.as_paged_or_default().point),
+                            )
+                        },
                     );
-                    for (content, pos) in nested {
-                        if let DocumentPosition::Paged(Position { point, .. }) = pos {
-                            sink.push((
-                                content,
-                                DocumentPosition::Html(
-                                    HtmlPosition::new(current_position.clone())
-                                        .in_frame(point),
-                                ),
-                            ))
-                        }
-                    }
 
                     crate::link::introspect_frame_links(&frame.inner, link_targets);
                     current_position.pop();
