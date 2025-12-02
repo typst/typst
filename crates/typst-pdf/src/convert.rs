@@ -13,7 +13,9 @@ use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
-use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
+use typst_library::diag::{
+    At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
+};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Location, Tag};
 use typst_library::layout::{
@@ -121,10 +123,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
             // PDF 2.0 doesn't define an explicit limit, but krilla and probably
             // some viewers won't handle pages that have zero sized pages.
-            let mut settings = PageSettings::new(
+            let mut settings = PageSettings::from_wh(
                 typst_page.frame.width().to_f32().max(3.0),
                 typst_page.frame.height().to_f32().max(3.0),
-            );
+            )
+            .expect_internal("invalid page size")
+            .at(Span::detached())?;
 
             if let Some(label) = typst_page
                 .numbering
