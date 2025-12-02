@@ -271,7 +271,7 @@ impl TestOutput {
         let sub_dir = self.sub_dir();
         let sub_path = source_path.strip_prefix(SUITE_PATH).unwrap();
         let trimmed_path = sub_path.to_str().unwrap().strip_suffix(".typ");
-        let file_name = trimmed_path.unwrap().replace("/", "-");
+        let file_name = trimmed_path.unwrap().replace(std::path::MAIN_SEPARATOR, "-");
         PathBuf::from(format!("{REF_PATH}/{sub_dir}/{file_name}.txt"))
     }
 
@@ -464,6 +464,9 @@ impl Collector {
     }
 
     fn check_dangling_hashed_references(&mut self, path: &Path, output: TestOutput) {
+        let path = path.to_str().unwrap().replace('\\', "/");
+        let path = Path::new(&path);
+
         let string = std::fs::read_to_string(path).unwrap_or_default();
         let Ok(hashed_refs) = HashedRefs::from_str(&string) else { return };
         if hashed_refs.is_empty() {
