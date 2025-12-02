@@ -20,6 +20,9 @@
   description: "A description",
 )
 
+--- pdf-attach-zero-bytes paged ---
+#pdf.attach("file", bytes(()))
+
 --- pdf-attach-invalid-relationship paged ---
 #pdf.attach(
   "/assets/text/hello.txt",
