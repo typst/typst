@@ -12,6 +12,10 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+use unicode_properties::UnicodeEmoji;
+use unicode_script::{Script, UnicodeScript};
+use unicode_width::UnicodeWidthChar;
+
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -185,9 +189,26 @@ enum SpaceState {
     /// A following space will be collapsed.
     Destructive,
     /// A following space will be kept unless a destructive element follows.
-    Supportive,
+    Supportive { ends_in_cj: bool },
     /// A space exists at this index.
-    Space(usize),
+    Space { index: usize, had_newline: bool, prev_cj: bool },
+}
+
+/// Whether a character is part of the Chinese or Japanese scripts, or is a
+/// non-ambiguous full-width punctuation.
+///
+/// These characters cause adjacent newline spaces to destruct in the source.
+fn is_cj_or_cjk_punct(c: char) -> bool {
+    match c.script() {
+        Script::Han | Script::Hiragana | Script::Katakana => true,
+        // TODO: Is this correct?
+        // Attempting to check for just punctuation that is non-ambiguously CJK.
+        // The `Script::Common` check rules out some cases, but I still need to
+        // determine if there are any single-width characters to include or
+        // double-width characters to exclude.
+        Script::Common => c.width() == Some(2) && !c.is_emoji_char(),
+        _ => false,
+    }
 }
 
 impl<'a> State<'a, '_, '_, '_> {
@@ -1147,8 +1168,8 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
 /// Collects the element's merged textual representation into the bump arena.
 /// This merging also takes into account space collapsing so that we don't need
 /// to call `collapse_spaces` on every textual group, performing yet another
-/// linear pass. We only collapse the spaces elements themselves on the cold
-/// path where there is an actual match.
+/// linear pass. We only collapse the space elements themselves on the cold
+/// path when there is an actual match.
 fn find_regex_match_in_elems<'a>(
     s: &State,
     elems: &[Pair<'a>],
@@ -1164,8 +1185,14 @@ fn find_regex_match_in_elems<'a>(
             continue;
         }
 
+        if let Some(elem) = content.to_packed::<TextElem>()
+            && let SpaceState::Space { had_newline: true, .. } = space
+            && elem.text.chars().next().is_some_and(is_cj_or_cjk_punct)
+        {
+            buf.pop();
+        }
         let linebreak = content.is::<LinebreakElem>();
-        if linebreak && let SpaceState::Space(_) = space {
+        if linebreak && let SpaceState::Space { .. } = space {
             buf.pop();
         }
 
@@ -1179,21 +1206,36 @@ fn find_regex_match_in_elems<'a>(
         }
 
         current = styles;
-        space = if content.is::<SpaceElem>() {
-            if space != SpaceState::Supportive {
-                continue;
+        space = if let Some(elem) = content.to_packed::<SpaceElem>() {
+            match &mut space {
+                SpaceState::Destructive => continue,
+                SpaceState::Space { had_newline, .. } => {
+                    *had_newline |= elem.had_newline;
+                    continue;
+                }
+                SpaceState::Supportive { ends_in_cj } => {
+                    if *ends_in_cj && elem.had_newline {
+                        // This will leave a space in `换\n/**/ 行`, but I don't care.
+                        continue;
+                    }
+                    buf.push(' ');
+                    SpaceState::Space {
+                        index: 0,
+                        had_newline: elem.had_newline,
+                        prev_cj: *ends_in_cj,
+                    }
+                }
             }
-            buf.push(' ');
-            SpaceState::Space(0)
         } else if linebreak {
             buf.push('\n');
             SpaceState::Destructive
         } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
             buf.push(if elem.double.get(styles) { '"' } else { '\'' });
-            SpaceState::Supportive
+            SpaceState::Supportive { ends_in_cj: false }
         } else if let Some(elem) = content.to_packed::<TextElem>() {
             buf.push_str(&elem.text);
-            SpaceState::Supportive
+            let ends_in_cj = buf.chars().next_back().is_some_and(is_cj_or_cjk_punct);
+            SpaceState::Supportive { ends_in_cj }
         } else {
             panic!("tried to find regex match in non-textual elements");
         };
@@ -1373,20 +1415,49 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         // Determine the next state.
         if content.is::<TagElem>() {
             // Nothing to do.
-        } else if content.is::<SpaceElem>() {
-            if state != SpaceState::Supportive {
-                continue;
+        } else if let Some(elem) = content.to_packed::<SpaceElem>() {
+            match &mut state {
+                SpaceState::Destructive => continue,
+                SpaceState::Space { had_newline, index, .. } => {
+                    // TODO: Maybe also check that the styles are the same?
+                    if elem.had_newline && !*had_newline {
+                        // If one space in a row has a newline, treat them all as
+                        // having a newline.
+                        *had_newline = elem.had_newline;
+                        // TODO: Is overwriting the buffer here necessary?
+                        buf[*index].0 = SpaceElem::shared_with_newline();
+                    }
+                    continue;
+                }
+                SpaceState::Supportive { ends_in_cj: true } if elem.had_newline => {
+                    continue;
+                }
+                SpaceState::Supportive { ends_in_cj } => {
+                    state = SpaceState::Space {
+                        index: k,
+                        had_newline: elem.had_newline,
+                        prev_cj: *ends_in_cj,
+                    };
+                }
             }
-            state = SpaceState::Space(k);
         } else if content.is::<LinebreakElem>() {
             destruct_space(buf, &mut k, &mut state);
         } else if let Some(elem) = content.to_packed::<HElem>() {
             if elem.amount.is_fractional() || elem.weak.get(styles) {
                 destruct_space(buf, &mut k, &mut state);
             }
+        } else if let Some(elem) = content.to_packed::<TextElem>() {
+            if let SpaceState::Space { had_newline: true, .. } = state
+                && elem.text.chars().next().is_some_and(is_cj_or_cjk_punct)
+            {
+                destruct_space(buf, &mut k, &mut state);
+            }
+            let ends_in_cj =
+                elem.text.chars().next_back().is_some_and(is_cj_or_cjk_punct);
+            state = SpaceState::Supportive { ends_in_cj };
         } else {
-            state = SpaceState::Supportive;
-        };
+            state = SpaceState::Supportive { ends_in_cj: false };
+        }
 
         // Copy over normal elements (in place).
         if k < i {
@@ -1403,8 +1474,8 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
 
 /// Deletes a preceding space if any.
 fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
-    if let SpaceState::Space(s) = *state {
-        buf.copy_within(s + 1..*end, s);
+    if let SpaceState::Space { index, .. } = *state {
+        buf.copy_within(index + 1..*end, index);
         *end -= 1;
     }
     *state = SpaceState::Destructive;

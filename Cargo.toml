@@ -135,7 +135,9 @@ unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-normalization = "0.1.24"
+unicode-properties = { version = "0.1.4" }
 unicode-segmentation = "1"
+unicode-width = { version = "0.2.2" }
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
