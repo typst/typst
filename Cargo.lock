@@ -928,9 +928,9 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hashbrown"
-version = "0.15.2"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 
 [[package]]
 name = "hayagriva"
@@ -941,7 +941,7 @@ dependencies = [
  "biblatex",
  "ciborium",
  "citationberg",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "paste",
  "roman-numerals-rs",
  "serde",
@@ -1320,14 +1320,15 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.7.1"
+version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
+checksum = "0ad4bb2b565bca0645f4d68c5c9af97fba094e9791da685bf83cb5f3ce74acf2"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.16.1",
  "rayon",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -1437,8 +1438,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.5.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0ddfec86fec13d068075e14f22a7e217c281f3ed69ddcb427bf3f5d504fd674"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1449,6 +1451,7 @@ dependencies = [
  "hayro-write",
  "image-webp",
  "imagesize 0.14.0",
+ "indexmap 2.12.1",
  "once_cell",
  "pdf-writer",
  "png",
@@ -1467,8 +1470,9 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.2.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f485e1a850201a01dcd8d73e7cf09f2cd4c4cc85c2cd296359094d49336d8ef7"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1855,7 +1859,7 @@ dependencies = [
  "bitvec",
  "crossbeam-channel",
  "filetime",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "libdeflater",
  "log",
  "rayon",
@@ -2012,7 +2016,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42cf17e9a1800f5f396bc67d193dc9411b59012a5876445ef450d449881e1016"
 dependencies = [
  "base64",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "quick-xml 0.32.0",
  "serde",
  "time",
@@ -2428,18 +2432,28 @@ checksum = "f79dfe2d285b0488816f30e700a7438c5a73d816b5b7d3ac72fbc48b0d185e03"
 
 [[package]]
 name = "serde"
-version = "1.0.217"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.217"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2485,7 +2499,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "itoa",
  "ryu",
  "serde",
@@ -2899,7 +2913,7 @@ version = "0.22.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02a8b472d1a3d7c18e2d61a489aee3453fd9031c33e4f55bd533f4a7adca1bee"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -3039,7 +3053,7 @@ version = "0.14.0"
 dependencies = [
  "comemo",
  "ecow",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "rustc-hash",
  "stacker",
  "toml",
@@ -3183,7 +3197,7 @@ dependencies = [
  "icu_provider",
  "icu_provider_blob",
  "image",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "kamadak-exif",
  "kurbo 0.12.0",
  "lipsum",
@@ -3245,7 +3259,7 @@ dependencies = [
  "comemo",
  "ecow",
  "image",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "infer",
  "krilla",
  "krilla-svg",
@@ -3342,7 +3356,7 @@ dependencies = [
  "comemo",
  "ecow",
  "hayro-syntax",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "oxipng",
  "parking_lot",
  "rayon",
@@ -3874,7 +3888,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "886614b5ce857341226aa091f3c285e450683894acaaa7887f366c361efef79d"
 dependencies = [
  "font-types",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "kurbo 0.12.0",
  "log",
  "read-fonts",
@@ -4101,7 +4115,7 @@ dependencies = [
  "arbitrary",
  "crc32fast",
  "flate2",
- "indexmap 2.7.1",
+ "indexmap 2.12.1",
  "memchr",
  "zopfli",
 ]
