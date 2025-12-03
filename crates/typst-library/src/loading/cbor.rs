@@ -10,7 +10,7 @@ use crate::loading::{DataSource, Load};
 ///
 /// The file must contain a valid CBOR serialization. The CBOR values will be
 /// converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// [table below]($cbor/#conversion).
 ///
 /// The function returns a dictionary, an array or, depending on the CBOR file,
 /// another CBOR data type.

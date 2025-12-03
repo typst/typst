@@ -189,7 +189,7 @@ pub struct GridElem {
     /// gutters, providing a single track size will only ever create a single
     /// column.
     ///
-    /// See the [track size section](#track-size) above for more details.
+    /// See the [track size section]($grid/#track-size) above for more details.
     pub columns: TrackSizings,
 
     /// The row sizes.
@@ -197,7 +197,7 @@ pub struct GridElem {
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
     ///
-    /// See the [track size section](#track-size) above for more details.
+    /// See the [track size section]($grid/#track-size) above for more details.
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand to set
@@ -207,7 +207,7 @@ pub struct GridElem {
     /// If there are more gutters than defined sizes, the last gutter is
     /// repeated.
     ///
-    /// See the [track size section](#track-size) above for more details.
+    /// See the [track size section]($grid/#track-size) above for more details.
     #[external]
     pub gutter: TrackSizings,
 
@@ -233,7 +233,7 @@ pub struct GridElem {
     /// - use an array of insets corresponding to each column
     /// - use a function that maps a cell's position to its inset
     ///
-    /// See the [styling section](#styling) above for more details.
+    /// See the [styling section]($grid/#styling) above for more details.
     ///
     /// In addition, you can find an example at the [`table.inset`] parameter.
     #[fold]
@@ -248,7 +248,7 @@ pub struct GridElem {
     /// - use an array of alignments corresponding to each column
     /// - use a function that maps a cell's position to its alignment
     ///
-    /// See the [styling section](#styling) above for details.
+    /// See the [styling section]($grid/#styling) above for details.
     ///
     /// In addition, you can find an example at the [`table.align`] parameter.
     pub align: Celled<Smart<Alignment>>,
@@ -261,7 +261,7 @@ pub struct GridElem {
     /// - a function that maps a cell's position to its color
     ///
     /// Most notably, arrays and functions are useful for creating striped grids.
-    /// See the [styling section](#styling) above for more details.
+    /// See the [styling section]($grid/#styling) above for more details.
     ///
     /// ```example
     /// #grid(
@@ -299,7 +299,7 @@ pub struct GridElem {
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
     ///
-    /// See the [styling section](#styling) above for more details.
+    /// See the [styling section]($grid/#styling) above for more details.
     ///
     /// ```example:"Passing a function to set a stroke based on position"
     /// #set page(width: 420pt)

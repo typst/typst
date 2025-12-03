@@ -9,7 +9,8 @@ use crate::loading::{DataSource, Load, Readable};
 /// Reads structured data from a TOML file.
 ///
 /// The file must contain a valid TOML table. The TOML values will be converted
-/// into corresponding Typst values as listed in the [table below](#conversion).
+/// into corresponding Typst values as listed in the
+/// [table below]($toml/#conversion).
 ///
 /// The function returns a dictionary representing the TOML table.
 ///

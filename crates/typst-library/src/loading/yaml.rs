@@ -10,7 +10,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// The file must contain a valid YAML object or array. The YAML values will be
 /// converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// [table below]($yaml/#conversion).
 ///
 /// The function returns a dictionary, an array or, depending on the YAML file,
 /// another YAML data type.

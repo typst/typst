@@ -10,7 +10,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// The file must contain a valid JSON value, such as object or array. The JSON
 /// values will be converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// [table below]($json/#conversion).
 ///
 /// The function returns a dictionary, an array or, depending on the JSON file,
 /// another JSON data type.

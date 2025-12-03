@@ -127,7 +127,8 @@ impl AlignPointElem {
 /// class, e.g. to make a symbol behave like a relation. The class of a symbol
 /// defines the way it is laid out, including spacing around it, and how its
 /// scripts are attached by default. Note that the latter can always be
-/// overridden using [`{limits}`](math.limits) and [`{scripts}`](math.scripts).
+/// overridden using [`{limits}`]($math.limits) and
+/// [`{scripts}`]($math.scripts).
 ///
 /// # Example
 /// ```example

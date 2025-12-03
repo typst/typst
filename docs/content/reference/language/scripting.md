@@ -334,7 +334,7 @@ and a version.
 ```
 
 The `preview` namespace contains packages shared by the community. You can find
-all available community packages on [Typst Universe]($universe).
+all available community packages on [Typst Universe](https://typst.app/universe).
 
 If you are using Typst locally, you can also create your own system-local
 packages. For more details on this, see the

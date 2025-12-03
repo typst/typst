@@ -42,6 +42,7 @@ use crate::introspection::Location;
 ///
 /// = Conclusion
 /// ```
+///
 /// Refer to the [`selector`] type for more details on before/after selectors.
 #[func(contextual)]
 pub fn here(context: Tracked<Context>) -> HintedStrResult<Location> {

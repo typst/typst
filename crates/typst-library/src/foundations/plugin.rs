@@ -23,7 +23,7 @@ use crate::loading::{DataSource, Load};
 /// buffer. They should typically be wrapped in idiomatic Typst functions that
 /// perform the necessary conversions between native Typst types and bytes by
 /// leveraging [`str`]($str/#constructor), [`bytes`]($bytes/#constructor), and
-/// [data loading functions]($reference/data-loading).
+/// [data loading functions]($category/data-loading).
 ///
 /// For security reasons, plugins run in isolation from your system. This means
 /// that printing, reading files, or similar things are not supported.
@@ -123,10 +123,10 @@ use crate::loading::{DataSource, Load};
 ///
 ///   Writes the arguments for the current function into a plugin-allocated
 ///   buffer. When a plugin function is called, it [receives the
-///   lengths](#exports) of its input buffers as arguments. It should then
-///   allocate a buffer whose capacity is at least the sum of these lengths. It
-///   should then call this function with a `ptr` to the buffer to fill it with
-///   the arguments, one after another.
+///   lengths]($plugin/#exports) of its input buffers as arguments. It should
+///   then allocate a buffer whose capacity is at least the sum of these
+///   lengths. It should then call this function with a `ptr` to the buffer to
+///   fill it with the arguments, one after another.
 ///
 /// - `(import "typst_env" "wasm_minimal_protocol_send_result_to_host" (func
 ///   (param i32 i32)))`

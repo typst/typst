@@ -56,7 +56,7 @@ use crate::text::UnderlineElem;
 /// Content consists of elements with fields. When constructing an element with
 /// its _element function,_ you provide these fields as arguments and when you
 /// have a content value, you can access its fields with [field access
-/// syntax]($scripting/#field-access).
+/// syntax]($scripting/#fields).
 ///
 /// Some fields are required: These must be provided when constructing an
 /// element and as a consequence, they are always available through field access
@@ -580,7 +580,7 @@ impl Content {
     }
 
     /// The location of the content. This is only available on content returned
-    /// by [query] or provided by a [show rule]($reference/styling/#show-rules),
+    /// by [query] or provided by a [show rule]($styling/#show-rules),
     /// for other content it will be `{none}`. The resulting location can be
     /// used with [counters]($counter), [state] and [queries]($query).
     #[func]

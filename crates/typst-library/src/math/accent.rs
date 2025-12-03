@@ -48,7 +48,7 @@ pub struct AccentElem {
     ///
     /// | Accent        | Name            | Codepoint |
     /// | ------------- | --------------- | --------- |
-    /// | Grave         | `grave`         | <code>&DiacriticalGrave;</code> |
+    /// | Grave         | `grave`         | `` ` ``   |
     /// | Acute         | `acute`         | `´`       |
     /// | Circumflex    | `hat`           | `^`       |
     /// | Tilde         | `tilde`         | `~`       |
@@ -57,8 +57,8 @@ pub struct AccentElem {
     /// | Breve         | `breve`         | `˘`       |
     /// | Dot           | `dot`           | `.`       |
     /// | Double dot, Diaeresis | `dot.double`, `diaer` | `¨` |
-    /// | Triple dot    | `dot.triple`    | <code>&tdot;</code> |
-    /// | Quadruple dot | `dot.quad`      | <code>&DotDot;</code> |
+    /// | Triple dot    | `dot.triple`    | `◌⃛`      |
+    /// | Quadruple dot | `dot.quad`      | `◌⃜`      |
     /// | Circle        | `circle`        | `∘`       |
     /// | Double acute  | `acute.double`  | `˝`       |
     /// | Caron         | `caron`         | `ˇ`       |

@@ -442,7 +442,7 @@ them.
 In the web app, you can choose to create a project from a template on Typst
 Universe or even create your own using the template wizard. Locally, you can use
 the `typst init` CLI to create a new project from a template. Check out [the
-list of templates]($universe/search/?kind=templates) published on Typst
+list of templates](https://typst.app/universe/search/?kind=templates) published on Typst
 Universe. You can also take a look at the [`awesome-typst`
 repository](https://github.com/qjcg/awesome-typst) to find community templates
 that aren't available through Universe.
@@ -491,7 +491,7 @@ and their corresponding Typst functions.
 | nicefrac                        | [`frac.style`]($math.frac.style) property  |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
-its own [package ecosystem]($universe) where the community share its creations
+its own [package ecosystem](https://typst.app/universe) where the community share its creations
 and automations. Let's take, for instance, the _CeTZ_ package: This package
 allows you to create complex drawings and plots. To use CeTZ in your document,
 you can just write:
@@ -535,7 +535,7 @@ Typst pre-defines a lot of useful variables in math mode. All Greek (`alpha`,
 their name. Some symbols are additionally available through shorthands, such as
 `<=`, `>=`, and `->`.
 
-Refer to the [symbol pages]($reference/symbols) for a full list of the symbols.
+Refer to the [symbol pages]($category/symbols) for a full list of the symbols.
 If a symbol is missing, you can also access it through a
 [Unicode escape sequence]($syntax/#escapes).
 

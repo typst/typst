@@ -12,11 +12,11 @@ PDF is Typst's default export format. Running the `compile` or `watch`
 subcommand without specifying a format will create a PDF. When exporting to PDF,
 you have the following configuration options:
 
-- Which [PDF standards](#pdf-standards) Typst should enforce conformance with by
-  specifying `--pdf-standard` followed by one or multiple comma-separated
-  standards. Valid standards are `1.4`, `1.5`, `1.6`, `1.7`, `2.0`, `a-1b`,
-  `a-1a`, `a-2b`, `a-2u`, `a-2a`, `a-3b`, `a-3u`, `a-3a`, `a-4`, `a-4f`, `a-4e`,
-  and `ua-1`. By default, Typst outputs PDF-1.7-compliant files.
+- Which [PDF standards]($pdf/#pdf-standards) Typst should enforce conformance
+  with by specifying `--pdf-standard` followed by one or multiple
+  comma-separated standards. Valid standards are `1.4`, `1.5`, `1.6`, `1.7`,
+  `2.0`, `a-1b`, `a-1a`, `a-2b`, `a-2u`, `a-2a`, `a-3b`, `a-3u`, `a-3a`, `a-4`,
+  `a-4f`, `a-4e`, and `ua-1`. By default, Typst outputs PDF-1.7-compliant files.
 
 - You can disable PDF tagging completely with `--no-pdf-tags`. By default, Typst
   will always write _Tagged PDF_ to provide a baseline level of accessibility.

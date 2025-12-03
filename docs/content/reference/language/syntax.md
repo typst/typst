@@ -50,10 +50,10 @@ more about their syntax and usage.
 | Math               | `[$x^2$]`                    | [Math]($category/math)   |
 | Line break         | `[\]`                        | [`linebreak`]            |
 | Smart quote        | `['single' or "double"]`     | [`smartquote`]           |
-| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/) |
+| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/#shorthands) |
 | Code expression    | `[#rect(width: 1cm)]`        | [Scripting]($scripting/#expressions) |
-| Character escape   | `[Tweet at us \#ad]`         | [Below](#escapes)        |
-| Comment            | `[/* block */]`, `[// line]` | [Below](#comments)       |
+| Character escape   | `[Tweet at us \#ad]`         | [Below]($syntax/#escapes) |
+| Comment            | `[/* block */]`, `[// line]` | [Below]($syntax/#comments) |
 
 ## Math mode { #math }
 Math mode is a special markup mode that is used to typeset mathematical
@@ -75,12 +75,12 @@ syntax specific to math mode follows:
 | Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
-| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/) |
+| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/#shorthands) |
 | Text/string in math    | `[$a "is natural"$]`     | [Math]($category/math)   |
 | Math function call     | `[$floor(x)$]`           | [Math]($category/math)   |
 | Code expression        | `[$#rect(width: 1cm)$]`  | [Scripting]($scripting/#expressions) |
-| Character escape       | `[$x\^2$]`               | [Below](#escapes)        |
-| Comment                | `[$/* comment */$]`      | [Below](#comments)       |
+| Character escape       | `[$x\^2$]`               | [Below]($syntax/#escapes)  |
+| Comment                | `[$/* comment */$]`      | [Below]($syntax/#comments) |
 
 ## Code mode { #code }
 Within code blocks and expressions, new expressions can start without a leading
@@ -132,7 +132,7 @@ a table listing all syntax that is available in code mode:
 | Include module           | `{include "bar.typ"}`         | [Scripting]($scripting/#modules)   |
 | Import module            | `{import "bar.typ"}`          | [Scripting]($scripting/#modules)   |
 | Import items from module | `{import "bar.typ": a, b, c}` | [Scripting]($scripting/#modules)   |
-| Comment                  | `{/* block */}`, `{// line}`  | [Below](#comments)                 |
+| Comment                  | `{/* block */}`, `{// line}`  | [Below]($syntax/#comments)         |
 
 ## Comments
 Comments are ignored by Typst and will not be included in the output. This is

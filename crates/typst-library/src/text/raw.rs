@@ -67,7 +67,7 @@ use crate::visualize::Color;
 ///
 /// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
-/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
+/// backticks (``` ` ```) to make it raw. Two backticks produce empty raw text.
 /// This works both in markup and code.
 ///
 /// When you use three or more backticks, you can additionally specify a
@@ -196,10 +196,9 @@ pub struct RawElem {
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
-    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for
-    /// [Typst markup]($reference/syntax/#markup),
-    /// [Typst code]($reference/syntax/#code), and
-    /// [Typst math]($reference/syntax/#math), respectively.
+    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for [Typst
+    /// markup]($syntax/#markup), [Typst code]($syntax/#code), and [Typst
+    /// math]($syntax/#math), respectively.
     ///
     /// ````example
     /// ```typ
