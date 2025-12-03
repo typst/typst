@@ -182,24 +182,24 @@ fn adjust_cjk_latin_spacing(width: Abs, text: &TextItem) -> (Abs, Abs) {
     let mut leading = Abs::zero();
     let mut trailing = Abs::zero();
 
-    if let Some(first) = text.glyphs.first() {
-        if glyph_primary_char(text, first).is_some_and(is_of_cj_script) {
-            let offset = first.x_offset.at(text.size);
-            if offset + tolerance >= spacing {
-                leading = spacing.min(offset);
-            }
+    if let Some(first) = text.glyphs.first()
+        && glyph_primary_char(text, first).is_some_and(is_of_cj_script)
+    {
+        let offset = first.x_offset.at(text.size);
+        if offset + tolerance >= spacing {
+            leading = spacing.min(offset);
         }
     }
 
-    if let Some(last) = text.glyphs.last() {
-        if glyph_primary_char(text, last).is_some_and(is_of_cj_script) {
-            let base = text.font.x_advance(last.id).unwrap_or(last.x_advance);
-            let extra_em = last.x_advance - base;
-            if extra_em > Em::zero() {
-                let extra = extra_em.at(text.size);
-                if extra + tolerance >= spacing {
-                    trailing = spacing.min(extra);
-                }
+    if let Some(last) = text.glyphs.last()
+        && glyph_primary_char(text, last).is_some_and(is_of_cj_script)
+    {
+        let base = text.font.x_advance(last.id).unwrap_or(last.x_advance);
+        let extra_em = last.x_advance - base;
+        if extra_em > Em::zero() {
+            let extra = extra_em.at(text.size);
+            if extra + tolerance >= spacing {
+                trailing = spacing.min(extra);
             }
         }
     }
