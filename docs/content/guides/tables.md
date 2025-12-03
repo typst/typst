@@ -114,8 +114,9 @@ applying our styles directly to `table.header`. This is due to a current
 limitation of Typst that will be fixed in a future release.
 
 Congratulations, you have created your first table! Now you can proceed to
-[change column sizes](#column-sizes), [adjust the strokes](#strokes), [add
-striped rows](#fills), and more!
+[change column sizes]($guides/tables/#column-sizes), [adjust the
+strokes]($guides/tables/#strokes), [add striped rows]($guides/tables/#fills),
+and more!
 
 ## How to change the column sizes? { #column-sizes }
 If you create a table and specify the number of columns, Typst will make each
@@ -280,10 +281,10 @@ show rules, so that we can automatically reuse it for multiple tables.
 
 Because setting the stripes itself is easy we also added some other styles to
 make it look nice. The other code in the example provides a dark blue
-[stroke](#stroke-functions) around the table and below the first line and
-emboldens the first row and the column with the book title. See the
-[strokes](#strokes) section for details on how we achieved this stroke
-configuration.
+[stroke]($guides/tables/#stroke-functions) around the table and below the first
+line and emboldens the first row and the column with the book title. See the
+[strokes]($guides/tables/#strokes) section for details on how we achieved this
+stroke configuration.
 
 Let's next take a look at how we can change only the set rule to achieve
 horizontal stripes instead:
@@ -563,9 +564,9 @@ This turns off all vertical strokes and leaves the horizontal strokes in place.
 To achieve the reverse effect (only vertical strokes), set the stroke argument
 to `{(y: none)}` instead.
 
-[Further down in the guide](#stroke-functions), we cover how to use a function
-in the stroke argument to customize all strokes individually. This is how you
-achieve more complex stroking patterns.
+[Further down in the guide]($guides/tables/#stroke-functions), we cover how to
+use a function in the stroke argument to customize all strokes individually.
+This is how you achieve more complex stroking patterns.
 
 ### Adding individual lines in the table { #individual-lines }
 If you want to add a single horizontal or vertical line in your table, for
@@ -996,12 +997,12 @@ argument) with white strokes (`table`'s `stroke` argument) and white text (set
 by the `table.cell` set rule). Finally, we align all the content of all table
 cells in the body in the center. If you want to know more about the functions
 passed to `align`, `stroke`, and `fill`, you can check out the sections on
-[alignment], [strokes](#stroke-functions), and [striped
-tables](#fills).
+[alignment], [strokes]($guides/tables/#stroke-functions), and [striped
+tables]($guides/tables/#fills).
 
 This table would be a great candidate for fully automated generation from an
 external data source! Check out the [section about importing
-data](#importing-data) to learn more about that.
+data]($guides/tables/#importing-data) to learn more about that.
 
 ## How to rotate a table? { #rotate-table }
 When tables have many columns, a portrait paper orientation can quickly get
@@ -1063,9 +1064,9 @@ on the right of the table.
 
 What we have here is a two-column document on ISO A5 paper with page numbers on
 the bottom. The table has six columns and contains a few customizations to
-[stroke](#strokes), alignment and spacing. But the most important part is that
-the table is wrapped in a call to the `rotate` function with the `reflow`
-argument being `{true}`. This will make the table rotate 90 degrees
+[stroke]($guides/tables/#strokes), alignment and spacing. But the most important
+part is that the table is wrapped in a call to the `rotate` function with the
+`reflow` argument being `{true}`. This will make the table rotate 90 degrees
 counterclockwise. The reflow argument is needed so that the table's rotation
 affects the layout. If it was omitted, Typst would lay out the page as if the
 table was not rotated (`{true}` might become the default in the future).
@@ -1312,10 +1313,11 @@ row. In our table, we have added our custom header that tells the reader that
 we've applied a logarithm to the values. Then, we spread the flattened data as
 above.
 
-We also styled the table with [stripes](#fills), a
-[horizontal line](#individual-lines) below the first row, [aligned](#alignment)
-everything to the right, and emboldened the first column. Click on the links to
-go to the relevant guide sections and see how it's done!
+We also styled the table with [stripes]($guides/tables/#fills), a [horizontal
+line]($guides/tables/#individual-lines) below the first row,
+[aligned]($guides/tables/#alignment) everything to the right, and emboldened the
+first column. Click on the links to go to the relevant guide sections and see
+how it's done!
 
 ## What if I need the table function for something that isn't a table? { #table-and-grid }
 Tabular layouts of content can be useful not only for matrices of closely

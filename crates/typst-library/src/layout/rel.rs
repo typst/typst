@@ -36,8 +36,8 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// 1. Set page margins to `{0pt}` (`[#set page(margin: 0pt)]`)
 /// 2. Multiply the ratio by the known full page width (`{21cm * 69%}`)
 /// 3. Use padding which will negate the margins (`[#pad(x: -2.5cm, ...)]`)
-/// 4. Use the page [background](page.background) or
-///    [foreground](page.foreground) field as those don't take margins into
+/// 4. Use the page [background]($page.background) or
+///    [foreground]($page.foreground) field as those don't take margins into
 ///    account (note that it will render the content outside of the document
 ///    flow, see [place] to control the content position)
 ///

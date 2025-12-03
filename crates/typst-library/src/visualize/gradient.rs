@@ -198,7 +198,7 @@ impl Gradient {
     pub fn linear(
         args: &mut Args,
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color [stops]($gradient/#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -208,7 +208,7 @@ impl Gradient {
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The [relative placement]($gradient/#relativeness) of the gradient.
         ///
         /// For an element placed at the root/top level of the document, the
         /// parent is the page itself. For other elements, the parent is the
@@ -287,7 +287,7 @@ impl Gradient {
     #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color [stops]($gradient/#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -297,7 +297,7 @@ impl Gradient {
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The [relative placement]($gradient/#relativeness) of the gradient.
         ///
         /// For an element placed at the root/top level of the document, the parent
         /// is the page itself. For other elements, the parent is the innermost block,
@@ -335,7 +335,7 @@ impl Gradient {
         /// The focal center must be inside of the end circle.
         ///
         /// By default, it is set to `{0%}`. The focal radius must be smaller
-        /// than the ending radius`.
+        /// than the ending radius.
         #[named]
         #[default(Spanned::detached(Ratio::new(0.0)))]
         focal_radius: Spanned<Ratio>,
@@ -403,7 +403,7 @@ impl Gradient {
     #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color [stops]($gradient/#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
@@ -417,7 +417,7 @@ impl Gradient {
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The [relative placement]($gradient/#relativeness) of the gradient.
         ///
         /// For an element placed at the root/top level of the document, the parent
         /// is the page itself. For other elements, the parent is the innermost block,

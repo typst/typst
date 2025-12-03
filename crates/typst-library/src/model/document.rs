@@ -14,7 +14,7 @@ use crate::text::{Locale, TextElem};
 /// # Metadata
 /// The document element is the single source of truth for document metadata.
 /// With it, you can specify the document's title, authors, date, etc. in one
-/// place. Typically, the element is used with a [set rule]($styling/#set-rule)
+/// place. Typically, the element is used with a [set rule]($styling/#set-rules)
 /// like this:
 ///
 /// ```example

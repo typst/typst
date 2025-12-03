@@ -147,7 +147,7 @@ impl Tiling {
         #[named]
         #[default(Spanned::detached(Axes::splat(Length::zero())))]
         spacing: Spanned<Axes<Length>>,
-        /// The [relative placement](#relativeness) of the tiling.
+        /// The [relative placement]($tiling/#relativeness) of the tiling.
         ///
         /// For an element placed at the root/top level of the document, the
         /// parent is the page itself. For other elements, the parent is the

@@ -701,11 +701,7 @@ Let's review the conference's style guide:
 We are now in compliance with all of these styles and can submit the paper to
 the conference! The finished paper looks like this:
 
-<img
-  src="3-advanced-paper.png"
-  alt="The finished paper"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block; margin: 24px auto;"
->
+![The finished paper](3-advanced-paper.png)
 
 ## Review
 You have now learned how to create titles, headers, and footers, how to use

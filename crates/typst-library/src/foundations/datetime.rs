@@ -245,9 +245,9 @@ impl Datetime {
     ///
     /// _Note_: Depending on which components of the datetime you specify, Typst
     /// will store it in one of the following three ways:
-    /// * If you specify year, month and day, Typst will store just a date.
-    /// * If you specify hour, minute and second, Typst will store just a time.
-    /// * If you specify all of year, month, day, hour, minute and second, Typst
+    /// - If you specify year, month and day, Typst will store just a date.
+    /// - If you specify hour, minute and second, Typst will store just a time.
+    /// - If you specify all of year, month, day, hour, minute and second, Typst
     ///   will store a full datetime.
     ///
     /// Depending on how it is stored, the [`display`]($datetime.display) method

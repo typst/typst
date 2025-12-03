@@ -77,8 +77,9 @@ impl Label {
     pub fn construct(
         /// The name of the label.
         ///
-        /// Unlike the [dedicated syntax](#syntax), this constructor accepts
-        /// any non-empty string, including names with special characters.
+        /// Unlike the [dedicated syntax]($label/#syntax), this constructor
+        /// accepts any non-empty string, including names with special
+        /// characters.
         name: Str,
     ) -> StrResult<Label> {
         if name.is_empty() {

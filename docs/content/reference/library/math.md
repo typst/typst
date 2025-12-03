@@ -91,7 +91,7 @@ demonstrated below. Note that only special OpenType math fonts are suitable for
 typesetting maths.
 
 ```example
-#show math.equation: set text(font: "Fira Math")
+#show math.equation: set text(font: "Pennstander Math")
 $ sum_(i in NN) 1 + i $
 ```
 

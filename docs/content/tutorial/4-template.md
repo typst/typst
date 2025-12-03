@@ -413,7 +413,7 @@ Another thing that you can do to make applying templates just a bit more elegant
 is to use the [`.with`]($function.with) method on functions to pre-populate all
 the named arguments. This way, you can avoid spelling out a closure and
 appending the content argument at the bottom of your template list. Templates on
-[Typst Universe]($universe) are designed to work with this style of function
+[Typst Universe](https://typst.app/universe) are designed to work with this style of function
 call.
 
 ```example:single

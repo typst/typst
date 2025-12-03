@@ -76,7 +76,7 @@ use crate::text::TextElem;
 ///
 /// # Syntax
 /// This function also has dedicated syntax: A `{"normal"}` reference to a
-/// label can be created by typing an `@` followed by the name of the label
+/// label can be created by typing an `[@]` followed by the name of the label
 /// (e.g. `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
 /// To customize the supplement, add content in square brackets after the

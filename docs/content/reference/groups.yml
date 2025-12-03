@@ -245,8 +245,8 @@
     take care of converting those into the appropriate HTML.
 
     Some parameters are common to all typed HTML functions. These are listed at
-    the bottom in the [Global Attributes](#global-attributes) section instead of
-    explicitly on each element for readability.
+    the bottom in the [Global Attributes]($html/typed/#global-attributes)
+    section instead of explicitly on each element for readability.
 
     # Example
     ```typ
