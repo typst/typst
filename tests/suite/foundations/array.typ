@@ -556,3 +556,7 @@
 --- array-reduce-unexpected-argument paged ---
 // Error: 19-21 unexpected argument
 #(1, 2, 3).reduce(() => none)
+
+--- issue-6285-crashed-with-sorting-non-total-order paged ---
+// Error: 2-66 cannot compare none and string
+#(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()
