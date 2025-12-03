@@ -110,3 +110,14 @@ abc字\
 时间#footnote[有空白]
 
 时间#sub[123]#super[时间]B
+
+--- issue-7475-decoration-padding paged ---
+
+#set text(lang: "zh")
+#underline[五日]M \
+#underline[五日] M \
+#underline[五日]
+
+#highlight[五日]M \
+#highlight[五日] M \
+#highlight[五日]

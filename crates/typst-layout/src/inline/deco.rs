@@ -2,11 +2,13 @@ use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
-    BottomEdge, DecoLine, Decoration, TextEdgeBounds, TextItem, TopEdge,
+    BottomEdge, DecoLine, Decoration, Glyph, TextEdgeBounds, TextItem, TopEdge,
+    is_default_ignorable,
 };
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
+use super::shaping::is_of_cj_script;
 use crate::shapes::styled_rect;
 
 /// Add line decorations to a single run of shaped text.
@@ -19,14 +21,22 @@ pub fn decorate(
     pos: Point,
 ) {
     let font_metrics = text.font.metrics();
+    let (trim_start, trim_end) = adjust_cjk_latin_spacing(width, text);
+    let line_start = pos.x + trim_start;
+    let line_end = pos.x + width - trim_end;
+
+    if line_end <= line_start {
+        return;
+    }
 
     if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
         &deco.line
     {
+        let trimmed_width = line_end - line_start;
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
-        let size = Size::new(width + 2.0 * deco.extent, top + bottom);
+        let size = Size::new(trimmed_width + 2.0 * deco.extent, top + bottom);
         let rects = styled_rect(size, radius, fill.clone(), stroke);
-        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
+        let origin = Point::new(line_start - deco.extent, pos.y - top - shift);
         frame.prepend_multiple(
             rects
                 .into_iter()
@@ -57,8 +67,8 @@ pub fn decorate(
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
 
-    let start = pos.x - deco.extent;
-    let end = pos.x + width + deco.extent;
+    let start = line_start - deco.extent;
+    let end = line_end + deco.extent;
 
     let mut push_segment = |from: Abs, to: Abs, prepend: bool| {
         let origin = Point::new(from, pos.y + offset);
@@ -81,8 +91,8 @@ pub fn decorate(
     }
 
     let line = Line::new(
-        kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-        kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+        kurbo::Point::new(line_start.to_raw(), offset.to_raw()),
+        kurbo::Point::new(line_end.to_raw(), offset.to_raw()),
     );
 
     let mut x = pos.x;
@@ -157,6 +167,59 @@ fn determine_edges(
     }
 
     (top, bottom)
+}
+
+/// Clamp the CJK-Latin padding for the given run width to avoid over-shrinking
+/// the decoration geometry.
+fn adjust_cjk_latin_spacing(width: Abs, text: &TextItem) -> (Abs, Abs) {
+    // `add_cjk_latin_spacing` currently inserts 1/4 em padding.
+    let spacing = Em::new(0.25).at(text.size);
+    if spacing.approx_empty() {
+        return (Abs::zero(), Abs::zero());
+    }
+
+    let tolerance = spacing / 5.0;
+    let mut leading = Abs::zero();
+    let mut trailing = Abs::zero();
+
+    if let Some(first) = text.glyphs.first() {
+        if glyph_primary_char(text, first).is_some_and(is_of_cj_script) {
+            let offset = first.x_offset.at(text.size);
+            if offset + tolerance >= spacing {
+                leading = spacing.min(offset);
+            }
+        }
+    }
+
+    if let Some(last) = text.glyphs.last() {
+        if glyph_primary_char(text, last).is_some_and(is_of_cj_script) {
+            let base = text.font.x_advance(last.id).unwrap_or(last.x_advance);
+            let extra_em = last.x_advance - base;
+            if extra_em > Em::zero() {
+                let extra = extra_em.at(text.size);
+                if extra + tolerance >= spacing {
+                    trailing = spacing.min(extra);
+                }
+            }
+        }
+    }
+
+    if leading > width {
+        leading = width;
+    }
+
+    let remaining = width - leading;
+    if trailing > remaining {
+        trailing = remaining;
+    }
+
+    (leading, trailing)
+}
+
+/// Extract the primary (non-ignorable) character represented by a glyph.
+fn glyph_primary_char(text: &TextItem, glyph: &Glyph) -> Option<char> {
+    let slice: &str = &text.text[glyph.range()];
+    slice.chars().find(|&c| !is_default_ignorable(c))
 }
 
 /// Builds a kurbo [`BezPath`] for a glyph.
