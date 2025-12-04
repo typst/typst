@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::diag::{
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, bail,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Context, Dict, FromValue, Func, IntoValue, Reflect, Repr, Str,
@@ -839,8 +841,9 @@ impl Array {
     /// Return a sorted version of this array, optionally by a given key
     /// function. The sorting algorithm used is stable.
     ///
-    /// Returns an error if two values could not be compared or if the key
-    /// or comparison function (if given) yields an error.
+    /// Returns an error if a pair of values selected for comparison could not
+    /// be compared, or if the key or comparison function (if given) yield an
+    /// error.
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
@@ -978,7 +981,10 @@ impl Array {
                     match (key_of(a.clone()), key_of(b.clone())) {
                         (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
                             if result.is_ok() {
-                                result = Err(err).at(span);
+                                result = Err(HintedString::from(err).with_hint(match key {
+                                    None => "consider choosing a `key` or defining the comparison with `by`",
+                                    Some(_) => "consider defining the comparison with `by` or choosing a different `key`"
+                                })).at(span);
                             }
                             Ordering::Equal
                         }),

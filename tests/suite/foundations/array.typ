@@ -465,12 +465,19 @@
 // Error: 32-37 cannot divide by zero
 #(1, 2, 0, 3).sorted(key: x => 5 / x)
 
+--- array-sorted-underdetermined-with-key paged ---
+// Error: 2-40 cannot compare content and content
+// Hint: 2-40 consider defining the comparison with `by` or choosing a different `key`
+#((1, []), (1, [])).sorted(key: a => a)
+
 --- array-sorted-uncomparable paged ---
 // Error: 2-26 cannot compare content and content
+// Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths paged ---
 // Error: 2-26 cannot compare 3em with 2pt
+// Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 paged ---
@@ -559,4 +566,5 @@
 
 --- issue-6285-crashed-with-sorting-non-total-order paged ---
 // Error: 2-66 cannot compare none and string
+// Hint: 2-66 consider choosing a `key` or defining the comparison with `by`
 #(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()
