@@ -104,7 +104,7 @@ fn html_document_impl(
 
     let mut link_targets = FxHashSet::default();
     let mut introspector = introspect_html(&tags_and_root, &mut link_targets);
-    match tags_and_root.swap_remove(root_index) {
+    match tags_and_root.remove(root_index) {
         HtmlNode::Element(mut root) => {
             crate::link::identify_link_targets(
                 &mut root,
@@ -217,64 +217,37 @@ fn introspect_html(
 /// A direct reference to the root element is also returned.
 fn finalize_dom(
     engine: &mut Engine,
-    mut output: EcoVec<HtmlNode>,
+    output: EcoVec<HtmlNode>,
     info: &DocumentInfo,
     footnote_locator: Locator<'_>,
     footnote_styles: StyleChain<'_>,
-) -> SourceResult<(Vec<HtmlNode>, usize)> {
-    fn not_a_tag(node: &HtmlNode) -> bool {
-        !matches!(node, HtmlNode::Tag(_))
+) -> SourceResult<(EcoVec<HtmlNode>, usize)> {
+    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
+
+    let mut needs_body = true;
+    for (idx, node) in output.iter().enumerate() {
+        let HtmlNode::Element(elem) = node else { continue };
+        let tag = elem.tag;
+        match (tag, count) {
+            (tag::html, 1) => {
+                FootnoteContainer::unsupported_with_custom_dom(engine)?;
+
+                return Ok((output, idx));
+            }
+            (tag::body, 1) => {
+                FootnoteContainer::unsupported_with_custom_dom(engine)?;
+                needs_body = false;
+            }
+            (tag::html | tag::body, _) => bail!(
+                elem.span,
+                "`{}` element must be the only element in the document",
+                elem.tag,
+            ),
+            _ => {}
+        }
     }
 
-    let preceding_tags_end = output.iter().position(not_a_tag).unwrap_or(0);
-    let following_tags_start = output
-        .iter()
-        .rposition(not_a_tag)
-        .map(|x| x + 1)
-        .unwrap_or(output.len());
-    let non_tag_count = following_tags_start - preceding_tags_end;
-    let mut needs_body = false;
-    let mut needs_html = false;
-
-    if non_tag_count == 0 {
-        // If there are only tags, wrap them in <html> and <body>
-        needs_body = true;
-        needs_html = true;
-    } else if non_tag_count == 1 {
-        let unique_node = &output[preceding_tags_end];
-        if let HtmlNode::Element(HtmlElement { tag, .. }) = unique_node
-            && *tag != tag::html
-        {
-            if *tag != tag::body {
-                needs_body = true;
-            }
-
-            needs_html = true;
-        }
-    } else {
-        // If there is more than one node, you are not allowed to emit a <body>
-        // or <html> element.
-        for node in &output {
-            match node {
-                HtmlNode::Element(HtmlElement { tag, span, .. })
-                    if *tag == tag::html || *tag == tag::body =>
-                {
-                    bail!(
-                        *span,
-                        "`{}` element must be the only element in the document",
-                        tag,
-                    )
-                }
-                _ => {}
-            }
-        }
-
-        // And all elements are necessarily wrapped.
-        needs_body = true;
-        needs_html = true;
-    }
-
-    if needs_body {
+    let body = if needs_body {
         let mut body = HtmlElement::new(tag::body).with_children(output);
         let footnotes = crate::fragment::html_block_fragment(
             engine,
@@ -284,22 +257,17 @@ fn finalize_dom(
             Whitespace::Normal,
         )?;
         body.children.extend(footnotes);
-        output = eco_vec![body.into()];
+        eco_vec![body.into()]
     } else {
-        // If the user supplied their own <body> or <html>, check that they don't use footnotes.
-        FootnoteContainer::unsupported_with_custom_dom(engine)?;
-    }
+        output
+    };
 
-    if needs_html {
-        let mut html = HtmlElement::new(tag::html)
-            .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
-        let head = head_element(info);
-        html.children.push(head.into());
-        html.children.extend(output);
-        Ok((vec![html.into()], 0))
-    } else {
-        Ok((output.into_iter().collect(), preceding_tags_end))
-    }
+    let mut html = HtmlElement::new(tag::html)
+        .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
+    let head = head_element(info);
+    html.children.push(head.into());
+    html.children.extend(body);
+    Ok((eco_vec![html.into()], 0))
 }
 
 /// Generate a `<head>` element.
