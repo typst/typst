@@ -1,7 +1,7 @@
 264adda7a3ecf30207d61351d4dcee46 math-cancel-angle-absolute
-de27f5072f85b950c65ddb9a703b558d math-cancel-angle-func
+86178e534625c4337a849bf55801bf7e math-cancel-angle-func
 46d14c2a24cdbce389601b8c131b2446 math-cancel-cross
 72911e26cf3cd26b833063df899df06e math-cancel-customized
-ea10d0f58fe97541bd55240deae54953 math-cancel-display
+4e810b34de2000187e6fac7e9a890db5 math-cancel-display
 c08b141bdaf3f2b7425ea853ba65abeb math-cancel-inline
-302ee005e973b4896a7498dc895cdd1d math-cancel-inverted
+3d694ea48a6bb5f9226402120d952e0e math-cancel-inverted

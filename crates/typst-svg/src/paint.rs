@@ -184,8 +184,12 @@ impl SVGRenderer<'_> {
                             correct_tiling_pos(center.1),
                         );
                         builder.line_to(
-                            correct_tiling_pos(-2.0 * (theta1 + angle).cos() + center.0),
-                            correct_tiling_pos(2.0 * (theta1 + angle).sin() + center.1),
+                            correct_tiling_pos(
+                                -2.0 * libm::cosf(theta1 + angle) + center.0,
+                            ),
+                            correct_tiling_pos(
+                                2.0 * libm::sinf(theta1 + angle) + center.1,
+                            ),
                         );
                         builder.arc(
                             (2.0, 2.0),
@@ -194,10 +198,10 @@ impl SVGRenderer<'_> {
                             1,
                             (
                                 correct_tiling_pos(
-                                    -2.0 * (theta2 + angle).cos() + center.0,
+                                    -2.0 * libm::cosf(theta2 + angle) + center.0,
                                 ),
                                 correct_tiling_pos(
-                                    2.0 * (theta2 + angle).sin() + center.1,
+                                    2.0 * libm::sinf(theta2 + angle) + center.1,
                                 ),
                             ),
                         );

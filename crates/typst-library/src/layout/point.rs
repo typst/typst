@@ -57,7 +57,7 @@ impl Point {
 
     /// The distance between this point and the origin.
     pub fn hypot(self) -> Abs {
-        Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))
+        Abs::raw(libm::hypot(self.x.to_raw(), self.y.to_raw()))
     }
 
     // TODO: this is a bit awkward on a point struct.

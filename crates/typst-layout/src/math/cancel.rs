@@ -139,6 +139,6 @@ fn default_angle(body: Size) -> Angle {
     //       O ----
     //         width
     let (width, height) = (body.x, body.y);
-    let default_angle = (width / height).atan(); // arctangent (in the range [0, Pi/2])
+    let default_angle = libm::atan(width / height); // arctangent (in the range [0, Pi/2])
     Angle::rad(default_angle)
 }

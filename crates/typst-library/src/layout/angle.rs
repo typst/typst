@@ -66,17 +66,17 @@ impl Angle {
 
     /// Get the sine of this angle in radians.
     pub fn sin(self) -> f64 {
-        self.to_rad().sin()
+        libm::sin(self.to_rad())
     }
 
     /// Get the cosine of this angle in radians.
     pub fn cos(self) -> f64 {
-        self.to_rad().cos()
+        libm::cos(self.to_rad())
     }
 
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
-        self.to_rad().tan()
+        libm::tan(self.to_rad())
     }
 
     /// Get the quadrant of the Cartesian plane that this angle lies in.
