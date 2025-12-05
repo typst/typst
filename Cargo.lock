@@ -3111,6 +3111,7 @@ dependencies = [
  "typst-assets",
  "typst-dev-assets",
  "typst-eval",
+ "typst-html",
  "unscanny",
 ]
 

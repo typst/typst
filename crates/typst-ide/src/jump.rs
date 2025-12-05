@@ -1,10 +1,11 @@
-use std::num::NonZeroUsize;
-
-use typst::WorldExt;
+use ecow::EcoVec;
+use typst::introspection::HtmlPosition;
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
+use typst::{AsDocument, WorldExt};
+use typst_html::{HtmlDocument, HtmlElement, HtmlNode};
 
 use crate::IdeWorld;
 
@@ -27,13 +28,112 @@ impl Jump {
     }
 }
 
-/// Determine where to jump to based on a click in a frame.
-pub fn jump_from_click(
+/// Determine where to jump to, based on a click in a rendered document.
+pub fn jump_from_click<D: JumpFromDocument>(
     world: &dyn IdeWorld,
-    document: &PagedDocument,
+    document: &D,
+    position: &D::Position,
+) -> Option<Jump> {
+    document.resolve_position(world, position)
+}
+
+/// Maps a position in a document to a [jump destination][`Jump`], allowing for
+/// click-to-jump functionnality.
+pub trait JumpFromDocument: jump_from_document_sealed::JumpFromDocument {}
+// The actual implementations are in the sealed trait.
+impl JumpFromDocument for PagedDocument {}
+impl JumpFromDocument for HtmlDocument {}
+
+mod jump_from_document_sealed {
+    use crate::IdeWorld;
+    use typst::{
+        introspection::{HtmlPosition, InnerHtmlPosition},
+        layout::{PagedDocument, Position},
+    };
+    use typst_html::{HtmlDocument, HtmlNode};
+
+    use super::{Jump, jump_from_click_in_frame, nth_child};
+
+    /// See [`super::JumpFromDocument`].
+    pub trait JumpFromDocument {
+        type Position;
+
+        fn resolve_position(
+            &self,
+            world: &dyn IdeWorld,
+            position: &Self::Position,
+        ) -> Option<Jump>;
+    }
+
+    impl JumpFromDocument for PagedDocument {
+        type Position = Position;
+
+        fn resolve_position(
+            &self,
+            world: &dyn IdeWorld,
+            position: &Self::Position,
+        ) -> Option<Jump> {
+            let page = self.pages.get(position.page.get() - 1)?;
+            let click = position.point;
+
+            jump_from_click_in_frame(world, self, &page.frame, click)
+        }
+    }
+
+    impl JumpFromDocument for HtmlDocument {
+        type Position = HtmlPosition;
+
+        fn resolve_position(
+            &self,
+            world: &dyn IdeWorld,
+            position: &Self::Position,
+        ) -> Option<Jump> {
+            let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
+            for index in position.element() {
+                match current_node {
+                    HtmlNode::Element(html_element) => {
+                        current_node = nth_child(*index, html_element)?;
+                    }
+                    HtmlNode::Tag(_) | HtmlNode::Text(_, _) | HtmlNode::Frame(_) => {
+                        return None;
+                    }
+                }
+            }
+
+            let span = current_node.span();
+            let id = span.id()?;
+            let source = world.source(id).ok()?;
+            let ast_node = source.find(span);
+            let is_text_node =
+                ast_node.is_some_and(|x| x.is::<typst::syntax::ast::Text>());
+
+            if let (HtmlNode::Frame(frame), Some(InnerHtmlPosition::Frame(point))) =
+                (current_node, &position.details())
+            {
+                return jump_from_click_in_frame(world, self, &frame.inner, *point);
+            }
+
+            Some(Jump::File(
+                id,
+                source.range(span).unwrap_or_default().start
+                    + match (is_text_node, &position.details()) {
+                        (true, Some(InnerHtmlPosition::Character(i))) => *i,
+                        _ => 0,
+                    },
+            ))
+        }
+    }
+}
+
+/// Determine where to jump to based on a click in a frame.
+pub fn jump_from_click_in_frame(
+    world: &dyn IdeWorld,
+    document: impl AsDocument,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
+    let document = document.as_document();
+
     // Try to find a link first.
     for (pos, item) in frame.items() {
         if let FrameItem::Link(dest, size) = item
@@ -42,9 +142,9 @@ pub fn jump_from_click(
             return Some(match dest {
                 Destination::Url(url) => Jump::Url(url.clone()),
                 Destination::Position(pos) => Jump::Position(*pos),
-                Destination::Location(loc) => {
-                    Jump::Position(document.introspector.position(*loc))
-                }
+                Destination::Location(loc) => Jump::Position(
+                    document.introspector().position(*loc).as_paged_or_default(),
+                ),
             });
         }
     }
@@ -66,7 +166,9 @@ pub fn jump_from_click(
                     continue;
                 };
                 let pos = pos.transform_inf(inv_transform);
-                if let Some(span) = jump_from_click(world, document, &group.frame, pos) {
+                if let Some(span) =
+                    jump_from_click_in_frame(world, document, &group.frame, pos)
+                {
                     return Some(span);
                 }
             }
@@ -144,12 +246,47 @@ pub fn jump_from_click(
     None
 }
 
+/// Whether a rectangle with the given size at the given position contains the
+/// click position.
+fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
+    pos.x <= click.x
+        && pos.x + size.x >= click.x
+        && pos.y <= click.y
+        && pos.y + size.y >= click.y
+}
+
+/// Returns the n-th child of an HTML element, ignoring introspection tags, and
+/// grouping sibling text nodes together as one.
+fn nth_child(n: usize, elem: &HtmlElement) -> Option<&HtmlNode> {
+    let mut i = 0;
+    let mut was_text = false;
+    for ch in &elem.children {
+        if matches!(ch, HtmlNode::Tag(_)) {
+            continue;
+        }
+
+        let is_text = matches!(ch, HtmlNode::Text(_, _));
+        let contiguous_text_node = is_text && was_text;
+        if i == n && !contiguous_text_node {
+            return Some(ch);
+        }
+
+        if !contiguous_text_node {
+            i += 1
+        }
+
+        was_text = is_text;
+    }
+
+    None
+}
+
 /// Find the output location in the document for a cursor position.
-pub fn jump_from_cursor(
-    document: &PagedDocument,
+pub fn jump_from_cursor<D: JumpInDocument>(
+    document: &D,
     source: &Source,
     cursor: usize,
-) -> Vec<Position> {
+) -> Vec<D::Position> {
     fn is_text(node: &LinkedNode) -> bool {
         matches!(node.kind(), SyntaxKind::Text | SyntaxKind::MathText)
     }
@@ -164,15 +301,61 @@ pub fn jump_from_cursor(
     };
 
     let span = node.span();
-    document
-        .pages
-        .iter()
-        .enumerate()
-        .filter_map(|(i, page)| {
-            find_in_frame(&page.frame, span)
-                .map(|point| Position { page: NonZeroUsize::new(i + 1).unwrap(), point })
-        })
-        .collect()
+    document.find_span(span)
+}
+
+/// Jump to a position in the document, given a cursor position in a source
+/// file.
+pub trait JumpInDocument: jump_in_document_sealed::JumpInDocument {}
+// The actual implementations are in the sealed trait.
+impl JumpInDocument for PagedDocument {}
+impl JumpInDocument for HtmlDocument {}
+
+/// Sealing for [`JumpInDocument`].
+mod jump_in_document_sealed {
+    use std::num::NonZeroUsize;
+
+    use ecow::EcoVec;
+    use typst::{
+        introspection::HtmlPosition,
+        layout::{PagedDocument, Position},
+        syntax::Span,
+    };
+    use typst_html::HtmlDocument;
+
+    use super::{find_in_elem, find_in_frame};
+
+    /// See [`super::JumpInDocument`].
+    pub trait JumpInDocument {
+        type Position;
+
+        fn find_span(&self, span: Span) -> Vec<Self::Position>;
+    }
+
+    impl JumpInDocument for PagedDocument {
+        type Position = Position;
+
+        fn find_span(&self, span: Span) -> Vec<Self::Position> {
+            self.pages
+                .iter()
+                .enumerate()
+                .filter_map(|(i, page)| {
+                    find_in_frame(&page.frame, span).map(|point| Position {
+                        page: NonZeroUsize::new(i + 1).unwrap(),
+                        point,
+                    })
+                })
+                .collect()
+        }
+    }
+
+    impl JumpInDocument for HtmlDocument {
+        type Position = HtmlPosition;
+
+        fn find_span(&self, span: Span) -> Vec<Self::Position> {
+            find_in_elem(&self.root, span, &mut EcoVec::new())
+        }
+    }
 }
 
 /// Find the position of a span in a frame.
@@ -197,13 +380,44 @@ fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
     None
 }
 
-/// Whether a rectangle with the given size at the given position contains the
-/// click position.
-fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
-    pos.x <= click.x
-        && pos.x + size.x >= click.x
-        && pos.y <= click.y
-        && pos.y + size.y >= click.y
+/// Find the position of a span in an HTML element.
+fn find_in_elem(
+    elem: &HtmlElement,
+    span: Span,
+    current_position: &mut EcoVec<usize>,
+) -> Vec<HtmlPosition> {
+    let mut result = Vec::new();
+    let mut i = 0;
+    for child in &elem.children {
+        match child {
+            HtmlNode::Element(e) => {
+                current_position.push(i);
+                result.extend(find_in_elem(e, span, current_position));
+                current_position.pop();
+
+                i += 1;
+            }
+            HtmlNode::Text(_, node_span) => {
+                if *node_span == span {
+                    return vec![HtmlPosition::new(current_position.clone())];
+                }
+
+                i += 1;
+            }
+            HtmlNode::Frame(frame) => {
+                if let Some(frame_pos) = find_in_frame(&frame.inner, span) {
+                    let mut position = current_position.clone();
+                    position.push(i);
+                    return vec![HtmlPosition::new(position).in_frame(frame_pos)];
+                }
+
+                i += 1;
+            }
+            _ => {}
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -220,10 +434,20 @@ mod tests {
     use std::borrow::Borrow;
     use std::num::NonZeroUsize;
 
-    use typst::layout::{Abs, Point, Position};
+    use ecow::eco_vec;
+    use typst::{
+        World,
+        introspection::HtmlPosition,
+        layout::{Abs, PagedDocument, Point, Position},
+        utils::NonZeroExt,
+    };
+    use typst_html::HtmlDocument;
 
-    use super::{Jump, jump_from_click, jump_from_cursor};
-    use crate::tests::{FilePos, TestWorld, WorldLike};
+    use super::{Jump, jump_from_cursor};
+    use crate::{
+        jump_from_click,
+        tests::{FilePos, TestWorld, WorldLike},
+    };
 
     fn point(x: f64, y: f64) -> Point {
         Point::new(Abs::pt(x), Abs::pt(y))
@@ -247,11 +471,7 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_click(world: impl WorldLike, click: Point, expected: Option<Jump>) {
-        let world = world.acquire();
-        let world = world.borrow();
-        let doc = typst::compile(world).output.unwrap();
-        let jump = jump_from_click(world, &doc, &doc.pages[0].frame, click);
+    fn assert_jump_eq(jump: Option<Jump>, expected: Option<Jump>) {
         if let (Some(Jump::Position(pos)), Some(Jump::Position(expected))) =
             (&jump, &expected)
         {
@@ -264,10 +484,36 @@ mod tests {
     }
 
     #[track_caller]
+    fn test_click(world: impl WorldLike, click: Point, expected: Option<Jump>) {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc: PagedDocument = typst::compile(world).output.unwrap();
+        let jump = jump_from_click(
+            world,
+            &doc,
+            &Position { page: NonZeroUsize::ONE, point: click },
+        );
+        assert_jump_eq(jump, expected);
+    }
+
+    #[track_caller]
+    fn test_click_html(
+        world: impl WorldLike,
+        click: HtmlPosition,
+        expected: Option<Jump>,
+    ) {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc: HtmlDocument = typst::compile(world).output.unwrap();
+        let jump = jump_from_click(world, &doc, &click);
+        assert_jump_eq(jump, expected);
+    }
+
+    #[track_caller]
     fn test_cursor(world: impl WorldLike, pos: impl FilePos, expected: Option<Position>) {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.unwrap();
+        let doc: PagedDocument = typst::compile(world).output.unwrap();
         let (source, cursor) = pos.resolve(world);
         let pos = jump_from_cursor(&doc, &source, cursor);
         assert_eq!(!pos.is_empty(), expected.is_some());
@@ -389,6 +635,44 @@ mod tests {
             "#line(angle: 45deg, length: 10pt, stroke: 2pt)",
             point(2.0, 2.0) + margin,
             cursor(1),
+        );
+    }
+
+    #[test]
+    fn test_jump_from_click_html() {
+        let src = "This is a test.\n\nWith multiple elements.\n\nAnd some *formatting*.";
+        let main = src.acquire().main();
+        test_click_html(
+            src,
+            // Click in the middle of "some"
+            HtmlPosition::new(eco_vec![1, 2, 0]).at_char(6),
+            Some(Jump::File(main, 48)),
+        );
+    }
+
+    #[test]
+    fn test_jump_from_click_html_introspection() {
+        // raw blocks have introspection tags around them, check that they are ignored.
+        let src =
+            "This is a test.\n\n```\nwith some code\n```\n\nAnd `some` *formatting*.";
+        let main = src.acquire().main();
+        test_click_html(
+            src,
+            // Click in the middle of "some"
+            HtmlPosition::new(eco_vec![1, 2, 1, 0]).at_char(2),
+            Some(Jump::File(main, 48)),
+        );
+    }
+
+    #[test]
+    fn test_jump_from_click_html_frame() {
+        let src = "A math formula:\n\n#html.frame($a x + b = 0$)";
+        let main = src.acquire().main();
+        test_click_html(
+            src,
+            // Click on the "b" in the math formula
+            HtmlPosition::new(eco_vec![1, 1]).in_frame(point(27.0, 5.0)),
+            Some(Jump::File(main, 37)),
         );
     }
 

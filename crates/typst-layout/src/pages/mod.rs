@@ -4,6 +4,7 @@ mod collect;
 mod finalize;
 mod run;
 
+use std::convert::identity;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
@@ -180,6 +181,7 @@ fn introspect_pages(pages: &[Page]) -> Introspector {
             &page.frame,
             NonZeroUsize::new(1 + i).unwrap(),
             Transform::identity(),
+            &mut identity,
         );
     }
 
