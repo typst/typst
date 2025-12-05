@@ -40,7 +40,7 @@ pub(crate) fn handle_image(
 
     gc.image_spans.insert(span);
 
-    let mut handle = tags::image(gc, fc, &mut surface, image, size);
+    let mut handle = tags::image(gc, fc, &mut surface, image, size).at(span)?;
     let surface = handle.surface();
 
     match image.kind() {
@@ -66,7 +66,10 @@ pub(crate) fn handle_image(
                 surface.draw_svg(
                     svg.tree(),
                     size,
-                    SvgSettings { embed_text: true, ..Default::default() },
+                    SvgSettings {
+                        embed_text: svg.is_selectable(),
+                        ..Default::default()
+                    },
                 );
             }
         }

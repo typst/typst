@@ -76,6 +76,18 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-svg-text-unselectable paged pdftags ---
+#set page(width: 250pt)
+#show image: set text(selectable: false)
+
+Selectable.
+
+#pdf.artifact(image("/assets/images/diagram.svg"))
+
+--- image-svg-text-unselectable-outside-artifact pdftags ---
+// Error: 1:26-1:61 SVG images embedded with unselectable text must be wrapped in `pdf.artifact`
+#text(selectable: false, image("/assets/images/diagram.svg"))
+
 --- image-svg-auto-detection paged ---
 #image(bytes(
   ```

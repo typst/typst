@@ -30,7 +30,7 @@ use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
-use crate::text::{LocalName, Locale, families};
+use crate::text::{LocalName, Locale, TextElem, families};
 use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
@@ -314,6 +314,7 @@ impl Packed<ImageElem> {
                         engine.world,
                         &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
                         svg_file,
+                        styles.get(TextElem::selectable),
                     )
                     .within(loaded)?,
                 )
