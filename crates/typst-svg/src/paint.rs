@@ -379,6 +379,9 @@ impl SVGRenderer<'_> {
             self.xml.write_attribute("id", &id);
             self.xml.write_attribute("width", &size.x.to_pt());
             self.xml.write_attribute("height", &size.y.to_pt());
+            // Apply offset.
+            self.xml.write_attribute("x", &(tiling.dx().to_pt()));
+            self.xml.write_attribute("y", &(tiling.dy().to_pt()));
             self.xml.write_attribute("patternUnits", "userSpaceOnUse");
             self.xml.write_attribute_fmt(
                 "viewBox",
