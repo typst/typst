@@ -981,10 +981,18 @@ impl Array {
                     match (key_of(a.clone()), key_of(b.clone())) {
                         (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
                             if result.is_ok() {
-                                result = Err(HintedString::from(err).with_hint(match key {
-                                    None => "consider choosing a `key` or defining the comparison with `by`",
-                                    Some(_) => "consider defining the comparison with `by` or choosing a different `key`"
-                                })).at(span);
+                                result =
+                                    Err(HintedString::from(err).with_hint(match key {
+                                        None => {
+                                            "consider choosing a `key` \
+                                             or defining the comparison with `by`"
+                                        }
+                                        Some(_) => {
+                                            "consider defining the comparison with `by` \
+                                             or choosing a different `key`"
+                                        }
+                                    }))
+                                    .at(span);
                             }
                             Ordering::Equal
                         }),
