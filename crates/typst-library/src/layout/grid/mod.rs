@@ -598,7 +598,7 @@ pub struct GridHeader {
 /// A repeatable grid footer.
 ///
 /// Just like the [`grid.header`] element, the footer can repeat itself on every
-/// page of the table.
+/// page of the grid.
 ///
 /// No other grid cells may be placed after the footer.
 #[elem(name = "footer", title = "Grid Footer")]
