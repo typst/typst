@@ -3,10 +3,11 @@ use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
-use typst_library::diag::SourceResult;
+use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::layout::{FrameParent, PagedDocument, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
-use typst_library::visualize::{Image, Shape};
+use typst_library::visualize::{Image, ImageKind, Shape};
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
@@ -176,15 +177,18 @@ pub fn text<'a, 'b>(
     fc: &FrameContext,
     surface: &'b mut Surface<'a>,
     text: &TextItem,
-) -> TagHandle<'a, 'b> {
+) -> SourceResult<TagHandle<'a, 'b>> {
     if disabled(gc) {
-        return TagHandle { surface, started: false };
+        return Ok(TagHandle { surface, started: false });
     }
 
     update_bbox(gc, fc, || text.bbox());
 
     if gc.tags.tree.parent_artifact().is_some() {
-        return TagHandle { surface, started: false };
+        return Ok(TagHandle { surface, started: false });
+    } else if !text.selectable {
+        let span = text.glyphs.first().map(|g| g.span.0).unwrap_or_else(Span::detached);
+        bail!(span, "unselectable text must be wrapped in `pdf.artifact`");
     }
 
     let attrs = tree::resolve_text_attrs(&mut gc.tags.tree, gc.options, text);
@@ -199,7 +203,7 @@ pub fn text<'a, 'b>(
 
     gc.tags.push_text(attrs, id);
 
-    TagHandle { surface, started: true }
+    Ok(TagHandle { surface, started: true })
 }
 
 pub fn image<'a, 'b>(
@@ -208,22 +212,28 @@ pub fn image<'a, 'b>(
     surface: &'b mut Surface<'a>,
     image: &Image,
     size: Size,
-) -> TagHandle<'a, 'b> {
+) -> StrResult<TagHandle<'a, 'b>> {
     if disabled(gc) {
-        return TagHandle { surface, started: false };
+        return Ok(TagHandle { surface, started: false });
     }
 
     update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
 
     if gc.tags.tree.parent_artifact().is_some() {
-        return TagHandle { surface, started: false };
+        return Ok(TagHandle { surface, started: false });
+    } else if let ImageKind::Svg(svg) = image.kind()
+        && !svg.is_selectable()
+    {
+        bail!(
+            "SVG images embedded with unselectable text must be wrapped in `pdf.artifact`"
+        );
     }
 
     let content = ContentTag::Span(SpanTag::empty().with_alt_text(image.alt()));
     let id = surface.start_tagged(content);
     gc.tags.push_leaf(id);
 
-    TagHandle { surface, started: true }
+    Ok(TagHandle { surface, started: true })
 }
 
 pub fn shape<'a, 'b>(

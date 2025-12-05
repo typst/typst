@@ -1,12 +1,3 @@
-- Tag: Div
+- Tag: P
   /K:
-    - Tag: Caption
-      /K:
-        - Tag: Span
-          /Placement: Block
-          /K:
-            - Content: page=0 mcid=1
-    - Tag: Figure
-      /Placement: Block
-      /K:
-        - Content: page=0 mcid=0
+    - Content: page=0 mcid=0
