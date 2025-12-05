@@ -86,7 +86,7 @@ fn convert_paint(
     }
 }
 
-fn convert_solid(color: &Color) -> (color::Color, u8) {
+pub(crate) fn convert_solid(color: &Color) -> (color::Color, u8) {
     match color.space() {
         ColorSpace::D65Gray => {
             let (c, a) = convert_luma(color);
