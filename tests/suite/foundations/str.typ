@@ -178,8 +178,8 @@
 // Test the `contains` method.
 #test("abc".contains("b"), true)
 #test("b" in "abc", true)
-#test("1234f".contains(regex("\d")), true)
-#test(regex("\d") in "1234f", true)
+#test("1234f".contains(regex("\\d")), true)
+#test(regex("\\d") in "1234f", true)
 #test("abc".contains("d"), false)
 #test("1234g" in "1234f", false)
 #test("abc".contains(regex("^[abc]$")), false)
@@ -193,16 +193,16 @@
 
 --- string-ends-with paged ---
 #test("Typst".ends-with("st"), true)
-#test("Typst".ends-with(regex("\d*")), true)
-#test("Typst".ends-with(regex("\d+")), false)
-#test("Typ12".ends-with(regex("\d+")), true)
+#test("Typst".ends-with(regex("\\d*")), true)
+#test("Typst".ends-with(regex("\\d+")), false)
+#test("Typ12".ends-with(regex("\\d+")), true)
 #test("typst13".ends-with(regex("1[0-9]")), true)
 #test("typst113".ends-with(regex("1[0-9]")), true)
 #test("typst23".ends-with(regex("1[0-9]")), false)
 
 --- string-find-and-position paged ---
 // Test the `find` and `position` methods.
-#let date = regex("\d{2}:\d{2}")
+#let date = regex("\\d{2}:\\d{2}")
 #test("Hello World".find("World"), "World")
 #test("Hello World".position("World"), 6)
 #test("It's 12:13 now".find(date), "12:13")
@@ -227,7 +227,7 @@
 // Compute the sum of all timestamps in the text.
 #let timesum(text) = {
   let time = 0
-  for match in text.matches(regex("(\d+):(\d+)")) {
+  for match in text.matches(regex("(\\d+):(\\d+)")) {
     let caps = match.captures
     time += 60 * int(caps.at(0)) + int(caps.at(1))
   }
@@ -251,8 +251,8 @@
   .replace("a", "e"),
   "Welcome"
 )
-#test("123".replace(regex("\d$"), "_"), "12_")
-#test("123".replace(regex("\d{1,2}$"), "__"), "1__")
+#test("123".replace(regex("\\d$"), "_"), "12_")
+#test("123".replace(regex("\\d{1,2}$"), "__"), "1__")
 
 --- string-replace-function paged ---
 // Test the `replace` method with `Func` replacements.
@@ -260,16 +260,16 @@
 #test("abc".replace(regex("[a-z]"), m => {
   str(m.start) + m.text + str(m.end)
 }), "0a11b22c3")
-#test("abcd, efgh".replace(regex("\w+"), m => {
+#test("abcd, efgh".replace(regex("\\w+"), m => {
   upper(m.text)
 }), "ABCD, EFGH")
-#test("hello : world".replace(regex("^(.+)\s*(:)\s*(.+)$"), m => {
+#test("hello : world".replace(regex("^(.+)\\s*(:)\\s*(.+)$"), m => {
   upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
 }), "HELLO : WORLD")
-#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
+#test("hello world, lorem ipsum".replace(regex("(\\w+) (\\w+)"), m => {
   m.captures.at(1) + " " + m.captures.at(0)
 }), "world hello, ipsum lorem")
-#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), count: 1, m => {
+#test("hello world, lorem ipsum".replace(regex("(\\w+) (\\w+)"), count: 1, m => {
   m.captures.at(1) + " " + m.captures.at(0)
 }), "world hello, lorem ipsum")
 #test("123 456".replace(regex("[a-z]+"), "a"), "123 456")
@@ -322,32 +322,47 @@
 --- string-trim-pattern-regex paged ---
 // Test the `trim` method; the pattern is a regex.
 #test("".trim(regex(".")), "")
-#test("123abc456".trim(regex("\d")), "abc")
-#test("123abc456".trim(regex("\d"), repeat: false), "23abc45")
-#test("123a4b5c678".trim(regex("\d"), repeat: true), "a4b5c")
-#test("123a4b5c678".trim(regex("\d"), repeat: false), "23a4b5c67")
-#test("123abc456".trim(regex("\d"), at: start), "abc456")
-#test("123abc456".trim(regex("\d"), at: end), "123abc")
-#test("123abc456".trim(regex("\d+"), at: end, repeat: false), "123abc")
-#test("123abc456".trim(regex("\d{1,2}$"), repeat: false), "123abc4")
+#test("123abc456".trim(regex("\\d")), "abc")
+#test("123abc456".trim(regex("\\d"), repeat: false), "23abc45")
+#test("123a4b5c678".trim(regex("\\d"), repeat: true), "a4b5c")
+#test("123a4b5c678".trim(regex("\\d"), repeat: false), "23a4b5c67")
+#test("123abc456".trim(regex("\\d"), at: start), "abc456")
+#test("123abc456".trim(regex("\\d"), at: end), "123abc")
+#test("123abc456".trim(regex("\\d+"), at: end, repeat: false), "123abc")
+#test("123abc456".trim(regex("\\d{1,2}$"), repeat: false), "123abc4")
 #test("hello world".trim(regex(".")), "")
-#test("12306".trim(regex("\d"), at: start), "")
-#test("12306abc".trim(regex("\d"), at: start), "abc")
+#test("12306".trim(regex("\\d"), at: start), "")
+#test("12306abc".trim(regex("\\d"), at: start), "abc")
 #test("whole".trim(regex("whole"), at: start), "")
-#test("12306".trim(regex("\d"), at: end), "")
-#test("abc12306".trim(regex("\d"), at: end), "abc")
+#test("12306".trim(regex("\\d"), at: end), "")
+#test("abc12306".trim(regex("\\d"), at: end), "abc")
 #test("whole".trim(regex("whole"), at: end), "")
 
 --- string-trim-at-bad-alignment paged ---
 // Error: 17-21 expected either `start` or `end`
 #"abc".trim(at: left)
 
+--- string-regex-backslash paged ---
+// Using single/double backslash will change semantical meaning of a valid
+// string escape sequence (ES).
+#let remove(source, pattern) = source.replace(regex(pattern), "")
+#test(remove("
+", "\n"), "") // Literal newline (Line Feed) in source, ES in pattern (1 byte).
+#test(remove("
+", "\\n"), "") // The `\n` regex token that represents newline (2 bytes).
+#test(remove("\n", "\n"), "") // ES in the source string.
+#test(remove("\n", "\\n"), "") // ES in the source string.
+#test(remove("\\\t\n1", "\\\\\\t\\n\\d"), "") // Proper string-based regex.
+#test(remove("\\\t\n1", `\\\t\n\d`.text), "") // Better raw-based approach.
+#test(remove(" word-wordle", "\bword\b"), " -wordle") // Invalid ES.
+#test(remove(" word-wordle", "\\bword\\b"), " -wordle") // Valid regex tokens.
+
 --- string-split paged ---
 // Test the `split` method.
 #test("abc".split(""), ("", "a", "b", "c", ""))
 #test("abc".split("b"), ("a", "c"))
-#test("a123c".split(regex("\d")), ("a", "", "", "c"))
-#test("a123c".split(regex("\d+")), ("a", "c"))
+#test("a123c".split(regex("\\d")), ("a", "", "", "c"))
+#test("a123c".split(regex("\\d+")), ("a", "c"))
 
 --- string-rev paged ---
 // Test the `rev` method.
