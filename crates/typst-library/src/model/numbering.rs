@@ -270,7 +270,7 @@ pub enum NumberingKind {
     /// Paragraph/note-like symbols: *, †, ‡, §, ¶, and ‖. Further items use
     /// repeated symbols.
     Symbol,
-    /// Hebrew numerals, including Geresh/Gershayim.
+    /// Hebrew numerals.
     Hebrew,
     /// Simplified Chinese standard numerals. This corresponds to the
     /// `ChineseCase::Lower` variant.

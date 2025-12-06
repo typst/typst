@@ -66,6 +66,7 @@ two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-normalization = { workspace = true }
+unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }

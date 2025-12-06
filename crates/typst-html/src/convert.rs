@@ -72,8 +72,10 @@ pub fn convert_to_nodes<'a>(
         trailing: None,
     };
 
-    for (child, styles) in children {
-        handle(&mut converter, child, styles)?;
+    let mut it = children.into_iter().peekable();
+    while let Some((child, styles)) = it.next() {
+        let next_child = it.peek().map(|(next, _)| *next);
+        handle(&mut converter, child, next_child, styles)?;
     }
 
     let mut nodes = converter.finish();
@@ -88,6 +90,7 @@ pub fn convert_to_nodes<'a>(
 fn handle(
     converter: &mut Converter,
     child: &Content,
+    next_child: Option<&Content>,
     styles: StyleChain,
 ) -> SourceResult<()> {
     if let Some(elem) = child.to_packed::<TagElem>() {
@@ -114,13 +117,16 @@ fn handle(
         let double = elem.double.get(styles);
         let quote = if elem.enabled.get(styles) {
             let before = last_char(&converter.output);
+            let after = next_child
+                .and_then(|content| content.to_packed::<TextElem>())
+                .and_then(|elem| elem.text.chars().next());
             let quotes = SmartQuotes::get(
                 elem.quotes.get_ref(styles),
                 styles.get(TextElem::lang),
                 styles.get(TextElem::region),
                 elem.alternative.get(styles),
             );
-            converter.quoter.quote(before, &quotes, double)
+            converter.quoter.quote(before, after, &quotes, double)
         } else {
             SmartQuotes::fallback(double)
         };

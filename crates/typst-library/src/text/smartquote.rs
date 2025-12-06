@@ -1,5 +1,6 @@
 use ecow::EcoString;
 use typst_syntax::is_newline;
+use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
@@ -9,6 +10,9 @@ use crate::foundations::{
 };
 use crate::layout::Dir;
 use crate::text::{Lang, Region, TextElem};
+
+const HEBREW_GERESH: &str = "\u{05F3}";
+const HEBREW_GERSHAYIM: &str = "\u{05F4}";
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -93,7 +97,7 @@ impl PlainText for Packed<SmartQuoteElem> {
     }
 }
 
-/// A smart quote substitutor with zero lookahead.
+/// A smart quote substitutor with minimal lookahead.
 #[derive(Debug, Clone)]
 pub struct SmartQuoter {
     /// The amount of quotes that have been opened.
@@ -114,16 +118,34 @@ impl SmartQuoter {
     pub fn quote<'a>(
         &mut self,
         before: Option<char>,
+        after: Option<char>,
         quotes: &SmartQuotes<'a>,
         double: bool,
     ) -> &'a str {
         let opened = self.top();
         let before = before.unwrap_or(' ');
+        let after = after.unwrap_or(' ');
 
         // If we are after a number and haven't most recently opened a quote of
         // this kind, produce a prime. Otherwise, we prefer a closing quote.
         if before.is_numeric() && opened != Some(double) {
             return if double { "″" } else { "′" };
+        }
+
+        // If we have a quote character inside a Hebrew word that is likely
+        // intended to be Gresh or Gershayim, avoid applying smartquotes logic
+        // to it.
+        if is_hebrew_letter(before) {
+            if !double && !after.is_alphabetic() && opened != Some(false) {
+                // Geresh as punctuation
+                return HEBREW_GERESH;
+            } else if !double && matches!(before, 'ג' | 'ד' | 'ז' | 'ח' | 'צ' | 'ץ' | 'ת')
+            {
+                // Geresh as a diacritic
+                return HEBREW_GERESH;
+            } else if double && is_hebrew_letter(after) {
+                return HEBREW_GERSHAYIM;
+            }
         }
 
         // If we have a single smart quote, didn't recently open a single
@@ -132,6 +154,7 @@ impl SmartQuoter {
         if !double
             && opened != Some(false)
             && (before.is_alphabetic() || before == '\u{FFFC}')
+            && !is_hebrew_letter(before)
         {
             return "’";
         }
@@ -182,6 +205,11 @@ impl Default for SmartQuoter {
 /// Whether the character is an opening bracket, parenthesis, or brace.
 fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '{' | '[')
+}
+
+// Whether this character is a regular Hebrew letter
+fn is_hebrew_letter(c: char) -> bool {
+    c.script() == Script::Hebrew && c.is_alphabetic()
 }
 
 /// Decides which quotes to substitute smart quotes with.
