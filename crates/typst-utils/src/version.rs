@@ -2,15 +2,13 @@
 
 /// Returns the version of Typst.
 ///
-/// The information is read from the following sources in order of precedence:
+/// The information is read from the following sources:
 ///
-/// - For the version number:
-///  - The `TYPST_VERSION` environment variable
-///  - The `CARGO_PKG_VERSION` environment variable
+/// - For the version number: The `TYPST_VERSION` environment variable
+/// - For the commit hash: The `TYPST_COMMIT_SHA` environment variable
 ///
-/// - For the commit sha:
-///   - The `TYPST_COMMIT_SHA` environment variable
-///   - The output of `git rev-parse HEAD`
+/// It is up to build tooling to ensure that environment variables have valid values at compile
+/// time. A fallback mechanism is currently implemented in `build.rs`.
 ///
 /// # Panics
 /// If the `TYPST_VERSION` environment variable holds a version string that
@@ -56,7 +54,7 @@ pub struct TypstVersion {
     patch: u32,
     /// Raw, unmodified version string.
     raw: &'static str,
-    /// The commit SHA.
+    /// The raw commit hash.
     commit: Option<&'static str>,
 }
 
