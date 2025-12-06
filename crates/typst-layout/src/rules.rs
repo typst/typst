@@ -244,8 +244,6 @@ const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
-    const SPACING_TO_NUMBERING: Em = Em::new(0.3);
-
     let span = elem.span();
     let mut realized = elem.body.clone();
 
@@ -261,6 +259,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .display_at(engine, location, styles, numbering, span)?
             .spanned(span);
         let align = styles.resolve(AlignElem::alignment);
+        let body_indent = elem.body_indent.get(styles);
 
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
@@ -277,10 +276,10 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             )?
             .size();
 
-            indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
+            indent = size.x + body_indent.resolve(styles);
         }
 
-        let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
+        let spacing = HElem::new(body_indent.into()).with_weak(true).pack();
 
         realized = numbering + spacing + realized;
     }

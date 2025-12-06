@@ -220,6 +220,10 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
 
+    /// The spacing between the numbering and the body of the heading.
+    #[default(Em::new(0.3).into())]
+    pub body_indent: Length,
+
     /// The heading's title.
     #[required]
     pub body: Content,
