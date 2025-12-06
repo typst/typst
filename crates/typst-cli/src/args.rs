@@ -277,7 +277,8 @@ pub struct CompletionsCommand {
 pub struct InfoCommand {
     /// The format to serialize in, if it should be machine-readable.
     ///
-    /// If no format is passed the output is displayed human-readable.
+    /// If no format is passed the output is displayed human-readable. Note that
+    /// human-readable format truncates the build commit hash value.
     #[arg(long = "format", short = 'f')]
     pub format: Option<SerializationFormat>,
 

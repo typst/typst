@@ -14,7 +14,7 @@ fn main() {
             .output()
             .ok()
             .filter(|output| output.status.success())
-            .and_then(|output| String::from_utf8(output.stdout.get(..8)?.into()).ok())
+            .and_then(|output| String::from_utf8(output.stdout).ok())
     {
         println!("cargo:rustc-env=TYPST_COMMIT_SHA={sha}");
     }
