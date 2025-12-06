@@ -156,6 +156,28 @@ fn layout_vertical_frac_like(
                 span,
             ),
         );
+        if let Some(deco_stroke) = styles.get_ref(TextElem::stroke) {
+            let deco_stroke_paint = deco_stroke
+                .paint
+                .clone()
+                .unwrap_or(styles.get_ref(TextElem::fill).as_decoration());
+            let deco_stroke_thickness =
+                deco_stroke.thickness.resolve(styles).unwrap_or_default();
+            let deco_stroke_item = FrameItem::Shape(
+                Geometry::Line(Point::with_x(line_width)).stroked(
+                    FixedStroke::from_pair(deco_stroke_paint, deco_stroke_thickness),
+                ),
+                span,
+            );
+            frame.push(
+                Point::new(line_pos.x, line_pos.y - deco_stroke_thickness),
+                deco_stroke_item.clone(),
+            );
+            frame.push(
+                Point::new(line_pos.x, line_pos.y + deco_stroke_thickness),
+                deco_stroke_item.clone(),
+            );
+        }
         ctx.push(FrameFragment::new(styles, frame));
     }
 

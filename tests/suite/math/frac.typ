@@ -26,8 +26,10 @@ $ binom(x^2) $
 
 --- math-dif paged ---
 // Test dif.
-$ (dif y)/(dif x), dif/x, x/dif, dif/dif \
-  frac(dif y, dif x), frac(dif, x), frac(x, dif), frac(dif, dif) $
+$
+  (dif y)/(dif x), dif/x, x/dif, dif/dif \
+  frac(dif y, dif x), frac(dif, x), frac(x, dif), frac(dif, dif)
+$
 
 --- math-frac-associativity paged ---
 // Test associativity.
@@ -35,17 +37,21 @@ $ 1/2/3 = (1/2)/3 = 1/(2/3) $
 
 --- math-frac-tan-sin-cos paged ---
 // A nice simple example of a simple trig property.
-$ tan(x) = sin(x) / cos(x) \
-  tan x = (sin x) / (cos x) $
+$
+  tan(x) = sin(x) / cos(x) \
+  tan x = (sin x) / (cos x)
+$
 
 --- math-frac-precedence paged ---
 // Test precedence.
-$ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
+$
+  a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
   1.2/3.7, 2.3^3.4 \
   f [x]/2, phi [x]/2 \
   +[x]/2, 1(x)/2, 2[x]/2, 🏳️‍🌈[x]/2 \
   (a)b/2, b(a)[b]/2 \
-  n!/2, 5!/2, n !/2, 1/n!, 1/5! $
+  n!/2, 5!/2, n !/2, 1/n!, 1/5!
+$
 
 --- math-frac-implicit-func paged ---
 // Test other precedence interactions with implicit function calls.
@@ -75,7 +81,7 @@ $ (#v(2em)) / n $
 --- math-frac-skewed paged ---
 // Test skewed fractions
 #set math.frac(style: "skewed")
-$ a / b,  a / (b / c) $
+$ a / b, a / (b / c) $
 
 --- math-frac-horizontal-explicit paged ---
 // Test that explicit fractions don't change parentheses
@@ -91,3 +97,8 @@ $ [x+y] / {z} $
 // Test inline layout of styled fractions
 #set math.frac(style: "horizontal")
 $a/(b+c), frac(a, b+c, style: "skewed"), frac(a, b+c, style: "vertical")$
+
+--- math-frac-text-decoration paged ---
+#set text(size: 20pt)
+#text(fill: red)[$a = F / m$] \
+#text(stroke: red + .5pt)[$a = F/m$]
