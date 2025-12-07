@@ -271,7 +271,7 @@ impl Func {
     }
 
     /// Extract the element function, if it is one.
-    pub fn element(&self) -> Option<Element> {
+    pub fn to_element(&self) -> Option<Element> {
         match self.inner {
             FuncInner::Element(func) => Some(func),
             _ => None,
@@ -395,7 +395,7 @@ impl Func {
         args.items.retain(|arg| arg.name.is_none());
 
         let element = self
-            .element()
+            .to_element()
             .ok_or("`where()` can only be called on element functions")?;
 
         let fields = fields

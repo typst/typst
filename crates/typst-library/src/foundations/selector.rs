@@ -281,7 +281,7 @@ cast! {
     type Selector,
     text: EcoString => Self::text(&text)?,
     func: Func => func
-        .element()
+        .to_element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),

@@ -486,7 +486,7 @@ fn func_model(
         title: func.title().unwrap(),
         keywords: func.keywords(),
         oneliner: oneliner(first_md),
-        element: func.element().is_some(),
+        element: func.to_element().is_some(),
         contextual: func.contextual().unwrap_or(false),
         deprecation_message: deprecation.map(Deprecation::message),
         deprecation_until: deprecation.and_then(Deprecation::until),

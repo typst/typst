@@ -325,7 +325,7 @@ impl Eval for ast::FieldAccess<'_> {
 
         // Check whether this is a get rule field access.
         if let Value::Func(func) = &value
-            && let Some(element) = func.element()
+            && let Some(element) = func.to_element()
             && let Some(id) = element.field_id(&field)
             && let styles = vm.context.styles().at(field.span())
             && let Ok(value) = element
