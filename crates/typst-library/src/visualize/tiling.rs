@@ -8,7 +8,7 @@ use typst_utils::{LazyHash, Numeric};
 use crate::World;
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Content, Smart, StyleChain, func, repr, scope, ty};
+use crate::foundations::{Content, Repr, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
 use crate::layout::{Abs, Axes, Frame, Length, Region, Size};
 use crate::visualize::RelativeTo;
@@ -100,11 +100,11 @@ use crate::visualize::RelativeTo;
 /// deprecated since Typst 0.13.
 #[ty(scope, cast, keywords = ["pattern"])]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Tiling(Arc<Repr>);
+pub struct Tiling(Arc<TilingInner>);
 
-/// Internal representation of [`Tiling`].
+/// The internal representation of a [`Tiling`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Repr {
+struct TilingInner {
     /// The tiling's rendered content.
     frame: LazyHash<Frame>,
     /// The tiling's tile size.
@@ -212,7 +212,7 @@ impl Tiling {
             );
         }
 
-        Ok(Self(Arc::new(Repr {
+        Ok(Self(Arc::new(TilingInner {
             size: frame.size(),
             frame: LazyHash::new(frame),
             spacing: spacing.v.map(|l| l.abs),
@@ -227,7 +227,7 @@ impl Tiling {
         if let Some(this) = Arc::get_mut(&mut self.0) {
             this.relative = Smart::Custom(relative);
         } else {
-            self.0 = Arc::new(Repr {
+            self.0 = Arc::new(TilingInner {
                 relative: Smart::Custom(relative),
                 ..self.0.as_ref().clone()
             });
@@ -264,7 +264,7 @@ impl Tiling {
     }
 }
 
-impl repr::Repr for Tiling {
+impl Repr for Tiling {
     fn repr(&self) -> EcoString {
         let mut out =
             eco_format!("tiling(({}, {})", self.0.size.x.repr(), self.0.size.y.repr());

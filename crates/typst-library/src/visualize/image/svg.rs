@@ -21,10 +21,10 @@ use crate::text::{
 
 /// A decoded SVG.
 #[derive(Clone, Hash)]
-pub struct SvgImage(Arc<Repr>);
+pub struct SvgImage(Arc<SvgImageInner>);
 
-/// The internal representation.
-struct Repr {
+/// The internal representation of an [`SvgImage`].
+struct SvgImageInner {
     data: Bytes,
     size: Axes<f64>,
     font_hash: u128,
@@ -38,7 +38,12 @@ impl SvgImage {
     pub fn new(data: Bytes) -> LoadResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
+        Ok(Self(Arc::new(SvgImageInner {
+            data,
+            size: tree_size(&tree),
+            font_hash: 0,
+            tree,
+        })))
     }
 
     /// Decode an SVG image with access to fonts and linked images.
@@ -82,7 +87,12 @@ impl SvgImage {
             return Err(err);
         }
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
+        Ok(Self(Arc::new(SvgImageInner {
+            data,
+            size: tree_size(&tree),
+            font_hash,
+            tree,
+        })))
     }
 
     /// The raw image data.
@@ -106,7 +116,7 @@ impl SvgImage {
     }
 }
 
-impl Hash for Repr {
+impl Hash for SvgImageInner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // An SVG might contain fonts, which must be incorporated into the hash.
         // We can't hash a usvg tree directly, but the raw SVG data + a hash of

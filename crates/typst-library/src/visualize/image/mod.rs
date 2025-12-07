@@ -440,11 +440,11 @@ pub enum ImageFit {
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Image(Arc<LazyHash<Repr>>);
+pub struct Image(Arc<LazyHash<ImageInner>>);
 
-/// The internal representation.
+/// The internal representation of an [`Image`].
 #[derive(Hash)]
-struct Repr {
+struct ImageInner {
     /// The raw, undecoded image data.
     kind: ImageKind,
     /// A text describing the image.
@@ -483,7 +483,7 @@ impl Image {
         alt: Option<EcoString>,
         scaling: Smart<ImageScaling>,
     ) -> Image {
-        Self(Arc::new(LazyHash::new(Repr { kind, alt, scaling })))
+        Self(Arc::new(LazyHash::new(ImageInner { kind, alt, scaling })))
     }
 
     /// The format of the image.
