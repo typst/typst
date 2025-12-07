@@ -5,7 +5,7 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
 use crate::diag::{DeprecationSink, StrResult, bail};
-use crate::foundations::{Content, Scope, Value, repr, ty};
+use crate::foundations::{Content, Repr, Scope, Value, ty};
 
 /// A collection of variables and functions that are commonly related to
 /// a single theme.
@@ -51,12 +51,12 @@ pub struct Module {
     /// The module's name.
     name: Option<EcoString>,
     /// The reference-counted inner fields.
-    inner: Arc<Repr>,
+    inner: Arc<ModuleInner>,
 }
 
-/// The internal representation.
+/// The internal representation of a [`Module`].
 #[derive(Debug, Clone, Hash)]
-struct Repr {
+struct ModuleInner {
     /// The top-level definitions that were bound in this module.
     scope: Scope,
     /// The module's layoutable contents.
@@ -70,7 +70,11 @@ impl Module {
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
             name: Some(name.into()),
-            inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
+            inner: Arc::new(ModuleInner {
+                scope,
+                content: Content::empty(),
+                file_id: None,
+            }),
         }
     }
 
@@ -78,7 +82,11 @@ impl Module {
     pub fn anonymous(scope: Scope) -> Self {
         Self {
             name: None,
-            inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
+            inner: Arc::new(ModuleInner {
+                scope,
+                content: Content::empty(),
+                file_id: None,
+            }),
         }
     }
 
@@ -158,7 +166,7 @@ impl Debug for Module {
     }
 }
 
-impl repr::Repr for Module {
+impl Repr for Module {
     fn repr(&self) -> EcoString {
         match &self.name {
             Some(module) => eco_format!("<module {module}>"),
