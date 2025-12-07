@@ -40,7 +40,7 @@ use crate::foundations::{
 #[ty(scope, cast, name = "int", title = "Integer")]
 type i64;
 
-#[scope]
+#[scope(ext)]
 impl i64 {
     /// Converts a value to an integer. Raises an error if there is an attempt
     /// to parse an invalid string or produce an integer that doesn't fit
