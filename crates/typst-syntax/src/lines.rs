@@ -9,10 +9,11 @@ use crate::is_newline;
 ///
 /// This is internally reference-counted and thus cheap to clone.
 #[derive(Clone)]
-pub struct Lines<S>(Arc<Repr<S>>);
+pub struct Lines<S>(Arc<LinesInner<S>>);
 
+/// The internal representation of [`Lines`].
 #[derive(Clone)]
-struct Repr<T> {
+struct LinesInner<T> {
     lines: Vec<Line>,
     text: T,
 }
@@ -30,7 +31,7 @@ impl<T: AsRef<str>> Lines<T> {
     /// Create from the text buffer and compute the line metadata.
     pub fn new(text: T) -> Self {
         let lines = lines(text.as_ref());
-        Lines(Arc::new(Repr { lines, text }))
+        Lines(Arc::new(LinesInner { lines, text }))
     }
 
     /// The text as a string slice.
