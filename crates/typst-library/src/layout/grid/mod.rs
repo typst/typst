@@ -484,13 +484,13 @@ impl TryFrom<Content> for GridChild {
         if value.is::<TableHeader>() {
             bail!(
                 "cannot use `table.header` as a grid header";
-                hint: "use `grid.header` instead"
+                hint: "use `grid.header` instead";
             )
         }
         if value.is::<TableFooter>() {
             bail!(
                 "cannot use `table.footer` as a grid footer";
-                hint: "use `grid.footer` instead"
+                hint: "use `grid.footer` instead";
             )
         }
 
@@ -540,19 +540,19 @@ impl TryFrom<Content> for GridItem {
         if value.is::<TableCell>() {
             bail!(
                 "cannot use `table.cell` as a grid cell";
-                hint: "use `grid.cell` instead"
+                hint: "use `grid.cell` instead";
             );
         }
         if value.is::<TableHLine>() {
             bail!(
                 "cannot use `table.hline` as a grid line";
-                hint: "use `grid.hline` instead"
+                hint: "use `grid.hline` instead";
             );
         }
         if value.is::<TableVLine>() {
             bail!(
                 "cannot use `table.vline` as a grid line";
-                hint: "use `grid.vline` instead"
+                hint: "use `grid.vline` instead";
             );
         }
 
@@ -598,7 +598,7 @@ pub struct GridHeader {
 /// A repeatable grid footer.
 ///
 /// Just like the [`grid.header`] element, the footer can repeat itself on every
-/// page of the table.
+/// page of the grid.
 ///
 /// No other grid cells may be placed after the footer.
 #[elem(name = "footer", title = "Grid Footer")]

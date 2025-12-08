@@ -260,7 +260,7 @@ pub enum Expr<'a> {
     MathDelimited(MathDelimited<'a>),
     /// A base with optional attachments in math: `a_1^2`.
     MathAttach(MathAttach<'a>),
-    /// Grouped math primes
+    /// Grouped primes in math: `a'''`.
     MathPrimes(MathPrimes<'a>),
     /// A fraction in math: `x/2`.
     MathFrac(MathFrac<'a>),
@@ -859,7 +859,7 @@ node! {
 
 /// The underlying text kind.
 pub enum MathTextKind<'a> {
-    Character(char),
+    Grapheme(&'a EcoString),
     Number(&'a EcoString),
 }
 
@@ -867,15 +867,12 @@ impl<'a> MathText<'a> {
     /// Return the underlying text.
     pub fn get(self) -> MathTextKind<'a> {
         let text = self.0.text();
-        let mut chars = text.chars();
-        let c = chars.next().unwrap();
-        if c.is_numeric() {
+        if text.chars().next().unwrap().is_numeric() {
             // Numbers are potentially grouped as multiple characters. This is
             // done in `Lexer::math_text()`.
             MathTextKind::Number(text)
         } else {
-            assert!(chars.next().is_none());
-            MathTextKind::Character(c)
+            MathTextKind::Grapheme(text)
         }
     }
 }
@@ -1037,10 +1034,8 @@ node! {
 impl MathPrimes<'_> {
     /// The number of grouped primes.
     pub fn count(self) -> usize {
-        self.0
-            .children()
-            .filter(|node| matches!(node.kind(), SyntaxKind::Prime))
-            .count()
+        // We can use byte length since single quotes are one byte.
+        self.0.text().len()
     }
 }
 

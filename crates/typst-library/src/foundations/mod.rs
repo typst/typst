@@ -67,7 +67,6 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
-use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -77,12 +76,13 @@ pub use {
     smallvec::SmallVec,
 };
 
-use comemo::TrackedMut;
+use comemo::{Track, TrackedMut};
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
+use crate::introspection::Introspector;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -208,7 +208,7 @@ impl assert {
                 bail!(
                     "equality assertion failed: value {} was not equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }
@@ -241,7 +241,7 @@ impl assert {
                 bail!(
                     "inequality assertion failed: value {} was equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }
@@ -302,6 +302,14 @@ pub fn eval(
         engine.routines,
         engine.world,
         TrackedMut::reborrow_mut(&mut engine.sink),
+        // We create a new, detached introspector for string evaluation. Passing
+        // the real introspector should not have any consequences with
+        // `Context::none`, but also no benefits. We might want to pass through
+        // the context and introspector in the future, to allow introspection
+        // when calling `eval` from within a context expression, but this should
+        // be well-considered.
+        Introspector::default().track(),
+        Context::none().track(),
         &text,
         span,
         mode,

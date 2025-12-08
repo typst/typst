@@ -4,13 +4,15 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
+use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::engine::Engine;
 use crate::foundations::{
     CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
     Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
-use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
+use crate::introspection::{Locatable, Location, QueryUniqueIntrospection, Unqueriable};
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 #[macro_export]
@@ -38,7 +40,7 @@ pub use crate::__select_where as select_where;
 /// A filter for selecting elements within the document.
 ///
 /// To construct a selector you can:
-/// - use an element [function]
+/// - use an [element function]($function/#element-functions)
 /// - filter for an element function with [specific fields]($function.where)
 /// - use a [string]($str) or [regular expression]($regex)
 /// - use a [`{<label>}`]($label)
@@ -247,11 +249,15 @@ impl Repr for Selector {
             }
             Self::Label(label) => label.repr(),
             Self::Regex(regex) => regex.repr(),
-            Self::Can(cap) => eco_format!("{cap:?}"),
+            Self::Can(_) => eco_format!("selector(..)"),
             Self::Or(selectors) | Self::And(selectors) => {
                 let function = if matches!(self, Self::Or(_)) { "or" } else { "and" };
                 let pieces: Vec<_> = selectors.iter().map(Selector::repr).collect();
-                eco_format!("{}{}", function, repr::pretty_array_like(&pieces, false))
+                eco_format!(
+                    "selector.{}{}",
+                    function,
+                    repr::pretty_array_like(&pieces, false)
+                )
             }
             Self::Location(loc) => loc.repr(),
             Self::Before { selector, end: split, inclusive }
@@ -275,7 +281,7 @@ cast! {
     type Selector,
     text: EcoString => Self::text(&text)?,
     func: Func => func
-        .element()
+        .to_element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
@@ -294,14 +300,18 @@ impl LocatableSelector {
     /// Resolve this selector into a location that is guaranteed to be unique.
     pub fn resolve_unique(
         &self,
-        introspector: Tracked<Introspector>,
+        engine: &mut Engine,
         context: Tracked<Context>,
-    ) -> HintedStrResult<Location> {
-        match &self.0 {
-            Selector::Location(loc) => Ok(*loc),
+        span: Span,
+    ) -> SourceResult<Location> {
+        match self.0.clone() {
+            Selector::Location(loc) => Ok(loc),
             other => {
-                context.introspect()?;
-                Ok(introspector.query_unique(other).map(|c| c.location().unwrap())?)
+                context.introspect().at(span)?;
+                engine
+                    .introspect(QueryUniqueIntrospection(other, span))
+                    .map(|c| c.location().unwrap())
+                    .at(span)
             }
         }
     }

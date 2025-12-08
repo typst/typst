@@ -24,7 +24,6 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 /// the [`array`] constructor.
 #[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Version(EcoVec<u32>);
 
 impl Version {
@@ -118,7 +117,7 @@ impl Version {
                 Some(pos_index) if pos_index >= 0 => index = pos_index,
                 _ => bail!(
                     "component index out of bounds (index: {index}, len: {})",
-                    self.0.len()
+                    self.0.len(),
                 ),
             }
         }

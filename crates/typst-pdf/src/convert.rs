@@ -8,19 +8,20 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
-use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
-use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
+use typst_library::diag::{
+    At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
+};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Location, Tag};
 use typst_library::layout::{
     Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::{Font, Locale};
+use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -41,7 +42,30 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
-    let (mut document, mut gc) = setup(typst_document, options)?;
+    let settings = SerializeSettings {
+        compress_content_streams: true,
+        no_device_cs: true,
+        ascii_compatible: false,
+        xmp_metadata: true,
+        cmyk_profile: None,
+        configuration: options.standards.config,
+        enable_tagging: options.tagged,
+        render_svg_glyph_fn: render_svg_glyph,
+    };
+
+    let mut document = Document::new_with(settings);
+    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    let named_destinations =
+        collect_named_destinations(typst_document, &page_index_converter);
+    let tags = tags::init(typst_document, options)?;
+
+    let mut gc = GlobalContext::new(
+        typst_document,
+        options,
+        named_destinations,
+        page_index_converter,
+        tags,
+    );
 
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
@@ -54,115 +78,62 @@ pub fn convert(
     finish(document, gc, options.standards.config)
 }
 
-pub fn tag_tree(
-    typst_document: &PagedDocument,
-    options: &PdfOptions,
-) -> SourceResult<String> {
-    let (mut document, mut gc) = setup(typst_document, options)?;
-    convert_pages(&mut gc, &mut document)?;
-    attach_files(&gc, &mut document)?;
-    let (doc_lang, tree) = tags::resolve(&mut gc)?;
-
-    let mut output = String::new();
-    if let Some(lang) = doc_lang
-        && lang != Locale::DEFAULT
-    {
-        output = format!("lang: \"{}\"\n---\n", lang.rfc_3066());
-    }
-    tree.output(&mut output).unwrap();
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc, doc_lang));
-    document.set_tag_tree(tree);
-
-    finish(document, gc, options.standards.config)?;
-
-    Ok(output)
-}
-
-fn setup<'a>(
-    typst_document: &'a PagedDocument,
-    options: &'a PdfOptions,
-) -> SourceResult<(Document, GlobalContext<'a>)> {
-    let settings = SerializeSettings {
-        compress_content_streams: true,
-        no_device_cs: true,
-        ascii_compatible: false,
-        xmp_metadata: true,
-        cmyk_profile: None,
-        configuration: options.standards.config,
-        enable_tagging: options.tagged,
-        render_svg_glyph_fn: render_svg_glyph,
-    };
-
-    let document = Document::new_with(settings);
-    let page_index_converter = PageIndexConverter::new(typst_document, options);
-    let named_destinations =
-        collect_named_destinations(typst_document, &page_index_converter);
-    let tags = tags::init(typst_document, options)?;
-
-    let gc = GlobalContext::new(
-        typst_document,
-        options,
-        named_destinations,
-        page_index_converter,
-        tags,
-    );
-
-    Ok((document, gc))
-}
-
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
     for (i, typst_page) in gc.document.pages.iter().enumerate() {
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
             continue;
-        } else {
-            let mut settings = PageSettings::new(
-                typst_page.frame.width().to_f32(),
-                typst_page.frame.height().to_f32(),
-            );
-
-            if let Some(label) = typst_page
-                .numbering
-                .as_ref()
-                .and_then(|num| PageLabel::generate(num, typst_page.number))
-                .or_else(|| {
-                    // When some pages were ignored from export, we show a page label with
-                    // the correct real (not logical) page number.
-                    // This is for consistency with normal output when pages have no numbering
-                    // and all are exported: the final PDF page numbers always correspond to
-                    // the real (not logical) page numbers. Here, the final PDF page number
-                    // will differ, but we can at least use labels to indicate what was
-                    // the corresponding real page number in the Typst document.
-                    gc.page_index_converter
-                        .has_skipped_pages()
-                        .then(|| PageLabel::arabic((i + 1) as u64))
-                })
-            {
-                settings = settings.with_page_label(label);
-            }
-
-            let mut page = document.start_page_with(settings);
-            let mut surface = page.surface();
-            let page_idx = gc.page_index_converter.pdf_page_index(i);
-            let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
-
-            tags::page(gc, &mut surface, |gc, surface| {
-                handle_frame(
-                    &mut fc,
-                    &typst_page.frame,
-                    typst_page.fill_or_transparent(),
-                    surface,
-                    gc,
-                )
-            })?;
-
-            surface.finish();
-
-            let link_annotations = fc.link_annotations.into_values().flatten();
-            tags::add_link_annotations(gc, &mut page, link_annotations);
         }
+
+        // PDF 1.4 upwards to 1.7 specifies a minimum page size of 3x3 units.
+        // PDF 2.0 doesn't define an explicit limit, but krilla and probably
+        // some viewers won't handle pages that have zero sized pages.
+        let mut settings = PageSettings::from_wh(
+            typst_page.frame.width().to_f32().max(3.0),
+            typst_page.frame.height().to_f32().max(3.0),
+        )
+        .expect_internal("invalid page size")
+        .at(Span::detached())?;
+
+        if let Some(label) = typst_page
+            .numbering
+            .as_ref()
+            .and_then(|num| PageLabel::generate(num, typst_page.number))
+            .or_else(|| {
+                // When some pages were ignored from export, we show a page label with
+                // the correct real (not logical) page number.
+                // This is for consistency with normal output when pages have no numbering
+                // and all are exported: the final PDF page numbers always correspond to
+                // the real (not logical) page numbers. Here, the final PDF page number
+                // will differ, but we can at least use labels to indicate what was
+                // the corresponding real page number in the Typst document.
+                gc.page_index_converter
+                    .has_skipped_pages()
+                    .then(|| PageLabel::arabic((i + 1) as u64))
+            })
+        {
+            settings = settings.with_page_label(label);
+        }
+
+        let mut page = document.start_page_with(settings);
+        let mut surface = page.surface();
+        let page_idx = gc.page_index_converter.pdf_page_index(i);
+        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+
+        tags::page(gc, &mut surface, |gc, surface| {
+            handle_frame(
+                &mut fc,
+                &typst_page.frame,
+                typst_page.fill_or_transparent(),
+                surface,
+                gc,
+            )
+        })?;
+
+        surface.finish();
+
+        let link_annotations = fc.link_annotations.into_values().flatten();
+        tags::add_link_annotations(gc, &mut page, link_annotations);
     }
 
     Ok(())
@@ -399,8 +370,8 @@ pub(crate) fn handle_group(
     Ok(())
 }
 
-#[typst_macros::time(name = "finish export")]
 /// Finish a krilla document and handle export errors.
+#[typst_macros::time(name = "finish export")]
 fn finish(
     document: Document,
     gc: GlobalContext,
@@ -411,13 +382,13 @@ fn finish(
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
-            KrillaError::Font(f, s) => {
-                let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
+            KrillaError::Font(f, err) => {
                 bail!(
                     Span::detached(),
-                    "failed to process font {font_str}: {s}";
+                    "failed to process {} ({err})",
+                    display_font(gc.fonts_backward.get(&f));
                     hint: "make sure the font is valid";
-                    hint: "the used font might be unsupported by Typst"
+                    hint: "the used font might be unsupported by Typst";
                 );
             }
             KrillaError::Validation(ve) => {
@@ -427,15 +398,15 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
-            KrillaError::Image(_, loc) => {
+            KrillaError::Image(_, loc, err) => {
                 let span = to_span(loc);
-                bail!(span, "failed to process image");
+                bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
-                    hint: "convert the image to 8 bit instead"
+                    hint: "convert the image to 8 bit instead";
                 )
             }
             KrillaError::Pdf(_, e, loc) => {
@@ -445,7 +416,7 @@ fn finish(
                     PdfError::InvalidPage(_) => bail!(
                         span,
                         "invalid page number for PDF file";
-                        hint: "please report this as a bug"
+                        hint: "please report this as a bug";
                     ),
                     PdfError::VersionMismatch(v) => {
                         let pdf_ver = v.as_str();
@@ -453,9 +424,10 @@ fn finish(
                         let cur_ver = config_ver.as_str();
                         bail!(span,
                             "the version of the PDF is too high";
-                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "the current export target is {cur_ver}, while the PDF \
+                                   has version {pdf_ver}";
                             hint: "raise the export target to {pdf_ver} or higher";
-                            hint: "or preprocess the PDF to convert it to a lower version"
+                            hint: "or preprocess the PDF to convert it to a lower version";
                         );
                     }
                 }
@@ -464,14 +436,14 @@ fn finish(
                 let span = to_span(loc);
                 bail!(span,
                     "duplicate tag id";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
             KrillaError::UnknownTagId(_, loc) => {
                 let span = to_span(loc);
                 bail!(span,
                     "unknown tag id";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
         },
@@ -489,56 +461,57 @@ fn convert_error(
         ValidationError::TooLongString => error!(
             Span::detached(),
             "{prefix} a PDF string is longer than 32767 characters";
-            hint: "ensure title and author names are short enough"
+            hint: "ensure title and author names are short enough";
         ),
         // Should in theory never occur, as krilla always trims font names.
         ValidationError::TooLongName => error!(
             Span::detached(),
             "{prefix} a PDF name is longer than 127 characters";
-            hint: "perhaps a font name is too long"
+            hint: "perhaps a font name is too long";
         ),
 
         ValidationError::TooLongArray => error!(
             Span::detached(),
             "{prefix} a PDF array is longer than 8191 elements";
-            hint: "this can happen if you have a very long text in a single line"
+            hint: "this can happen if you have a very long text in a single line";
         ),
         ValidationError::TooLongDictionary => error!(
             Span::detached(),
             "{prefix} a PDF dictionary has more than 4095 entries";
-            hint: "try reducing the complexity of your document"
+            hint: "try reducing the complexity of your document";
         ),
         ValidationError::TooLargeFloat => error!(
             Span::detached(),
             "{prefix} a PDF floating point number is larger than the allowed limit";
-            hint: "try exporting with a higher PDF version"
+            hint: "try exporting with a higher PDF version";
         ),
         ValidationError::TooManyIndirectObjects => error!(
             Span::detached(),
             "{prefix} the PDF has too many indirect objects";
-            hint: "reduce the size of your document"
+            hint: "reduce the size of your document";
         ),
         // Can only occur if we have 27+ nested clip paths
         ValidationError::TooHighQNestingLevel => error!(
             Span::detached(),
             "{prefix} the PDF has too high q nesting";
-            hint: "reduce the number of nested containers"
+            hint: "reduce the number of nested containers";
         ),
         ValidationError::ContainsPostScript(loc) => error!(
             to_span(*loc),
             "{prefix} the PDF contains PostScript code";
-            hint: "conic gradients are not supported in this PDF standard"
+            hint: "conic gradients are not supported in this PDF standard";
         ),
         ValidationError::MissingCMYKProfile => error!(
             Span::detached(),
             "{prefix} the PDF is missing a CMYK profile";
-            hint: "CMYK colors are not yet supported in this export mode"
+            hint: "CMYK colors are not yet supported in this export mode";
         ),
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
-            "{prefix} the text '{text}' cannot be displayed using {}",
-            display_font(gc.fonts_backward.get(f).unwrap());
-            hint: "try using a different font"
+            "{prefix} the text `{}` could not be displayed with {}",
+            text.repr(),
+            display_font(gc.fonts_backward.get(f));
+            hint: "try using a different font";
         ),
         ValidationError::NoCodepointMapping(_, _, loc) => {
             let msg = if loc.is_some() {
@@ -550,7 +523,7 @@ fn convert_error(
                 to_span(*loc),
                 "{prefix} {msg}";
                 hint: "for complex scripts like Arabic, it might not be \
-                       possible to produce a compliant document"
+                       possible to produce a compliant document";
             )
         }
         ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
@@ -562,7 +535,7 @@ fn convert_error(
             error!(
                 to_span(*loc),
                 "{prefix} {msg} the disallowed codepoint `{}`",
-                c.repr()
+                c.repr(),
             )
         }
         ValidationError::UnicodePrivateArea(_, _, c, loc) => {
@@ -571,16 +544,18 @@ fn convert_error(
                 to_span(*loc),
                 "{prefix} {msg} contains the codepoint `{}`", c.repr();
                 hint: "codepoints from the Unicode private area are \
-                       forbidden in this export mode",
+                       forbidden in this export mode";
             )
         }
         ValidationError::RestrictedLicense(f) => error!(
             Span::detached(),
-            "{prefix} license of font {} is too restrictive",
-            display_font(gc.fonts_backward.get(f).unwrap()).repr();
-            hint: "the font has specified \"Restricted License embedding\" in its metadata";
-            hint: "restrictive font licenses are prohibited by {} because they limit the suitability for archival",
-            validator.as_str()
+            "{prefix} license of {} is too restrictive",
+            display_font(gc.fonts_backward.get(f));
+            hint: "the font has specified \"Restricted License embedding\" in its \
+                   metadata";
+            hint: "restrictive font licenses are prohibited by {} because they limit \
+                   the suitability for archival",
+            validator.as_str();
         ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
@@ -593,20 +568,20 @@ fn convert_error(
                         hint: "{hint1}";
                         hint: "or convert the image to a non-transparent one";
                         hint: "you might have to convert SVGs into \
-                               non-transparent bitmap images"
+                               non-transparent bitmap images";
                     )
                 } else {
                     error!(
                         span, "{prefix} the used fill or stroke has transparency";
                         hint: "{hint1}";
                         hint: "or don't use colors with transparency in \
-                               this export mode"
+                               this export mode";
                     )
                 }
             } else {
                 error!(
                     span, "{prefix} the PDF contains transparency";
-                    hint: "{hint1}"
+                    hint: "{hint1}";
                 )
             }
         }
@@ -615,12 +590,12 @@ fn convert_error(
             if loc.is_some() {
                 error!(
                     span, "{prefix} the image has smooth scaling";
-                    hint: "set the `scaling` attribute to `pixelated`"
+                    hint: "set the `scaling` attribute to `pixelated`";
                 )
             } else {
                 error!(
                     span, "{prefix} an image in the PDF has smooth scaling";
-                    hint: "set the `scaling` attribute of all images to `pixelated`"
+                    hint: "set the `scaling` attribute of all images to `pixelated`";
                 )
             }
         }
@@ -631,14 +606,14 @@ fn convert_error(
                 EmbedError::Existence => {
                     error!(
                         span, "{prefix} document contains an attached file";
-                        hint: "file attachments are not supported in this export mode"
+                        hint: "file attachments are not supported in this export mode";
                     )
                 }
                 EmbedError::MissingDate => {
                     error!(
                         span, "{prefix} document date is missing";
                         hint: "the document must have a date when attaching files";
-                        hint: "`set document(date: none)` must not be used in this case"
+                        hint: "`set document(date: none)` must not be used in this case";
                     )
                 }
                 EmbedError::MissingDescription => {
@@ -655,52 +630,52 @@ fn convert_error(
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing annotation alt text";
-                hint: "please report this as a bug"
+                hint: "please report this as a bug";
             )
         }
         ValidationError::MissingAltText(loc) => {
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing alt text";
-                hint: "make sure your images and equations have alt text"
+                hint: "make sure your images and equations have alt text";
             )
         }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";
-            hint: "set the language of the document"
+            hint: "set the language of the document";
         ),
         // Needs to be set by typst-pdf.
         ValidationError::MissingHeadingTitle => error!(
             Span::detached(),
             "{prefix} missing heading title";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::MissingDocumentOutline => error!(
             Span::detached(),
             "{prefix} missing document outline";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::MissingTagging => error!(
             Span::detached(),
             "{prefix} missing document tags";
-            hint: "please report this as a bug"
+            hint: "please report this as a bug";
         ),
         ValidationError::NoDocumentTitle => error!(
             Span::detached(),
             "{prefix} missing document title";
-            hint: "set the title with `set document(title: [...])`"
+            hint: "set the title with `set document(title: [...])`";
         ),
         ValidationError::MissingDocumentDate => error!(
             Span::detached(),
             "{prefix} missing document date";
-            hint: "set the date of the document"
+            hint: "set the date of the document";
         ),
         ValidationError::EmbeddedPDF(loc) => {
             error!(
                 to_span(*loc),
                 "embedding PDFs is currently not supported in this export mode";
-                hint: "try converting the PDF to an SVG before embedding it"
+                hint: "try converting the PDF to an SVG before embedding it";
             )
         }
     }

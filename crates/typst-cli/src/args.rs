@@ -11,7 +11,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use clap::builder::{TypedValueParser, ValueParser};
+use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use semver::Version;
@@ -41,6 +42,10 @@ const AFTER_HELP: &str = color_print::cstr!("\
   <s>Forum for questions:</>      https://forum.typst.app/
 ");
 
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Blue.on_default());
+
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
 #[clap(
@@ -50,6 +55,7 @@ const AFTER_HELP: &str = color_print::cstr!("\
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
     max_term_width = 80,
+    styles = STYLES,
 )]
 pub struct CliArguments {
     /// The command to run.
@@ -80,8 +86,12 @@ pub enum Command {
     /// Initializes a new project from a template.
     Init(InitCommand),
 
-    /// Processes an input file to extract provided metadata.
+    /// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
+    #[command(hide = true)]
     Query(QueryCommand),
+
+    /// Evaluates a piece of Typst code, optionally in the context of a document.
+    Eval(EvalCommand),
 
     /// Lists all discovered fonts in system and custom font paths.
     Fonts(FontsCommand),
@@ -137,7 +147,7 @@ pub struct InitCommand {
     pub package: PackageArgs,
 }
 
-/// Processes an input file to extract provided metadata.
+/// Processes an input file to extract provided metadata (deprecated, use `eval` instead).
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file. Use `-` to read input from stdin.
@@ -174,6 +184,40 @@ pub struct QueryCommand {
     pub world: WorldArgs,
 
     /// Processing arguments.
+    #[clap(flatten)]
+    pub process: ProcessArgs,
+}
+
+/// Evaluates a piece of Typst code, optionally in the context of a document.
+#[derive(Debug, Clone, Parser)]
+pub struct EvalCommand {
+    /// The piece of Typst code to evaluate.
+    pub expression: String,
+
+    /// A file in whose context to evaluate the code. Can be used to
+    /// introspect the document. Use `-` to read input from stdin.
+    #[clap(long = "in", value_hint = ValueHint::FilePath, value_parser = input_value_parser())]
+    pub r#in: Option<Input>,
+
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
+    /// The format to serialize in.
+    #[clap(long = "format", default_value_t)]
+    pub format: SerializationFormat,
+
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
+    #[clap(long)]
+    pub pretty: bool,
+
+    /// The world arguments.
+    #[clap(flatten)]
+    pub world: WorldArgs,
+
+    /// The processing arguments.
     #[clap(flatten)]
     pub process: ProcessArgs,
 }
@@ -336,7 +380,7 @@ pub struct CompileArgs {
     pub timings: Option<Option<PathBuf>>,
 }
 
-/// Arguments for the construction of a world. Shared by compile, watch, and
+/// Arguments for the construction of a world. Shared by compile, watch, eval, and
 /// query.
 #[derive(Debug, Clone, Args)]
 pub struct WorldArgs {
@@ -550,6 +594,13 @@ pub enum OutputFormat {
     Png,
     Svg,
     Html,
+}
+
+impl OutputFormat {
+    /// Whether this format results in a `PagedDocument`.
+    pub fn is_paged(&self) -> bool {
+        matches!(self, Self::Pdf | Self::Png | Self::Svg)
+    }
 }
 
 display_possible_values!(OutputFormat);

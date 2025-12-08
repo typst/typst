@@ -185,17 +185,17 @@ pub struct Spanned<T> {
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
-    pub fn new(v: T, span: Span) -> Self {
+    pub const fn new(v: T, span: Span) -> Self {
         Self { v, span }
     }
 
-    /// Create a new instance with a detached span from a value.
-    pub fn detached(v: T) -> Self {
-        Self::new(v, Span::detached())
+    /// Create a new instance with a span that does not point into any file.
+    pub const fn detached(v: T) -> Self {
+        Self { v, span: Span::detached() }
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
-    pub fn as_ref(&self) -> Spanned<&T> {
+    pub const fn as_ref(&self) -> Spanned<&T> {
         Spanned { v: &self.v, span: self.span }
     }
 

@@ -169,7 +169,7 @@ impl Str {
                 if b == 1 && n > 0 {
                     bail!(
                         base.span, "base must be between 2 and 36";
-                        hint: "generate a unary representation with `\"1\" * {}`", n
+                        hint: "generate a unary representation with `\"1\" * {n}`";
                     );
                 }
                 if b < 2 || b > 36 {
@@ -852,7 +852,7 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid UTF-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
@@ -867,7 +867,7 @@ pub enum Base {
 }
 
 impl Base {
-    fn value(self) -> i64 {
+    pub fn value(self) -> i64 {
         match self {
             Self::Default => 10,
             Self::User(b) => b,

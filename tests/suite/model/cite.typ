@@ -1,11 +1,11 @@
---- cite-footnote ---
+--- cite-footnote paged ---
 Hello @netwok
 And again: @netwok
 
 #pagebreak()
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- cite-form render html ---
+--- cite-form paged html ---
 #show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 Nothing: #cite(<arrgh>, form: none)
@@ -14,7 +14,7 @@ Nothing: #cite(<arrgh>, form: none)
 
 #bibliography("/assets/bib/works.bib", style: "apa")
 
---- cite-group render html ---
+--- cite-group paged html ---
 A#[@netwok@arrgh]B \
 A@netwok@arrgh B \
 A@netwok @arrgh B \
@@ -32,7 +32,7 @@ A @netwok @arrgh @quark, B.
 #show bibliography: it => if target() == "html" { it }
 #bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
---- cite-grouping-and-ordering ---
+--- cite-grouping-and-ordering paged ---
 @mcintosh_anxiety
 @psychology25
 @netwok
@@ -49,7 +49,7 @@ A @netwok @arrgh @quark, B.
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
---- issue-785-cite-locate ---
+--- issue-785-cite-locate paged ---
 // Test citation in other introspection.
 #set page(width: 180pt)
 #set heading(numbering: "1.")
@@ -72,7 +72,7 @@ A @netwok @arrgh @quark, B.
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- issue-1597-cite-footnote ---
+--- issue-1597-cite-footnote paged ---
 // Tests that when a citation footnote is pushed to next page, things still
 // work as expected.
 #set page(height: 60pt)
@@ -82,7 +82,7 @@ A
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- issue-2531-cite-show-set ---
+--- issue-2531-cite-show-set paged ---
 // Test show set rules on citations.
 #show cite: set text(red)
 A @netwok @arrgh.
@@ -91,7 +91,7 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- issue-3481-cite-location ---
+--- issue-3481-cite-location paged ---
 // The locator was cloned in the wrong location, leading to inconsistent
 // citation group locations in the second footnote attempt.
 #set page(height: 60pt)
@@ -107,14 +107,14 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- issue-3699-cite-twice-et-al ---
+--- issue-3699-cite-twice-et-al paged ---
 // Citing a second time showed all authors instead of "et al".
 @mcintosh_anxiety \
 @mcintosh_anxiety
 #show bibliography: none
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
 
---- issue-5503-cite-in-align ---
+--- issue-5503-cite-in-align paged ---
 // The two aligned elements should be displayed in separate lines.
 #align(right)[@netwok]
 #align(right)[b]
@@ -122,7 +122,7 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- issue-5503-cite-group-interrupted-by-par-align ---
+--- issue-5503-cite-group-interrupted-by-par-align paged ---
 // `par` and `align` are block-level and should interrupt a cite group
 @netwok
 @arrgh
@@ -136,19 +136,19 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- cite-type-error-hint ---
+--- cite-type-error-hint paged ---
 // Test hint for cast error from str to label
 // Error: 7-15 expected label, found string
 // Hint: 7-15 use `<netwok>` or `label("netwok")` to create a label
 #cite("netwok")
 
---- cite-type-error-hint-invalid-literal ---
+--- cite-type-error-hint-invalid-literal paged ---
 // Test hint for cast error from str to label
 // Error: 7-17 expected label, found string
 // Hint: 7-17 use `label("%@&#*!\\")` to create a label
 #cite("%@&#*!\\")
 
---- issue-5775-cite-order-rtl ---
+--- issue-5775-cite-order-rtl paged ---
 // Test citation order in RTL text.
 #set page(width: 300pt)
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
@@ -161,18 +161,18 @@ aaa
 
 #bibliography("/assets/bib/works.bib")
 
---- cite-chicago-fullnotes-warning ---
+--- cite-chicago-fullnotes-warning paged ---
 // Test warning for deprecated alias.
 // Warning: 24-43 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #cite(<netwok>, style: "chicago-fullnotes")
 #bibliography("/assets/bib/works.bib")
 
---- cite-chicago-fullnotes-set-rule-warning ---
+--- cite-chicago-fullnotes-set-rule-warning paged ---
 // Test warning for deprecated alias.
 // Warning: 18-37 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #set cite(style: "chicago-fullnotes")
 
---- cite-supplements-and-ibid ---
+--- cite-supplements-and-ibid paged ---
 #set page(width: 300pt)
 
 Par 1 @arrgh

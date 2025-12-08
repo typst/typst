@@ -470,7 +470,7 @@ fn field_access_completions(
         }
         Value::Func(func) => {
             // Autocomplete get rules.
-            if let Some((elem, styles)) = func.element().zip(styles.as_ref()) {
+            if let Some((elem, styles)) = func.to_element().zip(styles.as_ref()) {
                 for param in elem.params().iter().filter(|param| !param.required) {
                     if let Some(value) = elem.field_id(param.name).and_then(|id| {
                         elem.field_from_styles(id, StyleChain::new(styles)).ok()
@@ -621,7 +621,7 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
 fn show_rule_selector_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(
         false,
-        |value| matches!(value, Value::Func(func) if func.element().is_some()),
+        |value| matches!(value, Value::Func(func) if func.to_element().is_some()),
     );
 
     ctx.enrich("", ": ");

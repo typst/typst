@@ -1,7 +1,7 @@
 // Test alignment of block equations.
 // Test show rules on equations.
 
---- math-equation-numbering ---
+--- math-equation-numbering paged ---
 #set page(width: 150pt)
 #set math.equation(numbering: "(I)")
 
@@ -11,18 +11,18 @@ $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
 With @ratio, we get
 $ F_n = round(1 / sqrt(5) phi.alt^n) $ <fib>
 
---- math-equation-font ---
+--- math-equation-font paged ---
 // Test different font.
 #show math.equation: set text(font: "Fira Math")
 $ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $
 
---- math-equation-show-rule ---
+--- math-equation-show-rule paged ---
 This is small: $sum_(i=0)^n$
 
 #show math.equation: math.display
 This is big: $sum_(i=0)^n$
 
---- math-equation-align-unnumbered ---
+--- math-equation-align-unnumbered paged ---
 // Test unnumbered
 #let eq(alignment) = {
   show math.equation: set align(alignment)
@@ -37,7 +37,7 @@ This is big: $sum_(i=0)^n$
 #eq(start)
 #eq(end)
 
---- math-equation-align-numbered ---
+--- math-equation-align-numbered paged ---
 // Test numbered
 #let eq(alignment) = {
   show math.equation: set align(alignment)
@@ -54,7 +54,7 @@ This is big: $sum_(i=0)^n$
 #eq(start)
 #eq(end)
 
---- math-equation-number-align ---
+--- math-equation-number-align paged ---
 #set math.equation(numbering: "(1)")
 
 $ a + b = c $
@@ -72,7 +72,7 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-start ---
+--- math-equation-number-align-start paged ---
 #set math.equation(numbering: "(1)", number-align: start)
 
 $ a + b = c $
@@ -90,7 +90,7 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-end ---
+--- math-equation-number-align-end paged ---
 #set math.equation(numbering: "(1)", number-align: end)
 
 $ a + b = c $
@@ -108,7 +108,7 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-left ---
+--- math-equation-number-align-left paged ---
 #set math.equation(numbering: "(1)", number-align: left)
 
 $ a + b = c $
@@ -126,7 +126,7 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-right ---
+--- math-equation-number-align-right paged ---
 #set math.equation(numbering: "(1)", number-align: right)
 
 $ a + b = c $
@@ -144,15 +144,15 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-center ---
+--- math-equation-number-align-center paged ---
 // Error: 52-58 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center)
 
---- math-equation-number-align-center-bottom ---
+--- math-equation-number-align-center-bottom paged ---
 // Error: 52-67 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center + bottom)
 
---- math-equation-number-align-monoline ---
+--- math-equation-number-align-monoline paged ---
 #set math.equation(numbering: "(1)")
 $ p = sum_k k ln a $
 
@@ -162,13 +162,13 @@ $ p = sum_k k ln a $
 #set math.equation(numbering: "(1)", number-align: bottom)
 $ p = sum_k k ln a $
 
---- math-equation-number-align-multiline ---
+--- math-equation-number-align-multiline paged ---
 #set math.equation(numbering: "(1)")
 
 $ p &= ln a b \
     &= ln a + ln b $
 
---- math-equation-number-align-multiline-top-start ---
+--- math-equation-number-align-multiline-top-start paged ---
 #set math.equation(numbering: "(1)", number-align: top+start)
 
 $ p &= ln a b \
@@ -176,7 +176,7 @@ $ p &= ln a b \
 $ q &= sum_k k ln a \
     &= sum_k ln A $
 
---- math-equation-number-align-multiline-bottom ---
+--- math-equation-number-align-multiline-bottom paged ---
 #show math.equation: set align(left)
 #set math.equation(numbering: "(1)", number-align: bottom)
 
@@ -185,7 +185,7 @@ $ p &= ln a b \
 $ q &= sum_k ln A \
     &= sum_k k ln a $
 
---- math-equation-number-align-multiline-expand ---
+--- math-equation-number-align-multiline-expand paged ---
 // Tests that if the numbering's layout box vertically exceeds the box of
 // the equation frame's boundary, the latter's frame is resized correctly
 // to encompass the numbering. #box() below delineates the resized frame.
@@ -215,7 +215,7 @@ $ q &= sum_k ln A \
 #set math.equation(numbering: "1", number-align: bottom)
 #equations
 
---- math-equation-number-align-multiline-no-expand ---
+--- math-equation-number-align-multiline-no-expand paged ---
 // Tests that if the numbering's layout box doesn't vertically exceed the
 // box of the equation frame's boundary, the latter's frame size remains.
 // So, in the grid below, frames in each row should have the same height.
@@ -256,11 +256,11 @@ $ q &= sum_k ln A \
   ],
 )
 
---- math-equation-number-empty ---
+--- math-equation-number-empty paged ---
 // Test numbering on empty equations.
 #math.equation(numbering: "1", block: true, [])
 
---- math-equation-tag-affects-row-height ---
+--- math-equation-tag-affects-row-height paged ---
 // Tags should not affect the row height of equations.
 #box($ - - $, fill: silver)
 #box($ #metadata(none) - - $, fill: silver) \
@@ -269,7 +269,7 @@ $ q &= sum_k ln A \
 #box($ - - \ a $, fill: silver)
 #box($ #metadata(none) - - \ a $, fill: silver)
 
---- issue-4187-alignment-point-affects-row-height ---
+--- issue-4187-alignment-point-affects-row-height paged ---
 // In this bug, a row of "-" only should have a very small height; but
 // after adding an alignment point "&", the row gains a larger height.
 // We need to test alignment point "&" does not affect a row's height.
@@ -279,7 +279,7 @@ $ q &= sum_k ln A \
 #box($ &- - \ &a $, fill: silver)
 #box($ &a \ &- - $, fill: silver)
 
---- issue-numbering-hint ---
+--- issue-numbering-hint paged ---
 // In this bug, the hint and error messages for an equation
 // being reference mentioned that it was a "heading" and was
 // lacking the proper path.
@@ -293,12 +293,12 @@ $ <quadratic>
 // Hint: 14-24 you can enable equation numbering with `#set math.equation(numbering: "1.")`
 Looks at the @quadratic formula.
 
---- issue-3696-equation-rtl ---
+--- issue-3696-equation-rtl paged ---
 #set page(width: 150pt)
 #set text(lang: "he")
 תהא סדרה $a_n$: $[a_n: 1, 1/2, 1/3, dots]$
 
---- issue-6170-equation-stroke ---
+--- issue-6170-equation-stroke paged ---
 // In this bug stroke settings did not apply to math content.
 // We expect all of these to have a green stroke.
 #set text(stroke: green + 0.5pt)

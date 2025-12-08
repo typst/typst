@@ -494,7 +494,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
 /// A value that is not part of the built-in enum.
 #[derive(Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
@@ -508,12 +507,14 @@ impl Dynamic {
 
     /// Whether the wrapped type is `T`.
     pub fn is<T: 'static>(&self) -> bool {
-        (*self.0).as_any().is::<T>()
+        let inner: &dyn Bounds = &*self.0;
+        (inner as &dyn Any).is::<T>()
     }
 
     /// Try to downcast to a reference to a specific type.
     pub fn downcast<T: 'static>(&self) -> Option<&T> {
-        (*self.0).as_any().downcast_ref()
+        let inner: &dyn Bounds = &*self.0;
+        (inner as &dyn Any).downcast_ref()
     }
 
     /// The name of the stored value's type.
@@ -540,8 +541,7 @@ impl PartialEq for Dynamic {
     }
 }
 
-trait Bounds: Debug + Repr + Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
+trait Bounds: Debug + Repr + Any + Sync + Send + 'static {
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_ty(&self) -> Type;
     fn dyn_hash(&self, state: &mut dyn Hasher);
@@ -551,10 +551,6 @@ impl<T> Bounds for T
 where
     T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn dyn_eq(&self, other: &Dynamic) -> bool {
         let Some(other) = other.downcast::<Self>() else { return false };
         self == other

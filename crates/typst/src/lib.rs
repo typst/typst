@@ -40,6 +40,7 @@ pub use typst_utils as utils;
 
 use std::sync::LazyLock;
 
+use arrayvec::ArrayVec;
 use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
@@ -49,11 +50,12 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
-use typst_library::introspection::Introspector;
+use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};
+use typst_utils::Protected;
 
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
@@ -120,50 +122,59 @@ fn compile_impl<D: Document>(
     )?
     .content();
 
-    let mut iter = 0;
-    let mut subsink;
-    let mut introspector = &empty_introspector;
+    let mut history: ArrayVec<D, { MAX_ITERS - 1 }> = ArrayVec::new();
     let mut document: D;
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        // The name of the iterations for timing scopes.
-        const ITER_NAMES: &[&str] =
-            &["layout (1)", "layout (2)", "layout (3)", "layout (4)", "layout (5)"];
-        let _scope = TimingScope::new(ITER_NAMES[iter]);
-
-        subsink = Sink::new();
-
+        let _scope = TimingScope::new(ITER_NAMES[history.len()]);
+        let introspector = history
+            .last()
+            .map(|doc| doc.introspector())
+            .unwrap_or(&empty_introspector);
         let constraint = comemo::Constraint::new();
+
+        let mut subsink = Sink::new();
         let mut engine = Engine {
             world,
-            introspector: introspector.track_with(&constraint),
+            introspector: Protected::new(introspector.track_with(&constraint)),
             traced,
             sink: subsink.track_mut(),
             route: Route::default(),
             routines: &ROUTINES,
         };
 
-        // Layout!
         document = D::create(&mut engine, &content, styles)?;
-        introspector = document.introspector();
-        iter += 1;
 
-        if timed!("check stabilized", constraint.validate(introspector)) {
+        if timed!("check stabilized", constraint.validate(document.introspector())) {
+            sink.extend_from_sink(subsink);
             break;
         }
 
-        if iter >= 5 {
-            subsink.warn(warning!(
-                Span::detached(), "layout did not converge within 5 attempts";
-                hint: "check if any states or queries are updating themselves"
-            ));
+        if history.is_full() {
+            let mut introspectors = [&empty_introspector; MAX_ITERS + 1];
+            for i in 1..MAX_ITERS {
+                introspectors[i] = history[i - 1].introspector();
+            }
+            introspectors[MAX_ITERS] = document.introspector();
+
+            let warnings = typst_library::introspection::analyze(
+                world,
+                &ROUTINES,
+                introspectors,
+                subsink.introspections(),
+            );
+
+            sink.extend_from_sink(subsink);
+            for warning in warnings {
+                sink.warn(warning);
+            }
             break;
         }
+
+        history.push(document);
     }
-
-    sink.extend_from_sink(subsink);
 
     // Promote delayed errors.
     let delayed = sink.delayed();
@@ -241,14 +252,14 @@ fn warn_or_error_for_html(
             "html export is under active development and incomplete";
             hint: "its behaviour may change at any time";
             hint: "do not rely on this feature for production use cases";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         ));
     } else {
         bail!(
             Span::detached(),
             "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         );
     }
     Ok(())

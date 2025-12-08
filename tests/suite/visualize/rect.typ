@@ -1,10 +1,10 @@
 // Test the `rect` function.
 
---- rect ---
+--- rect paged ---
 // Default rectangle.
 #rect()
 
---- rect-customization ---
+--- rect-customization paged ---
 #set page(width: 150pt)
 
 // Fit to text.
@@ -46,7 +46,7 @@
 #set rect(stroke: (right: red))
 #rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
 
---- rect-stroke ---
+--- rect-stroke paged ---
 // Rectangle strokes
 #rect(width: 20pt, height: 20pt, stroke: red)
 #v(3pt)
@@ -54,7 +54,7 @@
 #v(3pt)
 #rect(width: 20pt, height: 20pt, stroke: (thickness: 5pt, join: "round"))
 
---- rect-stroke-caps ---
+--- rect-stroke-caps paged ---
 // Separated segments
 #rect(width: 20pt, height: 20pt, stroke: (
   left: (cap: "round", thickness: 5pt),
@@ -70,11 +70,11 @@
   left: (cap: "round", thickness: 5pt),
   top: (cap: "square", thickness: 7pt),
 ))
---- red-stroke-bad-type ---
+--- red-stroke-bad-type paged ---
 // Error: 15-21 expected length, color, gradient, tiling, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
 
---- rect-fill-stroke ---
+--- rect-fill-stroke paged ---
 #let variant = rect.with(width: 20pt, height: 10pt)
 #let items = for (i, item) in (
   variant(stroke: none),
@@ -99,16 +99,16 @@
   ..items,
 )
 
---- rect-radius-bad-key ---
+--- rect-radius-bad-key paged ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #rect(radius: (left: 10pt, cake: 5pt))
 
---- issue-1825-rect-overflow ---
+--- issue-1825-rect-overflow paged ---
 #set page(width: 17.8cm)
 #set par(justify: true)
 #rect(lorem(70))
 
---- issue-3264-rect-negative-dimensions ---
+--- issue-3264-rect-negative-dimensions paged ---
 // Negative dimensions
 #rect(width: -1cm, fill: gradient.linear(red, blue))[Reverse left]
 
@@ -122,8 +122,214 @@
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
 
---- rect-size-beyond-default ---
+--- rect-size-beyond-default paged ---
 // Test that setting a rectangle's height beyond its default sizes it correctly.
 #rect()
 #rect(height: 60pt)
 #rect(width: 60pt)
+
+--- rect-stroke-variations-without-radius paged ---
+#import "block.typ": test-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [butt], [square], [round],
+  [no dash],
+  test-block(cap: "butt"),
+  test-block(cap: "square"),
+  test-block(cap: "round"),
+
+  [dashed],
+  test-block(cap: "butt", dash: "dashed"),
+  test-block(cap: "square", dash: "dashed"),
+  test-block(cap: "round", dash: "dashed"),
+
+  [loosely-dashed],
+  test-block(cap: "butt", dash: "loosely-dashed"),
+  test-block(cap: "square", dash: "loosely-dashed"),
+  test-block(cap: "round", dash: "loosely-dashed"),
+)
+
+--- rect-stroke-variations-with-radius paged ---
+#import "block.typ": test-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [butt], [square], [round],
+  [no dash],
+  test-block(cap: "butt", radius: 12pt),
+  test-block(cap: "square", radius: 12pt),
+  test-block(cap: "round", radius: 12pt),
+
+  [dashed],
+  test-block(cap: "butt", radius: 12pt, dash: "dashed"),
+  test-block(cap: "square", radius: 12pt, dash: "dashed"),
+  test-block(cap: "round", radius: 12pt, dash: "dashed"),
+
+  [loosely-dashed],
+  test-block(cap: "butt", radius: 12pt, dash: "loosely-dashed"),
+  test-block(cap: "square", radius: 12pt, dash: "loosely-dashed"),
+  test-block(cap: "round", radius: 12pt, dash: "loosely-dashed"),
+)
+
+--- rect-stroke-variations-with-radius-and-adjacent-zero-width-stroke paged ---
+#import "block.typ": test-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [butt], [square], [round],
+  [no dash],
+  test-block(cap: "butt", radius: 12pt, adjacent: 0pt),
+  test-block(cap: "square", radius: 12pt, adjacent: 0pt),
+  test-block(cap: "round", radius: 12pt, adjacent: 0pt),
+
+  [dashed],
+  test-block(cap: "butt", radius: 12pt, adjacent: 0pt, dash: "dashed"),
+  test-block(cap: "square", radius: 12pt, adjacent: 0pt, dash: "dashed"),
+  test-block(cap: "round", radius: 12pt, adjacent: 0pt, dash: "dashed"),
+
+  [loosely-dashed],
+  test-block(cap: "butt", radius: 12pt, adjacent: 0pt, dash: "loosely-dashed"),
+  test-block(cap: "square", radius: 12pt, adjacent: 0pt, dash: "loosely-dashed"),
+  test-block(cap: "round", radius: 12pt, adjacent: 0pt, dash: "loosely-dashed"),
+)
+
+--- rect-stroke-variations-with-radius-and-adjacent-thin-stroke paged ---
+#import "block.typ": test-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [butt], [square], [round],
+  [no dash],
+  test-block(cap: "butt", radius: 12pt, adjacent: 1pt),
+  test-block(cap: "square", radius: 12pt, adjacent: 1pt),
+  test-block(cap: "round", radius: 12pt, adjacent: 1pt),
+
+  [dashed],
+  test-block(cap: "butt", radius: 12pt, adjacent: 1pt, dash: "dashed"),
+  test-block(cap: "square", radius: 12pt, adjacent: 1pt, dash: "dashed"),
+  test-block(cap: "round", radius: 12pt, adjacent: 1pt, dash: "dashed"),
+
+  [loosely-dashed],
+  test-block(cap: "butt", radius: 12pt, adjacent: 1pt, dash: "loosely-dashed"),
+  test-block(cap: "square", radius: 12pt, adjacent: 1pt, dash: "loosely-dashed"),
+  test-block(cap: "round", radius: 12pt, adjacent: 1pt, dash: "loosely-dashed"),
+)
+
+--- rect-cap-variations-radius-4-3-of-stroke-thickness paged ---
+#import "block.typ": another-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [none], [0 width], [thin],
+  [butt],
+  another-block(cap: "butt", radius: 8pt, adjacent: none),
+  another-block(cap: "butt", radius: 8pt, adjacent: 0pt),
+  another-block(cap: "butt", radius: 8pt, adjacent: 1pt),
+
+  [square],
+  another-block(cap: "square", radius: 8pt, adjacent: none),
+  another-block(cap: "square", radius: 8pt, adjacent: 0pt),
+  another-block(cap: "square", radius: 8pt, adjacent: 1pt),
+
+  [round],
+  another-block(cap: "round", radius: 8pt, adjacent: none),
+  another-block(cap: "round", radius: 8pt, adjacent: 0pt),
+  another-block(cap: "round", radius: 8pt, adjacent: 1pt),
+)
+
+--- rect-cap-variations-radius-same-as-stroke-thickness paged ---
+#import "block.typ": another-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [none], [0 width], [thin],
+  [butt],
+  another-block(cap: "butt", adjacent: none),
+  another-block(cap: "butt", adjacent: 0pt),
+  another-block(cap: "butt", adjacent: 1pt),
+
+  [square],
+  another-block(cap: "square", adjacent: none),
+  another-block(cap: "square", adjacent: 0pt),
+  another-block(cap: "square", adjacent: 1pt),
+
+  [round],
+  another-block(cap: "round", adjacent: none),
+  another-block(cap: "round", adjacent: 0pt),
+  another-block(cap: "round", adjacent: 1pt),
+)
+
+--- rect-cap-variations-radius-2-3-of-stroke-thickness paged ---
+#import "block.typ": another-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [none], [0 width], [thin],
+  [butt],
+  another-block(cap: "butt", radius: 4pt, adjacent: none),
+  another-block(cap: "butt", radius: 4pt, adjacent: 0pt),
+  another-block(cap: "butt", radius: 4pt, adjacent: 1pt),
+
+  [square],
+  another-block(cap: "square", radius: 4pt, adjacent: none),
+  another-block(cap: "square", radius: 4pt, adjacent: 0pt),
+  another-block(cap: "square", radius: 4pt, adjacent: 1pt),
+
+  [round],
+  another-block(cap: "round", radius: 4pt, adjacent: none),
+  another-block(cap: "round", radius: 4pt, adjacent: 0pt),
+  another-block(cap: "round", radius: 4pt, adjacent: 1pt),
+)
+
+--- rect-cap-variations-radius-1-3-of-stroke-thickness paged ---
+#import "block.typ": another-block
+#set page(width: 7.5cm, margin: 0pt)
+#table(
+  stroke: none,
+  columns: (0.75fr,) + 3 * (1fr,),
+  [], [none], [0 width], [thin],
+  [butt],
+  another-block(cap: "butt", radius: 2pt, adjacent: none),
+  another-block(cap: "butt", radius: 2pt, adjacent: 0pt),
+  another-block(cap: "butt", radius: 2pt, adjacent: 1pt),
+
+  [square],
+  another-block(cap: "square", radius: 2pt, adjacent: none),
+  another-block(cap: "square", radius: 2pt, adjacent: 0pt),
+  another-block(cap: "square", radius: 2pt, adjacent: 1pt),
+
+  [round],
+  another-block(cap: "round", radius: 2pt, adjacent: none),
+  another-block(cap: "round", radius: 2pt, adjacent: 0pt),
+  another-block(cap: "round", radius: 2pt, adjacent: 1pt),
+)
+
+--- rect-adjacent-dashed-stroke-cap-change paged ---
+#set page(width: auto)
+#rect(
+  height: 1.2cm,
+  width: 1.5cm,
+  stroke: (
+    bottom: (cap: "square", thickness: 4pt, dash: "loosely-dashed"),
+    left: (cap: "round", thickness: 4pt, dash: "loosely-dashed"),
+  ),
+)
+
+--- rect-adjacent-dashed-stroke-thickness-change paged ---
+#set page(width: auto)
+#rect(
+  height: 1.2cm,
+  width: 1.5cm,
+  stroke: (
+    bottom: (thickness: 4pt, dash: "loosely-dashed"),
+    left: (thickness: 8pt, dash: "loosely-dashed"),
+  ),
+)

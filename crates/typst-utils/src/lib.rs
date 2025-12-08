@@ -10,15 +10,17 @@ mod duration;
 mod hash;
 mod listset;
 mod pico;
+mod protected;
 mod round;
 mod scalar;
 
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::duration::format_duration;
-pub use self::hash::{HashLock, LazyHash, ManuallyHash};
+pub use self::hash::{HashLock, LazyHash, ManuallyHash, hash128};
 pub use self::listset::ListSet;
 pub use self::pico::{PicoStr, ResolvedPicoStr};
+pub use self::protected::Protected;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
 
@@ -32,7 +34,6 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
-use siphasher::sip128::{Hasher128, SipHasher13};
 use unicode_math_class::MathClass;
 
 /// Turn a closure into a struct implementing [`Debug`].
@@ -71,13 +72,6 @@ where
     }
 
     Wrapper(f)
-}
-
-/// Calculate a 128-bit siphash of a value.
-pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
-    let mut state = SipHasher13::new();
-    value.hash(&mut state);
-    state.finish128().as_u128()
 }
 
 /// An extra constant for [`NonZeroUsize`].

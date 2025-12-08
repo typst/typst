@@ -1,15 +1,16 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::Span;
+use typst_utils::Protected;
 
 use crate::World;
-use crate::diag::{At, SourceResult, bail};
+use crate::diag::{At, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
     Selector, Str, Value, cast, elem, func, scope, select_where, ty,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{History, Introspect, Introspector, Locatable, Location};
 use crate::routines::Routines;
 
 /// Manages stateful parts of your document.
@@ -198,66 +199,8 @@ impl State {
         Self { key, init }
     }
 
-    /// Get the value of the state at the given location.
-    pub fn at_loc(&self, engine: &mut Engine, loc: Location) -> SourceResult<Value> {
-        let sequence = self.sequence(engine)?;
-        let offset = engine.introspector.query_count_before(&self.selector(), loc);
-        Ok(sequence[offset].clone())
-    }
-
-    /// Produce the whole sequence of states.
-    ///
-    /// This has to happen just once for all states, cutting down the number
-    /// of state updates from quadratic to linear.
-    fn sequence(&self, engine: &mut Engine) -> SourceResult<EcoVec<Value>> {
-        self.sequence_impl(
-            engine.routines,
-            engine.world,
-            engine.introspector,
-            engine.traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            engine.route.track(),
-        )
-    }
-
-    /// Memoized implementation of `sequence`.
-    #[comemo::memoize]
-    fn sequence_impl(
-        &self,
-        routines: &Routines,
-        world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
-        traced: Tracked<Traced>,
-        sink: TrackedMut<Sink>,
-        route: Tracked<Route>,
-    ) -> SourceResult<EcoVec<Value>> {
-        let mut engine = Engine {
-            routines,
-            world,
-            introspector,
-            traced,
-            sink,
-            route: Route::extend(route).unnested(),
-        };
-        let mut state = self.init.clone();
-        let mut stops = eco_vec![state.clone()];
-
-        for elem in introspector.query(&self.selector()) {
-            let elem = elem.to_packed::<StateUpdateElem>().unwrap();
-            match &elem.update {
-                StateUpdate::Set(value) => state = value.clone(),
-                StateUpdate::Func(func) => {
-                    state = func.call(&mut engine, Context::none().track(), [state])?
-                }
-            }
-            stops.push(state.clone());
-        }
-
-        Ok(stops)
-    }
-
     /// The selector for this state's updates.
-    fn selector(&self) -> Selector {
+    pub fn select(&self) -> Selector {
         select_where!(StateUpdateElem, key => self.key.clone())
     }
 
@@ -316,7 +259,7 @@ impl State {
         span: Span,
     ) -> SourceResult<Value> {
         let loc = context.location().at(span)?;
-        self.at_loc(engine, loc)
+        engine.introspect(StateAtIntrospection(self.clone(), loc, span))
     }
 
     /// Retrieves the value of the state at the given selector's unique match.
@@ -334,8 +277,8 @@ impl State {
         /// The place at which the state's value should be retrieved.
         selector: LocatableSelector,
     ) -> SourceResult<Value> {
-        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
-        self.at_loc(engine, loc)
+        let loc = selector.resolve_unique(engine, context, span)?;
+        engine.introspect(StateAtIntrospection(self.clone(), loc, span))
     }
 
     /// Retrieves the value of the state at the end of the document.
@@ -347,21 +290,40 @@ impl State {
         span: Span,
     ) -> SourceResult<Value> {
         context.introspect().at(span)?;
-        let sequence = self.sequence(engine)?;
-        Ok(sequence.last().unwrap().clone())
+        engine.introspect(StateFinalIntrospection(self.clone(), span))
     }
 
     /// Updates the value of the state.
     ///
-    /// The update will be in effect at the position where the returned content
-    /// is inserted into the document. If you don't put the output into the
-    /// document, nothing happens! This would be the case, for example, if you
-    /// write `{let _ = state("key").update(7)}`. State updates are always
-    /// applied in layout order and in that case, Typst wouldn't know when to
-    /// update the state.
+    /// Returns an invisible piece of [content] that must be inserted into the
+    /// document to take effect. This invisible content tells Typst that the
+    /// specified update should take place wherever the content is inserted into
+    /// the document.
+    ///
+    /// State is a part of your document and runs like a thread embedded in the
+    /// document content. The value of a state is the result of all state
+    /// updates that happened in the document up until that point.
+    ///
+    /// That's why `state.update` returns an invisible sliver of content that
+    /// you need to return and include in the document — a state update that is
+    /// not "placed" in the document does not happen, and "when" it happens is
+    /// determined by where you place it. That's also why you need [context] to
+    /// read state: You need to use the current document position to know where
+    /// on the state's "thread" you are.
+    ///
+    /// Storing a state update in a variable (e.g.
+    /// `{let my-update = state("key").update(c => c * 2)}`) will have no effect
+    /// by itself. Only once you insert the variable `[#my-update]` somewhere
+    /// into the document content, the update will take effect — at the position
+    /// where it was inserted. You can also use `[#my-update]` multiple times at
+    /// different positions. Then, the update will take effect multiple times as
+    /// well.
     ///
     /// In contrast to [`get`]($state.get), [`at`]($state.at), and
-    /// [`final`]($state.final), this function does not require [context].
+    /// [`final`]($state.final), this function does not require [context]. This
+    /// is because, to create the state update, we do not need to know where in
+    /// the document we are. We only need this information to resolve the
+    /// state's value.
     #[func]
     pub fn update(
         self,
@@ -441,4 +403,120 @@ impl Construct for StateUpdateElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
     }
+}
+
+/// Retrieves a state at a specific location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct StateAtIntrospection(State, Location, Span);
+
+impl Introspect for StateAtIntrospection {
+    type Output = SourceResult<Value>;
+
+    fn introspect(
+        &self,
+        engine: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let Self(state, loc, _) = self;
+        let sequence = sequence(state, engine, introspector)?;
+        let offset = introspector.query_count_before(&state.select(), *loc);
+        Ok(sequence[offset].clone())
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(&self.0, self.2, history)
+    }
+}
+
+/// Retrieves the final value of a state.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct StateFinalIntrospection(State, Span);
+
+impl Introspect for StateFinalIntrospection {
+    type Output = SourceResult<Value>;
+
+    fn introspect(
+        &self,
+        engine: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        let sequence = sequence(&self.0, engine, introspector)?;
+        Ok(sequence.last().unwrap().clone())
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(&self.0, self.1, history)
+    }
+}
+
+/// Produces the whole sequence of a state.
+///
+/// Due to memoization, this has to happen just once for all retrievals of the
+/// same state, cutting down the number of computations from quadratic to
+/// linear.
+fn sequence(
+    state: &State,
+    engine: &mut Engine,
+    introspector: Tracked<Introspector>,
+) -> SourceResult<EcoVec<Value>> {
+    sequence_impl(
+        state,
+        engine.routines,
+        engine.world,
+        introspector,
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+    )
+}
+
+/// Memoized implementation of `sequence`.
+#[comemo::memoize]
+fn sequence_impl(
+    state: &State,
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+) -> SourceResult<EcoVec<Value>> {
+    let mut engine = Engine {
+        routines,
+        world,
+        introspector: Protected::from_raw(introspector),
+        traced,
+        sink,
+        route: Route::extend(route).unnested(),
+    };
+
+    let mut current = state.init.clone();
+    let mut stops = eco_vec![current.clone()];
+
+    for elem in introspector.query(&state.select()) {
+        let elem = elem.to_packed::<StateUpdateElem>().unwrap();
+        match &elem.update {
+            StateUpdate::Set(value) => current = value.clone(),
+            StateUpdate::Func(func) => {
+                current = func.call(&mut engine, Context::none().track(), [current])?
+            }
+        }
+        stops.push(current.clone());
+    }
+
+    Ok(stops)
+}
+
+/// The warning when a state failed to converge.
+fn format_convergence_warning(
+    state: &State,
+    span: Span,
+    history: &History<SourceResult<Value>>,
+) -> SourceDiagnostic {
+    warning!(span, "value of `state({})` did not converge", state.key.repr())
+        .with_hint(history.hint("values", |ret| match ret {
+            Ok(v) => eco_format!("`{}`", v.repr()),
+            Err(_) => "(errored)".into(),
+        }))
+        .with_hint("see https://typst.app/help/state-convergence for help")
 }

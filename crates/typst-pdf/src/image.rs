@@ -1,12 +1,13 @@
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
+use ecow::eco_format;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Angle, Ratio, Size, Transform};
 use typst_library::visualize::{
@@ -48,10 +49,9 @@ pub(crate) fn handle_image(
             surface.push_transform(&exif_transform.to_krilla());
             let mut surface = defer(surface, |s| s.pop());
 
-            let image = match convert_raster(raster.clone(), interpolate) {
-                None => bail!(span, "failed to process image"),
-                Some(i) => i,
-            };
+            let image = convert_raster(raster.clone(), interpolate)
+                .map_err(|err| eco_format!("failed to process image ({err})"))
+                .at(span)?;
 
             if !gc.image_to_spans.contains_key(&image) {
                 gc.image_to_spans.insert(image.clone(), span);
@@ -80,7 +80,12 @@ pub(crate) fn handle_image(
     Ok(())
 }
 
-struct Repr {
+/// A wrapper around `RasterImage` so that we can implement `CustomImage`.
+#[derive(Clone)]
+struct PdfRasterImage(Arc<PdfRasterImageInner>);
+
+/// The internal representation of a [`PdfRasterImage`].
+struct PdfRasterImageInner {
     /// The original, underlying raster image.
     raster: RasterImage,
     /// The alpha channel of the raster image, if existing.
@@ -91,13 +96,10 @@ struct Repr {
     actual_dynamic: OnceLock<Arc<DynamicImage>>,
 }
 
-/// A wrapper around `RasterImage` so that we can implement `CustomImage`.
-#[derive(Clone)]
-struct PdfRasterImage(Arc<Repr>);
-
 impl PdfRasterImage {
+    /// Wraps a raster image.
     pub fn new(raster: RasterImage) -> Self {
-        Self(Arc::new(Repr {
+        Self(Arc::new(PdfRasterImageInner {
             raster,
             alpha_channel: OnceLock::new(),
             actual_dynamic: OnceLock::new(),
@@ -189,7 +191,7 @@ impl CustomImage for PdfRasterImage {
 fn convert_raster(
     raster: RasterImage,
     interpolate: bool,
-) -> Option<krilla::image::Image> {
+) -> Result<krilla::image::Image, String> {
     if let RasterFormat::Exchange(ExchangeFormat::Jpg) = raster.format() {
         let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
             Arc::new(raster.data().clone());

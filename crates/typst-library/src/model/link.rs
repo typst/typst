@@ -1,17 +1,18 @@
 use std::ops::Deref;
 use std::str::FromStr;
 
-use comemo::Tracked;
 use ecow::{EcoString, eco_format};
+use typst_syntax::Span;
 
-use crate::diag::{SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Construct, Content, Label, Packed, Repr, Selector, ShowSet, Smart, StyleChain,
     Styles, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, Introspector, Locatable, Location, Tagged,
+    Counter, CounterKey, Introspector, Locatable, Location, QueryFirstIntrospection,
+    QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{PageElem, Position};
 use crate::model::{NumberingPattern, Refable};
@@ -182,7 +183,22 @@ pub enum LinkTarget {
 
 impl LinkTarget {
     /// Resolves the destination.
-    pub fn resolve(&self, introspector: Tracked<Introspector>) -> StrResult<Destination> {
+    pub fn resolve(&self, engine: &mut Engine, span: Span) -> SourceResult<Destination> {
+        Ok(match self {
+            LinkTarget::Dest(dest) => dest.clone(),
+            LinkTarget::Label(label) => {
+                let elem =
+                    engine.introspect(QueryLabelIntrospection(*label, span)).at(span)?;
+                Destination::Location(elem.location().unwrap())
+            }
+        })
+    }
+
+    /// Resolves the destination without an engine.
+    pub fn resolve_with_introspector(
+        &self,
+        introspector: &Introspector,
+    ) -> StrResult<Destination> {
         Ok(match self {
             LinkTarget::Dest(dest) => dest.clone(),
             LinkTarget::Label(label) => {
@@ -225,6 +241,7 @@ impl Destination {
         &self,
         engine: &mut Engine,
         styles: StyleChain,
+        span: Span,
     ) -> SourceResult<EcoString> {
         match self {
             Destination::Url(url) => {
@@ -241,11 +258,12 @@ impl Destination {
             &Destination::Location(loc) => {
                 let fallback = |engine: &mut Engine| {
                     // Fall back to a generating a page reference.
-                    let numbering = loc.page_numbering(engine).unwrap_or_else(|| {
-                        NumberingPattern::from_str("1").unwrap().into()
-                    });
+                    let numbering =
+                        loc.page_numbering(engine, span).unwrap_or_else(|| {
+                            NumberingPattern::from_str("1").unwrap().into()
+                        });
                     let page_nr = Counter::new(CounterKey::Page)
-                        .display_at_loc(engine, loc, styles, &numbering)?
+                        .display_at(engine, loc, styles, &numbering, span)?
                         .plain_text();
                     let page_str = PageElem::local_name_in(styles);
                     Ok(eco_format!("{page_str} {page_nr}"))
@@ -253,19 +271,20 @@ impl Destination {
 
                 // Try to generate more meaningful alt text if the location is a
                 // refable element.
-                let loc_selector = Selector::Location(loc);
-                if let Some(elem) = engine.introspector.query_first(&loc_selector)
+                if let Some(elem) = engine
+                    .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
                     && let Some(refable) = elem.with::<dyn Refable>()
                 {
                     let counter = refable.counter();
                     let supplement = refable.supplement().plain_text();
 
                     if let Some(numbering) = refable.numbering() {
-                        let numbers = counter.display_at_loc(
+                        let numbers = counter.display_at(
                             engine,
                             loc,
                             styles,
                             &numbering.clone().trimmed(),
+                            span,
                         )?;
                         return Ok(eco_format!("{supplement} {}", numbers.plain_text()));
                     } else {

@@ -1,6 +1,6 @@
 // Test grid layouts.
 
---- grid-columns-sizings-rect ---
+--- grid-columns-sizings-rect paged ---
 #let cell(width, color) = rect(width: width, height: 2cm, fill: color)
 #set page(width: 100pt, height: 140pt)
 #grid(
@@ -19,7 +19,7 @@
   cell(100%,  rgb("00ff00")),
 )
 
---- grid-gutter-fr ---
+--- grid-gutter-fr paged ---
 #set rect(inset: 0pt)
 #grid(
   columns: (auto, auto, 40%),
@@ -30,7 +30,7 @@
   rect(fill: rgb("dddddd"))[aaa],
 )
 
---- grid-row-sizing-manual-align ---
+--- grid-row-sizing-manual-align paged ---
 #set page(height: 3cm, margin: 0pt)
 #grid(
   columns: (1fr,),
@@ -40,7 +40,7 @@
   [],
 )
 
---- grid-finance ---
+--- grid-finance paged ---
 // Test using the `grid` function to create a finance table.
 #set page(width: 11cm, height: 2.5cm)
 #grid(
@@ -70,7 +70,7 @@
 )
 // Test grid cells that overflow to the next region.
 
---- grid-cell-breaking ---
+--- grid-cell-breaking paged ---
 #set page(width: 5cm, height: 3cm)
 #grid(
   columns: 2,
@@ -85,7 +85,7 @@
   [Rampage],
 )
 
---- grid-consecutive-rows-breaking ---
+--- grid-consecutive-rows-breaking paged ---
 // Test a column that starts overflowing right after another row/column did
 // that.
 #set page(width: 5cm, height: 2cm)
@@ -100,7 +100,7 @@
   [Ha!\ ] * 3,
 )
 
---- grid-same-row-multiple-columns-breaking ---
+--- grid-same-row-multiple-columns-breaking paged ---
 // Test two columns in the same row overflowing by a different amount.
 #set page(width: 5cm, height: 2cm)
 #grid(
@@ -116,7 +116,7 @@
   [my old]
 )
 
---- grid-nested-breaking ---
+--- grid-nested-breaking paged ---
 // Test grid within a grid, overflowing.
 #set page(width: 5cm, height: 2.25cm)
 #grid(
@@ -130,7 +130,7 @@
   [E\ ]*4,
 )
 
---- grid-column-sizing-auto-base ---
+--- grid-column-sizing-auto-base paged ---
 // Test that auto and relative columns use the correct base.
 #grid(
   columns: (auto, 60%),
@@ -140,7 +140,7 @@
   rect(width: 50%, height: 0.5cm, fill: forest),
 )
 
---- grid-column-sizing-fr-base ---
+--- grid-column-sizing-fr-base paged ---
 // Test that fr columns use the correct base.
 #grid(
   columns: (1fr,) * 4,
@@ -151,7 +151,7 @@
   rect(width: 50%, fill: forest),
 )
 
---- grid-column-sizing-mixed-base ---
+--- grid-column-sizing-mixed-base paged ---
 // Test that all three kinds of rows use the correct bases.
 #set page(height: 4cm, margin: 0cm)
 #grid(
@@ -162,7 +162,7 @@
   rect(height: 25%, width: 100%, fill: forest),
 )
 
---- grid-trailing-linebreak-region-overflow ---
+--- grid-trailing-linebreak-region-overflow paged ---
 // Test that trailing linebreak doesn't overflow the region.
 #set page(height: 2cm)
 #grid[
@@ -173,7 +173,7 @@
   World
 ]
 
---- grid-breaking-expand-vertically ---
+--- grid-breaking-expand-vertically paged ---
 // Test that broken cell expands vertically.
 #set page(height: 2.25cm)
 #grid(
@@ -192,7 +192,7 @@
   align(top)[B],
 )
 
---- grid-complete-rows ---
+--- grid-complete-rows paged ---
 // Ensure grids expand enough for the given rows.
 #grid(
   columns: (2em, 2em),
@@ -202,7 +202,7 @@
   [a]
 )
 
---- grid-auto-shrink ---
+--- grid-auto-shrink paged ---
 // Test iterative auto column shrinking.
 #set page(width: 210mm - 2 * 2.5cm + 2 * 10pt)
 #set text(11pt)
@@ -214,7 +214,7 @@
   [Hello there, my friends! Hi! What is going on right now?],
 )
 
---- issue-grid-base-auto-row ---
+--- issue-grid-base-auto-row paged ---
 // Test that grid base for auto rows makes sense.
 #set page(height: 150pt)
 #table(
@@ -225,12 +225,12 @@
   rect(width: 100%, height: 50%, fill: green),
 )
 
---- issue-grid-base-auto-row-list ---
+--- issue-grid-base-auto-row-list paged ---
 #rect(width: 100%, height: 1em)
 - #rect(width: 100%, height: 1em)
   - #rect(width: 100%, height: 1em)
 
---- issue-grid-skip ---
+--- issue-grid-skip paged ---
 // Grid now skips a remaining region when one of the cells
 // doesn't fit into it at all.
 #set page(height: 100pt)
@@ -245,12 +245,12 @@
   polygon(fill: red, (0%, 0%), (100%, 0%), (100%, 20%))
 )
 
---- issue-grid-skip-list ---
+--- issue-grid-skip-list paged ---
 #set page(height: 60pt)
 #lines(2)
 - #lines(2)
 
---- issue-grid-double-skip ---
+--- issue-grid-double-skip paged ---
 // Ensure that the list does not jump to the third page.
 #set page(height: 70pt)
 #v(40pt)
@@ -258,7 +258,7 @@ The following:
 + A
 + B
 
---- issue-grid-gutter-skip ---
+--- issue-grid-gutter-skip paged ---
 // Ensure gutter rows at the top or bottom of a region are skipped.
 #set page(height: 10em)
 
@@ -275,7 +275,7 @@ The following:
   [a]
 )
 
---- issue-3917-grid-with-infinite-width ---
+--- issue-3917-grid-with-infinite-width paged ---
 // https://github.com/typst/typst/issues/1918
 #set page(width: auto)
 #context layout(available => {
@@ -284,7 +284,7 @@ The following:
   grid(gutter: infinite-length, columns: 2)[A][B]
 })
 
---- issue-7103-wrong-state-calculation ---
+--- issue-7103-wrong-state-calculation paged ---
 #set page(paper: "a10")
 
 #let st = state("st", 0)

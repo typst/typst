@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult};
+use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load, Readable};
@@ -81,7 +81,22 @@ pub fn json(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    serde_json::from_slice(loaded.data.as_slice())
+    let raw = loaded.data.as_slice();
+    // If the file starts with a UTF-8 Byte Order Mark (BOM), return a
+    // friendly error message.
+    if raw.starts_with(b"\xef\xbb\xbf") {
+        bail!(
+            LoadError::new(
+                LineCol::one_based(1, 1),
+                "failed to parse JSON",
+                "unexpected Byte Order Mark",
+            )
+            .within(&loaded)
+            .with_hint("JSON requires UTF-8 without a BOM")
+        );
+    }
+
+    serde_json::from_slice(raw)
         .map_err(|err| {
             let pos = LineCol::one_based(err.line(), err.column());
             LoadError::new(pos, "failed to parse JSON", err)

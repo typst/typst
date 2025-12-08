@@ -7,6 +7,7 @@ use typst_library::math::{Augment, AugmentOffsets, CasesElem, MatElem, VecElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
+use unicode_math_class::MathClass;
 
 use super::{
     AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
@@ -187,7 +188,7 @@ fn layout_body(
     // way too big.
     // This will never panic as a paren will never shape into nothing.
     let paren =
-        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())?
+        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
             .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {
@@ -202,7 +203,7 @@ fn layout_body(
                 ctx.engine.sink.warn(warning!(
                    cell_span,
                    "linebreaks are ignored in {}", children;
-                   hint: "use commas instead to separate each line"
+                   hint: "use commas instead to separate each line";
                 ));
             }
 
@@ -348,6 +349,7 @@ fn layout_delimiters(
             ctx.layout_into_fragment(&SymbolElem::packed(left_c).spanned(span), styles)?;
         left.stretch_vertical(ctx, target, short_fall);
         left.center_on_axis();
+        left.set_class(MathClass::Opening);
         ctx.push(left);
     }
 
@@ -358,6 +360,7 @@ fn layout_delimiters(
             ctx.layout_into_fragment(&SymbolElem::packed(right_c).spanned(span), styles)?;
         right.stretch_vertical(ctx, target, short_fall);
         right.center_on_axis();
+        right.set_class(MathClass::Closing);
         ctx.push(right);
     }
 

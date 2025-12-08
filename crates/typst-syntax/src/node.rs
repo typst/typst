@@ -9,11 +9,11 @@ use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct SyntaxNode(Repr);
+pub struct SyntaxNode(NodeKind);
 
 /// The three internal representations.
 #[derive(Clone, Eq, PartialEq, Hash)]
-enum Repr {
+enum NodeKind {
     /// A leaf node.
     Leaf(LeafNode),
     /// A reference-counted inner node.
@@ -25,17 +25,17 @@ enum Repr {
 impl SyntaxNode {
     /// Create a new leaf node.
     pub fn leaf(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
-        Self(Repr::Leaf(LeafNode::new(kind, text)))
+        Self(NodeKind::Leaf(LeafNode::new(kind, text)))
     }
 
     /// Create a new inner node with children.
     pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
-        Self(Repr::Inner(Arc::new(InnerNode::new(kind, children))))
+        Self(NodeKind::Inner(Arc::new(InnerNode::new(kind, children))))
     }
 
     /// Create a new error node.
     pub fn error(error: SyntaxError, text: impl Into<EcoString>) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(error, text))))
+        Self(NodeKind::Error(Arc::new(ErrorNode::new(error, text))))
     }
 
     /// Create a dummy node of the given kind.
@@ -46,7 +46,7 @@ impl SyntaxNode {
         if matches!(kind, SyntaxKind::Error) {
             panic!("cannot create error placeholder");
         }
-        Self(Repr::Leaf(LeafNode {
+        Self(NodeKind::Leaf(LeafNode {
             kind,
             text: EcoString::new(),
             span: Span::detached(),
@@ -56,9 +56,9 @@ impl SyntaxNode {
     /// The type of the node.
     pub fn kind(&self) -> SyntaxKind {
         match &self.0 {
-            Repr::Leaf(leaf) => leaf.kind,
-            Repr::Inner(inner) => inner.kind,
-            Repr::Error(_) => SyntaxKind::Error,
+            NodeKind::Leaf(leaf) => leaf.kind,
+            NodeKind::Inner(inner) => inner.kind,
+            NodeKind::Error(_) => SyntaxKind::Error,
         }
     }
 
@@ -70,18 +70,18 @@ impl SyntaxNode {
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
         match &self.0 {
-            Repr::Leaf(leaf) => leaf.len(),
-            Repr::Inner(inner) => inner.len,
-            Repr::Error(node) => node.len(),
+            NodeKind::Leaf(leaf) => leaf.len(),
+            NodeKind::Inner(inner) => inner.len,
+            NodeKind::Error(node) => node.len(),
         }
     }
 
     /// The span of the node.
     pub fn span(&self) -> Span {
         match &self.0 {
-            Repr::Leaf(leaf) => leaf.span,
-            Repr::Inner(inner) => inner.span,
-            Repr::Error(node) => node.error.span,
+            NodeKind::Leaf(leaf) => leaf.span,
+            NodeKind::Inner(inner) => inner.span,
+            NodeKind::Error(node) => node.error.span,
         }
     }
 
@@ -91,9 +91,9 @@ impl SyntaxNode {
     pub fn text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match &self.0 {
-            Repr::Leaf(leaf) => &leaf.text,
-            Repr::Inner(_) => &EMPTY,
-            Repr::Error(node) => &node.text,
+            NodeKind::Leaf(leaf) => &leaf.text,
+            NodeKind::Inner(_) => &EMPTY,
+            NodeKind::Error(node) => &node.text,
         }
     }
 
@@ -102,28 +102,28 @@ impl SyntaxNode {
     /// Builds the string if this is an inner node.
     pub fn into_text(self) -> EcoString {
         match self.0 {
-            Repr::Leaf(leaf) => leaf.text,
-            Repr::Inner(inner) => {
+            NodeKind::Leaf(leaf) => leaf.text,
+            NodeKind::Inner(inner) => {
                 inner.children.iter().cloned().map(Self::into_text).collect()
             }
-            Repr::Error(node) => node.text.clone(),
+            NodeKind::Error(node) => node.text.clone(),
         }
     }
 
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match &self.0 {
-            Repr::Leaf(_) | Repr::Error(_) => [].iter(),
-            Repr::Inner(inner) => inner.children.iter(),
+            NodeKind::Leaf(_) | NodeKind::Error(_) => [].iter(),
+            NodeKind::Inner(inner) => inner.children.iter(),
         }
     }
 
     /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         match &self.0 {
-            Repr::Leaf(_) => false,
-            Repr::Inner(inner) => inner.erroneous,
-            Repr::Error(_) => true,
+            NodeKind::Leaf(_) => false,
+            NodeKind::Inner(inner) => inner.erroneous,
+            NodeKind::Error(_) => true,
         }
     }
 
@@ -133,7 +133,7 @@ impl SyntaxNode {
             return vec![];
         }
 
-        if let Repr::Error(node) = &self.0 {
+        if let NodeKind::Error(node) = &self.0 {
             vec![node.error.clone()]
         } else {
             self.children()
@@ -145,7 +145,7 @@ impl SyntaxNode {
 
     /// Add a user-presentable hint if this is an error node.
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        if let Repr::Error(node) = &mut self.0 {
+        if let NodeKind::Error(node) = &mut self.0 {
             Arc::make_mut(node).hint(hint);
         }
     }
@@ -153,18 +153,18 @@ impl SyntaxNode {
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         match &mut self.0 {
-            Repr::Leaf(leaf) => leaf.span = span,
-            Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Repr::Error(node) => Arc::make_mut(node).error.span = span,
+            NodeKind::Leaf(leaf) => leaf.span = span,
+            NodeKind::Inner(inner) => Arc::make_mut(inner).synthesize(span),
+            NodeKind::Error(node) => Arc::make_mut(node).error.span = span,
         }
     }
 
     /// Whether the two syntax nodes are the same apart from spans.
     pub fn spanless_eq(&self, other: &Self) -> bool {
         match (&self.0, &other.0) {
-            (Repr::Leaf(a), Repr::Leaf(b)) => a.spanless_eq(b),
-            (Repr::Inner(a), Repr::Inner(b)) => a.spanless_eq(b),
-            (Repr::Error(a), Repr::Error(b)) => a.spanless_eq(b),
+            (NodeKind::Leaf(a), NodeKind::Leaf(b)) => a.spanless_eq(b),
+            (NodeKind::Inner(a), NodeKind::Inner(b)) => a.spanless_eq(b),
+            (NodeKind::Error(a), NodeKind::Error(b)) => a.spanless_eq(b),
             _ => false,
         }
     }
@@ -178,9 +178,9 @@ impl SyntaxNode {
     pub(super) fn convert_to_kind(&mut self, kind: SyntaxKind) {
         debug_assert!(!kind.is_error());
         match &mut self.0 {
-            Repr::Leaf(leaf) => leaf.kind = kind,
-            Repr::Inner(inner) => Arc::make_mut(inner).kind = kind,
-            Repr::Error(_) => panic!("cannot convert error"),
+            NodeKind::Leaf(leaf) => leaf.kind = kind,
+            NodeKind::Inner(inner) => Arc::make_mut(inner).kind = kind,
+            NodeKind::Error(_) => panic!("cannot convert error"),
         }
     }
 
@@ -222,9 +222,9 @@ impl SyntaxNode {
 
         let mid = Span::from_number(id, (within.start + within.end) / 2).unwrap();
         match &mut self.0 {
-            Repr::Leaf(leaf) => leaf.span = mid,
-            Repr::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            Repr::Error(node) => Arc::make_mut(node).error.span = mid,
+            NodeKind::Leaf(leaf) => leaf.span = mid,
+            NodeKind::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
+            NodeKind::Error(node) => Arc::make_mut(node).error.span = mid,
         }
 
         Ok(())
@@ -232,22 +232,22 @@ impl SyntaxNode {
 
     /// Whether this is a leaf node.
     pub(super) fn is_leaf(&self) -> bool {
-        matches!(self.0, Repr::Leaf(_))
+        matches!(self.0, NodeKind::Leaf(_))
     }
 
     /// The number of descendants, including the node itself.
     pub(super) fn descendants(&self) -> usize {
         match &self.0 {
-            Repr::Leaf(_) | Repr::Error(_) => 1,
-            Repr::Inner(inner) => inner.descendants,
+            NodeKind::Leaf(_) | NodeKind::Error(_) => 1,
+            NodeKind::Inner(inner) => inner.descendants,
         }
     }
 
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         match &mut self.0 {
-            Repr::Leaf(_) | Repr::Error(_) => &mut [],
-            Repr::Inner(inner) => &mut Arc::make_mut(inner).children,
+            NodeKind::Leaf(_) | NodeKind::Error(_) => &mut [],
+            NodeKind::Inner(inner) => &mut Arc::make_mut(inner).children,
         }
     }
 
@@ -259,7 +259,7 @@ impl SyntaxNode {
         range: Range<usize>,
         replacement: Vec<SyntaxNode>,
     ) -> NumberingResult {
-        if let Repr::Inner(inner) = &mut self.0 {
+        if let NodeKind::Inner(inner) = &mut self.0 {
             Arc::make_mut(inner).replace_children(range, replacement)?;
         }
         Ok(())
@@ -273,7 +273,7 @@ impl SyntaxNode {
         prev_descendants: usize,
         new_descendants: usize,
     ) {
-        if let Repr::Inner(inner) = &mut self.0 {
+        if let NodeKind::Inner(inner) = &mut self.0 {
             Arc::make_mut(inner).update_parent(
                 prev_len,
                 new_len,
@@ -286,9 +286,9 @@ impl SyntaxNode {
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
         match &self.0 {
-            Repr::Leaf(leaf) => leaf.span.number() + 1,
-            Repr::Inner(inner) => inner.upper,
-            Repr::Error(node) => node.error.span.number() + 1,
+            NodeKind::Leaf(leaf) => leaf.span.number() + 1,
+            NodeKind::Inner(inner) => inner.upper,
+            NodeKind::Error(node) => node.error.span.number() + 1,
         }
     }
 }
@@ -296,9 +296,9 @@ impl SyntaxNode {
 impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match &self.0 {
-            Repr::Leaf(leaf) => leaf.fmt(f),
-            Repr::Inner(inner) => inner.fmt(f),
-            Repr::Error(node) => node.fmt(f),
+            NodeKind::Leaf(leaf) => leaf.fmt(f),
+            NodeKind::Inner(inner) => inner.fmt(f),
+            NodeKind::Error(node) => node.fmt(f),
         }
     }
 }
@@ -717,7 +717,7 @@ impl<'a> LinkedNode<'a> {
             return Some(self.clone());
         }
 
-        if let Repr::Inner(inner) = &self.0 {
+        if let NodeKind::Inner(inner) = &self.0 {
             // The parent of a subtree has a smaller span number than all of its
             // descendants. Therefore, we can bail out early if the target span's
             // number is smaller than our number.

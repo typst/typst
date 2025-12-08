@@ -243,7 +243,7 @@ impl Gradient {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -345,7 +345,7 @@ impl Gradient {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -353,7 +353,7 @@ impl Gradient {
             bail!(
                 focal_radius.span,
                 "the focal radius must be smaller than the end radius";
-                hint: "try using a focal radius of `0%` instead"
+                hint: "try using a focal radius of `0%` instead";
             );
         }
 
@@ -364,7 +364,7 @@ impl Gradient {
             bail!(
                 span,
                 "the focal circle must be inside of the end circle";
-                hint: "try using a focal center of `auto` instead"
+                hint: "try using a focal center of `auto` instead";
             );
         }
 
@@ -436,7 +436,7 @@ impl Gradient {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -1227,7 +1227,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             let Some(stop) = stop.offset else {
                 bail!(
                     *span, "either all stops must have an offset or none of them can";
-                    hint: "try adding an offset to all stops"
+                    hint: "try adding an offset to all stops";
                 );
             };
 
@@ -1252,7 +1252,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             bail!(
                 stops[0].span,
                 "first stop must have an offset of 0";
-                hint: "try setting this stop to `0%`"
+                hint: "try setting this stop to `0%`";
             );
         }
 
@@ -1260,7 +1260,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             bail!(
                 stops[out.len() - 1].span,
                 "last stop must have an offset of 100%";
-                hint: "try setting this stop to `100%`"
+                hint: "try setting this stop to `100%`";
             );
         }
 

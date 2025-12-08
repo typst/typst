@@ -1,14 +1,14 @@
---- param-underscore-missing-argument ---
+--- param-underscore-missing-argument paged ---
 // Error: 17-20 missing argument: pattern parameter
 #let f(a: 10) = a() + 1
 #f(a: _ => 5)
 
---- params-sink-named ---
+--- params-sink-named paged ---
 // ... but this was.
 #let f(..x) = {}
 #f(arg: 1)
 
---- params-sink-unnamed ---
+--- params-sink-unnamed paged ---
 // unnamed spread
 #let f(.., a) = a
 #test(f(1, 2, 3), 3)
@@ -17,15 +17,15 @@
 #let f(..) = 2
 #test(f(arg: 1), 2)
 
---- params-sink-bool-invalid ---
+--- params-sink-bool-invalid paged ---
 // Error: 10-14 expected pattern, found boolean
 #let f(..true) = none
 
---- params-sink-multiple-invalid ---
+--- params-sink-multiple-invalid paged ---
 // Error: 13-16 only one argument sink is allowed
 #let f(..a, ..b) = none
 
---- params-sink-at-start ---
+--- params-sink-at-start paged ---
 // Spread at beginning.
 #{
   let f(..a, b) = (a, b)
@@ -34,7 +34,7 @@
   test(repr(f(1, 2, 3, 4, 5)), "(arguments(1, 2, 3, 4), 5)")
 }
 
---- params-sink-in-middle ---
+--- params-sink-in-middle paged ---
 // Spread in the middle.
 #{
   let f(a, ..b, c) = (a, b, c)
@@ -42,7 +42,7 @@
   test(repr(f(1, 2, 3, 4, 5)), "(1, arguments(2, 3, 4), 5)")
 }
 
---- params-sink-unnamed-empty ---
+--- params-sink-unnamed-empty paged ---
 // Unnamed sink should just ignore any extra arguments.
 #{
   let f(a, b: 5, ..) = (a, b)
@@ -52,7 +52,7 @@
   test(f(15, b: 16, c: 13), (15, 16))
 }
 
---- params-sink-missing-arguments ---
+--- params-sink-missing-arguments paged ---
 #{
   let f(..a, b, c, d) = none
 
@@ -60,10 +60,10 @@
   f(1, 2)
 }
 
---- issue-1029-parameter-destructuring ---
+--- issue-1029-parameter-destructuring paged ---
 // Test that underscore works in parameter patterns.
 #test((1, 2, 3).zip((1, 2, 3)).map(((_, x)) => x), (1, 2, 3))
 
---- issue-1351-parameter-dictionary ---
+--- issue-1351-parameter-dictionary paged ---
 // Error: 17-22 expected pattern, found string
 #let foo((test: "bar")) = {}
