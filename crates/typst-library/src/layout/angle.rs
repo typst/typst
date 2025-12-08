@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::f64::consts::{PI, TAU};
 use std::fmt::{self, Debug, Formatter};
 use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg};
@@ -7,6 +7,7 @@ use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
 use crate::foundations::{Repr, func, repr, scope, ty};
+use crate::layout::Ratio;
 
 /// An angle describing a rotation.
 ///
@@ -49,6 +50,11 @@ impl Angle {
         Self::with_unit(deg, AngleUnit::Deg)
     }
 
+    /// Create an angle from a ratio. 100% corresponds to `360deg`
+    pub fn from_ratio(r: Ratio) -> Angle {
+        Self::rad(r.get() * TAU)
+    }
+
     /// Get the value of this angle in raw units.
     pub const fn to_raw(self) -> f64 {
         (self.0).get()
@@ -59,6 +65,13 @@ impl Angle {
         self.to_raw() / unit.raw_scale()
     }
 
+    /// Calculates the non-negative remainder in relation to a full angle.
+    ///
+    /// Returns an angle within the interval of `0deg..=360deg`.
+    pub fn normalized(self) -> Self {
+        Self::rad(self.to_rad().rem_euclid(TAU))
+    }
+
     /// The absolute value of the this angle.
     pub fn abs(self) -> Self {
         Self::raw(self.to_raw().abs())
@@ -66,17 +79,39 @@ impl Angle {
 
     /// Get the sine of this angle in radians.
     pub fn sin(self) -> f64 {
-        self.to_rad().sin()
+        libm::sin(self.to_rad())
     }
 
     /// Get the cosine of this angle in radians.
     pub fn cos(self) -> f64 {
-        self.to_rad().cos()
+        libm::cos(self.to_rad())
     }
 
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
-        self.to_rad().tan()
+        libm::tan(self.to_rad())
+    }
+
+    /// Get the arcsine of a number.
+    pub fn asin(x: f64) -> Self {
+        Self::rad(libm::asin(x))
+    }
+
+    /// Get the arccosine of a number.
+    pub fn acos(x: f64) -> Self {
+        Self::rad(libm::acos(x))
+    }
+
+    /// Get the arctangent of a number.
+    pub fn atan(x: f64) -> Self {
+        Self::rad(libm::atan(x))
+    }
+
+    /// Get the four-quadrant arctangent of a coordinate.
+    ///
+    /// Returns a value in the range of `-180deg..=180deg`.
+    pub fn atan2(y: f64, x: f64) -> Self {
+        Self::rad(libm::atan2(y, x))
     }
 
     /// Get the quadrant of the Cartesian plane that this angle lies in.

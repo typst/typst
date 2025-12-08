@@ -62,6 +62,11 @@ impl Ratio {
         (self.0).get()
     }
 
+    /// Get the underlying ratio.
+    pub const fn scalar(self) -> Scalar {
+        self.0
+    }
+
     /// Whether the ratio is zero.
     pub fn is_zero(self) -> bool {
         self.0 == 0.0

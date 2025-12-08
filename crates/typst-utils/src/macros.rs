@@ -55,4 +55,12 @@ macro_rules! assign_impl {
             }
         }
     };
+
+    ($a:ident %= $b:ident) => {
+        impl ::core::ops::RemAssign<$b> for $a {
+            fn rem_assign(&mut self, other: $b) {
+                *self = *self % other;
+            }
+        }
+    };
 }
