@@ -81,6 +81,7 @@ krilla = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332", default-
 krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332" }
 kurbo = "0.12"
 libfuzzer-sys = "0.4"
+libm = "0.2.11"
 lipsum = "0.9"
 memchr = "2"
 native-tls = "0.2"
@@ -171,3 +172,4 @@ uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
 # See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
 derived_hash_with_manual_eq = "allow"
+disallowed_methods = "warn"

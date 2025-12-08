@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
-use typst_utils::{Get, Numeric};
+use typst_utils::{Get, Numeric, Vec2};
 
 use crate::layout::{Abs, Axis, Size, Transform};
 
@@ -57,7 +57,7 @@ impl Point {
 
     /// The distance between this point and the origin.
     pub fn hypot(self) -> Abs {
-        Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))
+        Abs::raw(self.to_vec2().hypot().get())
     }
 
     // TODO: this is a bit awkward on a point struct.
@@ -93,6 +93,11 @@ impl Point {
     /// Convert to a size.
     pub fn to_size(self) -> Size {
         Size::new(self.x, self.y)
+    }
+
+    /// Convert to a vector.
+    pub fn to_vec2(self) -> Vec2 {
+        Vec2::new(self.x.scalar(), self.y.scalar())
     }
 }
 

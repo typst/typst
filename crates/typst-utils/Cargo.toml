@@ -20,6 +20,7 @@ rustc-hash = { workspace = true }
 siphasher = { workspace = true }
 thin-vec = { workspace = true }
 unicode-math-class = { workspace = true }
+libm = { workspace = true }
 
 [lints]
 workspace = true

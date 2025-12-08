@@ -4,8 +4,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::EcoString;
-use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
+use typst_utils::Vec2;
 
 use crate::diag::{SourceResult, bail};
 use crate::foundations::{
@@ -358,9 +358,9 @@ impl Gradient {
         }
 
         let focal_center = focal_center.unwrap_or(center);
-        let d_center_sqr = (focal_center.x - center.x).get().powi(2)
-            + (focal_center.y - center.y).get().powi(2);
-        if d_center_sqr.sqrt() >= (radius.v - focal_radius.v).get() {
+        let d_center_sqr = (focal_center.x - center.x).scalar().powi(2)
+            + (focal_center.y - center.y).scalar().powi(2);
+        if d_center_sqr.sqrt() >= (radius.v - focal_radius.v).scalar() {
             bail!(
                 span,
                 "the focal circle must be inside of the end circle";
@@ -828,41 +828,42 @@ impl Gradient {
                 let angle = Gradient::correct_aspect_ratio(
                     linear.angle,
                     Ratio::new((width / height) as f64),
-                )
-                .to_rad();
-                let (sin, cos) = angle.sin_cos();
+                );
+                let (sin, cos) = (angle.sin(), angle.cos());
 
-                let length = sin.abs() + cos.abs();
-                if angle > FRAC_PI_2 && angle < 3.0 * FRAC_PI_2 {
+                let factor = sin.abs() + cos.abs();
+                if angle.to_rad() > FRAC_PI_2 && angle.to_rad() < 3.0 * FRAC_PI_2 {
                     x = 1.0 - x;
                 }
 
-                if angle > PI {
+                if angle.to_rad() > PI {
                     y = 1.0 - y;
                 }
 
-                (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
+                (x as f64 * cos.abs() + y as f64 * sin.abs()) / factor
             }
             Self::Radial(radial) => {
                 // Source: @Enivex - https://typst.app/project/pYLeS0QyCCe8mf0pdnwoAI
-                let cr = radial.radius.get();
-                let fr = radial.focal_radius.get();
-                let z = Vec2::new(x as f64, y as f64);
-                let p = Vec2::new(radial.center.x.get(), radial.center.y.get());
-                let q =
-                    Vec2::new(radial.focal_center.x.get(), radial.focal_center.y.get());
+                let cr = radial.radius.scalar();
+                let fr = radial.focal_radius.scalar();
+                let z = Vec2::from_xy(x as f64, y as f64);
+                let p = Vec2::new(radial.center.x.scalar(), radial.center.y.scalar());
+                let q = Vec2::new(
+                    radial.focal_center.x.scalar(),
+                    radial.focal_center.y.scalar(),
+                );
 
                 if (z - q).hypot() < fr {
                     0.0
                 } else if (z - p).hypot() > cr {
                     1.0
                 } else {
-                    let uz = (z - q).normalize();
+                    let uz = (z - q).normalized();
                     let az = (q - p).dot(uz);
-                    let rho = cr.powi(2) - (q - p).hypot().powi(2);
-                    let bz = (az.powi(2) + rho).sqrt() - az;
+                    let rho = (cr * cr) - (q - p).hypot2();
+                    let bz = ((az * az) + rho).sqrt() - az;
 
-                    ((z - q).hypot() - fr) / (bz - fr)
+                    (((z - q).hypot() - fr) / (bz - fr)).get()
                 }
             }
             Self::Conic(conic) => {
@@ -872,7 +873,7 @@ impl Gradient {
                     conic.angle,
                     Ratio::new((width / height) as f64),
                 );
-                ((-y.atan2(x) + PI + angle.to_rad()) % TAU) / TAU
+                ((-Angle::atan2(y, x) + Angle::rad(PI) + angle).to_rad() % TAU) / TAU
             }
         };
 
@@ -900,14 +901,14 @@ impl Gradient {
     ///
     /// This is used specifically for gradients.
     pub fn correct_aspect_ratio(angle: Angle, aspect_ratio: Ratio) -> Angle {
-        let rad = (angle.to_rad().rem_euclid(TAU).tan() / aspect_ratio.get()).atan();
-        let rad = match angle.quadrant() {
-            Quadrant::First => rad,
-            Quadrant::Second => rad + PI,
-            Quadrant::Third => rad + PI,
-            Quadrant::Fourth => rad + TAU,
+        let corrected = Angle::atan(angle.tan() / aspect_ratio.get());
+        let corrected = match angle.quadrant() {
+            Quadrant::First => corrected,
+            Quadrant::Second => corrected + Angle::rad(PI),
+            Quadrant::Third => corrected + Angle::rad(PI),
+            Quadrant::Fourth => corrected,
         };
-        Angle::rad(rad.rem_euclid(TAU))
+        corrected.normalized()
     }
 }
 

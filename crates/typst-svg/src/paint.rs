@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::f64::consts::TAU;
 
 use ecow::{EcoString, eco_format};
 use typst_library::foundations::Repr;
@@ -12,7 +12,7 @@ use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
 /// Smaller values could be interesting for optimization.
-const CONIC_SEGMENT: usize = 360;
+const NUM_CONIC_SEGMENTS: usize = 360;
 
 impl SVGRenderer<'_> {
     /// Render a frame to a string.
@@ -125,15 +125,18 @@ impl SVGRenderer<'_> {
 
                     let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
-                    let length = sin.abs() + cos.abs();
-                    let (x1, y1, x2, y2) = match angle.quadrant() {
-                        Quadrant::First => (0.0, 0.0, cos * length, sin * length),
-                        Quadrant::Second => (1.0, 0.0, cos * length + 1.0, sin * length),
-                        Quadrant::Third => {
-                            (1.0, 1.0, cos * length + 1.0, sin * length + 1.0)
-                        }
-                        Quadrant::Fourth => (0.0, 1.0, cos * length, sin * length + 1.0),
+
+                    // Scale to edges of unit square.
+                    let factor = sin.abs() + cos.abs();
+
+                    let (x1, y1) = match angle.quadrant() {
+                        Quadrant::First => (0.0, 0.0),
+                        Quadrant::Second => (1.0, 0.0),
+                        Quadrant::Third => (1.0, 1.0),
+                        Quadrant::Fourth => (0.0, 1.0),
                     };
+                    let x2 = x1 + (cos * factor) as f32;
+                    let y2 = y1 + (sin * factor) as f32;
 
                     self.xml.write_attribute("x1", &x1);
                     self.xml.write_attribute("y1", &y1);
@@ -164,28 +167,25 @@ impl SVGRenderer<'_> {
                     self.xml.write_attribute("y", "-0.5");
 
                     // The rotation angle, negated to match rotation in PNG.
-                    let angle: f32 =
-                        -(Gradient::correct_aspect_ratio(conic.angle, *ratio).to_rad()
-                            as f32)
-                            .rem_euclid(TAU);
-                    let center: (f32, f32) =
-                        (conic.center.x.get() as f32, conic.center.y.get() as f32);
+                    let angle = -Gradient::correct_aspect_ratio(conic.angle, *ratio);
+                    let center = conic.center;
 
                     // We build an arg segment for each segment of a circle.
-                    let dtheta = TAU / CONIC_SEGMENT as f32;
-                    for i in 0..CONIC_SEGMENT {
-                        let theta1 = dtheta * i as f32;
-                        let theta2 = dtheta * (i + 1) as f32;
+                    let dtheta = Angle::rad(TAU) / NUM_CONIC_SEGMENTS as f64;
+                    for i in 0..NUM_CONIC_SEGMENTS {
+                        let theta1 = angle + dtheta * i as f64;
+                        let theta2 = angle + dtheta * (i + 1) as f64;
 
                         // Create the path for the segment.
                         let mut builder = SvgPathBuilder::default();
                         builder.move_to(
-                            correct_tiling_pos(center.0),
-                            correct_tiling_pos(center.1),
+                            correct_tiling_pos(center.x.get()),
+                            correct_tiling_pos(center.y.get()),
                         );
+
                         builder.line_to(
-                            correct_tiling_pos(-2.0 * (theta1 + angle).cos() + center.0),
-                            correct_tiling_pos(2.0 * (theta1 + angle).sin() + center.1),
+                            correct_tiling_pos(-2.0 * theta1.cos() + center.x.get()),
+                            correct_tiling_pos(2.0 * theta1.sin() + center.y.get()),
                         );
                         builder.arc(
                             (2.0, 2.0),
@@ -193,22 +193,18 @@ impl SVGRenderer<'_> {
                             0,
                             1,
                             (
-                                correct_tiling_pos(
-                                    -2.0 * (theta2 + angle).cos() + center.0,
-                                ),
-                                correct_tiling_pos(
-                                    2.0 * (theta2 + angle).sin() + center.1,
-                                ),
+                                correct_tiling_pos(-2.0 * theta2.cos() + center.x.get()),
+                                correct_tiling_pos(2.0 * theta2.sin() + center.y.get()),
                             ),
                         );
                         builder.close();
 
-                        let t1 = (i as f32) / CONIC_SEGMENT as f32;
-                        let t2 = (i + 1) as f32 / CONIC_SEGMENT as f32;
+                        let t1 = (i as f32) / NUM_CONIC_SEGMENTS as f32;
+                        let t2 = (i + 1) as f32 / NUM_CONIC_SEGMENTS as f32;
                         let subgradient = SVGSubGradient {
                             center: conic.center,
-                            t0: Angle::rad((theta1 + angle) as f64),
-                            t1: Angle::rad((theta2 + angle) as f64),
+                            t0: theta1,
+                            t1: theta2,
                             c0: gradient
                                 .sample(RatioOrAngle::Ratio(Ratio::new(t1 as f64))),
                             c1: gradient
@@ -579,6 +575,6 @@ impl ColorEncode for Color {
 }
 
 /// Maps a coordinate in a unit size square to a coordinate in the tiling.
-pub fn correct_tiling_pos(x: f32) -> f32 {
-    (x + 0.5) / 2.0
+pub fn correct_tiling_pos(x: f64) -> f32 {
+    (x as f32 + 0.5) / 2.0
 }
