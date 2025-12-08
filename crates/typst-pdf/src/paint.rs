@@ -155,27 +155,25 @@ fn convert_gradient(
         RelativeTo::Parent => state.container_size(),
     };
 
-    let mut angle = gradient.angle().unwrap_or_else(Angle::zero);
+    let angle = gradient.angle().unwrap_or_else(Angle::zero);
     let base_transform = correct_transform(state, gradient.unwrap_relative(on_text));
     let stops = convert_gradient_stops(gradient);
     match &gradient {
         Gradient::Linear(_) => {
-            angle = Gradient::correct_aspect_ratio(angle, size.aspect_ratio());
-            let (x1, y1, x2, y2) = {
-                let (mut sin, mut cos) = (angle.sin(), angle.cos());
+            let angle = Gradient::correct_aspect_ratio(angle, size.aspect_ratio());
+            let (sin, cos) = (angle.sin(), angle.cos());
 
-                // Scale to edges of unit square.
-                let factor = cos.abs() + sin.abs();
-                sin *= factor;
-                cos *= factor;
+            // Scale to edges of unit square.
+            let factor = cos.abs() + sin.abs();
 
-                match angle.quadrant() {
-                    Quadrant::First => (0.0, 0.0, cos as f32, sin as f32),
-                    Quadrant::Second => (1.0, 0.0, cos as f32 + 1.0, sin as f32),
-                    Quadrant::Third => (1.0, 1.0, cos as f32 + 1.0, sin as f32 + 1.0),
-                    Quadrant::Fourth => (0.0, 1.0, cos as f32, sin as f32 + 1.0),
-                }
+            let (x1, y1) = match angle.quadrant() {
+                Quadrant::First => (0.0, 0.0),
+                Quadrant::Second => (1.0, 0.0),
+                Quadrant::Third => (1.0, 1.0),
+                Quadrant::Fourth => (0.0, 1.0),
             };
+            let x2 = x1 + (cos * factor) as f32;
+            let y2 = y1 + (sin * factor) as f32;
 
             let linear = LinearGradient {
                 x1,
