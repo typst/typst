@@ -364,22 +364,25 @@ impl<'a> Runner<'a> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
         let source_path = self.test.source.id().vpath();
-        let old_ref_hash =
-            if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
-                hashed_refs.get(&self.test.name)
-            } else {
+        let old_ref_hash = if let Some(hashed_refs) =
+            self.hashes[T::INDEX].read().get(source_path)
+        {
+            hashed_refs.get(&self.test.name)
+        } else {
+            let mut hashes = self.hashes[T::INDEX].write();
+
+            let hashed_refs = hashes.entry(source_path).or_insert_with(|| {
                 let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
                 let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
-                let hashed_refs = HashedRefs::from_str(&string)
+                HashedRefs::from_str(&string)
                     .inspect_err(|e| {
                         log!(self, "error parsing hashed refs: {e}");
                     })
-                    .unwrap_or_default();
+                    .unwrap_or_default()
+            });
 
-                let mut hashes = self.hashes[T::INDEX].write();
-                let entry = hashes.entry(source_path).insert_entry(hashed_refs);
-                entry.get().get(&self.test.name)
-            };
+            hashed_refs.get(&self.test.name)
+        };
 
         let Some((doc, live)) = output else {
             if old_ref_hash.is_some() {
