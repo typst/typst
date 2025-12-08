@@ -368,6 +368,9 @@ impl<'a> Runner<'a> {
             if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
                 hashed_refs.get(&self.test.name)
             } else {
+                let mut hashes = self.hashes[T::INDEX].write();
+
+                // This *must* happend after acquiring the write lock!
                 let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
                 let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
                 let hashed_refs = HashedRefs::from_str(&string)
@@ -376,7 +379,6 @@ impl<'a> Runner<'a> {
                     })
                     .unwrap_or_default();
 
-                let mut hashes = self.hashes[T::INDEX].write();
                 let entry = hashes.entry(source_path).insert_entry(hashed_refs);
                 entry.get().get(&self.test.name)
             };
