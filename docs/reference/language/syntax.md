@@ -42,7 +42,7 @@ more about their syntax and usage.
 | Raw text           | ``[`print(1)`]``             | [`raw`]                  |
 | Link               | `[https://typst.app/]`       | [`link`]                 |
 | Label              | `[<intro>]`                  | [`label`]                |
-| Reference          | `[@intro]`                   | [`ref`]                  |
+| Reference          | `[@intro]`                   | [`ref`]                  | 
 | Heading            | `[= Heading]`                | [`heading`]              |
 | Bullet list        | `[- item]`                   | [`list`]                 |
 | Numbered list      | `[+ item]`                   | [`enum`]                 |
@@ -56,9 +56,9 @@ more about their syntax and usage.
 | Comment            | `[/* block */]`, `[// line]` | [Below](#comments)       |
 
 ## Math mode { #math }
-Math mode is a special markup mode that is used to typeset mathematical
-formulas. It is entered by wrapping an equation in `[$]` characters. This works
-both in markup and code. The equation will be typeset into its own block if it
+Math mode is a special markup mode that is used to typeset mathematical 
+formulas. It is entered by wrapping an equation in paired [$..$] characters. 
+This works both in markup and code.The equation will be typeset into its own block if it
 starts and ends with at least one space (e.g. `[$ x^2 $]`). Inline math can be
 produced by omitting the whitespace (e.g. `[$x^2$]`). An overview over the
 syntax specific to math mode follows:
@@ -192,8 +192,8 @@ for others to use, as it keeps things predictable.
 
 #kebab-case
 #if -π < 0 { _schön } else { 始料不及 }
-// -π means -1 * π,
-// so it's not a valid identifier
+// The "-" in "-π" is an arithmetic unary minus operator, not part of an identifier.
+// Identifiers cannot start with a hyphen "-", so "-π" is not a valid identifier.
 ```
 
 ## Paths
