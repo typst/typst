@@ -89,10 +89,75 @@ mod jump_from_document_sealed {
             position: &Self::Position,
         ) -> Option<Jump> {
             let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
-            for index in position.element() {
+            let indices_count = position.element().count();
+            let mut prefix_len = 0;
+
+            for (i, index) in position.element().enumerate() {
+                let reached_leaf_node = i == indices_count - 1;
                 match current_node {
                     HtmlNode::Element(html_element) => {
-                        current_node = nth_child(*index, html_element)?;
+                        let (mut child, child_index) = nth_child(*index, html_element)?;
+
+                        // In some scenarios, Typst will emit multiple
+                        // consecutive text nodes (called text node parts below),
+                        // the firsts of which may have detached spans. This is
+                        // for example the case with the default figure
+                        // captions: the supplement, counter, and separator will
+                        // be individual spanless text nodes (and only the actual
+                        // caption body will have a span).
+                        //
+                        // Because the HTML document as parsed by an external
+                        // program will probably contain a single text node for
+                        // all that, jumping from the caption body will ask for
+                        // a jump from the 0-th child of the <figcaption>, at a
+                        // certain offset. Because `nth_child` doesn't take this
+                        // offset into account, it will then pick the first text
+                        // node: in the previous example, the spanless
+                        // supplement.
+                        //
+                        // Below, we compensate for that, and make sure the
+                        // position can be correctly resolved by picking another
+                        // text node if needed.
+                        if reached_leaf_node
+                            && let HtmlNode::Text(_, _) = child
+                            && let Some(InnerHtmlPosition::Character(offset)) =
+                                position.details()
+                        {
+                            let mut text_char_count = 0;
+                            let mut text_node_part = child;
+                            let mut text_node_offset = 0;
+
+                            // The requested offset is expressed as a character index (not a byte offset).
+                            while text_char_count < *offset {
+                                prefix_len = text_char_count;
+
+                                // Get the current text node part
+                                text_node_part = html_element
+                                    .children
+                                    .get(child_index + text_node_offset)?;
+
+                                // And measure its length (in characters), to be
+                                // able to tell if we are far enough to have
+                                // reached the character to which we want to
+                                // jump to.
+                                let text_node_part_len =
+                                    if let HtmlNode::Text(text, _) = text_node_part {
+                                        text.chars().count()
+                                    } else {
+                                        0
+                                    };
+
+                                // Prepare the iteration to the next text node,
+                                // that will happen if we have not yet reached
+                                // the requested character offset.
+                                text_char_count += text_node_part_len;
+                                text_node_offset += 1;
+                            }
+
+                            child = text_node_part
+                        }
+
+                        current_node = child;
                     }
                     HtmlNode::Tag(_) | HtmlNode::Text(_, _) | HtmlNode::Frame(_) => {
                         return None;
@@ -113,11 +178,19 @@ mod jump_from_document_sealed {
                 return jump_from_click_in_frame(world, self, &frame.inner, *point);
             }
 
+            let source_range = source.range(span)?;
             Some(Jump::File(
                 id,
-                source.range(span).unwrap_or_default().start
+                source_range.start
                     + match (is_text_node, &position.details()) {
-                        (true, Some(InnerHtmlPosition::Character(i))) => *i,
+                        (true, Some(InnerHtmlPosition::Character(i))) => {
+                            let source_text = &source.text()[source_range];
+                            let slice: String = source_text
+                                .chars()
+                                .take(i.saturating_sub(prefix_len))
+                                .collect();
+                            slice.len()
+                        }
                         _ => 0,
                     },
             ))
@@ -256,8 +329,9 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
 }
 
 /// Returns the n-th child of an HTML element, ignoring introspection tags, and
-/// grouping sibling text nodes together as one.
-fn nth_child(n: usize, elem: &HtmlElement) -> Option<&HtmlNode> {
+/// grouping sibling text nodes together as one. It also returns the actual
+/// index of the picked node, in the Typst representation of the DOM.
+fn nth_child(n: usize, elem: &HtmlElement) -> Option<(&HtmlNode, usize)> {
     let mut i = 0;
     let mut was_text = false;
     for ch in &elem.children {
@@ -268,7 +342,7 @@ fn nth_child(n: usize, elem: &HtmlElement) -> Option<&HtmlNode> {
         let is_text = matches!(ch, HtmlNode::Text(_, _));
         let contiguous_text_node = is_text && was_text;
         if i == n && !contiguous_text_node {
-            return Some(ch);
+            return Some((ch, i));
         }
 
         if !contiguous_text_node {
@@ -673,6 +747,34 @@ mod tests {
             // Click on the "b" in the math formula
             HtmlPosition::new(eco_vec![1, 1]).in_frame(point(27.0, 5.0)),
             Some(Jump::File(main, 37)),
+        );
+    }
+
+    #[test]
+    fn test_jump_from_click_html_figcation() {
+        let src = "#figure([Hello, world!], caption: [Output of the program.])";
+        let main = src.acquire().main();
+        test_click_html(
+            src,
+            // Click on the first "t" in the caption
+            HtmlPosition::new(eco_vec![1, 0, 1, 0])
+                .at_char("Fig. 1 — Out".chars().count()),
+            Some(Jump::File(main, src.find("tput of").unwrap())),
+        );
+    }
+
+    // Make sure that the jump_from_click function uses character indices for
+    // the click, and bytes for the returned jump location and not other units
+    // to express text offsets.
+    #[test]
+    fn test_jump_from_click_html_offset_units() {
+        let src = "Ça va ?";
+        let main = src.acquire().main();
+        test_click_html(
+            src,
+            // Clicking on the "Ç" in the emitted <p> should map to the "Ç" in the source.
+            HtmlPosition::new(eco_vec![1, 0]).at_char(1),
+            Some(Jump::File(main, 2)),
         );
     }
 
