@@ -39,11 +39,11 @@ pub fn version() -> TypstVersion {
 /// This structure contains the current Typst version. To query the precise
 /// version number, refer to the [`TypstVersion::major()`],
 /// [`TypstVersion::minor()`] and [`TypstVersion::patch()`] functions. You can
-/// read the underlying, raw version string (e.g. for CLI output) with
+/// read the underlying, raw version string (e.g., for CLI output) with
 /// [`TypstVersion::raw`].
 ///
-/// Optionally, this may also contain the Git commit from which Typst was built.
-/// However, this field may be unpopulated.
+/// Optionally, this may also contain the hash value of the Git commit from
+/// which Typst was built. However, this field may be unpopulated.
 #[derive(Debug, Clone, Copy)]
 pub struct TypstVersion {
     /// Typst major version number.
