@@ -83,7 +83,7 @@ incremental compilation.
 
 
 ## Evaluation
-The evaluation phase lives in `crates/typst/src/eval`. It takes a parsed
+The evaluation phase lives in `crates/typst-eval`. It takes a parsed
 `Source` file and evaluates it to a `Module`. A module consists of the `Content`
 that was written in it and a `Scope` with the bindings that were defined within
 it.
