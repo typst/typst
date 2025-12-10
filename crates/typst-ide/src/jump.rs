@@ -94,10 +94,11 @@ mod jump_from_document_sealed {
                 let reached_leaf_node = i == indices_count - 1;
                 match current_node {
                     HtmlNode::Element(html_element) => {
-                        let (mut child, child_index) = html_element
+                        let (child_index, (mut child, _)) = html_element
                             .children
                             .iter_with_dom_indices()
-                            .find(|(child, dom_index)| {
+                            .enumerate()
+                            .find(|(_, (child, dom_index))| {
                                 !matches!(child, HtmlNode::Tag(_)) && dom_index == index
                             })?;
 
