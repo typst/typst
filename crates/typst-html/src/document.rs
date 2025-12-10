@@ -1,6 +1,3 @@
-use std::convert::identity;
-use std::num::NonZeroUsize;
-
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
@@ -15,7 +12,7 @@ use typst_library::layout::Transform;
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, Protected};
+use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
@@ -142,7 +139,6 @@ fn introspect_html(
                         DocumentPosition::Html(HtmlPosition::new(
                             current_position.clone(),
                         )),
-                        &mut identity,
                     );
                     current_position.pop();
                 }
@@ -186,12 +182,11 @@ fn introspect_html(
                     builder.discover_in_frame(
                         sink,
                         &frame.inner,
-                        NonZeroUsize::ONE,
                         Transform::identity(),
-                        &mut |frame_position: DocumentPosition| {
+                        &mut |point| {
                             DocumentPosition::Html(
                                 HtmlPosition::new(current_position.clone())
-                                    .in_frame(frame_position.as_paged_or_default().point),
+                                    .in_frame(point),
                             )
                         },
                     );

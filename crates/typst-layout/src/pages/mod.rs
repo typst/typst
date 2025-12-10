@@ -4,7 +4,6 @@ mod collect;
 mod finalize;
 mod run;
 
-use std::convert::identity;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
@@ -13,9 +12,10 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
-    Introspector, IntrospectorBuilder, Locator, ManualPageCounter, SplitLocator, TagElem,
+    DocumentPosition, Introspector, IntrospectorBuilder, Locator, ManualPageCounter,
+    SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Transform};
+use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_utils::Protected;
@@ -174,14 +174,14 @@ fn introspect_pages(pages: &[Page]) -> Introspector {
     // Discover all elements.
     let mut elems = Vec::new();
     for (i, page) in pages.iter().enumerate() {
+        let nr = NonZeroUsize::new(1 + i).unwrap();
         builder.page_numberings.push(page.numbering.clone());
         builder.page_supplements.push(page.supplement.clone());
         builder.discover_in_frame(
             &mut elems,
             &page.frame,
-            NonZeroUsize::new(1 + i).unwrap(),
             Transform::identity(),
-            &mut identity,
+            &mut |point| DocumentPosition::Paged(Position { page: nr, point }),
         );
     }
 

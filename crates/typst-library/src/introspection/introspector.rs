@@ -390,11 +390,10 @@ impl IntrospectorBuilder {
         &mut self,
         sink: &mut Vec<Pair>,
         frame: &Frame,
-        page: NonZeroUsize,
         ts: Transform,
-        position_mapper: &mut F,
+        to_pos: &mut F,
     ) where
-        F: FnMut(DocumentPosition) -> DocumentPosition,
+        F: FnMut(Point) -> DocumentPosition,
     {
         for (pos, item) in frame.items() {
             match item {
@@ -405,34 +404,14 @@ impl IntrospectorBuilder {
 
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
-                        self.discover_in_frame(
-                            &mut nested,
-                            &group.frame,
-                            page,
-                            ts,
-                            position_mapper,
-                        );
+                        self.discover_in_frame(&mut nested, &group.frame, ts, to_pos);
                         self.register_insertion(parent.location, nested);
                     } else {
-                        self.discover_in_frame(
-                            sink,
-                            &group.frame,
-                            page,
-                            ts,
-                            position_mapper,
-                        );
+                        self.discover_in_frame(sink, &group.frame, ts, to_pos);
                     }
                 }
                 FrameItem::Tag(tag) => {
-                    self.discover_in_tag(
-                        sink,
-                        tag,
-                        DocumentPosition::Paged(Position {
-                            page,
-                            point: pos.transform(ts),
-                        }),
-                        position_mapper,
-                    );
+                    self.discover_in_tag(sink, tag, to_pos(pos.transform(ts)));
                 }
                 _ => {}
             }
@@ -440,21 +419,18 @@ impl IntrospectorBuilder {
     }
 
     /// Handle a tag.
-    pub fn discover_in_tag<F>(
+    pub fn discover_in_tag(
         &mut self,
         sink: &mut Vec<Pair>,
         tag: &Tag,
         position: DocumentPosition,
-        position_mapper: &mut F,
-    ) where
-        F: FnMut(DocumentPosition) -> DocumentPosition,
-    {
+    ) {
         match tag {
             Tag::Start(elem, flags) => {
                 if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
-                        sink.push((elem.clone(), position_mapper(position)));
+                        sink.push((elem.clone(), position));
                     }
                 }
             }
