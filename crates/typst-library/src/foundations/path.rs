@@ -1,7 +1,11 @@
 use ecow::{EcoString, eco_format};
 use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualRoot};
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, error};
+use crate::World;
+use crate::diag::{
+    At, FileError, HintedStrResult, HintedString, SourceResult, StrResult, error,
+};
+use crate::engine::Engine;
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 
 /// A file system path.
@@ -158,6 +162,17 @@ impl RootedPath {
         path: Spanned<PathOrStr>,
     ) -> SourceResult<RootedPath> {
         path.v.resolve_if_some(path.span.id()).at(path.span)
+    }
+
+    /// Checks whether a file or directory exists at this path.
+    #[func]
+    pub fn exists(self, engine: &mut Engine) -> StrResult<bool> {
+        match engine.world.file(self.intern()) {
+            Ok(_) => Ok(true),
+            Err(FileError::IsDirectory) => Ok(true),
+            Err(FileError::NotFound(_)) => Ok(false),
+            Err(err) => Err(err.into()),
+        }
     }
 }
 
