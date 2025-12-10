@@ -744,7 +744,18 @@ mod tests {
     }
 
     #[test]
-    fn test_jump_from_click_html_figcation() {
+    fn test_jump_from_click_html_bindings() {
+        let src = "#let a = [This]; #let b = [exists]; #a#b";
+        test_click_html(
+            src,
+            // Click at "exis|ts"
+            HtmlPosition::new(eco_vec![1, 0, 0]).at_char(8),
+            cursor(src.find("ts];").unwrap()),
+        );
+    }
+
+    #[test]
+    fn test_jump_from_click_html_figcaption() {
         let src = "#figure([Hello, world!], caption: [Output of the program.])";
         test_click_html(
             src,
