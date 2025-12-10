@@ -4,6 +4,15 @@
   "path(\"/tests/suite/foundations/hi/there.txt\")",
 )
 
+--- path-file-exists paged ---
+#assert(path("./path.typ").exists())
+
+--- path-dir-exists paged ---
+#assert(path("/tests").exists())
+
+--- path-none-exists paged ---
+#assert(not path("./unknown.typ").exists())
+
 --- path-escapes paged ---
 // Error: 7-29 path would escape the project root
 // Hint: 7-29 cannot access files outside of the project sandbox

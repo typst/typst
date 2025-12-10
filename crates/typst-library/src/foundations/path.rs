@@ -1,9 +1,13 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 use typst_syntax::path::{PathError, VirtualPath, VirtualRoot};
-use typst_utils::Id;
+use typst_utils::{Id, Intern};
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, error};
+use crate::World;
+use crate::diag::{
+    At, FileError, HintedStrResult, HintedString, SourceResult, StrResult, error,
+};
+use crate::engine::Engine;
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 
 /// A file system path.
@@ -159,6 +163,17 @@ impl VirtualPath {
         path: Spanned<PathOrStr>,
     ) -> SourceResult<VirtualPath> {
         path.v.resolve_if_some(path.span.path()).at(path.span)
+    }
+
+    /// Checks whether a file or directory exists at this path.
+    #[func]
+    pub fn exists(self, engine: &mut Engine) -> StrResult<bool> {
+        match engine.world.file(self.intern()) {
+            Ok(_) => Ok(true),
+            Err(FileError::IsDirectory) => Ok(true),
+            Err(FileError::NotFound(_)) => Ok(false),
+            Err(err) => Err(err.into()),
+        }
     }
 }
 
