@@ -5,7 +5,7 @@ use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
 use typst::{AsDocument, WorldExt};
-use typst_html::{HtmlDocument, HtmlElement, HtmlNode};
+use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
 
 use crate::IdeWorld;
 
@@ -48,9 +48,9 @@ impl JumpFromDocument for HtmlDocument {}
 mod jump_from_document_sealed {
     use typst::introspection::{HtmlPosition, InnerHtmlPosition};
     use typst::layout::{PagedDocument, Position};
-    use typst_html::{HtmlDocument, HtmlNode};
+    use typst_html::{HtmlDocument, HtmlNode, HtmlSliceExt};
 
-    use super::{Jump, jump_from_click_in_frame, nth_child};
+    use super::{Jump, jump_from_click_in_frame};
     use crate::IdeWorld;
 
     /// See [`super::JumpFromDocument`].
@@ -94,7 +94,12 @@ mod jump_from_document_sealed {
                 let reached_leaf_node = i == indices_count - 1;
                 match current_node {
                     HtmlNode::Element(html_element) => {
-                        let (mut child, child_index) = nth_child(*index, html_element)?;
+                        let (mut child, child_index) = html_element
+                            .children
+                            .iter_with_dom_indices()
+                            .find(|(child, dom_index)| {
+                                !matches!(child, HtmlNode::Tag(_)) && dom_index == index
+                            })?;
 
                         // In some scenarios, Typst will emit multiple
                         // consecutive text nodes (called text node parts below),
@@ -331,33 +336,6 @@ fn is_in_rect(pos: Point, size: Size, click: Point) -> bool {
         && pos.y + size.y >= click.y
 }
 
-/// Returns the n-th child of an HTML element, ignoring introspection tags, and
-/// grouping sibling text nodes together as one. It also returns the actual
-/// index of the picked node, in the Typst representation of the DOM.
-fn nth_child(n: usize, elem: &HtmlElement) -> Option<(&HtmlNode, usize)> {
-    let mut i = 0;
-    let mut was_text = false;
-    for ch in &elem.children {
-        if matches!(ch, HtmlNode::Tag(_)) {
-            continue;
-        }
-
-        let is_text = matches!(ch, HtmlNode::Text(_, _));
-        let contiguous_text_node = is_text && was_text;
-        if i == n && !contiguous_text_node {
-            return Some((ch, i));
-        }
-
-        if !contiguous_text_node {
-            i += 1
-        }
-
-        was_text = is_text;
-    }
-
-    None
-}
-
 /// Find the output location in the document for a cursor position.
 pub fn jump_from_cursor<D: JumpInDocument>(
     document: &D,
@@ -463,33 +441,27 @@ fn find_in_elem(
     current_position: &mut EcoVec<usize>,
 ) -> Vec<HtmlPosition> {
     let mut result = Vec::new();
-    let mut i = 0;
-    for child in &elem.children {
+
+    for (child, dom_index) in elem.children.iter_with_dom_indices() {
         match child {
+            HtmlNode::Tag(_) => {}
             HtmlNode::Element(e) => {
-                current_position.push(i);
+                current_position.push(dom_index);
                 result.extend(find_in_elem(e, span, current_position));
                 current_position.pop();
-
-                i += 1;
             }
             HtmlNode::Text(_, node_span) => {
                 if *node_span == span {
                     return vec![HtmlPosition::new(current_position.clone())];
                 }
-
-                i += 1;
             }
             HtmlNode::Frame(frame) => {
                 if let Some(frame_pos) = find_in_frame(&frame.inner, span) {
                     let mut position = current_position.clone();
-                    position.push(i);
+                    position.push(dom_index);
                     return vec![HtmlPosition::new(position).in_frame(frame_pos)];
                 }
-
-                i += 1;
             }
-            _ => {}
         }
     }
 

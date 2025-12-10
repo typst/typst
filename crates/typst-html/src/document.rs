@@ -16,7 +16,7 @@ use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, HtmlSliceExt, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -122,11 +122,10 @@ fn introspect_html(
         nodes: &[HtmlNode],
         current_position: &mut EcoVec<usize>,
     ) {
-        let mut index = 0;
-        for node in nodes {
+        for (node, dom_index) in nodes.iter_with_dom_indices() {
             match node {
                 HtmlNode::Tag(tag) => {
-                    current_position.push(index);
+                    current_position.push(dom_index);
                     builder.discover_in_tag(
                         sink,
                         tag,
@@ -136,13 +135,11 @@ fn introspect_html(
                     );
                     current_position.pop();
                 }
-                HtmlNode::Text(_, _) => {
-                    index += 1;
-                }
+                HtmlNode::Text(_, _) => {}
                 HtmlNode::Element(elem) => {
                     let is_root = elem.tag == tag::html;
                     if !is_root {
-                        current_position.push(index);
+                        current_position.push(dom_index);
                     }
 
                     if let Some(parent) = elem.parent {
@@ -168,10 +165,9 @@ fn introspect_html(
                     if !is_root {
                         current_position.pop();
                     }
-                    index += 1;
                 }
                 HtmlNode::Frame(frame) => {
-                    current_position.push(index);
+                    current_position.push(dom_index);
 
                     builder.discover_in_frame(
                         sink,
@@ -187,7 +183,6 @@ fn introspect_html(
 
                     crate::link::introspect_frame_links(&frame.inner, link_targets);
                     current_position.pop();
-                    index += 1;
                 }
             }
         }
