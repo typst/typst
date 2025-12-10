@@ -11,7 +11,7 @@ mod utils;
 pub use self::analyze::{analyze_expr, analyze_import, analyze_labels};
 pub use self::complete::{Completion, CompletionKind, autocomplete};
 pub use self::definition::{Definition, definition};
-pub use self::jump::{Jump, jump_from_click, jump_from_cursor};
+pub use self::jump::{Jump, jump_from_click, jump_from_click_in_frame, jump_from_cursor};
 pub use self::matchers::{DerefTarget, NamedItem, deref_target, named_items};
 pub use self::tooltip::{Tooltip, tooltip};
 
