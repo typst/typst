@@ -271,7 +271,8 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 mod tests {
     use std::borrow::Borrow;
 
-    use typst::{layout::PagedDocument, syntax::Side};
+    use typst::layout::PagedDocument;
+    use typst::syntax::Side;
 
     use super::{Tooltip, tooltip};
     use crate::tests::{FilePos, TestWorld, WorldLike};

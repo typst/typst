@@ -40,19 +40,18 @@ pub fn jump_from_click<D: JumpFromDocument>(
 /// Maps a position in a document to a [jump destination][`Jump`], allowing for
 /// click-to-jump functionnality.
 pub trait JumpFromDocument: jump_from_document_sealed::JumpFromDocument {}
+
 // The actual implementations are in the sealed trait.
 impl JumpFromDocument for PagedDocument {}
 impl JumpFromDocument for HtmlDocument {}
 
 mod jump_from_document_sealed {
-    use crate::IdeWorld;
-    use typst::{
-        introspection::{HtmlPosition, InnerHtmlPosition},
-        layout::{PagedDocument, Position},
-    };
+    use typst::introspection::{HtmlPosition, InnerHtmlPosition};
+    use typst::layout::{PagedDocument, Position};
     use typst_html::{HtmlDocument, HtmlNode};
 
     use super::{Jump, jump_from_click_in_frame, nth_child};
+    use crate::IdeWorld;
 
     /// See [`super::JumpFromDocument`].
     pub trait JumpFromDocument {
@@ -75,7 +74,6 @@ mod jump_from_document_sealed {
         ) -> Option<Jump> {
             let page = self.pages.get(position.page.get() - 1)?;
             let click = position.point;
-
             jump_from_click_in_frame(world, self, &page.frame, click)
         }
     }
@@ -89,9 +87,9 @@ mod jump_from_document_sealed {
             position: &Self::Position,
         ) -> Option<Jump> {
             let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
-            let indices_count = position.element().count();
             let mut prefix_len = 0;
 
+            let indices_count = position.element().count();
             for (i, index) in position.element().enumerate() {
                 let reached_leaf_node = i == indices_count - 1;
                 match current_node {
@@ -127,7 +125,8 @@ mod jump_from_document_sealed {
                             let mut text_node_part = child;
                             let mut text_node_offset = 0;
 
-                            // The requested offset is expressed as a character index (not a byte offset).
+                            // The requested offset is expressed as a character
+                            // index (not a byte offset).
                             while text_char_count < *offset {
                                 prefix_len = text_char_count;
 
@@ -381,6 +380,7 @@ pub fn jump_from_cursor<D: JumpInDocument>(
 /// Jump to a position in the document, given a cursor position in a source
 /// file.
 pub trait JumpInDocument: jump_in_document_sealed::JumpInDocument {}
+
 // The actual implementations are in the sealed trait.
 impl JumpInDocument for PagedDocument {}
 impl JumpInDocument for HtmlDocument {}
@@ -390,11 +390,9 @@ mod jump_in_document_sealed {
     use std::num::NonZeroUsize;
 
     use ecow::EcoVec;
-    use typst::{
-        introspection::HtmlPosition,
-        layout::{PagedDocument, Position},
-        syntax::Span,
-    };
+    use typst::introspection::HtmlPosition;
+    use typst::layout::{PagedDocument, Position};
+    use typst::syntax::Span;
     use typst_html::HtmlDocument;
 
     use super::{find_in_elem, find_in_frame};
@@ -509,18 +507,13 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use ecow::eco_vec;
-    use typst::{
-        introspection::HtmlPosition,
-        layout::{Abs, PagedDocument, Point, Position},
-        utils::NonZeroExt,
-    };
+    use typst::introspection::HtmlPosition;
+    use typst::layout::{Abs, PagedDocument, Point, Position};
+    use typst::utils::NonZeroExt;
     use typst_html::HtmlDocument;
 
-    use super::{Jump, jump_from_cursor};
-    use crate::{
-        jump_from_click,
-        tests::{FilePos, TestWorld, WorldLike},
-    };
+    use super::{Jump, jump_from_click, jump_from_cursor};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     fn point(x: f64, y: f64) -> Point {
         Point::new(Abs::pt(x), Abs::pt(y))

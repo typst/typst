@@ -101,18 +101,12 @@ fn html_document_impl(
 
     let mut link_targets = FxHashSet::default();
     let mut introspector = introspect_html(&tags_and_root, &mut link_targets);
-    match tags_and_root.remove(root_index) {
-        HtmlNode::Element(mut root) => {
-            crate::link::identify_link_targets(
-                &mut root,
-                &mut introspector,
-                link_targets,
-            );
+    let HtmlNode::Element(mut root) = tags_and_root.remove(root_index) else {
+        panic!("expected HTML element")
+    };
+    crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
 
-            Ok(HtmlDocument { info, root: root.clone(), introspector })
-        }
-        _ => panic!("Expected HTML element"),
-    }
+    Ok(HtmlDocument { info, root, introspector })
 }
 
 /// Introspects HTML nodes.
@@ -226,7 +220,6 @@ fn finalize_dom(
         match (tag, count) {
             (tag::html, 1) => {
                 FootnoteContainer::unsupported_with_custom_dom(engine)?;
-
                 return Ok((output, idx));
             }
             (tag::body, 1) => {
