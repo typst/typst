@@ -1,3 +1,4 @@
+const diffs = []
 for (const imageDiff of document.getElementsByClassName("image-diff")) {
     const imageWrapper = imageDiff.querySelector(".image-diff-wrapper")
     const images = imageWrapper.querySelectorAll("img")
@@ -19,6 +20,7 @@ for (const imageDiff of document.getElementsByClassName("image-diff")) {
         imageBlendControl: imageBlendControl,
         imageBlend: imageBlend,
     }
+    diffs.push(state)
 
     imageZoom.addEventListener("change", (e) => setImageZoom(state))
     imageZoom.addEventListener("input", (e) => setImageZoom(state))
@@ -44,6 +46,27 @@ for (const imageDiff of document.getElementsByClassName("image-diff")) {
 
     const mode = currentMode(state);
     imageModeChanged(state, mode)
+}
+
+document.getElementById("global-image-view-mode-side-by-side").addEventListener("click", (e) => {
+    changeGlobalImageMode("side-by-side")
+})
+document.getElementById("global-image-view-mode-blend").addEventListener("click", (e) => {
+    changeGlobalImageMode("blend")
+})
+document.getElementById("global-image-view-mode-difference").addEventListener("click", (e) => {
+    changeGlobalImageMode("difference")
+})
+
+function changeGlobalImageMode(mode) {
+    for (const state of diffs) {
+        for (const imageMode of state.imageModes) {
+            if (imageMode.value == mode) {
+                imageMode.checked = true;
+            }
+        }
+        imageModeChanged(state, mode)
+    }
 }
 
 function imageModeChanged(state, mode) {

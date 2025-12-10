@@ -291,15 +291,46 @@
   #html.div(class: "sidebar-container")[
     #html.div(class: "sidebar")[
       #html.ul(class: "sidebar-list")[
+        #html.h2[Settings]
+        #html.fieldset(class: "control-group")[
+          #let icon-button(id: none, title: none, icon: none) = {
+            html.button(class: "icon-button ", id: id, title: title)[
+              #svg-icon(icon)
+            ]
+          }
+
+          #icon-button(
+            id: "global-image-view-mode-side-by-side",
+            title: "Global Image View-Mode side by side",
+            icon: icons.view-side-by-side,
+          )
+          #icon-button(
+            id: "global-image-view-mode-blend",
+            title: "Global Image View-Mode blend",
+            icon: icons.view-blend,
+          )
+          #icon-button(
+            id: "global-image-view-mode-difference",
+            title: "Global Image View-Mode difference",
+            icon: icons.view-difference,
+          )
+        ]
+
+        #html.h2[Failed tests]
         #for report in sys.inputs.reports {
           html.li[
             #link("#" + report.name)[#report.name]
           ]
         }
+        #if sys.inputs.reports.len() == 0 {
+          html.div(class: "sidebar-empty")[NONE]
+        }
       ]
     ]
   ]
   #html.div(class: "diff-container")[
+    #html.h2(class: "diff-container-header")[Changes]
+
     #let num-image-diffs = 0
     #for report in sys.inputs.reports {
       let first = true
@@ -339,6 +370,10 @@
           html.div(class: "file-diff", file-diff)
         }
       }
+    }
+
+    #if sys.inputs.reports.len() == 0 {
+      html.div(class: "diff-container-empty")[NONE]
     }
 
     #html.div(class: "diff-scroll-padding")

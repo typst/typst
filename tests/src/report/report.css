@@ -12,6 +12,8 @@
 
     --line-margin: 1px;
 
+    --font-size-h2: 32px;
+    --font-size-large: 18px;
     --font-size-body: 13px;
     --font-size-code: 13px;
 
@@ -105,6 +107,16 @@ ins {
     overflow: auto;
 }
 
+h2.sidebar-header {
+    font-size: var(--font-size-large);
+}
+
+.sidebar-empty {
+    letter-spacing: var(--size-xxxxsmall);
+    color: var(--text-gutter-active);
+    user-select: none;
+}
+
 ul.sidebar-list {
     list-style-type: none;
     margin: var(--size-xxxsmall);
@@ -122,6 +134,21 @@ ul.sidebar-list {
     scroll-behavior: smooth;
     overflow-y: scroll;
     height: 100%;
+}
+
+h2.diff-container-header {
+    font-size: var(--font-size-h2);
+    text-align: center;
+    width: 100%;
+}
+
+.diff-container-empty {
+    width: 100%;
+    text-align: center;
+    font-size: var(--text-large);
+    letter-spacing: var(--size-xxxxsmall);
+    color: var(--text-gutter-active);
+    user-select: none;
 }
 
 .diff-scroll-padding {
