@@ -177,7 +177,7 @@ impl Introspect for PositionIntrospection {
         _: &mut Engine,
         introspector: Tracked<Introspector>,
     ) -> Self::Output {
-        introspector.position(self.0)
+        introspector.position(self.0).as_paged_or_default()
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {

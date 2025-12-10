@@ -9,7 +9,7 @@ use typst::foundations::{
     AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
     StyleChain, Styles, Type, Value, fields_on, repr,
 };
-use typst::layout::{Alignment, Dir, PagedDocument};
+use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
     FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
@@ -17,6 +17,7 @@ use typst::syntax::{
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
+use typst::{AsDocument, Document};
 use unscanny::Scanner;
 
 use crate::utils::{
@@ -37,14 +38,20 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items}
 /// when the document is available.
 pub fn autocomplete(
     world: &dyn IdeWorld,
-    document: Option<&PagedDocument>,
+    document: Option<impl AsDocument>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
-    let mut ctx =
-        CompletionContext::new(world, document, source, &leaf, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(
+        world,
+        document.as_ref().map(|v| v.as_document()),
+        source,
+        &leaf,
+        cursor,
+        explicit,
+    )?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -1109,7 +1116,7 @@ fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
-    document: Option<&'a PagedDocument>,
+    document: Option<&'a dyn Document>,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1125,7 +1132,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn IdeWorld + 'a),
-        document: Option<&'a PagedDocument>,
+        document: Option<&'a dyn Document>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
@@ -1558,6 +1565,7 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
+    use typst::AsDocument;
     use typst::layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
@@ -1647,7 +1655,7 @@ mod tests {
     fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.ok();
+        let doc = typst::compile::<PagedDocument>(world).output.ok();
         test_with_doc(world, pos, doc.as_ref(), true)
     }
 
@@ -1655,7 +1663,7 @@ mod tests {
     fn test_implicit(world: impl WorldLike, pos: impl FilePos) -> Response {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.ok();
+        let doc = typst::compile::<PagedDocument>(world).output.ok();
         test_with_doc(world, pos, doc.as_ref(), false)
     }
 
@@ -1666,7 +1674,7 @@ mod tests {
         pos: impl FilePos,
     ) -> Response {
         let mut world = TestWorld::new(initial_text);
-        let doc = typst::compile(&world).output.ok();
+        let doc = typst::compile::<PagedDocument>(&world).output.ok();
         let end = world.main.text().len();
         world.main.edit(end..end, addition);
         test_with_doc(&world, pos, doc.as_ref(), true)
@@ -1676,7 +1684,7 @@ mod tests {
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
-        doc: Option<&PagedDocument>,
+        doc: Option<impl AsDocument>,
         explicit: bool,
     ) -> Response {
         let world = world.acquire();
@@ -1726,7 +1734,7 @@ mod tests {
         // First compile a working file to get a document.
         let mut world =
             TestWorld::new("#bibliography(\"works.bib\") <bib>").with_asset("works.bib");
-        let doc = typst::compile(&world).output.ok();
+        let doc = typst::compile::<PagedDocument>(&world).output.ok();
 
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.

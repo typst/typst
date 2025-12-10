@@ -95,13 +95,13 @@ fn compile_impl<D: Document>(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<D> {
-    if D::TARGET == Target::Html {
+    if D::target() == Target::Html {
         warn_or_error_for_html(world, sink)?;
     }
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::TARGET).wrap();
+    let target = TargetElem::target.set(D::target()).wrap();
     let styles = base.chain(&target);
     let empty_introspector = Introspector::default();
 
@@ -294,23 +294,62 @@ impl Document for HtmlDocument {
     }
 }
 
+/// A trait for accepting an arbitrary kind of document as input.
+///
+/// Can be used to accept a reference to
+/// - any kind of sized type that implements [`Document`], or
+/// - the trait object [`&dyn Document`].
+///
+/// Should be used as `impl AsDocument` rather than `&impl AsDocument`.
+///
+/// # Why is this needed?
+/// Unfortunately, `&impl Document` can't be turned into `&dyn Document` in a
+/// generic function. Directly accepting `&dyn Document` is of course also
+/// possible, but is less convenient, especially in cases where the document is
+/// optional.
+///
+/// See also
+/// <https://users.rust-lang.org/t/converting-from-generic-unsized-parameter-to-trait-object/72376>
+pub trait AsDocument {
+    /// Turns the reference into the trait object.
+    fn as_document(&self) -> &dyn Document;
+}
+
+impl AsDocument for &dyn Document {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
+impl<D: Document> AsDocument for &D {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
 mod sealed {
     use typst_library::foundations::{Content, Target};
 
     use super::*;
 
-    pub trait Sealed: Sized {
-        const TARGET: Target;
+    pub trait Sealed {
+        fn target() -> Target
+        where
+            Self: Sized;
 
         fn create(
             engine: &mut Engine,
             content: &Content,
             styles: StyleChain,
-        ) -> SourceResult<Self>;
+        ) -> SourceResult<Self>
+        where
+            Self: Sized;
     }
 
     impl Sealed for PagedDocument {
-        const TARGET: Target = Target::Paged;
+        fn target() -> Target {
+            Target::Paged
+        }
 
         fn create(
             engine: &mut Engine,
@@ -322,7 +361,9 @@ mod sealed {
     }
 
     impl Sealed for HtmlDocument {
-        const TARGET: Target = Target::Html;
+        fn target() -> Target {
+            Target::Html
+        }
 
         fn create(
             engine: &mut Engine,
