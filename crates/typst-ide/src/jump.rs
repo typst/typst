@@ -1,5 +1,5 @@
 use ecow::EcoVec;
-use typst::introspection::HtmlPosition;
+use typst::introspection::{DocumentPosition, HtmlPosition};
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
@@ -211,13 +211,17 @@ pub fn jump_from_click_in_frame(
         if let FrameItem::Link(dest, size) = item
             && is_in_rect(*pos, *size, click)
         {
-            return Some(match dest {
-                Destination::Url(url) => Jump::Url(url.clone()),
-                Destination::Position(pos) => Jump::Position(*pos),
-                Destination::Location(loc) => Jump::Position(
-                    document.introspector().position(*loc).as_paged_or_default(),
-                ),
-            });
+            match dest {
+                Destination::Url(url) => return Some(Jump::Url(url.clone())),
+                Destination::Position(pos) => return Some(Jump::Position(*pos)),
+                Destination::Location(loc) => {
+                    if let DocumentPosition::Paged(pos) =
+                        document.introspector().position(*loc)
+                    {
+                        return Some(Jump::Position(pos));
+                    }
+                }
+            }
         }
     }
 
