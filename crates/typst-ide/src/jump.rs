@@ -510,7 +510,6 @@ mod tests {
 
     use ecow::eco_vec;
     use typst::{
-        World,
         introspection::HtmlPosition,
         layout::{Abs, PagedDocument, Point, Position},
         utils::NonZeroExt,
@@ -714,52 +713,45 @@ mod tests {
 
     #[test]
     fn test_jump_from_click_html() {
-        let src = "This is a test.\n\nWith multiple elements.\n\nAnd some *formatting*.";
-        let main = src.acquire().main();
         test_click_html(
-            src,
+            "This is a test.\n\nWith multiple elements.\n\nAnd some *formatting*.",
             // Click in the middle of "some"
             HtmlPosition::new(eco_vec![1, 2, 0]).at_char(6),
-            Some(Jump::File(main, 48)),
+            cursor(48),
         );
     }
 
     #[test]
     fn test_jump_from_click_html_introspection() {
-        // raw blocks have introspection tags around them, check that they are ignored.
-        let src =
-            "This is a test.\n\n```\nwith some code\n```\n\nAnd `some` *formatting*.";
-        let main = src.acquire().main();
         test_click_html(
-            src,
+            // Raw blocks have introspection tags around them, check that they
+            // are ignored.
+            "This is a test.\n\n```\nwith some code\n```\n\nAnd `some` *formatting*.",
             // Click in the middle of "some"
             HtmlPosition::new(eco_vec![1, 2, 1, 0]).at_char(2),
-            Some(Jump::File(main, 48)),
+            cursor(48),
         );
     }
 
     #[test]
     fn test_jump_from_click_html_frame() {
-        let src = "A math formula:\n\n#html.frame($a x + b = 0$)";
-        let main = src.acquire().main();
         test_click_html(
-            src,
+            "A math formula:\n\n#html.frame($a x + b = 0$)",
             // Click on the "b" in the math formula
             HtmlPosition::new(eco_vec![1, 1]).in_frame(point(27.0, 5.0)),
-            Some(Jump::File(main, 37)),
+            cursor(37),
         );
     }
 
     #[test]
     fn test_jump_from_click_html_figcation() {
         let src = "#figure([Hello, world!], caption: [Output of the program.])";
-        let main = src.acquire().main();
         test_click_html(
             src,
             // Click on the first "t" in the caption
             HtmlPosition::new(eco_vec![1, 0, 1, 0])
                 .at_char("Fig. 1 — Out".chars().count()),
-            Some(Jump::File(main, src.find("tput of").unwrap())),
+            cursor(src.find("tput of").unwrap()),
         );
     }
 
@@ -768,13 +760,12 @@ mod tests {
     // to express text offsets.
     #[test]
     fn test_jump_from_click_html_offset_units() {
-        let src = "Ça va ?";
-        let main = src.acquire().main();
         test_click_html(
-            src,
-            // Clicking on the "Ç" in the emitted <p> should map to the "Ç" in the source.
+            "Ça va ?",
+            // Clicking on the "Ç" in the emitted <p> should map to the "Ç" in
+            // the source.
             HtmlPosition::new(eco_vec![1, 0]).at_char(1),
-            Some(Jump::File(main, 2)),
+            cursor(2),
         );
     }
 
