@@ -4,16 +4,17 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::ops::Deref;
-use std::sync::{LazyLock, RwLock};
+use std::sync::RwLock;
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 /// Marks a number as a bitcode encoded `PicoStr``.
 const MARKER: u64 = 1 << 63;
 
 /// The global runtime string interner.
-static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
-    RwLock::new(Interner { seen: FxHashMap::default(), strings: Vec::new() })
+static INTERNER: RwLock<Interner> = RwLock::new(Interner {
+    seen: FxHashMap::with_hasher(FxBuildHasher),
+    strings: Vec::new(),
 });
 
 /// A string interner.

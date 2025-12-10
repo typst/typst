@@ -53,9 +53,10 @@ use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
-use typst_syntax::{FileId, Span};
+use typst_syntax::Span;
+use typst_syntax::path::VirtualPath;
 use typst_timing::{TimingScope, timed};
-use typst_utils::Protected;
+use typst_utils::{Id, Intern, Protected};
 
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
@@ -200,7 +201,7 @@ fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> 
 fn hint_invalid_main_file(
     world: Tracked<dyn World + '_>,
     file_error: FileError,
-    input: FileId,
+    input: Id<VirtualPath>,
 ) -> EcoVec<SourceDiagnostic> {
     let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
     let mut diagnostic =
@@ -210,9 +211,8 @@ fn hint_invalid_main_file(
     // mistyped the filename. For example, they could have written "file.pdf"
     // instead of "file.typ".
     if is_utf8_error {
-        let path = input.vpath();
-        let extension = path.as_rootless_path().extension();
-        if extension.is_some_and(|extension| extension == "typ") {
+        let extension = input.extension();
+        if extension == Some("typ") {
             // No hints if the file is already a .typ file.
             // The file is indeed just invalid.
             return eco_vec![diagnostic];
@@ -221,8 +221,7 @@ fn hint_invalid_main_file(
         match extension {
             Some(extension) => {
                 diagnostic.hint(eco_format!(
-                    "a file with the `.{}` extension is not usually a Typst file",
-                    extension.to_string_lossy()
+                    "a file with the `.{extension}` extension is not usually a Typst file",
                 ));
             }
 
@@ -232,7 +231,7 @@ fn hint_invalid_main_file(
             }
         };
 
-        if world.source(input.with_extension("typ")).is_ok() {
+        if world.source(input.with_extension("typ").intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
     }

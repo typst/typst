@@ -2,14 +2,17 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use ecow::{EcoString, eco_format};
+use ecow::eco_format;
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::FileId;
+use typst_syntax::path::VirtualPath;
+use typst_utils::{Id, Intern};
 
 use crate::World;
-use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
-use crate::foundations::Bytes;
+use crate::diag::{
+    FileError, LoadError, LoadResult, ReportPos, StrResult, bail, format_xml_like_error,
+};
+use crate::foundations::{Bytes, PathOrStr};
 use crate::layout::Axes;
 use crate::visualize::VectorFormat;
 use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
@@ -53,11 +56,11 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
-        svg_file: Option<FileId>,
+        svg_path: Option<Id<VirtualPath>>,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_path));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -325,14 +328,17 @@ struct ImageResolver<'a> {
     /// The world used to load linked images.
     world: Tracked<'a, dyn World + 'a>,
     /// Parent folder of the SVG file, used to resolve hrefs to linked images, if any.
-    svg_file: Option<FileId>,
+    svg_path: Option<Id<VirtualPath>>,
     /// The first error that occurred when loading a linked image, if any.
     error: Option<LoadError>,
 }
 
 impl<'a> ImageResolver<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, svg_file: Option<FileId>) -> Self {
-        Self { world, svg_file, error: None }
+    fn new(
+        world: Tracked<'a, dyn World + 'a>,
+        svg_path: Option<Id<VirtualPath>>,
+    ) -> Self {
+        Self { world, svg_path, error: None }
     }
 
     /// Load a linked image or return None if a previous image caused an error,
@@ -356,14 +362,14 @@ impl<'a> ImageResolver<'a> {
     }
 
     /// Load a linked image or return an error message string.
-    fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+    fn load_or_error(&mut self, href: &str) -> StrResult<usvg::ImageKind> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
         let href = href.strip_prefix("file://").unwrap_or(href);
 
         // Do not accept absolute hrefs. They would be parsed in Typst in a way
         // that is not compatible with their interpretation in the SVG standard.
         if href.starts_with("/") {
-            return Err("absolute paths are not allowed".into());
+            bail!("absolute paths are not allowed");
         }
 
         // Exit early if the href is an URL.
@@ -373,22 +379,21 @@ impl<'a> ImageResolver<'a> {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
             {
-                return Err("URLs are not allowed".into());
+                bail!("URLs are not allowed");
             }
         }
 
         // Resolve the path to the linked image.
-        if self.svg_file.is_none() {
-            return Err("cannot access file system from here".into());
-        }
-        // Replace the file name in svg_file by href.
-        let href_file = self.svg_file.unwrap().join(href);
+        let href_path = PathOrStr::Str(href.into())
+            .resolve_if_some(self.svg_path)
+            .map_err(|hinted| hinted.message().clone())?
+            .intern();
 
         // Load image if file can be accessed.
-        match self.world.file(href_file) {
+        match self.world.file(href_path) {
             Ok(bytes) => {
                 let arc_data = Arc::new(bytes.to_vec());
-                let format = match determine_format_from_path(href) {
+                let format = match determine_format_from_path(&href_path) {
                     Some(format) => Some(format),
                     None => ImageFormat::detect(&arc_data),
                 };

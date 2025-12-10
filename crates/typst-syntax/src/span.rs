@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
 
-use ecow::EcoString;
+use typst_utils::Id;
 
-use crate::FileId;
+use crate::path::VirtualPath;
 
 /// Defines a range in a file.
 ///
@@ -74,26 +74,27 @@ impl Span {
         Self(NonZeroU64::new(Self::DETACHED).unwrap())
     }
 
-    /// Create a new span from a file id and a number.
+    /// Create a new span from a virtual path and a number.
     ///
     /// Returns `None` if `number` is not contained in `FULL`.
-    pub(crate) const fn from_number(id: FileId, number: u64) -> Option<Self> {
+    pub(crate) const fn from_number(path: Id<VirtualPath>, number: u64) -> Option<Self> {
         if number < Self::FULL.start || number >= Self::FULL.end {
             return None;
         }
-        Some(Self::pack(id, number))
+        Some(Self::pack(path, number))
     }
 
-    /// Create a new span from a raw byte range instead of a span number.
+    /// Create a new span from a virtual path and a raw byte range instead of a
+    /// span number.
     ///
     /// If one of the range's parts exceeds the maximum value (2^23), it is
     /// saturated.
-    pub const fn from_range(id: FileId, range: Range<usize>) -> Self {
+    pub const fn from_range(path: Id<VirtualPath>, range: Range<usize>) -> Self {
         let max = 1 << Self::RANGE_PART_BITS;
         let start = if range.start > max { max } else { range.start } as u64;
         let end = if range.end > max { max } else { range.end } as u64;
         let number = (start << Self::RANGE_PART_SHIFT) | end;
-        Self::pack(id, Self::RANGE_BASE + number)
+        Self::pack(path, Self::RANGE_BASE + number)
     }
 
     /// Construct from a raw number.
@@ -105,9 +106,9 @@ impl Span {
         Self(v)
     }
 
-    /// Pack a file ID and the low bits into a span.
-    const fn pack(id: FileId, low: u64) -> Self {
-        let bits = ((id.into_raw().get() as u64) << Self::FILE_ID_SHIFT) | low;
+    /// Pack a path and the low bits into a span.
+    const fn pack(path: Id<VirtualPath>, low: u64) -> Self {
+        let bits = ((path.into_raw().get() as u64) << Self::FILE_ID_SHIFT) | low;
 
         // The file ID is non-zero.
         Self(NonZeroU64::new(bits).unwrap())
@@ -118,14 +119,20 @@ impl Span {
         self.0.get() == Self::DETACHED
     }
 
-    /// The id of the file the span points into.
+    /// The path of the file the span points into.
+    #[deprecated = "use `path` instead"]
+    pub const fn id(self) -> Option<Id<VirtualPath>> {
+        self.path()
+    }
+
+    /// The path of the file the span points into.
     ///
     /// Returns `None` if the span is detached.
-    pub const fn id(self) -> Option<FileId> {
+    pub const fn path(self) -> Option<Id<VirtualPath>> {
         // Detached span has only zero high bits, so it will trigger the
         // `None` case.
         match NonZeroU16::new((self.0.get() >> Self::FILE_ID_SHIFT) as u16) {
-            Some(v) => Some(FileId::from_raw(v)),
+            Some(v) => Some(Id::<VirtualPath>::from_raw(v)),
             None => None,
         }
     }
@@ -163,14 +170,6 @@ impl Span {
         iter.into_iter()
             .find(|span| !span.is_detached())
             .unwrap_or(Span::detached())
-    }
-
-    /// Resolve a file location relative to this span's source.
-    pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
-        let Some(file) = self.id() else {
-            return Err("cannot access file system from here".into());
-        };
-        Ok(file.join(path))
     }
 }
 
@@ -219,31 +218,31 @@ mod tests {
     use std::num::NonZeroU16;
     use std::ops::Range;
 
-    use crate::{FileId, Span};
+    use super::*;
 
     #[test]
     fn test_span_detached() {
         let span = Span::detached();
         assert!(span.is_detached());
-        assert_eq!(span.id(), None);
+        assert_eq!(span.path(), None);
         assert_eq!(span.range(), None);
     }
 
     #[test]
     fn test_span_number_encoding() {
-        let id = FileId::from_raw(NonZeroU16::new(5).unwrap());
+        let id = Id::<VirtualPath>::from_raw(NonZeroU16::new(5).unwrap());
         let span = Span::from_number(id, 10).unwrap();
-        assert_eq!(span.id(), Some(id));
+        assert_eq!(span.path(), Some(id));
         assert_eq!(span.number(), 10);
         assert_eq!(span.range(), None);
     }
 
     #[test]
     fn test_span_range_encoding() {
-        let id = FileId::from_raw(NonZeroU16::new(u16::MAX).unwrap());
+        let id = Id::<VirtualPath>::from_raw(NonZeroU16::new(u16::MAX).unwrap());
         let roundtrip = |range: Range<usize>| {
             let span = Span::from_range(id, range.clone());
-            assert_eq!(span.id(), Some(id));
+            assert_eq!(span.path(), Some(id));
             assert_eq!(span.range(), Some(range));
         };
 

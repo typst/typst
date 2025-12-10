@@ -5,11 +5,12 @@ use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 
-use typst_utils::LazyHash;
+use typst_utils::{Id, Intern, LazyHash};
 
 use crate::lines::Lines;
+use crate::path::{VirtualPath, VirtualRoot};
 use crate::reparser::reparse;
-use crate::{FileId, LinkedNode, Span, SyntaxNode, VirtualPath, parse};
+use crate::{LinkedNode, Span, SyntaxNode, parse};
 
 /// A source file.
 ///
@@ -23,27 +24,30 @@ pub struct Source(Arc<SourceInner>);
 /// The internal representation of a [`Source`].
 #[derive(Clone)]
 struct SourceInner {
-    id: FileId,
+    path: Id<VirtualPath>,
     root: LazyHash<SyntaxNode>,
     lines: LazyHash<Lines<String>>,
 }
 
 impl Source {
     /// Create a new source file.
-    pub fn new(id: FileId, text: String) -> Self {
+    pub fn new(path: Id<VirtualPath>, text: String) -> Self {
         let _scope = typst_timing::TimingScope::new("create source");
         let mut root = parse(&text);
-        root.numberize(id, Span::FULL).unwrap();
+        root.numberize(path, Span::FULL).unwrap();
         Self(Arc::new(SourceInner {
-            id,
+            path,
             lines: LazyHash::new(Lines::new(text)),
             root: LazyHash::new(root),
         }))
     }
 
-    /// Create a source file without a real id and path, usually for testing.
+    /// Create a source file without a real path, usually for testing.
     pub fn detached(text: impl Into<String>) -> Self {
-        Self::new(FileId::new(None, VirtualPath::new("main.typ")), text.into())
+        Self::new(
+            VirtualPath::new(VirtualRoot::Project, "main.typ").unwrap().intern(),
+            text.into(),
+        )
     }
 
     /// The root node of the file's untyped syntax tree.
@@ -51,9 +55,9 @@ impl Source {
         &self.0.root
     }
 
-    /// The id of the source file.
-    pub fn id(&self) -> FileId {
-        self.0.id
+    /// The path of the source file.
+    pub fn path(&self) -> Id<VirtualPath> {
+        self.0.path
     }
 
     /// The whole source as a string slice.
@@ -122,13 +126,13 @@ impl Source {
 
 impl Debug for Source {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Source({:?})", self.id().vpath())
+        write!(f, "Source({:?})", self.path())
     }
 }
 
 impl Hash for Source {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.id.hash(state);
+        self.0.path.hash(state);
         self.0.lines.hash(state);
         self.0.root.hash(state);
     }

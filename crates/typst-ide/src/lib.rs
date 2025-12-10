@@ -17,8 +17,9 @@ pub use self::tooltip::{Tooltip, tooltip};
 
 use ecow::EcoString;
 use typst::World;
-use typst::syntax::FileId;
 use typst::syntax::package::PackageSpec;
+use typst::syntax::path::VirtualPath;
+use typst::utils::Id;
 
 /// Extends the `World` for IDE functionality.
 pub trait IdeWorld: World {
@@ -44,7 +45,7 @@ pub trait IdeWorld: World {
     ///
     /// This function is **optional** to implement. It enhances the user
     /// experience by enabling autocompletion for file paths.
-    fn files(&self) -> Vec<FileId> {
+    fn files(&self) -> Vec<Id<VirtualPath>> {
         vec![]
     }
 }

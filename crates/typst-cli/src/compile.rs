@@ -14,7 +14,9 @@ use typst::diag::{
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Lines, Span};
+use typst::syntax::path::{VirtualPath, VirtualRoot};
+use typst::syntax::{Lines, Span};
+use typst::utils::Id;
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -649,7 +651,7 @@ pub fn print_diagnostics(
             label(world, diagnostic.span)
                 .into_iter()
                 .chain(diagnostic.hints.iter().filter_map(|hint| {
-                    let id = hint.span.id()?;
+                    let id = hint.span.path()?;
                     let range = world.range(hint.span)?;
                     Some(Label::secondary(id, range).with_message(&hint.v))
                 }))
@@ -673,37 +675,40 @@ pub fn print_diagnostics(
 }
 
 /// Create a label for a span.
-fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
-    Some(Label::primary(span.id()?, world.range(span)?))
+fn label(world: &SystemWorld, span: Span) -> Option<Label<Id<VirtualPath>>> {
+    Some(Label::primary(span.path()?, world.range(span)?))
 }
 
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
-    type FileId = FileId;
+    type FileId = Id<VirtualPath>;
     type Name = String;
     type Source = Lines<String>;
 
-    fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        let vpath = id.vpath();
-        Ok(if let Some(package) = id.package() {
-            format!("{package}{}", vpath.as_rooted_path().display())
-        } else {
-            // Try to express the path relative to the working directory.
-            vpath
-                .resolve(self.root())
-                .and_then(|abs| pathdiff::diff_paths(abs, self.workdir()))
-                .as_deref()
-                .unwrap_or_else(|| vpath.as_rootless_path())
-                .to_string_lossy()
-                .into()
+    fn name(&'a self, path: Id<VirtualPath>) -> CodespanResult<Self::Name> {
+        Ok(match path.root() {
+            VirtualRoot::Project => {
+                // Try to express the path relative to the working directory.
+                let rooted = path.realize(self.root());
+                pathdiff::diff_paths(rooted, self.workdir())
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| path.get_without_slash().into())
+            }
+            VirtualRoot::Package(package) => {
+                format!("{package}{}", path.get_with_slash())
+            }
         })
     }
 
-    fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {
-        Ok(self.lookup(id))
+    fn source(&'a self, path: Id<VirtualPath>) -> CodespanResult<Self::Source> {
+        Ok(self.lookup(path))
     }
 
-    fn line_index(&'a self, id: FileId, given: usize) -> CodespanResult<usize> {
-        let source = self.lookup(id);
+    fn line_index(
+        &'a self,
+        path: Id<VirtualPath>,
+        given: usize,
+    ) -> CodespanResult<usize> {
+        let source = self.lookup(path);
         source
             .byte_to_line(given)
             .ok_or_else(|| CodespanError::IndexTooLarge {
@@ -714,10 +719,10 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
 
     fn line_range(
         &'a self,
-        id: FileId,
+        path: Id<VirtualPath>,
         given: usize,
     ) -> CodespanResult<std::ops::Range<usize>> {
-        let source = self.lookup(id);
+        let source = self.lookup(path);
         source
             .line_to_range(given)
             .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
@@ -725,11 +730,11 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
 
     fn column_number(
         &'a self,
-        id: FileId,
+        path: Id<VirtualPath>,
         _: usize,
         given: usize,
     ) -> CodespanResult<usize> {
-        let source = self.lookup(id);
+        let source = self.lookup(path);
         source.byte_to_column(given).ok_or_else(|| {
             let max = source.len_bytes();
             if given <= max {

@@ -26,7 +26,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "CSV")]
 pub fn csv(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a CSV file or raw CSV bytes.
+    /// A path to a CSV file or raw CSV bytes.
     source: Spanned<DataSource>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.

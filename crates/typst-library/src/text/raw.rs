@@ -236,8 +236,7 @@ pub struct RawElem {
     ///
     /// You can pass any of the following values:
     ///
-    /// - A path string to load a syntax file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
     ///
@@ -266,8 +265,7 @@ pub struct RawElem {
     ///
     /// - `{none}`: Disables syntax highlighting.
     /// - `{auto}`: Highlights with Typst's default theme.
-    /// - A path string to load a theme file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a theme file from.
     /// - Raw bytes from which the theme should be decoded.
     ///
     /// Applying a theme only affects the color of specifically highlighted

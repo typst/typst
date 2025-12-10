@@ -9,10 +9,12 @@ use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, PagedDocument, Point, Size};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::Source;
+use typst::syntax::path::{VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
+use typst_utils::{Id, Intern};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -460,8 +462,8 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
         highlighted = Some(html);
     }
 
-    let id = FileId::new(None, VirtualPath::new("main.typ"));
-    let source = Source::new(id, compile);
+    let path = VirtualPath::new(VirtualRoot::Project, "main.typ").unwrap().intern();
+    let source = Source::new(path, compile);
     let world = DocWorld(source);
 
     let mut document = match typst::compile::<PagedDocument>(&world).output {
@@ -517,25 +519,23 @@ impl World for DocWorld {
         &FONTS.0
     }
 
-    fn main(&self) -> FileId {
-        self.0.id()
+    fn main(&self) -> Id<VirtualPath> {
+        self.0.path()
     }
 
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        if id == self.0.id() {
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+        if path == self.0.path() {
             Ok(self.0.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            Err(FileError::NotFound(path.get_without_slash().into()))
         }
     }
 
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        assert!(id.package().is_none());
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+        assert_eq!(*path.root(), VirtualRoot::Project);
         Ok(Bytes::new(
-            typst_dev_assets::get_by_name(
-                &id.vpath().as_rootless_path().to_string_lossy(),
-            )
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),
+            typst_dev_assets::get_by_name(path.get_without_slash())
+                .unwrap_or_else(|| panic!("failed to load {path:?}")),
         ))
     }
 

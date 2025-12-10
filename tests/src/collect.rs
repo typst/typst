@@ -10,9 +10,9 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Bytes;
 use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{
-    FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
-};
+use typst_syntax::path::{VirtualPath, VirtualRoot};
+use typst_syntax::{Lines, Source, is_id_continue, is_ident, is_newline};
+use typst_utils::{Id, Intern};
 use unscanny::Scanner;
 
 use crate::output::HashedRefs;
@@ -308,7 +308,7 @@ pub struct Note {
     pub pos: FilePos,
     pub kind: NoteKind,
     /// The file [`Self::range`] belongs to.
-    pub file: FileId,
+    pub path: Id<VirtualPath>,
     pub range: Option<Range<usize>>,
     pub message: String,
 }
@@ -580,8 +580,12 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::new(self.path);
-            let source = Source::new(FileId::new(None, vpath), text.into());
+            let path =
+                VirtualPath::virtualize(VirtualRoot::Project, Path::new(""), self.path)
+                    .unwrap()
+                    .intern();
+
+            let source = Source::new(path, text.into());
 
             self.s.jump(start);
             self.line = self.test_start_line;
@@ -696,24 +700,26 @@ impl<'a> Parser<'a> {
         let kind: NoteKind = head.parse().ok()?;
         self.s.eat_if(' ');
 
-        let mut file = None;
+        let mut path = None;
         if self.s.eat_if('"') {
-            let path = self.s.eat_until(|c| is_newline(c) || c == '"');
+            path = Some(
+                VirtualPath::new(VirtualRoot::Project, {
+                    self.s.eat_until(|c| is_newline(c) || c == '"')
+                })
+                .unwrap()
+                .intern(),
+            );
             if !self.s.eat_if('"') {
                 self.error("expected closing quote after file path");
                 return None;
             }
-
-            let vpath = VirtualPath::new(path);
-            file = Some(FileId::new(None, vpath));
-
             self.s.eat_if(' ');
         }
 
         let mut range = None;
         if self.s.at('-') || self.s.at(char::is_numeric) {
-            if let Some(file) = file {
-                range = self.parse_range_external(file);
+            if let Some(path) = path {
+                range = self.parse_range_external(path);
             } else {
                 range = self.parse_range(source);
             }
@@ -734,7 +740,7 @@ impl<'a> Parser<'a> {
         Some(Note {
             pos: FilePos::new(self.path, self.line),
             kind,
-            file: file.unwrap_or(source.id()),
+            path: path.unwrap_or(source.path()),
             range,
             message,
         })
@@ -742,16 +748,9 @@ impl<'a> Parser<'a> {
 
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
-    fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
-        let path = match system_path(file) {
-            Ok(path) => path,
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
-        };
-
-        let bytes = match read(&path) {
+    fn parse_range_external(&mut self, path: Id<VirtualPath>) -> Option<Range<usize>> {
+        let resolved = system_path(path);
+        let bytes = match read(&resolved) {
             Ok(data) => Bytes::new(data),
             Err(err) => {
                 self.error(err.to_string());
@@ -762,7 +761,7 @@ impl<'a> Parser<'a> {
         let start = self.parse_line_col()?;
         let lines = Lines::try_from(&bytes).expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid UTF-8)",
+             that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;

@@ -997,6 +997,7 @@ const TYPE_ORDER: &[&str] = &[
     "datetime",
     "duration",
     "str",
+    "path",
     "bytes",
     "regex",
     "label",

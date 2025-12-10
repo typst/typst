@@ -15,12 +15,14 @@ use typst::foundations::{
 };
 use typst::layout::{Abs, Margin, PageElem};
 use typst::model::{Numbering, NumberingPattern};
-use typst::syntax::{FileId, Source, Span};
+use typst::syntax::{Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
 use typst_syntax::Lines;
+use typst_syntax::path::{VirtualPath, VirtualRoot};
+use typst_utils::Id;
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -51,20 +53,20 @@ impl World for TestWorld {
         &self.base.book
     }
 
-    fn main(&self) -> FileId {
-        self.main.id()
+    fn main(&self) -> Id<VirtualPath> {
+        self.main.path()
     }
 
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        if id == self.main.id() {
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+        if path == self.main.path() {
             Ok(self.main.clone())
         } else {
-            self.slot(id, FileSlot::source)
+            self.slot(path, FileSlot::source)
         }
     }
 
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, FileSlot::file)
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+        self.slot(path, FileSlot::file)
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -78,18 +80,18 @@ impl World for TestWorld {
 
 impl TestWorld {
     /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> T
+    fn slot<F, T>(&self, path: Id<VirtualPath>, f: F) -> T
     where
         F: FnOnce(&mut FileSlot) -> T,
     {
         let mut map = self.base.slots.lock();
-        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
+        f(map.entry(path).or_insert_with(|| FileSlot::new(path)))
     }
 
     /// Lookup line metadata for a file by id.
     #[track_caller]
-    pub(crate) fn lookup(&self, id: FileId) -> Lines<String> {
-        self.slot(id, |slot| {
+    pub(crate) fn lookup(&self, path: Id<VirtualPath>) -> Lines<String> {
+        self.slot(path, |slot| {
             if let Some(source) = slot.source.get() {
                 let source = source.as_ref().expect("file is not valid");
                 source.lines().clone()
@@ -108,7 +110,7 @@ struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
-    slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<Id<VirtualPath>, FileSlot>>,
 }
 
 impl Default for TestBase {
@@ -127,27 +129,31 @@ impl Default for TestBase {
     }
 }
 
-/// Holds the processed data for a file ID.
+/// Holds the processed data for a path.
 #[derive(Clone)]
 struct FileSlot {
-    id: FileId,
+    path: Id<VirtualPath>,
     source: OnceLock<FileResult<Source>>,
     file: OnceLock<FileResult<Bytes>>,
 }
 
 impl FileSlot {
     /// Create a new file slot.
-    fn new(id: FileId) -> Self {
-        Self { id, file: OnceLock::new(), source: OnceLock::new() }
+    fn new(path: Id<VirtualPath>) -> Self {
+        Self {
+            path,
+            file: OnceLock::new(),
+            source: OnceLock::new(),
+        }
     }
 
     /// Retrieve the source for this file.
     fn source(&mut self) -> FileResult<Source> {
         self.source
             .get_or_init(|| {
-                let buf = read(&system_path(self.id)?)?;
+                let buf = read(&system_path(self.path))?;
                 let text = String::from_utf8(buf.into_owned())?;
-                Ok(Source::new(self.id, text))
+                Ok(Source::new(self.path, text))
             })
             .clone()
     }
@@ -156,7 +162,7 @@ impl FileSlot {
     fn file(&mut self) -> FileResult<Bytes> {
         self.file
             .get_or_init(|| {
-                read(&system_path(self.id)?).map(|cow| match cow {
+                read(&system_path(self.path)).map(|cow| match cow {
                     Cow::Owned(buf) => Bytes::new(buf),
                     Cow::Borrowed(buf) => Bytes::new(buf),
                 })
@@ -166,13 +172,14 @@ impl FileSlot {
 }
 
 /// The file system path for a file ID.
-pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
-    let root: PathBuf = match id.package() {
-        Some(spec) => format!("tests/packages/{}-{}", spec.name, spec.version).into(),
-        None => PathBuf::new(),
+pub(crate) fn system_path(path: Id<VirtualPath>) -> PathBuf {
+    let root = match path.root() {
+        VirtualRoot::Project => PathBuf::new(),
+        VirtualRoot::Package(spec) => {
+            format!("tests/packages/{}-{}", spec.name, spec.version).into()
+        }
     };
-
-    id.vpath().resolve(&root).ok_or(FileError::AccessDenied)
+    path.realize(&root)
 }
 
 /// Read a file.

@@ -1,6 +1,5 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
@@ -11,11 +10,12 @@ use typst::foundations::{
 };
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
+use typst::syntax::path::VirtualPath;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
-    is_ident,
+    LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
+use typst::utils::Id;
 use typst::visualize::Color;
 use unscanny::Scanner;
 
@@ -1211,20 +1211,16 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all available files.
-    fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
-        let Some(base_id) = self.leaf.span().id() else { return };
-        let Some(base_path) = base_id.vpath().as_rooted_path().parent() else { return };
+    fn file_completions(&mut self, mut filter: impl FnMut(Id<VirtualPath>) -> bool) {
+        let Some(current_file) = self.leaf.span().path() else { return };
+        let Some(current_dir) = current_file.parent() else { return };
 
         let mut paths: Vec<EcoString> = self
             .world
             .files()
             .iter()
-            .filter(|&&file_id| file_id != base_id && filter(file_id))
-            .filter_map(|file_id| {
-                let file_path = file_id.vpath().as_rooted_path();
-                pathdiff::diff_paths(file_path, base_path)
-            })
-            .map(|path| path.to_string_lossy().replace('\\', "/").into())
+            .filter(|&&path| path != current_file && filter(path))
+            .filter_map(|path| path.relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1240,18 +1236,12 @@ impl<'a> CompletionContext<'a> {
     fn file_completions_with_extensions(&mut self, extensions: &[&str]) {
         if extensions.is_empty() {
             self.file_completions(|_| true);
+        } else {
+            self.file_completions(|path| {
+                path.extension()
+                    .is_some_and(|ext| extensions.contains(&ext.to_lowercase().as_str()))
+            });
         }
-        self.file_completions(|id| {
-            let ext = id
-                .vpath()
-                .as_rooted_path()
-                .extension()
-                .and_then(OsStr::to_str)
-                .map(EcoString::from)
-                .unwrap_or_default()
-                .to_lowercase();
-            extensions.contains(&ext.as_str())
-        });
     }
 
     /// Add completions for raw block tags.

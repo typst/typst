@@ -65,7 +65,7 @@ pub fn definition(
             let Some(Value::Module(module)) = analyze_import(world, &node) else {
                 return None;
             };
-            let id = module.file_id()?;
+            let id = module.path()?;
             let span = Span::from_range(id, 0..0);
             return Some(Definition::Span(span));
         }
@@ -110,10 +110,7 @@ mod tests {
             match self.1 {
                 Some(Definition::Span(span)) => {
                     let range = self.0.range(span);
-                    assert_eq!(
-                        span.id().unwrap().vpath().as_rootless_path().to_string_lossy(),
-                        path
-                    );
+                    assert_eq!(span.path().unwrap().get_without_slash(), path);
                     assert_eq!(range, Some(expected));
                 }
                 _ => panic!("expected span definition"),

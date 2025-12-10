@@ -6,10 +6,11 @@ use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Smart};
 use typst::layout::{Abs, Margin, PageElem};
+use typst::syntax::Source;
 use typst::syntax::package::{PackageSpec, PackageVersion};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::path::{VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::{LazyHash, singleton};
+use typst::utils::{Id, Intern, LazyHash, singleton};
 use typst::{Feature, Library, LibraryExt, World};
 
 use crate::IdeWorld;
@@ -37,8 +38,9 @@ impl TestWorld {
     }
 
     /// Add an additional source file to the test world.
+    #[track_caller]
     pub fn with_source(mut self, path: &str, text: &str) -> Self {
-        let id = FileId::new(None, VirtualPath::new(path));
+        let id = VirtualPath::new(VirtualRoot::Project, path).unwrap().intern();
         let source = Source::new(id, text.into());
         Arc::make_mut(&mut self.files).sources.insert(id, source);
         self
@@ -53,16 +55,19 @@ impl TestWorld {
     /// Add an additional asset file to the test world.
     #[track_caller]
     pub fn with_asset_at(mut self, path: &str, filename: &str) -> Self {
-        let id = FileId::new(None, VirtualPath::new(path));
+        let path = VirtualPath::new(VirtualRoot::Project, path).unwrap().intern();
         let data = typst_dev_assets::get_by_name(filename).unwrap();
         let bytes = Bytes::new(data);
-        Arc::make_mut(&mut self.files).assets.insert(id, bytes);
+        Arc::make_mut(&mut self.files).assets.insert(path, bytes);
         self
     }
 
     /// The ID of the main file in a `TestWorld`.
-    pub fn main_id() -> FileId {
-        *singleton!(FileId, FileId::new(None, VirtualPath::new("main.typ")))
+    pub fn main_id() -> Id<VirtualPath> {
+        *singleton!(
+            Id<VirtualPath>,
+            VirtualPath::new(VirtualRoot::Project, "main.typ").unwrap().intern()
+        )
     }
 }
 
@@ -75,24 +80,24 @@ impl World for TestWorld {
         &self.base.book
     }
 
-    fn main(&self) -> FileId {
-        self.main.id()
+    fn main(&self) -> Id<VirtualPath> {
+        self.main.path()
     }
 
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        if id == self.main.id() {
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+        if path == self.main.path() {
             Ok(self.main.clone())
-        } else if let Some(source) = self.files.sources.get(&id) {
+        } else if let Some(source) = self.files.sources.get(&path) {
             Ok(source.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            Err(FileError::NotFound(path.get_without_slash().into()))
         }
     }
 
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        match self.files.assets.get(&id) {
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+        match self.files.assets.get(&path) {
             Some(bytes) => Ok(bytes.clone()),
-            None => Err(FileError::NotFound(id.vpath().as_rootless_path().into())),
+            None => Err(FileError::NotFound(path.get_without_slash().into())),
         }
     }
 
@@ -110,8 +115,8 @@ impl IdeWorld for TestWorld {
         self
     }
 
-    fn files(&self) -> Vec<FileId> {
-        std::iter::once(self.main.id())
+    fn files(&self) -> Vec<Id<VirtualPath>> {
+        std::iter::once(self.main.path())
             .chain(self.files.sources.keys().copied())
             .chain(self.files.assets.keys().copied())
             .collect()
@@ -137,8 +142,8 @@ impl IdeWorld for TestWorld {
 /// Test-specific files.
 #[derive(Default, Clone)]
 struct TestFiles {
-    assets: FxHashMap<FileId, Bytes>,
-    sources: FxHashMap<FileId, Source>,
+    assets: FxHashMap<Id<VirtualPath>, Bytes>,
+    sources: FxHashMap<Id<VirtualPath>, Source>,
 }
 
 /// Shared foundation of all test worlds.
@@ -218,8 +223,8 @@ impl FilePos for isize {
 impl FilePos for (&str, isize) {
     #[track_caller]
     fn resolve(self, world: &TestWorld) -> (Source, usize) {
-        let id = FileId::new(None, VirtualPath::new(self.0));
-        let source = world.source(id).unwrap();
+        let path = VirtualPath::new(VirtualRoot::Project, self.0).unwrap().intern();
+        let source = world.source(path).unwrap();
         let cursor = cursor(&source, self.1);
         (source, cursor)
     }

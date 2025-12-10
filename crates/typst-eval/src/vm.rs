@@ -34,7 +34,7 @@ impl<'a> Vm<'a> {
         scopes: Scopes<'a>,
         target: Span,
     ) -> Self {
-        let inspected = target.id().and_then(|id| engine.traced.get(id));
+        let inspected = target.path().and_then(|id| engine.traced.get(id));
         Self { engine, context, flow: None, scopes, inspected }
     }
 

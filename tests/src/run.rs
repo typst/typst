@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::ops::Range;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -10,7 +11,9 @@ use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, Lines, VirtualPath};
+use typst_syntax::Lines;
+use typst_syntax::path::VirtualPath;
+use typst_utils::Id;
 
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
@@ -18,7 +21,7 @@ use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
 use crate::world::{TestWorld, system_path};
 use crate::{ARGS, custom, output};
 
-type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
+type OutputHashes = FxHashMap<Id<VirtualPath>, HashedRefs>;
 
 /// Runs a single test.
 ///
@@ -36,7 +39,8 @@ pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<OutputHashes>]) {
             continue;
         }
 
-        let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+        let ref_path =
+            T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
         if hashed_refs.is_empty() {
             std::fs::remove_file(ref_path).ok();
         } else {
@@ -169,7 +173,7 @@ impl<'a> Runner<'a> {
             if missing_stages.is_empty() {
                 continue;
             }
-            let note_range = self.format_range(note.file, &note.range);
+            let note_range = self.format_range(note.path, &note.range);
             if first {
                 log!(self, "not emitted [{missing_stages}]");
                 first = false;
@@ -346,12 +350,13 @@ impl<'a> Runner<'a> {
     fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
-        let source_path = self.test.source.id().vpath();
+        let source_path = self.test.source.path();
         let old_ref_hash =
-            if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
+            if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(&source_path) {
                 hashed_refs.get(&self.test.name)
             } else {
-                let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+                let ref_path =
+                    T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
                 let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
                 let hashed_refs = HashedRefs::from_str(&string)
                     .inspect_err(|e| {
@@ -395,8 +400,9 @@ impl<'a> Runner<'a> {
 
         if crate::ARGS.update {
             let mut hashes = self.hashes[T::INDEX].write();
-            let hashed_refs = hashes.get_mut(source_path).unwrap();
-            let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+            let hashed_refs = hashes.get_mut(&source_path).unwrap();
+            let ref_path =
+                T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
             if skippable {
                 hashed_refs.remove(&self.test.name);
                 log!(
@@ -439,13 +445,13 @@ impl<'a> Runner<'a> {
         }
 
         let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range, &diag.message, stage);
+        self.validate_note(kind, diag.span.path(), range, &diag.message, stage);
 
         // Check hints.
         for hint in &diag.hints {
             let span = hint.span.or(diag.span);
             let range = self.world.range(span);
-            self.validate_note(NoteKind::Hint, span.id(), range, &hint.v, stage);
+            self.validate_note(NoteKind::Hint, span.path(), range, &hint.v, stage);
         }
     }
 
@@ -457,7 +463,7 @@ impl<'a> Runner<'a> {
     fn validate_note(
         &mut self,
         kind: NoteKind,
-        file: Option<FileId>,
+        file: Option<Id<VirtualPath>>,
         range: Option<Range<usize>>,
         message: &str,
         stage: impl TestStage,
@@ -472,13 +478,13 @@ impl<'a> Runner<'a> {
         });
 
         // Try to find perfect match.
-        let file = file.unwrap_or(self.test.source.id());
+        let file = file.unwrap_or(self.test.source.path());
         if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
             !self.seen[i].contains(stage.into())
                 && note.kind == kind
                 && note.range == range
                 && note.message == message
-                && note.file == file
+                && note.path == file
         }) {
             self.seen[i] |= stage.into();
             return;
@@ -502,8 +508,8 @@ impl<'a> Runner<'a> {
 
         // Range is wrong.
         if range != note.range {
-            let note_range = self.format_range(note.file, &note.range);
-            let note_text = self.text_for_range(note.file, &note.range);
+            let note_range = self.format_range(note.path, &note.range);
+            let note_text = self.text_for_range(note.path, &note.range);
             let diag_range = self.format_range(file, &range);
             let diag_text = self.text_for_range(file, &range);
             log!(self, "mismatched range [{stage}] ({}):", note.pos);
@@ -521,39 +527,47 @@ impl<'a> Runner<'a> {
     }
 
     /// Display the text for a range.
-    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
+    fn text_for_range(
+        &self,
+        path: Id<VirtualPath>,
+        range: &Option<Range<usize>>,
+    ) -> String {
         let Some(range) = range else { return "No text".into() };
         if range.is_empty() {
             return "(empty)".into();
         }
 
-        let lines = self.lookup(file);
+        let lines = self.lookup(path);
         lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
     /// Display a byte range as a line:column range.
-    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
+    fn format_range(
+        &self,
+        path: Id<VirtualPath>,
+        range: &Option<Range<usize>>,
+    ) -> String {
         let Some(range) = range else { return "No range".into() };
 
         let mut preamble = String::new();
-        if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+        if path != self.test.source.path() {
+            preamble = format!("\"{}\" ", system_path(path).display());
         }
 
         if range.start == range.end {
-            format!("{preamble}{}", self.format_pos(file, range.start))
+            format!("{preamble}{}", self.format_pos(path, range.start))
         } else {
             format!(
                 "{preamble}{}-{}",
-                self.format_pos(file, range.start),
-                self.format_pos(file, range.end)
+                self.format_pos(path, range.start),
+                self.format_pos(path, range.end)
             )
         }
     }
 
     /// Display a position as a line:column pair.
-    fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.lookup(file);
+    fn format_pos(&self, path: Id<VirtualPath>, pos: usize) -> String {
+        let lines = self.lookup(path);
 
         let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
@@ -564,11 +578,11 @@ impl<'a> Runner<'a> {
     }
 
     #[track_caller]
-    fn lookup(&self, file: FileId) -> Lines<String> {
-        if self.test.source.id() == file {
+    fn lookup(&self, path: Id<VirtualPath>) -> Lines<String> {
+        if self.test.source.path() == path {
             self.test.source.lines().clone()
         } else {
-            self.world.lookup(file)
+            self.world.lookup(path)
         }
     }
 }

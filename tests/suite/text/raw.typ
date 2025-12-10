@@ -108,6 +108,26 @@ contexts:
 // Error: 35-56 failed to parse syntax (Error while compiling regex '\': Parsing error at position 0: Backslash without following character)
 #raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
+--- raw-syntaxes-types paged ---
+#let sublime-syntax = ```yaml
+%YAML 1.2
+```.text + "\n---\n" + ```yaml
+name: lang
+file_extensions:
+  - a
+scope: source
+contexts:
+  main:
+    - match: ''
+```.text
+
+#set raw(syntaxes: "/assets/syntaxes/SExpressions.sublime-syntax")
+#set raw(syntaxes: path("/assets/syntaxes/SExpressions.sublime-syntax"))
+#set raw(syntaxes: (
+  path("/assets/syntaxes/SExpressions.sublime-syntax"),
+  bytes(sublime-syntax),
+))
+
 --- raw-theme paged ---
 // Test code highlighting with custom theme.
 #set page(width: 180pt)
@@ -758,12 +778,12 @@ a b c --------------------
 #test(`foo`, `foo`)
 #assert.ne(`foo`, `bar`)
 
---- raw-theme-set-to-auto paged ---
+--- raw-theme-types paged ---
 ```typ
 #let hi = "Hello World"
 ```
 
-#set raw(theme: "/assets/themes/halcyon.tmTheme")
+#set raw(theme: path("/assets/themes/halcyon.tmTheme"))
 ```typ
 #let hi = "Hello World"
 ```
