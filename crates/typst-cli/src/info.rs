@@ -41,8 +41,8 @@ struct Info {
 #[derive(Default, Serialize)]
 #[serde(rename_all = "kebab-case")]
 struct Build {
-    /// The commit this binary was compiled with.
-    commit: &'static str,
+    /// The commit this binary was compiled from. May be `None` if unknown.
+    commit: Option<&'static str>,
 
     /// The platform this binary was compiled for.
     platform: Platform,
@@ -319,10 +319,11 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
     };
 
+    let version = typst::utils::version();
     let value = Info {
-        version: crate::typst_version(),
+        version: version.raw(),
         build: Build {
-            commit: crate::typst_commit_sha(),
+            commit: version.commit(),
             platform: Platform::new(),
             settings: Settings {
                 self_update: cfg!(feature = "self-update"),
@@ -535,7 +536,7 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write!(out, " ")?;
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
-    write_value_simple(&mut out, value.build.commit, None)?;
+    write_value_simple(&mut out, typst_utils::display_commit(value.build.commit), None)?;
     write!(out, ", ")?;
     write_value_simple(&mut out, value.build.platform.os, None)?;
     write!(out, " on ")?;

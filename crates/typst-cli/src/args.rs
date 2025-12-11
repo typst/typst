@@ -50,7 +50,11 @@ const STYLES: Styles = Styles::styled()
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
+    version = format!(
+        "{} ({})",
+        typst_utils::version().raw(),
+        typst_utils::display_commit(typst_utils::version().commit()),
+    ),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
@@ -273,7 +277,8 @@ pub struct CompletionsCommand {
 pub struct InfoCommand {
     /// The format to serialize in, if it should be machine-readable.
     ///
-    /// If no format is passed the output is displayed human-readable.
+    /// If no format is passed the output is displayed human-readable. Note that
+    /// human-readable format truncates the build commit hash value.
     #[arg(long = "format", short = 'f')]
     pub format: Option<SerializationFormat>,
 
