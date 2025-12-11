@@ -7,8 +7,10 @@
 /// - For the version number: The `TYPST_VERSION` environment variable
 /// - For the commit hash: The `TYPST_COMMIT_SHA` environment variable
 ///
-/// It is up to build tooling to ensure that environment variables have valid values at compile
-/// time. A fallback mechanism is currently implemented in `build.rs`.
+/// Build tooling can set these environment variables to configure the exposed
+/// information. If the environment variables are left unset, the values are
+/// populated via `build.rs` from the Cargo package manifest version and the git
+/// hash in the current repository (if any).
 ///
 /// # Panics
 /// If the `TYPST_VERSION` environment variable holds a version string that
