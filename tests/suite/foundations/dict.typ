@@ -209,6 +209,27 @@
 #test((hello: 1, (a): 2), ("hello": 2))
 #test((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
 
+--- dict-filter paged ---
+// Test the `filter` method.
+#test((:).filter(calc.even), (:))
+#test((a: 0, b: 1, c: 2).filter(v => v != 0), (b: 1, c: 2))
+#test((a: 0, b: 1, c: 2).filter(calc.even), (a: 0, c: 2))
+
+--- dict-filter-error paged ---
+// Test that errors in the predicate are reported properly.
+// Error: 23-28 cannot subtract integer from string
+#(a: "a").filter(v => v - 2)
+
+--- dict-map paged ---
+// Test the `map` method.
+#test(().map(x => x * 2), ())
+#test((a: 2, b: 3).map(x => x * 2), (a: 4, b: 6))
+
+--- dict-map-error paged ---
+// Test that errors in the function are reported properly.
+// Error: 20-25 cannot subtract integer from string
+#(a: "a").map(v => v - 2)
+
 --- issue-1338-dictionary-underscore paged ---
 #let foo = "foo"
 #let bar = "bar"

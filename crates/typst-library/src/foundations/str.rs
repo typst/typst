@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Deref, Range};
 use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::Spanned;
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -154,7 +154,7 @@ impl Str {
         value: ToStr,
         /// The base (radix) to display integers in, between 2 and 36.
         #[named]
-        #[default(Spanned::new(Base::Default, Span::detached()))]
+        #[default(Spanned::detached(Base::Default))]
         base: Spanned<Base>,
     ) -> SourceResult<Str> {
         Ok(match value {

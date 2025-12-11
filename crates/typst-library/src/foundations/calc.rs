@@ -415,7 +415,7 @@ pub fn log(
     value: Spanned<Num>,
     /// The base of the logarithm. May not be zero.
     #[named]
-    #[default(Spanned::new(10.0, Span::detached()))]
+    #[default(Spanned::detached(10.0))]
     base: Spanned<f64>,
 ) -> SourceResult<f64> {
     let number = value.v.float();
@@ -1076,7 +1076,7 @@ pub fn quo(
 pub fn norm(
     /// The p value to calculate the p-norm of.
     #[named]
-    #[default(Spanned::new(2.0, Span::detached()))]
+    #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
