@@ -443,6 +443,12 @@ impl<'a> Runner<'a> {
 
         // Check hints.
         for hint in &diag.hints {
+            // HACK: This hint only gets emitted in debug builds, so filter it
+            // out to make the test suite also pass for release builds.
+            if hint.v == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
+                continue;
+            }
+
             let span = hint.span.or(diag.span);
             let range = self.world.range(span);
             self.validate_note(NoteKind::Hint, span.id(), range, &hint.v, stage);
