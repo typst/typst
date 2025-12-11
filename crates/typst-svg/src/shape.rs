@@ -17,7 +17,7 @@ impl SVGRenderer<'_> {
             self.write_fill(
                 paint,
                 shape.fill_rule,
-                self.shape_fill_size(state, paint, shape),
+                self.shape_fill_size(state, paint, shape).aspect_ratio(),
                 self.shape_paint_transform(state, paint, shape),
             );
         } else {
@@ -27,7 +27,7 @@ impl SVGRenderer<'_> {
         if let Some(stroke) = &shape.stroke {
             self.write_stroke(
                 stroke,
-                self.shape_fill_size(state, &stroke.paint, shape),
+                self.shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
                 self.shape_paint_transform(state, &stroke.paint, shape),
             );
         }
@@ -106,17 +106,17 @@ impl SVGRenderer<'_> {
     pub(super) fn write_stroke(
         &mut self,
         stroke: &FixedStroke,
-        size: Size,
+        aspect_ratio: Ratio,
         fill_transform: Transform,
     ) {
         match &stroke.paint {
             Paint::Solid(color) => self.xml.write_attribute("stroke", &color.encode()),
             Paint::Gradient(gradient) => {
-                let id = self.push_gradient(gradient, size, fill_transform);
+                let id = self.push_gradient(gradient, aspect_ratio, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
             Paint::Tiling(tiling) => {
-                let id = self.push_tiling(tiling, size, fill_transform);
+                let id = self.push_tiling(tiling, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
         }
@@ -142,14 +142,18 @@ impl SVGRenderer<'_> {
             .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
         if let Some(dash) = &stroke.dash {
             self.xml.write_attribute("stroke-dashoffset", &dash.phase.to_pt());
+
             self.xml.write_attribute(
                 "stroke-dasharray",
-                &dash
-                    .array
-                    .iter()
-                    .map(|dash| dash.to_pt().to_string())
-                    .collect::<Vec<_>>()
-                    .join(" "),
+                &typst_utils::display(|f| {
+                    for (i, dash) in dash.array.iter().enumerate() {
+                        if i > 0 {
+                            f.write_str(" ")?;
+                        }
+                        write!(f, "{}", dash.to_pt())?;
+                    }
+                    Ok(())
+                }),
             );
         }
     }
@@ -158,9 +162,7 @@ impl SVGRenderer<'_> {
 /// Convert a geometry to an SVG path.
 #[comemo::memoize]
 fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
-    let mut builder =
-        SvgPathBuilder::with_translate(Point::new(Abs::zero(), Abs::zero()));
-
+    let mut builder = SvgPathBuilder::with_translate(Point::zero());
     match geometry {
         Geometry::Line(t) => {
             builder.move_to(0.0, 0.0);

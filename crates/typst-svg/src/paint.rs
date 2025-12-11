@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 
 use ecow::{EcoString, eco_format};
 use typst_library::foundations::Repr;
-use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Transform};
 use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
 use xmlwriter::XmlWriter;
 
@@ -28,17 +28,17 @@ impl SVGRenderer<'_> {
         &mut self,
         fill: &Paint,
         fill_rule: FillRule,
-        size: Size,
+        aspect_ratio: Ratio,
         ts: Transform,
     ) {
         match fill {
             Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
             Paint::Gradient(gradient) => {
-                let id = self.push_gradient(gradient, size, ts);
+                let id = self.push_gradient(gradient, aspect_ratio, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
             Paint::Tiling(tiling) => {
-                let id = self.push_tiling(tiling, size, ts);
+                let id = self.push_tiling(tiling, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
         }
@@ -58,13 +58,12 @@ impl SVGRenderer<'_> {
     pub(super) fn push_gradient(
         &mut self,
         gradient: &Gradient,
-        size: Size,
+        aspect_ratio: Ratio,
         ts: Transform,
     ) -> DedupId {
-        let gradient_id =
-            self.gradients.insert_with((gradient, size.aspect_ratio()), || {
-                (gradient.clone(), size.aspect_ratio())
-            });
+        let gradient_id = self
+            .gradients
+            .insert_with((gradient, aspect_ratio), || (gradient.clone(), aspect_ratio));
 
         if ts.is_identity() {
             return gradient_id;
@@ -77,12 +76,7 @@ impl SVGRenderer<'_> {
         })
     }
 
-    pub(super) fn push_tiling(
-        &mut self,
-        tiling: &Tiling,
-        size: Size,
-        ts: Transform,
-    ) -> DedupId {
+    pub(super) fn push_tiling(&mut self, tiling: &Tiling, ts: Transform) -> DedupId {
         let tiling_size = tiling.size() + tiling.spacing();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
@@ -90,14 +84,8 @@ impl SVGRenderer<'_> {
         self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
         let tiling_id = self.tilings.insert_with(tiling, || tiling.clone());
-        self.tiling_refs.insert_with((tiling_id, ts), || TilingRef {
-            id: tiling_id,
-            transform: ts,
-            ratio: Axes::new(
-                Ratio::new(tiling_size.x.to_pt() / size.x.to_pt()),
-                Ratio::new(tiling_size.y.to_pt() / size.y.to_pt()),
-            ),
-        })
+        let tiling_ref = TilingRef { id: tiling_id, transform: ts };
+        self.tiling_refs.insert_with(tiling_ref, || tiling_ref)
     }
 
     /// Write the raw gradients (without transform) to the SVG file.
@@ -172,7 +160,7 @@ impl SVGRenderer<'_> {
                         let theta2 = dtheta * (i + 1) as f32;
 
                         // Create the path for the segment.
-                        let mut builder = SvgPathBuilder::default();
+                        let mut builder = SvgPathBuilder::empty();
                         builder.move_to(
                             correct_tiling_pos(center.0),
                             correct_tiling_pos(center.1),
@@ -422,14 +410,12 @@ impl SVGRenderer<'_> {
 ///
 /// Allows tilings to be reused across multiple invocations, simply by changing
 /// the transform matrix.
-#[derive(Hash)]
+#[derive(Copy, Clone, Hash)]
 pub struct TilingRef {
     /// The ID of the deduplicated gradient
     id: DedupId,
     /// The transform matrix to apply to the tiling.
     transform: Transform,
-    /// The ratio of the size of the cell to the size of the filled area.
-    ratio: Axes<Ratio>,
 }
 
 /// A reference to a deduplicated gradient, with a transform matrix.

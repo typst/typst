@@ -16,7 +16,7 @@ use std::fmt::{self, Display, Formatter, Write};
 use std::hash::Hash;
 use std::ops::DerefMut;
 
-use ecow::EcoString;
+use ecow::{EcoString, eco_format};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
     Transform,
@@ -123,7 +123,7 @@ struct SVGRenderer<'a> {
     /// The document's introspector, if we're writing an HTML frame.
     introspector: Option<&'a Introspector>,
     /// Prepared glyphs.
-    glyphs: Deduplicator<RenderedGlyph>,
+    glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
@@ -422,7 +422,7 @@ impl<'a> SVGRenderer<'a> {
 /// The `H` is the hash type, and `T` is the value type. The `PREFIX` is the
 /// prefix of the index. This is used to distinguish between glyphs and clip
 /// paths.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Deduplicator<T> {
     kind: char,
     map: IndexMap<u128, T, FxBuildHasher>,
@@ -442,9 +442,20 @@ impl<T> Deduplicator<T> {
         K: Hash,
         F: FnOnce() -> T,
     {
+        self.insert_with_val(key, f).0
+    }
+
+    /// Same as [`Self::insert_with`], but it also returns a reference to the
+    /// cached or inserted value.
+    #[must_use]
+    fn insert_with_val<K, F>(&mut self, key: K, f: F) -> (DedupId, &mut T)
+    where
+        K: Hash,
+        F: FnOnce() -> T,
+    {
         let hash = typst_utils::hash128(&key);
-        self.map.entry(hash).or_insert_with(f);
-        DedupId(self.kind, hash)
+        let val = self.map.entry(hash).or_insert_with(f);
+        (DedupId(self.kind, hash), val)
     }
 
     /// Iterate over the elements alongside their ids.
@@ -470,6 +481,8 @@ impl Display for DedupId {
 }
 
 /// Displays as an SVG matrix.
+// TODO: Rename to SvgTransform and check if only a scale/translate is applied
+// to reduce the file size.
 struct SvgMatrix(Transform);
 
 impl Display for SvgMatrix {
@@ -498,20 +511,31 @@ struct SvgPathBuilder {
 }
 
 impl SvgPathBuilder {
+    /// Creates a path builder with an initial `M` command.
     fn with_translate(pos: Point) -> Self {
-        // add initial M node to transform the entire path
         Self {
-            path: EcoString::from(format!("M {} {}", pos.x.to_pt(), pos.y.to_pt())),
+            path: eco_format!("M {} {}", pos.x.to_pt(), pos.y.to_pt()),
             scale: Ratio::one(),
             last_close_point: pos,
             last_point: Point::zero(),
         }
     }
 
+    /// Creates a path builder with a scale and an initial `M 0 0` command.
     fn with_scale(scale: Ratio) -> Self {
         Self {
             path: EcoString::from("M 0 0"),
             scale,
+            last_close_point: Point::zero(),
+            last_point: Point::zero(),
+        }
+    }
+
+    /// Creates an empty path builder.
+    fn empty() -> Self {
+        Self {
+            path: EcoString::new(),
+            scale: Ratio::one(),
             last_close_point: Point::zero(),
             last_point: Point::zero(),
         }
@@ -643,16 +667,5 @@ impl ttf_parser::OutlineBuilder for SvgPathBuilder {
 
     fn close(&mut self) {
         self.close();
-    }
-}
-
-impl Default for SvgPathBuilder {
-    fn default() -> Self {
-        Self {
-            path: Default::default(),
-            scale: Ratio::one(),
-            last_close_point: Point::zero(),
-            last_point: Point::zero(),
-        }
     }
 }
