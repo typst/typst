@@ -245,6 +245,12 @@ impl<'a> Runner<'a> {
 
         // Check hints.
         for hint in &diag.hints {
+            // HACK: This hint only gets emitted in debug builds, so filter it
+            // out to make the test suite also pass for release builds.
+            if hint == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
+                continue;
+            }
+
             self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
         }
     }
