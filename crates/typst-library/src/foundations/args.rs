@@ -275,6 +275,7 @@ cast! {
 }
 
 impl Args {
+    /// Tests whether there is no positional nor named argument.
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -418,7 +419,7 @@ impl Args {
             .map(|arg| {
                 let mapped_value = mapper.call(engine, context, [arg.value.v])?;
                 Ok(Arg {
-                    span: Span::detached(),
+                    span: arg.span,
                     name: arg.name,
                     value: Spanned::detached(mapped_value),
                 })

@@ -272,7 +272,7 @@ impl Dict {
     /// Produces a new dictionary with only the pairs from the original one for
     /// which the given function returns `{true}`.
     ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// #{
     ///   (a: 0, b: 1, c: 2)
     ///     .filter(v => v > 0)
