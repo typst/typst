@@ -14,9 +14,6 @@ use crate::CliArguments;
 use crate::args::{Feature, InfoCommand};
 use crate::terminal::{self, TermOut};
 
-/// Length (in bytes/chars) to truncate the version commit hash value to
-const COMMIT_HASH_TRUNCATE_LENGTH: usize = 8;
-
 /// A struct holding the machine readable output of the environment command.
 #[derive(Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -539,15 +536,7 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write!(out, " ")?;
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
-    write_value_simple(
-        &mut out,
-        value
-            .build
-            .commit
-            .and_then(|s| s.get(..std::cmp::min(COMMIT_HASH_TRUNCATE_LENGTH, s.len())))
-            .unwrap_or("unknown commit"),
-        None,
-    )?;
+    write_value_simple(&mut out, typst_utils::display_commit(value.build.commit), None)?;
     write!(out, ", ")?;
     write_value_simple(&mut out, value.build.platform.os, None)?;
     write!(out, " on ")?;

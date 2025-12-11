@@ -88,3 +88,12 @@ impl TypstVersion {
         self.commit
     }
 }
+
+/// Displays the commit Typst was built from human-readably.
+pub fn display_commit(commit: Option<&'static str>) -> &'static str {
+    const LENGTH: usize = 8;
+    match commit {
+        Some(s) => &s[..s.len().max(LENGTH)],
+        None => "unknown commit",
+    }
+}

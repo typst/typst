@@ -25,7 +25,7 @@ pub use self::pico::{PicoStr, ResolvedPicoStr};
 pub use self::protected::Protected;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
-pub use self::version_::version;
+pub use self::version_::{TypstVersion, display_commit, version};
 
 #[doc(hidden)]
 pub use once_cell;

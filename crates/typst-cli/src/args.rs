@@ -53,7 +53,7 @@ const STYLES: Styles = Styles::styled()
     version = format!(
         "{} ({})",
         typst_utils::version().raw(),
-        typst_utils::version().commit().unwrap_or("unknown commit"),
+        typst_utils::display_commit(typst_utils::version().commit()),
     ),
     author,
     help_template = HELP_TEMPLATE,
