@@ -58,8 +58,8 @@ pub use crate::__format_str as format_str;
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
 /// #"1,2;3".split(regex("[,;]")) \
-/// #(regex("\d+") in "ten euros") \
-/// #(regex("\d+") in "10 euros")
+/// #(regex("\\d+") in "ten euros") \
+/// #(regex("\\d+") in "10 euros")
 /// ```
 ///
 /// # Escape sequences { #escapes }
@@ -169,7 +169,7 @@ impl Str {
                 if b == 1 && n > 0 {
                     bail!(
                         base.span, "base must be between 2 and 36";
-                        hint: "generate a unary representation with `\"1\" * {}`", n
+                        hint: "generate a unary representation with `\"1\" * {n}`";
                     );
                 }
                 if b < 2 || b > 36 {
@@ -852,7 +852,7 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid UTF-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
@@ -867,7 +867,7 @@ pub enum Base {
 }
 
 impl Base {
-    fn value(self) -> i64 {
+    pub fn value(self) -> i64 {
         match self {
             Self::Default => 10,
             Self::User(b) => b,
@@ -966,7 +966,7 @@ fn string_is_empty() -> EcoString {
 /// #"a,b;c".split(regex("[,;]"))
 ///
 /// // Works with show rules.
-/// #show regex("\d+"): set text(red)
+/// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
 /// ```
@@ -988,14 +988,18 @@ impl Regex {
     pub fn construct(
         /// The regular expression as a string.
         ///
-        /// Most regex escape sequences just work because they are not valid Typst
-        /// escape sequences. To produce regex escape sequences that are also valid in
-        /// Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
-        /// backslash, you would need to write `{regex("\\\\")}`.
+        /// Both Typst strings and regular expressions use backslashes for
+        /// escaping. To produce a regex escape sequence that is also valid in
+        /// Typst, you need to escape the backslash itself (e.g., writing
+        /// `{regex("\\\\")}` for the regex `\\`). Regex escape sequences that
+        /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
+        /// entered into strings directly, but it's good practice to still
+        /// escape them to avoid ambiguity (i.e., `{regex("\\b\\d")}`). See the
+        /// [list of valid string escape sequences]($str/#escapes).
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
+        /// ``{regex(`\d+\.\d+\.\d+`.text)}``.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)

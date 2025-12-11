@@ -8,10 +8,10 @@ use crate::foundations::Bytes;
 
 /// A PDF document.
 #[derive(Clone, Hash)]
-pub struct PdfDocument(Arc<DocumentRepr>);
+pub struct PdfDocument(Arc<PdfDocumentInner>);
 
-/// The internal representation of a `PdfDocument`.
-struct DocumentRepr {
+/// The internal representation of a [`PdfDocument`].
+struct PdfDocumentInner {
     pdf: Arc<Pdf>,
     data: Bytes,
 }
@@ -22,7 +22,7 @@ impl PdfDocument {
     #[typst_macros::time(name = "load pdf document")]
     pub fn new(data: Bytes) -> Result<PdfDocument, LoadPdfError> {
         let pdf = Arc::new(Pdf::new(Arc::new(data.clone()))?);
-        Ok(Self(Arc::new(DocumentRepr { data, pdf })))
+        Ok(Self(Arc::new(PdfDocumentInner { data, pdf })))
     }
 
     /// Returns the underlying PDF document.
@@ -36,7 +36,7 @@ impl PdfDocument {
     }
 }
 
-impl Hash for DocumentRepr {
+impl Hash for PdfDocumentInner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.hash(state);
     }
@@ -44,10 +44,10 @@ impl Hash for DocumentRepr {
 
 /// A specific page of a PDF acting as an image.
 #[derive(Clone, Hash)]
-pub struct PdfImage(Arc<ImageRepr>);
+pub struct PdfImage(Arc<PdfImageInner>);
 
-/// The internal representation of a `PdfImage`.
-struct ImageRepr {
+/// The internal representation of a [`PdfImage`].
+struct PdfImageInner {
     document: PdfDocument,
     page_index: usize,
     width: f32,
@@ -61,7 +61,7 @@ impl PdfImage {
     #[comemo::memoize]
     pub fn new(document: PdfDocument, page_index: usize) -> Option<PdfImage> {
         let (width, height) = document.0.pdf.pages().get(page_index)?.render_dimensions();
-        Some(Self(Arc::new(ImageRepr { document, page_index, width, height })))
+        Some(Self(Arc::new(PdfImageInner { document, page_index, width, height })))
     }
 
     /// Returns the underlying Typst PDF document.
@@ -90,7 +90,7 @@ impl PdfImage {
     }
 }
 
-impl Hash for ImageRepr {
+impl Hash for PdfImageInner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.document.hash(state);
         self.page_index.hash(state);

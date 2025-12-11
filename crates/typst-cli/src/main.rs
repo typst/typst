@@ -93,16 +93,6 @@ fn set_failed() {
     EXIT.with(|cell| cell.set(ExitCode::FAILURE));
 }
 
-/// Used by `args.rs`.
-fn typst_version() -> &'static str {
-    env!("TYPST_VERSION")
-}
-
-/// Used by `args.rs`.
-fn typst_commit_sha() -> &'static str {
-    env!("TYPST_COMMIT_SHA")
-}
-
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
     let styles = term::Styles::default();
@@ -158,7 +148,7 @@ mod update {
         bail!(
             "self-updating is not enabled for this executable, \
              please update with the package manager or mechanism \
-             used for initial installation"
+             used for initial installation",
         )
     }
 }

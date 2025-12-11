@@ -348,6 +348,16 @@ A
   A
 ]
 
+--- page-show-warning paged ---
+// Warning: 2-17 `show page` is not supported and has no effect
+// Hint: 2-17 customize pages with `set page(..)` instead
+#show page: none
+
+--- page-set-html html ---
+// Warning: 2-16 page set rule was ignored during HTML export
+#set page("a4")
+Hi
+
 --- issue-2631-page-header-ordering paged ---
 #set text(6pt)
 #show heading: set text(6pt, weight: "regular")
@@ -394,3 +404,12 @@ text
 #metadata(none)
 #set page(fill: red)
 2
+
+--- issue-7292-page-width-auto-margin-zero paged ---
+#set page(width: auto, height: 100pt, margin: 0pt)
+
+--- issue-7292-page-height-auto-margin-zero paged ---
+#set page(width: 100pt, height: auto, margin: 0pt)
+
+--- issue-7292-page-size-auto-margin-zero paged ---
+#set page(width: auto, height: auto, margin: 0pt)

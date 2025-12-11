@@ -106,7 +106,7 @@ impl Bytes {
     /// - If these bytes were created via `Bytes::from_string`, but from a
     ///   different type of string, UTF-8 validation is still skipped.
     pub fn to_str(&self) -> Result<Str, Utf8Error> {
-        match self.inner().as_any().downcast_ref::<Str>() {
+        match (self.inner() as &dyn Any).downcast_ref::<Str>() {
             Some(string) => Ok(string.clone()),
             None => self.as_str().map(Into::into),
         }
@@ -259,9 +259,10 @@ impl AddAssign for Bytes {
             // Nothing to do
         } else if self.is_empty() {
             *self = rhs;
-        } else if let Some(vec) = Arc::get_mut(&mut self.0)
-            .and_then(|unique| unique.as_any_mut().downcast_mut::<Vec<u8>>())
-        {
+        } else if let Some(vec) = Arc::get_mut(&mut self.0).and_then(|unique| {
+            let inner: &mut dyn Bytelike = &mut **unique;
+            (inner as &mut dyn Any).downcast_mut::<Vec<u8>>()
+        }) {
             vec.extend_from_slice(&rhs);
         } else {
             *self = Self::new([self.as_slice(), rhs.as_slice()].concat());
@@ -293,11 +294,9 @@ impl TryFrom<&Bytes> for Lines<String> {
 }
 
 /// Any type that can back a byte buffer.
-trait Bytelike: Send + Sync {
+trait Bytelike: Any + Send + Sync {
     fn as_bytes(&self) -> &[u8];
     fn as_str(&self) -> Result<&str, Utf8Error>;
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 impl<T> Bytelike for T
@@ -310,14 +309,6 @@ where
 
     fn as_str(&self) -> Result<&str, Utf8Error> {
         std::str::from_utf8(self.as_ref())
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
 
@@ -340,14 +331,6 @@ where
 
     fn as_str(&self) -> Result<&str, Utf8Error> {
         Ok(self.0.as_ref())
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
 

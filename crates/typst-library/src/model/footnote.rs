@@ -216,10 +216,7 @@ pub struct FootnoteEntry {
     /// ```example
     /// #show footnote.entry: it => {
     ///   let loc = it.note.location()
-    ///   numbering(
-    ///     "1: ",
-    ///     ..counter(footnote).at(loc),
-    ///   )
+    ///   counter(footnote).display(at: loc, "1: ")
     ///   it.note.body
     /// }
     ///
@@ -306,7 +303,7 @@ impl Packed<FootnoteEntry> {
         let Some(loc) = self.note.location() else {
             bail!(
                 self.span(), "footnote entry must have a location";
-                hint: "try using a query or a show rule to customize the footnote instead"
+                hint: "try using a query or a show rule to customize the footnote instead";
             );
         };
 

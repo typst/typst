@@ -18,6 +18,7 @@ typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+arrayvec = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 bumpalo = { workspace = true }

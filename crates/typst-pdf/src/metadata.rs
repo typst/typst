@@ -6,7 +6,7 @@ use typst_library::text::Locale;
 use crate::convert::GlobalContext;
 
 pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Metadata {
-    let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
+    let creator = format!("Typst {}", typst_utils::version().raw());
 
     // Always write a language, PDF/UA-1 implicitly requires a document language
     // so the metadata and outline entries have an applicable language.

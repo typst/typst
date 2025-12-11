@@ -186,7 +186,7 @@ impl PartialOrd for Element {
 cast! {
     Element,
     self => Value::Func(self.into()),
-    v: Func => v.element().ok_or("expected element")?,
+    v: Func => v.to_element().ok_or("expected element")?,
 }
 
 /// Lazily initialized data for an element.

@@ -1,5 +1,5 @@
+use typst::AsDocument;
 use typst::foundations::{Label, Selector, Value};
-use typst::layout::PagedDocument;
 use typst::syntax::{LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
@@ -25,7 +25,7 @@ pub enum Definition {
 /// when the document is available.
 pub fn definition(
     world: &dyn IdeWorld,
-    document: Option<&PagedDocument>,
+    document: Option<impl AsDocument>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -75,7 +75,7 @@ pub fn definition(
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
                 .expect("unexpected empty reference");
             let selector = Selector::Label(label);
-            let elem = document?.introspector.query_first(&selector)?;
+            let elem = document?.as_document().introspector().query_first(&selector)?;
             return Some(Definition::Span(elem.span()));
         }
 
@@ -92,6 +92,7 @@ mod tests {
 
     use typst::WorldExt;
     use typst::foundations::{IntoValue, NativeElement};
+    use typst::layout::PagedDocument;
     use typst::syntax::Side;
 
     use super::{Definition, definition};
@@ -137,7 +138,7 @@ mod tests {
     fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.ok();
+        let doc = typst::compile::<PagedDocument>(world).output.ok();
         let (source, cursor) = pos.resolve(world);
         let def = definition(world, doc.as_ref(), &source, cursor, side);
         (world.clone(), def)

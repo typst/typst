@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::diag::{
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, bail,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Context, Dict, FromValue, Func, IntoValue, Reflect, Repr, Str,
@@ -519,7 +521,7 @@ impl Array {
                     other_span,
                     "second array has different length ({}) from first array ({})",
                     other.len(),
-                    self.len()
+                    self.len(),
                 );
             }
             return Ok(self
@@ -839,8 +841,9 @@ impl Array {
     /// Return a sorted version of this array, optionally by a given key
     /// function. The sorting algorithm used is stable.
     ///
-    /// Returns an error if two values could not be compared or if the key
-    /// or comparison function (if given) yields an error.
+    /// Returns an error if a pair of values selected for comparison could not
+    /// be compared, or if the key or comparison function (if given) yield an
+    /// error.
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
@@ -894,6 +897,10 @@ impl Array {
         #[named]
         by: Option<Func>,
     ) -> SourceResult<Array> {
+        // We use `glidesort` instead of the standard library sorting algorithm
+        // to prevent panics in case the comparison function does not define a
+        // valid order (see https://github.com/typst/typst/pull/5627 and
+        // https://github.com/typst/typst/issues/6285).
         match by {
             Some(by) => {
                 let mut are_in_order = |mut x, mut y| {
@@ -914,10 +921,7 @@ impl Array {
                         }
                     }
                 };
-                // If a comparison function is provided, we use `glidesort`
-                // instead of the standard library sorting algorithm to prevent
-                // panics in case the comparison function does not define a
-                // valid order (see https://github.com/typst/typst/pull/5627).
+
                 let mut result = Ok(());
                 let mut vec = self.0.into_iter().enumerate().collect::<Vec<_>>();
                 glidesort::sort_by(&mut vec, |(i, x), (j, y)| {
@@ -970,16 +974,25 @@ impl Array {
                     Some(f) => f.call(engine, context, [x]),
                     None => Ok(x),
                 };
-                // If no comparison function is provided, we know the order is
-                // valid, so we can use the standard library sort and prevent an
-                // extra allocation.
+
                 let mut result = Ok(());
                 let mut vec = self.0;
-                vec.make_mut().sort_by(|a, b| {
+                glidesort::sort_by(vec.make_mut(), |a, b| {
                     match (key_of(a.clone()), key_of(b.clone())) {
                         (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
                             if result.is_ok() {
-                                result = Err(err).at(span);
+                                result =
+                                    Err(HintedString::from(err).with_hint(match key {
+                                        None => {
+                                            "consider choosing a `key` \
+                                             or defining the comparison with `by`"
+                                        }
+                                        Some(_) => {
+                                            "consider defining the comparison with `by` \
+                                             or choosing a different `key`"
+                                        }
+                                    }))
+                                    .at(span);
                             }
                             Ordering::Equal
                         }),

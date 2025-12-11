@@ -183,7 +183,7 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         bail!(
             element.span,
             "HTML raw text element cannot contain its own closing tag";
-            hint: "the sequence `{closing}` appears in the raw text",
+            hint: "the sequence `{closing}` appears in the raw text";
         )
     }
 

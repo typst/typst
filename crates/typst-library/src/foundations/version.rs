@@ -117,7 +117,7 @@ impl Version {
                 Some(pos_index) if pos_index >= 0 => index = pos_index,
                 _ => bail!(
                     "component index out of bounds (index: {index}, len: {})",
-                    self.0.len()
+                    self.0.len(),
                 ),
             }
         }

@@ -179,7 +179,7 @@ fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs
 }
 
 /// Lay out the attachments.
-fn layout_attachments(
+pub fn layout_attachments(
     ctx: &mut MathContext,
     styles: StyleChain,
     base: MathFragment,

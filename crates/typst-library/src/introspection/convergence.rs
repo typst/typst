@@ -63,7 +63,7 @@ pub fn analyze(
             hint: "see {} additional warning{} for more details",
                 diags.len(),
                 if diags.len() > 1 { "s" } else { "" };
-            hint: "see https://typst.app/help/convergence for help",
+            hint: "see https://typst.app/help/convergence for help";
         );
         diags.insert(0, summary);
     }
@@ -192,7 +192,8 @@ where
     }
 
     fn dyn_eq(&self, other: &Introspection) -> bool {
-        let Some(other) = (&*other.0 as &dyn Any).downcast_ref::<Self>() else {
+        let inner: &dyn Bounds = &*other.0;
+        let Some(other) = (inner as &dyn Any).downcast_ref::<Self>() else {
             return false;
         };
         self == other
