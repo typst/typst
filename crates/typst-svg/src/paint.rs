@@ -90,10 +90,7 @@ impl SVGRenderer<'_> {
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
-        self.render_tiling_frame(
-            &State::new(tiling_size, Transform::identity()),
-            tiling.frame(),
-        );
+        self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
         let tiling_id = self.tilings.insert_with(hash128(tiling), || tiling.clone());
         self.tiling_refs.insert_with(hash128(&(tiling_id, ts)), || TilingRef {
@@ -386,7 +383,7 @@ impl SVGRenderer<'_> {
             );
 
             // Render the frame.
-            let state = State::new(size, Transform::identity());
+            let state = State::new(size);
             self.render_frame(&state, tiling.frame());
 
             self.xml.end_element();
