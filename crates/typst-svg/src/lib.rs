@@ -231,6 +231,10 @@ impl<'a> SVGRenderer<'a> {
         size: Size,
         write_custom_attrs: impl FnOnce(&mut XmlWriter),
     ) {
+        // Clamp the size of SVGs to at least one pt. resvg and probably also
+        // other SVG parsers don't handle SVGs with 0 sized dimensions.
+        let size = size.max(Size::splat(Abs::pt(1.0)));
+
         self.xml.start_element("svg");
         write_custom_attrs(&mut self.xml);
         self.xml.write_attribute_fmt(
