@@ -38,7 +38,7 @@ pub fn jump_from_click<D: JumpFromDocument>(
 }
 
 /// Maps a position in a document to a [jump destination][`Jump`], allowing for
-/// click-to-jump functionnality.
+/// click-to-jump functionality.
 pub trait JumpFromDocument: jump_from_document_sealed::JumpFromDocument {}
 
 // The actual implementations are in the sealed trait.

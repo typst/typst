@@ -149,7 +149,7 @@ pub(crate) fn handle_link(
     Ok(())
 }
 
-/// Compute the bouding box of the transformed rectangle for this frame.
+/// Compute the bounding box of the transformed rectangle for this frame.
 fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
     let pos = Point::zero();
     let points = [
