@@ -89,31 +89,25 @@ pub fn svg_html_frame(
 
 /// Export a document with potentially multiple pages into a single SVG file.
 ///
-/// The padding will be added around and between the individual frames.
-pub fn svg_merged(document: &PagedDocument, padding: Abs) -> String {
-    let width = 2.0 * padding
-        + document
-            .pages
-            .iter()
-            .map(|page| page.frame.width())
-            .max()
-            .unwrap_or_default();
-    let height = padding
-        + document
-            .pages
-            .iter()
-            .map(|page| page.frame.height() + padding)
-            .sum::<Abs>();
+/// The gap will be added between the individual pages.
+pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
+    let width = document
+        .pages
+        .iter()
+        .map(|page| page.frame.width())
+        .max()
+        .unwrap_or_default();
+    let height = document.pages.len().saturating_sub(1) as f64 * gap
+        + document.pages.iter().map(|page| page.frame.height()).sum::<Abs>();
 
     let mut renderer = SVGRenderer::new();
     renderer.write_header(Size::new(width, height));
 
-    let [x, mut y] = [padding; 2];
+    let mut y = Abs::zero();
     for page in &document.pages {
-        let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_page(&state, ts, page);
-        y += page.frame.height() + padding;
+        renderer.render_page(&state, Transform::translate(Abs::zero(), y), page);
+        y += page.frame.height() + gap;
     }
 
     renderer.finalize()
@@ -255,14 +249,14 @@ impl<'a> SVGRenderer<'a> {
 
     /// Render a page with the given transform.
     fn render_page(&mut self, state: &State, ts: Transform, page: &Page) {
-        if let Some(fill) = page.fill_or_white() {
-            let shape = Geometry::Rect(page.frame.size()).filled(fill);
-            self.render_shape(state, &shape);
-        }
-
         if !ts.is_identity() {
             self.xml.start_element("g");
             self.xml.write_attribute("transform", &SvgMatrix(ts));
+        }
+
+        if let Some(fill) = page.fill_or_white() {
+            let shape = Geometry::Rect(page.frame.size()).filled(fill);
+            self.render_shape(state, &shape);
         }
 
         self.render_frame(state, &page.frame);
