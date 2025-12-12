@@ -17,6 +17,7 @@ use crate::introspection::{
 use crate::layout::{PageElem, Position};
 use crate::model::{NumberingPattern, Refable};
 use crate::text::{LocalName, TextElem};
+use crate::visualize::Color;
 
 /// Links to a URL or a location in the document.
 ///
@@ -146,6 +147,8 @@ pub struct LinkElem {
         _ => args.expect("body")?,
     })]
     pub body: Content,
+
+    pub border: Option<Color>,
 
     /// A destination style that should be applied to elements.
     #[internal]
@@ -403,6 +406,9 @@ pub struct LinkMarker {
     #[internal]
     #[required]
     pub alt: Option<EcoString>,
+    #[internal]
+    #[required]
+    pub border: Option<Color>,
 }
 
 impl Construct for LinkMarker {
