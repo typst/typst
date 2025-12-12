@@ -49,8 +49,8 @@ pub struct RectElem {
     ///   - `right`: The right stroke.
     ///   - `bottom`: The bottom stroke.
     ///   - `left`: The left stroke.
-    ///   - `x`: The horizontal stroke.
-    ///   - `y`: The vertical stroke.
+    ///   - `x`: The left and right stroke.
+    ///   - `y`: The top and bottom stroke.
     ///   - `rest`: The stroke on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
