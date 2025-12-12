@@ -58,5 +58,5 @@ $ a root(, 3)         & a root(., 3) \
 
 --- math-root-line-fill-stroke paged ---
 // Test that the horizontal stroke is also decorated like text glyphs
-#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$sqrt(2)$]
-#text(size: 25pt, stroke: red)[$root(3, a)$]
+#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$sqrt(Delta)$]
+#text(size: 25pt, stroke: red)[$root(3, Delta)$]
