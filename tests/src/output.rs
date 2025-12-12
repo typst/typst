@@ -288,7 +288,7 @@ impl OutputType for Svg {
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        Ok(typst_svg::svg_merged(doc, Abs::pt(5.0)))
+        Ok(typst_svg::svg_merged(doc, Abs::pt(1.0)))
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
