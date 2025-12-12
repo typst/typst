@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain, SymbolElem};
+use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
@@ -54,10 +54,11 @@ pub fn layout_root(
     }
     .at(size);
 
+    let text_fill = styles.get_ref(TextElem::fill).as_decoration();
+    let line_width = radicand.width();
     let line = FrameItem::Shape(
-        Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke::from_pair(
-            sqrt.fill()
-                .unwrap_or_else(|| styles.get_ref(TextElem::fill).as_decoration()),
+        Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke::from_pair(
+            sqrt.fill().unwrap_or(text_fill.clone()),
             thickness,
         )),
         span,
@@ -104,8 +105,7 @@ pub fn layout_root(
     let sqrt_x = sqrt_offset.max(Abs::zero());
     let radicand_x = sqrt_x + sqrt.width();
     let radicand_y = ascent - radicand.ascent();
-    let width = radicand_x + radicand.width();
-    let size = Size::new(width, ascent + descent);
+    let size = Size::new(radicand_x + line_width, ascent + descent);
 
     // The extra "- thickness" comes from the fact that the sqrt is placed
     // in `push_frame` with respect to its top, not its baseline.
@@ -124,6 +124,33 @@ pub fn layout_root(
 
     frame.push_frame(sqrt_pos, sqrt);
     frame.push(line_pos, line);
+
+    // The horizontal line of the root symbol is drawn with a geometry object,
+    // not a text glyph, so the text's stroke style was not automatically applied and we
+    // need to apply it by drawing around the horizontal line.
+    if let Some(stroke) = styles.get_ref(TextElem::stroke) {
+        let stroke_thickness = stroke.thickness.resolve(styles).unwrap_or(Abs::pt(1.0));
+        let fixed_stroke = FixedStroke::from_pair(
+            stroke.paint.clone().unwrap_or(text_fill.clone()),
+            stroke_thickness,
+        );
+        let horizontal_edge = FrameItem::Shape(
+            Geometry::Line(Point::with_x(line_width)).stroked(fixed_stroke.clone()),
+            span,
+        );
+        let vertical_edge = FrameItem::Shape(
+            Geometry::Line(Point::with_y(thickness + stroke_thickness))
+                .stroked(fixed_stroke),
+            span,
+        );
+        frame.push(line_pos - Point::with_y(thickness / 2.0), horizontal_edge.clone());
+        frame.push(line_pos + Point::with_y(thickness / 2.0), horizontal_edge);
+        frame.push(
+            line_pos + Point::new(line_width, -(thickness + stroke_thickness) / 2.0),
+            vertical_edge,
+        );
+    }
+
     frame.push_frame(radicand_pos, radicand);
     ctx.push(FrameFragment::new(styles, frame));
 
