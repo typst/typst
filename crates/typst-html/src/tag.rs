@@ -506,41 +506,77 @@ pub fn is_block_by_default(tag: HtmlTag) -> bool {
 /// should merged into a paragraph created by realization, but a `<div>`
 /// shouldn't.
 ///
+/// Inline is not well defined by HTML, but a related and similar concept is phrasing content
+/// <https://html.spec.whatwg.org/multipage/dom.html#phrasing-content>
+///
 /// <https://www.w3.org/TR/html401/struct/global.html#block-inline>
 /// <https://developer.mozilla.org/en-US/docs/Glossary/Inline-level_content>
 /// <https://github.com/orgs/mdn/discussions/353>
 pub fn is_inline_by_default(tag: HtmlTag) -> bool {
     matches!(
         tag,
-        self::abbr
-            | self::a
-            | self::bdi
+        self::a
+            | self::abbr
+            | self::area // (if it is a descendant of a map element)
+            | self::audio
             | self::b
-            | self::br
+            | self::bdi
             | self::bdo
-            | self::code
+            | self::br
+            | self::button
+            | self::canvas
             | self::cite
-            | self::dfn
+            | self::code
             | self::data
-            | self::i
+            | self::datalist
+            | self::del
+            | self::dfn
             | self::em
-            | self::mark
+            | self::embed
+            | self::i
+            | self::iframe
+            | self::img
+            | self::input
+            | self::ins
             | self::kbd
-            | self::rp
+            | self::label
+            | self::link // if it is allowed in the body
+            | self::map
+            | self::mark
+            | self::meta //if the itemprop attribute is present
+            | self::meter
+            | self::noscript
+            | self::object
+            | self::output
+            | self::picture
+            | self::progress
             | self::q
             | self::ruby
-            | self::rt
-            | self::samp
             | self::s
-            | self::span
+            | self::samp
+            | self::script
+            | self::select
+            | self::slot
             | self::small
-            | self::sub
+            | self::span
             | self::strong
-            | self::time
+            | self::sub
             | self::sup
-            | self::var
+            | self::template
+            | self::textarea
+            | self::time
             | self::u
+            | self::var
+            | self::video
+            | self::wbr
     )
+
+    // These are things listed as "Phrasing content" but which are not currently in the HtmlTag type
+    // https://html.spec.whatwg.org/multipage/dom.html#phrasing-content-2
+    // | self::math // MathML
+    // | self::selectedcontent //if it is a descendant of a button in a select
+    // | self::svg
+    // | autonomous custom elements
 }
 
 /// Whether nodes with the tag have the CSS property `display: table(-.*)?`
