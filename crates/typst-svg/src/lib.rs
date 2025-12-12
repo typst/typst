@@ -30,7 +30,7 @@ pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(page.frame.size());
 
-    let state = State::new(page.frame.size(), Transform::identity());
+    let state = State::new(page.frame.size());
     renderer.render_page(&state, Transform::identity(), page);
     renderer.finalize()
 }
@@ -41,7 +41,7 @@ pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
 
-    let state = State::new(frame.size(), Transform::identity());
+    let state = State::new(frame.size());
     renderer.render_frame(&state, frame);
     renderer.finalize()
 }
@@ -77,7 +77,7 @@ pub fn svg_html_frame(
         );
     });
 
-    let state = State::new(frame.size(), Transform::identity());
+    let state = State::new(frame.size());
     renderer.render_frame(&state, frame);
 
     for (pos, id) in link_points {
@@ -105,7 +105,7 @@ pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
 
     let mut y = Abs::zero();
     for page in &document.pages {
-        let state = State::new(page.frame.size(), Transform::identity());
+        let state = State::new(page.frame.size());
         renderer.render_page(&state, Transform::translate(Abs::zero(), y), page);
         y += page.frame.height() + gap;
     }
@@ -165,8 +165,8 @@ struct State {
 }
 
 impl State {
-    fn new(size: Size, transform: Transform) -> Self {
-        Self { size, transform }
+    fn new(size: Size) -> Self {
+        Self { size, transform: Transform::identity() }
     }
 
     /// Pre translate the current item's transform.
