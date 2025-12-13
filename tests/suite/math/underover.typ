@@ -59,3 +59,8 @@ $ x = underbrace(
   // The alignment points are not shared between body and annotation.
   underbrace(&1+2 \ 3+&4, a b+&c \ d+&e)
 ) $
+
+--- math-underover-line-fill-stroke paged ---
+// Test that the horizontal stroke is also decorated like text glyphs
+#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$underline(Delta).overline(Delta)$] 
+#text(size: 25pt, stroke: red)[$underline(Delta).overline(Delta)$]
