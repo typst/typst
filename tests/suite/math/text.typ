@@ -23,8 +23,9 @@ $bird "or" 🐦‍⬛$
 #set text(font: "Noto Color Emoji")
 #show math.equation: set text(font: "Noto Color Emoji")
 #bird or 🐦‍⬛
-// Warning: 1-16 current font is not designed for math
-// Hint: 1-16 rendering may be poor
+// Warning: 1-16 the current math font is Noto Color Emoji, but it is not designed for math
+// Hint: 1-16 to avoid poor rendering, use an OpenType math font instead
+// Hint: 1-16 to use it only for specific characters, specify the covers
 $bird "or" 🐦‍⬛$
 
 --- math-font-features paged ---
@@ -54,8 +55,8 @@ $ cal(P)_i (X) * cal(C)_1 $
 
 --- math-font-warning paged ---
 #show math.equation: set text(font: "Libertinus Serif")
-// Warning: 1-14 the current base math font is Libertinus Serif, but it is not designed for math
-// Hint: 1-14 to avoid poor rendering, use a math font instead
+// Warning: 1-14 the current math font is Libertinus Serif, but it is not designed for math
+// Hint: 1-14 to avoid poor rendering, use an OpenType math font instead
 // Hint: 1-14 to use it only for specific characters, specify the covers
 $ x + y = z $
 
