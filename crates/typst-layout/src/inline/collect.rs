@@ -142,7 +142,8 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    for &(child, styles) in children {
+    let mut it = children.iter().peekable();
+    while let Some(&(child, styles)) = it.next() {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -198,7 +199,11 @@ pub fn collect<'a>(
                 );
                 let before =
                     collector.full.chars().rev().find(|&c| !is_default_ignorable(c));
-                let quote = quoter.quote(before, &quotes, double);
+                let after = it
+                    .peek()
+                    .and_then(|(next, _)| next.to_packed::<TextElem>())
+                    .and_then(|elem| elem.text.chars().next());
+                let quote = quoter.quote(before, after, &quotes, double);
                 collector.push_text(quote, styles);
             } else {
                 collector.push_text(SmartQuotes::fallback(double), styles);
