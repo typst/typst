@@ -390,6 +390,18 @@ C
 
 #footnote[]
 
+--- issue-7574-footnote-inside-math paged ---
+// Test whether the footnotes inside math are rendered properly.
+$"A" #footnote[foo]$
+#set footnote(numbering: "1")
+$"B" #footnote[foo]$
+#set footnote(numbering: "a")
+$"C" #footnote[foo]$
+#set footnote(numbering: "f1")
+$"D" #footnote[foo]$
+#set footnote(numbering: "note 1")
+$"E" #footnote[foo]$
+
 --- footnote-custom-head-html html ---
 #html.html({
   html.head()

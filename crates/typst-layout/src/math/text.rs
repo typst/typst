@@ -3,7 +3,7 @@ use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Size};
-use typst_library::math::{EquationElem, MathSize};
+use typst_library::math::{EquationElem, MathSize, NumberElem};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
@@ -16,7 +16,7 @@ use super::{
     style_dtls,
 };
 
-/// Lays out a [`TextElem`].
+/// Layout a [`TextElem`].
 pub fn layout_text(
     elem: &Packed<TextElem>,
     ctx: &mut MathContext,
@@ -68,57 +68,72 @@ fn layout_inline_text(
     // Disable auto-italic.
     let italic = styles.get(EquationElem::italic).or(Some(false));
 
-    if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        // Small optimization for numbers. Note that this lays out slightly
-        // differently to normal text and is worth re-evaluating in the future.
-        let mut fragments = vec![];
-        for unstyled_c in text.chars() {
-            // This is fine as ascii digits and '.' can never end up as more
-            // than a single char after styling.
-            let style = MathStyle::select(unstyled_c, variant, bold, italic);
-            let c = to_style(unstyled_c, style).next().unwrap();
+    let local = [
+        TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
+        TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+        TextElem::overhang.set(false),
+    ]
+    .map(|p| p.wrap());
 
-            // This won't panic as ASCII digits and '.' will never end up as
-            // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
-            fragments.push(glyph.into());
-        }
-        let frame = MathRun::new(fragments).into_frame(styles);
-        Ok(FrameFragment::new(styles, frame).with_text_like(true))
-    } else {
-        let local = [
-            TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
-            TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-            TextElem::overhang.set(false),
-        ]
-        .map(|p| p.wrap());
+    let styles = styles.chain(&local);
+    let styled_text: EcoString = text
+        .chars()
+        .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
+        .collect();
+    let elem = TextElem::packed(styled_text).spanned(span);
 
-        let styles = styles.chain(&local);
-        let styled_text: EcoString = text
-            .chars()
-            .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
-            .collect();
-        let elem = TextElem::packed(styled_text).spanned(span);
+    // There isn't a natural width for a paragraph in a math environment;
+    // because it will be placed somewhere probably not at the left margin
+    // it will overflow. So emulate an `hbox` instead and allow the
+    // paragraph to extend as far as needed.
+    let frame = crate::inline::layout_inline(
+        ctx.engine,
+        &[(&elem, styles)],
+        &mut ctx.locator.next(&span).split(),
+        styles,
+        Size::splat(Abs::inf()),
+        false,
+    )?
+    .into_frame();
 
-        // There isn't a natural width for a paragraph in a math environment;
-        // because it will be placed somewhere probably not at the left margin
-        // it will overflow. So emulate an `hbox` instead and allow the
-        // paragraph to extend as far as needed.
-        let frame = crate::inline::layout_inline(
-            ctx.engine,
-            &[(&elem, styles)],
-            &mut ctx.locator.next(&span).split(),
-            styles,
-            Size::splat(Abs::inf()),
-            false,
-        )?
-        .into_frame();
+    Ok(FrameFragment::new(styles, frame)
+        .with_class(MathClass::Alphabetic)
+        .with_text_like(true)
+        .with_spaced(true))
+}
 
-        Ok(FrameFragment::new(styles, frame)
-            .with_class(MathClass::Alphabetic)
-            .with_text_like(true)
-            .with_spaced(true))
+/// Layout a [`NumberElem`].
+pub fn layout_number(
+    elem: &Packed<NumberElem>,
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) -> SourceResult<()> {
+    let text = &elem.text;
+    let span = elem.span();
+
+    let variant = styles.get(EquationElem::variant);
+    let bold = styles.get(EquationElem::bold);
+    // Disable auto-italic.
+    let italic = styles.get(EquationElem::italic).or(Some(false));
+
+    // Small optimization for numbers. Note that this lays out slightly
+    // differently to normal text and is worth re-evaluating in the future.
+    let mut fragments = vec![];
+    for unstyled_c in text.chars() {
+        // This is fine as ascii digits and '.' can never end up as more
+        // than a single char after styling.
+        let style = MathStyle::select(unstyled_c, variant, bold, italic);
+        let c = to_style(unstyled_c, style).next().unwrap();
+
+        // This won't panic as ASCII digits and '.' will never end up as
+        // nothing after shaping.
+        let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
+        fragments.push(glyph.into());
     }
+    let frame = MathRun::new(fragments).into_frame(styles);
+    ctx.push(FrameFragment::new(styles, frame).with_text_like(true));
+
+    Ok(())
 }
 
 /// Layout a single character in the math font with the correct styling applied

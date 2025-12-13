@@ -868,8 +868,8 @@ impl<'a> MathText<'a> {
     pub fn get(self) -> MathTextKind<'a> {
         let text = self.0.text();
         if text.chars().next().unwrap().is_numeric() {
-            // Numbers are potentially grouped as multiple characters. This is
-            // done in `Lexer::math_text()`.
+            // A number is potentially a groupe of multiple characters. This is
+            // done in [`Lexer::math_text()`].
             MathTextKind::Number(text)
         } else {
             MathTextKind::Grapheme(text)
