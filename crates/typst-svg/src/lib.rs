@@ -10,6 +10,7 @@ use rustc_hash::FxHashMap;
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
+use std::cell::LazyCell;
 use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
@@ -274,8 +275,6 @@ impl<'a> SVGRenderer<'a> {
 
     /// Render a frame with the given transform.
     fn render_frame(&mut self, state: &State, frame: &Frame) {
-        self.xml.start_element("g");
-
         for (pos, item) in frame.items() {
             let state = state.pre_translate(*pos);
             match item {
@@ -289,22 +288,25 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Tag(_) => {}
             };
         }
-
-        self.xml.end_element();
     }
 
     /// Render a group. If the group has `clips` set to true, a clip path will
     /// be created.
     fn render_group(&mut self, state: &State, group: &GroupItem) {
-        self.xml.start_element("g");
-        self.xml.write_attribute("class", "typst-group");
+        let mut started_group = false;
+        let mut group_writer = LazyCell::new(|| {
+            started_group = true;
+            self.xml.start_element("g");
+            self.xml.write_attribute("class", "typst-group");
+            &mut self.xml
+        });
 
         let state = match group.frame.kind() {
             FrameKind::Soft => state.pre_concat(group.transform),
             FrameKind::Hard => {
                 let transform = state.transform.pre_concat(group.transform);
                 if !transform.is_identity() {
-                    self.xml.write_attribute("transform", &SvgMatrix(transform));
+                    group_writer.write_attribute("transform", &SvgMatrix(transform));
                 }
                 state
                     .with_transform(Transform::identity())
@@ -313,7 +315,7 @@ impl<'a> SVGRenderer<'a> {
         };
 
         if let Some(label) = group.label {
-            self.xml.write_attribute("data-typst-label", &label.resolve());
+            group_writer.write_attribute("data-typst-label", &label.resolve());
         }
 
         if let Some(clip_curve) = &group.clip {
@@ -322,11 +324,16 @@ impl<'a> SVGRenderer<'a> {
             let id = self
                 .clip_paths
                 .insert_with(hash, || shape::convert_curve(offset, clip_curve));
-            self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
+            group_writer.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
+        // Explicitly extend the lifetime, so `self.xml` stays borrowed.
+        _ = group_writer;
+
         self.render_frame(&state, &group.frame);
-        self.xml.end_element();
+        if started_group {
+            self.xml.end_element();
+        }
     }
 
     /// Render a link element.
