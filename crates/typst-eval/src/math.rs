@@ -2,9 +2,9 @@ use ecow::eco_format;
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
-    AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
+    AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, NumberElem, PrimesElem,
+    RootElem,
 };
-use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
 
 use crate::{Eval, Vm};
@@ -37,7 +37,7 @@ impl Eval for ast::MathText<'_> {
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         match self.get() {
             MathTextKind::Grapheme(text) => Ok(SymbolElem::packed(text.clone())),
-            MathTextKind::Number(text) => Ok(TextElem::packed(text.clone())),
+            MathTextKind::Number(text) => Ok(NumberElem::packed(text.clone())),
         }
     }
 }
@@ -141,8 +141,8 @@ impl Eval for ast::MathRoot<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        // Use `TextElem` to match `MathTextKind::Number` above.
-        let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
+        // Use `NumberElem` to match `MathTextKind::Number` above.
+        let index = self.index().map(|i| NumberElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())
     }

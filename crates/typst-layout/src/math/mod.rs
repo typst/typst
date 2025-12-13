@@ -492,6 +492,8 @@ fn layout_realized(
         layout_h(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
         self::text::layout_text(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<NumberElem>() {
+        self::text::layout_number(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
         self::text::layout_symbol(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
