@@ -216,8 +216,8 @@ counters, states, and queries. In certain cases, Typst may even need more than
 two iterations to resolve everything. While that's sometimes a necessity, it may
 also be a sign of misuse of contextual functions (e.g. of
 [state]($state/#caution)). If Typst cannot resolve everything within five
-attempts, it will stop and output the warning "layout did not converge within 5
-attempts."
+attempts, it will stop and output the warning "document did not converge within
+five attempts."
 
 A very careful reader might have noticed that not all of the functions presented
 above actually make use of the current location. While
@@ -229,5 +229,6 @@ could call it directly at the top level of a module, the whole module and its
 exports could change over the course of multiple compiler iterations, which
 would not be desirable.
 
-[^1]: Currently, all show rules provide styling context, but only show rules on
-      [locatable]($location/#locatable) elements provide a location context.
+[^1]: Currently, all show rules provide [style context](#style-context), but
+      only show rules on [locatable]($location/#locatable) elements provide a
+      [location context](#location-context).

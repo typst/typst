@@ -104,14 +104,15 @@ pub struct EquationElem {
     /// An alternative description of the mathematical equation.
     ///
     /// This should describe the full equation in natural language and will be
-    /// made available to Assisitve Technology. You can learn more in the
+    /// made available to Assistive Technology. You can learn more in the
     /// [Textual Representations section of the Accessibility
     /// Guide]($guides/accessibility/#textual-representations).
     ///
     /// ```example
     /// #math.equation(
     ///   alt: "integral from 1 to infinity of a x squared plus b with respect to x",
-    ///   $ integral_1^oo a x^2 + b med d x $,
+    ///   block: true,
+    ///   $ integral_1^oo a x^2 + b dif x $,
     /// )
     /// ```
     pub alt: Option<EcoString>,

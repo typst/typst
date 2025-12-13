@@ -12,8 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
 use crate::foundations::{
-    Array, Content, Func, NativeElement, NativeFunc, Packed, PlainText, Repr as _, cast,
-    elem, func, scope, ty,
+    Array, Content, Func, NativeElement, Packed, PlainText, Repr, cast, elem, func,
+    scope, ty,
 };
 
 /// A Unicode symbol.
@@ -48,11 +48,11 @@ use crate::foundations::{
 /// ```
 #[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Symbol(Repr);
+pub struct Symbol(SymbolInner);
 
-/// The internal representation.
+/// The internal representation of a [`Symbol`].
 #[derive(Clone, Eq, PartialEq, Hash)]
-enum Repr {
+enum SymbolInner {
     /// A native symbol that has no named variant.
     Single(&'static str),
     /// A native symbol with multiple named variants.
@@ -89,14 +89,14 @@ enum List {
 impl Symbol {
     /// Create a new symbol from a single value.
     pub const fn single(value: &'static str) -> Self {
-        Self(Repr::Single(value))
+        Self(SymbolInner::Single(value))
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
     pub const fn list(list: &'static [Variant<&'static str>]) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Complex(list))
+        Self(SymbolInner::Complex(list))
     }
 
     /// Create a symbol from a runtime char.
@@ -108,7 +108,7 @@ impl Symbol {
     #[track_caller]
     pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Modified(Arc::new(Modified {
+        Self(SymbolInner::Modified(Arc::new(Modified {
             list: List::Runtime(list),
             modifiers: ModifierSet::default(),
             deprecated: false,
@@ -118,11 +118,11 @@ impl Symbol {
     /// Get the symbol's value.
     pub fn get(&self) -> &str {
         match &self.0 {
-            Repr::Single(value) => value,
-            Repr::Complex(_) => ModifierSet::<&'static str>::default()
+            SymbolInner::Single(value) => value,
+            SymbolInner::Complex(_) => ModifierSet::<&'static str>::default()
                 .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
-            Repr::Modified(arc) => arc
+            SymbolInner::Modified(arc) => arc
                 .modifiers
                 .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
@@ -131,30 +131,10 @@ impl Symbol {
 
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
-        match self.get() {
-            "⌈" => Ok(crate::math::ceil::func()),
-            "⌊" => Ok(crate::math::floor::func()),
-            "–" => Ok(crate::math::accent::dash::func()),
-            "⋅" | "\u{0307}" => Ok(crate::math::accent::dot::func()),
-            "¨" => Ok(crate::math::accent::dot_double::func()),
-            "\u{20db}" => Ok(crate::math::accent::dot_triple::func()),
-            "\u{20dc}" => Ok(crate::math::accent::dot_quad::func()),
-            "∼" => Ok(crate::math::accent::tilde::func()),
-            "´" => Ok(crate::math::accent::acute::func()),
-            "˝" => Ok(crate::math::accent::acute_double::func()),
-            "˘" => Ok(crate::math::accent::breve::func()),
-            "ˇ" => Ok(crate::math::accent::caron::func()),
-            "^" => Ok(crate::math::accent::hat::func()),
-            "`" => Ok(crate::math::accent::grave::func()),
-            "¯" => Ok(crate::math::accent::macron::func()),
-            "○" => Ok(crate::math::accent::circle::func()),
-            "→" => Ok(crate::math::accent::arrow::func()),
-            "←" => Ok(crate::math::accent::arrow_l::func()),
-            "↔" => Ok(crate::math::accent::arrow_l_r::func()),
-            "⇀" => Ok(crate::math::accent::harpoon::func()),
-            "↼" => Ok(crate::math::accent::harpoon_lt::func()),
-            _ => bail!("symbol {self} is not callable"),
-        }
+        let value = self.get();
+        crate::math::accent::get_accent_func(value)
+            .or_else(|| crate::math::get_lr_wrapper_func(value))
+            .ok_or_else(|| eco_format!("symbol {self} is not callable"))
     }
 
     /// Apply a modifier to the symbol.
@@ -163,15 +143,15 @@ impl Symbol {
         sink: impl DeprecationSink,
         modifier: &str,
     ) -> StrResult<Self> {
-        if let Repr::Complex(list) = self.0 {
-            self.0 = Repr::Modified(Arc::new(Modified {
+        if let SymbolInner::Complex(list) = self.0 {
+            self.0 = SymbolInner::Modified(Arc::new(Modified {
                 list: List::Static(list),
                 modifiers: ModifierSet::default(),
                 deprecated: false,
             }));
         }
 
-        if let Repr::Modified(arc) = &mut self.0 {
+        if let SymbolInner::Modified(arc) = &mut self.0 {
             let modified = Arc::make_mut(arc);
             modified.modifiers.insert_raw(modifier);
             if let Some(deprecation) = modified
@@ -196,16 +176,16 @@ impl Symbol {
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
-            Repr::Single(value) => Variants::Single(std::iter::once(*value)),
-            Repr::Complex(list) => Variants::Static(list.iter()),
-            Repr::Modified(arc) => arc.list.variants(),
+            SymbolInner::Single(value) => Variants::Single(std::iter::once(*value)),
+            SymbolInner::Complex(list) => Variants::Static(list.iter()),
+            SymbolInner::Modified(arc) => arc.list.variants(),
         }
     }
 
     /// Possible modifiers.
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let modifiers = match &self.0 {
-            Repr::Modified(arc) => arc.modifiers.as_deref(),
+            SymbolInner::Modified(arc) => arc.modifiers.as_deref(),
             _ => ModifierSet::default(),
         };
         self.variants()
@@ -268,7 +248,7 @@ impl Symbol {
             if v.1.is_empty() || v.1.graphemes(true).nth(1).is_some() {
                 errors.push(error!(
                     span, "invalid variant value: {}", v.1.repr();
-                    hint: "variant value must be exactly one grapheme cluster"
+                    hint: "variant value must be exactly one grapheme cluster";
                 ));
             }
 
@@ -279,7 +259,7 @@ impl Symbol {
                         errors.push(error!(
                             span,
                             "invalid symbol modifier: {}",
-                            modifier.repr()
+                            modifier.repr(),
                         ));
                         continue 'variants;
                     }
@@ -294,7 +274,7 @@ impl Symbol {
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
                 errors.push(error!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
-                    hint: "modifiers are not ordered, so each one may appear only once"
+                    hint: "modifiers are not ordered, so each one may appear only once";
                 ));
                 continue 'variants;
             }
@@ -309,7 +289,8 @@ impl Symbol {
                 } else {
                     error!(
                         span, "duplicate variant: {}", v.0.repr();
-                        hint: "variants with the same modifiers are identical, regardless of their order"
+                        hint: "variants with the same modifiers are identical, \
+                               regardless of their order";
                     )
                 });
                 continue 'variants;
@@ -335,7 +316,7 @@ impl Display for Symbol {
     }
 }
 
-impl Debug for Repr {
+impl Debug for SymbolInner {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Single(value) => Debug::fmt(value, f),
@@ -354,17 +335,17 @@ impl Debug for List {
     }
 }
 
-impl crate::foundations::Repr for Symbol {
+impl Repr for Symbol {
     fn repr(&self) -> EcoString {
         match &self.0 {
-            Repr::Single(value) => eco_format!("symbol({})", value.repr()),
-            Repr::Complex(variants) => {
+            SymbolInner::Single(value) => eco_format!("symbol({})", value.repr()),
+            SymbolInner::Complex(variants) => {
                 eco_format!(
                     "symbol{}",
                     repr_variants(variants.iter().copied(), ModifierSet::default())
                 )
             }
-            Repr::Modified(arc) => {
+            SymbolInner::Modified(arc) => {
                 let Modified { list, modifiers, .. } = arc.as_ref();
                 if modifiers.is_empty() {
                     eco_format!(
@@ -485,7 +466,7 @@ impl PlainText for Packed<SymbolElem> {
     }
 }
 
-impl crate::foundations::Repr for SymbolElem {
+impl Repr for SymbolElem {
     /// Use a custom repr that matches normal content.
     fn repr(&self) -> EcoString {
         eco_format!("[{}]", self.text)

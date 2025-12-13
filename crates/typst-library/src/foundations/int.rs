@@ -1,13 +1,14 @@
 use std::num::{
-    NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize, ParseIntError,
+    IntErrorKind, NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize,
 };
 
 use ecow::{EcoString, eco_format};
 use smallvec::SmallVec;
+use typst_syntax::{Span, Spanned};
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{At, HintedString, SourceResult, StrResult, bail, error};
 use crate::foundations::{
-    Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
+    Base, Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
 
 /// A whole number.
@@ -39,29 +40,72 @@ use crate::foundations::{
 #[ty(scope, cast, name = "int", title = "Integer")]
 type i64;
 
-#[scope]
+#[scope(ext)]
 impl i64 {
     /// Converts a value to an integer. Raises an error if there is an attempt
-    /// to produce an integer larger than the maximum 64-bit signed integer
-    /// or smaller than the minimum 64-bit signed integer.
+    /// to parse an invalid string or produce an integer that doesn't fit
+    /// into a 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
     /// - Floats and decimals are rounded to the next 64-bit integer towards zero.
-    /// - Strings are parsed in base 10.
+    /// - Strings are parsed in base 10 by default.
     ///
     /// ```example
     /// #int(false) \
     /// #int(true) \
     /// #int(2.7) \
     /// #int(decimal("3.8")) \
-    /// #(int("27") + int("4"))
+    /// #(int("27") + int("4")) \
+    /// #(int("beef", base: 16))
     /// ```
     #[func(constructor)]
     pub fn construct(
         /// The value that should be converted to an integer.
-        value: ToInt,
-    ) -> i64 {
-        value.0
+        value: Spanned<ToInt>,
+        /// The base (radix) for parsing strings, between 2 and 36.
+        #[named]
+        #[default(Spanned::new(Base::Default, Span::detached()))]
+        base: Spanned<Base>,
+    ) -> SourceResult<i64> {
+        Ok(match value.v {
+            ToInt::Int(n) => match base.v {
+                Base::User(_) => bail!(base.span, "base is only supported for strings"),
+                _ => n,
+            },
+            ToInt::Str(s) => {
+                let base_value = base.v.value();
+                let radix: u32 = match base_value {
+                    2..=36 => base_value as u32,
+                    _ => bail!(base.span, "base must be between 2 and 36"),
+                };
+
+                match s.strip_prefix('-').or_else(|| s.strip_prefix(repr::MINUS_SIGN)) {
+                    // Negative (without minus)
+                    Some(s) => {
+                        // Parse the digits part into u64
+                        //  => abs(i64::MIN) fits into u64
+                        let bigger = u64::from_str_radix(s, radix)
+                            .map_err(|e| parse_str_error(e.kind(), base))
+                            .at(value.span)?;
+
+                        // Number wouldn't fit into i64
+                        if bigger > i64::MIN.unsigned_abs() {
+                            return Err(parse_str_error(
+                                &IntErrorKind::NegOverflow,
+                                base,
+                            ))
+                            .at(value.span);
+                        }
+
+                        bigger.wrapping_neg() as i64
+                    }
+                    // Positive
+                    None => i64::from_str_radix(&s, radix)
+                        .map_err(|e| parse_str_error(e.kind(), base))
+                        .at(value.span)?,
+                }
+            }
+        })
     }
 
     /// Calculates the sign of an integer.
@@ -365,15 +409,18 @@ pub enum Endianness {
 }
 
 /// A value that can be cast to an integer.
-pub struct ToInt(i64);
+pub enum ToInt {
+    Int(i64),
+    Str(Str),
+}
 
 cast! {
     ToInt,
-    v: i64 => Self(v),
-    v: bool => Self(v as i64),
-    v: f64 => Self(convert_float_to_int(v)?),
-    v: Decimal => Self(i64::try_from(v).map_err(|_| eco_format!("number too large"))?),
-    v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
+    v: i64 => Self::Int(v),
+    v: bool => Self::Int(v as i64),
+    v: f64 => Self::Int(convert_float_to_int(v)?),
+    v: Decimal => Self::Int(i64::try_from(v).map_err(|_| eco_format!("number too large"))?),
+    v: Str => Self::Str(v),
 }
 
 pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
@@ -384,16 +431,28 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
     }
 }
 
-fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {
-    let mut sign = 1;
-    if let Some(rest) = s.strip_prefix('-').or_else(|| s.strip_prefix(repr::MINUS_SIGN)) {
-        sign = -1;
-        s = rest;
+#[cold]
+fn parse_str_error(kind: &IntErrorKind, base: Spanned<Base>) -> HintedString {
+    let base = base.v.value();
+    match kind {
+        IntErrorKind::Empty => error!("string must not be empty"),
+        IntErrorKind::InvalidDigit => match base {
+            10 => error!("string contains invalid digits"),
+            _ => error!("string contains invalid digits for a base {base} integer"),
+        },
+        IntErrorKind::PosOverflow => error!(
+            "integer value is too large";
+            hint: "value does not fit into a signed 64-bit integer";
+            hint: "try using a floating point number";
+        ),
+        IntErrorKind::NegOverflow => error!(
+            "integer value is too small";
+            hint: "value does not fit into a signed 64-bit integer";
+            hint: "try using a floating point number";
+        ),
+        IntErrorKind::Zero => unreachable!(),
+        _ => error!("invalid integer"),
     }
-    if sign == -1 && s == "9223372036854775808" {
-        return Ok(i64::MIN);
-    }
-    Ok(sign * s.parse::<i64>()?)
 }
 
 macro_rules! signed_int {

@@ -1,4 +1,4 @@
---- float-constructor ---
+--- float-constructor paged ---
 #test(float(10), 10.0)
 #test(float(50% * 30%), 0.15)
 #test(float("31.4e-1"), 3.14)
@@ -12,22 +12,22 @@
 #test(float(decimal("-79228162514264337593543950335")), -79228162514264340000000000000.0)
 #test(type(float(10)), float)
 
---- float-constructor-bad-type ---
+--- float-constructor-bad-type paged ---
 // Error: 8-13 expected float, boolean, integer, decimal, ratio, or string, found type
 #float(float)
 
---- float-constructor-bad-value ---
+--- float-constructor-bad-value paged ---
 // Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
---- float-is-nan ---
+--- float-is-nan paged ---
 // Test float `is-nan()`.
 #test(float(float.nan).is-nan(), true)
 #test(float(10).is-nan(), false)
 #test(float(calc.inf).is-nan(), false)
 #test(float(-calc.inf).is-nan(), false)
 
---- float-is-infinite ---
+--- float-is-infinite paged ---
 // Test float `is-infinite()`.
 #test(float(calc.inf).is-infinite(), true)
 #test(float(-calc.inf).is-infinite(), true)
@@ -35,7 +35,7 @@
 #test(float(-10).is-infinite(), false)
 #test(float(float.nan).is-infinite(), false)
 
---- float-signum ---
+--- float-signum paged ---
 // Test float `signum()`
 #test(float(0.0).signum(), 1.0)
 #test(float(1.0).signum(), 1.0)
@@ -46,7 +46,7 @@
 #test(float(-calc.inf).signum(), -1.0)
 #test(float(float.nan).signum().is-nan(), true)
 
---- float-from-and-to-bytes ---
+--- float-from-and-to-bytes paged ---
 // Test float `from-bytes()` and `to-bytes()`.
 #test(float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))), 1.0)
 #test(float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big"), 1.0)
@@ -58,11 +58,11 @@
 #test(2.5.to-bytes(size: 4), bytes((0, 0, 32, 64)))
 #test(2.5.to-bytes(size: 4, endian: "big"), bytes((64, 32, 0, 0)))
 
---- float-from-bytes-bad-length ---
+--- float-from-bytes-bad-length paged ---
 // Error: 2-54 bytes must have a length of 4 or 8
 #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1, 0)))
 
---- float-repr ---
+--- float-repr paged ---
 // Test the `repr` function with floats.
 #test(repr(12.0), "12.0")
 #test(repr(3.14), "3.14")
@@ -79,7 +79,7 @@
 #test(repr(-float.inf), "-float.inf")
 #test(repr(float.nan), "float.nan")
 
---- float-display ---
+--- float-display paged ---
 // Test floats.
 #12.0 \
 #3.14 \
@@ -96,7 +96,7 @@
 #(-float.inf) \
 #float.nan
 
---- float-syntax-edge-cases ---
+--- float-syntax-edge-cases paged ---
 // Test float syntax edge cases and which spans of text are highlighted. Valid
 // items are those not annotated with an error comment since syntax is handled
 // at parse time.

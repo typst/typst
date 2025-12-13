@@ -2,20 +2,21 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
-use typst_library::diag::{SourceResult, bail};
-use typst_library::layout::{Abs, Point, Position, Size};
+use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
+use typst_library::introspection::DocumentPosition;
+use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
 use crate::tags::{self, AnnotationId, GroupId};
-use crate::util::{AbsExt, PointExt};
+use crate::util::PointExt;
 
 pub(crate) struct LinkAnnotation {
     pub kind: LinkAnnotationKind,
     pub alt: Option<String>,
     pub span: Span,
-    pub quad_points: Vec<kg::Quadrilateral>,
+    pub rects: Vec<kg::Rect>,
     pub target: Target,
 }
 
@@ -37,7 +38,9 @@ pub(crate) fn handle_link(
             Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
         Destination::Position(p) => {
-            let Some(dest) = pos_to_xyz(&gc.page_index_converter, *p) else {
+            let Some(dest) =
+                pos_to_xyz(&gc.page_index_converter, DocumentPosition::Paged(*p))
+            else {
                 return Ok(());
             };
             Target::Destination(krilla::destination::Destination::Xyz(dest))
@@ -57,7 +60,7 @@ pub(crate) fn handle_link(
         }
     };
 
-    let quad = to_quadrilateral(fc, size);
+    let rect = bounding_box(fc, size);
 
     if tags::disabled(gc) {
         if gc.tags.in_tiling && gc.options.is_pdf_ua() {
@@ -67,7 +70,7 @@ pub(crate) fn handle_link(
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "a link was used within a tiling";
                 hint: "references, citations, and footnotes \
-                       are also considered links in PDF"
+                       are also considered links in PDF";
             );
         }
 
@@ -77,14 +80,16 @@ pub(crate) fn handle_link(
                 kind: LinkAnnotationKind::Artifact,
                 alt: None,
                 span: Span::detached(),
-                quad_points: vec![quad],
+                rects: vec![rect],
                 target,
             },
         );
         return Ok(());
     }
 
-    let (group_id, link) = gc.tags.tree.parent_link().expect("link parent");
+    let (group_id, link) = (gc.tags.tree.parent_link())
+        .expect_internal("expected link ancestor in logical tree")
+        .at(Span::detached())?;
     let alt = link.alt.as_ref().map(Into::into);
 
     if gc.tags.tree.parent_artifact().is_some() {
@@ -94,7 +99,7 @@ pub(crate) fn handle_link(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "references, citations, and footnotes \
-                       are also considered links in PDF"
+                       are also considered links in PDF";
             );
         }
 
@@ -104,7 +109,7 @@ pub(crate) fn handle_link(
                 kind: LinkAnnotationKind::Artifact,
                 alt,
                 span: link.span(),
-                quad_points: vec![quad],
+                rects: vec![rect],
                 target,
             },
         );
@@ -123,7 +128,7 @@ pub(crate) fn handle_link(
     // The bounding box would span the entire paragraph, which is undesirable.
     let join_annotations = gc.options.is_pdf_ua();
     match fc.get_link_annotation(group_id) {
-        Some(annotation) if join_annotations => annotation.quad_points.push(quad),
+        Some(annotation) if join_annotations => annotation.rects.push(rect),
         _ => {
             let annot_id = gc.tags.annotations.reserve();
             fc.push_link_annotation(
@@ -132,7 +137,7 @@ pub(crate) fn handle_link(
                     kind: LinkAnnotationKind::Tagged(annot_id),
                     alt,
                     span: link.span(),
-                    quad_points: vec![quad],
+                    rects: vec![rect],
                     target,
                 },
             );
@@ -144,8 +149,8 @@ pub(crate) fn handle_link(
     Ok(())
 }
 
-/// Compute the quadrilateral representing the transformed rectangle of this frame.
-fn to_quadrilateral(fc: &FrameContext, size: Size) -> kg::Quadrilateral {
+/// Compute the bouding box of the transformed rectangle for this frame.
+fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
     let pos = Point::zero();
     let points = [
         pos + Point::with_y(size.y),
@@ -154,10 +159,20 @@ fn to_quadrilateral(fc: &FrameContext, size: Size) -> kg::Quadrilateral {
         pos,
     ];
 
-    kg::Quadrilateral(points.map(|point| {
-        let p = point.transform(fc.state().transform());
-        kg::Point::from_xy(p.x.to_f32(), p.y.to_f32())
-    }))
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+
+    for point in points {
+        let p = point.transform(fc.state().transform()).to_krilla();
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x);
+        max_y = max_y.max(p.y);
+    }
+
+    kg::Rect::from_ltrb(min_x, min_y, max_x, max_y).unwrap()
 }
 
 /// Turns a position link into a PDF XYZ destination.
@@ -169,8 +184,9 @@ fn to_quadrilateral(fc: &FrameContext, size: Size) -> kg::Quadrilateral {
 ///   to it, the text will not be visible since it is right above.
 pub(crate) fn pos_to_xyz(
     pic: &PageIndexConverter,
-    pos: Position,
+    pos: DocumentPosition,
 ) -> Option<XyzDestination> {
+    let pos = pos.as_paged()?;
     let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
     let adjusted =
         Point::new(pos.point.x, (pos.point.y - Abs::pt(10.0)).max(Abs::zero()));

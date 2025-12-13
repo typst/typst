@@ -1,5 +1,9 @@
+use std::num::IntErrorKind;
+
 use ecow::{EcoString, eco_format};
+use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_math_class::MathClass;
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
@@ -311,8 +315,7 @@ impl Lexer<'_> {
     /// below.
     ///
     /// ### The initial line:
-    /// - A valid Typst identifier immediately following the opening delimiter
-    ///   is parsed as the language tag.
+    /// - Text until the first whitespace or backtick is parsed as the language tag.
     /// - We check the rest of the line and if all characters are whitespace,
     ///   trim it. Otherwise we trim a single leading space if present.
     ///   - If more trimmed characters follow on future lines, they will be
@@ -339,8 +342,8 @@ impl Lexer<'_> {
         F: FnMut(SyntaxKind, &Scanner),
     {
         // Language tag.
-        if self.s.eat_if(is_id_start) {
-            self.s.eat_while(is_id_continue);
+        let tag = self.s.eat_until(|c: char| c.is_whitespace() || c == '`');
+        if !tag.is_empty() {
             push_raw(SyntaxKind::RawLang, &self.s);
         }
 
@@ -577,7 +580,6 @@ impl Lexer<'_> {
             ':' if self.s.eat_if(":=") => SyntaxKind::MathShorthand,
             '!' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
             '.' if self.s.eat_if("..") => SyntaxKind::MathShorthand,
-            '[' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("==>") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("-->") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("--") => SyntaxKind::MathShorthand,
@@ -601,7 +603,6 @@ impl Lexer<'_> {
             '>' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
-            '|' if self.s.eat_if(']') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if("~>") => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
@@ -610,22 +611,48 @@ impl Lexer<'_> {
             '.' => SyntaxKind::Dot,
             ',' => SyntaxKind::Comma,
             ';' => SyntaxKind::Semicolon,
-            ')' => SyntaxKind::RightParen,
 
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
-            '\'' => SyntaxKind::Prime,
             '&' => SyntaxKind::MathAlignPoint,
             '√' | '∛' | '∜' => SyntaxKind::Root,
+            '!' => SyntaxKind::Bang,
+
+            '\'' => {
+                self.s.eat_while('\'');
+                SyntaxKind::MathPrimes
+            }
+
+            // We lex delimiters as `{Left,Right}{Brace,Paren}` and convert back
+            // to `MathText` or `MathShorthand` in the parser.
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
+            // TODO: We may instead want to add `MathOpening` and `MathClosing`
+            // kinds for these.
+            '[' if self.s.eat_if('|') => SyntaxKind::LeftBrace,
+            '|' if self.s.eat_if(']') => SyntaxKind::RightBrace,
+            c if default_math_class(c) == Some(MathClass::Opening) => {
+                SyntaxKind::LeftBrace
+            }
+            c if default_math_class(c) == Some(MathClass::Closing) => {
+                SyntaxKind::RightBrace
+            }
 
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                let (kind, node) = self.math_ident_or_field(start);
-                return (kind, Some(node));
+                let (last_index, _) =
+                    self.s.from(start).grapheme_indices(true).next_back().unwrap();
+                if last_index == 0 {
+                    // If this was just a single grapheme.
+                    SyntaxKind::MathText
+                } else {
+                    let (kind, node) = self.math_ident_or_field(start);
+                    return (kind, Some(node));
+                }
             }
 
             // Other math atoms.
@@ -670,7 +697,6 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
-            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -679,14 +705,8 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
-            if len > c.len_utf8() {
-                // Grapheme clusters are treated as normal text and stay grouped
-                // This may need to change in the future.
-                SyntaxKind::Text
-            } else {
-                SyntaxKind::MathText
-            }
         }
+        SyntaxKind::MathText
     }
 
     /// Handle named arguments in math function call.
@@ -717,9 +737,11 @@ impl Lexer<'_> {
         let cursor = self.s.cursor();
         self.s.jump(start);
         if self.s.eat_if("..") {
-            // Check that neither a space nor a dot follows the spread syntax.
-            // A dot would clash with the `...` math shorthand.
-            if !self.space_or_end() && !self.s.at('.') {
+            // We only infer a spread operator if it is not followed by:
+            // - a space/trivia/end
+            // - a dot (this would clash with the `...` math shorthand)
+            // - an end of arg character: `,`, `;`, ')', `$` (spreads nothing)
+            if !self.space_or_end() && !self.s.at(['.', ',', ';', ')', '$']) {
                 let node = SyntaxNode::leaf(SyntaxKind::Dots, self.s.from(start));
                 return Some(node);
             }
@@ -829,6 +851,16 @@ impl Lexer<'_> {
 
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
+
+        // Parse large integer literals as floats
+        if base == 10
+            && !is_float
+            && let Err(e) = i64::from_str_radix(number, base)
+            && matches!(e.kind(), IntErrorKind::PosOverflow | IntErrorKind::NegOverflow)
+            && number.parse::<f64>().is_ok()
+        {
+            is_float = true;
+        }
 
         let mut suffix_result = match suffix {
             "" => Ok(None),

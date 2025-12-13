@@ -219,6 +219,8 @@ fn changelog_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("changelog/welcome.md"));
     let base = format!("{}changelog/", resolver.base());
     page.children = vec![
+        md_page(resolver, &base, load!("changelog/0.14.2.md")),
+        md_page(resolver, &base, load!("changelog/0.14.1.md")),
         md_page(resolver, &base, load!("changelog/0.14.0.md")),
         md_page(resolver, &base, load!("changelog/0.13.1.md")),
         md_page(resolver, &base, load!("changelog/0.13.0.md")),
@@ -485,7 +487,7 @@ fn func_model(
         title: func.title().unwrap(),
         keywords: func.keywords(),
         oneliner: oneliner(first_md),
-        element: func.element().is_some(),
+        element: func.to_element().is_some(),
         contextual: func.contextual().unwrap_or(false),
         deprecation_message: deprecation.map(Deprecation::message),
         deprecation_until: deprecation.and_then(Deprecation::until),
@@ -571,9 +573,12 @@ fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
                 let tag = &docs[fence_idx + fence_len..lang_tag_end].trim();
                 let title = ExampleArgs::from_tag(tag).title;
 
-                // First, push non-fenced content.
-                if found > 0 {
-                    res.push(RawDetailsBlock::Markdown(&docs[i..fence_idx]));
+                // First, push non-fenced content. It might be all whitespaces
+                // if it's between two consecutive fences. Therefore, we have to
+                // trim it before checking.
+                let content_before_fence = &docs[i..fence_idx];
+                if !content_before_fence.trim().is_empty() {
+                    res.push(RawDetailsBlock::Markdown(content_before_fence));
                 }
 
                 // Then, find the end of the fence.
@@ -596,7 +601,11 @@ fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
                 i = fence_end;
             }
             None => {
-                res.push(RawDetailsBlock::Markdown(&docs[i..]));
+                // Push the remaining content only if it's non-empty after trimming.
+                let slice = &docs[i..];
+                if !slice.trim().is_empty() {
+                    res.push(RawDetailsBlock::Markdown(slice));
+                }
                 break;
             }
         }
@@ -886,7 +895,6 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, value, deprecation_message) in symbol.variants() {
             let value_char = value.parse::<char>().ok();
-
             let shorthand = |list: &[(&'static str, char)]| {
                 value_char.and_then(|c| {
                     list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
@@ -905,8 +913,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 }),
                 value: value.into(),
                 // Matches casting `Symbol` to `Accent`
-                accent: value_char
-                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
+                accent: typst::math::Accent::combining(value).is_some(),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _, _)| other != &variant)
@@ -1081,5 +1088,38 @@ mod tests {
         fn base(&self) -> &str {
             "/"
         }
+    }
+
+    #[test]
+    fn test_parsing_details_blocks() {
+        let docs = r#"
+A brief description of the parameter.
+
+```example
+A basic example.
+```
+
+Further descriptions.
+
+```example
+An _advanced_ example.
+```
+
+```example
+Immediately followed by another example.
+There should be no additional markdown block between them.
+
+Empty lines after the final example should also be dropped.
+```
+
+"#;
+        let blocks = details_blocks(docs);
+
+        assert_eq!(blocks.len(), 5);
+        matches!(blocks[0], RawDetailsBlock::Markdown { .. });
+        matches!(blocks[1], RawDetailsBlock::Example { .. });
+        matches!(blocks[2], RawDetailsBlock::Markdown { .. });
+        matches!(blocks[3], RawDetailsBlock::Example { .. });
+        matches!(blocks[4], RawDetailsBlock::Example { .. });
     }
 }

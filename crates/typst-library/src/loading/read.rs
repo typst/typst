@@ -16,7 +16,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```example
 /// An example for a HTML file: \
 /// #let text = read("example.html")
-/// #raw(text, lang: "html")
+/// #raw(text, block: true, lang: "html")
 ///
 /// Raw bytes:
 /// #read("tiger.jpg", encoding: none)

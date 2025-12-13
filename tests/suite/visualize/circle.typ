@@ -1,11 +1,11 @@
 // Test the `circle` function.
 
---- circle ---
+--- circle paged ---
 // Default circle.
 #box(circle())
 #box(circle[Hey])
 
---- circle-auto-sizing ---
+--- circle-auto-sizing paged ---
 // Test auto sizing.
 #set circle(inset: 0pt)
 
@@ -32,12 +32,12 @@ Rect in auto-sized circle.
 Expanded by height.
 #circle(stroke: black, align(center)[A \ B \ C])
 
---- circle-directly-in-rect ---
+--- circle-directly-in-rect paged ---
 // Ensure circle directly in rect works.
 #rect(width: 40pt, height: 30pt, fill: forest,
   circle(fill: conifer))
 
---- circle-relative-sizing ---
+--- circle-relative-sizing paged ---
 // Test relative sizing.
 #set text(fill: white)
 #show: rect.with(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"))
@@ -52,12 +52,12 @@ Expanded by height.
   1fr,
 )
 
---- circle-radius-width-and-height ---
+--- circle-radius-width-and-height paged ---
 // Radius wins over width and height.
 // Error: 23-34 unexpected argument: width
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
 
---- circle-sizing-options ---
+--- circle-sizing-options paged ---
 // Test different ways of sizing.
 #set page(width: 120pt, height: 40pt)
 #stack(
@@ -68,14 +68,14 @@ Expanded by height.
   circle(height: 50%),
 )
 
---- circle-size-beyond-default ---
+--- circle-size-beyond-default paged ---
 // Test that setting a circle's height beyond its default sizes it correctly.
 #circle()
 #circle(height: 60pt)
 #circle(width: 60pt)
 #circle(radius: 30pt)
 
---- circle-beyond-page-width-overflows ---
+--- circle-beyond-page-width-overflows paged ---
 // Test that sizing a circle beyond the page width correctly overflows the page.
 #set page(height: 100pt)
 #circle(width: 150%)

@@ -75,12 +75,11 @@ use crate::visualize::Color;
 /// Within raw blocks, everything (except for the language tag, if applicable)
 /// is rendered as is, in particular, there are no escape sequences.
 ///
-/// The language tag is an identifier that directly follows the opening
-/// backticks only if there are three or more backticks. If your text starts
-/// with something that looks like an identifier, but no syntax highlighting is
-/// needed, start the text with a single space (which will be trimmed) or use
-/// the single backtick syntax. If your text should start or end with a
-/// backtick, put a space before or after it (it will be trimmed).
+/// The language tag ends at the first whitespace or backtick. If your text
+/// starts with something that looks like an identifier, but no syntax
+/// highlighting is needed, start the text with a single space (which will be
+/// trimmed) or use the single backtick syntax. If your text should start or end
+/// with a backtick, put a space before or after it (it will be trimmed).
 ///
 /// If no syntax highlighting is available by default for your specified
 /// language tag (or if you want to override the built-in definition), you may
@@ -525,10 +524,6 @@ impl PlainText for Packed<RawElem> {
 
 /// The content of the raw text.
 #[derive(Debug, Clone, Hash)]
-#[allow(
-    clippy::derived_hash_with_manual_eq,
-    reason = "https://github.com/typst/typst/pull/6560#issuecomment-3045393640"
-)]
 pub enum RawContent {
     /// From a string.
     Text(EcoString),

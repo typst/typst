@@ -5,17 +5,20 @@ use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
 
 use crate::convert::FrameContext;
+use crate::tags::context::figure::build_figure;
+use crate::tags::context::grid::build_grid;
+use crate::tags::context::table::build_table;
 use crate::tags::groups::GroupKind;
-use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
+use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec};
 use crate::util::AbsExt;
 
-pub use crate::tags::context::figure::{FigureCtx, build_figure};
-pub use crate::tags::context::grid::{GridCtx, build_grid};
+pub use crate::tags::context::figure::FigureCtx;
+pub use crate::tags::context::grid::GridCtx;
 pub use crate::tags::context::list::ListCtx;
 pub use crate::tags::context::outline::OutlineCtx;
-pub use crate::tags::context::table::{TableCtx, build_table};
+pub use crate::tags::context::table::TableCtx;
 
 mod figure;
 mod grid;
@@ -35,8 +38,6 @@ pub type AnnotationId = Id<krilla::annotation::Annotation>;
 pub struct Tags {
     pub in_tiling: bool,
     pub tree: Tree,
-    /// The set of text attributes.
-    pub text_attrs: TextAttrs,
     /// A list of placeholders for annotations in the tag tree.
     pub annotations: Annotations,
 }
@@ -46,7 +47,6 @@ impl Tags {
         Self {
             in_tiling: false,
             tree,
-            text_attrs: TextAttrs::new(),
             annotations: Annotations::new(),
         }
     }
@@ -197,5 +197,17 @@ impl BBoxCtx {
         )
         .unwrap();
         Some(BBox::new(page_idx, rect))
+    }
+}
+
+pub fn finish(tree: &mut Tree) {
+    for figure_id in tree.ctx.figures.ids() {
+        build_figure(tree, figure_id);
+    }
+    for table_id in tree.ctx.tables.ids() {
+        build_table(tree, table_id);
+    }
+    for grid_id in tree.ctx.grids.ids() {
+        build_grid(tree, grid_id);
     }
 }

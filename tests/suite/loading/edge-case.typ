@@ -33,7 +33,7 @@
   <sec:intro>,
   panic,
   x => x + 1,
-  regex("\p{Letter}"),
+  regex("\\p{Letter}"),
   stroke(red + 5pt),
   auto,
 )

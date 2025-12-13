@@ -163,8 +163,7 @@ impl Packed<CiteGroup> {
     pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
         let location = self.location().unwrap();
         let span = self.span();
-        Works::generate(engine)
-            .at(span)?
+        Works::generate(engine, span)?
             .citations
             .get(&location)
             .cloned()
@@ -179,6 +178,6 @@ fn failed_to_format_citation() -> HintedString {
     error!(
         "cannot format citation in isolation";
         hint: "check whether this citation is measured \
-               without being inserted into the document"
+               without being inserted into the document";
     )
 }

@@ -1,6 +1,6 @@
 // Test let bindings.
 
---- let-basic ---
+--- let-basic paged ---
 // Automatically initialized with none.
 #let x
 #test(x, none)
@@ -14,7 +14,7 @@
 #let f(body) = rect(width: 2cm, fill: fill, inset: 5pt, body)
 #f[Hi!]
 
---- let-termination ---
+--- let-termination paged ---
 // Termination.
 
 // Terminated by line break.
@@ -32,7 +32,7 @@ Three
 #test(v2, 2)
 #test(v3, 3)
 
---- let-valid-idents ---
+--- let-valid-idents paged ---
 // Test what constitutes a valid Typst identifier.
 #let name = 1
 #test(name, 1)
@@ -47,23 +47,23 @@ Three
 #let ůñıćóðė = 1
 #test(ůñıćóðė, 1)
 
---- let-binding-keyword-in-markup ---
+--- let-binding-keyword-in-markup paged ---
 // Error: 6-8 expected pattern, found keyword `as`
 // Hint: 6-8 keyword `as` is not allowed as an identifier; try `as_` instead
 #let as = 1 + 2
 
---- let-binding-keyword-in-code ---
+--- let-binding-keyword-in-code paged ---
 #{
   // Error: 7-9 expected pattern, found keyword `as`
   // Hint: 7-9 keyword `as` is not allowed as an identifier; try `as_` instead
   let as = 10
 }
 
---- let-ident-parenthesized ---
+--- let-ident-parenthesized paged ---
 // Test parenthesised assignments.
 #let (a) = (1, 2)
 
---- let-incomplete ---
+--- let-incomplete paged ---
 // Error: 5 expected pattern
 #let
 
@@ -94,7 +94,7 @@ Three
 // Error: 9-13 expected pattern, found boolean
 #let (..true) = false
 
---- underscore-invalid ---
+--- underscore-invalid paged ---
 #let _ = 4
 
 #for _ in range(2) []
@@ -114,45 +114,45 @@ Three
 // Error: 8-9 expected expression, found underscore
 #{ 1 + _ }
 
---- let-function-incomplete ---
+--- let-function-incomplete paged ---
 // Error: 13 expected equals sign
 #let func(x)
 
 // Error: 15 expected expression
 #let func(x) =
 
---- let-function-parenthesized ---
+--- let-function-parenthesized paged ---
 // This is not yet parsed in the ideal way.
 // Error: 12 expected equals sign
 #let (func)(x)
 
---- let-function-parenthesized-with-init ---
+--- let-function-parenthesized-with-init paged ---
 // These errors aren't great.
 // Error: 12 expected equals sign
 // Error: 15-15 expected semicolon or line break
 #let (func)(x) = 3
 
---- let-with-no-init-group ---
+--- let-with-no-init-group paged ---
 // This was unintentionally allowed ...
 // Error: 9 expected equals sign
 #let (a)
 
---- let-with-no-init-destructuring ---
+--- let-with-no-init-destructuring paged ---
 // ... where this wasn't.
 // Error: 12 expected equals sign
 #let (a, b)
 
---- issue-4027-let-binding-with-keyword-context ---
+--- issue-4027-let-binding-with-keyword-context paged ---
 // Error: 6-13 expected pattern, found keyword `context`
 // Hint: 6-13 keyword `context` is not allowed as an identifier; try `context_` instead
 #let context = 5
 
---- issue-4027-let-binding-with-keyword-let ---
+--- issue-4027-let-binding-with-keyword-let paged ---
 // Error: 6-9 expected pattern, found keyword `let`
 // Hint: 6-9 keyword `let` is not allowed as an identifier; try `let_` instead
 #let let = 5
 
---- issue-4027-let-binding-with-destructured-keywords ---
+--- issue-4027-let-binding-with-destructured-keywords paged ---
 // Error: 7-14 expected pattern, found keyword `context`
 // Hint: 7-14 keyword `context` is not allowed as an identifier; try `context_` instead
 // Error: 21-24 expected pattern, found keyword `let`

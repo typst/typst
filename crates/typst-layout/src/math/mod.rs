@@ -9,6 +9,7 @@ mod lr;
 mod mat;
 mod root;
 mod run;
+mod shaping;
 mod stretch;
 mod text;
 mod underover;
@@ -203,7 +204,7 @@ pub fn layout_equation_block(
 
     let pod = Region::new(regions.base(), Axes::splat(false));
     let counter = Counter::of(EquationElem::ELEM)
-        .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
+        .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
     let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
@@ -620,23 +621,14 @@ fn layout_op(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let fragment = ctx.layout_into_fragment(&elem.text, styles)?;
-    let italics = fragment.italics_correction();
-    let accent_attach = fragment.accent_attach();
-    let text_like = fragment.is_text_like();
-
-    ctx.push(
-        FrameFragment::new(styles, fragment.into_frame())
-            .with_class(MathClass::Large)
-            .with_italics_correction(italics)
-            .with_accent_attach(accent_attach)
-            .with_text_like(text_like)
-            .with_limits(if elem.limits.get(styles) {
-                Limits::Display
-            } else {
-                Limits::Never
-            }),
-    );
+    let mut fragment = ctx.layout_into_fragment(&elem.text, styles)?;
+    fragment.set_class(MathClass::Large);
+    fragment.set_limits(if elem.limits.get(styles) {
+        Limits::Display
+    } else {
+        Limits::Never
+    });
+    ctx.push(fragment);
     Ok(())
 }
 
@@ -689,9 +681,9 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
     if !font.info().flags.contains(FontFlags::MATH) {
         engine.sink.warn(warning!(
             span,
-            "the current base math font is {}, but it is not designed for math",
+            "the current math font is {}, but it is not designed for math",
             font.info().family;
-            hint: "to avoid poor rendering, use a math font instead";
+            hint: "to avoid poor rendering, use an OpenType math font instead";
             hint: "to use it only for specific characters, specify the covers"
         ))
     }

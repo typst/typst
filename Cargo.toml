@@ -4,8 +4,8 @@ default-members = ["crates/typst-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.13.1"
-rust-version = "1.88" # also change in ci.yml
+version = "0.14.2"
+rust-version = "1.89" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2024"
 homepage = "https://typst.app"
@@ -16,24 +16,24 @@ keywords = ["typst"]
 readme = "README.md"
 
 [workspace.dependencies]
-typst = { path = "crates/typst", version = "0.13.1" }
-typst-cli = { path = "crates/typst-cli", version = "0.13.1" }
-typst-eval = { path = "crates/typst-eval", version = "0.13.1" }
-typst-html = { path = "crates/typst-html", version = "0.13.1" }
-typst-ide = { path = "crates/typst-ide", version = "0.13.1" }
-typst-kit = { path = "crates/typst-kit", version = "0.13.1" }
-typst-layout = { path = "crates/typst-layout", version = "0.13.1" }
-typst-library = { path = "crates/typst-library", version = "0.13.1" }
-typst-macros = { path = "crates/typst-macros", version = "0.13.1" }
-typst-pdf = { path = "crates/typst-pdf", version = "0.13.1" }
-typst-realize = { path = "crates/typst-realize", version = "0.13.1" }
-typst-render = { path = "crates/typst-render", version = "0.13.1" }
-typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
-typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
-typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
-typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fbf00f9" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "5bb5393" }
+typst = { path = "crates/typst", version = "0.14.2" }
+typst-cli = { path = "crates/typst-cli", version = "0.14.2" }
+typst-eval = { path = "crates/typst-eval", version = "0.14.2" }
+typst-html = { path = "crates/typst-html", version = "0.14.2" }
+typst-ide = { path = "crates/typst-ide", version = "0.14.2" }
+typst-kit = { path = "crates/typst-kit", version = "0.14.2" }
+typst-layout = { path = "crates/typst-layout", version = "0.14.2" }
+typst-library = { path = "crates/typst-library", version = "0.14.2" }
+typst-macros = { path = "crates/typst-macros", version = "0.14.2" }
+typst-pdf = { path = "crates/typst-pdf", version = "0.14.2" }
+typst-realize = { path = "crates/typst-realize", version = "0.14.2" }
+typst-render = { path = "crates/typst-render", version = "0.14.2" }
+typst-svg = { path = "crates/typst-svg", version = "0.14.2" }
+typst-syntax = { path = "crates/typst-syntax", version = "0.14.2" }
+typst-timing = { path = "crates/typst-timing", version = "0.14.2" }
+typst-utils = { path = "crates/typst-utils", version = "0.14.2" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "6eed5f2" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fe6cad9" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -54,6 +54,7 @@ csv = "1"
 ctrlc = "3.4.1"
 dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
+either = "1"
 env_proxy = "0.4"
 fastrand = "2.3"
 flate2 = "1"
@@ -76,8 +77,8 @@ image = { version = "0.25.5", default-features = false, features = ["png", "jpeg
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
-krilla = { version = "0.5.0", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = "0.2"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332" }
 kurbo = "0.12"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -140,7 +141,7 @@ ureq = { version = "2", default-features = false, features = ["native-tls", "gzi
 usvg = { version = "0.45", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"
-wasmi = { version = "0.51.0", default-features = false, features = ["simd"] }
+wasmi = { version = "0.51.5", default-features = false, features = ["simd"] }
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
@@ -162,7 +163,10 @@ strip = true
 blocks_in_conditions = "allow"
 comparison_chain = "allow"
 iter_over_hash_type = "warn"
+manual_is_multiple_of = "allow"
 manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
+# See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
+derived_hash_with_manual_eq = "allow"

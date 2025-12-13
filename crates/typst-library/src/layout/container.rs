@@ -77,8 +77,10 @@ pub struct BoxElem {
     /// other dictionary entries). All keys are optional; omitted keys will use
     /// their previously set value, or the default value if never set.
     ///
-    /// [Relative lengths]($relative) are relative to the box size without
-    /// outset.
+    /// [Relative lengths]($relative) for this parameter are relative to the box
+    /// size excluding [outset]($box.outset). Note that relative insets and
+    /// outsets are different from relative [widths]($box.width) and
+    /// [heights]($box.height), which are relative to the container.
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
@@ -92,9 +94,9 @@ pub struct BoxElem {
     /// How much to expand the box's size without affecting the layout.
     ///
     /// This can be a single length for all sides or a dictionary of lengths for
-    /// individual sides. [Relative lengths]($relative) are relative to the box
-    /// size without outset. See the documentation for [inset]($box.inset) above
-    /// for further details.
+    /// individual sides. [Relative lengths]($relative) for this parameter are
+    /// relative to the box size excluding outset. See the documentation for
+    /// [inset]($box.inset) above for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
@@ -435,9 +437,10 @@ cast! {
 }
 
 /// Defines how to size something along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Sizing {
     /// A track that fits its item's contents.
+    #[default]
     Auto,
     /// A size specified in absolute terms and relative to the parent's size.
     Rel(Rel),
@@ -455,12 +458,6 @@ impl Sizing {
     /// Whether this is fractional sizing.
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
-    }
-}
-
-impl Default for Sizing {
-    fn default() -> Self {
-        Self::Auto
     }
 }
 
@@ -503,7 +500,6 @@ mod callbacks {
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
             #[derive(Debug, Clone, Hash)]
-            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,

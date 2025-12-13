@@ -1,10 +1,10 @@
 // Test t and b attachments, part 1.
 
---- math-attach-postscripts ---
+--- math-attach-postscripts paged ---
 // Test basics, postscripts.
 $f_x + t^b + V_1^2 + attach(A, t: alpha, b: beta)$
 
---- math-attach-prescripts ---
+--- math-attach-prescripts paged ---
 // Test basics, prescripts. Notably, the upper and lower prescripts' content need to be
 // aligned on the right edge of their bounding boxes, not on the left as in postscripts.
 $
@@ -12,7 +12,7 @@ attach(upright(O), bl: 8, tl: 16, br: 2, tr: 2-),
 attach("Pb", bl: 82, tl: 207) + attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
 $
 
---- math-attach-mixed ---
+--- math-attach-mixed paged ---
 // A mixture of attachment positioning schemes.
 $
 attach(a, tl: u),   attach(a, tr: v),   attach(a, bl: x),
@@ -41,12 +41,12 @@ attach(limits(a), t: t, b: b, tr: v, br: y),
 attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
---- math-attach-followed-by-func-call ---
+--- math-attach-followed-by-func-call paged ---
 // Test function call after subscript.
 $pi_1(Y), a_f(x), a^zeta (x), a^abs(b)_sqrt(c) \
  a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
 
---- math-attach-nested ---
+--- math-attach-nested paged ---
 // Test associativity and scaling.
 $ 1/(V^2^3^4^5),
   frac(
@@ -62,23 +62,23 @@ $ 1/(V^2^3^4^5),
   )
 $
 
---- math-attach-high ---
+--- math-attach-high paged ---
 // Test high subscript and superscript.
 $ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
   sqrt(attach(a, tl: 1/2, bl: 3/4)),
   sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
 
---- math-attach-descender-collision ---
+--- math-attach-descender-collision paged ---
 // Test for no collisions between descenders/ascenders and attachments.
 
 $ sup_(x in P_i) quad inf_(x in P_i) $
 $ op("fff",limits: #true)^(y) quad op("yyy", limits:#true)_(f) $
 
---- math-attach-to-group ---
+--- math-attach-to-group paged ---
 // Test frame base.
 $ (-1)^n + (1/2 + 3)^(-1/2) $
 
---- math-attach-horizontal-align ---
+--- math-attach-horizontal-align paged ---
 #set text(size: 8pt)
 
 // Test that the attachments are aligned horizontally.
@@ -88,21 +88,21 @@ $ x_1 p_1 frak(p)_1 2_1 dot_1 lg_1 !_1 \\_1 ]_1 "ip"_1 op("iq")_1 \
   scripts(sum)_1^1 integral_1^1 abs(1/2)_1^1 \
   x^1_1, ")"^1_1 (b y)^1_1, "[∫]"_1 [integral]_1 $
 
---- math-attach-limit ---
+--- math-attach-limit paged ---
 // Test limit.
 $ lim_(n->oo \ n "grows") sum_(k=0 \ k in NN)^n k $
 
---- math-attach-force-scripts-and-limits ---
+--- math-attach-force-scripts-and-limits paged ---
 // Test forcing scripts and limits.
 $ limits(A)_1^2 != A_1^2 $
 $ scripts(sum)_1^2 != sum_1^2 $
 $ limits(integral)_a^b != integral_a^b $
 
---- issue-math-attach-realize-panic ---
+--- issue-math-attach-realize-panic paged ---
 // Error: 25-29 unknown variable: oops
 $ attach(A, t: #context oops) $
 
---- math-attach-show-limit ---
+--- math-attach-show-limit paged ---
 // Show and let rules for limits and scripts
 #let eq = $ ∫_a^b iota_a^b $
 #eq
@@ -111,7 +111,7 @@ $ attach(A, t: #context oops) $
 #eq
 $iota_a^b$
 
---- math-attach-default-placement ---
+--- math-attach-default-placement paged ---
 // Test default of limit attachments on relations at all sizes.
 #set page(width: auto)
 $ a =^"def" b quad a lt.eq_"really" b quad  a arrow.r.long.squiggly^"slowly" b $
@@ -119,17 +119,17 @@ $a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
 
 $a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.long.squiggly)^"slowly" b$
 
---- math-attach-integral ---
+--- math-attach-integral paged ---
 // Test default of scripts attachments on integrals at display size.
 $ integral.inter_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
 $integral.inter_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
---- math-attach-large-operator ---
+--- math-attach-large-operator paged ---
 // Test default of limit attachments on large operators at display size only.
 $ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
 $tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
 
---- math-attach-limit-long ---
+--- math-attach-limit-long paged ---
 // Test long limit attachments.
 $ attach(product, t: 123456789) attach(product, t: 123456789, bl: x) \
   attach(product, b: 123456789) attach(product, b: 123456789, tr: x) $
@@ -137,7 +137,7 @@ $attach(limits(product), t: 123456789) attach(limits(product), t: 123456789, bl:
 
 $attach(limits(product), b: 123456789) attach(limits(product), b: 123456789, tr: x)$
 
---- math-attach-kerning ---
+--- math-attach-kerning paged ---
 // Test math kerning.
 #show math.equation: set text(font: "STIX Two Math")
 
@@ -148,7 +148,7 @@ $ L^A Y^c R^2 delta^y omega^f a^2 t^w gamma^V p^+ \
   attach(cal(P), tl: iota) attach(f, bl: i) attach(A, bl: x)
   attach(cal(J), bl: xi) attach(cal(A), bl: m) $
 
---- math-attach-kerning-mixed ---
+--- math-attach-kerning-mixed paged ---
 // Test mixtures of math kerning.
 #show math.equation: set text(font: "STIX Two Math")
 
@@ -160,7 +160,7 @@ $ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
   attach(cal(y), tr: p, bl: n t) attach(cal(O), tl: 16, tr: +, br: sigma)
   attach(italic(Upsilon), tr: s, br: Psi, bl: d) $
 
---- math-attach-nested-base ---
+--- math-attach-nested-base paged ---
 // Test attachments when the base has attachments.
 $ attach(a^b, b: c) quad
   attach(attach(attach(attach(attach(attach(sum, tl: 1), t: 2), tr: 3), br: 4), b: 5), bl: 6) $
@@ -173,7 +173,7 @@ $ a0 + a1 + a0_2 \
   a1_2 + a0^2 + a1^2 \
   a2 + a2_2 + a2^2 $
 
---- math-attach-nested-deep-base ---
+--- math-attach-nested-deep-base paged ---
 // Test attachments when the base has attachments and is nested arbitrarily
 // deep.
 #{
@@ -184,14 +184,21 @@ $ a0 + a1 + a0_2 \
   $var_2$
 }
 
---- math-attach-scripts-extended-shapes ---
+--- math-attach-scripts-extended-shapes paged ---
 // Test script attachments positioning if the base is an extended shape (or a
 // sequence of extended shapes).
 $lr(size: #130%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 
---- math-attach-missing-sides ---
+--- math-attach-missing-sides paged ---
 // Test attachments that are missing a side.
 // Error: 23-24 unexpected underscore
 $ a _ b (d _) (d'_ ) (_ c) $
 
+--- math-attach-double-chain paged ---
+// Test attachment chain grouping with doubled operators and primes
+$ mat(delim: #none,
+  a_1_2^3,  b^1^2_3,  c_1^2^3,  d^1_2_3;
+  a'_1_2^3, b'^1^2_3, c'_1^2^3, d'^1_2_3;
+  a_1'_2^3, b^1'^2_3, c_1'^2^3, d^1'_2_3;
+) $

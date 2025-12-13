@@ -2,13 +2,14 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
+use arrayvec::ArrayVec;
 use ecow::{EcoString, EcoVec, eco_format};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{Month, PrimitiveDateTime, format_description};
 
 use crate::World;
-use crate::diag::{StrResult, bail};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
@@ -274,7 +275,18 @@ impl Datetime {
         /// The second of the datetime.
         #[named]
         second: Option<u8>,
-    ) -> StrResult<Datetime> {
+    ) -> HintedStrResult<Datetime> {
+        fn format_missing_args(args: ArrayVec<&str, 3>) -> EcoString {
+            match args.as_slice() {
+                [] => unreachable!(),
+                [arg] => eco_format!("the {arg} argument"),
+                [arg1, arg2] => eco_format!("the {arg1} and {arg2} arguments"),
+                [args @ .., tail] => {
+                    eco_format!("the {}, and {tail} arguments", args.join(", "))
+                }
+            }
+        }
+
         let time = match (hour, minute, second) {
             (Some(hour), Some(minute), Some(second)) => {
                 match time::Time::from_hms(hour, minute, second) {
@@ -283,7 +295,18 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("time is incomplete"),
+            (hour, minute, second) => {
+                let args = [
+                    if hour.is_none() { Some("`hour`") } else { None },
+                    if minute.is_none() { Some("`minute`") } else { None },
+                    if second.is_none() { Some("`second`") } else { None },
+                ];
+                bail!(
+                    "time is incomplete";
+                    hint: "add {} to get a valid time",
+                    format_missing_args(args.into_iter().flatten().collect());
+                )
+            }
         };
 
         let date = match (year, month, day) {
@@ -294,7 +317,18 @@ impl Datetime {
                 }
             }
             (None, None, None) => None,
-            _ => bail!("date is incomplete"),
+            (year, month, day) => {
+                let args = [
+                    if year.is_none() { Some("`year`") } else { None },
+                    if month.is_none() { Some("`month`") } else { None },
+                    if day.is_none() { Some("`day`") } else { None },
+                ];
+                bail!(
+                    "date is incomplete";
+                    hint: "add {} to get a valid date",
+                    format_missing_args(args.into_iter().flatten().collect());
+                )
+            }
         };
 
         Ok(match (date, time) {
@@ -304,12 +338,22 @@ impl Datetime {
             (Some(date), None) => Datetime::Date(date),
             (None, Some(time)) => Datetime::Time(time),
             (None, None) => {
-                bail!("at least one of date or time must be fully specified")
+                bail!(
+                    "at least one of date or time must be fully specified";
+                    hint: "add the `hour`, `minute`, and `second` arguments to get a valid time";
+                    hint: "add the `year`, `month`, and `day` arguments to get a valid date";
+                )
             }
         })
     }
 
     /// Returns the current date.
+    ///
+    /// In the CLI, this can be overridden with the `--creation-timestamp`
+    /// argument or by setting the
+    /// [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/)
+    /// environment variable. In both cases, the value should be given as a UNIX
+    /// timestamp.
     ///
     /// ```example
     /// Today's date is

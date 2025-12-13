@@ -1,8 +1,8 @@
---- content-at-default ---
+--- content-at-default paged ---
 // Test .at() default values for content.
 #test(auto, [a].at("doesn't exist", default: auto))
 
---- content-field-syntax ---
+--- content-field-syntax paged ---
 // Test fields on elements.
 #show list: it => {
   test(it.children.len(), 3)
@@ -12,44 +12,44 @@
 - B
 - C
 
---- content-field-missing ---
+--- content-field-missing paged ---
 // Error: 25-28 heading does not have field "fun"
 #show heading: it => it.fun
 = A
 
---- content-fields ---
+--- content-fields paged ---
 // Test content fields method.
 #test([a].fields(), (text: "a"))
 #test([a *b*].fields(),  (children: ([a], [ ], strong[b])))
 
---- content-fields-mutable-invalid ---
+--- content-fields-mutable-invalid paged ---
 #{
   let object = [hi]
   // Error: 3-9 cannot mutate fields on content
   object.property = "value"
 }
 
---- content-field-materialized-table ---
+--- content-field-materialized-table paged ---
 // Ensure that fields from set rules are materialized into the element before
 // a show rule runs.
 #set table(columns: (10pt, auto))
 #show table: it => it.columns
 #table[A][B][C][D]
 
---- content-field-materialized-heading ---
+--- content-field-materialized-heading paged ---
 // Test it again with a different element.
 #set heading(numbering: "(I)")
 #show heading: set text(size: 11pt, weight: "regular")
 #show heading: it => it.numbering
 = Heading
 
---- content-field-materialized-query ---
+--- content-field-materialized-query paged ---
 // Test it with query.
 #set raw(lang: "rust")
 #context query(<myraw>).first().lang
 `raw` <myraw>
 
---- content-fields-complex ---
+--- content-fields-complex paged ---
 // Integrated test for content fields. The idea is to parse a normal looking
 // equation and symbolically evaluate it with the given variable values.
 
@@ -59,7 +59,7 @@
     let func = elem.func()
     if elem.has("text") {
       let text = elem.text
-      if regex("^\d+$") in text {
+      if regex("^\\d+$") in text {
         int(text)
       } else if text in vars {
         int(vars.at(text))
@@ -95,7 +95,7 @@
 // This should generate the same output as:
 // With $x = 2$ and $y = 3$ we have: $ x y + y^2 = 15 $
 
---- content-label-has-method ---
+--- content-label-has-method paged ---
 // Test whether the label is accessible through the `has` method.
 #show heading: it => {
   assert(it.has("label"))
@@ -104,7 +104,7 @@
 
 = Hello, world! <my-label>
 
---- content-label-field-access ---
+--- content-label-field-access paged ---
 // Test whether the label is accessible through field syntax.
 #show heading: it => {
   assert(str(it.label) == "my-label")
@@ -113,7 +113,7 @@
 
 = Hello, world! <my-label>
 
---- content-label-fields-method ---
+--- content-label-fields-method paged ---
 // Test whether the label is accessible through the fields method.
 #show heading: it => {
   assert("label" in it.fields())
@@ -123,14 +123,14 @@
 
 = Hello, world! <my-label>
 
---- content-fields-unset ---
+--- content-fields-unset paged ---
 // Error: 10-15 field "block" in raw is not known at this point
 #raw("").block
 
---- content-fields-unset-no-default ---
+--- content-fields-unset-no-default paged ---
 // Error: 2-21 field "block" in raw is not known at this point and no default was specified
 #raw("").at("block")
 
---- content-try-to-access-internal-field ---
+--- content-try-to-access-internal-field paged ---
 // Error: 9-15 hide does not have field "hidden"
 #hide[].hidden

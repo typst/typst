@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Deref, Range};
 use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::Spanned;
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -50,7 +50,7 @@ pub use crate::__format_str as format_str;
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
 /// zero-based and negative indices wrap around to the end of the string.
 ///
-/// You can convert a value to a string with this type's constructor.
+/// You can convert a value to a string with the `str` constructor.
 ///
 /// # Example
 /// ```example
@@ -58,8 +58,8 @@ pub use crate::__format_str as format_str;
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
 /// #"1,2;3".split(regex("[,;]")) \
-/// #(regex("\d+") in "ten euros") \
-/// #(regex("\d+") in "10 euros")
+/// #(regex("\\d+") in "ten euros") \
+/// #(regex("\\d+") in "10 euros")
 /// ```
 ///
 /// # Escape sequences { #escapes }
@@ -154,21 +154,28 @@ impl Str {
         value: ToStr,
         /// The base (radix) to display integers in, between 2 and 36.
         #[named]
-        #[default(Spanned::new(10, Span::detached()))]
-        base: Spanned<i64>,
+        #[default(Spanned::detached(Base::Default))]
+        base: Spanned<Base>,
     ) -> SourceResult<Str> {
         Ok(match value {
             ToStr::Str(s) => {
-                if base.v != 10 {
+                if matches!(base.v, Base::User(_)) {
                     bail!(base.span, "base is only supported for integers");
                 }
                 s
             }
             ToStr::Int(n) => {
-                if base.v < 2 || base.v > 36 {
+                let b = base.v.value();
+                if b == 1 && n > 0 {
+                    bail!(
+                        base.span, "base must be between 2 and 36";
+                        hint: "generate a unary representation with `\"1\" * {n}`";
+                    );
+                }
+                if b < 2 || b > 36 {
                     bail!(base.span, "base must be between 2 and 36");
                 }
-                repr::format_int_with_base(n, base.v).into()
+                repr::format_int_with_base(n, b).into()
             }
         })
     }
@@ -254,6 +261,9 @@ impl Str {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
+        if end.is_some() && count.is_some() {
+            bail!("`end` and `count` are mutually exclusive");
+        }
         let start = self.locate(start)?;
         let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
@@ -842,10 +852,33 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid UTF-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+/// Similar to `Option<i64>`, but the default value casts to `10` rather than
+/// `none`, so that the right default value is documented.
+#[derive(Debug, Copy, Clone)]
+pub enum Base {
+    Default,
+    User(i64),
+}
+
+impl Base {
+    pub fn value(self) -> i64 {
+        match self {
+            Self::Default => 10,
+            Self::User(b) => b,
+        }
+    }
+}
+
+cast! {
+    Base,
+    self => self.value().into_value(),
+    v: i64 => Self::User(v),
 }
 
 /// A Unicode normalization form.
@@ -933,7 +966,7 @@ fn string_is_empty() -> EcoString {
 /// #"a,b;c".split(regex("[,;]"))
 ///
 /// // Works with show rules.
-/// #show regex("\d+"): set text(red)
+/// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
 /// ```
@@ -955,14 +988,18 @@ impl Regex {
     pub fn construct(
         /// The regular expression as a string.
         ///
-        /// Most regex escape sequences just work because they are not valid Typst
-        /// escape sequences. To produce regex escape sequences that are also valid in
-        /// Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
-        /// backslash, you would need to write `{regex("\\\\")}`.
+        /// Both Typst strings and regular expressions use backslashes for
+        /// escaping. To produce a regex escape sequence that is also valid in
+        /// Typst, you need to escape the backslash itself (e.g., writing
+        /// `{regex("\\\\")}` for the regex `\\`). Regex escape sequences that
+        /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
+        /// entered into strings directly, but it's good practice to still
+        /// escape them to avoid ambiguity (i.e., `{regex("\\b\\d")}`). See the
+        /// [list of valid string escape sequences]($str/#escapes).
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
+        /// ``{regex(`\d+\.\d+\.\d+`.text)}``.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)

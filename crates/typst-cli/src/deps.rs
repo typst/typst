@@ -1,5 +1,7 @@
-use std::ffi::OsString;
 use std::io::{self, Write};
+use std::path::PathBuf;
+
+use serde::Serialize;
 
 use crate::args::{DepsFormat, Output};
 use crate::world::SystemWorld;
@@ -12,7 +14,7 @@ pub fn write_deps(
     outputs: Option<&[Output]>,
 ) -> io::Result<()> {
     match format {
-        DepsFormat::Json => write_deps_json(world, dest)?,
+        DepsFormat::Json => write_deps_json(world, dest, outputs)?,
         DepsFormat::Zero => write_deps_zero(world, dest)?,
         DepsFormat::Make => {
             if let Some(outputs) = outputs {
@@ -24,24 +26,47 @@ pub fn write_deps(
 }
 
 /// Writes dependencies in JSON format.
-fn write_deps_json(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
-    use serde::ser::{SerializeSeq, Serializer};
-
-    let dest = dest.open()?;
-    let mut serializer = serde_json::Serializer::new(dest);
-    let mut seq = serializer.serialize_seq(None)?;
-
-    for dep in relative_dependencies(world)? {
-        let string = dep.as_os_str().to_str().ok_or_else(|| {
+fn write_deps_json(
+    world: &mut SystemWorld,
+    dest: &Output,
+    outputs: Option<&[Output]>,
+) -> io::Result<()> {
+    let to_string = |dep: PathBuf, kind| {
+        dep.into_os_string().into_string().map_err(|dep| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("{dep:?} is not valid utf-8"),
+                format!("{kind} {dep:?} is not valid UTF-8"),
             )
-        })?;
-        seq.serialize_element(string)?;
+        })
+    };
+
+    let inputs = relative_dependencies(world)?
+        .map(|dep| to_string(dep, "input"))
+        .collect::<Result<_, _>>()?;
+
+    let outputs = outputs
+        .map(|outputs| {
+            outputs
+                .iter()
+                .filter_map(|output| {
+                    match output {
+                        Output::Path(path) => Some(to_string(path.clone(), "output")),
+                        // Skip stdout
+                        Output::Stdout => None,
+                    }
+                })
+                .collect::<Result<_, _>>()
+        })
+        .transpose()?;
+
+    #[derive(Serialize)]
+    struct Deps {
+        inputs: Vec<String>,
+        outputs: Option<Vec<String>>,
     }
 
-    seq.end()?;
+    serde_json::to_writer(dest.open()?, &Deps { inputs, outputs })?;
+
     Ok(())
 }
 
@@ -49,7 +74,7 @@ fn write_deps_json(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
 fn write_deps_zero(world: &mut SystemWorld, dest: &Output) -> io::Result<()> {
     let mut dest = dest.open()?;
     for dep in relative_dependencies(world)? {
-        dest.write_all(dep.as_encoded_bytes())?;
+        dest.write_all(dep.as_os_str().as_encoded_bytes())?;
         dest.write_all(b"\0")?;
     }
     Ok(())
@@ -61,7 +86,7 @@ fn write_deps_make(
     dest: &Output,
     outputs: &[Output],
 ) -> io::Result<()> {
-    let mut dest = dest.open()?;
+    let mut buffer = Vec::new();
     for (i, output) in outputs.iter().enumerate() {
         let path = match output {
             Output::Path(path) => path.as_os_str(),
@@ -79,10 +104,14 @@ fn write_deps_make(
         // processed.
         let Some(string) = path.to_str() else { continue };
         if i != 0 {
-            dest.write_all(b" ")?;
+            buffer.write_all(b" ")?;
         }
-        dest.write_all(munge(string).as_bytes())?;
+        buffer.write_all(munge(string).as_bytes())?;
     }
+
+    // Only create the deps file in case of valid output paths.
+    let mut dest = dest.open()?;
+    dest.write_all(&buffer)?;
     dest.write_all(b":")?;
 
     for dep in relative_dependencies(world)? {
@@ -136,7 +165,7 @@ fn munge(s: &str) -> String {
 /// current directory.
 fn relative_dependencies(
     world: &mut SystemWorld,
-) -> io::Result<impl Iterator<Item = OsString>> {
+) -> io::Result<impl Iterator<Item = PathBuf>> {
     let root = world.root().to_owned();
     let current_dir = std::env::current_dir()?;
     let relative_root =
@@ -145,6 +174,5 @@ fn relative_dependencies(
         dependency
             .strip_prefix(&root)
             .map_or_else(|_| dependency.clone(), |x| relative_root.join(x))
-            .into_os_string()
     }))
 }

@@ -1,6 +1,6 @@
 // Test break and continue in loops.
 
---- loop-break-basic ---
+--- loop-break-basic paged ---
 // Test break.
 
 #let var = 0
@@ -17,7 +17,7 @@
 #test(var, 21)
 #test(error, false)
 
---- loop-break-join-basic ---
+--- loop-break-join-basic paged ---
 // Test joining with break.
 
 #let i = 0
@@ -32,7 +32,7 @@
 
 #test(x, "12345.")
 
---- loop-continue-basic ---
+--- loop-continue-basic paged ---
 // Test continue.
 
 #let i = 0
@@ -49,7 +49,7 @@
 // If continue did not work, this would equal 10.
 #test(x, 12)
 
---- loop-continue-join ---
+--- loop-continue-join paged ---
 // Test joining with continue.
 
 #let x = for i in range(5) {
@@ -63,7 +63,7 @@
 
 #test(x, "a_a1a2a_a4")
 
---- loop-break-outside-of-loop ---
+--- loop-break-outside-of-loop paged ---
 // Test break outside of loop.
 #let f() = {
   // Error: 3-8 cannot break outside of loop
@@ -74,7 +74,7 @@
   f()
 }
 
---- loop-break-join-in-last-arg ---
+--- loop-break-join-in-last-arg paged ---
 // Test break in function call.
 #let identity(x) = x
 #let out = for i in range(5) {
@@ -88,17 +88,17 @@
 
 #test(out, "AB")
 
---- loop-continue-outside-of-loop-in-block ---
+--- loop-continue-outside-of-loop-in-block paged ---
 // Test continue outside of loop.
 
 // Error: 12-20 cannot continue outside of loop
 #let x = { continue }
 
---- loop-continue-outside-of-loop-in-markup ---
+--- loop-continue-outside-of-loop-in-markup paged ---
 // Error: 2-10 cannot continue outside of loop
 #continue
 
---- loop-break-join-in-nested-blocks ---
+--- loop-break-join-in-nested-blocks paged ---
 // Should output `Hello World 🌎`.
 #for _ in range(10) {
   [Hello ]
@@ -108,7 +108,7 @@
   }]
 }
 
---- loop-break-join-set-and-show ---
+--- loop-break-join-set-and-show paged ---
 // Should output `Some` in red, `Some` in blue and `Last` in green.
 // Everything should be in smallcaps.
 #for color in (red, blue, green, yellow) [
@@ -122,7 +122,7 @@
   ])
 ]
 
---- loop-break-join-in-set-rule-args ---
+--- loop-break-join-in-set-rule-args paged ---
 // Test break in set rule.
 // Should output `Hi` in blue.
 #for i in range(10) {
@@ -131,7 +131,7 @@
   [Not happening]
 }
 
---- loop-break-join-in-first-arg ---
+--- loop-break-join-in-first-arg paged ---
 // Test second block during break flow.
 
 #for i in range(10) {

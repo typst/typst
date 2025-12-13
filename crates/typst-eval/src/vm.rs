@@ -1,6 +1,7 @@
 use comemo::Tracked;
+use ecow::eco_format;
 use typst_library::World;
-use typst_library::diag::warning;
+use typst_library::diag::{HintedString, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Binding, Context, IntoValue, Scopes, Value};
 use typst_syntax::Span;
@@ -65,7 +66,7 @@ impl<'a> Vm<'a> {
                 "`is` will likely become a keyword in future versions and will \
                 not be allowed as an identifier";
                 hint: "rename this variable to avoid future errors";
-                hint: "try `is_` instead"
+                hint: "try `is_` instead";
             ));
         }
 
@@ -79,4 +80,21 @@ impl<'a> Vm<'a> {
             .sink
             .value(value.clone(), self.context.styles().ok().map(|s| s.to_map()));
     }
+}
+
+/// Provide a hint if the callee is a shadowed standard library function.
+pub fn hint_if_shadowed_std(
+    vm: &mut Vm,
+    callee: &ast::Expr,
+    mut err: HintedString,
+) -> HintedString {
+    if let ast::Expr::Ident(ident) = callee {
+        let ident = ident.get();
+        if vm.scopes.check_std_shadowed(ident) {
+            err.hint(eco_format!(
+                "use `std.{ident}` to access the shadowed standard library function",
+            ));
+        }
+    }
+    err
 }

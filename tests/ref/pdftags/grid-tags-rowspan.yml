@@ -37,6 +37,7 @@
           /TextDecorationType: Underline
           /K:
             - Content: page=0 mcid=5
+              /Lang: "en"
     - Tag: Div
       /K:
         - Tag: Span
