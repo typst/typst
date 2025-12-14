@@ -1,11 +1,12 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Corners, Frame, FrameItem, Point, Rel, Sides, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 
 use super::{FrameFragment, MathContext, style_cramped};
+use crate::shapes::styled_rect;
 
 /// Lays out a [`RootElem`].
 ///
@@ -126,29 +127,24 @@ pub fn layout_root(
     frame.push(line_pos, line);
 
     // The horizontal line of the root symbol is drawn with a geometry object,
-    // not a text glyph, so the text's stroke style was not automatically applied and we
-    // need to apply it by drawing around the horizontal line.
+    // not a text glyph, so the text's stroke style was not automatically
+    // applied and we need to apply it by drawing around the horizontal line.
     if let Some(stroke) = styles.get_ref(TextElem::stroke) {
-        let stroke_thickness = stroke.thickness.resolve(styles).unwrap_or(Abs::pt(1.0));
-        let fixed_stroke = FixedStroke::from_pair(
-            stroke.paint.clone().unwrap_or(text_fill.clone()),
-            stroke_thickness,
+        let fixed_stroke = stroke.clone().resolve(styles).unwrap_or_default();
+        let sides = styled_rect(
+            Size::new(line_width, thickness),
+            &Corners::splat(Rel::<Abs>::zero()),
+            Some(text_fill),
+            &Sides::new(
+                None, // We shouldn't draw the left-side edge.
+                Some(fixed_stroke.clone()),
+                Some(fixed_stroke.clone()),
+                Some(fixed_stroke),
+            ),
         );
-        let horizontal_edge = FrameItem::Shape(
-            Geometry::Line(Point::with_x(line_width)).stroked(fixed_stroke.clone()),
-            span,
-        );
-        let vertical_edge = FrameItem::Shape(
-            Geometry::Line(Point::with_y(thickness + stroke_thickness))
-                .stroked(fixed_stroke),
-            span,
-        );
-        frame.push(line_pos - Point::with_y(thickness / 2.0), horizontal_edge.clone());
-        frame.push(line_pos + Point::with_y(thickness / 2.0), horizontal_edge);
-        frame.push(
-            line_pos + Point::new(line_width, -(thickness + stroke_thickness) / 2.0),
-            vertical_edge,
-        );
+        frame.push_multiple(sides.into_iter().map(|shape| {
+            (line_pos - Point::with_y(thickness / 2.0), FrameItem::Shape(shape, span))
+        }));
     }
 
     frame.push_frame(radicand_pos, radicand);
