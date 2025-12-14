@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
+use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Corners, Frame, FrameItem, Point, Rel, Sides, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
@@ -55,18 +55,15 @@ pub fn layout_root(
     }
     .at(size);
 
-    let text_fill = styles.get_ref(TextElem::fill).as_decoration();
+    let text_fill = sqrt
+        .fill()
+        .unwrap_or_else(|| styles.get_ref(TextElem::fill).as_decoration());
     let line_width = radicand.width();
-    let line = FrameItem::Shape(
-        Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke::from_pair(
-            sqrt.fill().unwrap_or(text_fill.clone()),
-            thickness,
-        )),
-        span,
-    );
 
     let target = radicand.height() + thickness + gap;
     sqrt.stretch_vertical(ctx, target, Abs::zero());
+    let sqrt_fill = sqrt.fill();
+    let sqrt_stroke = sqrt.stroke();
     let sqrt = sqrt.into_frame();
 
     // Layout the index.
@@ -124,19 +121,15 @@ pub fn layout_root(
     }
 
     frame.push_frame(sqrt_pos, sqrt);
-    frame.push(line_pos, line);
 
-    // The horizontal line of the root symbol is drawn with a geometry object,
-    // not a text glyph, so the text's stroke style was not automatically
-    // applied and we need to apply it by drawing around the horizontal line.
-    if let Some(stroke) = styles.get_ref(TextElem::stroke) {
-        let fixed_stroke = stroke.clone().resolve(styles).unwrap_or_default();
+    // Add the horizontal line of the root symbol.
+    if let Some(fixed_stroke) = sqrt_stroke {
         let sides = styled_rect(
             Size::new(line_width, thickness),
             &Corners::splat(Rel::<Abs>::zero()),
             Some(text_fill),
             &Sides::new(
-                None, // We shouldn't draw the left-side edge.
+                None, // Omit the left-side edge.
                 Some(fixed_stroke.clone()),
                 Some(fixed_stroke.clone()),
                 Some(fixed_stroke),
@@ -145,6 +138,15 @@ pub fn layout_root(
         frame.push_multiple(sides.into_iter().map(|shape| {
             (line_pos - Point::with_y(thickness / 2.0), FrameItem::Shape(shape, span))
         }));
+    } else {
+        let line = FrameItem::Shape(
+            Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke::from_pair(
+                sqrt_fill.unwrap_or(text_fill.clone()),
+                thickness,
+            )),
+            span,
+        );
+        frame.push(line_pos, line);
     }
 
     frame.push_frame(radicand_pos, radicand);
