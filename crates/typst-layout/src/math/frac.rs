@@ -149,10 +149,7 @@ fn layout_vertical_frac_like(
             Some(stroke) => Geometry::Rect(Size::new(line_width, thickness))
                 .filled_and_stroked(
                     text_fill.clone(),
-                    FixedStroke::from_pair(
-                        stroke.paint.clone().unwrap_or(text_fill),
-                        stroke.thickness.resolve(styles).unwrap_or(Abs::pt(1.0)),
-                    ),
+                    stroke.clone().resolve(styles).unwrap_or_default(),
                 ),
             None => Geometry::Line(Point::with_x(line_width))
                 .stroked(FixedStroke::from_pair(text_fill, thickness)),
