@@ -75,7 +75,10 @@ fn html_document_impl(
     let arenas = Arenas::default();
     let mut info = DocumentInfo::default();
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument { info: &mut info, is_inline: HtmlElem::is_inline },
+        RealizationKind::HtmlDocument {
+            info: &mut info,
+            is_phrasing: HtmlElem::is_phrasing,
+        },
         &mut engine,
         &mut locator,
         &arenas,
