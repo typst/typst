@@ -127,7 +127,10 @@ pub fn layout_number(
 
         // This won't panic as ASCII digits and '.' will never end up as
         // nothing after shaping.
-        let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
+        let mut glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
+        if c == ',' {
+            glyph.class = MathClass::Normal;
+        }
         fragments.push(glyph.into());
     }
     let frame = MathRun::new(fragments).into_frame(styles);
