@@ -62,7 +62,6 @@ pub fn layout_root(
 
     let target = radicand.height() + thickness + gap;
     sqrt.stretch_vertical(ctx, target, Abs::zero());
-    let sqrt_fill = sqrt.fill();
     let sqrt_stroke = sqrt.stroke();
     let sqrt = sqrt.into_frame();
 
@@ -140,10 +139,8 @@ pub fn layout_root(
         }));
     } else {
         let line = FrameItem::Shape(
-            Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke::from_pair(
-                sqrt_fill.unwrap_or(text_fill.clone()),
-                thickness,
-            )),
+            Geometry::Line(Point::with_x(line_width))
+                .stroked(FixedStroke::from_pair(text_fill, thickness)),
             span,
         );
         frame.push(line_pos, line);
