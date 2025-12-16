@@ -11,7 +11,6 @@ use std::sync::OnceLock;
 use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 
-use regex::Regex;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
 use typst_syntax::{FileId, Lines, VirtualPath};
@@ -86,8 +85,9 @@ macro_rules! regexes {
 regexes! {
     message_filters:
     // Heuristics to normalize Windows file paths:
-    // - a backslash that is not a `\u{...}` is probably from a path
-    r"\\([^u])" => r"/$1",
+    // - a backslash followed by an alphabetic character or a space is probably
+    //   from a path, except for '\u{...}'
+    r"\\([a-tv-zA-Z ])" => r"/$1",
 }
 
 regexes! {
@@ -484,7 +484,7 @@ impl<'a> Runner<'a> {
 
         let message = &normalize_string(&diag.message, message_filters());
         let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range, &diag.message, stage);
+        self.validate_note(kind, diag.span.id(), range, message, stage);
 
         // Check hints.
         for hint in &diag.hints {
