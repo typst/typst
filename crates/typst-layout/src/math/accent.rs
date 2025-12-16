@@ -24,7 +24,7 @@ pub fn layout_accent(
     let flac = style_flac();
     let modified;
     let accent = if top_accent && base.ascent() > flattened_base_height {
-        modified = item.accent.chained(&flac);
+        modified = item.accent.chained(ctx.arenas, &flac);
         &modified
     } else {
         &item.accent

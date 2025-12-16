@@ -112,7 +112,7 @@ pub fn layout_glyph(
     props: &MathProperties,
 ) -> SourceResult<()> {
     if let Some(mut glyph) =
-        GlyphFragment::new(ctx.engine.world, styles, &item.text, props.span)
+        GlyphFragment::new(ctx.engine.world, styles, item.text, props.span)
     {
         if glyph.class == MathClass::Large {
             if styles.get(EquationElem::size) == MathSize::Display {

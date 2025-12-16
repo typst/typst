@@ -1,29 +1,34 @@
-use ecow::EcoVec;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Chainable, StyleChain};
 use crate::math::ir::item::MathItem;
 use crate::math::{Limits, MEDIUM, MathComponent, MathKind, MathSize, THICK, THIN};
+use crate::routines::Arenas;
 
 /// A processed collection of [`MathItem`]s.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MathRun<'a> {
-    pub(crate) items: EcoVec<MathItem<'a>>,
+    pub(crate) items: &'a [MathItem<'a>],
     pub(crate) styles: StyleChain<'a>,
 }
 
 impl<'a> MathRun<'a> {
-    pub(crate) fn new<I>(items: I, styles: StyleChain<'a>) -> MathRun<'a>
+    pub(crate) fn new<I>(
+        items: I,
+        arenas: &'a Arenas,
+        styles: StyleChain<'a>,
+    ) -> MathRun<'a>
     where
         I: IntoIterator<Item = MathItem<'a>>,
         I::IntoIter: ExactSizeIterator,
     {
-        Self::create(items, styles, false)
+        Self::create(items, arenas, styles, false)
     }
 
     /// Takes the given [`MathItem`]s and do some basic processing.
     pub(crate) fn create<I>(
         items: I,
+        arenas: &'a Arenas,
         styles: StyleChain<'a>,
         closing: bool,
     ) -> MathRun<'a>
@@ -32,7 +37,7 @@ impl<'a> MathRun<'a> {
         I::IntoIter: ExactSizeIterator,
     {
         let iter = items.into_iter();
-        let mut resolved = EcoVec::with_capacity(iter.len());
+        let mut resolved = Vec::with_capacity(iter.len());
         let iter = iter.peekable();
 
         let mut last: Option<usize> = None;
@@ -59,9 +64,7 @@ impl<'a> MathRun<'a> {
                         }
 
                         let idx = resolved.len() - 1;
-                        if let MathItem::Spacing(prev, true) =
-                            &mut resolved.make_mut()[idx]
-                        {
+                        if let MathItem::Spacing(prev, true) = &mut resolved[idx] {
                             *prev = (*prev).max(width);
                             continue;
                         }
@@ -107,8 +110,7 @@ impl<'a> MathRun<'a> {
             // Insert spacing between the last and this non-ignorant item.
             if !item.is_ignorant() {
                 if let Some(i) = last
-                    && let Some(s) =
-                        spacing(&mut resolved.make_mut()[i], space.take(), &mut item)
+                    && let Some(s) = spacing(&mut resolved[i], space.take(), &mut item)
                 {
                     resolved.insert(i + 1, s);
                 }
@@ -123,7 +125,7 @@ impl<'a> MathRun<'a> {
         if closing
             && !resolved.is_empty()
             && let idx = resolved.len() - 1
-            && let item = &mut resolved.make_mut()[idx]
+            && let item = &mut resolved[idx]
             && item.rclass() == MathClass::Punctuation
             && item.size().is_none_or(|s| s > MathSize::Script)
         {
@@ -132,7 +134,10 @@ impl<'a> MathRun<'a> {
             resolved.pop();
         }
 
-        Self { items: resolved, styles }
+        Self {
+            items: arenas.bump.alloc_slice_fill_iter(resolved),
+            styles,
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &MathItem<'a>> {
@@ -148,22 +153,21 @@ impl<'a> MathRun<'a> {
     ///
     /// This isn't very efficient but is called in only one place: accent
     /// layout to apply the flac feature.
-    pub fn chained<'b, T>(&'b self, style: &'b T) -> MathRun<'b>
+    pub fn chained<'b, T>(&'b self, arenas: &'a Arenas, style: &'b T) -> MathRun<'b>
     where
         T: Chainable,
     {
-        let items: EcoVec<MathItem<'b>> = self
-            .items
-            .iter()
-            .map(|item| match item {
-                MathItem::Component(comp) => {
-                    let mut new_comp: MathComponent<'b> = comp.clone();
-                    new_comp.styles = comp.styles.chain(style);
-                    MathItem::Component(new_comp)
-                }
-                other => other.clone(),
-            })
-            .collect();
+        let items =
+            arenas
+                .bump
+                .alloc_slice_fill_iter(self.items.iter().map(|item| match item {
+                    MathItem::Component(comp) => {
+                        let mut new_comp: MathComponent<'b> = comp.clone();
+                        new_comp.styles = comp.styles.chain(style);
+                        MathItem::Component(new_comp)
+                    }
+                    other => other.clone(),
+                }));
 
         MathRun { items, styles: self.styles.chain(style) }
     }

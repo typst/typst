@@ -67,7 +67,7 @@ pub fn layout_equation_inline(
     let arenas = Arenas::default();
     let run = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
+    let mut ctx = MathContext::new(engine, &mut locator, &arenas, region, font.clone());
     let mut items = if !run.is_multiline() {
         ctx.layout_into_fragments(&run)?.into_par_items()
     } else {
@@ -124,7 +124,8 @@ pub fn layout_equation_block(
     let arenas = Arenas::default();
     let run = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
+    let mut ctx =
+        MathContext::new(engine, &mut locator, &arenas, regions.base(), font.clone());
     let full_equation_builder =
         ctx.layout_into_fragments(&run)?.multiline_frame_builder(styles);
     let width = full_equation_builder.size.x;
@@ -359,6 +360,7 @@ struct MathContext<'a, 'v, 'e> {
     // External.
     engine: &'v mut Engine<'e>,
     locator: &'v mut SplitLocator<'a>,
+    arenas: &'a Arenas,
     region: Region,
     // Mutable.
     fonts_stack: Vec<Font>,
@@ -370,12 +372,14 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
     fn new(
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
+        arenas: &'a Arenas,
         base: Size,
         font: Font,
     ) -> Self {
         Self {
             engine,
             locator,
+            arenas,
             region: Region::new(base, Axes::splat(false)),
             fonts_stack: vec![font],
             fragments: vec![],

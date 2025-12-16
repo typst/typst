@@ -197,8 +197,8 @@ pub enum MathKind<'a> {
     Group(GroupItem<'a>),
     Line(LineItem<'a>),
     Primes(PrimesItem<'a>),
-    Glyph(GlyphItem),
-    Text(TextItem),
+    Glyph(GlyphItem<'a>),
+    Text(TextItem<'a>),
     External(ExternalItem<'a>),
     Box(BoxItem<'a>),
     // Boxed variants.
@@ -269,7 +269,7 @@ impl MathProperties {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct GroupItem<'a> {
     pub items: MathRun<'a>,
 }
@@ -277,12 +277,12 @@ pub struct GroupItem<'a> {
 impl<'a> GroupItem<'a> {
     pub(crate) fn create(run: MathRun<'a>) -> MathItem<'a> {
         let props = MathProperties::default(run.styles);
-        let kind = MathKind::Group(Self { items: run.clone() });
+        let kind = MathKind::Group(Self { items: run });
         MathComponent { kind, props, styles: run.styles }.into()
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct RadicalItem<'a> {
     pub radicand: MathRun<'a>,
     pub index: Option<MathRun<'a>>,
@@ -304,7 +304,7 @@ impl<'a> RadicalItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct FencedItem<'a> {
     pub open: Option<MathRun<'a>>,
     pub close: Option<MathRun<'a>>,
@@ -339,7 +339,7 @@ impl<'a> FencedItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct FractionItem<'a> {
     pub numerator: MathRun<'a>,
     pub denominator: MathRun<'a>,
@@ -364,7 +364,7 @@ impl<'a> FractionItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct SkewedFractionItem<'a> {
     pub numerator: MathRun<'a>,
     pub denominator: MathRun<'a>,
@@ -389,7 +389,7 @@ impl<'a> SkewedFractionItem<'a> {
 #[derive(Debug, Clone)]
 pub struct TableItem<'a> {
     /// By row.
-    pub cells: Vec<Vec<MathRun<'a>>>,
+    pub cells: &'a [&'a [MathRun<'a>]],
     pub gap: Axes<Rel<Abs>>,
     pub augment: Option<Augment<Abs>>,
     pub align: FixedAlignment,
@@ -407,6 +407,10 @@ impl<'a> TableItem<'a> {
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
+        let cells = bump.alloc_slice_fill_iter(cells.into_iter().map(|row| {
+            let row_slice = bump.alloc_slice_fill_iter(row);
+            row_slice as &[MathRun<'a>]
+        }));
         let kind =
             MathKind::Table(bump.alloc(Self { cells, gap, augment, align, alternator }));
         let props = MathProperties::default(styles).with_span(span);
@@ -414,7 +418,7 @@ impl<'a> TableItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ScriptsItem<'a> {
     pub base: MathRun<'a>,
     pub top: Option<MathRun<'a>>,
@@ -454,7 +458,7 @@ impl<'a> ScriptsItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AccentItem<'a> {
     pub base: MathRun<'a>,
     pub accent: MathRun<'a>,
@@ -525,7 +529,7 @@ impl<'a> CancelItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct LineItem<'a> {
     pub base: MathRun<'a>,
     pub under: bool,
@@ -546,7 +550,7 @@ impl<'a> LineItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct PrimesItem<'a> {
     pub prime: MathRun<'a>,
     pub count: usize,
@@ -564,18 +568,20 @@ impl<'a> PrimesItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TextItem {
-    pub text: EcoString,
+#[derive(Debug, Clone, Copy)]
+pub struct TextItem<'a> {
+    pub text: &'a str,
 }
 
-impl TextItem {
-    pub(crate) fn create<'a>(
+impl<'a> TextItem<'a> {
+    pub(crate) fn create(
         text: EcoString,
         line: bool,
         styles: StyleChain<'a>,
         span: Span,
+        bump: &'a Bump,
     ) -> MathItem<'a> {
+        let text = bump.alloc_str(&text);
         let kind = MathKind::Text(Self { text });
         let mut props = MathProperties::default(styles).with_span(span);
         if line {
@@ -585,18 +591,19 @@ impl TextItem {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct GlyphItem {
-    pub text: EcoString,
+#[derive(Debug, Clone, Copy)]
+pub struct GlyphItem<'a> {
+    pub text: &'a str,
     pub stretch: Option<(Rel<Abs>, Option<Axis>)>,
     pub mid_stretched: Option<bool>,
 }
 
-impl GlyphItem {
-    pub(crate) fn create<'a>(
+impl<'a> GlyphItem<'a> {
+    pub(crate) fn create(
         text: EcoString,
         styles: StyleChain<'a>,
         span: Span,
+        bump: &'a Bump,
     ) -> MathItem<'a> {
         assert!(text.graphemes(true).count() == 1);
 
@@ -608,6 +615,7 @@ impl GlyphItem {
             .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
+        let text = bump.alloc_str(&text);
         let kind = MathKind::Glyph(Self { text, stretch: None, mid_stretched: None });
         let props = MathProperties::default(styles)
             .with_limits(limits)
@@ -617,7 +625,7 @@ impl GlyphItem {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoxItem<'a> {
     pub elem: &'a Packed<BoxElem>,
 }
@@ -633,7 +641,7 @@ impl<'a> BoxItem<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ExternalItem<'a> {
     pub content: &'a Content,
 }

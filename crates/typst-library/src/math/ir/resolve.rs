@@ -101,7 +101,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
     ) -> SourceResult<MathRun<'a>> {
         let start = self.items.len();
         self.resolve_into_self(elem, styles)?;
-        Ok(MathRun::new(self.items.drain(start..), styles))
+        Ok(MathRun::new(self.items.drain(start..), self.arenas, styles))
     }
 
     fn resolve_into_item(
@@ -109,9 +109,9 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         elem: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<MathItem<'a>> {
-        let mut items = self.resolve_into_run(elem, styles)?;
+        let items = self.resolve_into_run(elem, styles)?;
         Ok(if items.items.len() == 1 {
-            items.items.pop().unwrap()
+            items.items[0].clone()
         } else {
             GroupItem::create(items)
         })
@@ -254,7 +254,13 @@ fn resolve_text<'a, 'v, 'e>(
         .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
         .collect();
 
-    ctx.push(TextItem::create(styled_text, !multiline && !num, styles, elem.span()));
+    ctx.push(TextItem::create(
+        styled_text,
+        !multiline && !num,
+        styles,
+        elem.span(),
+        &ctx.arenas.bump,
+    ));
     Ok(())
 }
 
@@ -285,7 +291,7 @@ fn resolve_symbol<'a, 'v, 'e>(
             })
             .collect();
         let styles = if enable_dtls { dtls_styles } else { styles };
-        ctx.push(GlyphItem::create(text, styles, elem.span()));
+        ctx.push(GlyphItem::create(text, styles, elem.span(), &ctx.arenas.bump));
     }
     Ok(())
 }
@@ -343,7 +349,7 @@ fn resolve_accent<'a, 'v, 'e>(
 
     ctx.push(AccentItem::create(
         base,
-        MathRun::new(vec![accent], styles),
+        MathRun::new(vec![accent], ctx.arenas, styles),
         !top_accent,
         width,
         ACCENT_SHORT_FALL,
@@ -603,7 +609,7 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
         ctx.push(FencedItem::create(
             Some(open),
             Some(close),
-            MathRun::new(vec![frac], styles),
+            MathRun::new(vec![frac], ctx.arenas, styles),
             false,
             DELIM_SHORT_FALL,
             Rel::one(),
@@ -743,7 +749,7 @@ fn resolve_lr<'a, 'v, 'e>(
                 ..
             }) = one
             {
-                let mut new_fenced = (**fenced).clone();
+                let mut new_fenced = **fenced;
                 new_fenced.target = Rel::new(
                     new_fenced.target.rel * height.rel,
                     height.rel.of(new_fenced.target.abs) + height.abs,
@@ -796,13 +802,14 @@ fn resolve_lr<'a, 'v, 'e>(
         !discard
     });
 
-    let open = opening_exists.then(|| MathRun::new(vec![inner_items.remove(0)], styles));
-    let close =
-        closing_exists.then(|| MathRun::new(vec![inner_items.pop().unwrap()], styles));
+    let open = opening_exists
+        .then(|| MathRun::new(vec![inner_items.remove(0)], ctx.arenas, styles));
+    let close = closing_exists
+        .then(|| MathRun::new(vec![inner_items.pop().unwrap()], ctx.arenas, styles));
     let item = FencedItem::create(
         open,
         close,
-        MathRun::create(inner_items, styles, closing_exists),
+        MathRun::create(inner_items, ctx.arenas, styles, closing_exists),
         true,
         DELIM_SHORT_FALL,
         height,
@@ -1012,7 +1019,7 @@ fn resolve_delimiters<'a, 'v, 'e>(
     ctx.push(FencedItem::create(
         open,
         close,
-        MathRun::new(vec![cells], styles),
+        MathRun::new(vec![cells], ctx.arenas, styles),
         false,
         DELIM_SHORT_FALL,
         target,
@@ -1253,7 +1260,7 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
 
     let base = AccentItem::create(
         base,
-        MathRun::new(vec![accent], styles),
+        MathRun::new(vec![accent], ctx.arenas, styles),
         matches!(position, Position::Under),
         Rel::one(),
         Em::zero(),
@@ -1269,7 +1276,7 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
 
     let bumped_styles = ctx.arenas.bump.alloc(styles);
 
-    let base = MathRun::new(vec![base], styles);
+    let base = MathRun::new(vec![base], ctx.arenas, styles);
     let base = match position {
         Position::Under => {
             let under_style = ctx.store_styles(style_for_subscript(styles));
