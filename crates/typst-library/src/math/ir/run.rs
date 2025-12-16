@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Chainable, StyleChain};
@@ -37,7 +38,7 @@ impl<'a> MathRun<'a> {
         I::IntoIter: ExactSizeIterator,
     {
         let iter = items.into_iter();
-        let mut resolved = Vec::with_capacity(iter.len());
+        let mut resolved: SmallVec<[MathItem; 8]> = SmallVec::with_capacity(iter.len());
         let iter = iter.peekable();
 
         let mut last: Option<usize> = None;
@@ -59,12 +60,8 @@ impl<'a> MathRun<'a> {
                     space = None;
 
                     if weak {
-                        if resolved.is_empty() {
-                            continue;
-                        }
-
-                        let idx = resolved.len() - 1;
-                        if let MathItem::Spacing(prev, true) = &mut resolved[idx] {
+                        let Some(resolved_last) = resolved.last_mut() else { continue };
+                        if let MathItem::Spacing(prev, true) = resolved_last {
                             *prev = (*prev).max(width);
                             continue;
                         }
@@ -123,9 +120,7 @@ impl<'a> MathRun<'a> {
 
         // Apply closing punctuation spacing if applicable.
         if closing
-            && !resolved.is_empty()
-            && let idx = resolved.len() - 1
-            && let item = &mut resolved[idx]
+            && let Some(item) = resolved.last_mut()
             && item.rclass() == MathClass::Punctuation
             && item.size().is_none_or(|s| s > MathSize::Script)
         {
