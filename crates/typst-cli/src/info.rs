@@ -189,6 +189,7 @@ struct Environment {
     typst_package_cache_path: Option<String>,
     typst_package_path: Option<String>,
     typst_root: Option<String>,
+    typst_registry_url: Option<String>,
     typst_update_backup_path: Option<String>,
     source_date_epoch: Option<String>,
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
@@ -217,6 +218,7 @@ impl Environment {
             typst_package_cache_path,
             typst_package_path,
             typst_root,
+            typst_registry_url,
             typst_update_backup_path,
             source_date_epoch,
             #[cfg(not(any(
@@ -259,6 +261,7 @@ impl Environment {
             ("TYPST_PACKAGE_CACHE_PATH", typst_package_cache_path),
             ("TYPST_PACKAGE_PATH", typst_package_path),
             ("TYPST_ROOT", typst_root),
+            ("TYPST_REGISTRY_URL", typst_registry_url),
             ("TYPST_UPDATE_BACKUP_PATH", typst_update_backup_path),
             ("SOURCE_DATE_EPOCH", source_date_epoch),
             #[cfg(not(any(
@@ -395,6 +398,7 @@ fn get_vars() -> StrResult<Environment> {
         typst_package_cache_path: get_var("TYPST_PACKAGE_CACHE_PATH")?,
         typst_package_path: get_var("TYPST_PACKAGE_PATH")?,
         typst_root: get_var("TYPST_ROOT")?,
+        typst_registry_url: get_var("TYPST_REGISTRY_URL")?,
         typst_update_backup_path: get_var("TYPST_UPDATE_BACKUP_PATH")?,
         source_date_epoch: get_var("SOURCE_DATE_EPOCH")?,
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]

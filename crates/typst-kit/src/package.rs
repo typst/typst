@@ -1,5 +1,6 @@
 //! Download and unpack packages and package indices.
 
+use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -37,6 +38,15 @@ pub fn default_package_cache_path() -> Option<PathBuf> {
 /// [`dirs::data_dir`].
 pub fn default_package_path() -> Option<PathBuf> {
     dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
+/// Attempts to infer the Typst registry url from the current
+/// environment.
+///
+/// This simply return [`DEFAULT_REGISTRY`] or value of
+/// environment variable `TYPST_REGISTRY_URL` if present.
+pub fn registry_url() -> String {
+    env::var("TYPST_REGISTRY_URL").unwrap_or_else(|_| DEFAULT_REGISTRY.to_string())
 }
 
 /// Holds information about where packages should be stored and downloads them
@@ -162,7 +172,8 @@ impl PackageStorage {
     fn download_index(&self) -> StrResult<&[serde_json::Value]> {
         self.index
             .get_or_try_init(|| {
-                let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
+                let reg_url = registry_url();
+                let url = format!("{reg_url}/{DEFAULT_NAMESPACE}/index.json");
                 match self.downloader.download(&url) {
                     Ok(response) => response.into_json().map_err(|err| {
                         eco_format!("failed to parse package index: {err}")
@@ -188,8 +199,9 @@ impl PackageStorage {
     ) -> PackageResult<()> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
+        let reg_url = registry_url();
         let url = format!(
-            "{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
+            "{reg_url}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
             spec.name, spec.version
         );
 
