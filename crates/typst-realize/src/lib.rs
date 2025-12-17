@@ -6,7 +6,11 @@
 
 mod space_collapse;
 
-use self::space_collapse::{SpaceState, collapse_state, collapse_state_textual};
+use crate::space_collapse::is_space;
+
+use self::space_collapse::{
+    SpaceAction, SpaceState, collapse_transition, collapse_transition_textual,
+};
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
@@ -1159,23 +1163,20 @@ fn find_regex_match_in_elems<'a>(
     let mut state = SpaceState::Destructive;
 
     for &(content, styles) in elems {
-        let (new_state, text) = collapse_state_textual(content, styles);
-        state = match new_state {
-            SpaceState::Invisible => continue,
-            SpaceState::Destructive => {
-                if state == SpaceState::Space {
-                    buf.pop();
-                }
-                SpaceState::Destructive
+        let (action, text);
+        (action, state, text) = collapse_transition_textual(state, content, styles);
+        match action {
+            SpaceAction::Invisible => continue,
+            SpaceAction::Skip => continue,
+            SpaceAction::Discard => {
+                buf.pop();
             }
-            SpaceState::Supportive => SpaceState::Supportive,
-            SpaceState::Space => {
-                if state != SpaceState::Supportive {
-                    continue;
-                }
-                SpaceState::Space
+            SpaceAction::DiscardAndSkip => {
+                buf.pop();
+                continue;
             }
-        };
+            SpaceAction::Keep => {}
+        }
 
         // We search _before_ adding the new element's text.
         if styles != current && !buf.is_empty() {
@@ -1363,24 +1364,24 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
     for i in start..buf.len() {
         let (content, styles) = buf[i];
 
-        state = match collapse_state(content, styles) {
-            SpaceState::Invisible => state,
-            SpaceState::Destructive => {
-                if state == SpaceState::Space {
-                    buf.copy_within(prev_space + 1..k, prev_space);
-                    k -= 1;
-                }
-                SpaceState::Destructive
+        let action;
+        (action, state) = collapse_transition(state, content, styles);
+        match action {
+            SpaceAction::Invisible => {}
+            SpaceAction::Skip => continue,
+            SpaceAction::Discard => {
+                buf.copy_within(prev_space + 1..k, prev_space);
+                k -= 1;
             }
-            SpaceState::Supportive => SpaceState::Supportive,
-            SpaceState::Space => {
-                if state != SpaceState::Supportive {
-                    continue;
-                }
+            SpaceAction::DiscardAndSkip => {
+                buf.copy_within(prev_space + 1..k, prev_space);
+                k -= 1;
+                continue;
+            }
+            SpaceAction::Keep => {
                 prev_space = k;
-                SpaceState::Space
             }
-        };
+        }
 
         // Copy over normal elements (in place).
         if k < i {
@@ -1389,7 +1390,7 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         k += 1;
     }
 
-    if state == SpaceState::Space {
+    if is_space(state) {
         buf.copy_within(prev_space + 1..k, prev_space);
         k -= 1;
     }
