@@ -833,6 +833,7 @@ d987856ceb0fd2f906c660cd0846c485 issue-758-link-repeat
 082220526fd005816de2a95e0e7e219c issue-785-cite-locate
 7cebe3edfd995e8e8ff41448852673a3 issue-7872-negative-scale
 366fcb9e4d729259ba5ed7a60884efb4 issue-7901-rect-negative-dimensions-radius
+d6fe56fb1defeced8b9444ba88c4a703 issue-792-newline-space-discarding
 5f13c68aa5a81e399dfab067aea2c538 issue-7991-show-text-symbol-grapheme-sliced
 787eee28e0ecf53513948ef24d29556d issue-80-emoji-linebreak
 55bbaa2e17b095e0ef810e248b0a3c30 issue-8058-show-text-grapheme-sliced
@@ -1381,6 +1382,11 @@ cc7484e8d2e021bf0505f9248809d88d mozilla-mathml-test-8
 82546612359b4db0d5c69fb3b95145c9 mozilla-mathml-test-9
 a7eb4e5840116707ca44c304f4494d5f newline-continuation-code
 8051928a5f6fd22b503f87923a5a5f84 newline-continuation-markup
+aabc3aaec45aa200ff70bee4fe091d6b newline-space-discarding-dynamic
+b51712018b66447ec62d44c4b46e5ba8 newline-space-discarding-korean
+f197cb950a6f0db96da8cb580e47c95b newline-space-discarding-punctuation
+0ba4cf5fb5794b7d7acad617b24401dd newline-space-discarding-regex-show-rule
+b01263d6534deabe85b834eccbb9e7d9 newline-space-discarding-strong
 a0688ed665a67555d551c0eebc30fed2 numbering-illegal-zero
 dbfb984edd8cb6f4256ddd7a8136f5e0 numbering-too-high
 a9e2cbaf2d9487b3e7f7ca3148310691 numbers
@@ -1823,7 +1829,7 @@ e236b38c70810f0b0014a9f9d6a28387 terms-style-change-interrupted
 5e354bd93dc0cff01a59e4539a1cbe70 text-alternates-and-stylistic-sets
 b0fb439eb79cf0505049b96c8d755bd3 text-alternates-int
 b1cd743d10eb509f067ee2aaa28a3199 text-call-body
-d0869c4feb9be36a2cc90c60b29e5aca text-chinese-basic
+890cce83a846b9edcb5e5543b6049cc7 text-chinese-basic
 f664816b545a2c9550abf54795281144 text-cjk-latin-spacing
 5cf134a9ca20a4c5b14f96880b6f4183 text-colr-svg-glyphs-different-size
 77341ef837194f201531daa2c82e9e0f text-copy-paste-ligatures
