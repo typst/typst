@@ -48,7 +48,7 @@ clap_complete = "4.2.1"
 clap_complete_nushell = "4.6.2"
 clap_mangen = { version = "0.3.0", features = ["env"] }
 codespan-reporting = "0.11"
-codex = "0.3.0"
+codex = { git = "https://github.com/typst/codex", rev = "2e43ab9" }
 color-print = "0.3.6"
 comemo = "0.5.1"
 csv = "1"
