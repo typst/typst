@@ -426,10 +426,10 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0732ab1a27b4ea05e6f9f60a5122c9924dd5123defde0d8e907f58cf643d40e6"
+source = "git+https://github.com/isuffix/codex?rev=d6c4e9e80ac9ea9b379848a70c7f4c1e7f140066#d6c4e9e80ac9ea9b379848a70c7f4c1e7f140066"
 dependencies = [
  "chinese-number",
+ "icu_properties",
 ]
 
 [[package]]
@@ -3480,6 +3480,7 @@ version = "0.15.1"
 dependencies = [
  "arrayvec",
  "bumpalo",
+ "codex",
  "comemo",
  "ecow",
  "regex",
