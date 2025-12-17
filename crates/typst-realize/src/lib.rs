@@ -36,7 +36,7 @@ use typst_syntax::Span;
 use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
 mod spaces;
-use spaces::{SpaceState, collapse_spaces, collapse_state_textual};
+use spaces::{SpaceAction, SpaceState, collapse_spaces, collapse_transition_textual};
 
 /// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
@@ -1161,23 +1161,20 @@ fn find_regex_match_in_elems<'a>(
     let mut state = SpaceState::Destructive;
 
     for &(content, styles) in elems {
-        let (new_state, text) = collapse_state_textual(content, styles);
-        state = match new_state {
-            SpaceState::Invisible => continue,
-            SpaceState::Destructive => {
-                if state == SpaceState::Space {
-                    buf.pop();
-                }
-                SpaceState::Destructive
+        let (action, text);
+        (action, state, text) = collapse_transition_textual(state, content, styles);
+        match action {
+            SpaceAction::Invisible => continue,
+            SpaceAction::Skip => continue,
+            SpaceAction::Discard => {
+                buf.pop();
             }
-            SpaceState::Supportive => SpaceState::Supportive,
-            SpaceState::Space => {
-                if state != SpaceState::Supportive {
-                    continue;
-                }
-                SpaceState::Space
+            SpaceAction::DiscardAndSkip => {
+                buf.pop();
+                continue;
             }
-        };
+            SpaceAction::Keep => {}
+        }
 
         // If styles differ, we search _before_ adding the new element's text.
         if styles != current && !buf.is_empty() {
