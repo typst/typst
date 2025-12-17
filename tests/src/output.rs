@@ -213,6 +213,10 @@ impl OutputType for Pdf {
 
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
+    fn is_skippable(doc: &Self::Doc, _: &Self::Live) -> Result<bool, ()> {
+        is_empty_paged_document(doc)
+    }
+
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
@@ -291,8 +295,8 @@ impl OutputType for Svg {
 
     const OUTPUT: TestOutput = TestOutput::Svg;
 
-    fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
-        Ok(live.is_empty())
+    fn is_skippable(doc: &Self::Doc, _: &Self::Live) -> Result<bool, ()> {
+        is_empty_paged_document(doc)
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
