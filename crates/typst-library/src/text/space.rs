@@ -8,9 +8,9 @@ use crate::foundations::{
 /// A text space.
 #[elem(Unlabellable, PlainText, Repr, PartialEq)]
 pub struct SpaceElem {
-    #[parse(false)]
     #[required]
     #[internal]
+    #[parse(false)]
     pub had_newline: bool,
 }
 

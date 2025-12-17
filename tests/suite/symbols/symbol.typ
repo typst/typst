@@ -222,12 +222,8 @@
   symbol-paths += modifier-pairs.map(((mod, _)) => path-dot + mod)
 }
 
-// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.rr`
-// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.ll`
-// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.tt`
-// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.bb`
-// Warning: 27-31 `lt.tri` is deprecated, use `lt.closed` instead
-// Warning: 27-31 `join` is deprecated, use `bowtie.big` instead
-// Warning: 27-31 `gt.tri` is deprecated, use `gt.closed` instead
+// Warning: 27-31 `spacebar` is deprecated, use `keyboard.space` instead
+// Warning: 27-31 `succ.curly.eq` is deprecated, use `succ.eq.slant` instead
+// Warning: 27-31 `prec.curly.eq` is deprecated, use `prec.eq.slant` instead
 #let _ = symbol-paths.map(eval)
 // This should be updated whenever the set of deprecated symbols updates.

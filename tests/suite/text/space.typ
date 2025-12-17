@@ -79,3 +79,136 @@ LLLLLLLLLLLLLLLLLL R _L_
 #test(space.func()(), [ ])
 // Error: 23-27 unexpected argument
 #let _ = space.func()(true)
+
+--- issue-792-newline-space-discarding paged ---
+// Test whether spaces with/without newlines are discarded adjacent to
+// Chinese/Japanese text.
+
+// Discard spaces from just a newline/comment
+换
+行
+
+注//
+释
+
+多行/*
+     */注释
+
+// Keep spaces from a space character
+空 格
+
+// With both a space and a newline it still discards
+空格 //
+注释
+
+// Even if the spaces look like this
+水
+/**/ 果
+
+--- newline-space-discarding-punctuation paged ---
+#set page(width: auto)
+// We collapse spaces next to any ideographic punctuation
+你好，
+你好。
+“你好？”
+你好。
+
+// But not if the punctuation is ambiguous on both sides
+“你好”
+“你好”
+
+--- newline-space-discarding-korean paged ---
+// Korean doesn't collapse spaces on newlines
+줄
+바꿈
+
+// Unless using ideographic punctuation
+쉼표，
+줄 바꿈
+
+--- newline-space-discarding-strong paged ---
+// Test newline space discarding with strong emphasis.
+*空 *格
+
+*换*
+行
+
+// This space still collapses because it is followed by a newline space.
+*空格 *
+换行
+
+// The second space here also collapses because it follows a newline space.
+空格
+* 换行*
+
+--- newline-space-discarding-regex-show-rule paged ---
+// Test newline space discarding with regex show rules.
+#show regex("^(new line|注 释|换行 newline|newline 换行)$"): set text(red)
+#show regex("^(newline|注释|换行newline|newline换行)$"): set text(blue)
+
+// Only Latin/Latin should keep the inferred space.
+new
+line
+
+// Chinese/Chinese, Chinese/Latin, and Latin/Chinese all collapse the space.
+注
+释
+
+换行
+newline
+
+newline
+换行
+
+--- newline-space-discarding-dynamic paged ---
+// Test newline space discarding with dynamic variables.
+#let foo = [水果] // collapses
+#foo
+#foo
+
+#let foo = [fruit] // doesn't collapse
+#foo
+#foo
+
+#let one-newline = [
+]
+#let no-newline = [ ]
+啊#one-newline;啊 // collapses
+
+啊#no-newline;啊 // doesn't collapse
+
+--- newline-space-discarding-smart-quotes paged ---
+// Test newline space discarding adjacent to smart quotes.
+A "' A '" A
+
+A
+"'
+A
+'"
+A
+
+あ "' あ '" あ
+
+// Only these spaces are discarded.
+あ
+"'
+あ
+'"
+あ
+
+--- newline-space-discarding-non-text paged ---
+// Test newline space discarding adjacent to non-textual inline elements.
+#let line = box(height: 1em, width: 1pt, fill: red)
+
+A #line A
+
+A
+#line
+A
+
+あ #line あ
+
+// Only these spaces are discarded.
+あ
+#line
+あ
