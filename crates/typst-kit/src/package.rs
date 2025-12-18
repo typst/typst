@@ -40,7 +40,7 @@ pub fn default_package_path() -> Option<PathBuf> {
     dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
 }
 
-/// Attempts to infer the Typst registry url from the current
+/// Attempts to infer the Typst registry URL from the current
 /// environment.
 ///
 /// This simply return [`DEFAULT_REGISTRY`] or value of
