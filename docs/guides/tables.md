@@ -560,7 +560,7 @@ table with only horizontal lines, you can do this:
 ```
 
 This turns off all vertical strokes and leaves the horizontal strokes in place.
-To achieve the reverse effect (only horizontal strokes), set the stroke argument
+To achieve the reverse effect (only vertical strokes), set the stroke argument
 to `{(y: none)}` instead.
 
 [Further down in the guide](#stroke-functions), we cover how to use a function
