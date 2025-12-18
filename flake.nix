@@ -79,6 +79,15 @@
               pkgs.pkg-config
               pkgs.openssl.dev
             ];
+
+            env = {
+              RUSTFLAGS =
+                if pkgs.stdenv.hostPlatform.rust.rustcTargetSpec == "x86_64-unknown-linux-gnu" then
+                  # Upstream defaults to lld on x86_64-unknown-linux-gnu, we need to use the system linker
+                  "-Clinker-features=-lld -Clink-self-contained=-linker"
+                else
+                  null;
+            };
           };
 
           # Derivation with just the dependencies, so we don't have to keep
