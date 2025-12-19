@@ -1,11 +1,12 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Corners, Frame, FrameItem, Point, Rel, Sides, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 
 use super::{FrameFragment, MathContext, style_cramped};
+use crate::shapes::styled_rect;
 
 /// Lays out a [`RootElem`].
 ///
@@ -54,17 +55,14 @@ pub fn layout_root(
     }
     .at(size);
 
-    let line = FrameItem::Shape(
-        Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke::from_pair(
-            sqrt.fill()
-                .unwrap_or_else(|| styles.get_ref(TextElem::fill).as_decoration()),
-            thickness,
-        )),
-        span,
-    );
+    let text_fill = sqrt
+        .fill()
+        .unwrap_or_else(|| styles.get_ref(TextElem::fill).as_decoration());
+    let line_width = radicand.width();
 
     let target = radicand.height() + thickness + gap;
     sqrt.stretch_vertical(ctx, target, Abs::zero());
+    let sqrt_stroke = sqrt.stroke();
     let sqrt = sqrt.into_frame();
 
     // Layout the index.
@@ -104,8 +102,7 @@ pub fn layout_root(
     let sqrt_x = sqrt_offset.max(Abs::zero());
     let radicand_x = sqrt_x + sqrt.width();
     let radicand_y = ascent - radicand.ascent();
-    let width = radicand_x + radicand.width();
-    let size = Size::new(width, ascent + descent);
+    let size = Size::new(radicand_x + line_width, ascent + descent);
 
     // The extra "- thickness" comes from the fact that the sqrt is placed
     // in `push_frame` with respect to its top, not its baseline.
@@ -123,7 +120,32 @@ pub fn layout_root(
     }
 
     frame.push_frame(sqrt_pos, sqrt);
-    frame.push(line_pos, line);
+
+    // Add the horizontal line of the root symbol.
+    if let Some(fixed_stroke) = sqrt_stroke {
+        let sides = styled_rect(
+            Size::new(line_width, thickness),
+            &Corners::splat(Rel::<Abs>::zero()),
+            Some(text_fill),
+            &Sides::new(
+                None, // Omit the left-side edge.
+                Some(fixed_stroke.clone()),
+                Some(fixed_stroke.clone()),
+                Some(fixed_stroke),
+            ),
+        );
+        frame.push_multiple(sides.into_iter().map(|shape| {
+            (line_pos - Point::with_y(thickness / 2.0), FrameItem::Shape(shape, span))
+        }));
+    } else {
+        let line = FrameItem::Shape(
+            Geometry::Line(Point::with_x(line_width))
+                .stroked(FixedStroke::from_pair(text_fill, thickness)),
+            span,
+        );
+        frame.push(line_pos, line);
+    }
+
     frame.push_frame(radicand_pos, radicand);
     ctx.push(FrameFragment::new(styles, frame));
 

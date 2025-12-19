@@ -144,18 +144,17 @@ fn layout_vertical_frac_like(
         right.center_on_axis();
         ctx.push(right);
     } else {
-        frame.push(
-            line_pos,
-            FrameItem::Shape(
-                Geometry::Line(Point::with_x(line_width)).stroked(
-                    FixedStroke::from_pair(
-                        styles.get_ref(TextElem::fill).as_decoration(),
-                        thickness,
-                    ),
+        let text_fill = styles.get_ref(TextElem::fill).as_decoration();
+        let line = match styles.get_ref(TextElem::stroke) {
+            Some(stroke) => Geometry::Rect(Size::new(line_width, thickness))
+                .filled_and_stroked(
+                    text_fill.clone(),
+                    stroke.clone().resolve(styles).unwrap_or_default(),
                 ),
-                span,
-            ),
-        );
+            None => Geometry::Line(Point::with_x(line_width))
+                .stroked(FixedStroke::from_pair(text_fill, thickness)),
+        };
+        frame.push(line_pos, FrameItem::Shape(line, span));
         ctx.push(FrameFragment::new(styles, frame));
     }
 
