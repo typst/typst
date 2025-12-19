@@ -33,13 +33,20 @@ pub fn layout_lr(
     let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
-    let mut max_extent = Abs::zero();
-    for fragment in inner_fragments.iter() {
-        let (font, size) = fragment.font(ctx, styles);
-        let axis = font.math().axis_height.at(size);
-        let extent = (fragment.ascent() - axis).max(fragment.descent() + axis);
-        max_extent = max_extent.max(extent);
-    }
+    let mut iter = inner_fragments.iter();
+    let first = iter.next().filter(|x| !is_delimiter(x));
+    let last = iter.next_back().filter(|x| !is_delimiter(x));
+    let max_extent = first
+        .into_iter()
+        .chain(iter)
+        .chain(last)
+        .map(|fragment| {
+            let (font, size) = fragment.font(ctx, styles);
+            let axis = font.math().axis_height.at(size);
+            (fragment.ascent() - axis).max(fragment.descent() + axis)
+        })
+        .max()
+        .unwrap_or_default();
 
     let relative_to = 2.0 * max_extent;
     let height = elem.size.resolve(styles);
@@ -118,10 +125,7 @@ fn scale_if_delimiter(
     height: Rel<Abs>,
     apply: Option<MathClass>,
 ) {
-    if matches!(
-        fragment.class(),
-        MathClass::Opening | MathClass::Closing | MathClass::Fence
-    ) {
+    if is_delimiter(fragment) {
         scale(ctx, fragment, relative_to, height);
 
         if let Some(class) = apply {
@@ -141,4 +145,9 @@ fn scale(
     // won't be stretchable anyways.
     let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
     stretch_fragment(ctx, fragment, Some(Axis::Y), Some(relative_to), height, short_fall);
+}
+
+/// Whether the given math fragment has class Opening, Closing, or Fence.
+fn is_delimiter(fragment: &MathFragment) -> bool {
+    matches!(fragment.class(), MathClass::Opening | MathClass::Closing | MathClass::Fence)
 }
