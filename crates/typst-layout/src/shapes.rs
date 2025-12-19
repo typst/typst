@@ -6,13 +6,12 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, Corner, Corners, Frame, FrameItem, Length, Point, Ratio, Region, Rel,
-    Sides, Size,
+    Abs, Axes, Corner, Corners, Frame, FrameItem, Point, Ratio, Region, Rel, Sides, Size,
 };
 use typst_library::visualize::{
     CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
-    FixedStroke, Geometry, LineCap, LineElem, Paint, PathElem, PathVertex, PolygonElem,
-    RectElem, Shape, SquareElem, Stroke,
+    FixedStroke, Geometry, LineCap, LineElem, Paint, PolygonElem, RectElem, Shape,
+    SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -50,96 +49,6 @@ pub fn layout_line(
     let mut frame = Frame::soft(size);
     let shape = Geometry::Line(delta.to_point()).stroked(stroke);
     frame.push(start.to_point(), FrameItem::Shape(shape, elem.span()));
-    Ok(frame)
-}
-
-/// Layout the path.
-#[typst_macros::time(span = elem.span())]
-pub fn layout_path(
-    elem: &Packed<PathElem>,
-    _: &mut Engine,
-    _: Locator,
-    styles: StyleChain,
-    region: Region,
-) -> SourceResult<Frame> {
-    let resolve = |axes: Axes<Rel<Length>>| {
-        axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
-    };
-
-    let vertices = &elem.vertices;
-    let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
-
-    let mut size = Size::zero();
-    if points.is_empty() {
-        return Ok(Frame::soft(size));
-    }
-
-    // Only create a path if there are more than zero points.
-    // Construct a closed path given all points.
-    let mut curve = Curve::new();
-    curve.move_(points[0]);
-
-    let mut add_cubic = |from_point: Point,
-                         to_point: Point,
-                         from: PathVertex,
-                         to: PathVertex| {
-        let from_control_point = resolve(from.control_point_from()) + from_point;
-        let to_control_point = resolve(to.control_point_to()) + to_point;
-        curve.cubic(from_control_point, to_control_point, to_point);
-
-        let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
-        let p1 = kurbo::Point::new(
-            from_control_point.x.to_raw(),
-            from_control_point.y.to_raw(),
-        );
-        let p2 =
-            kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
-        let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
-        let extrema = kurbo::CubicBez::new(p0, p1, p2, p3).bounding_box();
-        size.x.set_max(Abs::raw(extrema.x1));
-        size.y.set_max(Abs::raw(extrema.y1));
-    };
-
-    for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
-        let from = vertex_window[0];
-        let to = vertex_window[1];
-        let from_point = point_window[0];
-        let to_point = point_window[1];
-
-        add_cubic(from_point, to_point, from, to);
-    }
-
-    if elem.closed.get(styles) {
-        let from = *vertices.last().unwrap(); // We checked that we have at least one element.
-        let to = vertices[0];
-        let from_point = *points.last().unwrap();
-        let to_point = points[0];
-
-        add_cubic(from_point, to_point, from, to);
-        curve.close();
-    }
-
-    if !size.is_finite() {
-        bail!(elem.span(), "cannot create path with infinite length");
-    }
-
-    // Prepare fill and stroke.
-    let fill = elem.fill.get_cloned(styles);
-    let fill_rule = elem.fill_rule.get(styles);
-    let stroke = match elem.stroke.resolve(styles) {
-        Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
-        Smart::Auto => None,
-        Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
-    };
-
-    let mut frame = Frame::soft(size);
-    let shape = Shape {
-        geometry: Geometry::Curve(curve),
-        stroke,
-        fill,
-        fill_rule,
-    };
-    frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
     Ok(frame)
 }
 
