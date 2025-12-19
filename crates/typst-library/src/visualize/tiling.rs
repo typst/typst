@@ -141,11 +141,11 @@ impl Tiling {
         span: Span,
         /// The bounding box of each cell of the tiling.
         #[named]
-        #[default(Spanned::new(Smart::Auto, Span::detached()))]
+        #[default(Spanned::detached(Smart::Auto))]
         size: Spanned<Smart<Axes<Length>>>,
         /// The spacing between cells of the tiling.
         #[named]
-        #[default(Spanned::new(Axes::splat(Length::zero()), Span::detached()))]
+        #[default(Spanned::detached(Axes::splat(Length::zero())))]
         spacing: Spanned<Axes<Length>>,
         /// The [relative placement](#relativeness) of the tiling.
         ///
