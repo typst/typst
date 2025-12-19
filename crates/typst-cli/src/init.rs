@@ -29,8 +29,9 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
     })?;
 
     // Find or download the package.
-    let package_path =
-        package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
+    let package_path = package_storage
+        .prepare_package(&spec, &mut PrintDownload(&spec))
+        .map_err(|e| eco_format!("{e}"))?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;
