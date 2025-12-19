@@ -423,9 +423,19 @@ fn system_path(
         root = &buf;
     }
 
-    // Join the path to the root. If it tries to escape, deny
-    // access. Note: It can still escape via symlinks.
-    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+    // Join the path to the root. If it tries to escape lexically, deny access.
+    let resolved = id.vpath().resolve(root).ok_or(FileError::AccessDenied)?;
+
+    // Resolve symlinks and verify the path is still within the root.
+    if let (Ok(canonical_path), Ok(canonical_root)) =
+        (resolved.canonicalize(), root.canonicalize())
+    {
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err(FileError::AccessDenied);
+        }
+    }
+
+    Ok(resolved)
 }
 
 /// Reads a file from a `FileId`.
