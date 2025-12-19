@@ -217,7 +217,7 @@ impl<'s> SmartQuotes<'s> {
     /// Swiss / Liechtensteinian German, Estonian, Icelandic, Italian, Latin,
     /// Lithuanian, Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish,
     /// Swedish, French, Swiss French, Hungarian, Polish, Romanian, Japanese,
-    /// Traditional Chinese, Russian, Norwegian, Hebrew and Croatian.
+    /// Traditional Chinese, Russian, Norwegian, Hebrew, Galician and Croatian.
     ///
     /// For unknown languages, the English quotes are used as fallback.
     pub fn get(
@@ -246,6 +246,7 @@ impl<'s> SmartQuotes<'s> {
             "fr" if alternative => default,
             "fr" => ("“", "”", "«\u{202F}", "\u{202F}»"),
             "fi" | "sv" if alternative => ("’", "’", "»", "»"),
+            "gl" => ("“", "”", "«", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
             "it" if alternative => default,
             "la" if alternative => ("“", "”", "«\u{202F}", "\u{202F}»"),
