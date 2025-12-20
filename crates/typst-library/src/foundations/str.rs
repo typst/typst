@@ -955,7 +955,7 @@ fn string_is_empty() -> EcoString {
 /// A regular expression.
 ///
 /// Can be used as a [show rule selector]($styling/#show-rules) and with
-/// [string methods]($str) like `find`, `split`, and `replace`.
+/// [string methods]($str) like `find`, `split`, `replace`, and `match`.
 ///
 /// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
 /// of the supported syntax.
