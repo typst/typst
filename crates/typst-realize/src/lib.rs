@@ -4,6 +4,14 @@
 //! particular, show rules to produce well-known elements that can be processed
 //! further.
 
+mod space_collapse;
+
+use crate::space_collapse::is_space;
+
+use self::space_collapse::{
+    SpaceAction, SpaceState, collapse_transition, collapse_transition_textual,
+};
+
 use std::borrow::Cow;
 use std::cell::LazyCell;
 
@@ -177,17 +185,6 @@ struct RegexMatch<'a> {
     id: RecipeIndex,
     /// The recipe that matched.
     recipe: &'a Recipe,
-}
-
-/// State kept for space collapsing.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum SpaceState {
-    /// A following space will be collapsed.
-    Destructive,
-    /// A following space will be kept unless a destructive element follows.
-    Supportive,
-    /// A space exists at this index.
-    Space(usize),
 }
 
 impl<'a> State<'a, '_, '_, '_> {
@@ -1153,8 +1150,8 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
 /// Collects the element's merged textual representation into the bump arena.
 /// This merging also takes into account space collapsing so that we don't need
 /// to call `collapse_spaces` on every textual group, performing yet another
-/// linear pass. We only collapse the spaces elements themselves on the cold
-/// path where there is an actual match.
+/// linear pass. We only collapse the space elements on the cold path when there
+/// is an actual match.
 fn find_regex_match_in_elems<'a>(
     s: &State,
     elems: &[Pair<'a>],
@@ -1163,18 +1160,25 @@ fn find_regex_match_in_elems<'a>(
     let mut base = 0;
     let mut leftmost = None;
     let mut current = StyleChain::default();
-    let mut space = SpaceState::Destructive;
+    let mut state = SpaceState::Destructive;
 
     for &(content, styles) in elems {
-        if content.is::<TagElem>() {
-            continue;
+        let (action, text);
+        (action, state, text) = collapse_transition_textual(state, content, styles);
+        match action {
+            SpaceAction::Invisible => continue,
+            SpaceAction::Skip => continue,
+            SpaceAction::Discard => {
+                buf.pop();
+            }
+            SpaceAction::DiscardAndSkip => {
+                buf.pop();
+                continue;
+            }
+            SpaceAction::Keep => {}
         }
 
-        let linebreak = content.is::<LinebreakElem>();
-        if linebreak && let SpaceState::Space(_) = space {
-            buf.pop();
-        }
-
+        // We search _before_ adding the new element's text.
         if styles != current && !buf.is_empty() {
             leftmost = find_regex_match_in_str(&buf, current);
             if leftmost.is_some() {
@@ -1185,24 +1189,7 @@ fn find_regex_match_in_elems<'a>(
         }
 
         current = styles;
-        space = if content.is::<SpaceElem>() {
-            if space != SpaceState::Supportive {
-                continue;
-            }
-            buf.push(' ');
-            SpaceState::Space(0)
-        } else if linebreak {
-            buf.push('\n');
-            SpaceState::Destructive
-        } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
-            buf.push(if elem.double.get(styles) { '"' } else { '\'' });
-            SpaceState::Supportive
-        } else if let Some(elem) = content.to_packed::<TextElem>() {
-            buf.push_str(&elem.text);
-            SpaceState::Supportive
-        } else {
-            panic!("tried to find regex match in non-textual elements");
-        };
+        buf.push_str(text);
     }
 
     if leftmost.is_none() {
@@ -1367,6 +1354,7 @@ fn visit_regex_match<'a>(
 /// vicinity of destructive elements.
 fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
     let mut state = SpaceState::Destructive;
+    let mut prev_space = start;
     let mut k = start;
 
     // We do one pass over the elements, backshifting everything as necessary
@@ -1376,23 +1364,24 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
     for i in start..buf.len() {
         let (content, styles) = buf[i];
 
-        // Determine the next state.
-        if content.is::<TagElem>() {
-            // Nothing to do.
-        } else if content.is::<SpaceElem>() {
-            if state != SpaceState::Supportive {
+        let action;
+        (action, state) = collapse_transition(state, content, styles);
+        match action {
+            SpaceAction::Invisible => {}
+            SpaceAction::Skip => continue,
+            SpaceAction::Discard => {
+                buf.copy_within(prev_space + 1..k, prev_space);
+                k -= 1;
+            }
+            SpaceAction::DiscardAndSkip => {
+                buf.copy_within(prev_space + 1..k, prev_space);
+                k -= 1;
                 continue;
             }
-            state = SpaceState::Space(k);
-        } else if content.is::<LinebreakElem>() {
-            destruct_space(buf, &mut k, &mut state);
-        } else if let Some(elem) = content.to_packed::<HElem>() {
-            if elem.amount.is_fractional() || elem.weak.get(styles) {
-                destruct_space(buf, &mut k, &mut state);
+            SpaceAction::Keep => {
+                prev_space = k;
             }
-        } else {
-            state = SpaceState::Supportive;
-        };
+        }
 
         // Copy over normal elements (in place).
         if k < i {
@@ -1401,19 +1390,13 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         k += 1;
     }
 
-    destruct_space(buf, &mut k, &mut state);
+    if is_space(state) {
+        buf.copy_within(prev_space + 1..k, prev_space);
+        k -= 1;
+    }
 
     // Delete all the excess that's left due to the gaps produced by spaces.
     buf.truncate(k);
-}
-
-/// Deletes a preceding space if any.
-fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
-    if let SpaceState::Space(s) = *state {
-        buf.copy_within(s + 1..*end, s);
-        *end -= 1;
-    }
-    *state = SpaceState::Destructive;
 }
 
 /// Finds the first non-detached span in the list.
