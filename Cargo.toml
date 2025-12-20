@@ -146,7 +146,6 @@ web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
-yaml-front-matter = "0.1"
 zip = { version = "5", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]

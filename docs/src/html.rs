@@ -14,7 +14,6 @@ use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
 use unscanny::Scanner;
-use yaml_front_matter::YamlFrontMatter;
 
 use crate::{FONTS, LIBRARY, OutlineItem, Resolver, contributors};
 
@@ -51,11 +50,10 @@ impl Html {
         let mut text = md;
         let mut description = None;
         let mut title = None;
-        let document = YamlFrontMatter::parse::<Metadata>(md);
-        if let Ok(document) = &document {
-            text = &document.content;
-            title = document.metadata.title.clone();
-            description = document.metadata.description.clone();
+        if let Some((Ok(metadata), body)) = parse_yaml_font_matter::<Metadata>(md) {
+            title = metadata.title.clone();
+            description = metadata.description.clone();
+            text = body;
         }
 
         let options = md::Options::ENABLE_TABLES
@@ -545,5 +543,44 @@ impl World for DocWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+}
+
+/// Parses the first YAML document as a metadata header.
+///
+/// Expects a leading YAML document separator before the header:
+/// ```md
+/// ---
+/// this: "is the metadata header"
+/// which: "will be parsed as a YAML document"
+/// ---
+/// # The Body
+/// ```
+fn parse_yaml_font_matter<'a, T: Deserialize<'a>>(
+    markdown: &'a str,
+) -> Option<(serde_yaml::Result<T>, &'a str)> {
+    let mut lines = markdown.split_inclusive('\n');
+
+    let mut header_start = 0;
+    loop {
+        let line = lines.next()?;
+        header_start += line.len();
+        if line.trim() == "---" {
+            break;
+        }
+    }
+
+    let mut header_end = header_start;
+    loop {
+        let line = lines.next()?;
+        if line.trim() == "---" {
+            let header = &markdown[header_start..header_end];
+            let body_start = header_end + line.len();
+            let body = &markdown[body_start..];
+
+            let metadata = serde_yaml::from_str::<T>(header);
+            return Some((metadata, body));
+        }
+        header_end += line.len();
     }
 }
