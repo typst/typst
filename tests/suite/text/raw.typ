@@ -398,7 +398,7 @@ for i in range(10):
 = Chapter 1 <chap:1>
 #lorem(100)
 
-#let hi = "Hello World"
+#let hi = "Hello World\n"
 #show heading: emph
 / Chap: @chap:1[Chapter #hi]
 - *Chap:* ch--ap
@@ -448,7 +448,7 @@ binom(n, k) = n!/(k!(n - k)!)
 [\(a+b\)]/{\(c\)^[d']_{e'}_[|f|]'/[g]'/[\|h\|]!}
 f_zeta(x), f_zeta(x)/1, f_zeta (x)
 pi.alt + pi^arrow.l.long.double - π = ???
-"string" - + * ::= & \
+"string\n" - + * ::= & \
 |=> & [|define(x-y_z: #1, x::= y; xyz; 0)|]
 std.text(op("Red"), fill: red)
 #std.text(math.op("Red"), fill: red)
