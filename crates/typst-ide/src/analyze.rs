@@ -25,7 +25,13 @@ pub fn analyze_expr(
         ast::Expr::Int(v) => Value::Int(v.get()),
         ast::Expr::Float(v) => Value::Float(v.get()),
         ast::Expr::Numeric(v) => Value::numeric(v.get()),
-        ast::Expr::Str(v) => Value::Str(v.get().into()),
+        ast::Expr::Str(v) => {
+            if let Some(v) = v.get_bare() {
+                Value::Str(v.into())
+            } else {
+                return eco_vec![];
+            }
+        }
         _ => {
             if node.kind() == SyntaxKind::Contextual
                 && let Some(child) = node.children().next_back()

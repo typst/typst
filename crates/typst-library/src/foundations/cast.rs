@@ -467,12 +467,15 @@ impl FromValue for Never {
 cast! {
     SyntaxMode,
     self => IntoValue::into_value(match self {
-        SyntaxMode::Markup => "markup",
-        SyntaxMode::Math => "math",
-        SyntaxMode::Code => "code",
+        SyntaxMode::Markup=>"markup",
+        SyntaxMode::String => "string",
+        SyntaxMode::Math=>"math",
+        SyntaxMode::Code=>"code",
     }),
     /// Evaluate as markup, as in a Typst file.
     "markup" => SyntaxMode::Markup,
+    /// Evaluate as string, as in a string literal.
+    "string" => SyntaxMode::String,
     /// Evaluate as math, as in an equation.
     "math" => SyntaxMode::Math,
     /// Evaluate as code, as after a hash.

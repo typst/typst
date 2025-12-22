@@ -481,5 +481,5 @@ This is never reached.
 #import "@test/mypkg:0.3.": *
 
 --- import-from-file-package-lookalike paged ---
-// Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
-#import "#test/mypkg:1.0.0": *
+// Error: 9-28 file not found (searched at tests/suite/scripting/$test/mypkg:1.0.0)
+#import "$test/mypkg:1.0.0": *

@@ -62,6 +62,9 @@ pub(crate) use syntax_set;
 /// Syntax kinds that can start a statement.
 pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return);
 
+/// Syntax kinds that can start a string content.
+pub const STR_CONTENT: SyntaxSet = syntax_set!(StrText, StrEscape, Hash);
+
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
@@ -82,7 +85,7 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     MathAlignPoint,
     MathPrimes,
     Escape,
-    Str,
+    StrQuote,
     Root,
     // `Bang` is converted to `MathText` when parsing.
     Bang,
@@ -122,7 +125,7 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
     Float,
     Bool,
     Numeric,
-    Str,
+    StrQuote,
     Label,
     Raw,
 );

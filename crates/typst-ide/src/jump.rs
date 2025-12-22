@@ -2,7 +2,7 @@ use ecow::EcoVec;
 use typst::introspection::{DocumentPosition, HtmlPosition};
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
-use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
+use typst::syntax::{FileId, LinkedNode, Side, Source, Span};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
 use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
@@ -267,10 +267,7 @@ pub fn jump_from_click_in_frame(
                         let Some(id) = span.id() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
-                        let pos = if matches!(
-                            node.kind(),
-                            SyntaxKind::Text | SyntaxKind::MathText
-                        ) {
+                        let pos = if node.kind().is_text() {
                             let range = node.range();
                             let mut offset = range.start + usize::from(span_offset);
                             if (click.x - pos.x) > width / 2.0 {
@@ -343,15 +340,13 @@ pub fn jump_from_cursor<D: JumpInDocument>(
     source: &Source,
     cursor: usize,
 ) -> Vec<D::Position> {
-    fn is_text(node: &LinkedNode) -> bool {
-        matches!(node.kind(), SyntaxKind::Text | SyntaxKind::MathText)
-    }
-
     let root = LinkedNode::new(source.root());
     let Some(node) = root
         .leaf_at(cursor, Side::Before)
-        .filter(is_text)
-        .or_else(|| root.leaf_at(cursor, Side::After).filter(is_text))
+        .filter(|node| node.kind().is_text())
+        .or_else(|| {
+            root.leaf_at(cursor, Side::After).filter(|node| node.kind().is_text())
+        })
     else {
         return vec![];
     };

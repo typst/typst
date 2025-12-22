@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 use typst_utils::ArcExt;
 
-use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult};
+use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};
 use crate::foundations::{
     Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
     Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
@@ -206,6 +206,44 @@ impl Value {
                 .with_block(false)
                 .pack(),
         }
+    }
+
+    /// Return the string representation of the value.
+    pub fn stringify(self) -> StrResult<Str> {
+        Ok(match self {
+            Self::None => EcoString::new(),
+            Self::Auto => eco_format!("auto"),
+            Self::Bool(bool) => bool.repr(),
+            Self::Int(v) => repr::format_int_with_base(v, 10),
+            Self::Float(v) => repr::display_float(v),
+            Self::Length(len) => len.repr(),
+            Self::Angle(angle) => angle.repr(),
+            Self::Ratio(ratio) => ratio.repr(),
+            Self::Relative(rel) => rel.repr(),
+            Self::Fraction(fr) => fr.repr(),
+            Self::Color(color) => color.repr(),
+            // Self::Gradient(gradient) => todo!(),
+            // Self::Tiling(tiling) => todo!(),
+            Self::Symbol(v) => v.get().into(),
+            Self::Version(v) => eco_format!("{v}"),
+            Self::Str(v) => v.as_str().into(),
+            // Self::Bytes(bytes) => todo!(),
+            Self::Label(label) => label.repr(),
+            // Self::Datetime(datetime) => todo!(),
+            Self::Decimal(v) => eco_format!("{v}"),
+            // Self::Duration(duration) => todo!(),
+            // Self::Content(content) => todo!(),
+            // Self::Styles(styles) => todo!(),
+            // Self::Array(array) => todo!(),
+            // Self::Dict(dict) => todo!(),
+            // Self::Func(func) => todo!(),
+            // Self::Args(args) => todo!(),
+            Self::Type(ty) => ty.repr(),
+            // Self::Module(module) => todo!(),
+            // Self::Dyn(dynamic) => todo!(),
+            _ => bail!("cannot turn {} of type {} into string", self.repr(), self.ty()),
+        }
+        .into())
     }
 
     /// Attach a span to the value, if possible.
