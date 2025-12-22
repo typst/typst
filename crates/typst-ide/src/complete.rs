@@ -264,10 +264,11 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
         ctx.leaf.parent_kind()
         && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+        && let Some(value) = str.get_bare()
     {
         ctx.from = ctx.leaf.offset();
         if value.starts_with('@') {
-            let all_versions = str.get().contains(':');
+            let all_versions = value.contains(':');
             ctx.package_completions(all_versions);
         } else {
             ctx.file_completions_with_extensions(&["typ"]);
@@ -1506,7 +1507,7 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::foundations::AsOutput;
+    use typst::{foundations::AsOutput, utils::PreferredCompilerVersion};
     use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
@@ -1629,7 +1630,9 @@ mod tests {
         let mut world = TestWorld::new(initial_text);
         let doc = typst::compile::<PagedDocument>(&world).output.ok();
         let end = world.main.text().len();
-        world.main.edit(end..end, addition);
+        world
+            .main
+            .edit(end..end, addition, PreferredCompilerVersion::default());
         test_with_doc(&world, pos, doc.as_ref(), true)
     }
 
@@ -1785,7 +1788,9 @@ mod tests {
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
         let end = world.main.text().len();
-        world.main.edit(end..end, " #cite()");
+        world
+            .main
+            .edit(end..end, " #cite()", PreferredCompilerVersion::default());
 
         test_with_doc(&world, -2, doc.as_ref(), true)
             .must_include(["netwok", "glacier-melt", "supplement"])

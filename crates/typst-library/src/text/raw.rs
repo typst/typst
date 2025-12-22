@@ -8,7 +8,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
+use typst_syntax::{LinkedNode, PreferredCompilerVersion, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -511,7 +511,12 @@ impl Synthesize for Packed<RawElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let seq = self.highlight(engine.library.routines, styles);
+        let options = engine
+            .world
+            .preferred_version(self.span().id().expect("tinger").root())
+            .unwrap_or_default();
+
+        let seq = self.highlight(options, engine.library.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }
@@ -519,7 +524,12 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
+    fn highlight(
+        &self,
+        preferred_version: PreferredCompilerVersion,
+        routines: &Routines,
+        styles: StyleChain,
+    ) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
 
@@ -558,9 +568,9 @@ impl Packed<RawElem> {
             let text =
                 lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
-                Some("typc") => typst_syntax::parse_code(&text),
-                Some("typm") => typst_syntax::parse_math(&text),
-                _ => typst_syntax::parse(&text),
+                Some("typc") => typst_syntax::parse_code(&text, preferred_version),
+                Some("typm") => typst_syntax::parse_math(&text, preferred_version),
+                _ => typst_syntax::parse(&text, preferred_version),
             };
 
             ThemedHighlighter::new(

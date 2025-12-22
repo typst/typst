@@ -140,7 +140,7 @@ fn create_source(
     }
 
     let mapper = RangeMapper::new(ranges).at(raw.span())?;
-    let mut root = typst::syntax::parse(&compile);
+    let mut root = typst::syntax::parse(&compile, PreferredCompilerVersion::default());
     root.synthesize_mapped(file_id, &mapper).at(raw.span())?;
 
     Ok(Source::with_root(file_id, compile, root))

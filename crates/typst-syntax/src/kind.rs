@@ -746,6 +746,8 @@ impl SyntaxKind {
 
 #[cfg(test)]
 mod test {
+    use crate::package::PreferredCompilerVersion;
+
     use super::*;
     use crate::{LinkedNode, Side, Source};
 
@@ -755,7 +757,8 @@ mod test {
         cursors: impl IntoIterator<Item = usize>,
         expected: Option<SyntaxMode>,
     ) {
-        let source = Source::detached(text);
+        // TODO(tinger): Test with string interpolation
+        let source = Source::detached(text, PreferredCompilerVersion::default());
         let root = LinkedNode::new(source.root());
         for cursor in cursors {
             let leaf = root.leaf_at(cursor, Side::After).unwrap();

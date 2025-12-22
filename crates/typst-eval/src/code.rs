@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use ecow::{EcoVec, eco_format, eco_vec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -225,8 +225,24 @@ impl Eval for ast::Numeric<'_> {
 impl Eval for ast::Str<'_> {
     type Output = Str;
 
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(self.get().into())
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let flow = vm.flow.take();
+        let mut out = EcoString::with_capacity(self.to_untyped().len());
+
+        let mut items = self.get_items();
+        while let Some(expr) = items.next() {
+            out.push_str(expr.eval(vm)?.stringify().at(expr.span())?.as_str());
+
+            if vm.flow.is_some() {
+                break;
+            }
+        }
+
+        if flow.is_some() {
+            vm.flow = flow;
+        }
+
+        Ok(out.into())
     }
 }
 
