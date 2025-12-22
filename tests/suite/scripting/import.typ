@@ -489,8 +489,8 @@ This is never reached.
 #import "@test/mypkg:0.3.": *
 
 --- import-from-file-package-lookalike eval ---
-// Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
-#import "#test/mypkg:1.0.0": *
+// Error: 9-28 file not found (searched at tests/suite/scripting/$test/mypkg:1.0.0)
+#import "$test/mypkg:1.0.0": *
 
 --- issue-7393-import-error-string-unclosed eval ---
 // More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`
