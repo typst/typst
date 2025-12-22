@@ -395,13 +395,24 @@ function getWorkspaceRoot() {
   return vscode.workspace.workspaceFolders![0].uri;
 }
 
-const EXTENSION = { html: "html", render: "png" };
-
 type Bucket = "store" | "ref";
-type Format = "html" | "render";
+
+// Maps from format name to the sub-directory name under Bucket.
+enum Format {
+  HTML = "html",
+  RENDER = "render",
+  PDFTAGS = "pdftags",
+}
+
+const FORMAT_TO_FILE_EXTENSION = {
+  [Format.HTML]: "html",
+  [Format.RENDER]: "png",
+  [Format.PDFTAGS]: "yml"
+};
 
 function getUri(name: string, bucket: Bucket, format: Format) {
-  let path = `tests/${bucket}/${format}/${name}.${EXTENSION[format]}`;
+  let ext = FORMAT_TO_FILE_EXTENSION[format];
+  let path = `tests/${bucket}/${format}/${name}.${ext}`;
   return vscode.Uri.joinPath(getWorkspaceRoot(), path);
 }
 
@@ -417,6 +428,7 @@ async function getWebviewContent(
 ): Promise<string> {
   const showRender = attrs.includes("paged");
   const showHtml = attrs.includes("html");
+  const showYaml = attrs.includes("pdftags");
 
   const stdout = output?.stdout
     ? `<h2>Standard output</h2><pre class="output">${escape(
@@ -441,7 +453,7 @@ async function getWebviewContent(
         html {
           width: 100%;
           margin: 0;
-          padding: 0;
+          padding: 5px 0;
           text-align: center;
         }
         img {
@@ -533,6 +545,7 @@ async function getWebviewContent(
     <body>
       ${showRender ? renderSection(panel, name) : ""}
       ${showHtml ? await htmlSection(name) : ""}
+      ${showYaml ? await pdftagsSection(name): ""}
       ${stdout}
       ${stderr}
     </body>
@@ -540,8 +553,8 @@ async function getWebviewContent(
 }
 
 function renderSection(panel: vscode.WebviewPanel, name: string) {
-  const outputUri = getUri(name, "store", "render");
-  const refUri = getUri(name, "ref", "render");
+  const outputUri = getUri(name, "store", Format.RENDER);
+  const refUri = getUri(name, "ref", Format.RENDER);
   return `<div
     class="flex"
     data-vscode-context='{"preventDefaultContextMenuItems": true}'
@@ -571,11 +584,11 @@ function renderSection(panel: vscode.WebviewPanel, name: string) {
 async function htmlSection(name: string) {
   const storeHtml = await htmlSnippet(
     "HTML Output",
-    getUri(name, "store", "html")
+    getUri(name, "store", Format.HTML)
   );
   const refHtml = await htmlSnippet(
     "HTML Reference",
-    getUri(name, "ref", "html")
+    getUri(name, "ref", Format.HTML)
   );
   return `<div
     class="flex vertical"
@@ -586,6 +599,24 @@ async function htmlSection(name: string) {
   </div>`;
 }
 
+async function pdftagsSection(name: string) {
+  const storeYaml = await pdftagsSnippet(
+    "PdfTags YAML Output",
+    getUri(name, "store", Format.PDFTAGS)
+  );
+  const refYaml = await pdftagsSnippet(
+    "PdfTags YAML Reference",
+    getUri(name, "ref", Format.PDFTAGS)
+  );
+  return `<div
+    class="flex vertical"
+    data-vscode-context='{"preventDefaultContextMenuItems": true}'
+  >
+    ${storeYaml}
+    ${refYaml}
+  </div>`;
+}
+
 async function htmlSnippet(title: string, uri: vscode.Uri): Promise<string> {
   try {
     const data = await vscode.workspace.fs.readFile(uri);
@@ -593,8 +624,24 @@ async function htmlSnippet(title: string, uri: vscode.Uri): Promise<string> {
     return `<div>
       ${linkedTitle(title, uri)}
       <div class="top-bottom">
-        ${await highlight(code)}
+        ${await highlight(code, "html")}
         <iframe srcdoc="${escape(code)}"></iframe>
+      </div>
+    </div>`;
+  } catch {
+    return `<div><h2>${title}</h2>Not present</div>`;
+  }
+}
+
+async function pdftagsSnippet(
+  title: string, uri: vscode.Uri): Promise<string> {
+  try {
+    const data = await vscode.workspace.fs.readFile(uri);
+    const code = new TextDecoder("utf-8").decode(data);
+    return `<div>
+      ${linkedTitle(title, uri)}
+      <div class="top-bottom">
+        ${await highlight(code, "yml")}
       </div>
     </div>`;
   } catch {
@@ -606,9 +653,9 @@ function linkedTitle(title: string, uri: vscode.Uri) {
   return `<h2><a onclick="openFile('${uri.toString()}')">${title}</a></h2>`;
 }
 
-async function highlight(code: string): Promise<string> {
+async function highlight(code: string, lang: string): Promise<string> {
   return (await shiki).codeToHtml(code, {
-    lang: "html",
+    lang,
     theme: selectTheme(),
   });
 }
