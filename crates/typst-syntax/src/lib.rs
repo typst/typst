@@ -24,7 +24,7 @@ pub use self::lexer::{
 pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::package::PreferredCompilerVersion;
-pub use self::parser::{parse, parse_code, parse_math};
+pub use self::parser::{parse, parse_code, parse_math, parse_string};
 pub use self::path::{
     FileId, PathError, RootedPath, VirtualPath, VirtualRoot, VirtualizeError,
 };
@@ -39,6 +39,8 @@ use self::parser::{reparse_block, reparse_markup};
 pub enum SyntaxMode {
     /// Text and markup, as in the top level.
     Markup,
+    /// String content and interpolation literals, as in string literals.
+    String,
     /// Math atoms, operators, etc., as in equations.
     Math,
     /// Keywords, literals and operators, as after hashes.

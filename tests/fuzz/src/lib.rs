@@ -1,3 +1,4 @@
+use libfuzzer_sys::arbitrary::Arbitrary;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration};
 use typst::syntax::{FileId, PreferredCompilerVersion, Source};
@@ -11,10 +12,11 @@ pub struct FuzzWorld {
     book: LazyHash<FontBook>,
     font: Font,
     source: Source,
+    preferred_version: PreferredCompilerVersion,
 }
 
 impl FuzzWorld {
-    pub fn new(text: &str) -> Self {
+    pub fn new(text: &str, preferred_version: PreferredCompilerVersion) -> Self {
         let data = typst_assets::fonts().next().unwrap();
         let font = Font::new(Bytes::new(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
@@ -22,7 +24,8 @@ impl FuzzWorld {
             library: LazyHash::new(Library::default()),
             book: LazyHash::new(book),
             font,
-            source: Source::detached(text),
+            source: Source::detached(text, preferred_version),
+            preferred_version,
         }
     }
 }
@@ -56,7 +59,7 @@ impl World for FuzzWorld {
         &self,
         _root: &VirtualRoot,
     ) -> FileResult<PreferredCompilerVersion> {
-        Ok(PreferredCompilerVersion::current())
+        Ok(self.preferred_version)
     }
 
     fn font(&self, _: usize) -> Option<Font> {
@@ -65,5 +68,25 @@ impl World for FuzzWorld {
 
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
+    }
+}
+
+#[derive(Debug)]
+pub struct Input<'s> {
+    pub text: &'s str,
+    pub preferred_version: PreferredCompilerVersion,
+}
+
+impl<'s> Arbitrary<'s> for Input<'s> {
+    fn arbitrary(
+        u: &mut libfuzzer_sys::arbitrary::Unstructured<'s>,
+    ) -> libfuzzer_sys::arbitrary::Result<Self> {
+        Ok(Self {
+            text: Arbitrary::arbitrary(u)?,
+            preferred_version: PreferredCompilerVersion {
+                major: Arbitrary::arbitrary(u)?,
+                minor: Arbitrary::arbitrary(u)?,
+            },
+        })
     }
 }

@@ -868,14 +868,14 @@ impl<'a> CapturesVisitor<'a> {
 
 #[cfg(test)]
 mod tests {
-    use typst_syntax::parse;
+    use typst_syntax::{PreferredCompilerVersion, parse};
 
     use super::*;
 
     #[track_caller]
     fn test(scopes: &Scopes, text: &str, result: &[&str]) {
         let mut visitor = CapturesVisitor::new(Some(scopes), Capturer::Function);
-        let root = parse(text);
+        let root = parse(text, PreferredCompilerVersion::default());
         visitor.visit(&root);
 
         let captures = visitor.finish();

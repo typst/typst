@@ -31,7 +31,10 @@ use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
 use typst_library::{Library, World};
-use typst_syntax::{Source, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_syntax::{
+    PreferredCompilerVersion, Source, SyntaxMode, ast, parse, parse_code, parse_math,
+    parse_string,
+};
 use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
@@ -104,10 +107,22 @@ pub fn eval_string(
     mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
+    let options = match spans {
+        SpanMode::Uniform(span) => match span.id() {
+            Some(id) => match world.preferred_version(id.root()) {
+                Ok(options) => options,
+                Err(error) => bail!(span, "{error}"),
+            },
+            None => PreferredCompilerVersion::default(),
+        },
+        SpanMode::Mapped { id, .. } => world.preferred_version(id.root()).unwrap(),
+    };
+
     let mut root = match mode {
-        SyntaxMode::Code => parse_code(string),
-        SyntaxMode::Markup => parse(string),
-        SyntaxMode::Math => parse_math(string),
+        SyntaxMode::Code => parse_code(string, options),
+        SyntaxMode::Markup => parse(string, options),
+        SyntaxMode::String => parse_string(string, options),
+        SyntaxMode::Math => parse_math(string, options),
     };
 
     match spans {
@@ -144,6 +159,7 @@ pub fn eval_string(
         SyntaxMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
+        SyntaxMode::String => Value::Str(root.cast::<ast::Str>().unwrap().eval(&mut vm)?),
         SyntaxMode::Math => Value::Content(
             EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
                 .with_block(false)

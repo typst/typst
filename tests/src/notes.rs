@@ -15,7 +15,10 @@ use typst::foundations::Bytes;
 use typst::{World, WorldExt as _};
 use typst_kit::files::FileLoader as _;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{FileId, Lines, RootedPath, Source, Span, VirtualPath, VirtualRoot};
+use typst_syntax::{
+    FileId, Lines, PreferredCompilerVersion, RootedPath, Source, Span, VirtualPath,
+    VirtualRoot,
+};
 use unscanny::Scanner;
 
 use crate::collect::{FilePos, TestParseError, TestStages};
@@ -445,7 +448,11 @@ pub fn parse_test_body(
 
     // Then create a source file for the test body.
     let vpath = VirtualPath::virtualize(Path::new(""), &pos.path).unwrap();
-    let source = Source::new(RootedPath::new(VirtualRoot::Project, vpath).intern(), body);
+    let source = Source::new(
+        RootedPath::new(VirtualRoot::Project, vpath).intern(),
+        body,
+        PreferredCompilerVersion::default(),
+    );
 
     // Finish by actually parsing the note lines now that we have the body.
     let mut notes = Vec::with_capacity(note_lines.len());

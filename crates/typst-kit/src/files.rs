@@ -75,7 +75,8 @@ where
     /// Can directly be used to implement
     /// [`World::source`](typst_library::World::source).
     pub fn source(&self, id: FileId) -> FileResult<Source> {
-        self.file_slot(id, |slot| slot.source(&self.loader, id))
+        let preferred_version = self.preferred_version(id.root())?;
+        self.file_slot(id, |slot| slot.source(&self.loader, id, preferred_version))
     }
 
     /// Retrieves the given file id as a raw file.
@@ -279,7 +280,12 @@ impl FileSlot {
     }
 
     /// Retrieves the source for this slot.
-    fn source(&mut self, loader: &impl FileLoader, id: FileId) -> FileResult<Source> {
+    fn source(
+        &mut self,
+        loader: &impl FileLoader,
+        id: FileId,
+        preferred_version: PreferredCompilerVersion,
+    ) -> FileResult<Source> {
         // When we already have a source or error, this returns. Otherwise, it
         // loads or extracts the bytes and a potential stale source file.
         let (bytes, stale) = match self {
@@ -305,20 +311,27 @@ impl FileSlot {
         let (result, bytes) = if let Some(mut source) = stale {
             let result = str::from_utf8(without_bom.unwrap_or(&bytes)).map(|new| {
                 // If we have a stale source file, reuse it.
-                source.replace(new);
+                source.replace(new, preferred_version);
                 source
             });
             (result, bytes)
         } else if let Some(rest) = without_bom {
             // If we had a BOM, we can't reuse the bytes for a string, so we
             // just create a source with a cloned string.
-            (str::from_utf8(rest).map(|text| Source::new(id, text.into())), bytes)
+            (
+                str::from_utf8(rest)
+                    .map(|text| Source::new(id, text.into(), preferred_version)),
+                bytes,
+            )
         } else {
             // If we had no BOM, we attempt to reuse an existing `String` or
             // `Vec<u8>` within the `Bytes`, backing the `Bytes` with the
             // resulting `Source` instead. This way, we can transition from
             // a vector-backed file to a source without reallocating.
-            match bytes.into_string().map(|text| Source::new(id, text)) {
+            match bytes
+                .into_string()
+                .map(|text| Source::new(id, text, preferred_version))
+            {
                 Ok(source) => (Ok(source.clone()), Bytes::from_string(source)),
                 Err(err) => (Err(err.error), err.bytes),
             }

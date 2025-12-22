@@ -1,4 +1,4 @@
-//! Typst version information.
+//! Typst version and compatibility information.
 
 /// Returns the version of Typst.
 ///

@@ -9,7 +9,8 @@ use typst_utils::LazyHash;
 use crate::lines::Lines;
 use crate::reparser::reparse;
 use crate::{
-    FileId, LinkedNode, RootedPath, Span, SyntaxNode, VirtualPath, VirtualRoot, parse,
+    FileId, LinkedNode, PreferredCompilerVersion, RootedPath, Span, SyntaxNode,
+    VirtualPath, VirtualRoot, parse,
 };
 
 /// A source file.
@@ -31,19 +32,27 @@ struct SourceInner {
 
 impl Source {
     /// Create a new source file.
-    pub fn new(id: FileId, text: String) -> Self {
+    pub fn new(
+        id: FileId,
+        text: String,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
         let _scope = typst_timing::TimingScope::new("create source");
-        let mut root = parse(&text);
+        let mut root = parse(&text, preferred_version);
         root.numberize(id, Span::FULL).unwrap();
         Self(Arc::new(LazyHash::new(SourceInner { id, lines: Lines::new(text), root })))
     }
 
     /// Create a source file without a real id and path, usually for testing.
-    pub fn detached(text: impl Into<String>) -> Self {
+    pub fn detached(
+        text: impl Into<String>,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
         Self::new(
             RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
                 .intern(),
             text.into(),
+            preferred_version,
         )
     }
 
@@ -80,7 +89,11 @@ impl Source {
     /// then calls [`edit`](Self::edit) with it.
     ///
     /// Returns the range in the new source that was ultimately reparsed.
-    pub fn replace(&mut self, new: &str) -> Range<usize> {
+    pub fn replace(
+        &mut self,
+        new: &str,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Range<usize> {
         let _scope = typst_timing::TimingScope::new("replace source");
 
         let Some((prefix, suffix)) = self.0.lines.replacement_range(new) else {
@@ -90,7 +103,7 @@ impl Source {
         let old = self.text();
         let replace = prefix..old.len() - suffix;
         let with = &new[prefix..new.len() - suffix];
-        self.edit(replace, with)
+        self.edit(replace, with, preferred_version)
     }
 
     /// Edit the source file by replacing the given range.
@@ -99,14 +112,25 @@ impl Source {
     ///
     /// The method panics if the `replace` range is out of bounds.
     #[track_caller]
-    pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
+    pub fn edit(
+        &mut self,
+        replace: Range<usize>,
+        with: &str,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Range<usize> {
         let inner = &mut **Arc::make_mut(&mut self.0);
 
         // Update the text and lines.
         inner.lines.edit(replace.clone(), with);
 
         // Incrementally reparse the replaced range.
-        reparse(&mut inner.root, inner.lines.text(), replace, with.len())
+        reparse(
+            &mut inner.root,
+            inner.lines.text(),
+            replace,
+            with.len(),
+            preferred_version,
+        )
     }
 
     /// Find the node with the given span.

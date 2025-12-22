@@ -228,6 +228,12 @@ pub enum SyntaxKind {
     Numeric,
     /// A quoted string: `"..."`.
     Str,
+    /// Plain string text without escapes or interpolations.
+    StrText,
+    /// An escape sequence: `\#`, `\r`, `\u{1F5FA}`.
+    StrEscape,
+    /// The delimiter of quoted string: `"`.
+    StrQuote,
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock,
     /// A content block: `[*Hi* there!]`.
@@ -295,7 +301,7 @@ pub enum SyntaxKind {
 }
 
 impl SyntaxKind {
-    /// Is this a bracket, brace, or parenthesis?
+    /// Is this a bracket, brace, parenthesis, or double quote?
     pub fn is_grouping(self) -> bool {
         matches!(
             self,
@@ -305,6 +311,7 @@ impl SyntaxKind {
                 | Self::RightBracket
                 | Self::RightBrace
                 | Self::RightParen
+                | Self::StrQuote
         )
     }
 
@@ -375,6 +382,11 @@ impl SyntaxKind {
                 | Self::Space
                 | Self::Parbreak
         )
+    }
+
+    /// Whether this is one of the mode dependent text kinds.
+    pub fn is_text(self) -> bool {
+        matches!(self, Self::Text | Self::StrText | Self::MathText)
     }
 
     /// Whether this is an error.
@@ -490,6 +502,9 @@ impl SyntaxKind {
             Self::Float => "float",
             Self::Numeric => "numeric value",
             Self::Str => "string",
+            Self::StrText => "string",
+            Self::StrEscape => "string",
+            Self::StrQuote => "double quote",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
             Self::Parenthesized => "group",
@@ -689,6 +704,10 @@ impl SyntaxKind {
             Self::Float => Known(Code),
             Self::Numeric => Known(Code),
             Self::Str => Embeddable, // code/math: expr
+            // TODO(tinger): Which mode should this be, do we need a new one?
+            Self::StrText => Parent,
+            Self::StrEscape => Parent,
+            Self::StrQuote => Parent,
             Self::CodeBlock => Known(Code),
             Self::ContentBlock => Embeddable, // code: expr | markup: Ref
             Self::Parenthesized => Known(Code),
@@ -727,6 +746,8 @@ impl SyntaxKind {
 
 #[cfg(test)]
 mod test {
+    use crate::package::PreferredCompilerVersion;
+
     use super::*;
     use crate::{LinkedNode, Side, Source};
 
@@ -736,7 +757,8 @@ mod test {
         cursors: impl IntoIterator<Item = usize>,
         expected: Option<SyntaxMode>,
     ) {
-        let source = Source::detached(text);
+        // TODO(tinger): Test with string interpolation
+        let source = Source::detached(text, PreferredCompilerVersion::default());
         let root = LinkedNode::new(source.root());
         for cursor in cursors {
             let leaf = root.leaf_at(cursor, Side::After).unwrap();

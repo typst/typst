@@ -7,31 +7,45 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{
+    Lexer, PreferredCompilerVersion, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode,
+    ast, set,
+};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
 
 /// Parses a source file as top-level markup.
-pub fn parse(text: &str) -> SyntaxNode {
+pub fn parse(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
-    let mut p = Parser::new(text, 0, SyntaxMode::Markup);
+    let mut p = Parser::new(text, 0, SyntaxMode::Markup, preferred_version);
     markup_exprs(&mut p, true, syntax_set!(End));
     p.finish_into(SyntaxKind::Markup)
 }
 
+/// Parses a source file as top-level string.
+pub fn parse_string(
+    text: &str,
+    preferred_version: PreferredCompilerVersion,
+) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse");
+    let mut p = Parser::new(text, 0, SyntaxMode::String, preferred_version);
+    string_items(&mut p, syntax_set!(End));
+    p.finish_into(SyntaxKind::Str)
+}
+
 /// Parses top-level code.
-pub fn parse_code(text: &str) -> SyntaxNode {
+pub fn parse_code(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse code");
-    let mut p = Parser::new(text, 0, SyntaxMode::Code);
+    let mut p = Parser::new(text, 0, SyntaxMode::Code, preferred_version);
     code_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Code)
 }
 
 /// Parses top-level math.
-pub fn parse_math(text: &str) -> SyntaxNode {
+pub fn parse_math(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse math");
-    let mut p = Parser::new(text, 0, SyntaxMode::Math);
+    let mut p = Parser::new(text, 0, SyntaxMode::Math, preferred_version);
     math_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Math)
 }
@@ -63,12 +77,13 @@ fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
 /// Reparses a subsection of markup incrementally.
 pub(super) fn reparse_markup(
     text: &str,
+    preferred_version: PreferredCompilerVersion,
     range: Range<usize>,
     at_start: &mut bool,
     nesting: &mut usize,
     top_level: bool,
 ) -> Option<Vec<SyntaxNode>> {
-    let mut p = Parser::new(text, range.start, SyntaxMode::Markup);
+    let mut p = Parser::new(text, range.start, SyntaxMode::Markup, preferred_version);
     *at_start |= p.had_newline();
     while !p.end() && p.current_start() < range.end {
         // If not top-level and at a new RightBracket, stop the reparse.
@@ -209,6 +224,41 @@ fn reference(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Ref);
 }
 
+/// Parses a string literal: `"Hello #foo"`.
+fn string_literal(p: &mut Parser) {
+    let m = p.marker();
+    p.enter_modes(SyntaxMode::String, AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::StrQuote);
+        string_items(p, syntax_set!(StrQuote, End));
+        p.expect_closing_string_quote(m);
+    });
+    p.wrap(m, SyntaxKind::Str);
+}
+
+/// Parses a sequence of items.
+fn string_items(p: &mut Parser, stop_set: SyntaxSet) {
+    debug_assert!(stop_set.contains(SyntaxKind::StrQuote));
+
+    while !p.at_set(stop_set) {
+        if p.at_set(set::STR_CONTENT) {
+            string_item(p);
+        } else {
+            p.unexpected();
+        }
+    }
+}
+
+/// Parses a single string item, this includes regular text, string escapes, and
+/// embedded code expressions.
+fn string_item(p: &mut Parser) {
+    match p.current() {
+        SyntaxKind::StrText => p.eat(),
+        SyntaxKind::StrEscape => p.eat(),
+        SyntaxKind::Hash => embedded_code_expr(p),
+        _ => p.expected("text, escape, or interpolation"),
+    }
+}
+
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
@@ -273,6 +323,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             }
         }
 
+        SyntaxKind::StrQuote => {
+            continuable = true;
+            string_literal(p);
+        }
         SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
             math_delimited(p);
         }
@@ -297,7 +351,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         | SyntaxKind::MathAlignPoint
         | SyntaxKind::MathShorthand => p.eat(),
 
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::MathPrimes | SyntaxKind::Escape => {
             continuable = true;
             p.eat();
         }
@@ -697,6 +751,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
             }
         }
 
+        SyntaxKind::StrQuote => string_literal(p),
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => expr_with_paren(p, atomic),
@@ -722,7 +777,6 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Float
         | SyntaxKind::Bool
         | SyntaxKind::Numeric
-        | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
 
         // Consume erroneous tokens for things like `#12p`, `#]`, or `#"abc\"`.
@@ -734,8 +788,12 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
 /// Reparses a full content or code block. This only succeeds if the new block
 /// contains balanced delimiters.
-pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
-    let mut p = Parser::new(text, range.start, SyntaxMode::Code);
+pub(super) fn reparse_block(
+    text: &str,
+    range: Range<usize>,
+    preferred_version: PreferredCompilerVersion,
+) -> Option<SyntaxNode> {
+    let mut p = Parser::new(text, range.start, SyntaxMode::Code, preferred_version);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
     block(&mut p);
     (p.balanced && p.prev_end() == range.end)
@@ -934,7 +992,12 @@ fn import_items(p: &mut Parser) {
     while !p.current().is_terminator() {
         let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
-            p.unexpected();
+            if p.current() == SyntaxKind::StrQuote {
+                string_literal(p);
+                p.wrap_error(item_marker, "unexpected string");
+            } else {
+                p.unexpected();
+            }
         }
 
         // Nested import path: `a.b.c`
@@ -1155,7 +1218,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
         if let Some(key) = match node.cast::<ast::Expr>() {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
-            Some(ast::Expr::Str(s)) => Some(s.get()),
+            Some(ast::Expr::Str(s)) => s.get_bare(),
             _ => None,
         } && !state.seen.insert(key.clone())
         {
@@ -1605,8 +1668,13 @@ impl IndexMut<Marker> for Parser<'_> {
 /// Creating/Consuming the parser and getting info about the current token.
 impl<'s> Parser<'s> {
     /// Create a new parser starting from the given text offset and syntax mode.
-    fn new(text: &'s str, offset: usize, mode: SyntaxMode) -> Self {
-        let mut lexer = Lexer::new(text, mode);
+    fn new(
+        text: &'s str,
+        offset: usize,
+        mode: SyntaxMode,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
+        let mut lexer = Lexer::new(text, mode, preferred_version.string_interpolation());
         lexer.jump(offset);
         let nl_mode = AtNewline::Continue;
         let mut nodes = vec![];
@@ -1987,6 +2055,17 @@ impl Parser<'_> {
     fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
         if !self.eat_if(kind) {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
+        }
+    }
+
+    /// Consume the given closing `StrQuote` or produce an error for the
+    /// matching opening delimiter at `open`. This is distinct from
+    /// `expect_closing_delimiter` because it uses the entire span instead
+    /// of just the opening delimiter.
+    #[track_caller]
+    fn expect_closing_string_quote(&mut self, open: Marker) {
+        if !self.eat_if(SyntaxKind::StrQuote) {
+            self.wrap_error(open, "unclosed string");
         }
     }
 
