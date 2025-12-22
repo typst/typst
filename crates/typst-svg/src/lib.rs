@@ -129,18 +129,6 @@ struct SVGRenderer<'a> {
     /// attribute of the group. The clip path is in the format of `M x y L x y C
     /// x1 y1 x2 y2 x y Z`.
     clip_paths: Deduplicator<EcoString>,
-    /// Deduplicated gradients with transform matrices. They use a reference
-    /// (`href`) to a "source" gradient instead of being defined inline.
-    /// This saves a lot of space since gradients are often reused but with
-    /// different transforms. Therefore this allows us to reuse the same gradient
-    /// multiple times.
-    gradient_refs: Deduplicator<GradientRef>,
-    /// Deduplicated tilings with transform matrices. They use a reference
-    /// (`href`) to a "source" tiling instead of being defined inline.
-    /// This saves a lot of space since tilings are often reused but with
-    /// different transforms. Therefore this allows us to reuse the same gradient
-    /// multiple times.
-    tiling_refs: Deduplicator<TilingRef>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
@@ -148,14 +136,26 @@ struct SVGRenderer<'a> {
     /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
     /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
+    /// Deduplicated gradients with transform matrices. They use a reference
+    /// (`href`) to a "source" gradient instead of being defined inline.
+    /// This saves a lot of space since gradients are often reused but with
+    /// different transforms. Therefore this allows us to reuse the same gradient
+    /// multiple times.
+    gradient_refs: Deduplicator<GradientRef>,
+    /// These are the gradients that compose a conic gradient.
+    conic_subgradients: Deduplicator<SVGSubGradient>,
     /// These are the actual tilings being written in the SVG file.
     /// These tilings are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
     ///
     /// The `String` is the rendered tiling frame.
     tilings: Deduplicator<Tiling>,
-    /// These are the gradients that compose a conic gradient.
-    conic_subgradients: Deduplicator<SVGSubGradient>,
+    /// Deduplicated tilings with transform matrices. They use a reference
+    /// (`href`) to a "source" tiling instead of being defined inline.
+    /// This saves a lot of space since tilings are often reused but with
+    /// different transforms. Therefore this allows us to reuse the same gradient
+    /// multiple times.
+    tiling_refs: Deduplicator<TilingRef>,
 }
 
 /// Contextual information for rendering.
@@ -212,11 +212,11 @@ impl<'a> SVGRenderer<'a> {
             introspector,
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
-            gradient_refs: Deduplicator::new('g'),
             gradients: Deduplicator::new('f'),
+            gradient_refs: Deduplicator::new('r'),
             conic_subgradients: Deduplicator::new('s'),
-            tiling_refs: Deduplicator::new('p'),
             tilings: Deduplicator::new('t'),
+            tiling_refs: Deduplicator::new('p'),
         }
     }
 
