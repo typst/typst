@@ -2,11 +2,11 @@
 
 // The subset of the brand colors that we use in the docs.
 #let colors = (
-  brand: rgb("#239dad"),
+  brand: rgb("239dad"),
   text: (
     syntax: (
       teal: rgb("1d6c76"),
-      blue: rgb("#4b69c6"),
+      blue: rgb("4b69c6"),
     ),
   ),
   purple: (

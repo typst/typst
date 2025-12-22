@@ -85,7 +85,7 @@ use crate::visualize::{Paint, Stroke};
 /// ```example
 /// >>> #set page(width: auto)
 /// >>> #set text(font: "IBM Plex Sans")
-/// >>> #let gray = rgb("#565565")
+/// >>> #let gray = rgb("565565")
 /// >>>
 /// #set table(
 ///   stroke: none,
