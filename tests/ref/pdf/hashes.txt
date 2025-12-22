@@ -2,7 +2,7 @@
 3f29e74d8624f6861329a043b6d12c57 align-in-stack
 f1ff5cbe23faec1877243020a3e1e6cd align-right
 441e9406ded252e4bfbb978cc8ed8c57 align-start-and-end
-3c5e3609bbae8b694e2abcdfe8c99fef array-basic-syntax
+ec13ae5fbe8aa8a102a371dcde6fd27d array-basic-syntax
 fd98d7b640c43c30514608ad28d92331 array-join-content
 6de8a1f1bcd3675d8e262782d7468c46 background-artifact-1-7
 9247cba98bc56d8177e3568731eacafb background-artifact-2-0
@@ -182,7 +182,7 @@ dbacd9461d0ee380f833a52e446f5fe9 curve-stroke-gradient
 042e247060546045b2378d63beab4b12 decimal-display
 ebda4b71993f85b655c5a75f8b4bb716 decimal-display-round
 5ec1449d68065518fb345131d9b7e927 destructuring-during-loop-continue
-0ed24425c87bd8198fb9c9bba693b8c5 dict-basic-syntax
+737f482ff7ca0f97316aca07e2671c36 dict-basic-syntax
 a8dd0e50455fe792ecbf4ee862338a37 divider-basic
 7756d045947e1d96292a6eedf836bcdc divider-in-container
 288984add81a460a6409f3af823d0221 divider-multiple
@@ -364,9 +364,9 @@ ca8b43fbe29ed2186ba0425eeee881fe grid-cell-override-in-header-and-footer
 e34b049abf71addcf4410d4e5978b8c2 grid-cell-position-extra-rows
 2ad45aebb1d1fa2f9f7bb0f865ba1b63 grid-cell-position-out-of-order
 e21942d4b341be9e9fd0d9e8d311ffdd grid-cell-position-partial
-5ce49ef1ef75bf9910ea05b0e5986a87 grid-cell-set
+043e4c3df61325bd72c9fffe2da5ae7f grid-cell-set
 9891ee440ad28d00b3d3d7899702ef56 grid-cell-show
-a7630272f91c9dc6850c9b7665e4cbd2 grid-cell-show-and-override
+4d97e89444ffd4da7edd1c61224e3c4e grid-cell-show-and-override
 e33f7c49acfd487735789bc665027959 grid-cell-show-based-on-position
 fe71e717b530e4f50a861aeedd53636a grid-cell-show-emph
 9ad76afff5417ddb8a58a40555356bd5 grid-cell-show-x-y
@@ -809,7 +809,7 @@ da4991902856bcc6d26c438240ba5277 issue-5503-cite-in-align
 fb3f6d56998b5e1c5599a4d69783f808 issue-5719-list-nested
 e1c17bc3f11a539dc82a38f787fccf9a issue-5719-terms-nested
 a6c8630d31d7704412beb13a441b5444 issue-5723-grid-heading-numbering
-afb730f0d633b65bc65f4c8174fda44a issue-5760-disable-cjk-latin-spacing-in-raw
+070e8f9c7756fb4cf49bbdd71ab64620 issue-5760-disable-cjk-latin-spacing-in-raw
 2d19af94a7a00804419787bedc50986d issue-5775-cite-order-rtl
 291662f8fd9cb66bed291557ff82ad40 issue-5831-par-constructor-args
 c7e12917b1448ff19178641723dba4af issue-5855-misaligned-descender
@@ -860,7 +860,7 @@ a39a922e13e43eb58a2e1f33d59f7534 issue-8130-overhang-in-show-rule
 ce0a8c8453f682afc61280473b32b856 issue-8261-string-as-non-numeric
 0065061b47f0668b57efbad02ca1ce3e issue-8372-stretched-glyphs
 a06b2482f1d0f5ca88d5442e9c2d1d4f issue-8383-headers-pdf-ua
-d1f419b4e576bb3ae9c4b2ed45de67c0 issue-852-mat-type
+b8e4f544acacce5693e433c6075c587d issue-852-mat-type
 d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
 f438c7e72e95fc4b812c573b9ff9494d issue-8648-enum-gap
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
@@ -1410,7 +1410,7 @@ b594f2b50761e510ee1006065e5cdbb4 mozilla-mathml-test-5
 a654ef985dabbf45aa5d50b66a3c18c9 mozilla-mathml-test-7
 13534633732a85edbbbb20d98d52653b mozilla-mathml-test-8
 41f8bc329a4d10bf9cab046afad0777c mozilla-mathml-test-9
-5879d9ef461fcb5dfb1314df2489bc8f newline-continuation-code
+778ddf3bf5642bcc1def84fc11786ced newline-continuation-code
 4ebf8a61bb5e7172cd9f39faaa9f9c4b newline-continuation-markup
 cd76109e68234a842ae8f8bac9e282c8 numbering-illegal-zero
 dadcbf59ca5e4e163484c4eb3fba3522 numbering-too-high
@@ -1580,10 +1580,10 @@ e7e088c58f14dea7b7b61f53828b9a34 raw-empty
 844ec39c1a69d6a77e01a363b6246781 raw-highlight-html-jinja2
 0699bb31b5321ebf3ba3a762aee5c5bd raw-highlight-py
 b2912678dde1faa17644b690888aac2d raw-highlight-rust
-e9f30f8fd86c4ef0c485da402d80c1ad raw-highlight-typ
+ff02e88d46832145bd88ec67c6756e14 raw-highlight-typ
 6b69640379e8510ce7eeac2ccf736636 raw-highlight-typ-invalid-ints
 86e277f332abfe98969446179388de87 raw-highlight-typc
-d52c89959deb7b9ff9832af365ff1e79 raw-highlight-typm
+d2205e280c5ed1db998ae478e8fa4be6 raw-highlight-typm
 108b6b887dcdb403d2e8638701cf23e3 raw-highlight-typm-idents
 e04cdabc7369605b8f15feae6de90d1b raw-inline-multiline
 d69aabfae7bbc90a9c707fc9da0eaf64 raw-line
@@ -1594,9 +1594,9 @@ ae0e267b6b2214dc2102a3ed1cff31e9 raw-line-alternating-fill
 30ca160cd2028f01a9ea940ca7fd8b0d raw-single-backtick-lang
 e713efd55d977045261e515ba4678884 raw-syntaxes
 b12970f8959a69f3f848affd58233afd raw-tab-size
-0fe4a4366af84b7a510d1de6332648e4 raw-theme
+6cd5c93fab8395587720c7041f7e8096 raw-theme
 c84b6a1ea2b5f45f2f3c7c092d363abc raw-theme-set-to-none
-bdb4a8ef97973650655c3751f95f4d96 raw-theme-types
+2845954af2d4de29d9c28bac8bfaecff raw-theme-types
 fb14c48a2a2ed0b2bc60b512586815ac raw-trimming
 b524876b690fa292b18c920850290211 raw-typst-lang
 b7b2f5c6bcf0e0b31398353798ddfff3 rect
@@ -1830,9 +1830,9 @@ c3dcac7395916a5744d93a97fff86f4c symbol-modifier-deprecated
 29b29e77ad9aa1ab6fb43cb868ab932e table-cell-folding
 a4f1b9afeb58b4c14835e4b4a4b503df table-cell-override
 309525a167ce4d4f3aab2c128c4c647e table-cell-par
-81588b6897f21f3095aa4509deb87dc7 table-cell-set
+122f8d7a82f184f5145756de38f37752 table-cell-set
 cf7d2da1aa97727e7d7060468cd9c637 table-cell-show
-9e0e94c3ae59e7d4deaf21d024d128fc table-cell-show-and-override
+47f7ccaf23207763088b0fc745bba14b table-cell-show-and-override
 505e601979a4d57c530066f290ff2d62 table-cell-show-based-on-position
 0c4245545f3dd3ab90cbb1e954041b2b table-cell-show-emph
 a56fd4bc6e56ea09e0c581db861f6795 table-cell-various-overrides

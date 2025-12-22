@@ -62,6 +62,7 @@ pub fn autocomplete(
         // Only attempt the general completions after the more specific ones.
         || match mode {
             SyntaxMode::Markup => complete_markup(&mut ctx),
+            SyntaxMode::String => complete_string(&mut ctx),
             SyntaxMode::Math => complete_math(&mut ctx),
             SyntaxMode::Code => complete_code(&mut ctx),
         };
@@ -683,6 +684,13 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     false
+}
+
+/// Complete in string mode.
+fn complete_string(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::String));
+
+    todo!()
 }
 
 /// Add completions for markup snippets.
