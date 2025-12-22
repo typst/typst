@@ -134,7 +134,9 @@ A#for "v" thing
 // Error: 7 expected keyword `in`
 #for a + b in iter {}
 
+// Error: 7 expected keyword `in`
 // Error: 1:8-4:1 unclosed string
 #for x "a
 b
 c
+// Error: 1 expected block
