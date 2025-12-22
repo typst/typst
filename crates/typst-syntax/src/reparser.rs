@@ -2,7 +2,8 @@ use std::ops::Range;
 
 use crate::node::{InnerNode, NumberingResult, Unnumberable};
 use crate::{
-    Diagnosis, Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup,
+    Diagnosis, PreferredCompilerVersion, Span, SyntaxKind, SyntaxNode, parse,
+    reparse_block, reparse_markup,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -18,19 +19,27 @@ pub fn reparse(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
+    preferred_version: PreferredCompilerVersion,
 ) -> Range<usize> {
     let root_id = root.span().id();
 
     let mut renumber = true;
     let mut reparsed_range = 0..text.len();
     if let Some(inner) = root.reparse_inner_node_mut()
-        && let Some((range, num_result)) =
-            try_reparse_and_renumber(text, replaced, replacement_len, None, inner, 0)
+        && let Some((range, num_result)) = try_reparse_and_renumber(
+            text,
+            replaced,
+            replacement_len,
+            None,
+            inner,
+            0,
+            preferred_version,
+        )
     {
         reparsed_range = range;
         renumber = num_result.is_err();
     } else {
-        *root = parse(text);
+        *root = parse(text, preferred_version);
     }
 
     if renumber && let Some(id) = root_id {
@@ -76,6 +85,7 @@ fn try_reparse_and_renumber(
     parent_kind: Option<SyntaxKind>,
     (node, node_kind, node_span): (&mut InnerNode, SyntaxKind, Span),
     offset: usize,
+    preferred_version: PreferredCompilerVersion,
 ) -> Option<(Range<usize>, NumberingResult)> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
@@ -100,6 +110,7 @@ fn try_reparse_and_renumber(
             Some(node_kind),
             (child, child_kind, child_span),
             start_offset,
+            preferred_version,
         ) {
             // A lower level reparse succeeded! Update this node and return the
             // reparsed range.
@@ -118,7 +129,8 @@ fn try_reparse_and_renumber(
         // The child is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
         if child_kind.is_block()
-            && let Some(new_child) = reparse_block(text, new_range.clone())
+            && let Some(new_child) =
+                reparse_block(text, new_range.clone(), preferred_version)
         {
             let new_desc = new_child.descendants();
             let new_diag = new_child.diagnosis();
@@ -137,6 +149,7 @@ fn try_reparse_and_renumber(
         && let Some(MarkupReparse { newborns, prev_children, new_range }) =
             expand_and_reparse_markup(
                 text,
+                preferred_version,
                 replaced,
                 replacement_len,
                 &node.children,
@@ -165,10 +178,12 @@ struct MarkupReparse {
     new_range: Range<usize>,
 }
 
-/// Reparse a range of markup expressions, expanding the range exponentially on
+////// Reparse a range of markup expressions, expanding the range exponentially on
 /// each iteration until reparsing succeeds.
+#[expect(clippy::too_many_arguments)]
 fn expand_and_reparse_markup(
     text: &str,
+    preferred_version: PreferredCompilerVersion,
     replaced: Range<usize>,
     replacement_len: usize,
     children: &[SyntaxNode],
@@ -229,6 +244,7 @@ fn expand_and_reparse_markup(
         // Reparse!
         let reparsed = reparse_markup(
             text,
+            preferred_version,
             new_range.clone(),
             &mut at_start,
             &mut nesting,
@@ -479,7 +495,7 @@ mod tests {
     use std::ops::Range;
 
     use super::*;
-    use crate::{FileId, Source};
+    use crate::{FileId, PreferredCompilerVersion, Source};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -546,14 +562,20 @@ mod tests {
 
     #[track_caller]
     fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
-        let mut source = Source::new(FileId::new_for_test("test_reparse"), text);
+        // TODO(tinger): Test with string interpolation?
+        let mut source = Source::new(
+            FileId::new_for_test("test_reparse"),
+            text,
+            PreferredCompilerVersion::default(),
+        );
         let orig_tree = source.root().clone();
         // `Source::edit()` is the public interface for reparsing.
-        let replaced_range = source.edit(edit.into_range(text), with);
+        let replaced_range =
+            source.edit(edit.into_range(text), with, PreferredCompilerVersion::default());
         let reparsed_tree = source.root().clone();
         check_valid_spans(&orig_tree);
         check_valid_spans(&reparsed_tree);
-        let normal_parse = parse(source.text());
+        let normal_parse = parse(source.text(), PreferredCompilerVersion::default());
         assert!(normal_parse.span().is_detached(), "should be detached");
         if !reparsed_tree.spanless_eq(&normal_parse) {
             eprintln!("Original source text: {text:?}");
@@ -756,7 +778,7 @@ mod tests {
         // We build a custom tree with a warning since we don't currently
         // produce any syntax warnings that would trigger this bug.
         let text = "#[nor~mal] #[warn~ing]".to_string();
-        let mut root = parse(&text);
+        let mut root = parse(&text, PreferredCompilerVersion::default());
 
         let root_inner = root.reparse_inner_node_mut().unwrap().0;
         let second_block = &mut root_inner.children[4];
@@ -780,7 +802,8 @@ mod tests {
         // should stay within the content block.
         let replaced = Edit::Match("r~m").into_range(source.text());
         let replace_with = "rm";
-        let reparsed = source.edit(replaced, replace_with);
+        let reparsed =
+            source.edit(replaced, replace_with, PreferredCompilerVersion::default());
         assert_eq!(&source.text()[reparsed], "normal");
         // Reparsing `normal` should not affect the warning:
         assert!(source.root().diagnosis().warnings);
@@ -791,7 +814,8 @@ mod tests {
         // within warnings.
         let replaced = Edit::Match("n~i").into_range(source.text());
         let replace_with = "ni";
-        let reparsed = source.edit(replaced, replace_with);
+        let reparsed =
+            source.edit(replaced, replace_with, PreferredCompilerVersion::default());
         assert_eq!(&source.text()[reparsed], "#[normal] #[warning]");
         assert!(!source.root().diagnosis().warnings);
     }

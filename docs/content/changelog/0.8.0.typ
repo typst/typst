@@ -75,7 +75,7 @@
 - Moved `caption-pos` argument to `figure.caption` function and renamed it to `position` *(Breaking change)*
 - Added @figure.caption.separator[`separator`] argument to `figure.caption` function
 - Added support for combination of and/or and before/after @selector[selectors]
-- Packages can now specify a #link("https://github.com/typst/packages#package-format")[minimum compiler version] they require to work
+- Packages can now specify a #link("https://github.com/typst/packages\#package-format")[minimum compiler version] they require to work
 - Fixed parser bug where method calls could be moved onto their own line for `[#let]` expressions in markup *(Breaking change)*
 - Fixed bugs in sentence and title case conversion for bibliographies
 - Fixed supplements for alphanumeric and author-title bibliography styles

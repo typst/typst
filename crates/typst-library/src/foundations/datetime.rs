@@ -132,7 +132,7 @@ use crate::foundations::{
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
 ///
-/// #link("https://time-rs.github.io/book/api/format-description.html#components")[See here]
+/// #link("https://time-rs.github.io/book/api/format-description.html\#components")[See here]
 /// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
