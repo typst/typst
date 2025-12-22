@@ -5,7 +5,7 @@ use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warni
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Value, ops,
+    NativeElement, Selector, Str, Symbol, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -120,7 +120,9 @@ impl Eval for ast::Expr<'_> {
             Self::Int(v) => v.eval(vm),
             Self::Float(v) => v.eval(vm),
             Self::Numeric(v) => v.eval(vm),
-            Self::Str(v) => v.eval(vm),
+            Self::Str(v) => v.eval(vm).map(Value::Str),
+            Self::StrText(v) => v.eval(vm).map(Value::Str),
+            Self::StrEscape(v) => v.eval(vm),
             Self::CodeBlock(v) => v.eval(vm),
             Self::ContentBlock(v) => v.eval(vm).map(Value::Content),
             Self::Array(v) => v.eval(vm).map(Value::Array),
@@ -221,10 +223,29 @@ impl Eval for ast::Numeric<'_> {
 }
 
 impl Eval for ast::Str<'_> {
+    type Output = Str;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(self.get().into())
+    }
+}
+
+impl Eval for ast::StrText<'_> {
+    type Output = Str;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(self.get().as_str().into())
+    }
+}
+
+impl Eval for ast::StrEscape<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Str(self.get().into()))
+        Ok(match self.get() {
+            Ok(c) => Value::Symbol(Symbol::runtime_char(c)),
+            Err(c) => Value::Str(eco_format!("\\{c}").into()),
+        })
     }
 }
 

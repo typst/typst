@@ -326,6 +326,10 @@ pub enum Expr<'a> {
     Numeric(Numeric<'a>),
     /// A quoted string: `"..."`.
     Str(Str<'a>),
+    /// Plain string text without escapes or interpolations.
+    StrText(StrText<'a>),
+    /// A string escape sequence: `\#`, `\r`, `\u{1F5FA}`.
+    StrEscape(StrEscape<'a>),
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock(CodeBlock<'a>),
     /// A content block: `[*Hi* there!]`.
@@ -428,6 +432,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Float => Some(Self::Float(Float(node))),
             SyntaxKind::Numeric => Some(Self::Numeric(Numeric(node))),
             SyntaxKind::Str => Some(Self::Str(Str(node))),
+            SyntaxKind::StrText => Some(Self::StrText(StrText(node))),
+            SyntaxKind::StrEscape => Some(Self::StrEscape(StrEscape(node))),
             SyntaxKind::CodeBlock => Some(Self::CodeBlock(CodeBlock(node))),
             SyntaxKind::ContentBlock => Some(Self::ContentBlock(ContentBlock(node))),
             SyntaxKind::Parenthesized => Some(Self::Parenthesized(Parenthesized(node))),
@@ -497,6 +503,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Float(v) => v.to_untyped(),
             Self::Numeric(v) => v.to_untyped(),
             Self::Str(v) => v.to_untyped(),
+            Self::StrText(v) => v.to_untyped(),
+            Self::StrEscape(v) => v.to_untyped(),
             Self::CodeBlock(v) => v.to_untyped(),
             Self::ContentBlock(v) => v.to_untyped(),
             Self::Array(v) => v.to_untyped(),
@@ -1496,49 +1504,139 @@ node! {
     struct Str
 }
 
-impl Str<'_> {
-    /// Get the string value with resolved escape sequences.
+impl<'a> Str<'a> {
+    /// Get the bare string value with resolved escape sequences.
     pub fn get(self) -> EcoString {
         let text = self.0.leaf_text();
-        let unquoted = &text[1..text.len() - 1];
-        if !unquoted.contains('\\') {
-            return unquoted.into();
-        }
+        let mut out = EcoString::with_capacity(text.len());
 
-        let mut out = EcoString::with_capacity(unquoted.len());
-        let mut s = Scanner::new(unquoted);
-
-        while let Some(c) = s.eat() {
-            if c != '\\' {
-                out.push(c);
-                continue;
-            }
-
-            let start = s.locate(-1);
-            match s.eat() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('u') if s.eat_if('{') => {
-                    let sequence = s.eat_while(char::is_ascii_hexdigit);
-                    s.eat_if('}');
-
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
-                    {
-                        Some(c) => out.push(c),
-                        Option::None => out.push_str(s.from(start)),
+        for item in self.get_parts() {
+            match item {
+                StrPart::Text(text) => out.push_str(text.get()),
+                StrPart::Escape(escape) => match escape.get() {
+                    Ok(c) => out.push(c),
+                    Err(c) => {
+                        out.push('\\');
+                        out.push(c);
                     }
-                }
-                _ => out.push_str(s.from(start)),
+                },
             }
         }
 
         out
     }
+
+    /// Returns the string parts without the quotes.
+    pub fn get_parts(&self) -> impl DoubleEndedIterator<Item = StrPart<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+/// The individual parts of a string between the quotes.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum StrPart<'a> {
+    /// Plain string text.
+    Text(StrText<'a>),
+    //// A string escape like `\u{1b}`.
+    Escape(StrEscape<'a>),
+}
+
+impl<'a> AstNode<'a> for StrPart<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::StrText => Some(Self::Text(StrText(node))),
+            SyntaxKind::StrEscape => Some(Self::Escape(StrEscape(node))),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            StrPart::Text(v) => v.to_untyped(),
+            StrPart::Escape(v) => v.to_untyped(),
+        }
+    }
+
+    fn placeholder() -> Self {
+        Self::Text(StrText::placeholder())
+    }
+}
+
+node! {
+    /// Plain string text without escapes or interpolations.
+    struct StrText
+}
+
+impl<'a> StrText<'a> {
+    /// Get the text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A string escape sequence: `\#`, `\r`, `\u{1F5FA}`.
+    struct StrEscape
+}
+
+impl StrEscape<'_> {
+    /// Get the escaped character and whether it was a valid escpae sequence.
+    pub fn get(self) -> Result<char, char> {
+        let mut s = Scanner::new(self.0.leaf_text());
+        s.expect('\\');
+        Ok(match s.eat().unwrap_or_default() {
+            '\\' => '\\',
+            '"' => '"',
+            '#' => '#',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'u' if s.eat_if('{') => {
+                let sequence = s.eat_while(char::is_ascii_hexdigit);
+                s.eat_if('}');
+
+                u32::from_str_radix(sequence, 16)
+                    .ok()
+                    .and_then(std::char::from_u32)
+                    .unwrap_or_default()
+            }
+            c => return Err(c),
+        })
+    }
+}
+
+/// A fragment in a string literal with interpolations.
+///
+/// There are currently two kinds of interpolations:
+/// - A bare interpolation like `#foo-bar`, this interpolation stops at the next
+///   non-identifier character.
+/// - A bracketed interpolation like `#[foo]`, this interpolation.
+///
+/// The bracketed interpolation can be used to resolve ambiguities with
+/// identifiers in interpolated strings. If only the binding `foo` is in scope,
+/// then attempting to evaluate `"#foo-bar"` would fail because `foo-bar` is not
+/// bound while `#[foo]-bar` would correctly evaluate.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Interpolation {
+    /// A raw fragment is a regular part of the string with its escape sequences
+    /// resovled.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `"foo "`, `""`
+    /// (between bar and qux), and `"-quux"`.
+    Raw(EcoString),
+
+    /// A reference fragment is an identifier in the current scope of the
+    /// string.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `bar`, `qux` and
+    /// `quux`.
+    Ref {
+        /// The identifier that is being regered to.
+        ident: EcoString,
+
+        /// Whether this reference used brackets.
+        bracket: bool,
+    },
 }
 
 node! {
