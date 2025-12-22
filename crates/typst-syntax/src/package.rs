@@ -751,7 +751,7 @@ mod tests {
                     ..PackageInfo::new(
                         "package",
                         PackageVersion { major: 0, minor: 1, patch: 0 },
-                        "src/lib.typ"
+                        VirtualPath::new("src/lib.typ").unwrap(),
                     )
                 },
                 template: None,
@@ -786,7 +786,7 @@ mod tests {
                     ..PackageInfo::new(
                         "package",
                         PackageVersion { major: 0, minor: 1, patch: 0 },
-                        "src/lib.typ"
+                        VirtualPath::new("src/lib.typ").unwrap(),
                     )
                 },
                 template: None,
