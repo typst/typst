@@ -428,7 +428,7 @@ async function getWebviewContent(
 ): Promise<string> {
   const showRender = attrs.includes("paged");
   const showHtml = attrs.includes("html");
-  const showYaml = attrs.includes("pdftags");
+  const showPdftags = attrs.includes("pdftags");
 
   const stdout = output?.stdout
     ? `<h2>Standard output</h2><pre class="output">${escape(
@@ -544,8 +544,8 @@ async function getWebviewContent(
     </head>
     <body>
       ${showRender ? renderSection(panel, name) : ""}
-      ${showHtml ? await htmlSection(name) : ""}
-      ${showYaml ? await pdftagsSection(name): ""}
+      ${showHtml ? await textSection(name, Format.HTML, htmlSnippet) : ""}
+      ${showPdftags ? await textSection(name, Format.PDFTAGS, pdftagsSnippet): ""}
       ${stdout}
       ${stderr}
     </body>
@@ -581,43 +581,26 @@ function renderSection(panel: vscode.WebviewPanel, name: string) {
   </div>`;
 }
 
-async function htmlSection(name: string) {
-  const storeHtml = await htmlSnippet(
-    "HTML Output",
-    getUri(name, "store", Format.HTML)
-  );
-  const refHtml = await htmlSnippet(
-    "HTML Reference",
-    getUri(name, "ref", Format.HTML)
-  );
+type ColumnSuffix = "Output" | "Reference";
+
+async function textSection(
+  name: string,
+  format: Format.HTML | Format.PDFTAGS,
+  makeSnippet: (suffix: ColumnSuffix, uri: vscode.Uri) => Promise<string>) {
+  const store = await makeSnippet("Output", getUri(name, "store", format));
+  const ref = await makeSnippet("Reference", getUri(name, "ref", format));
   return `<div
     class="flex vertical"
     data-vscode-context='{"preventDefaultContextMenuItems": true}'
   >
-    ${storeHtml}
-    ${refHtml}
+    ${store}
+    ${ref}
   </div>`;
 }
 
-async function pdftagsSection(name: string) {
-  const storeYaml = await pdftagsSnippet(
-    "PdfTags YAML Output",
-    getUri(name, "store", Format.PDFTAGS)
-  );
-  const refYaml = await pdftagsSnippet(
-    "PdfTags YAML Reference",
-    getUri(name, "ref", Format.PDFTAGS)
-  );
-  return `<div
-    class="flex vertical"
-    data-vscode-context='{"preventDefaultContextMenuItems": true}'
-  >
-    ${storeYaml}
-    ${refYaml}
-  </div>`;
-}
-
-async function htmlSnippet(title: string, uri: vscode.Uri): Promise<string> {
+async function htmlSnippet(
+  suffix: ColumnSuffix, uri: vscode.Uri): Promise<string> {
+  const title = `HTML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
     const code = new TextDecoder("utf-8").decode(data);
@@ -634,7 +617,8 @@ async function htmlSnippet(title: string, uri: vscode.Uri): Promise<string> {
 }
 
 async function pdftagsSnippet(
-  title: string, uri: vscode.Uri): Promise<string> {
+  suffix: ColumnSuffix, uri: vscode.Uri): Promise<string> {
+  const title = `PdfTags YAML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
     const code = new TextDecoder("utf-8").decode(data);
@@ -654,10 +638,7 @@ function linkedTitle(title: string, uri: vscode.Uri) {
 }
 
 async function highlight(code: string, lang: string): Promise<string> {
-  return (await shiki).codeToHtml(code, {
-    lang,
-    theme: selectTheme(),
-  });
+  return (await shiki).codeToHtml(code, {lang, theme: selectTheme()});
 }
 
 function selectTheme() {
