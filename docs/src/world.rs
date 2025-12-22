@@ -190,6 +190,13 @@ impl FileLoader for DocsFiles {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         self.root(id)?.load(id.vpath())
     }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
+    }
 }
 
 /// The fonts available to docs compilation.

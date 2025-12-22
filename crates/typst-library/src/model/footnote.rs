@@ -52,7 +52,7 @@ use crate::visualize::{LineElem, Stroke};
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
 /// apply to the footnote's content. See
-/// #link("https://github.com/typst/typst/issues/1467#issuecomment-1588799440")[here]
+/// #link("https://github.com/typst/typst/issues/1467\#issuecomment-1588799440")[here]
 /// for more information.
 ///
 /// = Accessibility <accessibility>

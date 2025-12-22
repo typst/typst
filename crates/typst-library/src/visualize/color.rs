@@ -608,7 +608,9 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(string) = args.find::<Spanned<Str>>()? {
-            if let Some(hex) = string.v.strip_prefix('#') {
+            if engine.route.preferred_version().string_interpolation()
+                && let Some(hex) = string.v.strip_prefix('#')
+            {
                 engine.sink.warn(warning!(
                     string.span,
                     "passing hex colors with hashes is deprecated"
@@ -2350,7 +2352,7 @@ impl SpotColorant {
         /// with your production printing experts.
         ///
         /// If this value is `{"all"}` and your print will involve multiple
-        /// #link("https://en.wikipedia.org/wiki/Offset_printing#Plates")[color plates],
+        /// #link("https://en.wikipedia.org/wiki/Offset_printing\#Plates")[color plates],
         /// use of this colorant will result in the specified tint being applied
         /// equally to all plates. If you choose `{none}`, no colorant will be
         /// applied when using this color. This special value is often used to

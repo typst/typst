@@ -8,14 +8,14 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
+use typst_syntax::{LinkedNode, PreferredCompilerVersion, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
 use crate::World;
 use crate::diag::{
-    LineCol, LoadError, LoadResult, LoadedWithin, ReportTextPos, SourceResult,
+    At, LineCol, LoadError, LoadResult, LoadedWithin, ReportTextPos, SourceResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -178,7 +178,7 @@ use crate::visualize::Color;
 ///   only whitespace will remove the same number of characters until they are
 ///   empty, but will keep any extra trailing whitespace.
 ///
-///   #let code-point = "https://www.unicode.org/glossary/#code_point"
+///   #let code-point = "https://www.unicode.org/glossary/\#code_point"
 ///
 ///   Note that this check treats tabs and spaces as equivalent characters for
 ///   simplicity, and that it operates on numbers of #link(code-point)[Unicode
@@ -511,7 +511,15 @@ impl Synthesize for Packed<RawElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let seq = self.highlight(engine.library.routines, styles);
+        let preferred_version = self
+            .span()
+            .id()
+            .map(|id| engine.world.preferred_version(id.root()))
+            .transpose()
+            .at(self.span())?
+            .unwrap_or_default();
+
+        let seq = self.highlight(preferred_version, engine.library.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }
@@ -519,7 +527,12 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
+    fn highlight(
+        &self,
+        preferred_version: PreferredCompilerVersion,
+        routines: &Routines,
+        styles: StyleChain,
+    ) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
 
@@ -558,9 +571,9 @@ impl Packed<RawElem> {
             let text =
                 lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
-                Some("typc") => typst_syntax::parse_code(&text),
-                Some("typm") => typst_syntax::parse_math(&text),
-                _ => typst_syntax::parse(&text),
+                Some("typc") => typst_syntax::parse_code(&text, preferred_version),
+                Some("typm") => typst_syntax::parse_math(&text, preferred_version),
+                _ => typst_syntax::parse(&text, preferred_version),
             };
 
             ThemedHighlighter::new(

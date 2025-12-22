@@ -1517,7 +1517,7 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::foundations::AsOutput;
+    use typst::{foundations::AsOutput, syntax::PreferredCompilerVersion};
     use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
@@ -1640,7 +1640,9 @@ mod tests {
         let mut world = TestWorld::new(initial_text);
         let doc = typst::compile::<PagedDocument>(&world).output.ok();
         let end = world.main.text().len();
-        world.main.edit(end..end, addition);
+        world
+            .main
+            .edit(end..end, addition, PreferredCompilerVersion::default());
         test_with_doc(&world, pos, doc.as_ref(), true)
     }
 
@@ -1796,7 +1798,9 @@ mod tests {
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
         let end = world.main.text().len();
-        world.main.edit(end..end, " #cite()");
+        world
+            .main
+            .edit(end..end, " #cite()", PreferredCompilerVersion::default());
 
         test_with_doc(&world, -2, doc.as_ref(), true)
             .must_include(["netwok", "glacier-melt", "supplement"])

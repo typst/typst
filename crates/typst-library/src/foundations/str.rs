@@ -53,8 +53,51 @@ pub use crate::__format_str as format_str;
 ///
 /// You can convert a value to a string with the `str` constructor.
 ///
+/// = Interpolation <interpolation>
+/// As with markup a `#` may be used to embed a value directly into a string.
+/// This can be seen as a more convenient version of concatenation combined with
+/// sensible string conversions. These conversions are similar to those applied
+/// in markup, but not exactly the same.
+///
+/// #docs-table(
+///     table.header[Type][Conversion],
+///     [`{none}`],
+///     [_empty string_],
+///
+///     [`{auto}`],
+///     [`"auto"`],
+///
+///     [@int],
+///     [@str],
+///
+///     [@float],
+///     [@str],
+///
+///     [@decimal],
+///     [@str],
+///
+///     [@version],
+///     [@str],
+///
+///     [@symbol],
+///     [_none_],
+///
+///     [@str],
+///     [_none_],
+///
+///     [_other_],
+///     [@repr],
+/// )
+///
+/// Because an interpolation is simply a code expression within a string you can
+/// very easily change the default behavior by wrapping a value in function,
+/// such as using `#repr(foo)` instead of `#foo` for a string.
+///
 /// = Example <example>
 /// ```example
+/// #let foo = "hello"
+/// #"#foo world!" \
+/// #"Points #(2, 3, 5).map(str).join(", ", last: ", and ") are done" \
 /// #"hello world!" \
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
@@ -67,6 +110,7 @@ pub use crate::__format_str as format_str;
 /// Just like in markup, you can escape a few symbols in strings:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
+/// - `[\#]` for a hash
 /// - `[\n]` for a newline
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
@@ -736,6 +780,7 @@ impl Repr for str {
                 '\0' => r.push_str(r"\u{0}"),
                 '\'' => r.push('\''),
                 '"' => r.push_str(r#"\""#),
+                '#' => r.push_str("\\#"),
                 _ => r.extend(c.escape_debug()),
             }
         }
@@ -972,7 +1017,7 @@ fn string_is_empty() -> EcoString {
 /// Can be used as a @reference:styling:show-rules[show rule selector] or with
 /// @str[string methods].
 ///
-/// Visit #link("https://docs.rs/regex/latest/regex/#syntax")[this website] for
+/// Visit #link("https://docs.rs/regex/latest/regex/\#syntax")[this website] for
 /// a complete specification of the supported syntax.
 ///
 /// = With string methods <string-methods>
@@ -998,7 +1043,7 @@ fn string_is_empty() -> EcoString {
 ///
 /// Sometimes, you may also want to combine both uses, by first matching on text
 /// with a show rule and then rematching on the text to extract a specific
-/// #link("https://docs.rs/regex/latest/regex/#grouping-and-flags")[capture group].
+/// #link("https://docs.rs/regex/latest/regex/\#grouping-and-flags")[capture group].
 /// In this case, it can be convenient to store the regular expression in a
 /// variable instead of repeating it twice.
 ///

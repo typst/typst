@@ -16,7 +16,8 @@ use typst::{World, WorldExt as _};
 use typst_kit::files::FileLoader as _;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    DiagSpan, DiagSpanKind, FileId, Lines, RootedPath, Source, VirtualPath, VirtualRoot,
+    DiagSpan, DiagSpanKind, FileId, Lines, PreferredCompilerVersion, RootedPath, Source, VirtualPath,
+    VirtualRoot,
 };
 use unscanny::Scanner;
 
@@ -445,7 +446,11 @@ pub fn parse_test_body(
 
     // Then create a source file for the test body.
     let vpath = VirtualPath::virtualize(Path::new(""), &pos.path).unwrap();
-    let source = Source::new(RootedPath::new(VirtualRoot::Project, vpath).intern(), body);
+    let source = Source::new(
+        RootedPath::new(VirtualRoot::Project, vpath).intern(),
+        body,
+        PreferredCompilerVersion::default(),
+    );
 
     // Finish by actually parsing the note lines now that we have the body.
     let mut notes = Vec::with_capacity(note_lines.len());

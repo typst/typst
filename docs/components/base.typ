@@ -159,7 +159,7 @@
     html.elem("use", attrs: (
       "href": (
         stdx.config.asset-base + "icons/" + str(size) + "-" +
-        name + ".svg" + "#icon"
+        name + ".svg" + "\#icon"
       ),
     ))
   },

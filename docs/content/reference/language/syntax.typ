@@ -393,12 +393,25 @@ I got an ice cream for
 \$1.50! \u{1f600}
 ```
 
+= Interpolation <interpolation>
+Just like in markup or math, code mode can be entered from within strings to embed values. The expression can be any an expression that would also be valid in markup. Similarly, to end an expression early, a semicolon or parentheses/braces can be used to delimit the end of the expression.
+
+```example
+#let where = "while we're in them"
+#let how = "real "
+#let inception = "Dreams feel #{how}#where."
+#inception
+```
+
+Interpolations within strings will convert values before embedding them, the exact list of conversions can be found @str:interpolation[here].
+
+
 = Identifiers <identifiers>
 Names of variables, functions, and so on (_identifiers_) can contain letters, numbers, hyphens (`-`), and underscores (`_`). They must start with a letter or an underscore.
 
 More specifically, the identifier syntax in Typst is based on the #link("https://www.unicode.org/reports/tr31/")[Unicode Standard Annex \#31], with two extensions: Allowing `_` as a starting character, and allowing both `_` and `-` as continuing characters.
 
-For multi-word identifiers, the recommended case convention is #link("https://en.wikipedia.org/wiki/Letter_case#Kebab_case")[Kebab case]. In Kebab case, words are written in lowercase and separated by hyphens (as in `top-edge`). This is especially relevant when developing modules and packages for others to use, as it keeps things predictable.
+For multi-word identifiers, the recommended case convention is #link("https://en.wikipedia.org/wiki/Letter_case\#Kebab_case")[Kebab case]. In Kebab case, words are written in lowercase and separated by hyphens (as in `top-edge`). This is especially relevant when developing modules and packages for others to use, as it keeps things predictable.
 
 ```example
 #let kebab-case = [Using hyphen]

@@ -114,7 +114,7 @@
         content: "width=device-width, initial-scale=1",
       )
       html.meta(name: "description", content: description)
-      html.meta(name: "theme-color", content: "#239dad")
+      html.meta(name: "theme-color", content: "239dad")
       html.meta(name: "robots", content: "noindex")
       html.link(href: stdx.config.asset-base + "base.css", rel: "stylesheet")
       html.link(href: stdx.config.asset-base + "docs.css", rel: "stylesheet")
