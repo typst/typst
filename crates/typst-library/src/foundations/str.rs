@@ -52,8 +52,15 @@ pub use crate::__format_str as format_str;
 ///
 /// You can convert a value to a string with the `str` constructor.
 ///
+/// # Interpolation { #interpolation }
+/// Strings may contain `#[...]` to directly embed variables in the current
+/// scope. These are called interpolations and convert which ever variable is
+/// used in them into a string by using the `str` constructor.
+///
 /// # Example
 /// ```example
+/// #let foo = "hello"
+/// #"#[foo] world!" \
 /// #"hello world!" \
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
@@ -66,6 +73,7 @@ pub use crate::__format_str as format_str;
 /// Just like in markup, you can escape a few symbols in strings:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
+/// - `[\#]` for a hash
 /// - `[\n]` for a newline
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab

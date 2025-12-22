@@ -82,11 +82,13 @@ use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
 
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
-use crate::{Span, SyntaxKind, SyntaxNode, is_ident, is_newline};
+use crate::{
+    Span, SyntaxKind, SyntaxNode, is_id_continue, is_id_start, is_ident, is_newline,
+};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -1225,47 +1227,120 @@ node! {
 
 impl Str<'_> {
     /// Get the string value with resolved escape sequences.
-    pub fn get(self) -> EcoString {
+    ///
+    /// Returns `Err(..)` if this string had interpolations that need to be
+    /// evaluated.
+    pub fn get(self) -> Result<EcoString, EcoVec<Interpolation>> {
         let text = self.0.text();
         let unquoted = &text[1..text.len() - 1];
-        if !unquoted.contains('\\') {
-            return unquoted.into();
+
+        if !unquoted.contains(['\\', '#']) {
+            return Ok(unquoted.into());
         }
 
-        let mut out = EcoString::with_capacity(unquoted.len());
+        let mut last = EcoString::new();
+        let mut fragments = EcoVec::new();
         let mut s = Scanner::new(unquoted);
 
         while let Some(c) = s.eat() {
-            if c != '\\' {
-                out.push(c);
-                continue;
-            }
+            match c {
+                '#' => {
+                    let start = s.locate(-1);
+                    let bracket = true;
 
-            let start = s.locate(-1);
-            match s.eat() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('u') if s.eat_if('{') => {
-                    let sequence = s.eat_while(char::is_ascii_hexdigit);
-                    s.eat_if('}');
+                    if !s.eat_if('[') {
+                        last.push_str(s.from(start));
+                        continue;
+                    }
 
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
-                    {
-                        Some(c) => out.push(c),
-                        Option::None => out.push_str(s.from(start)),
+                    let ident_start = s.cursor();
+                    if !s.eat_if(is_id_start) {
+                        last.push_str(s.from(start));
+                        continue;
+                    }
+
+                    s.eat_while(is_id_continue);
+                    let ident = s.from(ident_start);
+
+                    if !s.eat_if(']') {
+                        last.push_str(s.from(start));
+                        continue;
+                    }
+
+                    if !last.is_empty() {
+                        fragments.push(Interpolation::Raw(std::mem::take(&mut last)));
+                    }
+
+                    fragments.push(Interpolation::Ref { ident: ident.into(), bracket });
+                }
+                '\\' => {
+                    let start = s.locate(-1);
+                    match s.eat() {
+                        Some('\\') => last.push('\\'),
+                        Some('"') => last.push('"'),
+                        Some('#') => last.push('#'),
+                        Some('n') => last.push('\n'),
+                        Some('r') => last.push('\r'),
+                        Some('t') => last.push('\t'),
+                        Some('u') if s.eat_if('{') => {
+                            let sequence = s.eat_while(char::is_ascii_hexdigit);
+                            s.eat_if('}');
+
+                            match u32::from_str_radix(sequence, 16)
+                                .ok()
+                                .and_then(std::char::from_u32)
+                            {
+                                Some(c) => last.push(c),
+                                Option::None => last.push_str(s.from(start)),
+                            }
+                        }
+                        _ => last.push_str(s.from(start)),
                     }
                 }
-                _ => out.push_str(s.from(start)),
+                _ => last.push(c),
             }
         }
 
-        out
+        if !last.is_empty() {
+            fragments.push(Interpolation::Raw(std::mem::take(&mut last)));
+        }
+
+        if fragments.is_empty() { Ok(last) } else { Err(fragments) }
     }
+}
+
+/// A fragment in a string literal with interpolations.
+///
+/// There are currently two kinds of interpolations:
+/// - A bare interpolation like `#foo-bar`, this interpolation stops at the next
+///   non-identifier character.
+/// - A bracketed interpolation like `#[foo]`, this interpolation.
+///
+/// The bracketed interpolation can be used to resolve ambiguities with
+/// identifiers in interpolated strings. If only the binding `foo` is in scope,
+/// then attempting to evaluate `"#foo-bar"` would fail because `foo-bar` is not
+/// bound while `#[foo]-bar` would correctly evaluate.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Interpolation {
+    /// A raw fragment is a regular part of the string with its escape sequences
+    /// resovled.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `"foo "`, `""`
+    /// (between bar and qux), and `"-quux"`.
+    Raw(EcoString),
+
+    /// A reference fragment is an identifier in the current scope of the
+    /// string.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `bar`, `qux` and
+    /// `quux`.
+    Ref {
+        /// The identifier that is being regered to.
+        ident: EcoString,
+
+        /// Whether this reference used brackets.
+        bracket: bool,
+    },
 }
 
 node! {
@@ -2212,26 +2287,28 @@ impl<'a> ModuleImport<'a> {
         match self.source() {
             Expr::Ident(ident) => Ok(ident.get().clone()),
             Expr::FieldAccess(access) => Ok(access.field().get().clone()),
-            Expr::Str(string) => {
-                let string = string.get();
-                let name = if string.starts_with('@') {
-                    PackageSpec::from_str(&string)
-                        .map_err(|_| BareImportError::PackageInvalid)?
-                        .name
-                } else {
-                    Path::new(string.as_str())
-                        .file_stem()
-                        .and_then(|path| path.to_str())
-                        .ok_or(BareImportError::PathInvalid)?
-                        .into()
-                };
+            Expr::Str(string) => match string.get() {
+                Ok(string) => {
+                    let name = if string.starts_with('@') {
+                        PackageSpec::from_str(&string)
+                            .map_err(|_| BareImportError::PackageInvalid)?
+                            .name
+                    } else {
+                        Path::new(string.as_str())
+                            .file_stem()
+                            .and_then(|path| path.to_str())
+                            .ok_or(BareImportError::PathInvalid)?
+                            .into()
+                    };
 
-                if !is_ident(&name) {
-                    return Err(BareImportError::PathInvalid);
+                    if !is_ident(&name) {
+                        return Err(BareImportError::PathInvalid);
+                    }
+
+                    Ok(name)
                 }
-
-                Ok(name)
-            }
+                _ => Err(BareImportError::Dynamic),
+            },
             _ => Err(BareImportError::Dynamic),
         }
     }

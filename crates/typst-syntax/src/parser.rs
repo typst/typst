@@ -1192,7 +1192,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
         if let Some(key) = match node.cast::<ast::Expr>() {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
-            Some(ast::Expr::Str(s)) => Some(s.get()),
+            Some(ast::Expr::Str(s)) => s.get().ok(),
             _ => None,
         } && !state.seen.insert(key.clone())
         {

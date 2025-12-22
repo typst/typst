@@ -224,7 +224,8 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
     // Hovering over a string parameter value.
     if let Some(string) = leaf.cast::<ast::Str>()
         && let Some(param) = func.param(&named.name())
-        && let Some(docs) = find_string_doc(&param.input, &string.get())
+        && let Ok(string) = string.get()
+        && let Some(docs) = find_string_doc(&param.input, &string)
     {
         return Some(Tooltip::Text(docs.into()));
     }
@@ -247,7 +248,8 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     // Ensure that we are on top of a string.
     if let Some(string) = leaf.cast::<ast::Str>()
-        && let lower = string.get().to_lowercase()
+        && let Ok(string) = string.get()
+        && let lower = string.to_lowercase()
 
         // Ensure that we are in the arguments to the text function.
         && let Some(parent) = leaf.parent()
