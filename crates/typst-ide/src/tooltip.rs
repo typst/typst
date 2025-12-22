@@ -375,7 +375,7 @@ mod tests {
     fn test_tooltip_set() {
         let box_desc = "An inline-level container that sizes content.";
         let fill_desc = "The box's background color.";
-        let red = "rgb(\"#ff4136\")";
+        let red = "rgb(\"ff4136\")";
         test("#set box(fill: red,)", 0 /*#*/, Side::After).must_be_none();
         test("#set box(fill: red,)", 1 /*s*/, Side::After).must_be_none();
         test("#set box(fill: red,)", 5 /*b*/, Side::After).must_be_text(box_desc);
@@ -417,10 +417,10 @@ mod tests {
         test("#box[]", 5 /*]*/, Side::After).must_be_code("[]");
         // Named args
         let fill_desc = "The box's background color.";
-        let red_box = "box(fill: rgb(\"#ff4136\"))";
+        let red_box = "box(fill: rgb(\"ff4136\"))";
         test("#box(fill:red,)", 5 /*f*/, Side::After).must_be_text(fill_desc);
         test("#box(fill:red,)", 9 /*:*/, Side::After).must_be_code(red_box);
-        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"#ff4136\")");
+        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"ff4136\")");
         test("#box(fill:red,)", 13 /*,*/, Side::After).must_be_code(red_box);
         // Spread args
         test("#box(..none,)", 5 /*.*/, Side::After).must_be_code("box()");

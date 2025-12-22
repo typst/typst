@@ -24,7 +24,7 @@
   ),
   tiling: tiling(size: (10pt, 10pt), {
     place(rect(
-      fill: rgb("#ffd2ec"),
+      fill: rgb("ffd2ec"),
       width: 10pt,
       height: 10pt,
     ))
