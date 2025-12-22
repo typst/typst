@@ -218,7 +218,7 @@ pub fn root(
         if index.v % 2 == 0 {
             bail!(
                 index.span,
-                "negative numbers do not have a real nth root when n is even"
+                "negative numbers do not have a real nth root when n is even",
             );
         } else {
             Ok(-(-radicand).powf(1.0 / index.v as f64))
@@ -415,7 +415,7 @@ pub fn log(
     value: Spanned<Num>,
     /// The base of the logarithm. May not be zero.
     #[named]
-    #[default(Spanned::new(10.0, Span::detached()))]
+    #[default(Spanned::detached(10.0))]
     base: Spanned<f64>,
 ) -> SourceResult<f64> {
     let number = value.v.float();
@@ -564,6 +564,9 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 
 /// Calculates the greatest common divisor of two integers.
 ///
+/// This will error if the result of integer division would be larger than the
+/// maximum 64-bit signed integer.
+///
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
@@ -573,15 +576,15 @@ pub fn gcd(
     a: i64,
     /// The second integer.
     b: i64,
-) -> i64 {
+) -> StrResult<i64> {
     let (mut a, mut b) = (a, b);
     while b != 0 {
         let temp = b;
-        b = a % b;
+        b = a.checked_rem(b).ok_or_else(too_large)?;
         a = temp;
     }
 
-    a.abs()
+    Ok(a.abs())
 }
 
 /// Calculates the least common multiple of two integers.
@@ -600,7 +603,7 @@ pub fn lcm(
         return Ok(a.abs());
     }
 
-    Ok(a.checked_div(gcd(a, b))
+    Ok(a.checked_div(gcd(a, b)?)
         .and_then(|gcd| gcd.checked_mul(b))
         .map(|v| v.abs())
         .ok_or_else(too_large)?)
@@ -918,7 +921,9 @@ pub fn rem(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a % b)),
+            // `checked_rem` can only overflow on `i64::MIN % -1` which is
+            // mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a % b)),
             |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
@@ -931,7 +936,11 @@ pub fn rem(
 /// Performs euclidean division of two numbers.
 ///
 /// The result of this computation is that of a division rounded to the integer
-/// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+/// `{n}` such that the dividend is greater than or equal to `{n}` times
+/// the divisor.
+///
+/// This can error if the resulting number is larger than the maximum value or
+/// smaller than the minimum value for its type.
 ///
 /// ```example
 /// #calc.div-euclid(7, 3) \
@@ -956,7 +965,7 @@ pub fn div_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.div_euclid(b))),
+            |a, b| a.checked_div_euclid(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a.div_euclid(b))),
             |a, b| a.checked_div_euclid(b).map(DecNum::Decimal),
         )
@@ -999,7 +1008,9 @@ pub fn rem_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.rem_euclid(b))),
+            // `checked_rem_euclid` can only overflow on `i64::MIN % -1` which
+            // is mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem_euclid(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a.rem_euclid(b))),
             |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
         )
@@ -1012,8 +1023,8 @@ pub fn rem_euclid(
 /// Calculates the quotient (floored division) of two numbers.
 ///
 /// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// error if the resulting number is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
@@ -1035,7 +1046,15 @@ pub fn quo(
     let divided = dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a / b)),
+            |a, b| {
+                let q = a.checked_div(b)?;
+                // Round towards negative infinity if the fraction is negative.
+                Some(DecNum::Int(if (a < 0) != (b < 0) && a % b != 0 {
+                    q - 1
+                } else {
+                    q
+                }))
+            },
             |a, b| Some(DecNum::Float(a / b)),
             |a, b| a.checked_div(b).map(DecNum::Decimal),
         )
@@ -1057,7 +1076,7 @@ pub fn quo(
 pub fn norm(
     /// The p value to calculate the p-norm of.
     #[named]
-    #[default(Spanned::new(2.0, Span::detached()))]
+    #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.

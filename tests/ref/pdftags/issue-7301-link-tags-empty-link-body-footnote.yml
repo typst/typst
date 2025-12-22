@@ -1,0 +1,15 @@
+- Tag: P
+  /K:
+    - Tag: Lbl
+      /K:
+        - Tag: Link
+          /K:
+            - Annotation: page=0 subtype=Link
+              /Contents: "Footnote "
+    - Tag: Note
+      /Id: "Note 1"
+      /K:
+        - Tag: Lbl
+          /K:
+            - Tag: Link
+        - Content: page=0 mcid=0

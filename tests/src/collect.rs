@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::io::IsTerminal;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -40,7 +41,11 @@ pub struct Test {
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path
-        write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+        if std::io::stdout().is_terminal() {
+            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+        } else {
+            write!(f, "{} ({})", self.name, self.pos)
+        }
     }
 }
 
@@ -762,7 +767,7 @@ impl<'a> Parser<'a> {
         let start = self.parse_line_col()?;
         let lines = Lines::try_from(&bytes).expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid utf-8)",
+            that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;

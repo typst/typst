@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -6,6 +5,13 @@ use std::sync::atomic::Ordering;
 
 use portable_atomic::AtomicU128;
 use siphasher::sip128::{Hasher128, SipHasher13};
+
+/// Calculate a 128-bit siphash of a value.
+pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
+    let mut state = SipHasher13::new();
+    value.hash(&mut state);
+    state.finish128().as_u128()
+}
 
 /// A wrapper type with lazily-computed hash.
 ///
@@ -30,6 +36,19 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// # Usage
 /// If the value is expected to be cloned, it is best used inside of an `Arc`
 /// or `Rc` to best re-use the hash once it has been computed.
+///
+/// # Unsized coercions
+/// The `LazyHash` type supports unsized payload types and coercions to such.
+/// For instance, a `LazyHash<&'static str>` can be coerced to a
+/// `LazyHash<dyn YourTrait>` when `&'static str: YourTrait`. When it is hashed,
+/// a `LazyHash` will always use the [`Hash`] impl of the underlying type. This
+/// underlying type changes through an unsized coercion. When coercing a
+/// [`LazyHash`] that has an already populated internal hash, you'll thus get a
+/// cached hash that was hashed with another impl than a fresh hash would have
+/// used. To avoid this, when performing unsized coercions, avoid hashing the
+/// value before the coercion and overall try to minimize the timespan in which
+/// the original type is active. Typical usages of unsized coercions have a very
+/// minimal lifetime of the original type only upon construction.
 #[derive(Clone)]
 pub struct LazyHash<T: ?Sized> {
     /// The hash for the value.
@@ -63,19 +82,8 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
     /// Get the hash or compute it if not set yet.
     #[inline]
     fn load_or_compute_hash(&self) -> u128 {
-        self.hash.get_or_insert_with(|| hash_item(&self.value))
+        self.hash.get_or_insert_with(|| hash128(&self.value))
     }
-}
-
-/// Hash the item.
-#[inline]
-fn hash_item<T: Hash + ?Sized + 'static>(item: &T) -> u128 {
-    // Also hash the TypeId because the type might be converted
-    // through an unsized coercion.
-    let mut state = SipHasher13::new();
-    item.type_id().hash(&mut state);
-    item.hash(&mut state);
-    state.finish128().as_u128()
 }
 
 impl<T: Hash + ?Sized + 'static> Hash for LazyHash<T> {

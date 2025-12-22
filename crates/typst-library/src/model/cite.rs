@@ -178,6 +178,6 @@ fn failed_to_format_citation() -> HintedString {
     error!(
         "cannot format citation in isolation";
         hint: "check whether this citation is measured \
-               without being inserted into the document"
+               without being inserted into the document";
     )
 }

@@ -332,7 +332,7 @@ impl ListType {
                     bail!(
                         "array item may not contain a {name}";
                         hint: "the array attribute will be encoded as a \
-                               {name}-separated string"
+                               {name}-separated string";
                     );
                 }
                 if i > 0 {

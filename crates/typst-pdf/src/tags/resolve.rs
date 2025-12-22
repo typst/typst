@@ -4,8 +4,9 @@ use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
-use typst_library::diag::{SourceDiagnostic, SourceResult, error};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
@@ -49,7 +50,7 @@ impl<'a> Resolver<'a> {
 }
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
-    gc.tags.tree.assert_finished_traversal();
+    gc.tags.tree.assert_finished_traversal().at(Span::detached())?;
 
     if !disabled(gc) {
         context::finish(&mut gc.tags.tree);
@@ -323,14 +324,14 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
             if rs.last_heading_level.is_none() {
                 rs.errors.push(error!(
                     span,
-                    "{validator} error: the first heading must be of level 1"
+                    "{validator} error: the first heading must be of level 1",
                 ));
             } else {
                 rs.errors.push(error!(
                     span,
                     "{validator} error: skipped from heading level \
                      {prev_level} to {next_level}";
-                    hint: "heading levels must be consecutive"
+                    hint: "heading levels must be consecutive";
                 ));
             }
         }
@@ -529,7 +530,7 @@ fn validate_children_groups(
                 span,
                 "{validator} error: invalid {parent} structure";
                 hint: "{parent} may not contain {child}";
-                hint: "this is probably caused by a show rule"
+                hint: "this is probably caused by a show rule";
             ));
         } else if matches!(&child.tag, TagKind::Caption(_)) {
             caption_spans.push(to_span(child.tag.location()));
@@ -546,7 +547,7 @@ fn validate_children_groups(
                 span,
                 "{validator} error: invalid {parent} structure";
                 hint: "{parent} may not contain multiple {child} tags";
-                hint: "avoid manually calling `figure.caption`"
+                hint: "avoid manually calling `figure.caption`";
             )
         };
         if caption_spans.iter().all(|s| !s.is_detached()) {
@@ -563,7 +564,7 @@ fn validate_children_groups(
             parent_span,
             "{validator} error: invalid {parent} structure";
             hint: "{parent} may not contain marked content directly";
-            hint: "this is probably caused by a show rule"
+            hint: "this is probably caused by a show rule";
         ));
     }
 }

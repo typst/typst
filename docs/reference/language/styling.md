@@ -107,7 +107,7 @@ be overridable anymore.
 #show heading: it => block[
   \~
   #emph(it.body)
-  #counter(heading).display(it.numbering)
+  #counter(heading).display()
   \~
 ]
 

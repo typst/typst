@@ -1,13 +1,15 @@
 use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
+use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{BareType, foundations};
+use crate::util::{BareType, foundations, kw, parse_flag};
 
 /// Expand the `#[scope]` macro.
-pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
+pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
+    let meta: Meta = syn::parse2(stream)?;
     let syn::Item::Impl(mut item) = item else {
         bail!(item, "expected module or impl item");
     };
@@ -17,7 +19,7 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let mut primitive_ident_ext = None;
     if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref()
         && let Some(ident) = path.get_ident()
-        && is_primitive(ident)
+        && meta.ext
     {
         let ident_ext = quote::format_ident!("{ident}Ext");
         primitive_ident_ext = Some(ident_ext);
@@ -113,6 +115,19 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     })
 }
 
+/// The `..` in `#[scope(..)]`.
+struct Meta {
+    /// Whether this the scope should be implemented through an extension
+    /// trait instead of an inherent impl.
+    ext: bool,
+}
+
+impl Parse for Meta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self { ext: parse_flag::<kw::ext>(input)? })
+    }
+}
+
 /// Process a const item and returns its definition.
 fn handle_const(self_ty: &TokenStream, item: &syn::ImplItemConst) -> Result<TokenStream> {
     let ident = &item.ident;
@@ -162,11 +177,6 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
 enum FnKind {
     Constructor(TokenStream),
     Member(TokenStream),
-}
-
-/// Whether the identifier describes a primitive type.
-fn is_primitive(ident: &syn::Ident) -> bool {
-    ident == "bool" || ident == "i64" || ident == "f64"
 }
 
 /// Rewrite an impl block for a primitive into a trait + trait impl.

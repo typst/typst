@@ -46,12 +46,12 @@ $ sqrt(x + y) root(4, 2) $
 $ sqrt(1/2) root(3, 1/2) $
 
 --- math-delim-show-rule-1 paged ---
-#show regex("\[|\]"): set text(green, font: "Noto Sans Math")
+#show regex("\\[|\\]"): set text(green, font: "Noto Sans Math")
 $ mat(delim: \[, a, b, c; d, e, f; g, h, i) quad [x + y] $
 
 --- math-delim-show-rule-2 paged ---
 #show math.vec: it => {
-  show regex("\(|\)"): set text(blue)
+  show regex("\\(|\\)"): set text(blue)
   it
 }
 $ vec(1, 0, 0), mat(1; 0; 0), (1), binom(n, k) $
@@ -65,7 +65,7 @@ $ underbrace(1 + 1 = 2, "obviously") $
 $ cases(x + y + z = 0, 2x - y = 0, -5y + 2z = 0) $
 
 --- math-delim-show-rule-5 paged ---
-#show regex("\(|\)"): set text(1.5em)
+#show regex("\\(|\\)"): set text(1.5em)
 $ 10 dot (9 - 5) dot (1/2 - 1) $
 
 --- math-primes-show-rule paged ---

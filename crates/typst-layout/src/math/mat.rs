@@ -203,7 +203,7 @@ fn layout_body(
                 ctx.engine.sink.warn(warning!(
                    cell_span,
                    "linebreaks are ignored in {}", children;
-                   hint: "use commas instead to separate each line"
+                   hint: "use commas instead to separate each line";
                 ));
             }
 

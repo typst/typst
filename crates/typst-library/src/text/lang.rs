@@ -712,7 +712,7 @@ mod tests {
                     file.file_stem()
                         .expect("translation file should have basename")
                         .to_str()
-                        .expect("translation file name should be utf-8 encoded")
+                        .expect("translation file name should be UTF-8 encoded")
                 ),
                 "translation from {:?} should be registered in TRANSLATIONS in {}",
                 file.file_name().unwrap(),
@@ -727,7 +727,7 @@ mod tests {
     fn test_all_translation_files_formatted() {
         for file in translation_files_iter() {
             let content = std::fs::read_to_string(&file)
-                .expect("translation file should be in utf-8 encoding");
+                .expect("translation file should be in UTF-8 encoding");
             let filename = file.file_name().unwrap();
             assert!(
                 content.ends_with('\n'),

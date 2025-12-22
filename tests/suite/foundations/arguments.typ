@@ -1,5 +1,12 @@
 // Test arguments.
 
+--- arguments-len paged ---
+#test(arguments().len(), 0)
+#test(arguments("hello").len(), 1)
+#test(arguments(a: "world").len(), 1)
+#test(arguments(a: "hey", 14).len(), 2)
+#test(arguments(0, 1, a: 2, 3).len(), 4)
+
 --- arguments-at paged ---
 #let args = arguments(0, 1, a: 2, 3)
 #test(args.at(0), 0)
@@ -25,3 +32,24 @@
 #test({lhs; rhs}, result)
 #test((lhs, rhs).sum(), result)
 #test((lhs, rhs).join(), result)
+
+--- arguments-filter paged ---
+// Test the `filter` method.
+#test(arguments().filter(calc.even), arguments())
+#test(arguments(1, a: 2, b: 3, 4).filter(calc.even), arguments(a: 2, 4))
+#test(arguments(h: 7, e: 3, l: 2, o: 5, 1).filter(x => x < 5), arguments(e: 3, l: 2, 1))
+
+--- arguments-filter-error paged ---
+// Test that errors in the predicate are reported properly.
+// Error: 29-34 cannot subtract integer from string
+#arguments("a").filter(x => x - 2)
+
+--- arguments-map paged ---
+// Test the `map` method.
+#test(arguments().map(x => x * 2), arguments())
+#test(arguments(2, a: 3).map(x => x * 2), arguments(4, a: 6))
+
+--- arguments-map-error paged ---
+// Test that errors in the function are reported properly.
+// Error: 26-31 cannot subtract integer from string
+#arguments("a").map(x => x - 2)

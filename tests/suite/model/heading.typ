@@ -162,3 +162,12 @@ Cannot be used as @intro
 --- issue-5719-heading-nested paged ---
 // Headings may not be nested like this.
 = = A
+
+--- issue-7428-heading-numbering-errors paged ---
+// Ensure that the error from the first layout iteration is silenced.
+#set heading(numbering: (n, ..nums) => {
+  assert(n > 0)
+  [#n]
+})
+
+= A

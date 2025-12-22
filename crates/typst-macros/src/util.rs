@@ -259,4 +259,5 @@ pub mod kw {
     syn::custom_keyword!(constructor);
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);
+    syn::custom_keyword!(ext);
 }

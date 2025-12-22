@@ -319,7 +319,7 @@ impl Binding {
                 match capturer {
                     Capturer::Function => "function",
                     Capturer::Context => "context expression",
-                }
+                },
             ),
         }
     }

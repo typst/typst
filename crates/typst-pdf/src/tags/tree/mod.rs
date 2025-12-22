@@ -9,7 +9,7 @@ use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use typst_library::diag::SourceDiagnostic;
+use typst_library::diag::{HintedStrResult, SourceDiagnostic, assert_internal};
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
 use typst_library::layout::{Inherit, PagedDocument};
@@ -74,22 +74,20 @@ impl Tree {
         Some(self.ctx.bboxes.get_mut(id))
     }
 
-    pub fn assert_finished_traversal(&self) {
-        assert_eq!(
-            self.prog_cursor + 1,
-            self.progressions.len(),
-            "tree traversal didn't complete properly"
-        );
-        assert_eq!(
-            self.break_cursor,
-            self.breaks.len(),
-            "tree traversal didn't complete properly"
-        );
-        assert_eq!(
-            self.unfinished_cursor,
-            self.unfinished.len(),
-            "tree traversal didn't complete properly"
-        );
+    pub fn assert_finished_traversal(&self) -> HintedStrResult<()> {
+        assert_internal(
+            self.prog_cursor + 1 == self.progressions.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        assert_internal(
+            self.break_cursor == self.breaks.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        assert_internal(
+            self.unfinished_cursor == self.unfinished.len(),
+            "tree traversal didn't complete properly",
+        )?;
+        Ok(())
     }
 }
 

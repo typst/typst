@@ -336,7 +336,7 @@ fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
             let count = value.graphemes(true).count();
             bail!(
                 "expected 2 characters, found {count} character{}",
-                if count > 1 { "s" } else { "" }
+                if count > 1 { "s" } else { "" },
             );
         }
     }
@@ -348,7 +348,7 @@ fn array_to_set(value: Array) -> HintedStrResult<[EcoString; 2]> {
         bail!(
             "expected 2 quotes, found {} quote{}",
             value.len(),
-            if value.len() > 1 { "s" } else { "" }
+            if value.len() > 1 { "s" } else { "" },
         );
     }
 

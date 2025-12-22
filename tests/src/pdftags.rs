@@ -153,8 +153,8 @@ fn format_xmp_metadata(f: &mut Formatter, stream: Stream) -> StrResult<()> {
         .decoded()
         .map_err(|e| eco_format!("failed to decode stream: {e:?}"))?;
     let xml_str =
-        std::str::from_utf8(&bytes).map_err(|e| eco_format!("invalid utf-8: {e}"))?;
-    let xmp = Document::parse(xml_str).map_err(|e| eco_format!("invalid xml: {e}"))?;
+        std::str::from_utf8(&bytes).map_err(|e| eco_format!("invalid UTF-8: {e}"))?;
+    let xmp = Document::parse(xml_str).map_err(|e| eco_format!("invalid XML: {e}"))?;
 
     let xmpmeta = xmp.root_element();
     let rdf = child(&xmpmeta, "RDF").ok_or("missing rdf:RDF")?;

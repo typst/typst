@@ -18,11 +18,11 @@ use crate::{FileId, LinkedNode, Span, SyntaxNode, VirtualPath, parse};
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone)]
-pub struct Source(Arc<Repr>);
+pub struct Source(Arc<SourceInner>);
 
-/// The internal representation.
+/// The internal representation of a [`Source`].
 #[derive(Clone)]
-struct Repr {
+struct SourceInner {
     id: FileId,
     root: LazyHash<SyntaxNode>,
     lines: LazyHash<Lines<String>>,
@@ -34,7 +34,7 @@ impl Source {
         let _scope = typst_timing::TimingScope::new("create source");
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
-        Self(Arc::new(Repr {
+        Self(Arc::new(SourceInner {
             id,
             lines: LazyHash::new(Lines::new(text)),
             root: LazyHash::new(root),

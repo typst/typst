@@ -258,10 +258,20 @@
 #test((1, 2, 3, 4).filter(calc.even), (2, 4))
 #test((7, 3, 2, 5, 1).filter(x => x < 5), (3, 2, 1))
 
+--- array-filter-error paged ---
+// Test that errors in the predicate are reported properly.
+// Error: 21-26 cannot subtract integer from string
+#("a",).filter(x => x - 2)
+
 --- array-map paged ---
 // Test the `map` method.
 #test(().map(x => x * 2), ())
 #test((2, 3).map(x => x * 2), (4, 6))
+
+--- array-map-error paged ---
+// Test that errors in the function are reported properly.
+// Error: 18-23 cannot subtract integer from string
+#("a",).map(x => x - 2)
 
 --- array-fold paged ---
 // Test the `fold` method.
@@ -465,12 +475,19 @@
 // Error: 32-37 cannot divide by zero
 #(1, 2, 0, 3).sorted(key: x => 5 / x)
 
+--- array-sorted-underdetermined-with-key paged ---
+// Error: 2-40 cannot compare content and content
+// Hint: 2-40 consider defining the comparison with `by` or choosing a different `key`
+#((1, []), (1, [])).sorted(key: a => a)
+
 --- array-sorted-uncomparable paged ---
 // Error: 2-26 cannot compare content and content
+// Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths paged ---
 // Error: 2-26 cannot compare 3em with 2pt
+// Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 paged ---
@@ -556,3 +573,8 @@
 --- array-reduce-unexpected-argument paged ---
 // Error: 19-21 unexpected argument
 #(1, 2, 3).reduce(() => none)
+
+--- issue-6285-crashed-with-sorting-non-total-order paged ---
+// Error: 2-66 cannot compare none and string
+// Hint: 2-66 consider choosing a `key` or defining the comparison with `by`
+#(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()

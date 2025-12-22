@@ -340,7 +340,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
         bail!(
             span,
             "parent-scoped placement is only available for floating figures";
-            hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
         );
     }
 

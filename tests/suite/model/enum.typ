@@ -219,6 +219,12 @@ a + 0.
   + World // Paragraph because it's a wide enum
 ]
 
+--- enum-array-deprecated paged ---
+// Warning: 7-19 implicit conversion from array to `enum.item` is deprecated
+// Hint: 7-19 use `enum.item(number)[body]` instead
+// Hint: 7-19 this conversion was never documented and is being phased out
+#enum((1, [First]))
+
 --- issue-2530-enum-item-panic paged ---
 // Enum item (pre-emptive)
 #enum.item(auto)[Hello]

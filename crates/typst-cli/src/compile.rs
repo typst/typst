@@ -119,7 +119,7 @@ impl CompileConfig {
                 _ => bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
-                    output.display()
+                    output.display(),
                 ),
             }
         } else {
@@ -169,7 +169,7 @@ impl CompileConfig {
                     } else {
                         bail!(
                             "cannot disable PDF tags when exporting a {name} document";
-                            hint: "using --pages implies --no-pdf-tags"
+                            hint: "using --pages implies --no-pdf-tags";
                         );
                     }
                 }

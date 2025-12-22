@@ -1,9 +1,11 @@
 //! Basic utilities for converting Typst types to krilla.
 
+use ecow::{EcoString, eco_format};
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use krilla::tagging as kt;
+use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
@@ -113,8 +115,11 @@ impl AbsExt for Abs {
 }
 
 /// Display the font family of a font.
-pub(crate) fn display_font(font: &Font) -> &str {
-    &font.info().family
+pub(crate) fn display_font(font: Option<&Font>) -> EcoString {
+    match font {
+        Some(font) => eco_format!("font `{}`", font.info().family.repr()),
+        None => "a font".into(),
+    }
 }
 
 /// Convert a Typst path to a krilla path.

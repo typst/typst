@@ -437,3 +437,13 @@
 --- grid-vline-position-top paged ---
 // Error: 24-27 expected `start`, `left`, `right`, or `end`, found top
 #table.vline(position: top)
+
+--- issue-7398-grid-line-end-oob paged ---
+#set page(width: auto)
+#table(
+  columns: 2,
+  [A], [B],
+  [C], [D],
+  table.vline(end: 3),
+  table.hline(end: 3),
+)
