@@ -2,7 +2,7 @@ b7e8c6b7b0bc84a543587d7af4670cfc align-center-in-flow
 2531f23e6de56eb46ec27963e4300eb5 align-in-stack
 db801611f5fdda742bb1176b26711912 align-right
 3b8e76e52efce3982fbdd2661f3ac5de align-start-and-end
-fe705ebcd178f80fc17b893ec9926ac4 array-basic-syntax
+83fee71fd768da28df3efda50b018270 array-basic-syntax
 57d07491b5cae5d1ce59cb00c465e24a array-join-content
 94e1524e1f02488c705f19900d1afe64 baseline-box
 c4a4d5aa3b88c274e9ffd3ac523f59ed baseline-box-align
@@ -341,9 +341,9 @@ dc21047581a0dc9814e53fc3da419632 grid-cell-override
 a4406b4b5ab56a08c0e3aacca36d6e9a grid-cell-position-extra-rows
 33dfe007dbeea2de9d1d2cadb5e0079a grid-cell-position-out-of-order
 05bfe6a96a229b2a14c0c250b133d4ff grid-cell-position-partial
-f8293919d6b76e4a1ec00715ee09582b grid-cell-set
+d4169985f499bee47a22f9fb046395be grid-cell-set
 286c86f69af47c60ee4d87299db27cd7 grid-cell-show
-0be132101dd22e134590ab59af906308 grid-cell-show-and-override
+24ad6139baf69a7c03f85c7d3e24b288 grid-cell-show-and-override
 a0c6ce05fb866e56a49a328fa649e511 grid-cell-show-based-on-position
 57414866b01ccdee801710a17938b267 grid-cell-show-emph
 15d325d5c261664c7c0d8bffed932ed8 grid-cell-show-x-y
@@ -1743,9 +1743,9 @@ b5b5e27ae0c7b9b01ba40d1ca1941a6a table-cell-align-override
 1824188fb9c5904e88e6136f4d6a7a11 table-cell-folding
 a0c82709b51a3d5004bedd727a529e74 table-cell-override
 4577a8e2b8eff027d5daa9bb331ef0d6 table-cell-par
-1cc58e3e2cac4f46b536fa9adb189220 table-cell-set
+fc67aadbf8a8f69719ba395b0868e909 table-cell-set
 0ab7365ca54251bf27f589e5ab091ded table-cell-show
-d74f67bdc18233e336ccb023d4e69907 table-cell-show-and-override
+77f3a54bfe6ceb1ddc60d0afbd4f7391 table-cell-show-and-override
 769c368b602e8fe2822e919b57f01add table-cell-show-based-on-position
 3846fed829d27e7c10e46d630836aca2 table-cell-show-emph
 c5837cb06c47ee202947c8ce2d7d12a6 table-cell-various-overrides
