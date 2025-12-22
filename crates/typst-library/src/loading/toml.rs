@@ -82,7 +82,7 @@ use crate::loading::{DataSource, Load};
 /// - Be aware that TOML integers larger than 2#super[63]-1 or smaller
 ///   than -2#super[63] cannot be represented losslessly in Typst, and an error
 ///   will be thrown according to the
-///   #link("https://toml.io/en/v1.0.0#integer")[specification].
+///   #link("https://toml.io/en/v1.0.0\#integer")[specification].
 ///
 /// - Bytes are not encoded as TOML arrays for performance and readability
 ///   reasons. Consider using @cbor.encode for binary data.

@@ -2,7 +2,7 @@
 
 = Package Management <package-management>
 - Typst now has built-in @reference:scripting:packages[package management]
-- You can import #link("https://typst.app/universe")[published] community packages or create and use #link("https://github.com/typst/packages#local-packages")[system-local] ones
+- You can import #link("https://typst.app/universe")[published] community packages or create and use #link("https://github.com/typst/packages\#local-packages")[system-local] ones
 - Published packages are also supported in the web app
 
 = Math <math>
@@ -26,7 +26,7 @@
 - Fixed a crash related to text layout
 
 = Command line interface <command-line-interface>
-- *Breaking change:* Added requirement for `--root`/`TYPST_ROOT` directory to contain the input file because it designates the _project_ root. Existing setups that use `TYPST_ROOT` to emulate package management should switch to #link("https://github.com/typst/packages#local-packages")[local packages]
+- *Breaking change:* Added requirement for `--root`/`TYPST_ROOT` directory to contain the input file because it designates the _project_ root. Existing setups that use `TYPST_ROOT` to emulate package management should switch to #link("https://github.com/typst/packages\#local-packages")[local packages]
 - *Breaking change:* Now denies file access outside of the project root
 - Added support for local packages and on-demand package download
 - Now watches all relevant files, within the root and all packages

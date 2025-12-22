@@ -2,14 +2,14 @@
 
 use libfuzzer_sys::fuzz_target;
 use typst::model::Document;
-use typst_fuzz::FuzzWorld;
+use typst_fuzz::{FuzzWorld, Input};
 use typst_layout::PagedDocument;
 use typst_pdf::PdfOptions;
 use typst_render::{PngFormat, RenderOptions};
 use typst_svg::{SvgFormat, SvgOptions};
 
-fuzz_target!(|text: &str| {
-    let world = FuzzWorld::new(text);
+fuzz_target!(|input: Input<'_>| {
+    let world = FuzzWorld::new(input.text, input.preferred_version);
     if let Ok(document) = typst::compile::<PagedDocument>(&world).output {
         if let Some(page) = document.pages().first() {
             let png_options =
