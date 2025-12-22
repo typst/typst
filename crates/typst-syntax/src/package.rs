@@ -621,6 +621,13 @@ impl PreferredCompilerVersion {
     }
 }
 
+impl PreferredCompilerVersion {
+    /// Whether this version should support string interpolation.
+    pub fn string_interpolation(&self) -> bool {
+        *self >= Self { major: 0, minor: 15 }
+    }
+}
+
 impl Default for PreferredCompilerVersion {
     fn default() -> Self {
         Self::current()

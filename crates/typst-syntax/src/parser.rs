@@ -7,39 +7,44 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{
+    Lexer, PreferredCompilerVersion, SyntaxKind, SyntaxMode, SyntaxNode, ast, set,
+};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
 
 /// Parses a source file as top-level markup.
-pub fn parse(text: &str) -> SyntaxNode {
+pub fn parse(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
-    let mut p = Parser::new(text, 0, SyntaxMode::Markup);
+    let mut p = Parser::new(text, 0, SyntaxMode::Markup, preferred_version);
     markup_exprs(&mut p, true, syntax_set!(End));
     p.finish_into(SyntaxKind::Markup)
 }
 
 /// Parses a source file as top-level string.
-pub fn parse_string(text: &str) -> SyntaxNode {
+pub fn parse_string(
+    text: &str,
+    preferred_version: PreferredCompilerVersion,
+) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse string");
-    let mut p = Parser::new(text, 0, SyntaxMode::String);
-    string_items(&mut p, syntax_set!(End));
+    let mut p = Parser::new(text, 0, SyntaxMode::String, preferred_version);
+    string_parts(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Str)
 }
 
 /// Parses top-level code.
-pub fn parse_code(text: &str) -> SyntaxNode {
+pub fn parse_code(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse code");
-    let mut p = Parser::new(text, 0, SyntaxMode::Code);
+    let mut p = Parser::new(text, 0, SyntaxMode::Code, preferred_version);
     code_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Code)
 }
 
 /// Parses top-level math.
-pub fn parse_math(text: &str) -> SyntaxNode {
+pub fn parse_math(text: &str, preferred_version: PreferredCompilerVersion) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse math");
-    let mut p = Parser::new(text, 0, SyntaxMode::Math);
+    let mut p = Parser::new(text, 0, SyntaxMode::Math, preferred_version);
     math_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Math)
 }
@@ -71,12 +76,13 @@ fn markup_exprs(p: &mut Parser, mut at_start: bool, stop_set: SyntaxSet) {
 /// Reparses a subsection of markup incrementally.
 pub(super) fn reparse_markup(
     text: &str,
+    preferred_version: PreferredCompilerVersion,
     range: Range<usize>,
     at_start: &mut bool,
     nesting: &mut usize,
     top_level: bool,
 ) -> Option<Vec<SyntaxNode>> {
-    let mut p = Parser::new(text, range.start, SyntaxMode::Markup);
+    let mut p = Parser::new(text, range.start, SyntaxMode::Markup, preferred_version);
     *at_start |= p.had_newline();
     while !p.end() && p.current_start() < range.end {
         // If not top-level and at a new RightBracket, stop the reparse.
@@ -234,19 +240,19 @@ fn string_literal(p: &mut Parser) {
     let m = p.marker();
     p.enter_modes(SyntaxMode::String, AtNewline::Continue, |p| {
         p.assert(SyntaxKind::StrQuote);
-        string_items(p, syntax_set!(StrQuote, End));
+        string_parts(p, syntax_set!(StrQuote, End));
         p.expect_closing_string_quote(m);
     });
     p.wrap(m, SyntaxKind::Str);
 }
 
-/// Parses a sequence of items.
-fn string_items(p: &mut Parser, stop_set: SyntaxSet) {
+/// Parses a sequence of parts.
+fn string_parts(p: &mut Parser, stop_set: SyntaxSet) {
     debug_assert!(stop_set.contains(SyntaxKind::StrQuote));
 
     while !p.at_set(stop_set) {
         if p.at_set(set::STR_CONTENT) {
-            string_item(p);
+            string_part(p);
         } else {
             p.unexpected();
         }
@@ -255,11 +261,15 @@ fn string_items(p: &mut Parser, stop_set: SyntaxSet) {
 
 /// Parses a single string item, this includes regular text, string escapes, and
 /// embedded code expressions.
-fn string_item(p: &mut Parser) {
+fn string_part(p: &mut Parser) {
     match p.current() {
         SyntaxKind::StrText => p.eat(),
         SyntaxKind::StrEscape => p.eat(),
-        SyntaxKind::Hash => embedded_code_expr(p),
+        SyntaxKind::Hash => {
+            let m = p.marker();
+            embedded_code_expr(p);
+            p.wrap(m, SyntaxKind::StrInterpolation);
+        }
         _ => p.expected("text, escape, or interpolation"),
     }
 }
@@ -622,7 +632,7 @@ fn code_exprs(p: &mut Parser, stop_set: SyntaxSet) {
     }
 }
 
-/// Parses an atomic code expression embedded in markup or math.
+/// Parses an atomic code expression embedded in markup, a string literal or math.
 fn embedded_code_expr(p: &mut Parser) {
     p.enter_modes(SyntaxMode::Code, AtNewline::Stop, |p| {
         p.assert(SyntaxKind::Hash);
@@ -793,8 +803,12 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
 /// Reparses a full content or code block. This only succeeds if the new block
 /// contains balanced delimiters.
-pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
-    let mut p = Parser::new(text, range.start, SyntaxMode::Code);
+pub(super) fn reparse_block(
+    text: &str,
+    range: Range<usize>,
+    preferred_version: PreferredCompilerVersion,
+) -> Option<SyntaxNode> {
+    let mut p = Parser::new(text, range.start, SyntaxMode::Code, preferred_version);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
     block(&mut p);
     (p.balanced && p.prev_end() == range.end)
@@ -1219,7 +1233,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
         if let Some(key) = match node.cast::<ast::Expr>() {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
-            Some(ast::Expr::Str(s)) => Some(s.get()),
+            Some(ast::Expr::Str(s)) => s.get_bare(),
             _ => None,
         } && !state.seen.insert(key.clone())
         {
@@ -1669,8 +1683,13 @@ impl IndexMut<Marker> for Parser<'_> {
 /// Creating/Consuming the parser and getting info about the current token.
 impl<'s> Parser<'s> {
     /// Create a new parser starting from the given text offset and syntax mode.
-    fn new(text: &'s str, offset: usize, mode: SyntaxMode) -> Self {
-        let mut lexer = Lexer::new(text, mode);
+    fn new(
+        text: &'s str,
+        offset: usize,
+        mode: SyntaxMode,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
+        let mut lexer = Lexer::new(text, mode, preferred_version.string_interpolation());
         lexer.jump(offset);
         let nl_mode = AtNewline::Continue;
         let mut nodes = vec![];

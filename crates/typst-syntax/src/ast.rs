@@ -529,7 +529,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
 }
 
 impl Expr<'_> {
-    /// Can this expression be embedded into markup with a hash?
+    /// Can this expression be embedded into markup and strings with a hash?
     pub fn hash(self) -> bool {
         matches!(
             self,
@@ -1498,7 +1498,19 @@ node! {
 
 impl<'a> Str<'a> {
     /// Get the bare string value with resolved escape sequences.
-    pub fn get(self) -> EcoString {
+    ///
+    /// Returns `None` if this string had interpolations that need to be
+    /// evaluated.
+    pub fn get_bare(self) -> Option<EcoString> {
+        if !self.0.children().all(|node| {
+            matches!(
+                node.kind(),
+                SyntaxKind::StrText | SyntaxKind::StrEscape | SyntaxKind::StrQuote
+            )
+        }) {
+            return Option::None;
+        }
+
         let text = self.0.leaf_text();
         let mut out = EcoString::with_capacity(text.len());
 
@@ -1512,10 +1524,11 @@ impl<'a> Str<'a> {
                         out.push(c);
                     }
                 },
+                StrPart::Interpolation(_) => return Option::None,
             }
         }
 
-        out
+        Some(out)
     }
 
     /// Returns the string parts without the quotes.
@@ -1531,6 +1544,8 @@ pub enum StrPart<'a> {
     Text(StrText<'a>),
     /// A string escape like `\u{1b}`.
     Escape(StrEscape<'a>),
+    /// A string interpolation like `#foo`.
+    Interpolation(StrInterpolation<'a>),
 }
 
 impl<'a> AstNode<'a> for StrPart<'a> {
@@ -1538,6 +1553,9 @@ impl<'a> AstNode<'a> for StrPart<'a> {
         match node.kind() {
             SyntaxKind::StrText => Some(Self::Text(StrText(node))),
             SyntaxKind::StrEscape => Some(Self::Escape(StrEscape(node))),
+            SyntaxKind::StrInterpolation => {
+                Some(Self::Interpolation(StrInterpolation(node)))
+            }
             _ => Option::None,
         }
     }
@@ -1546,6 +1564,7 @@ impl<'a> AstNode<'a> for StrPart<'a> {
         match self {
             StrPart::Text(v) => v.to_untyped(),
             StrPart::Escape(v) => v.to_untyped(),
+            StrPart::Interpolation(v) => v.to_untyped(),
         }
     }
 
@@ -1567,7 +1586,7 @@ impl<'a> StrText<'a> {
 }
 
 node! {
-    /// A string escape sequence: `\n`, `\r`, `\u{1F5FA}`.
+    /// A string escape sequence: `\n`, `\#`, `\u{1F5FA}`.
     struct StrEscape
 }
 
@@ -1579,6 +1598,7 @@ impl StrEscape<'_> {
         Ok(match s.eat().unwrap_or_default() {
             '\\' => '\\',
             '"' => '"',
+            '#' => '#',
             'n' => '\n',
             'r' => '\r',
             't' => '\t',
@@ -1593,6 +1613,18 @@ impl StrEscape<'_> {
             }
             c => return Err(c),
         })
+    }
+}
+
+node! {
+    /// A string interpolation: `#{foo}`.
+    struct StrInterpolation
+}
+
+impl StrInterpolation<'_> {
+    /// The inner expression.
+    pub fn expr(&self) -> Expr<'_> {
+        self.0.cast_first()
     }
 }
 
@@ -2558,26 +2590,28 @@ impl<'a> ModuleImport<'a> {
         match self.source() {
             Expr::Ident(ident) => Ok(ident.get().clone()),
             Expr::FieldAccess(access) => Ok(access.field().get().clone()),
-            Expr::Str(string) => {
-                let string = string.get();
-                let name = if string.starts_with('@') {
-                    PackageSpec::from_str(&string)
-                        .map_err(|_| BareImportError::PackageInvalid)?
-                        .name
-                } else {
-                    Path::new(string.as_str())
-                        .file_stem()
-                        .and_then(|path| path.to_str())
-                        .ok_or(BareImportError::PathInvalid)?
-                        .into()
-                };
+            Expr::Str(string) => match string.get_bare() {
+                Some(string) => {
+                    let name = if string.starts_with('@') {
+                        PackageSpec::from_str(&string)
+                            .map_err(|_| BareImportError::PackageInvalid)?
+                            .name
+                    } else {
+                        Path::new(string.as_str())
+                            .file_stem()
+                            .and_then(|path| path.to_str())
+                            .ok_or(BareImportError::PathInvalid)?
+                            .into()
+                    };
 
-                if !is_ident(&name) {
-                    return Err(BareImportError::PathInvalid);
+                    if !is_ident(&name) {
+                        return Err(BareImportError::PathInvalid);
+                    }
+
+                    Ok(name)
                 }
-
-                Ok(name)
-            }
+                _ => Err(BareImportError::Dynamic),
+            },
             _ => Err(BareImportError::Dynamic),
         }
     }

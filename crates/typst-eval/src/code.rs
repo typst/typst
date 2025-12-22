@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use ecow::{EcoVec, eco_format, eco_vec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -8,7 +8,7 @@ use typst_library::foundations::{
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode, StrPart};
 use typst_syntax::{DiagSpan, Span, SubRange};
 use typst_utils::singleton;
 
@@ -223,8 +223,47 @@ impl Eval for ast::Numeric<'_> {
 impl Eval for ast::Str<'_> {
     type Output = Str;
 
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(self.get().into())
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let flow = vm.flow.take();
+        let mut out = EcoString::with_capacity(self.to_untyped().len());
+
+        let mut items = self.get_parts();
+        while let Some(part) = items.next() {
+            match part {
+                StrPart::Text(text) => {
+                    out.push_str(text.get());
+                }
+                StrPart::Escape(escape) => match escape.get() {
+                    Ok(ch) => {
+                        out.push(ch);
+                    }
+                    Err(ch) => {
+                        out.push('\\');
+                        out.push(ch);
+                    }
+                },
+                StrPart::Interpolation(interpolation) => {
+                    out.push_str(
+                        interpolation
+                            .expr()
+                            .eval(vm)?
+                            .stringify()
+                            .at(part.span())?
+                            .as_str(),
+                    );
+                }
+            }
+
+            if vm.flow.is_some() {
+                break;
+            }
+        }
+
+        if flow.is_some() {
+            vm.flow = flow;
+        }
+
+        Ok(out.into())
     }
 }
 

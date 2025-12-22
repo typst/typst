@@ -53,8 +53,16 @@ pub use crate::__format_str as format_str;
 ///
 /// You can convert a value to a string with the `str` constructor.
 ///
+/// = Interpolation <interpolation>
+/// Strings may contain `#...` to directly embed variables in the current scope.
+/// These are called interpolations and convert which ever variable is used in
+/// them into a string by using the `str` constructor.
+///
 /// = Example <example>
 /// ```example
+/// #let foo = "hello"
+/// #"#foo world!" \
+/// #"Points #(2, 3, 5).map(str).join(", ", last: ", and ") are done" \
 /// #"hello world!" \
 /// #"\"hello\n  world\"!" \
 /// #"1 2 3".split() \
@@ -67,6 +75,7 @@ pub use crate::__format_str as format_str;
 /// Just like in markup, you can escape a few symbols in strings:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
+/// - `[\#]` for a hash
 /// - `[\n]` for a newline
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
@@ -736,6 +745,7 @@ impl Repr for str {
                 '\0' => r.push_str(r"\u{0}"),
                 '\'' => r.push('\''),
                 '"' => r.push_str(r#"\""#),
+                '#' => r.push_str("\\#"),
                 _ => r.extend(c.escape_debug()),
             }
         }
@@ -972,7 +982,7 @@ fn string_is_empty() -> EcoString {
 /// Can be used as a @reference:styling:show-rules[show rule selector] or with
 /// @str[string methods].
 ///
-/// Visit #link("https://docs.rs/regex/latest/regex/#syntax")[this website] for
+/// Visit #link("https://docs.rs/regex/latest/regex/\#syntax")[this website] for
 /// a complete specification of the supported syntax.
 ///
 /// = With string methods <string-methods>
@@ -998,7 +1008,7 @@ fn string_is_empty() -> EcoString {
 ///
 /// Sometimes, you may also want to combine both uses, by first matching on text
 /// with a show rule and then rematching on the text to extract a specific
-/// #link("https://docs.rs/regex/latest/regex/#grouping-and-flags")[capture group].
+/// #link("https://docs.rs/regex/latest/regex/\#grouping-and-flags")[capture group].
 /// In this case, it can be convenient to store the regular expression in a
 /// variable instead of repeating it twice.
 ///

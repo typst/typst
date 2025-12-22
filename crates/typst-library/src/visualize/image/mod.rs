@@ -85,7 +85,7 @@ pub struct ImageElem {
     /// ```example
     /// #let original = read("diagram.svg")
     /// #let changed = original.replace(
-    ///   "#2B80FF", // blue
+    ///   "\#2B80FF", // blue
     ///   green.to-hex(),
     /// )
     ///

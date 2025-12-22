@@ -66,5 +66,5 @@
 
   let (line, _, _) = live.at(def-site.key)
   let file = stdx.str-from-path(def-site.path)
-  "https://github.com/typst/typst/blob/" + stdx.commit + file + "#L" + str(line)
+  "https://github.com/typst/typst/blob/" + stdx.commit + file + "\#L" + str(line)
 }

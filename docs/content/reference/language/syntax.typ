@@ -398,7 +398,7 @@ Names of variables, functions, and so on (_identifiers_) can contain letters, nu
 
 More specifically, the identifier syntax in Typst is based on the #link("https://www.unicode.org/reports/tr31/")[Unicode Standard Annex \#31], with two extensions: Allowing `_` as a starting character, and allowing both `_` and `-` as continuing characters.
 
-For multi-word identifiers, the recommended case convention is #link("https://en.wikipedia.org/wiki/Letter_case#Kebab_case")[Kebab case]. In Kebab case, words are written in lowercase and separated by hyphens (as in `top-edge`). This is especially relevant when developing modules and packages for others to use, as it keeps things predictable.
+For multi-word identifiers, the recommended case convention is #link("https://en.wikipedia.org/wiki/Letter_case\#Kebab_case")[Kebab case]. In Kebab case, words are written in lowercase and separated by hyphens (as in `top-edge`). This is especially relevant when developing modules and packages for others to use, as it keeps things predictable.
 
 ```example
 #let kebab-case = [Using hyphen]
