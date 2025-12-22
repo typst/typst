@@ -93,7 +93,7 @@ impl TypstVersion {
 pub fn display_commit(commit: Option<&'static str>) -> &'static str {
     const LENGTH: usize = 8;
     match commit {
-        Some(s) => &s[..s.len().max(LENGTH)],
+        Some(s) => &s[..s.len().min(LENGTH)],
         None => "unknown commit",
     }
 }
