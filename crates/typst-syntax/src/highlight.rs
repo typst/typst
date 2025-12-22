@@ -270,7 +270,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Numeric => Some(Tag::Number),
         SyntaxKind::Str => None,
         SyntaxKind::StrText => Some(Tag::String),
-        SyntaxKind::StrEscape => Some(Tag::String),
+        SyntaxKind::StrEscape => Some(Tag::Escape),
         SyntaxKind::StrQuote => Some(Tag::String),
         SyntaxKind::CodeBlock => None,
         SyntaxKind::ContentBlock => None,
