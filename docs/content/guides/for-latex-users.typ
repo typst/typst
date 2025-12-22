@@ -424,7 +424,7 @@ Typst is "batteries included," so the equivalent of many popular LaTeX packages 
   [@page function],
 
   [xcolor],
-  [@text.fill[`text`] function: `[#set text(fill: rgb("#0178A4"))]`],
+  [@text.fill[`text`] function: `[#set text(fill: rgb("0178A4"))]`],
 
   [hyperref],
   [@link function],
