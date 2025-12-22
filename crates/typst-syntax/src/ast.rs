@@ -1496,48 +1496,103 @@ node! {
     struct Str
 }
 
-impl Str<'_> {
-    /// Get the string value with resolved escape sequences.
+impl<'a> Str<'a> {
+    /// Get the bare string value with resolved escape sequences.
     pub fn get(self) -> EcoString {
         let text = self.0.leaf_text();
-        let unquoted = &text[1..text.len() - 1];
-        if !unquoted.contains('\\') {
-            return unquoted.into();
-        }
+        let mut out = EcoString::with_capacity(text.len());
 
-        let mut out = EcoString::with_capacity(unquoted.len());
-        let mut s = Scanner::new(unquoted);
-
-        while let Some(c) = s.eat() {
-            if c != '\\' {
-                out.push(c);
-                continue;
-            }
-
-            let start = s.locate(-1);
-            match s.eat() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('u') if s.eat_if('{') => {
-                    let sequence = s.eat_while(char::is_ascii_hexdigit);
-                    s.eat_if('}');
-
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
-                    {
-                        Some(c) => out.push(c),
-                        Option::None => out.push_str(s.from(start)),
+        for item in self.get_parts() {
+            match item {
+                StrPart::Text(text) => out.push_str(text.get()),
+                StrPart::Escape(escape) => match escape.get() {
+                    Ok(c) => out.push(c),
+                    Err(c) => {
+                        out.push('\\');
+                        out.push(c);
                     }
-                }
-                _ => out.push_str(s.from(start)),
+                },
             }
         }
 
         out
+    }
+
+    /// Returns the string parts without the quotes.
+    pub fn get_parts(&self) -> impl DoubleEndedIterator<Item = StrPart<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+/// The individual parts of a string between the quotes.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum StrPart<'a> {
+    /// Plain string text.
+    Text(StrText<'a>),
+    /// A string escape like `\u{1b}`.
+    Escape(StrEscape<'a>),
+}
+
+impl<'a> AstNode<'a> for StrPart<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::StrText => Some(Self::Text(StrText(node))),
+            SyntaxKind::StrEscape => Some(Self::Escape(StrEscape(node))),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            StrPart::Text(v) => v.to_untyped(),
+            StrPart::Escape(v) => v.to_untyped(),
+        }
+    }
+
+    fn placeholder() -> Self {
+        Self::Text(StrText::placeholder())
+    }
+}
+
+node! {
+    /// Plain string text without escapes or interpolations.
+    struct StrText
+}
+
+impl<'a> StrText<'a> {
+    /// Get the text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A string escape sequence: `\n`, `\r`, `\u{1F5FA}`.
+    struct StrEscape
+}
+
+impl StrEscape<'_> {
+    /// Get the escaped character and whether it was a valid escape sequence.
+    pub fn get(self) -> Result<char, char> {
+        let mut s = Scanner::new(self.0.leaf_text());
+        s.expect('\\');
+        Ok(match s.eat().unwrap_or_default() {
+            '\\' => '\\',
+            '"' => '"',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'u' if s.eat_if('{') => {
+                let sequence = s.eat_while(char::is_ascii_hexdigit);
+                s.eat_if('}');
+
+                u32::from_str_radix(sequence, 16)
+                    .ok()
+                    .and_then(std::char::from_u32)
+                    .unwrap_or_default()
+            }
+            c => return Err(c),
+        })
     }
 }
 

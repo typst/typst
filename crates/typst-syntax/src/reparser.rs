@@ -463,12 +463,12 @@ mod tests {
         test("#import \"@preview/pkg", Edit::End, "\"", All);
         test("#import [a\nb\nc", Edit::End, "]", All);
         test("#import $a\nb\nc", Edit::End, "$", All);
-        test("#set thing\"a\n", Edit::End, "\"", All);
+        test("#set thing\"a\n", Edit::End, "\"", Incr("\"a\n\""));
         test("#let x = \"a\nb\nc", Edit::End, "\"", All);
         test("#let x = {\"a\nb\nc}", Edit::After("c"), "\"", Incr("{\"a\nb\nc\"}"));
         test("#if x {\"a\nb\nc", Edit::End, "\"", All);
-        test("#if x \"a\nb\nc", Edit::End, "\"", All);
-        test("#if x \"a\nb\nc", Edit::After("x "), "{}", All);
+        test("#if x \"a\nb\nc", Edit::End, "\"", Incr("b\nc\""));
+        test("#if x \"a\nb\nc", Edit::After("x "), "{}", Incr("#if x {}\"a\n"));
         test("#if x $a\nb\nc", Edit::End, "$", All);
         test("#for x in \"a\nb\nc", Edit::End, "\"", All);
         test("#for x \"a\nb\nc", Edit::After("x "), "in ", All);

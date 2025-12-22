@@ -62,6 +62,10 @@ pub fn autocomplete(
         // Only attempt the general completions after the more specific ones.
         || match mode {
             SyntaxMode::Markup => complete_markup(&mut ctx),
+            // We only want completions in strings for imports (which we take
+            // care of above) or when we interpolate, in which case we're back
+            // in code mode.
+            SyntaxMode::String => false,
             SyntaxMode::Math => complete_math(&mut ctx),
             SyntaxMode::Code => complete_code(&mut ctx),
         };
@@ -260,15 +264,28 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // In an import path for a file or package:
     // "#import "|",
-    if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
-        ctx.leaf.parent_kind()
-        && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+    if let Some(parent) = ctx.leaf.parent()
+        && let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
+            parent.parent_kind()
     {
-        let value = str.get();
+        // If this is a `StrText`, then we already have a string part in
+        // there, otherwise it's an empty string and we're likely sitting on
+        // a `StrQuote`.
+        let (starts_with_at, contains_colon) = match ctx.leaf.cast::<ast::StrText>() {
+            Some(str) => {
+                let value = str.get();
+                if value.starts_with('@') {
+                    (true, value.contains(':'))
+                } else {
+                    (false, false)
+                }
+            }
+            None => (false, false),
+        };
+
         ctx.from = ctx.leaf.offset();
-        if value.starts_with('@') {
-            let all_versions = value.contains(':');
-            ctx.package_completions(all_versions);
+        if starts_with_at {
+            ctx.package_completions(contains_colon);
         } else {
             ctx.file_completions_with_extensions(&["typ"]);
         }
@@ -429,6 +446,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
     let (callee, set, args, args_linked) = if let Some(parent) = ctx.leaf.parent()
         && let Some(parent) = match parent.kind() {
+            SyntaxKind::Str => parent.parent(),
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
         }

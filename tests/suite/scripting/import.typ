@@ -520,7 +520,7 @@ b
 c
 
 --- issue-7393-import-error-extra-quote eval ---
-// Error: 1:31-4:1 unclosed string
+// Error: 31 expected semicolon or line break
 #import "@preview/unify:0.1.0""a
 b
 c

@@ -120,7 +120,7 @@ impl Eval for ast::Expr<'_> {
             Self::Int(v) => v.eval(vm),
             Self::Float(v) => v.eval(vm),
             Self::Numeric(v) => v.eval(vm),
-            Self::Str(v) => v.eval(vm),
+            Self::Str(v) => v.eval(vm).map(Value::Str),
             Self::CodeBlock(v) => v.eval(vm),
             Self::ContentBlock(v) => v.eval(vm).map(Value::Content),
             Self::Array(v) => v.eval(vm).map(Value::Array),
@@ -221,10 +221,10 @@ impl Eval for ast::Numeric<'_> {
 }
 
 impl Eval for ast::Str<'_> {
-    type Output = Value;
+    type Output = Str;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Str(self.get().into()))
+        Ok(self.get().into())
     }
 }
 

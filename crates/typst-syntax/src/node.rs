@@ -1188,6 +1188,8 @@ impl<'a> LinkedNode<'a> {
             ModeAfter::Text => Some(SyntaxMode::Markup),
             // An opening dollar sign starts math mode.
             ModeAfter::Dollar if self.index == 0 => Some(SyntaxMode::Math),
+            // An opening quote starts string mode.
+            ModeAfter::Quote if self.index == 0 => Some(SyntaxMode::String),
             // Spaces at the left/right of an equation are still in math mode.
             ModeAfter::Space if self.parent_kind() == Some(SyntaxKind::Equation) => {
                 Some(SyntaxMode::Math)
@@ -1205,6 +1207,7 @@ impl<'a> LinkedNode<'a> {
             | ModeAfter::RawDelim
             | ModeAfter::Space
             | ModeAfter::Dollar
+            | ModeAfter::Quote
             | ModeAfter::Embeddable => self.parent_mode(),
         }
     }

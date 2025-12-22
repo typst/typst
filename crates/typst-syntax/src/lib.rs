@@ -26,7 +26,7 @@ pub use self::node::{
     Diagnosis, LinkedChildren, LinkedNode, Side, SyntaxDiagnostic, SyntaxNode,
 };
 pub use self::package::PreferredCompilerVersion;
-pub use self::parser::{parse, parse_code, parse_math};
+pub use self::parser::{parse, parse_code, parse_math, parse_string};
 pub use self::path::{
     FileId, PathError, RealizeError, RootedPath, VirtualPath, VirtualRoot,
     VirtualizeError,
@@ -44,6 +44,8 @@ use self::parser::{reparse_block, reparse_markup};
 pub enum SyntaxMode {
     /// Text and markup, as in the top level.
     Markup,
+    /// String content and escapes, as in string literals.
+    String,
     /// Math atoms, operators, etc., as in equations.
     Math,
     /// Keywords, literals and operators, as after hashes.

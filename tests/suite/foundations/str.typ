@@ -369,6 +369,17 @@
 #test("abc".rev(), "cba")
 #test("ax̂e".rev(), "ex̂a")
 
+--- string-newline eval ---
+#test("
+foo
+", "\nfoo\n")
+
 --- string-unclosed eval ---
-// Error: 1:2-2:1 unclosed string
+// Error: 1:2-3:1 unclosed string
 #"hello\"
+
+--- string-unclosed-multiline eval ---
+// Error: 1:2-4:1 unclosed string
+#"a
+b
+c
