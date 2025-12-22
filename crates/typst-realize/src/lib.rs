@@ -10,7 +10,7 @@ use std::cell::LazyCell;
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
-use comemo::{Track, TrackedMut};
+use comemo::{Track};
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
@@ -1100,12 +1100,8 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Separate children with different bibliographies
     let mut children_iter = children.iter();
     let citation_map = BibliographyElem::assign_citations(
-        s.engine.routines,
-        s.engine.world,
-        s.engine.introspector.into_raw(),
-        s.engine.traced,
-        TrackedMut::reborrow_mut(&mut s.engine.sink),
-        s.engine.route.track(),
+        s.engine,
+        Span::find(children.iter().map(|c| c.span())),
     );
     let mut current_group = vec![];
     let mut current_bib_loc = None;

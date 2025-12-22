@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
@@ -181,15 +182,36 @@ impl BibliographyElem {
             .collect())
     }
 
+    pub fn assign_citations(engine: &mut Engine, span: Span) -> BTreeMap<Location, Location>{
+        let citations_and_bib = engine.introspect(QueryIntrospection(
+            Selector::Or(eco_vec![
+                CiteElem::ELEM.select(),
+                BibliographyElem::ELEM.select()
+            ]),
+            span,
+        ));
+        Self::assign_citations_impl(
+            engine.routines,
+            engine.world,
+            engine.introspector.into_raw(),
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
+            engine.route.track(),
+            citations_and_bib,
+        )
+
+    }
+
     #[comemo::memoize]
-    pub fn assign_citations(
+    pub fn assign_citations_impl(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         traced: Tracked<Traced>,
         sink: TrackedMut<Sink>,
         route: Tracked<Route>,
-    ) -> FxHashMap<Location, Location> {
+        citations_and_bib: EcoVec<Content>,
+    ) -> BTreeMap<Location, Location> {
         let mut engine = Engine {
             routines,
             world,
@@ -198,20 +220,16 @@ impl BibliographyElem {
             sink,
             route: Route::extend(route),
         };
-        let span = Span::detached();
-        let mut citation_map: FxHashMap<Location, Location> = FxHashMap::default();
-        let bibliographies: Vec<Packed<Self>> = engine
-            .introspect(QueryIntrospection(Self::ELEM.select(), span))
-            .into_iter()
-            .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+        let mut citation_map: BTreeMap<Location, Location> = BTreeMap::default();
+        let bibliographies: Vec<Packed<Self>> = citations_and_bib
+            .iter()
+            .filter_map(|elem| {
+                match elem.elem() == Self::ELEM {
+                    true => Some(elem.to_packed::<Self>().unwrap().clone()),
+                    false => None,
+                }
+            })
             .collect();
-        let citations_and_bib = engine.introspect(QueryIntrospection(
-            Selector::Or(eco_vec![
-                CiteElem::ELEM.select(),
-                BibliographyElem::ELEM.select()
-            ]),
-            span,
-        ));
 
         // First citations from bibliographies with selectors
         for bibliography in &bibliographies {
@@ -220,7 +238,7 @@ impl BibliographyElem {
             {
                 let bibliography_location = bibliography.location().unwrap();
                 let bibliography_citations = engine
-                    .introspect(QueryIntrospection(bibliography_selector.clone(), span));
+                    .introspect(QueryIntrospection(bibliography_selector.clone(), bibliography.span()));
                 for citation in bibliography_citations {
                     citation_map
                         .entry(citation.location().unwrap())
@@ -688,55 +706,29 @@ pub struct IndivWorks {
 impl Works {
     /// Generate all citations and the whole bibliography.
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
+        let bibliographies = BibliographyElem::find(engine, span).at(span)?;
+        let citation_groups_all = engine.introspect(CiteGroupIntrospection(span));
+        let citation_map = BibliographyElem::assign_citations(engine, span);
         Self::generate_impl(
             engine.routines,
             engine.world,
-            engine.introspector.into_raw(),
-            engine.traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            engine.route.track(),
+            bibliographies,
+            &citation_map,
+            citation_groups_all,
         )
         .at(span)
     }
-
-    // /// Generate all citations and the whole bibliography, given an existing
-    // /// bibliography (no need to query it).
-    // pub fn with_bibliography(
-    //     engine: &mut Engine,
-    //     bibliography: Packed<BibliographyElem>,
-    // ) -> SourceResult<Arc<Works>> {
-    //     let span = bibliography.span();
-    //     let groups = engine.introspect(CiteGroupIntrospection(span));
-    //     Self::generate_impl(engine.routines, engine.world, vec![bibliography], groups).at(span)
-    // }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
     fn generate_impl(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
-        traced: Tracked<Traced>,
-        sink: TrackedMut<Sink>,
-        route: Tracked<Route>,
+        bibliographies: Vec<Packed<BibliographyElem>>,
+        citation_map: &BTreeMap<Location,Location>,
+        citation_groups_all: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut engine = Engine {
-            routines,
-            world,
-            introspector: Protected::from_raw(introspector),
-            traced,
-            sink,
-            route: Route::extend(route),
-        };
-        let citation_map = BibliographyElem::assign_citations(
-            routines,
-            world,
-            introspector,
-            traced,
-            TrackedMut::reborrow_mut(&mut engine.sink),
-            route,
-        );
-        let mut generator = Generator::new(&mut engine, &citation_map)?;
+        let mut generator = Generator::new(routines, world, citation_map, bibliographies, citation_groups_all)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -847,12 +839,12 @@ struct CiteInfo {
 impl<'a> Generator<'a> {
     /// Create a new generator
     fn new(
-        engine: &mut Engine<'a>,
-        citation_map: &FxHashMap<Location, Location>,
+        routines: &'a Routines,
+        world: Tracked<'a, dyn World + 'a>,
+        citation_map: &BTreeMap<Location, Location>,
+        bibliographies: Vec<Packed<BibliographyElem>>,
+        citation_groups_all: EcoVec<Content>,
     ) -> StrResult<Self> {
-        let dummy_span = Span::detached();
-        let bibliographies = BibliographyElem::find(engine, dummy_span)?;
-        let citation_groups_all = engine.introspect(CiteGroupIntrospection(dummy_span));
         let mut groups = FxHashMap::default();
         for bibliography in &bibliographies {
             let bibliography_location = bibliography.location().unwrap();
@@ -869,8 +861,8 @@ impl<'a> Generator<'a> {
             groups.insert(bibliography_location, bibliography_groups);
         }
         Ok(Self {
-            routines: engine.routines,
-            world: engine.world,
+            routines: routines,
+            world: world,
             bibliographies,
             groups,
             infos: FxHashMap::default(),

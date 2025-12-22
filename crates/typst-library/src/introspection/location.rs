@@ -52,7 +52,7 @@ pub trait Tagged {}
 /// Note that you can still observe elements that are not locatable in queries
 /// through other means, for instance, when they have a label attached to them.
 #[ty(scope)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Location(u128);
 
 impl Location {
