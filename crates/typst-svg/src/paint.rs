@@ -6,7 +6,7 @@ use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Transform};
 use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
 use xmlwriter::XmlWriter;
 
-use crate::{DedupId, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{DedupId, SVGRenderer, State, SvgPathBuilder, SvgTransform};
 
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
@@ -84,6 +84,11 @@ impl SVGRenderer<'_> {
         self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
         let tiling_id = self.tilings.insert_with(tiling, || tiling.clone());
+
+        if ts.is_identity() {
+            return tiling_id;
+        }
+
         let tiling_ref = TilingRef { id: tiling_id, transform: ts };
         self.tiling_refs.insert_with(tiling_ref, || tiling_ref)
     }
@@ -310,21 +315,21 @@ impl SVGRenderer<'_> {
                     self.xml.start_element("linearGradient");
                     self.xml.write_attribute(
                         "gradientTransform",
-                        &SvgMatrix(gradient_ref.transform),
+                        &SvgTransform(gradient_ref.transform),
                     );
                 }
                 GradientKind::Radial => {
                     self.xml.start_element("radialGradient");
                     self.xml.write_attribute(
                         "gradientTransform",
-                        &SvgMatrix(gradient_ref.transform),
+                        &SvgTransform(gradient_ref.transform),
                     );
                 }
                 GradientKind::Conic => {
                     self.xml.start_element("pattern");
                     self.xml.write_attribute(
                         "patternTransform",
-                        &SvgMatrix(gradient_ref.transform),
+                        &SvgTransform(gradient_ref.transform),
                     );
                 }
             }
@@ -388,7 +393,7 @@ impl SVGRenderer<'_> {
         for (id, tiling_ref) in self.tiling_refs.iter() {
             self.xml.start_element("pattern");
             self.xml
-                .write_attribute("patternTransform", &SvgMatrix(tiling_ref.transform));
+                .write_attribute("patternTransform", &SvgTransform(tiling_ref.transform));
 
             self.xml.write_attribute("id", &id);
 

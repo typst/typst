@@ -7,7 +7,7 @@ use typst_library::text::color::{
 };
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
 
-use crate::{DedupId, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{DedupId, SVGRenderer, State, SvgTransform, SvgPathBuilder};
 
 /// Represents a glyph to be rendered.
 #[derive(Clone)]
@@ -30,7 +30,7 @@ impl SVGRenderer<'_> {
 
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
-        self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+        self.xml.write_attribute("transform", &SvgTransform(state.transform));
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
@@ -101,7 +101,7 @@ impl SVGRenderer<'_> {
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml.write_attribute("transform", &SvgMatrix(ts));
+        self.xml.write_attribute("transform", &SvgTransform(ts));
         self.xml.end_element();
     }
 

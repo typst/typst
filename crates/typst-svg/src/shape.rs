@@ -5,7 +5,7 @@ use typst_library::visualize::{
 };
 
 use crate::paint::ColorEncode;
-use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{SVGRenderer, State, SvgTransform, SvgPathBuilder};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -33,7 +33,7 @@ impl SVGRenderer<'_> {
         }
 
         if !state.transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+            self.xml.write_attribute("transform", &SvgTransform(state.transform));
         }
 
         let path = convert_geometry_to_path(&shape.geometry);

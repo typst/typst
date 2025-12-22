@@ -254,7 +254,7 @@ impl<'a> SVGRenderer<'a> {
     fn render_page(&mut self, state: &State, ts: Transform, page: &Page) {
         if !ts.is_identity() {
             self.xml.start_element("g");
-            self.xml.write_attribute("transform", &SvgMatrix(ts));
+            self.xml.write_attribute("transform", &SvgTransform(ts));
         }
 
         if let Some(fill) = page.fill_or_white() {
@@ -304,7 +304,7 @@ impl<'a> SVGRenderer<'a> {
 
                 let transform = state.transform.pre_concat(group.transform);
                 if !transform.is_identity() {
-                    group_writer.write_attribute("transform", &SvgMatrix(transform));
+                    group_writer.write_attribute("transform", &SvgTransform(transform));
                 }
                 state
                     .with_transform(Transform::identity())
@@ -338,7 +338,7 @@ impl<'a> SVGRenderer<'a> {
     fn render_link(&mut self, state: &State, dest: &Destination, size: Size) {
         self.xml.start_element("a");
         if !state.transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+            self.xml.write_attribute("transform", &SvgTransform(state.transform));
         }
 
         match dest {
@@ -480,25 +480,36 @@ impl Display for DedupId {
     }
 }
 
-/// Displays as an SVG matrix.
-// TODO: Rename to SvgTransform and check if only a scale/translate is applied
-// to reduce the file size.
-struct SvgMatrix(Transform);
+/// Displays as an SVG transform. The exact representation is chosen based on
+/// the specific transform. Either `matrix`, `scale`, or `translate` is used.
+///
+/// See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
+struct SvgTransform(Transform);
 
-impl Display for SvgMatrix {
+impl Display for SvgTransform {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // Convert a [`Transform`] into a SVG transform string.
-        // See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
-        write!(
-            f,
-            "matrix({} {} {} {} {} {})",
-            self.0.sx.get(),
-            self.0.ky.get(),
-            self.0.kx.get(),
-            self.0.sy.get(),
-            self.0.tx.to_pt(),
-            self.0.ty.to_pt()
-        )
+        let sx = self.0.sx.get();
+        let sy = self.0.sy.get();
+        let kx = self.0.kx.get();
+        let ky = self.0.ky.get();
+        let tx = self.0.tx.to_pt();
+        let ty = self.0.ty.to_pt();
+
+        if self.0.is_only_scale() {
+            if sx == sy {
+                write!(f, "scale({sx})")
+            } else {
+                write!(f, "scale({sx} {sy})")
+            }
+        } else if self.0.is_only_translate() {
+            if ty == 0.0 {
+                write!(f, "translate({tx})")
+            } else {
+                write!(f, "translate({tx} {ty})")
+            }
+        } else {
+            write!(f, "matrix({sx} {ky} {kx} {sy} {tx} {ty})",)
+        }
     }
 }
 
