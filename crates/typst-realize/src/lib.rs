@@ -1095,7 +1095,7 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let elems = grouped.get();
     let trunk = elems[0].1;
     let children: Vec<Packed<CiteElem>> = elems
-        .into_iter()
+        .iter()
         .filter_map(|(c, _)| c.to_packed::<CiteElem>())
         .cloned()
         .collect();
@@ -1104,7 +1104,7 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let s = grouped.end();
 
     // Separate children with different bibliographies
-    let mut children_iter = children.iter();
+    let children_iter = children.iter();
     let citation_map = BibliographyElem::assign_citations(
         s.engine,
         Span::find(children.iter().map(|c| c.span())),
@@ -1112,10 +1112,10 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let mut current_group = vec![];
     let mut current_bib_loc = None;
 
-    while let Some(child) = children_iter.next() {
+    for child in children_iter {
         if let Some(bib_loc) = citation_map.get(&child.location().unwrap()) {
             // For the first iteration
-            if current_bib_loc == None {
+            if current_bib_loc.is_none() {
                 current_bib_loc = Some(*bib_loc);
             }
 
@@ -1131,12 +1131,12 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
             }
         }
     }
-    if current_group.len() > 0 {
+    if !current_group.is_empty() {
         let span = Span::find(current_group.iter().map(|c| c.span()));
         let elem = CiteGroup::new(current_group.clone()).pack().spanned(span);
         visit(s, s.store(elem), trunk)?;
     }
-    return Ok(());
+    Ok(())
 }
 
 /// Builds the `ListLike` element from `ListItemLike` elements.
