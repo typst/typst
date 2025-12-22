@@ -18,9 +18,9 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, HeadingElem, HorizontalRuleElem, LinkElem, LinkMarker,
+    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
@@ -50,6 +50,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, DIRECT_LINK_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
+    rules.register(Paged, HORIZONTAL_RULE_RULE);
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
     rules.register(Paged, QUOTE_RULE);
@@ -297,6 +298,11 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     };
 
     Ok(block.pack())
+};
+
+const HORIZONTAL_RULE_RULE: ShowFn<HorizontalRuleElem> = |elem, _, _| {
+    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_horizontal_rule)
+        .pack())
 };
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {

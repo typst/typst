@@ -9,6 +9,7 @@ mod enum_;
 mod figure;
 mod footnote;
 mod heading;
+mod horizontal_rule;
 mod link;
 mod list;
 #[path = "numbering.rs"]
@@ -30,6 +31,7 @@ pub use self::enum_::*;
 pub use self::figure::*;
 pub use self::footnote::*;
 pub use self::heading::*;
+pub use self::horizontal_rule::*;
 pub use self::link::*;
 pub use self::list::*;
 pub use self::numbering_::*;
@@ -58,6 +60,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<LinkElem>();
     global.define_elem::<TitleElem>();
     global.define_elem::<HeadingElem>();
+    global.define_elem::<HorizontalRuleElem>();
     global.define_elem::<FigureElem>();
     global.define_elem::<QuoteElem>();
     global.define_elem::<FootnoteElem>();
