@@ -334,11 +334,34 @@ impl<'a> CurveBuilder<'a> {
     fn close(&mut self, mode: CloseMode) {
         if self.is_started && !self.is_empty {
             if mode == CloseMode::Smooth {
-                self.cubic(
-                    self.last_control_from,
-                    self.start_control_into,
-                    self.start_point,
-                );
+                fn is_closed(p: Point, q: Point) -> bool {
+                    p.x.approx_eq(q.x) && p.y.approx_eq(q.y)
+                }
+                fn is_aligned(a: Point, b: Point, c: Point) -> bool {
+                    let u = a - b;
+                    let v = c - b;
+                    let ux = u.x.to_raw();
+                    let uy = u.y.to_raw();
+                    let vx = v.x.to_raw();
+                    let vy = v.y.to_raw();
+                    let det = ux * vy - uy * vx;
+                    let nu = ux * ux + uy * uy;
+                    let nv = vx * vx + vy * vy;
+                    det * det <= 1e-8 * nu * nv
+                }
+                if !is_closed(self.last_point, self.start_point)
+                    || !is_aligned(
+                        self.start_control_into,
+                        self.last_point,
+                        self.last_control_from,
+                    )
+                {
+                    self.cubic(
+                        self.last_control_from,
+                        self.start_control_into,
+                        self.start_point,
+                    );
+                }
             }
             self.curve.close();
             self.last_point = self.start_point;
