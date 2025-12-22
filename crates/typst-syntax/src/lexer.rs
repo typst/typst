@@ -19,6 +19,9 @@ pub(super) struct Lexer<'s> {
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
     mode: SyntaxMode,
+    /// Whether the string interpolation sub tokens are emitted instead of
+    /// string literals.
+    string_interpolation: bool,
     /// An error plus hints for the current token being produced. This is always
     /// `None` between calls to [`Lexer::next`].
     error: Option<(EcoString, EcoVec<EcoString>)>,
@@ -26,8 +29,13 @@ pub(super) struct Lexer<'s> {
 
 impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode.
-    pub fn new(text: &'s str, mode: SyntaxMode) -> Self {
-        Self { s: Scanner::new(text), mode, error: None }
+    pub fn new(text: &'s str, mode: SyntaxMode, string_interpolation: bool) -> Self {
+        Self {
+            s: Scanner::new(text),
+            mode,
+            error: None,
+            string_interpolation,
+        }
     }
 
     /// Get the current lexing mode.
@@ -1100,8 +1108,15 @@ impl Lexer<'_> {
         match c {
             '\\' => self.backslash(),
             '"' => SyntaxKind::StrQuote,
+            '#' if self.string_interpolation => SyntaxKind::Hash,
             _ => {
-                self.s.eat_while(|c: char| !matches!(c, '\\' | '"'));
+                if self.string_interpolation {
+                    self.s.eat_while(|c: char| {
+                        !matches!(c, '\\' | '"' | '#') && !is_newline(c)
+                    });
+                } else {
+                    self.s.eat_while(|c: char| !matches!(c, '\\' | '"'));
+                }
                 SyntaxKind::StrText
             }
         }

@@ -164,7 +164,7 @@ test
 // Hint: 15-31 in the next version of Typst, this text will be treated as the language tag for this element
 // Hint: 15-31 to avoid this, add a space after the initial backticks
 #let raw = ```!@#$%^&*()_+lang test```
-#test(raw.text, "!@#$%^&*()_+lang test")
+#test(raw.text, "!@\#$%^&*()_+lang test")
 // Error: 11-15 field "lang" in raw is not known at this point
 #test(raw.lang, none)
 #test(raw.block, false)
@@ -368,7 +368,7 @@ b = 324923
   lang: "typ",
   block: true,
   align: right,
-  "#let f(x) = x\n#align(center, line(length: 1em))",
+  "\#let f(x) = x\n\#align(center, line(length: 1em))",
 ))
 
 --- raw-align-invalid eval ---
@@ -708,7 +708,7 @@ print(y)
 
 --- issue-3841-tabs-in-raw-type-code paged ---
 // Tab chars were not rendered in raw blocks with lang: "typ(c)"
-#raw("#if true {\n\tf()\t// typ\n}", lang: "typ")
+#raw("\#if true {\n\tf()\t// typ\n}", lang: "typ")
 
 #raw("if true {\n\tf()\t// typc\n}", lang: "typc")
 

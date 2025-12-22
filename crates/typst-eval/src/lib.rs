@@ -32,7 +32,8 @@ use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
 use typst_library::{Library, World};
 use typst_syntax::{
-    Source, Span, SyntaxMode, ast, parse, parse_code, parse_math, parse_string,
+    PreferredCompilerVersion, Source, Span, SyntaxMode, ast, parse, parse_code,
+    parse_math, parse_string,
 };
 use typst_utils::{LazyHash, Protected};
 
@@ -115,11 +116,24 @@ pub fn eval_string(
     mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
+    let preferred_version = match spans {
+        SpanMode::Uniform(span) => match span.id() {
+            Some(id) => match world.preferred_version(id.root()) {
+                Ok(options) => options,
+                Err(error) => bail!(span, "{error}"),
+            },
+            None => PreferredCompilerVersion::default(),
+        },
+        SpanMode::Mapped { id, .. } => {
+            world.preferred_version(id.root()).unwrap_or_default()
+        }
+    };
+
     let mut root = match mode {
-        SyntaxMode::Code => parse_code(string),
-        SyntaxMode::Markup => parse(string),
-        SyntaxMode::String => parse_string(string),
-        SyntaxMode::Math => parse_math(string),
+        SyntaxMode::Code => parse_code(string, preferred_version),
+        SyntaxMode::Markup => parse(string, preferred_version),
+        SyntaxMode::String => parse_string(string, preferred_version),
+        SyntaxMode::Math => parse_math(string, preferred_version),
     };
 
     match spans {

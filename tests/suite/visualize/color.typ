@@ -5,8 +5,8 @@
 #test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
 // Compat with hash version.
-// Warning: 6-12 passing hex colors with hashes is deprecated
-#rgb("#fff")
+// Warning: 6-13 passing hex colors with hashes is deprecated
+#rgb("\#fff")
 
 // Alpha channel.
 #test(rgb(255, 0, 0, 50%), rgb("ff000080"))

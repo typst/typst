@@ -258,8 +258,10 @@ pub enum SyntaxKind {
     Str,
     /// Plain string text without escapes or interpolations.
     StrText,
-    /// An escape sequence: `\n`, `\r`, `\u{1F5FA}`.
+    /// A string escape sequence: `\n`, `\#`, `\u{1F5FA}`.
     StrEscape,
+    /// A string interpolation: `#foo`.
+    StrInterpolation,
     /// The delimiter of quoted string: `"`.
     StrQuote,
     /// A code block: `{ let x = 1; x + 2 }`.
@@ -545,6 +547,7 @@ impl SyntaxKind {
             Self::Str => "string",
             Self::StrText => "string",
             Self::StrEscape => "string",
+            Self::StrInterpolation => "string",
             Self::StrQuote => "double quote",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
@@ -755,6 +758,7 @@ impl SyntaxKind {
             Self::Str => Embeddable, // code/math: expr
             Self::StrText => Known(SyntaxMode::String),
             Self::StrEscape => Known(SyntaxMode::String),
+            Self::StrInterpolation => Known(SyntaxMode::String),
             Self::StrQuote => Quote,
             Self::CodeBlock => Known(Code),
             Self::ContentBlock => Embeddable, // code: expr | markup: Ref
@@ -794,6 +798,8 @@ impl SyntaxKind {
 
 #[cfg(test)]
 mod test {
+    use crate::package::PreferredCompilerVersion;
+
     use super::*;
     use crate::{FileId, LinkedNode, Side, Source};
 
@@ -803,7 +809,12 @@ mod test {
         cursors: impl IntoIterator<Item = usize>,
         expected: Option<SyntaxMode>,
     ) {
-        let source = Source::new(FileId::new_for_test("test_mode"), text);
+        // TODO(tinger): Test with string interpolation
+        let source = Source::new(
+            FileId::new_for_test("test_mode"),
+            text,
+            PreferredCompilerVersion::default(),
+        );
         let root = LinkedNode::new(source.root());
         for cursor in cursors {
             let leaf = root.leaf_at(cursor, Side::After).unwrap();
@@ -873,8 +884,11 @@ mod test {
         test_mode("#\"\"", [1], Some(SyntaxMode::String)); // Opening quote is string
         test_mode("#\"\"", [2], Some(Code)); // Closing quote is parent
         test_mode("#\"a b\"", [1, 2, 3, 4], Some(SyntaxMode::String));
-        test_mode("#\"#x\"", [3], Some(SyntaxMode::String)); // After interpolation string
+        test_mode("#\"#x\"", [2, 3], Some(Code)); // Interpolation can be continued
         test_mode("#\"#x;\"", [4], Some(SyntaxMode::String)); // After semicolon is string
+        test_mode("#\"a#x.b()c\"", [1, 2], Some(SyntaxMode::String));
+        test_mode("#\"a#x.b()c\"", [3, 4, 5, 6, 7, 8], Some(Code));
+        test_mode("#\"a#x.b()c\"", [9], Some(SyntaxMode::String)); // Text after it
 
         // Math
         test_mode("$$", [0], Some(Math)); // Opening dollar is math
