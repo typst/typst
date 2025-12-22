@@ -10,7 +10,7 @@ use std::cell::LazyCell;
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
-use comemo::{Track};
+use comemo::Track;
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;

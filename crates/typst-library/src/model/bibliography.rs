@@ -172,7 +172,7 @@ impl BibliographyElem {
     pub fn find(engine: &mut Engine, span: Span) -> StrResult<Vec<Packed<Self>>> {
         let elems = engine.introspect(QueryIntrospection(Self::ELEM.select(), span));
 
-        if elems.len() == 0 {
+        if elems.is_empty() {
             bail!("the document does not contain a bibliography");
         };
 
@@ -182,7 +182,10 @@ impl BibliographyElem {
             .collect())
     }
 
-    pub fn assign_citations(engine: &mut Engine, span: Span) -> BTreeMap<Location, Location>{
+    pub fn assign_citations(
+        engine: &mut Engine,
+        span: Span,
+    ) -> BTreeMap<Location, Location> {
         let citations_and_bib = engine.introspect(QueryIntrospection(
             Selector::Or(eco_vec![
                 CiteElem::ELEM.select(),
@@ -199,7 +202,6 @@ impl BibliographyElem {
             engine.route.track(),
             citations_and_bib,
         )
-
     }
 
     #[comemo::memoize]
@@ -223,11 +225,9 @@ impl BibliographyElem {
         let mut citation_map: BTreeMap<Location, Location> = BTreeMap::default();
         let bibliographies: Vec<Packed<Self>> = citations_and_bib
             .iter()
-            .filter_map(|elem| {
-                match elem.elem() == Self::ELEM {
-                    true => Some(elem.to_packed::<Self>().unwrap().clone()),
-                    false => None,
-                }
+            .filter_map(|elem| match elem.elem() == Self::ELEM {
+                true => Some(elem.to_packed::<Self>().unwrap().clone()),
+                false => None,
             })
             .collect();
 
@@ -237,8 +237,10 @@ impl BibliographyElem {
                 &bibliography.target.get_ref(StyleChain::default())
             {
                 let bibliography_location = bibliography.location().unwrap();
-                let bibliography_citations = engine
-                    .introspect(QueryIntrospection(bibliography_selector.clone(), bibliography.span()));
+                let bibliography_citations = engine.introspect(QueryIntrospection(
+                    bibliography_selector.clone(),
+                    bibliography.span(),
+                ));
                 for citation in bibliography_citations {
                     citation_map
                         .entry(citation.location().unwrap())
@@ -725,10 +727,16 @@ impl Works {
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         bibliographies: Vec<Packed<BibliographyElem>>,
-        citation_map: &BTreeMap<Location,Location>,
+        citation_map: &BTreeMap<Location, Location>,
         citation_groups_all: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, citation_map, bibliographies, citation_groups_all)?;
+        let mut generator = Generator::new(
+            routines,
+            world,
+            citation_map,
+            bibliographies,
+            citation_groups_all,
+        )?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -850,19 +858,19 @@ impl<'a> Generator<'a> {
             let bibliography_location = bibliography.location().unwrap();
             let bibliography_groups = citation_groups_all
                 .iter()
-                .cloned()
                 .filter(|group| {
                     let cite_group = group.to_packed::<CiteGroup>().unwrap();
                     citation_map
                         .get(&cite_group.children.first().unwrap().location().unwrap())
                         .is_some_and(|location| *location == bibliography_location)
                 })
+                .cloned()
                 .collect();
             groups.insert(bibliography_location, bibliography_groups);
         }
         Ok(Self {
-            routines: routines,
-            world: world,
+            routines,
+            world,
             bibliographies,
             groups,
             infos: FxHashMap::default(),
@@ -1002,10 +1010,10 @@ impl<'a> Generator<'a> {
                 locale: Some(locale),
                 locale_files: &LOCALES,
             }));
-            if bibliography.kind.get_ref(StyleChain::default()) == "shared" {
-                if let Some(bib) = rendered.last().unwrap().bibliography.as_ref() {
-                    citation_count += bib.items.len();
-                }
+            if bibliography.kind.get_ref(StyleChain::default()) == "shared"
+                && let Some(bib) = rendered.last().unwrap().bibliography.as_ref()
+            {
+                citation_count += bib.items.len();
             }
         }
         rendered
