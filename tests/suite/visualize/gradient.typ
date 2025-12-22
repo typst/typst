@@ -264,11 +264,11 @@
 --- gradient-radial-focal-center-and-radius paged ---
 #circle(
   radius: 25pt,
-  fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (35%, 35%), focal-radius: 5%),
+  fill: gradient.radial(white, rgb("8fbc8f"), focal-center: (35%, 35%), focal-radius: 5%),
 )
 #circle(
   radius: 25pt,
-  fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (75%, 35%), focal-radius: 5%),
+  fill: gradient.radial(white, rgb("8fbc8f"), focal-center: (75%, 35%), focal-radius: 5%),
 )
 
 --- gradient-radial-relative-parent paged ---
@@ -638,9 +638,9 @@ $ A = mat(
 
 --- gradient-sample eval ---
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
-#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("97873b"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
-#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("17a08c"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
 
 --- gradient-space eval ---
@@ -875,7 +875,7 @@ $ A = mat(
 --- gradient-spot-color-different-colorant eval ---
 // Test gradient with spot colors of a different colorant (should error)
 #let pantone = color.spot("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
-#let ral = color.spot("RAL 1023", rgb("#F0CA00"))
+#let ral = color.spot("RAL 1023", rgb("F0CA00"))
 #let g = gradient.linear(
   pantone.tint(20%),
   // Error: 3-17 cannot convert spot color to different spot colorant
