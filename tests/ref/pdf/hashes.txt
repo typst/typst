@@ -1580,10 +1580,10 @@ e7e088c58f14dea7b7b61f53828b9a34 raw-empty
 844ec39c1a69d6a77e01a363b6246781 raw-highlight-html-jinja2
 0699bb31b5321ebf3ba3a762aee5c5bd raw-highlight-py
 b2912678dde1faa17644b690888aac2d raw-highlight-rust
-ff02e88d46832145bd88ec67c6756e14 raw-highlight-typ
+6c6a84d20687ba0cd535228800d8ba8f raw-highlight-typ
 6b69640379e8510ce7eeac2ccf736636 raw-highlight-typ-invalid-ints
 86e277f332abfe98969446179388de87 raw-highlight-typc
-d2205e280c5ed1db998ae478e8fa4be6 raw-highlight-typm
+a1252d730ee81c8d7066a963fa080bcf raw-highlight-typm
 108b6b887dcdb403d2e8638701cf23e3 raw-highlight-typm-idents
 e04cdabc7369605b8f15feae6de90d1b raw-inline-multiline
 d69aabfae7bbc90a9c707fc9da0eaf64 raw-line
