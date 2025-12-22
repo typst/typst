@@ -420,7 +420,7 @@ mod tests {
         let red_box = "box(fill: rgb(\"#ff4136\"))";
         test("#box(fill:red,)", 5 /*f*/, Side::After).must_be_text(fill_desc);
         test("#box(fill:red,)", 9 /*:*/, Side::After).must_be_code(red_box);
-        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"#ff4136\")");
+        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"ff4136\")");
         test("#box(fill:red,)", 13 /*,*/, Side::After).must_be_code(red_box);
         // Spread args
         test("#box(..none,)", 5 /*.*/, Side::After).must_be_code("box()");

@@ -141,7 +141,7 @@ use crate::visualize::{Paint, Stroke};
 ///   // By a single but more complicated value
 ///   inset: (x: 2pt, y: 3pt),
 ///   // By an array of values (cycling)
-///   fill: (rgb("#239dad50"), none),
+///   fill: (rgb("239dad50"), none),
 ///   // By a function that returns a value
 ///   stroke: (x, y) => if calc.rem(x + y, 3) == 0 { 0.5pt },
 ///
