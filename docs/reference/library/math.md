@@ -148,11 +148,14 @@ base from other fonts.
 
 ```example
 #show math.equation: set text(font: (
-  (name: "New Computer Modern Math", covers: "latin-in-cjk"),
-  (name: "Noto Serif CJK SC", covers: regex(".")),
+  (name: "Noto Serif CJK SC", covers: regex("[–—‘’“”‥‧⸺]")),
   "New Computer Modern Math",
+  "Noto Serif CJK SC",
 ))
-$ a' star b = b' star a. "（“乘法”交换律）" $
+$
+  (a_1, ..., a_n) star b = b' star (a_n, ..., a_1).
+  quad "（“乘法”交换律）"
+$
 ```
 
 # Math module
