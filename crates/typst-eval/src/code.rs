@@ -1,11 +1,13 @@
-use ecow::{EcoVec, eco_vec};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
+use ecow::{EcoString, EcoVec, eco_vec};
+use typst_library::WorldExt;
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::singleton;
 
@@ -215,8 +217,67 @@ impl Eval for ast::Numeric<'_> {
 impl Eval for ast::Str<'_> {
     type Output = Value;
 
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Str(self.get().into()))
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Str(match self.get() {
+            Ok(string) => string.into(),
+            Err(fragments) => {
+                let mut out = EcoString::new();
+                let mut errors = EcoVec::new();
+
+                let range = vm.world().range(self.span());
+
+                // We start at 1 here to incorporate the offset of the leading
+                // `"` right away.
+                let mut offset = 1;
+
+                for fragment in fragments {
+                    match fragment {
+                        ast::Interpolation::Raw(raw) => {
+                            offset += raw.len();
+                            out.push_str(&raw);
+                        }
+                        ast::Interpolation::Ref { ident, bracket } => {
+                            offset += ident.len() + if bracket { 3 } else { 1 };
+
+                            match vm
+                                .scopes
+                                .get(&ident)
+                                .map(|binding| binding.read())
+                                .cloned()
+                                // TODO: Use the str contstructor.
+                                .and_then(|value| value.cast::<Str>())
+                            {
+                                Ok(string) => out.push_str(&string),
+                                Err(error) => {
+                                    let span = self
+                                        .span()
+                                        .id()
+                                        .zip(range.clone())
+                                        .map(|(id, range)| {
+                                            Span::from_range(
+                                                id,
+                                                range.start + offset
+                                                    ..range.start + offset - range.len(),
+                                            )
+                                        })
+                                        .unwrap_or(Span::detached());
+
+                                    errors.push(
+                                        SourceDiagnostic::error(span, error.message())
+                                            .with_hints(error.hints().iter().cloned()),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !errors.is_empty() {
+                    return Err(errors);
+                }
+                out.into()
+            }
+        }))
     }
 }
 
