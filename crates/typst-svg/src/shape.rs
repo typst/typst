@@ -4,28 +4,36 @@ use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
 
-use crate::paint::ColorEncode;
-use crate::{SVGRenderer, State, SvgTransform, SvgPathBuilder};
+use crate::path::SvgPathBuilder;
+use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
+use crate::{SVGRenderer, State};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
-    pub(super) fn render_shape(&mut self, state: &State, shape: &Shape) {
-        self.xml.start_element("path");
-        self.xml.write_attribute("class", "typst-shape");
+    pub(super) fn render_shape(
+        &mut self,
+        svg: &mut SvgElem,
+        state: &State,
+        shape: &Shape,
+    ) {
+        let svg = &mut svg.elem("path");
+        svg.attr("class", "typst-shape");
 
         if let Some(paint) = &shape.fill {
             self.write_fill(
+                svg,
                 paint,
                 shape.fill_rule,
                 self.shape_fill_size(state, paint, shape).aspect_ratio(),
                 self.shape_paint_transform(state, paint, shape),
             );
         } else {
-            self.xml.write_attribute("fill", "none");
+            svg.attr("fill", "none");
         }
 
         if let Some(stroke) = &shape.stroke {
             self.write_stroke(
+                svg,
                 stroke,
                 self.shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
                 self.shape_paint_transform(state, &stroke.paint, shape),
@@ -33,12 +41,11 @@ impl SVGRenderer<'_> {
         }
 
         if !state.transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgTransform(state.transform));
+            svg.attr("transform", SvgTransform(state.transform));
         }
 
         let path = convert_geometry_to_path(&shape.geometry);
-        self.xml.write_attribute("d", &path);
-        self.xml.end_element();
+        svg.attr("d", path);
     }
 
     /// Calculate the transform of the shape's fill or stroke.
@@ -105,24 +112,27 @@ impl SVGRenderer<'_> {
     /// Write a stroke attribute.
     pub(super) fn write_stroke(
         &mut self,
+        svg: &mut SvgElem,
         stroke: &FixedStroke,
         aspect_ratio: Ratio,
         fill_transform: Transform,
     ) {
         match &stroke.paint {
-            Paint::Solid(color) => self.xml.write_attribute("stroke", &color.encode()),
+            Paint::Solid(color) => {
+                svg.attr("stroke", color);
+            }
             Paint::Gradient(gradient) => {
                 let id = self.push_gradient(gradient, aspect_ratio, fill_transform);
-                self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
+                svg.attr("stroke", SvgUrl(id));
             }
             Paint::Tiling(tiling) => {
                 let id = self.push_tiling(tiling, fill_transform);
-                self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
+                svg.attr("stroke", SvgUrl(id));
             }
         }
 
-        self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
-        self.xml.write_attribute(
+        svg.attr("stroke-width", stroke.thickness.to_pt());
+        svg.attr(
             "stroke-linecap",
             match stroke.cap {
                 LineCap::Butt => "butt",
@@ -130,7 +140,7 @@ impl SVGRenderer<'_> {
                 LineCap::Square => "square",
             },
         );
-        self.xml.write_attribute(
+        svg.attr(
             "stroke-linejoin",
             match stroke.join {
                 LineJoin::Miter => "miter",
@@ -138,23 +148,12 @@ impl SVGRenderer<'_> {
                 LineJoin::Bevel => "bevel",
             },
         );
-        self.xml
-            .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
+        svg.attr("stroke-miterlimit", stroke.miter_limit.get());
         if let Some(dash) = &stroke.dash {
-            self.xml.write_attribute("stroke-dashoffset", &dash.phase.to_pt());
-
-            self.xml.write_attribute(
-                "stroke-dasharray",
-                &typst_utils::display(|f| {
-                    for (i, dash) in dash.array.iter().enumerate() {
-                        if i > 0 {
-                            f.write_str(" ")?;
-                        }
-                        write!(f, "{}", dash.to_pt())?;
-                    }
-                    Ok(())
-                }),
-            );
+            svg.attr("stroke-dashoffset", dash.phase.to_pt());
+            svg.attr_with("stroke-dasharray", |attr| {
+                attr.push_nums(dash.array.iter().map(|dash| dash.to_pt()));
+            });
         }
     }
 }
@@ -164,38 +163,24 @@ impl SVGRenderer<'_> {
 fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
     let mut builder = SvgPathBuilder::with_translate(Point::zero());
     match geometry {
-        Geometry::Line(t) => {
-            builder.move_to(0.0, 0.0);
-            builder.line_to(t.x.to_pt() as f32, t.y.to_pt() as f32);
-        }
-        Geometry::Rect(rect) => {
-            let x = rect.x.to_pt() as f32;
-            let y = rect.y.to_pt() as f32;
-            builder.rect(x, y);
-        }
+        &Geometry::Line(t) => builder.line_to(t),
+        &Geometry::Rect(size) => builder.rect(size),
         Geometry::Curve(p) => {
-            return convert_curve(Point::new(Abs::zero(), Abs::zero()), p);
+            return convert_curve(Point::zero(), p);
         }
     };
-    builder.path
+    builder.finsish()
 }
 
 pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
     let mut builder = SvgPathBuilder::with_translate(initial_point);
-    for item in &curve.0 {
-        match item {
-            CurveItem::Move(m) => builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32),
-            CurveItem::Line(l) => builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32),
-            CurveItem::Cubic(c1, c2, t) => builder.curve_to(
-                c1.x.to_pt() as f32,
-                c1.y.to_pt() as f32,
-                c2.x.to_pt() as f32,
-                c2.y.to_pt() as f32,
-                t.x.to_pt() as f32,
-                t.y.to_pt() as f32,
-            ),
+    for item in curve.0.iter() {
+        match *item {
+            CurveItem::Move(pos) => builder.move_to(pos),
+            CurveItem::Line(pos) => builder.line_to(pos),
+            CurveItem::Cubic(p1, p2, p3) => builder.curve_to(p1, p2, p3),
             CurveItem::Close => builder.close(),
         }
     }
-    builder.path
+    builder.finsish()
 }

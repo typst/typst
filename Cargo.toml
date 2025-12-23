@@ -76,6 +76,7 @@ icu_segmenter = { version = "1.4", features = ["serde"] }
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
+itoa = "1"
 kamadak-exif = "0.6"
 krilla = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
 krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332" }
@@ -107,6 +108,7 @@ resvg = { version = "0.45", default-features = false, features = ["raster-images
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.20"
+ryu = "1"
 same-file = "1"
 self-replace = "1.3.7"
 semver = "1"
