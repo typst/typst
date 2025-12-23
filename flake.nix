@@ -152,6 +152,7 @@
             ];
 
             RUST_SRC_PATH = "${rust-toolchain.rust-src}/lib/rustlib/src/rust/library";
+            LD_LIBRARY_PATH = lib.makeLibraryPath [ pkgs.openssl ];
 
             packages = [
               # A script for quickly running tests.
