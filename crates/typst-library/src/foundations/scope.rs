@@ -438,8 +438,13 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
         ));
     } else if in_global {
         res.hint(eco_format!(
-            "`{var}` is not available directly in math, \
-             try adding a hash before it: `#{var}`",
+            "`{var}` is not available directly in math, but is in the standard library",
+        ));
+        res.hint(eco_format!(
+            "to access `{var}` in math mode you can use the `std` module: `std.{var}`",
+        ));
+        res.hint(eco_format!(
+            "or you can access `{var}` in code mode by adding a hash: `#{var}`",
         ));
     } else {
         res.hint(eco_format!(
