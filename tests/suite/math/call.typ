@@ -2,11 +2,14 @@
 
 // Note: 2d argument calls are tested for matrices in `mat.typ`
 
---- math-call-non-func paged ---
-$ pi(a) $
-$ pi(a,) $
-$ pi(a,b) $
-$ pi(a,b,) $
+--- math-call-repr eval ---
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(a)$, "arguments([a])")
+#check($args(a,)$, "arguments([a])")
+#check($args(a,b)$, "arguments([a], [b])")
+#check($args(a,b,)$, "arguments([a], [b])")
+#check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-unclosed-func eval ---
 #let func(x) = x
@@ -142,11 +145,19 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(#(..range(2, 6).chunks(2)))$, "arguments(((2, 3), (4, 5)))")
 #let nums = range(0, 4).chunks(2)
 #check($args(..nums)$, "arguments((0, 1), (2, 3))")
-#check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
 #check($args(..nums, ..nums)$, "arguments((0, 1), (2, 3), (0, 1), (2, 3))")
 #check($args(..nums, 4, 5)$, "arguments((0, 1), (2, 3), [4], [5])")
 #check($args(..nums, ..#range(4, 6))$, "arguments((0, 1), (2, 3), 4, 5)")
 #check($args(..nums, #range(4, 6))$, "arguments((0, 1), (2, 3), (4, 5))")
+
+--- math-call-spread-2d-pos eval ---
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#let nums = range(0, 4).chunks(2)
+#check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
+#check($args(..nums; ,)$, "arguments(((0, 1), (2, 3)), ([],))")
+#check($args(..nums; ;)$, "arguments(((0, 1), (2, 3)), ([],))")
+#check($args(..nums; 1, 2; 3, 4)$, "arguments(((0, 1), (2, 3)), ([1], [2]), ([3], [4]))")
 #check($args(..nums, 1, 2; 3, 4)$, "arguments(((0, 1), (2, 3), [1], [2]), ([3], [4]))")
 #check($args(1, 2; ..nums)$, "arguments(([1], [2]), ((0, 1), (2, 3)))")
 #check($args(1, 2; 3, 4)$, "arguments(([1], [2]), ([3], [4]))")
@@ -155,25 +166,38 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 #check($args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 
---- math-call-repr eval ---
+--- math-call-spread-2d-pos-named eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a)$, "arguments([a])")
-#check($args(a,)$, "arguments([a])")
-#check($args(a,b)$, "arguments([a], [b])")
-#check($args(a,b,)$, "arguments([a], [b])")
-#check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
-
---- math-call-2d-non-func eval ---
-// Error: 6-7 expected content, found array
-// Error: 8-9 expected content, found array
-$ pi(a;b) $
+#let nums = range(0, 4).chunks(2)
+#let dict = (one: 1, two: 2)
+#let both = arguments(..nums, ..dict)
+#check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
+// Error: 14-20 cannot spread dictionary into array
+#check($args(..dict;)$, "arguments(one: 1, two: 2, ())") // Adds an empty array
+#check($args(1, ..dict;)$, "arguments(one: 1, two: 2, ([1],))")
+#check($args(1, ..dict, 2;)$, "arguments(one: 1, two: 2, ([1], [2]))")
+#check($args(1; ..dict, 2;)$, "arguments(one: 1, two: 2, ([1],), ([2],))")
+#check($args(1; ..dict; 2;)$, "arguments(one: 1, two: 2, ([1],), (), ([2],))")
+#check($args(..nums, ..dict;)$, "arguments(one: 1, two: 2, ((0, 1), (2, 3)))")
+#check($args(..both;)$, "arguments(one: 1, two: 2, ((0, 1), (2, 3)))")
+#check($args(..nums; ..dict)$, "arguments(one: 1, two: 2, ((0, 1), (2, 3)))")
+#check($args(..dict; ..nums)$, "arguments(one: 1, two: 2, (), ((0, 1), (2, 3)))")
 
 --- math-call-2d-semicolon-priority paged ---
 // If the semicolon directly follows a hash expression, it terminates that
 // instead of indicating 2d arguments.
 $ mat(#"math" ; "wins") $
 $ mat(#"code"; "wins") $
+
+--- math-call-2d-semicolon-embedded-code eval ---
+// The first two semicolons end the code expression, so don't create 2d args.
+#let args(..body) = body
+#let check(it, r) = test-repr(it.body.text, r)
+#check($args(#false;)$, "arguments(false)")
+#check($args("a" #"b";)$, "arguments(sequence([a], [ ], [b]))")
+#check($args(#true ;)$, "arguments((true,))")
+#check($args(#true;;)$, "arguments((true,))")
 
 --- math-call-2d-repr eval ---
 #let args(..body) = body
@@ -186,6 +210,8 @@ $ mat(#"code"; "wins") $
 #let args(..body) = (body.pos(), body.named())
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a: b)$, "((), (a: [b]))")
+#check($args(a: b,)$, "((), (a: [b]))")
+// #check($args(a: b;)$, "(((),), (a: [b]))")
 #check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
 #check($args(a: b, 1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
 #check($args(1, a: b, 2; 3, 4)$, "(([1], ([2],), ([3], [4])), (a: [b]))")
@@ -235,6 +261,12 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 // with whitespace/trivia:
 #check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
 
+--- math-call-value-error eval ---
+// TODO: Why does this work for mat, but not vec?
+$ mat(#1) $
+// Error: 8-9 expected content, found integer
+$ vec(#1) $
+
 --- math-call-value-non-func eval ---
 $ sin(1) $
 // Error: 8-9 expected content, found integer
@@ -267,9 +299,85 @@ $ phi(x) $
 $ phi(x, y) $
 $ phi(1,2,,3,) $
 
+--- math-call-symbol-2d eval ---
+// Error: 6-7 expected content, found array
+// Error: 8-9 expected content, found array
+$ pi(a;b) quad gamma(;) quad eta(#"a";;, ; upright(b),) $
+
 --- math-call-symbol-named-argument eval ---
 // Error: 10-18 unexpected argument: alpha
 $ phi(x, alpha: y) $
+
+--- math-call-symbol-spread-argument eval ---
+// Error: 10-17 cannot spread symbol
+$ phi(x, ..alpha) $
+
+--- math-call-symbol-spacing eval ---
+// Test that we keep the same spacing when unparsing.
+#show regex("[,;]"): math.class.with("fence")
+$
+  // Error: 8-13 expected content, found array
+  // Error: 16-17 expected content, found array
+   phi(| , | ; |) \
+  phi\(| , | ; |\) \
+$
+#test(
+      $phi(| , | ; |)$,
+  $phi/**/(| , | ; |)$,
+)
+
+--- math-call-field-symbol paged ---
+// Test a symbol whose field isn't callable.
+$ pi.alt() $
+
+--- math-call-field-symbol-error eval ---
+#math.tilde($pi.alt$)
+// Error: 2-13 symbol ϖ is not callable
+#math.pi.alt($tilde$)
+
+--- math-call-field-mutating eval ---
+// Test basic mutating method calls in math.
+#let array = (1, 2)
+#let dict = (one: 1)
+#let _ = $
+  // Error: 3-8 cannot mutate a temporary value
+  array.push("two")
+  array.push(dict.remove("one"))
+  dict.insert(array.pop(), array.remove(#1))
+$
+#test(array, (1, 1))
+#test(dict, (two: 2))
+
+--- math-call-field-content eval ---
+// Test accessing a field on content in a call.
+#let pi = [pi]
+// Error: 6-10 element text has no method `text`
+// Hint: 6-10 did you mean to access the field `text`?
+$ pi.text() $
+
+--- math-call-field-module paged ---
+// Test accessing a field on a module in a call.
+$ std.color.map() $
+
+--- math-call-field-dict-non-func eval ---
+// Test accessing a field on a dictionary in a call.
+#let pi = (alt: math.pi.alt)
+// Error: 6-9 type dictionary has no method `alt`
+// Hint: 6-9 did you mean to access the field `alt`?
+$ pi.alt() $
+
+--- math-call-field-dict-function-error eval ---
+// Test calling a function from a dictionary.
+#let pi = (alt: _ => math.pi.alt)
+// Error: 6-9 type dictionary has no method `alt`
+// Hint: 6-9 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.alt)(..)`
+$ pi.alt() $
+
+--- math-call-field-dict-push eval ---
+// Test accessing the non-mutating push field on a dictionary.
+#let dict = (push: "p")
+// Error: 3-7 cannot mutate a temporary value
+$ dict.push("") $
 
 --- issue-3774-math-call-empty-2d-args paged ---
 $ mat(;,) $
@@ -303,6 +411,13 @@ $ box() $
 #let func(a, b, c) = {}
 // Error: 3-13 missing argument: c
 $ func(a, b) $
+
+--- math-call-2d-error eval ---
+// Test the span of errors for 2d arguments.
+// The current range isn't the best, but it's hard to improve.
+#let func() = {}
+// Error: 8-12 unexpected argument
+$ func(a, b; c, d;) $
 
 --- math-call-error-inside-func eval ---
 // Test whether errors inside function calls produce further errors.

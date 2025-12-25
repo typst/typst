@@ -1007,8 +1007,9 @@ e120f62f76c1a20a4f33805cfc842753 math-attach-prescripts
 e6d608b114c4bf5c5f33403eacd6c71b math-box-without-baseline
 16603a858b824dedb14d6c9404fdfb9c math-call-2d-semicolon-priority
 4ad5a4ae890e60d41f2e032be7c4e967 math-call-empty-args-non-func
+c4f626f839091c413c3ecffddd70d940 math-call-field-module
+e8411e2b0b0499f428e5862098d652a7 math-call-field-symbol
 e29c24c018e45a7fc748f291eb6079c1 math-call-named-args
-3d51926aca805c0a421ae9ee58e91e0c math-call-non-func
 4ca65014514dcf4f12b33ecdab0f3204 math-call-pass-to-box
 41e64d80f9be44e6db48744f9fae8809 math-call-shadowed-builtin
 beb172061810513475c0cc74d94b3f5c math-call-spread-shorthand-clash
