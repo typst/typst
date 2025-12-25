@@ -18,7 +18,7 @@ use typst_utils::{LazyHash, Protected};
 
 use crate::{
     Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
-    is_mutating_method,
+    is_dict_mutating_method, is_mutating_method,
 };
 
 impl Eval for ast::FuncCall<'_> {
@@ -118,6 +118,10 @@ fn maybe_resolve_mutating(
     // borrows `vm`, so we won't be able to call `args.eval(vm)` afterwards.
     let args = args.eval(vm)?.spanned(span);
     match target.access(vm)? {
+        // Skip methods that aren't actually mutating for dictionaries.
+        target @ Value::Dict(_) if !is_dict_mutating_method(field.as_str()) => {
+            Ok(Err((target.clone(), args)))
+        }
         // Only arrays and dictionaries have mutable methods.
         target @ (Value::Array(_) | Value::Dict(_)) => {
             let value = call_method_mut(target, &field, args, span);

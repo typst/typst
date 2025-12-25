@@ -146,12 +146,16 @@ $
 --- method-dict-pop eval ---
 // `pop` is a mutating method on arrays, but not dictionaries.
 #let dict = (pop: () => none)
-// Error: 2-12 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as methods
+// Hint: 2-10 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 2-10 to call the function, wrap the field access in parentheses: `(dict.pop)(..)`
 #dict.pop()
 
 --- method-dict-non-func-pop eval ---
 #let dict = (pop: none)
-// Error: 2-12 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as methods
+// Hint: 2-10 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 2-10 this looks like a method call, but `dict.pop` produced type `none`
 #dict.pop()
 
 --- math-method-dict-non-func-pop eval ---
@@ -161,7 +165,9 @@ $ dict.pop() $
 
 --- method-dict-non-func-pop-arg eval ---
 #let dict = (pop: none)
-// Error: 2-28 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as methods
+// Hint: 2-10 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 2-10 this looks like a method call, but `dict.pop` produced type `none`
 #dict.pop(arg: "something")
 
 --- math-method-dict-non-func-pop-arg eval ---
