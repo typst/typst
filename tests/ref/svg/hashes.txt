@@ -1005,14 +1005,11 @@ c4204c5fb28b71649df6b21465a53bde math-attach-show-limit
 4ba26ad8330ebb18be066583471886c7 math-binom-multiple
 1f50da1155ed3aa8420bdfc455e1cebf math-box-with-baseline
 369dd65b1f6affad09e1eaf2d7d66966 math-box-without-baseline
-786add0510c203b37b7b56abcf348392 math-call-2d-semicolon-priority
-071adc498a59ff01159a378d174a355f math-call-empty-args-non-func
-22ba0e0a95d712489a1865864faa75c0 math-call-named-args
-4ccffa3847b13c25823666be768b3b6b math-call-non-func
+b2eaf283add134f691fc0f74324d75bc math-call-non-func
+071adc498a59ff01159a378d174a355f math-call-non-func-empty-args
 c0ba2a568f872fbbd66a25473ece15ca math-call-pass-to-box
 4594f354c7418a90dd11a85a726f358b math-call-shadowed-builtin
 a67724123a22908514b21365ecd622b0 math-call-spread-shorthand-clash
-1c28e5e68d0386fb7614030ec5ecd21d math-call-symbol
 45d6611cdfdbd1ffa115d1b0c12ea331 math-cancel-angle-absolute
 3f90a3f7c93bfcb9c2c61ec0b8110305 math-cancel-angle-func
 04f9c2592fc67763519472f23195c018 math-cancel-cross

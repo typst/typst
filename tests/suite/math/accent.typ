@@ -7,6 +7,11 @@ $ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
   acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
   harpoon(a), harpoon.lt(a) $
 
+--- math-accent-symbol-call-error eval ---
+#test(math.tilde(math.pi), math.accent(math.pi, math.tilde))
+// Error: 2-9 symbol π is not callable
+#math.pi(math.tilde)
+
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $
 
