@@ -146,12 +146,16 @@ $
 --- field-call-dict-pop eval ---
 // `pop` is a mutating method on arrays, but not dictionaries.
 #let dict = (pop: () => none)
-// Error: 2-12 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as functions
+// Hint: 2-10 to call the stored function, wrap the field access in parentheses: `(dict.pop)(..)`
+// Hint: 2-10 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
 #dict.pop()
 
 --- field-call-dict-non-func-pop eval ---
 #let dict = (pop: none)
-// Error: 2-12 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as functions
+// Hint: 2-10 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 2-10 to access the `pop` key, remove the function arguments: `dict.pop`
 #dict.pop()
 
 --- math-field-call-dict-non-func-pop eval ---
@@ -161,7 +165,9 @@ $ dict.pop() $
 
 --- field-call-dict-non-func-pop-arg eval ---
 #let dict = (pop: none)
-// Error: 2-28 type dictionary has no method `pop`
+// Error: 2-10 cannot directly call dictionary keys as functions
+// Hint: 2-10 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 2-10 to access the `pop` key, remove the function arguments: `dict.pop`
 #dict.pop(arg: "something")
 
 --- math-field-call-dict-non-func-pop-arg eval ---
