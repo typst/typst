@@ -177,7 +177,7 @@ impl Count for Packed<FootnoteElem> {
 ///
 /// This is automatically created from adjacent footnotes during show rule
 /// application.
-#[elem(Locatable, Tagged)]
+#[elem(Locatable)]
 pub struct FootnoteGroup {
     /// The citations.
     #[required]
