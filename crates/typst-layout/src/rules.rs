@@ -18,10 +18,10 @@ use typst_library::math::EquationElem;
 use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem,
-    LinkMarker, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker, ListElem,
+    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
@@ -54,7 +54,6 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
     rules.register(Paged, QUOTE_RULE);
-    // rules.register(Paged, FOOTNOTE_RULE);
     rules.register(Paged, FOOTNOTE_GROUP_RULE);
     rules.register(Paged, FOOTNOTE_ENTRY_RULE);
     rules.register(Paged, OUTLINE_RULE);
