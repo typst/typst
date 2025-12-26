@@ -305,7 +305,7 @@ acd2cb260a6c4a3075a416cde559aa68 gradient-linear-repeat-and-mirror-2
 572fc82c1a2d806ac02cd6ee4f7ec8df gradient-linear-sharp-and-repeat
 c3aed04ad59eaba9210dc020ed886bb6 gradient-linear-sharp-and-smooth
 312fcdb3dc0b3565c22096255301eb34 gradient-linear-sharp-repeat-and-mirror
-21f84d6c2f21bcfd1a719c82c77749e3 gradient-linear-spaces
+35999599efb0be3709ad920a12c6dd92 gradient-linear-spaces
 67d7a9ffd346a68e7fea999813fd1c67 gradient-linear-stroke
 83c4c4e7b39b52cbf4e24127befa831f gradient-linear-stroke-relative-parent
 b13fca7887420e6eea4b98af932b56c6 gradient-math-cancel
@@ -327,6 +327,8 @@ bb53ffb6b0e3ac3b4fede10ceb342af2 gradient-radial-radius
 22c8973f4c748c1e7c50325a0c3a9542 gradient-radial-relative-parent
 d6c7571eb5c0c822c912178507be1e5d gradient-radial-relative-self
 bf0fd6e37e9fbd5daa1cf80ecc85ebd4 gradient-radial-text
+2fbc38d53d7085caaa19bd33a348dc7b gradient-spot-color-same-colorant
+9f8ceb70d5526e6d4cd9e5e36c1ffebb gradient-spot-color-to-process
 aafe69af46cf3e185f9f3db5092f8898 gradient-text-decoration
 249252df5d97f410f842dd9506021dc7 gradient-text-dir
 d23a6e21209903d4961006577254cf48 gradient-text-global
@@ -1743,6 +1745,13 @@ b000880529008fe7b60fe65c69d9c507 spacing-fr-weak-standalone-end
 10aeceed42cdaf582d3448ca5ea12c1e spacing-h-and-v
 65004ad58382ca2bb49342593725b222 spacing-rtl
 e364f968e91eb25b3a4dadf142ef9d8e spacing-weak-versus-block-spacing
+862fc252d665a6201af93e174784a389 spot-color-basic
+dbf6253a846409682376f70d32dc1819 spot-color-darken
+7c7d6215855a74705f11875d29f4be77 spot-color-lighten
+3b45bf9d9569fef42fc1f32911206eba spot-color-none
+78c8ea2fcb1e80048aa55a4ff71313e3 spot-color-tints
+9f5b97cf4721d29058aadf8dd405a60d spot-colorant-all
+df1a07e24bb8cc263adc0c405b54b36d spot-colorant-none
 6e9ca334818dee772fa07745576dd6ea square
 fcd6870cc36bc6ea482ef589f73e82b5 square-auto-sized
 9dcf4952b5fb982b356b4535e580367d square-base

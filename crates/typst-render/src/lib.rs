@@ -33,7 +33,7 @@ pub fn render(page: &Page, opts: &RenderOptions) -> sk::Pixmap {
 
     if let Some(fill) = page.fill_or_white() {
         if let Paint::Solid(color) = fill {
-            canvas.fill(paint::to_sk_color(color));
+            canvas.fill(paint::to_sk_color(color.to_process()));
         } else {
             let rect = Geometry::Rect(size).filled(fill);
             shape::render_shape(&mut canvas, state, &rect);
@@ -65,7 +65,7 @@ pub fn render_merged(
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
     if let Some(fill) = fill {
-        canvas.fill(paint::to_sk_color(fill));
+        canvas.fill(paint::to_sk_color(fill.to_process()));
     }
 
     let mut y = 0;

@@ -3,6 +3,7 @@
 use std::fmt::Display;
 
 use ecow::{EcoString, eco_format};
+use krilla::color::separation as ks;
 use krilla::configure::{Validator, Validators};
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
@@ -12,6 +13,7 @@ use smallvec::SmallVec;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::FontInstance;
+use typst_library::visualize::SpotColorantName;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SidesExt<T> {
@@ -156,6 +158,42 @@ impl ValidatorsExt for Validators {
                 }
             }
         })
+    }
+}
+
+pub(crate) trait SpotColorantToNameExt {
+    fn to_krilla(&self) -> ks::SeparationColorant;
+}
+
+pub(crate) trait SpotColorantFromNameExt {
+    fn from_krilla(colorant: &ks::SeparationColorant) -> Self;
+}
+
+impl SpotColorantToNameExt for SpotColorantName {
+    fn to_krilla(&self) -> ks::SeparationColorant {
+        match self {
+            Self::All => ks::SeparationColorant::AllColorants,
+            Self::Custom(name) => ks::SeparationColorant::Custom(name.into()),
+        }
+    }
+}
+
+impl<T: SpotColorantToNameExt> SpotColorantToNameExt for Option<T> {
+    fn to_krilla(&self) -> ks::SeparationColorant {
+        match self {
+            Some(s) => s.to_krilla(),
+            None => ks::SeparationColorant::NoColorant,
+        }
+    }
+}
+
+impl SpotColorantFromNameExt for Option<SpotColorantName> {
+    fn from_krilla(colorant: &ks::SeparationColorant) -> Self {
+        match colorant {
+            ks::SeparationColorant::AllColorants => Some(SpotColorantName::All),
+            ks::SeparationColorant::Custom(c) => Some(SpotColorantName::Custom(c.into())),
+            ks::SeparationColorant::NoColorant => None,
+        }
     }
 }
 

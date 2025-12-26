@@ -634,7 +634,7 @@ $ A = mat(
 #test(gradient.linear(red, green, blue).kind(), gradient.linear)
 
 --- gradient-stops eval ---
-#test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
+#test(gradient.linear(red, green, blue, space: rgb).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
 
 --- gradient-sample eval ---
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
@@ -667,11 +667,11 @@ $ A = mat(
 
 --- gradient-repeat eval ---
 #test(
-  gradient.linear(red, green, blue).repeat(2).stops(),
+  gradient.linear(red, green, blue, space: rgb).repeat(2).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
 )
 #test(
-  gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
+  gradient.linear(red, green, blue, space: rgb).repeat(2, mirror: true).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
 
@@ -854,4 +854,48 @@ $ A = mat(
   rect(width: 65pt, height: 65pt, radius: 0pt, stroke: stroke,
     rect(width: 30pt, height: 30pt, radius: 30pt, stroke: stroke)
   )
+)
+
+--- gradient-spot-color-same-colorant paged ---
+// Test gradient with spot colors of the same colorant (should interpolate tint)
+#let pantone = color.spot("PANTONE 2221 C", eastern)
+#set page(width: 100pt, height: 30pt, margin: 0pt)
+#let g = gradient.linear(
+  pantone.tint(20%),
+  pantone.tint(100%),
+  space: pantone,
+)
+#test(g.sample(10%).space(), pantone)
+#block(
+  width: 100%,
+  height: 100%,
+  fill: g,
+)
+
+--- gradient-spot-color-different-colorant eval ---
+// Test gradient with spot colors of a different colorant (should error)
+#let pantone = color.spot("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#let ral = color.spot("RAL 1023", rgb("#F0CA00"))
+#let g = gradient.linear(
+  pantone.tint(20%),
+  // Error: 3-17 cannot convert spot color to different spot colorant
+  // Hint: 3-17 colorant of the color is `"RAL 1023"`
+  // Hint: 3-17 colorant of the color space is `"PANTONE 185 C"`
+  ral.tint(100%),
+  // Hint: 10-17 gradient color mixing space specified here
+  space: pantone,
+)
+
+--- gradient-spot-color-to-process paged ---
+// Test gradient with spot color mixed with process color (uses fallback in process space)
+#let pantone = color.spot("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#set page(width: 100pt, height: 30pt, margin: 0pt)
+#block(
+  width: 100%,
+  height: 100%,
+  fill: gradient.linear(
+    pantone.tint(80%),
+    blue,
+    space: rgb,
+  ),
 )

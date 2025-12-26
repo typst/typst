@@ -113,3 +113,12 @@ impl<T: FromValue> FromValue for Option<T> {
         }
     }
 }
+
+impl<T: Repr> Repr for Option<T> {
+    fn repr(&self) -> EcoString {
+        match self {
+            Some(r) => r.repr(),
+            None => NoneValue.repr(),
+        }
+    }
+}
