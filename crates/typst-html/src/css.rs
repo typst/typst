@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Write};
 
 use ecow::EcoString;
 use typst_library::layout::{Length, Rel};
-use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
+use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, ProcessColor, Rgb};
 use typst_utils::Numeric;
 
 /// A list of CSS properties with values.
@@ -59,12 +59,18 @@ pub fn length(length: Length) -> impl Display {
 }
 
 pub fn color(color: Color) -> impl Display {
-    typst_utils::display(move |f| match color {
-        Color::Rgb(_) | Color::Cmyk(_) | Color::Luma(_) => rgb(f, color.to_rgb()),
-        Color::Oklab(v) => oklab(f, v),
-        Color::Oklch(v) => oklch(f, v),
-        Color::LinearRgb(v) => linear_rgb(f, v),
-        Color::Hsl(_) | Color::Hsv(_) => hsl(f, color.to_hsl()),
+    typst_utils::display(move |f| {
+        // Convert to ProcessColor (spot colors use their fallback)
+        let process = color.to_process();
+        match process {
+            ProcessColor::Rgb(_) | ProcessColor::Cmyk(_) | ProcessColor::Luma(_) => {
+                rgb(f, process.to_rgb())
+            }
+            ProcessColor::Oklab(v) => oklab(f, v),
+            ProcessColor::Oklch(v) => oklch(f, v),
+            ProcessColor::LinearRgb(v) => linear_rgb(f, v),
+            ProcessColor::Hsl(_) | ProcessColor::Hsv(_) => hsl(f, process.to_hsl()),
+        }
     })
 }
 

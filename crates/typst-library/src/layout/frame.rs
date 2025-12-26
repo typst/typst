@@ -12,7 +12,9 @@ use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
-use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
+use crate::visualize::{
+    Color, Curve, FixedStroke, Geometry, Image, Paint, ProcessColor, Shape,
+};
 
 /// A finished layout with items at fixed positions.
 #[derive(Default, Clone, Hash)]
@@ -380,7 +382,7 @@ impl Frame {
             0,
             Point::zero(),
             FrameItem::Shape(
-                Geometry::Rect(self.size).filled(Color::TEAL.with_alpha(0.5)),
+                Geometry::Rect(self.size).filled(ProcessColor::TEAL.with_alpha(0.5)),
                 Span::detached(),
             ),
         );

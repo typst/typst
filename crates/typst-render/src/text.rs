@@ -145,7 +145,7 @@ fn render_outline_glyph(
                 canvas,
                 &bitmap,
                 &state,
-                paint::to_sk_color_u8(*color).premultiply(),
+                paint::to_sk_color_u8(color.to_process()).premultiply(),
             )?;
         }
         Paint::Tiling(tiling) => {

@@ -3,7 +3,9 @@ use std::f32::consts::TAU;
 use ecow::{EcoString, eco_format};
 use typst_library::foundations::Repr;
 use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
-use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
+use typst_library::visualize::{
+    Color, FillRule, Gradient, Paint, ProcessColor, RatioOrAngle, Tiling,
+};
 use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
@@ -233,8 +235,8 @@ impl SVGRenderer<'_> {
             }
 
             for window in gradient.stops_ref().windows(2) {
-                let (start_c, start_t) = window[0];
-                let (end_c, end_t) = window[1];
+                let (start_c, start_t) = &window[0];
+                let (end_c, end_t) = &window[1];
 
                 self.xml.start_element("stop");
                 self.xml.write_attribute("offset", &start_t.repr());
@@ -254,7 +256,7 @@ impl SVGRenderer<'_> {
 
                 for i in 1..(len - 1) {
                     let t0 = i as f64 / (len - 1) as f64;
-                    let t = start_t + (end_t - start_t) * t0;
+                    let t = *start_t + (*end_t - *start_t) * t0;
                     let c = gradient.sample(RatioOrAngle::Ratio(t));
 
                     self.xml.start_element("stop");
@@ -494,12 +496,14 @@ pub trait ColorEncode {
 
 impl ColorEncode for Color {
     fn encode(&self) -> EcoString {
-        match *self {
-            c @ Color::Rgb(_)
-            | c @ Color::Luma(_)
-            | c @ Color::Cmyk(_)
-            | c @ Color::Hsv(_) => c.to_hex(),
-            Color::LinearRgb(rgb) => {
+        // Convert to ProcessColor (spot colors use their fallback)
+        let process = self.to_process();
+        match process {
+            c @ ProcessColor::Rgb(_)
+            | c @ ProcessColor::Luma(_)
+            | c @ ProcessColor::Cmyk(_)
+            | c @ ProcessColor::Hsv(_) => c.to_hex(),
+            ProcessColor::LinearRgb(rgb) => {
                 if rgb.alpha != 1.0 {
                     eco_format!(
                         "color(srgb-linear {:.5} {:.5} {:.5} / {:.5})",
@@ -517,7 +521,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Oklab(oklab) => {
+            ProcessColor::Oklab(oklab) => {
                 if oklab.alpha != 1.0 {
                     eco_format!(
                         "oklab({:.3}% {:.5} {:.5} / {:.5})",
@@ -535,7 +539,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Oklch(oklch) => {
+            ProcessColor::Oklch(oklch) => {
                 if oklch.alpha != 1.0 {
                     eco_format!(
                         "oklch({:.3}% {:.5} {:.3}deg / {:.3})",
@@ -553,7 +557,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Hsl(hsl) => {
+            ProcessColor::Hsl(hsl) => {
                 if hsl.alpha != 1.0 {
                     eco_format!(
                         "hsla({:.3}deg {:.3}% {:.3}% / {:.5})",
