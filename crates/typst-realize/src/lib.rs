@@ -27,8 +27,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, EnumElem, FootnoteElem, FootnoteGroup, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -912,10 +912,12 @@ fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
 const MAX_GROUP_NESTING: usize = 3;
 
 /// Grouping rules used in layout realization.
-static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+static LAYOUT_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &FOOTNOTES, &PAR, &CITES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in paragraph layout realization.
-static LAYOUT_PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
+static LAYOUT_PAR_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in HTML root realization.
 static HTML_DOCUMENT_RULES: &[&GroupingRule] =
@@ -985,16 +987,28 @@ static CITES: GroupingRule = GroupingRule {
     finish: finish_cites,
 };
 
-/// Builds a `ListElem` from grouped `ListItems`s.
+/// Collects consecutive [`FootnoteElem`]s into [`FootnoteGroup`]s.
+static FOOTNOTES: GroupingRule = GroupingRule {
+    priority: 2,
+    tags: false,
+    trigger: |content, _| content.elem() == FootnoteElem::ELEM,
+    inner: |content| content.elem() == SpaceElem::ELEM,
+    interrupt: |elem| {
+        elem == FootnoteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
+    },
+    finish: finish_footnotes,
+};
+
+/// Builds a [`ListElem`] from grouped `ListItems`s.
 static LIST: GroupingRule = list_like_grouping::<ListElem>();
 
-/// Builds an `EnumElem` from grouped `EnumItem`s.
+/// Builds an [`EnumElem`] from grouped `EnumItem`s.
 static ENUM: GroupingRule = list_like_grouping::<EnumElem>();
 
-/// Builds a `TermsElem` from grouped `TermItem`s.
+/// Builds a [`TermsElem`] from grouped `TermItem`s.
 static TERMS: GroupingRule = list_like_grouping::<TermsElem>();
 
-/// Collects `ListItemLike` elements into a `ListLike` element.
+/// Collects [`ListItemLike`] elements into a `ListLike` element.
 const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
@@ -1066,7 +1080,7 @@ fn is_fully_inline(s: &State) -> bool {
         }
 }
 
-/// Builds the `ParElem` from inline-level elements.
+/// Builds the [`ParElem`] from inline-level elements.
 fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     // Collapse unsupported spaces in-place.
     let (sink, start) = grouped.get_mut();
@@ -1083,7 +1097,7 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the `CiteGroup` from `CiteElem`s.
+/// Builds the [`CiteGroup`] from [`CiteElem`]s.
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
@@ -1101,7 +1115,25 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the `ListLike` element from `ListItemLike` elements.
+/// Builds the [`FootnoteGroup`] from [`FootnoteElem`]s.
+fn finish_footnotes(grouped: Grouped) -> SourceResult<()> {
+    // Collect the children.
+    let elems = grouped.get();
+    let span = select_span(elems);
+    let trunk = elems[0].1;
+    let children = elems
+        .iter()
+        .filter_map(|(c, _)| c.to_packed::<FootnoteElem>())
+        .cloned()
+        .collect();
+
+    // Create and visit the footnote group.
+    let s = grouped.end();
+    let elem = FootnoteGroup::new(children).pack().spanned(span);
+    visit(s, s.store(elem), trunk)
+}
+
+/// Builds the [`ListLike`] element from [`ListItemLike`] elements.
 fn finish_list_like<T: ListLike>(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();

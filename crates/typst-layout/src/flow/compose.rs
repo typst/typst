@@ -12,7 +12,8 @@ use typst_library::layout::{
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, LineNumberingScope, Numbering,
+    ParLineMarker,
 };
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
@@ -366,6 +367,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             notes.push((Abs::zero(), note.clone()));
         }
         find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
+        let mut note_groups = vec![];
+        find_in_frame_impl::<FootnoteGroup>(&mut note_groups, frame, Abs::zero());
+        for (group_abs, group) in &note_groups {
+            for child in &group.children {
+                notes.push((*group_abs, child.clone()));
+            }
+        }
         if notes.is_empty() {
             return Ok(());
         }
@@ -935,8 +943,8 @@ fn find_in_frame_impl<T: NativeElement>(
         let y = y_offset + pos.y;
         match item {
             FrameItem::Group(group) => find_in_frame_impl(output, &group.frame, y),
-            FrameItem::Tag(Tag::Start(elem, _)) => {
-                if let Some(elem) = elem.to_packed::<T>() {
+            FrameItem::Tag(Tag::Start(elem0, _)) => {
+                if let Some(elem) = elem0.to_packed::<T>() {
                     output.push((y, elem.clone()));
                 }
             }
