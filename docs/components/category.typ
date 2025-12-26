@@ -1,8 +1,8 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, deprecation, folding-details, heading-offset, labelled, oneliner,
-  paged-heading-offset, short-or-long, small, use-icon, title-case, to-func,
-  with-tooltip,
+  classnames, deprecation, folding-details, heading-offset, html-heading-n,
+  labelled, oneliner, paged-heading-offset, short-or-long, small, use-icon,
+  title-case, to-func, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
@@ -318,9 +318,10 @@
       if target() == "paged" {
         it
       } else {
-        html.h3(
+        html-heading-n(
+          it.level + 1,
           class: classnames(
-            "scoped-function",
+            "scoped-definition",
             deprecated: deprecation-info != none,
           ),
           it.body,
@@ -361,17 +362,18 @@
     muted: muted,
   ))
 
-  definitions-section(
+  heading-offset(2, definitions-section(
     info.name,
     info.scope,
     base-label: label(str(base-label) + "-definitions"),
-  )
+  ))
 }
 
 // Documents the constructor of a type.
-#let constructor-section(func) = {
+#let constructor-section(func, path: none) = {
   let info = stdx.describe(func)
   let base-label = <constructor>
+  let path = if path != none { path } else { (info.name,) }
 
   let title = short-or-long(
     [Constructor],
@@ -396,11 +398,70 @@
 
   params-section(
     func,
-    (info.name,),
+    path,
     info.params,
     info.returns,
     base-label,
+    indent: true,
   )
+}
+
+// Renders documentation for a type as part of a large documentation section.
+#let ty-member(
+  ty,
+  base-label: none,
+  deprecation-info: none,
+  definitions-section: none,
+) = {
+  let info = stdx.describe(ty)
+  let base-label = label(str(base-label) + "-" + info.short-name)
+
+  {
+    show heading: it => {
+      register-def(ty, it.location())
+      register-index-item(
+        kind: "Type",
+        title: info.title,
+        dest: it.location(),
+        keywords: info.keywords,
+      )
+      if target() == "paged" {
+        it
+      } else {
+        html-heading-n(
+          it.level + 1,
+          class: classnames(
+            "scoped-definition",
+            deprecated: deprecation-info != none,
+          ),
+          it.body
+        )
+      }
+    }
+    let title = short-or-long(
+      info.title,
+      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, deprecation-info),
+    )
+    labelled(heading(depth: 2, title), base-label)
+  }
+
+  {
+    show raw.where(lang: "example"): example.with(folding: true, open: true)
+    prose-styling(live-docs(info.docs, info.def-site), base-target: ty)
+  }
+
+  if info.constructor != none {
+    heading-offset(2, constructor-section(
+      info.constructor,
+      path: std-path-of(ty).split("."),
+    ))
+  }
+
+  heading-offset(2, definitions-section(
+    info.short-name,
+    info.scope,
+    base-label: label(str(base-label) + "-definitions"),
+  ))
 }
 
 // Renders a section that documents definitions on a type or function.
@@ -430,6 +491,13 @@
         deprecation-info: stdx.binding(mod, name).deprecation,
         definitions-section: definitions-section,
       )
+    } else if type(value) == type {
+      ty-member(
+        value,
+        base-label: base-label,
+        deprecation-info: stdx.binding(mod, name).deprecation,
+        definitions-section: definitions-section,
+      )
     }
   }
 }
@@ -438,6 +506,7 @@
 // function to the other and here we're redefining the first function so that
 // it automatically gets the second one.
 #let func-member = func-member.with(definitions-section: definitions-section)
+#let ty-member = ty-member.with(definitions-section: definitions-section)
 
 // Heading styling shared by function and type docs.
 #let func-or-ty-section(..args) = {

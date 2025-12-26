@@ -73,6 +73,13 @@
 
 #let is-short-state = state("is-short", false)
 
+#let html-headings = (html.h1, html.h2, html.h3, html.h4, html.h5, html.h6)
+#let html-heading-n(n, ..args) = {
+  assert(n > 0)
+  let fn = html-headings.at(n - 1, default: html.h6)
+  fn(..args)
+}
+
 // Takes two versions: A long one and a short one.
 //
 // Displays the long version by default, but the short one in content wrapped

@@ -65,14 +65,17 @@ h2,
 h3,
 h4 {
   margin-block-start: 32px;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
   gap: 8px 32px;
 }
 
-h2 {
-  gap: 8px;
+h2,
+h3,
+h4,
+h5,
+h6 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
 }
 
 h3 {
@@ -84,6 +87,27 @@ h4 {
   margin-block-end: 12px;
 }
 
+h5,
+h6 {
+  gap: 8px 24px;
+}
+
+h5 {
+  margin-block: 24px 12px;
+}
+
+h6 {
+  margin-block: 24px 8px;
+}
+
+h2,
+h3:not(:has(.pill)),
+h4:not(:has(.pill)),
+h5:not(:has(.pill)),
+h6:not(:has(.pill)) {
+  gap: 8px;
+}
+
 h2 + h3 {
   margin-block-start: 0px !important;
 }
@@ -91,7 +115,9 @@ h2 + h3 {
 h1 code,
 h2 code,
 h3 code,
-h4 code {
+h4 code,
+h5 code,
+h6 code {
   font-size: unset;
 }
 
@@ -99,6 +125,8 @@ h1 small,
 h2 small,
 h3 small,
 h4 small,
+h5 small,
+h6 small,
 .reference-index .mod {
   color: #565565;
   font-style: italic;
@@ -120,7 +148,9 @@ h2 small {
 }
 
 h3 small,
-h4 small {
+h4 small,
+h5 small,
+h6 small {
   display: inline-flex;
   gap: 4px;
   font-size: 12px;
@@ -700,6 +730,12 @@ h1 .pill {
   font-size: 34px;
   border-radius: 12px;
   padding: 4px 12px;
+}
+
+h3 .pill {
+  font-size: 20px;
+  border-radius: 8px;
+  padding: 4px 8px;
 }
 
 h3 code + .pill,
@@ -1364,13 +1400,28 @@ h4 .additional-info .pill + .pill {
   margin-block-end: 4px;
 }
 
-.scoped-function {
+.scoped-definition {
   position: relative;
-  margin-block-start: 56px;
-  font-size: 20px;
 }
 
-h2 + h3.scoped-function {
+h3.scoped-definition {
+  font-size: 20px;
+  margin-block-start: 56px;
+}
+
+h4.scoped-definition {
+  font-size: 18px;
+  margin-block-start: 32px;
+}
+
+h5.scoped-definition {
+  font-size: 16px;
+  margin-block-start: 32px;
+}
+
+h2 + h3.scoped-definition,
+h3 + h4.scoped-definition,
+h4 + h5.scoped-definition {
   margin-block-start: 0px !important;
 }
 

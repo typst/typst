@@ -227,7 +227,9 @@ body > * {
 
 h2,
 h3,
-h4 {
+h4,
+h5,
+h6 {
   font-weight: 600;
 }
 
@@ -322,6 +324,10 @@ h1 small {
 
 h3 {
   font-size: inherit;
+}
+
+h6 {
+  font-size: 14px;
 }
 
 p {
