@@ -18,9 +18,9 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
+    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
@@ -53,7 +53,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
     rules.register(Paged, QUOTE_RULE);
-    rules.register(Paged, FOOTNOTE_RULE);
+    // rules.register(Paged, FOOTNOTE_RULE);
+    rules.register(Paged, FOOTNOTE_GROUP_RULE);
     rules.register(Paged, FOOTNOTE_ENTRY_RULE);
     rules.register(Paged, OUTLINE_RULE);
     rules.register(Paged, OUTLINE_ENTRY_RULE);
@@ -393,12 +394,17 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
-    Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
+// const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
+//     let span = elem.span();
+//     let (dest, num) = elem.realize(engine, styles)?;
+//     let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+//     let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+//     Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
+// };
+
+const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
+    let content = elem.realize(engine, styles)?;
+    Ok(HElem::hole().clone() + content)
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
