@@ -395,7 +395,7 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
     let content = elem.realize(engine, styles)?;
-    Ok(HElem::hole().clone() + content)
+    Ok(HElem::hole().clone() + PdfMarkerTag::Label(content))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
