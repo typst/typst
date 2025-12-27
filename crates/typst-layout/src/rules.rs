@@ -394,13 +394,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
-    let separator = elem
-        .separator
-        .get_cloned(styles)
-        .unwrap_or_else(|| TextElem::packed(""));
+    let separator = elem.separator.get_cloned(styles);
     let mut sups = Vec::<Content>::new();
     for (i, note) in elem.children.iter().enumerate() {
-        if i != 0 {
+        if let Some(separator) = &separator
+            && i != 0
+        {
             // TODO: Use `Iterator::intersperse` when stabilized.
             sups.push(separator.clone());
         }
