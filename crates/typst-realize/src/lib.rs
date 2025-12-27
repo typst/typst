@@ -913,7 +913,7 @@ const MAX_GROUP_NESTING: usize = 3;
 
 /// Grouping rules used in layout realization.
 static LAYOUT_RULES: &[&GroupingRule] =
-    &[&TEXTUAL, &FOOTNOTES, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+    &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in paragraph layout realization.
 static LAYOUT_PAR_RULES: &[&GroupingRule] =
@@ -921,11 +921,11 @@ static LAYOUT_PAR_RULES: &[&GroupingRule] =
 
 /// Grouping rules used in HTML root realization.
 static HTML_DOCUMENT_RULES: &[&GroupingRule] =
-    &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+    &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in HTML fragment realization.
 static HTML_FRAGMENT_RULES: &[&GroupingRule] =
-    &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+    &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
 static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
