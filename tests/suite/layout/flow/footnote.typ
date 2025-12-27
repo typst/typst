@@ -293,7 +293,7 @@ Ref @fn
 --- footnote-multiple-in-one-place paged ---
 Hi#footnote[A]#footnote[B]#footnote[C]
 
-#set footnote.group(separator: ".")
+#set footnote.group(separator: "&")
 Hi#footnote[D]#footnote[E]
 
 #set footnote.group(separator: none)
