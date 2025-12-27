@@ -89,6 +89,8 @@ pub struct FootnoteElem {
 impl FootnoteElem {
     #[elem]
     type FootnoteEntry;
+    #[elem]
+    type FootnoteGroup;
 }
 
 impl LocalName for Packed<FootnoteElem> {
@@ -170,6 +172,37 @@ impl Packed<FootnoteElem> {
 impl Count for Packed<FootnoteElem> {
     fn update(&self) -> Option<CounterUpdate> {
         (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+    }
+}
+
+/// A group of footnotes.
+///
+/// This is automatically created from adjacent footnotes during show rule
+/// application.
+#[elem(name = "group", title = "Footnote Group", Locatable)]
+pub struct FootnoteGroup {
+    /// The separator between the footnote indicators in the text.
+    ///
+    /// By default, it is a comma. If set to `{none}`, there's no separator.
+    ///
+    /// ```example
+    /// Hello#footnote[A]#footnote[B]#footnote[C]
+    ///
+    /// #set footnote.group(separator: "&")
+    /// Hallo#footnote[D]#footnote[E]
+    /// ```
+    #[default(Some(TextElem::packed(",\u{200B}")))]
+    pub separator: Option<Content>,
+
+    /// The footnotes.
+    #[required]
+    pub children: Vec<Packed<FootnoteElem>>,
+}
+
+impl FootnoteGroup {
+    pub fn alt_text(styles: StyleChain, nums: Vec<&str>) -> EcoString {
+        let local_name = Packed::<FootnoteElem>::local_name_in(styles);
+        eco_format!("{local_name} {}", nums.join(","))
     }
 }
 
