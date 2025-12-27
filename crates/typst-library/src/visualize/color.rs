@@ -11,10 +11,10 @@ use palette::{
 use qcms::Profile;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::foundations::{
-    Args, Array, IntoValue, Module, Repr, Scope, Str, Value, array, cast, func, repr,
-    scope, ty,
+    Args, Array, Func, IntoValue, Module, NoneValue, Repr, Scope, Smart, Str, Value,
+    array, cast, func, repr, scope, ty,
 };
 use crate::layout::{Angle, Ratio};
 
@@ -55,6 +55,21 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
     )
     .unwrap()
 });
+
+macro_rules! scope_with_color_definitions {
+    ($struct:ident, $($name:ident: $model:ident -> $($val:literal),+),*$(,)*;$($item:item)*) => {
+        #[scope]
+        impl $struct {
+            $(pub const $name: Self = Self::Process(ProcessColor::$name);)+
+
+            $($item)*
+        }
+
+        impl ProcessColor {$(
+            pub const $name: Self = Self::$model($model::new($($val),+));
+        )+}
+    };
+}
 
 /// A color in a specific color space.
 ///
@@ -190,8 +205,17 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 /// }))
 /// ```
 #[ty(scope, cast)]
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum Color {
+    /// A process color.
+    Process(ProcessColor),
+    /// A spot color.
+    Spot(SpotColor),
+}
+
+/// Colors with a well-defined color space.
+#[derive(Copy, Clone)]
+pub enum ProcessColor {
     /// A 32-bit luma color.
     Luma(Luma),
     /// A 32-bit L\*a\*b\* color in the Oklab color space.
@@ -210,29 +234,30 @@ pub enum Color {
     Hsv(Hsv),
 }
 
-#[scope]
-impl Color {
+scope_with_color_definitions! {
+    Color,
+
+    BLACK: Luma -> 0.0, 1.0,
+    GRAY: Luma -> 0.6666666, 1.0,
+    WHITE: Luma -> 1.0, 1.0,
+    SILVER: Luma -> 0.8666667, 1.0,
+    NAVY: Rgb -> 0.0, 0.121569, 0.247059, 1.0,
+    BLUE: Rgb -> 0.0, 0.454902, 0.85098, 1.0,
+    AQUA: Rgb -> 0.4980392, 0.858823, 1.0, 1.0,
+    TEAL: Rgb -> 0.223529, 0.8, 0.8, 1.0,
+    EASTERN: Rgb -> 0.13725, 0.615686, 0.678431, 1.0,
+    PURPLE: Rgb -> 0.694118, 0.050980, 0.788235, 1.0,
+    FUCHSIA: Rgb -> 0.941177, 0.070588, 0.745098, 1.0,
+    MAROON: Rgb -> 0.521569, 0.078431, 0.294118, 1.0,
+    RED: Rgb -> 1.0, 0.254902, 0.211765, 1.0,
+    ORANGE: Rgb -> 1.0, 0.521569, 0.105882, 1.0,
+    YELLOW: Rgb -> 1.0, 0.8627451, 0.0, 1.0,
+    OLIVE: Rgb -> 0.239216, 0.6, 0.4392157, 1.0,
+    GREEN: Rgb -> 0.1803922, 0.8, 0.2509804, 1.0,
+    LIME: Rgb -> 0.0039216, 1.0, 0.4392157, 1.0;
+
     /// The module of preset color maps.
     pub const MAP: fn() -> Module = || typst_utils::singleton!(Module, map()).clone();
-
-    pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
-    pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
-    pub const WHITE: Self = Self::Luma(Luma::new(1.0, 1.0));
-    pub const SILVER: Self = Self::Luma(Luma::new(0.8666667, 1.0));
-    pub const NAVY: Self = Self::Rgb(Rgb::new(0.0, 0.121569, 0.247059, 1.0));
-    pub const BLUE: Self = Self::Rgb(Rgb::new(0.0, 0.454902, 0.85098, 1.0));
-    pub const AQUA: Self = Self::Rgb(Rgb::new(0.4980392, 0.858823, 1.0, 1.0));
-    pub const TEAL: Self = Self::Rgb(Rgb::new(0.223529, 0.8, 0.8, 1.0));
-    pub const EASTERN: Self = Self::Rgb(Rgb::new(0.13725, 0.615686, 0.678431, 1.0));
-    pub const PURPLE: Self = Self::Rgb(Rgb::new(0.694118, 0.050980, 0.788235, 1.0));
-    pub const FUCHSIA: Self = Self::Rgb(Rgb::new(0.941177, 0.070588, 0.745098, 1.0));
-    pub const MAROON: Self = Self::Rgb(Rgb::new(0.521569, 0.078431, 0.294118, 1.0));
-    pub const RED: Self = Self::Rgb(Rgb::new(1.0, 0.254902, 0.211765, 1.0));
-    pub const ORANGE: Self = Self::Rgb(Rgb::new(1.0, 0.521569, 0.105882, 1.0));
-    pub const YELLOW: Self = Self::Rgb(Rgb::new(1.0, 0.8627451, 0.0, 1.0));
-    pub const OLIVE: Self = Self::Rgb(Rgb::new(0.239216, 0.6, 0.4392157, 1.0));
-    pub const GREEN: Self = Self::Rgb(Rgb::new(0.1803922, 0.8, 0.2509804, 1.0));
-    pub const LIME: Self = Self::Rgb(Rgb::new(0.0039216, 1.0, 0.4392157, 1.0));
 
     /// Create a grayscale color.
     ///
@@ -263,13 +288,16 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Luma(color.to_luma())
+            Self::Process(ProcessColor::Luma(color.to_luma()))
         } else {
             let Component(gray) =
                 args.expect("gray component").unwrap_or(Component(Ratio::one()));
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-            Self::Luma(Luma::new(gray.get() as f32, alpha.get() as f32))
+            Self::Process(ProcessColor::Luma(Luma::new(
+                gray.get() as f32,
+                alpha.get() as f32,
+            )))
         })
     }
 
@@ -319,14 +347,19 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Oklab(color.to_oklab())
+            Self::Process(ProcessColor::Oklab(color.to_oklab()))
         } else {
             let RatioComponent(l) = args.expect("lightness component")?;
             let ChromaComponent(a) = args.expect("A component")?;
             let ChromaComponent(b) = args.expect("B component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-            Self::Oklab(Oklab::new(l.get() as f32, a, b, alpha.get() as f32))
+            Self::Process(ProcessColor::Oklab(Oklab::new(
+                l.get() as f32,
+                a,
+                b,
+                alpha.get() as f32,
+            )))
         })
     }
 
@@ -375,19 +408,19 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Oklch(color.to_oklch())
+            Self::Process(ProcessColor::Oklch(color.to_oklch()))
         } else {
             let RatioComponent(l) = args.expect("lightness component")?;
             let ChromaComponent(c) = args.expect("chroma component")?;
             let h: Angle = args.expect("hue component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-            Self::Oklch(Oklch::new(
+            Self::Process(ProcessColor::Oklch(Oklch::new(
                 l.get() as f32,
                 c,
                 OklabHue::from_degrees(h.to_deg() as f32),
                 alpha.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -435,18 +468,18 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::LinearRgb(color.to_linear_rgb())
+            Self::Process(ProcessColor::LinearRgb(color.to_linear_rgb()))
         } else {
             let Component(r) = args.expect("red component")?;
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            Self::LinearRgb(LinearRgb::new(
+            Self::Process(ProcessColor::LinearRgb(LinearRgb::new(
                 r.get() as f32,
                 g.get() as f32,
                 b.get() as f32,
                 a.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -506,18 +539,18 @@ impl Color {
         Ok(if let Some(string) = args.find::<Spanned<Str>>()? {
             Self::from_str(&string.v).at(string.span)?
         } else if let Some(color) = args.find::<Color>()? {
-            Color::Rgb(color.to_rgb())
+            Self::Process(ProcessColor::Rgb(color.to_rgb()))
         } else {
             let Component(r) = args.expect("red component")?;
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            Self::Rgb(Rgb::new(
+            Self::Process(ProcessColor::Rgb(Rgb::new(
                 r.get() as f32,
                 g.get() as f32,
                 b.get() as f32,
                 a.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -566,18 +599,18 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Cmyk(color.to_cmyk())
+            Self::Process(ProcessColor::Cmyk(color.to_cmyk()))
         } else {
             let RatioComponent(c) = args.expect("cyan component")?;
             let RatioComponent(m) = args.expect("magenta component")?;
             let RatioComponent(y) = args.expect("yellow component")?;
             let RatioComponent(k) = args.expect("key/black component")?;
-            Self::Cmyk(Cmyk::new(
+            Self::Process(ProcessColor::Cmyk(Cmyk::new(
                 c.get() as f32,
                 m.get() as f32,
                 y.get() as f32,
                 k.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -623,18 +656,18 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Hsl(color.to_hsl())
+            Self::Process(ProcessColor::Hsl(color.to_hsl()))
         } else {
             let h: Angle = args.expect("hue component")?;
             let Component(s) = args.expect("saturation component")?;
             let Component(l) = args.expect("lightness component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            Self::Hsl(Hsl::new(
+            Self::Process(ProcessColor::Hsl(Hsl::new(
                 RgbHue::from_degrees(h.to_deg() as f32),
                 s.get() as f32,
                 l.get() as f32,
                 a.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -680,18 +713,18 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(color) = args.find::<Color>()? {
-            Color::Hsv(color.to_hsv())
+            Self::Process(ProcessColor::Hsv(color.to_hsv()))
         } else {
             let h: Angle = args.expect("hue component")?;
             let Component(s) = args.expect("saturation component")?;
             let Component(v) = args.expect("value component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            Self::Hsv(Hsv::new(
+            Self::Process(ProcessColor::Hsv(Hsv::new(
                 RgbHue::from_degrees(h.to_deg() as f32),
                 s.get() as f32,
                 v.get() as f32,
                 a.get() as f32,
-            ))
+            )))
         })
     }
 
@@ -711,6 +744,7 @@ impl Color {
     /// | [`cmyk`]($color.cmyk)   |    Cyan   |   Magenta  |   Yellow  |  Key   |
     /// | [`hsl`]($color.hsl)     |     Hue   | Saturation | Lightness |  Alpha |
     /// | [`hsv`]($color.hsv)     |     Hue   | Saturation |   Value   |  Alpha |
+    /// | [`spot`]($spot-colorant) |   Tint   |            |           |        |
     ///
     /// For the meaning and type of each individual value, see the documentation
     /// of the corresponding color space. The alpha component is optional and
@@ -724,12 +758,694 @@ impl Color {
     /// ```
     #[func]
     pub fn components(
-        self,
+        &self,
         /// Whether to include the alpha component.
         #[named]
         #[default(true)]
         alpha: bool,
     ) -> Array {
+        match self {
+            Self::Process(c) => c.components(alpha),
+            Self::Spot(c) => array![c.tint],
+        }
+    }
+
+    /// Returns the constructor function for this color's space.
+    ///
+    /// Returns one of:
+    /// - [`luma`]($color.luma)
+    /// - [`oklab`]($color.oklab)
+    /// - [`oklch`]($color.oklch)
+    /// - [`linear-rgb`]($color.linear-rgb)
+    /// - [`rgb`]($color.rgb)
+    /// - [`cmyk`]($color.cmyk)
+    /// - [`hsl`]($color.hsl)
+    /// - [`hsv`]($color.hsv)
+    ///
+    /// ```example
+    /// #let color = cmyk(1%, 2%, 3%, 4%)
+    /// #(color.space() == cmyk)
+    /// ```
+    #[func]
+    pub fn space(&self) -> ColorSpace {
+        match self {
+            Self::Process(p) => p.space().into(),
+            Self::Spot(s) => ColorSpace::Spot(s.colorant.clone()),
+        }
+    }
+
+    /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
+    /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
+    /// omitted if it is equal to `ff` (255 / 100%).
+    #[func]
+    pub fn to_hex(&self) -> EcoString {
+        match self {
+            Self::Process(p) => p.to_hex(),
+            Self::Spot(s) => s.fallback().to_hex(),
+        }
+    }
+
+    /// Lightens a color by a given factor.
+    #[func]
+    pub fn lighten(
+        &self,
+        /// The factor to lighten the color by.
+        factor: Ratio,
+    ) -> Color {
+        match self {
+            Self::Process(c) => Self::Process(c.lighten(factor)),
+            Self::Spot(c) => Self::Spot(c.lighten(factor)),
+        }
+    }
+
+    /// Darkens a color by a given factor.
+    #[func]
+    pub fn darken(
+        &self,
+        /// The factor to darken the color by.
+        factor: Ratio,
+    ) -> Color {
+        match self {
+            Self::Process(c) => Self::Process(c.darken(factor)),
+            Self::Spot(c) => Self::Spot(c.darken(factor)),
+        }
+    }
+
+    /// Increases the saturation of a color by a given factor.
+    #[func]
+    pub fn saturate(
+        &self,
+        span: Span,
+        /// The factor to saturate the color by.
+        factor: Ratio,
+    ) -> SourceResult<Color> {
+        Ok(match self {
+            Self::Process(c) => Self::Process(c.saturate(span, factor)?),
+            Self::Spot(_) => bail!(
+                span,
+                "cannot saturate spot color";
+                hint: "try using the fallback color instead";
+            ),
+        })
+    }
+
+    /// Decreases the saturation of a color by a given factor.
+    #[func]
+    pub fn desaturate(
+        &self,
+        span: Span,
+        /// The factor to desaturate the color by.
+        factor: Ratio,
+    ) -> SourceResult<Color> {
+        Ok(match self {
+            Self::Process(c) => Self::Process(c.desaturate(span, factor)?),
+            Self::Spot(_) => bail!(
+                span,
+                "cannot desaturate spot color";
+                hint: "try using the fallback color instead";
+            ),
+        })
+    }
+
+    /// Produces the complementary color using a provided color space.
+    /// You can think of it as the opposite side on a color wheel.
+    ///
+    /// ```example
+    /// #square(fill: yellow)
+    /// #square(fill: yellow.negate())
+    /// #square(fill: yellow.negate(space: rgb))
+    /// ```
+    #[func]
+    pub fn negate(
+        &self,
+        /// The color space used for the transformation. By default, a perceptual color space is used.
+        #[named]
+        #[default(Smart::Auto)]
+        space: Smart<ColorSpace>,
+    ) -> HintedStrResult<Color> {
+        let target_space = space.unwrap_or_else(||  match self.space() {
+            ColorSpace::Process(_) => ColorSpace::Process(ProcessColorSpace::Oklab),
+            ColorSpace::Spot(s) => ColorSpace::Spot(s),
+        });
+
+        let result = match self.to_space(&target_space)? {
+            Self::Process(c) => Self::Process(c.negate(c.space())),
+            Self::Spot(c) => Self::Spot(c.negate()),
+        };
+        result.to_space(&self.space())
+    }
+
+    /// Rotates the hue of the color by a given angle.
+    #[func]
+    pub fn rotate(
+        &self,
+        span: Span,
+        /// The angle to rotate the hue by.
+        angle: Angle,
+        /// The color space used to rotate. By default, this happens in a perceptual
+        /// color space ([`oklch`]($color.oklch)).
+        #[named]
+        #[default(ProcessColorSpace::Oklch)]
+        space: ProcessColorSpace,
+    ) -> SourceResult<Color> {
+        Ok(match space {
+            ProcessColorSpace::Oklch => {
+                let oklch = self.to_oklch();
+                let rotated = oklch.shift_hue(angle.to_deg() as f32);
+                Self::Process(ProcessColor::Oklch(rotated))
+                    .to_space(&self.space())
+                    .at(span)?
+            }
+            ProcessColorSpace::Hsl => {
+                let hsl = self.to_hsl();
+                let rotated = hsl.shift_hue(angle.to_deg() as f32);
+                Self::Process(ProcessColor::Hsl(rotated))
+                    .to_space(&self.space())
+                    .at(span)?
+            }
+            ProcessColorSpace::Hsv => {
+                let hsv = self.to_hsv();
+                let rotated = hsv.shift_hue(angle.to_deg() as f32);
+                Self::Process(ProcessColor::Hsv(rotated))
+                    .to_space(&self.space())
+                    .at(span)?
+            }
+            _ => bail!(span, "this colorspace does not support hue rotation"),
+        })
+    }
+
+    /// Create a color by mixing two or more colors.
+    ///
+    /// In color spaces with a hue component (hsl, hsv, oklch), only two colors
+    /// can be mixed at once. Mixing more than two colors in such a space will
+    /// result in an error!
+    ///
+    /// ```example
+    /// #set block(height: 20pt, width: 100%)
+    /// #block(fill: red.mix(blue))
+    /// #block(fill: red.mix(blue, space: rgb))
+    /// #block(fill: color.mix(red, blue, white))
+    /// #block(fill: color.mix((red, 70%), (blue, 30%)))
+    /// ```
+    #[func]
+    pub fn mix(
+        /// The colors, optionally with weights, specified as a pair (array of
+        /// length two) of color and weight (float or ratio).
+        ///
+        /// The weights do not need to add to `{100%}`, they are relative to the
+        /// sum of all weights.
+        #[variadic]
+        colors: Vec<WeightedColor>,
+        /// The color space to mix in. By default, this happens in a perceptual
+        /// color space ([`oklab`]($color.oklab)).
+        #[named]
+        #[default(ColorSpace::Process(ProcessColorSpace::Oklab))]
+        space: ColorSpace,
+    ) -> HintedStrResult<Color> {
+        Self::mix_iter(colors, space)
+    }
+
+    /// Makes a color more transparent by a given factor.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha - alpha * scale`.
+    /// Negative scales behave like `color.opacify(-scale)`.
+    ///
+    /// ```example
+    /// #block(fill: red)[opaque]
+    /// #block(fill: red.transparentize(50%))[half red]
+    /// #block(fill: red.transparentize(75%))[quarter red]
+    /// ```
+    #[func]
+    pub fn transparentize(
+        &self,
+        /// The factor to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(-scale)
+    }
+
+    /// Makes a color more opaque by a given scale.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
+    /// Negative scales behave like `color.transparentize(-scale)`.
+    ///
+    /// ```example
+    /// #let half-red = red.transparentize(50%)
+    /// #block(fill: half-red.opacify(100%))[opaque]
+    /// #block(fill: half-red.opacify(50%))[three quarters red]
+    /// #block(fill: half-red.opacify(-50%))[one quarter red]
+    /// ```
+    #[func]
+    pub fn opacify(
+        &self,
+        /// The scale to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(scale)
+    }
+}
+
+impl Color {
+    /// Same as [`Color::mix`], but takes an iterator instead of a vector.
+    pub fn mix_iter(
+        colors: impl IntoIterator<
+            Item = WeightedColor,
+            IntoIter = impl ExactSizeIterator<Item = WeightedColor>,
+        >,
+        space: ColorSpace,
+    ) -> HintedStrResult<Color> {
+        let mut colors = colors.into_iter();
+        if space.hue_index().is_some() && colors.len() > 2 {
+            bail!("cannot mix more than two colors in a hue-based space");
+        }
+
+        let m = if space.hue_index().is_some() && colors.len() == 2 {
+            let mut m = [0.0; 4];
+
+            let WeightedColor { color: c0, weight: w0 } = colors.next().unwrap();
+            let WeightedColor { color: c1, weight: w1 } = colors.next().unwrap();
+
+            let c0 = c0.to_space(&space)?.to_vec4();
+            let c1 = c1.to_space(&space)?.to_vec4();
+            let w0 = w0 as f32;
+            let w1 = w1 as f32;
+
+            if w0 + w1 <= 0.0 {
+                bail!("sum of weights must be positive");
+            }
+
+            for i in 0..4 {
+                m[i] = (w0 * c0[i] + w1 * c1[i]) / (w0 + w1);
+            }
+
+            // Ensure that the hue circle is traversed in the short direction.
+            if let Some(index) = space.hue_index()
+                && (c0[index] - c1[index]).abs() > 180.0
+            {
+                let (h0, h1) = if c0[index] < c1[index] {
+                    (c0[index] + 360.0, c1[index])
+                } else {
+                    (c0[index], c1[index] + 360.0)
+                };
+                m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
+            }
+
+            m
+        } else {
+            let mut total = 0.0;
+            let mut acc = [0.0; 4];
+
+            for WeightedColor { color, weight } in colors {
+                let weight = weight as f32;
+                let v = color.to_space(&space)?.to_vec4();
+                acc[0] += weight * v[0];
+                acc[1] += weight * v[1];
+                acc[2] += weight * v[2];
+                acc[3] += weight * v[3];
+                total += weight;
+            }
+
+            if total <= 0.0 {
+                bail!("sum of weights must be positive");
+            }
+
+            acc.map(|v| v / total)
+        };
+
+        Ok(match space {
+            ColorSpace::Process(ProcessColorSpace::Oklab) => {
+                Color::Process(ProcessColor::Oklab(Oklab::new(m[0], m[1], m[2], m[3])))
+            }
+            ColorSpace::Process(ProcessColorSpace::Oklch) => {
+                Color::Process(ProcessColor::Oklch(Oklch::new(m[0], m[1], m[2], m[3])))
+            }
+            ColorSpace::Process(ProcessColorSpace::Srgb) => {
+                Color::Process(ProcessColor::Rgb(Rgb::new(m[0], m[1], m[2], m[3])))
+            }
+            ColorSpace::Process(ProcessColorSpace::LinearRgb) => Color::Process(
+                ProcessColor::LinearRgb(LinearRgb::new(m[0], m[1], m[2], m[3])),
+            ),
+            ColorSpace::Process(ProcessColorSpace::Hsl) => Color::Process(
+                ProcessColor::Hsl(Hsl::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3])),
+            ),
+            ColorSpace::Process(ProcessColorSpace::Hsv) => Color::Process(
+                ProcessColor::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3])),
+            ),
+            ColorSpace::Process(ProcessColorSpace::Cmyk) => {
+                Color::Process(ProcessColor::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])))
+            }
+            ColorSpace::Process(ProcessColorSpace::D65Gray) => {
+                Color::Process(ProcessColor::Luma(Luma::new(m[0], m[3])))
+            }
+            ColorSpace::Spot(colorant) => Color::Spot(SpotColor::new(
+                Ratio::new(m[0].clamp(0.0, 1.0) as f64),
+                colorant,
+            )),
+        })
+    }
+
+    /// Construct a new RGBA color from 8-bit values.
+    pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self::Process(ProcessColor::from_u8(r, g, b, a))
+    }
+
+    /// Converts a 32-bit integer to an RGBA color.
+    pub fn from_u32(color: u32) -> Self {
+        Self::Process(ProcessColor::from_u32(color))
+    }
+
+    /// Returns the alpha channel of the color, if it has one.
+    pub fn alpha(&self) -> Option<f32> {
+        match self {
+            Color::Process(c) => c.alpha(),
+            Color::Spot(_) => None,
+        }
+    }
+
+    /// Sets the alpha channel of the color, if it has one.
+    pub fn with_alpha(&mut self, alpha: f32) -> Self {
+        match self {
+            Color::Process(c) => c.with_alpha(alpha).into(),
+            Color::Spot(_) => self.clone(),
+        }
+    }
+
+    /// Scales the alpha value of a color by a given amount.
+    ///
+    /// For positive scales, computes `alpha + scale - alpha * scale`.
+    /// For non-positive scales, computes `alpha + alpha * scale`.
+    fn scale_alpha(&self, scale: Ratio) -> StrResult<Self> {
+        Ok(match self {
+            Color::Process(c) => c.scale_alpha(scale)?.into(),
+            Color::Spot(_) => bail!("spot colors do not have an alpha component"),
+        })
+    }
+
+    /// Converts the color to a vec of four floats.
+    pub fn to_vec4(&self) -> [f32; 4] {
+        match self {
+            Color::Process(c) => c.to_vec4(),
+            Color::Spot(c) => [c.tint.get() as f32; 4],
+        }
+    }
+
+    /// Converts the color to a vec of four [`u8`]s.
+    pub fn to_vec4_u8(&self) -> [u8; 4] {
+        self.to_vec4().map(|x| (x * 255.0).round() as u8)
+    }
+
+    pub fn to_space(&self, space: &ColorSpace) -> HintedStrResult<Self> {
+        Ok(match (space, self) {
+            (ColorSpace::Process(s), Self::Process(c)) => c.to_space(*s).into(),
+            (ColorSpace::Process(s), Self::Spot(c)) => c.fallback().to_space(*s).into(),
+            (ColorSpace::Spot(s), Self::Spot(c)) => {
+                if s == &c.colorant {
+                    self.clone()
+                } else {
+                    bail!(
+                        "cannot convert spot color to different spot colorant";
+                        hint: "colorant of the color is `{}`", c.colorant.name.repr();
+                        hint: "colorant of the color space is `{}`", s.name.repr();
+                    )
+                }
+            }
+            (ColorSpace::Spot(s), Self::Process(_)) => {
+                bail!(
+                    "cannot convert process color to spot colorant space";
+                    hint: "process color cannot be expressed in spot colorant `{}`", s.name.repr();
+                    hint: "try converting the spot color to the process space instead";
+                )
+            }
+        })
+    }
+
+    pub fn to_process_space(&self, space: ProcessColorSpace) -> Self {
+        match self {
+            Self::Process(c) => c.to_space(space).into(),
+            Self::Spot(c) => c.fallback().to_space(space).into(),
+        }
+    }
+
+    pub fn to_luma(&self) -> Luma {
+        match self {
+            Self::Process(c) => c.to_luma(),
+            Self::Spot(c) => c.fallback().to_luma(),
+        }
+    }
+
+    pub fn to_oklab(&self) -> Oklab {
+        match self {
+            Self::Process(c) => c.to_oklab(),
+            Self::Spot(c) => c.fallback().to_oklab(),
+        }
+    }
+
+    pub fn to_oklch(&self) -> Oklch {
+        match self {
+            Self::Process(c) => c.to_oklch(),
+            Self::Spot(c) => c.fallback().to_oklch(),
+        }
+    }
+
+    pub fn to_rgb(&self) -> Rgb {
+        match self {
+            Self::Process(c) => c.to_rgb(),
+            Self::Spot(c) => c.fallback().to_rgb(),
+        }
+    }
+
+    pub fn to_linear_rgb(&self) -> LinearRgb {
+        match self {
+            Self::Process(c) => c.to_linear_rgb(),
+            Self::Spot(c) => c.fallback().to_linear_rgb(),
+        }
+    }
+
+    pub fn to_cmyk(&self) -> Cmyk {
+        match self {
+            Self::Process(c) => c.to_cmyk(),
+            Self::Spot(c) => c.fallback().to_cmyk(),
+        }
+    }
+
+    pub fn to_hsl(&self) -> Hsl {
+        match self {
+            Self::Process(c) => c.to_hsl(),
+            Self::Spot(c) => c.fallback().to_hsl(),
+        }
+    }
+
+    pub fn to_hsv(&self) -> Hsv {
+        match self {
+            Self::Process(c) => c.to_hsv(),
+            Self::Spot(c) => c.fallback().to_hsv(),
+        }
+    }
+
+    /// Convert to ProcessColor, using fallback for spot colors.
+    ///
+    /// This is useful for rendering and export where spot colors cannot be
+    /// expressed and need to be converted to their fallback representation.
+    pub fn to_process(&self) -> ProcessColor {
+        match self {
+            Self::Process(p) => *p,
+            Self::Spot(s) => s.fallback(),
+        }
+    }
+}
+
+impl Debug for Color {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Process(c) => Debug::fmt(c, f),
+            Self::Spot(c) => Debug::fmt(c, f),
+        }
+    }
+}
+
+impl PartialEq for Color {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Process(a), Self::Process(b)) => PartialEq::eq(a, b),
+            (Self::Spot(a), Self::Spot(b)) => PartialEq::eq(a, b),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Color {}
+
+impl Repr for Color {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Process(c) => Repr::repr(c),
+            Self::Spot(c) => Repr::repr(c),
+        }
+    }
+}
+
+fn hue_angle(degrees: f32) -> Angle {
+    Angle::deg(f64::from(degrees).rem_euclid(360.0))
+}
+
+impl Hash for Color {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Process(c) => c.hash(state),
+            Self::Spot(c) => c.hash(state),
+        }
+    }
+}
+
+impl FromStr for Color {
+    type Err = &'static str;
+
+    /// Constructs a new color from hex strings like the following:
+    /// - `#aef` (shorthand, with leading hash),
+    /// - `7a03c2` (without alpha),
+    /// - `abcdefff` (with alpha).
+    ///
+    /// The hash is optional and both lower and upper case are fine.
+    fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
+        let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
+        if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
+            return Err("color string contains non-hexadecimal letters");
+        }
+
+        let len = hex_str.len();
+        let long = len == 6 || len == 8;
+        let short = len == 3 || len == 4;
+        let alpha = len == 4 || len == 8;
+        if !long && !short {
+            return Err("color string has wrong length");
+        }
+
+        let mut values: [u8; 4] = [u8::MAX; 4];
+        for elem in if alpha { 0..4 } else { 0..3 } {
+            let item_len = if long { 2 } else { 1 };
+            let pos = elem * item_len;
+
+            let item = &hex_str[pos..(pos + item_len)];
+            values[elem] = u8::from_str_radix(item, 16).unwrap();
+
+            if short {
+                // Duplicate number for shorthand notation, i.e. `a` -> `aa`
+                values[elem] += values[elem] * 16;
+            }
+        }
+
+        Ok(Self::from_u8(values[0], values[1], values[2], values[3]))
+    }
+}
+
+impl From<Luma> for ProcessColor {
+    fn from(c: Luma) -> Self {
+        Self::Luma(c)
+    }
+}
+
+impl From<Luma> for Color {
+    fn from(c: Luma) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Oklab> for ProcessColor {
+    fn from(c: Oklab) -> Self {
+        Self::Oklab(c)
+    }
+}
+
+impl From<Oklab> for Color {
+    fn from(c: Oklab) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Oklch> for ProcessColor {
+    fn from(c: Oklch) -> Self {
+        Self::Oklch(c)
+    }
+}
+
+impl From<Oklch> for Color {
+    fn from(c: Oklch) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Rgb> for ProcessColor {
+    fn from(c: Rgb) -> Self {
+        Self::Rgb(c)
+    }
+}
+
+impl From<Rgb> for Color {
+    fn from(c: Rgb) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<LinearRgb> for ProcessColor {
+    fn from(c: LinearRgb) -> Self {
+        Self::LinearRgb(c)
+    }
+}
+
+impl From<LinearRgb> for Color {
+    fn from(c: LinearRgb) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Cmyk> for ProcessColor {
+    fn from(c: Cmyk) -> Self {
+        Self::Cmyk(c)
+    }
+}
+
+impl From<Cmyk> for Color {
+    fn from(c: Cmyk) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Hsl> for ProcessColor {
+    fn from(c: Hsl) -> Self {
+        Self::Hsl(c)
+    }
+}
+
+impl From<Hsl> for Color {
+    fn from(c: Hsl) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<Hsv> for ProcessColor {
+    fn from(c: Hsv) -> Self {
+        Self::Hsv(c)
+    }
+}
+
+impl From<Hsv> for Color {
+    fn from(c: Hsv) -> Self {
+        Self::Process(c.into())
+    }
+}
+
+impl From<SpotColor> for Color {
+    fn from(c: SpotColor) -> Self {
+        Self::Spot(c)
+    }
+}
+
+impl ProcessColor {
+    /// Extracts the components of this color.
+    pub fn components(self, alpha: bool) -> Array {
         let mut components = match self {
             Self::Luma(c) => {
                 array![Ratio::new(c.luma.into()), Ratio::new(c.alpha.into())]
@@ -798,41 +1514,8 @@ impl Color {
         components
     }
 
-    /// Returns the constructor function for this color's space.
-    ///
-    /// Returns one of:
-    /// - [`luma`]($color.luma)
-    /// - [`oklab`]($color.oklab)
-    /// - [`oklch`]($color.oklch)
-    /// - [`linear-rgb`]($color.linear-rgb)
-    /// - [`rgb`]($color.rgb)
-    /// - [`cmyk`]($color.cmyk)
-    /// - [`hsl`]($color.hsl)
-    /// - [`hsv`]($color.hsv)
-    ///
-    /// ```example
-    /// #let color = cmyk(1%, 2%, 3%, 4%)
-    /// #(color.space() == cmyk)
-    /// ```
-    #[func]
-    pub fn space(self) -> ColorSpace {
-        match self {
-            Self::Luma(_) => ColorSpace::D65Gray,
-            Self::Oklab(_) => ColorSpace::Oklab,
-            Self::Oklch(_) => ColorSpace::Oklch,
-            Self::LinearRgb(_) => ColorSpace::LinearRgb,
-            Self::Rgb(_) => ColorSpace::Srgb,
-            Self::Cmyk(_) => ColorSpace::Cmyk,
-            Self::Hsl(_) => ColorSpace::Hsl,
-            Self::Hsv(_) => ColorSpace::Hsv,
-        }
-    }
-
-    /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
-    /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
-    /// omitted if it is equal to `ff` (255 / 100%).
-    #[func]
-    pub fn to_hex(self) -> EcoString {
+    /// Returns the color's RGB(A) hex representation.
+    pub fn to_hex(&self) -> EcoString {
         let (r, g, b, a) = self.to_rgb().into_format::<u8, u8>().into_components();
         if a != 255 {
             eco_format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
@@ -841,13 +1524,22 @@ impl Color {
         }
     }
 
+    /// Returns the constructor function for this color's space.
+    pub fn space(self) -> ProcessColorSpace {
+        match self {
+            Self::Luma(_) => ProcessColorSpace::D65Gray,
+            Self::Oklab(_) => ProcessColorSpace::Oklab,
+            Self::Oklch(_) => ProcessColorSpace::Oklch,
+            Self::LinearRgb(_) => ProcessColorSpace::LinearRgb,
+            Self::Rgb(_) => ProcessColorSpace::Srgb,
+            Self::Cmyk(_) => ProcessColorSpace::Cmyk,
+            Self::Hsl(_) => ProcessColorSpace::Hsl,
+            Self::Hsv(_) => ProcessColorSpace::Hsv,
+        }
+    }
+
     /// Lightens a color by a given factor.
-    #[func]
-    pub fn lighten(
-        self,
-        /// The factor to lighten the color by.
-        factor: Ratio,
-    ) -> Color {
+    pub fn lighten(self, factor: Ratio) -> ProcessColor {
         let factor = factor.get() as f32;
         match self {
             Self::Luma(c) => Self::Luma(c.lighten(factor)),
@@ -862,12 +1554,7 @@ impl Color {
     }
 
     /// Darkens a color by a given factor.
-    #[func]
-    pub fn darken(
-        self,
-        /// The factor to darken the color by.
-        factor: Ratio,
-    ) -> Color {
+    pub fn darken(self, factor: Ratio) -> ProcessColor {
         let factor = factor.get() as f32;
         match self {
             Self::Luma(c) => Self::Luma(c.darken(factor)),
@@ -882,13 +1569,7 @@ impl Color {
     }
 
     /// Increases the saturation of a color by a given factor.
-    #[func]
-    pub fn saturate(
-        self,
-        span: Span,
-        /// The factor to saturate the color by.
-        factor: Ratio,
-    ) -> SourceResult<Color> {
+    pub fn saturate(self, span: Span, factor: Ratio) -> SourceResult<ProcessColor> {
         let f = factor.get() as f32;
         Ok(match self {
             Self::Luma(_) => bail!(
@@ -902,19 +1583,13 @@ impl Color {
             | Self::LinearRgb(_)
             | Self::Rgb(_)
             | Self::Cmyk(_) => {
-                Color::Hsv(self.to_hsv().saturate(f)).to_space(self.space())
+                Self::Hsv(self.to_hsv().saturate(f)).to_space(self.space())
             }
         })
     }
 
     /// Decreases the saturation of a color by a given factor.
-    #[func]
-    pub fn desaturate(
-        self,
-        span: Span,
-        /// The factor to desaturate the color by.
-        factor: Ratio,
-    ) -> SourceResult<Color> {
+    pub fn desaturate(self, span: Span, factor: Ratio) -> SourceResult<ProcessColor> {
         let f = factor.get() as f32;
         Ok(match self {
             Self::Luma(_) => bail!(
@@ -928,27 +1603,13 @@ impl Color {
             | Self::LinearRgb(_)
             | Self::Rgb(_)
             | Self::Cmyk(_) => {
-                Color::Hsv(self.to_hsv().desaturate(f)).to_space(self.space())
+                Self::Hsv(self.to_hsv().desaturate(f)).to_space(self.space())
             }
         })
     }
 
     /// Produces the complementary color using a provided color space.
-    /// You can think of it as the opposite side on a color wheel.
-    ///
-    /// ```example
-    /// #square(fill: yellow)
-    /// #square(fill: yellow.negate())
-    /// #square(fill: yellow.negate(space: rgb))
-    /// ```
-    #[func]
-    pub fn negate(
-        self,
-        /// The color space used for the transformation. By default, a perceptual color space is used.
-        #[named]
-        #[default(ColorSpace::Oklab)]
-        space: ColorSpace,
-    ) -> Color {
+    pub fn negate(self, space: ProcessColorSpace) -> ProcessColor {
         let result = match self.to_space(space) {
             Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma, c.alpha)),
             Self::Oklab(c) => Self::Oklab(Oklab::new(1.0 - c.l, -c.a, -c.b, c.alpha)),
@@ -984,197 +1645,6 @@ impl Color {
         result.to_space(self.space())
     }
 
-    /// Rotates the hue of the color by a given angle.
-    #[func]
-    pub fn rotate(
-        self,
-        span: Span,
-        /// The angle to rotate the hue by.
-        angle: Angle,
-        /// The color space used to rotate. By default, this happens in a perceptual
-        /// color space ([`oklch`]($color.oklch)).
-        #[named]
-        #[default(ColorSpace::Oklch)]
-        space: ColorSpace,
-    ) -> SourceResult<Color> {
-        Ok(match space {
-            ColorSpace::Oklch => {
-                let oklch = self.to_oklch();
-                let rotated = oklch.shift_hue(angle.to_deg() as f32);
-                Self::Oklch(rotated).to_space(self.space())
-            }
-            ColorSpace::Hsl => {
-                let hsl = self.to_hsl();
-                let rotated = hsl.shift_hue(angle.to_deg() as f32);
-                Self::Hsl(rotated).to_space(self.space())
-            }
-            ColorSpace::Hsv => {
-                let hsv = self.to_hsv();
-                let rotated = hsv.shift_hue(angle.to_deg() as f32);
-                Self::Hsv(rotated).to_space(self.space())
-            }
-            _ => bail!(span, "this colorspace does not support hue rotation"),
-        })
-    }
-
-    /// Create a color by mixing two or more colors.
-    ///
-    /// In color spaces with a hue component (hsl, hsv, oklch), only two colors
-    /// can be mixed at once. Mixing more than two colors in such a space will
-    /// result in an error!
-    ///
-    /// ```example
-    /// #set block(height: 20pt, width: 100%)
-    /// #block(fill: red.mix(blue))
-    /// #block(fill: red.mix(blue, space: rgb))
-    /// #block(fill: color.mix(red, blue, white))
-    /// #block(fill: color.mix((red, 70%), (blue, 30%)))
-    /// ```
-    #[func]
-    pub fn mix(
-        /// The colors, optionally with weights, specified as a pair (array of
-        /// length two) of color and weight (float or ratio).
-        ///
-        /// The weights do not need to add to `{100%}`, they are relative to the
-        /// sum of all weights.
-        #[variadic]
-        colors: Vec<WeightedColor>,
-        /// The color space to mix in. By default, this happens in a perceptual
-        /// color space ([`oklab`]($color.oklab)).
-        #[named]
-        #[default(ColorSpace::Oklab)]
-        space: ColorSpace,
-    ) -> StrResult<Color> {
-        Self::mix_iter(colors, space)
-    }
-
-    /// Makes a color more transparent by a given factor.
-    ///
-    /// This method is relative to the existing alpha value.
-    /// If the scale is positive, calculates `alpha - alpha * scale`.
-    /// Negative scales behave like `color.opacify(-scale)`.
-    ///
-    /// ```example
-    /// #block(fill: red)[opaque]
-    /// #block(fill: red.transparentize(50%))[half red]
-    /// #block(fill: red.transparentize(75%))[quarter red]
-    /// ```
-    #[func]
-    pub fn transparentize(
-        self,
-        /// The factor to change the alpha value by.
-        scale: Ratio,
-    ) -> StrResult<Color> {
-        self.scale_alpha(-scale)
-    }
-
-    /// Makes a color more opaque by a given scale.
-    ///
-    /// This method is relative to the existing alpha value.
-    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
-    /// Negative scales behave like `color.transparentize(-scale)`.
-    ///
-    /// ```example
-    /// #let half-red = red.transparentize(50%)
-    /// #block(fill: half-red.opacify(100%))[opaque]
-    /// #block(fill: half-red.opacify(50%))[three quarters red]
-    /// #block(fill: half-red.opacify(-50%))[one quarter red]
-    /// ```
-    #[func]
-    pub fn opacify(
-        self,
-        /// The scale to change the alpha value by.
-        scale: Ratio,
-    ) -> StrResult<Color> {
-        self.scale_alpha(scale)
-    }
-}
-
-impl Color {
-    /// Same as [`Color::mix`], but takes an iterator instead of a vector.
-    pub fn mix_iter(
-        colors: impl IntoIterator<
-            Item = WeightedColor,
-            IntoIter = impl ExactSizeIterator<Item = WeightedColor>,
-        >,
-        space: ColorSpace,
-    ) -> StrResult<Color> {
-        let mut colors = colors.into_iter();
-        if space.hue_index().is_some() && colors.len() > 2 {
-            bail!("cannot mix more than two colors in a hue-based space");
-        }
-
-        let m = if space.hue_index().is_some() && colors.len() == 2 {
-            let mut m = [0.0; 4];
-
-            let WeightedColor { color: c0, weight: w0 } = colors.next().unwrap();
-            let WeightedColor { color: c1, weight: w1 } = colors.next().unwrap();
-
-            let c0 = c0.to_space(space).to_vec4();
-            let c1 = c1.to_space(space).to_vec4();
-            let w0 = w0 as f32;
-            let w1 = w1 as f32;
-
-            if w0 + w1 <= 0.0 {
-                bail!("sum of weights must be positive");
-            }
-
-            for i in 0..4 {
-                m[i] = (w0 * c0[i] + w1 * c1[i]) / (w0 + w1);
-            }
-
-            // Ensure that the hue circle is traversed in the short direction.
-            if let Some(index) = space.hue_index()
-                && (c0[index] - c1[index]).abs() > 180.0
-            {
-                let (h0, h1) = if c0[index] < c1[index] {
-                    (c0[index] + 360.0, c1[index])
-                } else {
-                    (c0[index], c1[index] + 360.0)
-                };
-                m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
-            }
-
-            m
-        } else {
-            let mut total = 0.0;
-            let mut acc = [0.0; 4];
-
-            for WeightedColor { color, weight } in colors {
-                let weight = weight as f32;
-                let v = color.to_space(space).to_vec4();
-                acc[0] += weight * v[0];
-                acc[1] += weight * v[1];
-                acc[2] += weight * v[2];
-                acc[3] += weight * v[3];
-                total += weight;
-            }
-
-            if total <= 0.0 {
-                bail!("sum of weights must be positive");
-            }
-
-            acc.map(|v| v / total)
-        };
-
-        Ok(match space {
-            ColorSpace::Oklab => Color::Oklab(Oklab::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::Oklch => Color::Oklch(Oklch::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::Srgb => Color::Rgb(Rgb::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::LinearRgb => {
-                Color::LinearRgb(LinearRgb::new(m[0], m[1], m[2], m[3]))
-            }
-            ColorSpace::Hsl => {
-                Color::Hsl(Hsl::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
-            }
-            ColorSpace::Hsv => {
-                Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
-            }
-            ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[3])),
-        })
-    }
-
     /// Construct a new RGBA color from 8-bit values.
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::Rgb(Rgb::new(
@@ -1196,30 +1666,30 @@ impl Color {
     }
 
     /// Returns the alpha channel of the color, if it has one.
-    pub fn alpha(&self) -> Option<f32> {
+    pub fn alpha(self) -> Option<f32> {
         match self {
-            Color::Cmyk(_) => None,
-            Color::Luma(c) => Some(c.alpha),
-            Color::Oklab(c) => Some(c.alpha),
-            Color::Oklch(c) => Some(c.alpha),
-            Color::Rgb(c) => Some(c.alpha),
-            Color::LinearRgb(c) => Some(c.alpha),
-            Color::Hsl(c) => Some(c.alpha),
-            Color::Hsv(c) => Some(c.alpha),
+            Self::Cmyk(_) => None,
+            Self::Luma(c) => Some(c.alpha),
+            Self::Oklab(c) => Some(c.alpha),
+            Self::Oklch(c) => Some(c.alpha),
+            Self::Rgb(c) => Some(c.alpha),
+            Self::LinearRgb(c) => Some(c.alpha),
+            Self::Hsl(c) => Some(c.alpha),
+            Self::Hsv(c) => Some(c.alpha),
         }
     }
 
     /// Sets the alpha channel of the color, if it has one.
     pub fn with_alpha(mut self, alpha: f32) -> Self {
         match &mut self {
-            Color::Cmyk(_) => {}
-            Color::Luma(c) => c.alpha = alpha,
-            Color::Oklab(c) => c.alpha = alpha,
-            Color::Oklch(c) => c.alpha = alpha,
-            Color::Rgb(c) => c.alpha = alpha,
-            Color::LinearRgb(c) => c.alpha = alpha,
-            Color::Hsl(c) => c.alpha = alpha,
-            Color::Hsv(c) => c.alpha = alpha,
+            Self::Cmyk(_) => {}
+            Self::Luma(c) => c.alpha = alpha,
+            Self::Oklab(c) => c.alpha = alpha,
+            Self::Oklch(c) => c.alpha = alpha,
+            Self::Rgb(c) => c.alpha = alpha,
+            Self::LinearRgb(c) => c.alpha = alpha,
+            Self::Hsl(c) => c.alpha = alpha,
+            Self::Hsv(c) => c.alpha = alpha,
         }
 
         self
@@ -1229,7 +1699,7 @@ impl Color {
     ///
     /// For positive scales, computes `alpha + scale - alpha * scale`.
     /// For non-positive scales, computes `alpha + alpha * scale`.
-    fn scale_alpha(self, scale: Ratio) -> StrResult<Color> {
+    fn scale_alpha(self, scale: Ratio) -> StrResult<Self> {
         #[inline]
         fn transform<C>(mut color: Alpha<C, f32>, scale: Ratio) -> Alpha<C, f32> {
             let scale = scale.get() as f32;
@@ -1239,35 +1709,35 @@ impl Color {
         }
 
         Ok(match self {
-            Color::Luma(c) => Color::Luma(transform(c, scale)),
-            Color::Oklab(c) => Color::Oklab(transform(c, scale)),
-            Color::Oklch(c) => Color::Oklch(transform(c, scale)),
-            Color::Rgb(c) => Color::Rgb(transform(c, scale)),
-            Color::LinearRgb(c) => Color::LinearRgb(transform(c, scale)),
-            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
-            Color::Hsl(c) => Color::Hsl(transform(c, scale)),
-            Color::Hsv(c) => Color::Hsv(transform(c, scale)),
+            Self::Luma(c) => Self::Luma(transform(c, scale)),
+            Self::Oklab(c) => Self::Oklab(transform(c, scale)),
+            Self::Oklch(c) => Self::Oklch(transform(c, scale)),
+            Self::Rgb(c) => Self::Rgb(transform(c, scale)),
+            Self::LinearRgb(c) => Self::LinearRgb(transform(c, scale)),
+            Self::Cmyk(_) => bail!("CMYK does not have an alpha component"),
+            Self::Hsl(c) => Self::Hsl(transform(c, scale)),
+            Self::Hsv(c) => Self::Hsv(transform(c, scale)),
         })
     }
 
     /// Converts the color to a vec of four floats.
-    pub fn to_vec4(&self) -> [f32; 4] {
+    pub fn to_vec4(self) -> [f32; 4] {
         match self {
-            Color::Luma(c) => [c.luma, c.luma, c.luma, c.alpha],
-            Color::Oklab(c) => [c.l, c.a, c.b, c.alpha],
-            Color::Oklch(c) => {
+            Self::Luma(c) => [c.luma, c.luma, c.luma, c.alpha],
+            Self::Oklab(c) => [c.l, c.a, c.b, c.alpha],
+            Self::Oklch(c) => {
                 [c.l, c.chroma, c.hue.into_degrees().rem_euclid(360.0), c.alpha]
             }
-            Color::Rgb(c) => [c.red, c.green, c.blue, c.alpha],
-            Color::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
-            Color::Cmyk(c) => [c.c, c.m, c.y, c.k],
-            Color::Hsl(c) => [
+            Self::Rgb(c) => [c.red, c.green, c.blue, c.alpha],
+            Self::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
+            Self::Cmyk(c) => [c.c, c.m, c.y, c.k],
+            Self::Hsl(c) => [
                 c.hue.into_degrees().rem_euclid(360.0),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             ],
-            Color::Hsv(c) => {
+            Self::Hsv(c) => {
                 [c.hue.into_degrees().rem_euclid(360.0), c.saturation, c.value, c.alpha]
             }
         }
@@ -1278,29 +1748,29 @@ impl Color {
         self.to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
-    pub fn to_space(self, space: ColorSpace) -> Self {
+    pub fn to_space(&self, space: ProcessColorSpace) -> Self {
         match space {
-            ColorSpace::D65Gray => Self::Luma(self.to_luma()),
-            ColorSpace::Oklab => Self::Oklab(self.to_oklab()),
-            ColorSpace::Oklch => Self::Oklch(self.to_oklch()),
-            ColorSpace::Srgb => Self::Rgb(self.to_rgb()),
-            ColorSpace::LinearRgb => Self::LinearRgb(self.to_linear_rgb()),
-            ColorSpace::Cmyk => Self::Cmyk(self.to_cmyk()),
-            ColorSpace::Hsl => Self::Hsl(self.to_hsl()),
-            ColorSpace::Hsv => Self::Hsv(self.to_hsv()),
+            ProcessColorSpace::D65Gray => Self::Luma(self.to_luma()),
+            ProcessColorSpace::Oklab => Self::Oklab(self.to_oklab()),
+            ProcessColorSpace::Oklch => Self::Oklch(self.to_oklch()),
+            ProcessColorSpace::Srgb => Self::Rgb(self.to_rgb()),
+            ProcessColorSpace::LinearRgb => Self::LinearRgb(self.to_linear_rgb()),
+            ProcessColorSpace::Cmyk => Self::Cmyk(self.to_cmyk()),
+            ProcessColorSpace::Hsl => Self::Hsl(self.to_hsl()),
+            ProcessColorSpace::Hsv => Self::Hsv(self.to_hsv()),
         }
     }
 
     pub fn to_luma(self) -> Luma {
         match self {
             Self::Luma(c) => c,
-            Self::Oklab(c) => Luma::from_color(c),
-            Self::Oklch(c) => Luma::from_color(c),
-            Self::Rgb(c) => Luma::from_color(c),
-            Self::LinearRgb(c) => Luma::from_color(c),
+            Self::Oklab(c) => Luma::from_color(*c),
+            Self::Oklch(c) => Luma::from_color(*c),
+            Self::Rgb(c) => Luma::from_color(*c),
+            Self::LinearRgb(c) => Luma::from_color(*c),
             Self::Cmyk(c) => Luma::from_color(c.to_rgba()),
-            Self::Hsl(c) => Luma::from_color(c),
-            Self::Hsv(c) => Luma::from_color(c),
+            Self::Hsl(c) => Luma::from_color(*c),
+            Self::Hsv(c) => Luma::from_color(*c),
         }
     }
 
@@ -1396,7 +1866,7 @@ impl Color {
     }
 }
 
-impl Debug for Color {
+impl Debug for ProcessColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Luma(v) => write!(f, "Luma({}, {})", v.luma, v.alpha),
@@ -1438,7 +1908,7 @@ impl Debug for Color {
     }
 }
 
-impl Repr for Color {
+impl Repr for ProcessColor {
     fn repr(&self) -> EcoString {
         match self {
             Self::Luma(c) => {
@@ -1556,11 +2026,24 @@ impl Repr for Color {
     }
 }
 
-fn hue_angle(degrees: f32) -> Angle {
-    Angle::deg(f64::from(degrees).rem_euclid(360.0))
+impl Hash for ProcessColor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        let [x, y, z, w] = self.to_vec4();
+        x.to_bits().hash(state);
+        y.to_bits().hash(state);
+        z.to_bits().hash(state);
+        w.to_bits().hash(state);
+    }
 }
 
-impl PartialEq for Color {
+impl From<ProcessColor> for Color {
+    fn from(value: ProcessColor) -> Self {
+        Self::Process(value)
+    }
+}
+
+impl PartialEq for ProcessColor {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             // Lower precision for comparison to avoid rounding errors.
@@ -1580,106 +2063,15 @@ impl PartialEq for Color {
     }
 }
 
-impl Eq for Color {}
+impl Eq for ProcessColor {}
 
-impl Hash for Color {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-        let [x, y, z, w] = self.to_vec4();
-        x.to_bits().hash(state);
-        y.to_bits().hash(state);
-        z.to_bits().hash(state);
-        w.to_bits().hash(state);
-    }
-}
-
-impl FromStr for Color {
-    type Err = &'static str;
-
-    /// Constructs a new color from hex strings like the following:
-    /// - `#aef` (shorthand, with leading hash),
-    /// - `7a03c2` (without alpha),
-    /// - `abcdefff` (with alpha).
-    ///
-    /// The hash is optional and both lower and upper case are fine.
-    fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
-        let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
-        if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
-            return Err("color string contains non-hexadecimal letters");
-        }
-
-        let len = hex_str.len();
-        let long = len == 6 || len == 8;
-        let short = len == 3 || len == 4;
-        let alpha = len == 4 || len == 8;
-        if !long && !short {
-            return Err("color string has wrong length");
-        }
-
-        let mut values: [u8; 4] = [u8::MAX; 4];
-        for elem in if alpha { 0..4 } else { 0..3 } {
-            let item_len = if long { 2 } else { 1 };
-            let pos = elem * item_len;
-
-            let item = &hex_str[pos..(pos + item_len)];
-            values[elem] = u8::from_str_radix(item, 16).unwrap();
-
-            if short {
-                // Duplicate number for shorthand notation, i.e. `a` -> `aa`
-                values[elem] += values[elem] * 16;
-            }
-        }
-
-        Ok(Self::from_u8(values[0], values[1], values[2], values[3]))
-    }
-}
-
-impl From<Luma> for Color {
-    fn from(c: Luma) -> Self {
-        Self::Luma(c)
-    }
-}
-
-impl From<Oklab> for Color {
-    fn from(c: Oklab) -> Self {
-        Self::Oklab(c)
-    }
-}
-
-impl From<Oklch> for Color {
-    fn from(c: Oklch) -> Self {
-        Self::Oklch(c)
-    }
-}
-
-impl From<Rgb> for Color {
-    fn from(c: Rgb) -> Self {
-        Self::Rgb(c)
-    }
-}
-
-impl From<LinearRgb> for Color {
-    fn from(c: LinearRgb) -> Self {
-        Self::LinearRgb(c)
-    }
-}
-
-impl From<Cmyk> for Color {
-    fn from(c: Cmyk) -> Self {
-        Self::Cmyk(c)
-    }
-}
-
-impl From<Hsl> for Color {
-    fn from(c: Hsl) -> Self {
-        Self::Hsl(c)
-    }
-}
-
-impl From<Hsv> for Color {
-    fn from(c: Hsv) -> Self {
-        Self::Hsv(c)
-    }
+cast! {
+    ProcessColor,
+    self => Color::from(self).into_value(),
+    v: Color => match v {
+        Color::Process(c) => c,
+        Color::Spot(_) => bail!("spot color found where process color is required")
+    },
 }
 
 /// An 8-bit CMYK color.
@@ -1755,6 +2147,194 @@ impl Cmyk {
     }
 }
 
+/// A Spot color.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SpotColor {
+    /// How much of the colorant to apply to the medium.
+    pub tint: Ratio,
+    /// Which colorant to apply.
+    colorant: SpotColorant,
+}
+
+impl SpotColor {
+    pub fn new(tint: Ratio, colorant: SpotColorant) -> Self {
+        Self { tint, colorant }
+    }
+}
+
+impl SpotColor {
+    /// Lightens the spot color by a given factor.
+    pub fn lighten(&self, factor: Ratio) -> SpotColor {
+        let tint = self.tint.get();
+        SpotColor::new(
+            Ratio::new((tint - tint * factor.get()).clamp(0.0, 1.0)),
+            self.colorant.clone(),
+        )
+    }
+
+    /// Darkens the spot color by a given factor.
+    pub fn darken(&self, factor: Ratio) -> SpotColor {
+        let tint = self.tint.get();
+        SpotColor::new(
+            Ratio::new((tint + (1.0 - tint) * factor.get()).clamp(0.0, 1.0)),
+            self.colorant.clone(),
+        )
+    }
+
+    /// Negates the spot color (inverts the tint).
+    pub fn negate(&self) -> SpotColor {
+        SpotColor::new(Ratio::new(1.0 - self.tint.get()), self.colorant.clone())
+    }
+
+    /// Returns the fallback process color with the tint applied.
+    pub fn fallback(&self) -> ProcessColor {
+        self.colorant.fallback.lighten(Ratio::one() - self.tint)
+    }
+}
+
+impl Repr for SpotColor {
+    fn repr(&self) -> EcoString {
+        eco_format!(
+            "spot-color({}, colorant: {})",
+            self.tint.repr(),
+            self.colorant.repr()
+        )
+    }
+}
+
+/// A Spot colorant.
+#[ty(scope)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SpotColorant {
+    /// Name of the spot colorant to use.
+    name: SpotColorantName,
+    /// How to render this color if the specified colorant is not available.
+    fallback: ProcessColor,
+}
+
+impl Repr for SpotColorant {
+    fn repr(&self) -> EcoString {
+        eco_format!(
+            "spot-colorant({}, fallback: {})",
+            self.name.repr(),
+            self.fallback.into_value().repr()
+        )
+    }
+}
+
+/// The name of a spot colorant.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum SpotColorantName {
+    /// No colorant (equivalent to `none`).
+    NoColorant,
+    /// The special "All" colorant that applies to all separation colorants.
+    AllColorants,
+    /// A custom colorant name (e.g., "PANTONE 2221 C").
+    Custom(EcoString),
+}
+
+impl Repr for SpotColorantName {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::NoColorant => "none".into(),
+            Self::AllColorants => Str::from("all").repr(),
+            Self::Custom(name) => Str::from(name.clone()).repr(),
+        }
+    }
+}
+
+cast! {
+    SpotColorantName,
+    self => match self {
+        Self::NoColorant => Value::None,
+        Self::AllColorants => "all".into_value(),
+        Self::Custom(name) => name.as_str().into_value(),
+    },
+    _: NoneValue => Self::NoColorant,
+    "all" => Self::AllColorants,
+    s: Str => Self::Custom(s.into()),
+}
+
+#[scope]
+impl SpotColorant {
+    /// Create a new spot colorant.
+    ///
+    /// Use spot colors to request a precise pigment in a professional print
+    /// environment. Once you have created a spot colorant, you can create
+    /// colors using the [`tint` method]($spot-colorant.tint).
+    #[func(constructor)]
+    pub fn construct(
+        /// Name of the spot colorant to use.
+        ///
+        /// In production, this name will be manually checked and matched to a
+        /// colorant, so this value needs to be unambiguous. It's best to
+        /// reference a color from a registry like PANTONE, HKS, RAL, Toyo &
+        /// DIC, etc.
+        ///
+        /// Values in here may be treated case-sensitively during production:
+        /// `{"PANTONE 2221 C"}` and `{"PANTONE 2221 C"}` may be treated as
+        /// separate colors. Ensure that you are using a consistent naming
+        /// convention, either referencing a registry or through coordination
+        /// with your production printing experts.
+        ///
+        /// If this value is `{"all"}` and your print will involve multiple
+        /// [color
+        /// plates](https://en.wikipedia.org/wiki/Offset_printing#Plates), use
+        /// of this colorant will result in the specified tint being applied
+        /// equally to all plates. If you choose `{none}`, no colorant will be
+        /// applied when using this color. Instead, you can use a spot color
+        /// with the name `{none}` to indicate cuts or varnishes. Be sure to
+        /// discuss this with your production printer!
+        ///
+        /// We do not recommend using the names `{"Cyan"}`, `{"Magenta"}`,
+        /// `{"Yellow"}`, `{"Key"}`, `{"Black"}`, or their translations to your
+        /// local language. Depending on your printer, they may or may not be
+        /// interpreted as CMYK process colors.
+        name: SpotColorantName,
+        /// How to render this color if the specified colorant is not available.
+        ///
+        /// Many mediums, like on-screen preview and household printers, will not
+        /// have this specific spot colorant available. To display an approximation
+        /// of the intended print, another, available color is used instead.
+        fallback: ProcessColor,
+    ) -> SourceResult<SpotColorant> {
+        Ok(Self { name, fallback })
+    }
+
+    /// Create a spot color at a specific tint of this colorant.
+    ///
+    /// The tint represents what percentage of the colorant is applied. A tint
+    /// of `{100%}` means the colorant is applied at full strength, while `{0%}`
+    /// means no colorant is applied.
+    ///
+    /// ```example
+    /// #let pantone = spot-colorant(
+    ///   "PANTONE 2221 C",
+    ///   rgb("#239dad")
+    /// )
+    ///
+    /// #square(fill: pantone.tint(100%))
+    /// #square(fill: pantone.tint(70%))
+    /// #square(fill: pantone.tint(40%))
+    /// ```
+    #[func]
+    pub fn tint(
+        &self,
+        /// The tint percentage, between `{0%}` and `{100%}`.
+        value: Spanned<Ratio>,
+    ) -> SourceResult<Color> {
+        if value.v < Ratio::zero() {
+            bail!(value.span, "spot color tint must be positive")
+        }
+
+        if value.v > Ratio::one() {
+            bail!(value.span, "spot color tint must not exceed 100%")
+        }
+
+        Ok(Color::Spot(SpotColor::new(value.v, self.clone())))
+    }
+}
+
 /// A color with a weight.
 pub struct WeightedColor {
     color: Color,
@@ -1794,8 +2374,49 @@ cast! {
 }
 
 /// A color space for color manipulation.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ColorSpace {
+    /// A mixable color space with a well-defined color model.
+    Process(ProcessColorSpace),
+    /// A spot colorant.
+    Spot(SpotColorant),
+}
+
+impl ColorSpace {
+    /// Returns the index of the hue component in this color space, if it has
+    /// one.
+    pub fn hue_index(&self) -> Option<usize> {
+        match self {
+            Self::Process(s) => s.hue_index(),
+            Self::Spot(_) => None,
+        }
+    }
+}
+
+cast! {
+    ColorSpace,
+    self => match self {
+        Self::Process(s) => s.variant_constructor(),
+        Self::Spot(s) => s.into_value()
+    },
+    spot_colorant: SpotColorant => Self::Spot(spot_colorant),
+    v: Value => {
+        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or `spot-colorant`";
+
+        let Value::Func(func) = v else {
+            bail!("{expected}, found {}", v.ty());
+        };
+
+        match ProcessColorSpace::try_from_constructor(func) {
+            Some(space) => Self::Process(space),
+            None => bail!("{expected}")
+        }
+    },
+}
+
+/// A color space for color manipulation.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ProcessColorSpace {
     /// The perceptual Oklab color space.
     Oklab,
     /// The perceptual Oklch color space.
@@ -1814,39 +2435,37 @@ pub enum ColorSpace {
     Cmyk,
 }
 
-impl ColorSpace {
+impl ProcessColorSpace {
     /// Returns the index of the hue component in this color space, if it has
     /// one.
-    pub fn hue_index(&self) -> Option<usize> {
+    pub fn hue_index(self) -> Option<usize> {
         match self {
             Self::Hsl | Self::Hsv => Some(0),
             Self::Oklch => Some(2),
             _ => None,
         }
     }
-}
 
-cast! {
-    ColorSpace,
-    self => match self {
-        Self::Oklab => Color::oklab_data(),
-        Self::Oklch => Color::oklch_data(),
-        Self::Srgb => Color::rgb_data(),
-        Self::D65Gray => Color::luma_data(),
-        Self::LinearRgb => Color::linear_rgb_data(),
-        Self::Hsl => Color::hsl_data(),
-        Self::Hsv => Color::hsv_data(),
-        Self::Cmyk => Color::cmyk_data(),
-    }.into_value(),
-    v: Value => {
-        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`";
-        let Value::Func(func) = v else {
-            bail!("{expected}, found {}", v.ty());
-        };
+    /// Return the value for each variant's constructor.
+    fn variant_constructor(self) -> Value {
+        match self {
+            Self::Oklab => Color::oklab_data(),
+            Self::Oklch => Color::oklch_data(),
+            Self::Srgb => Color::rgb_data(),
+            Self::D65Gray => Color::luma_data(),
+            Self::LinearRgb => Color::linear_rgb_data(),
+            Self::Hsl => Color::hsl_data(),
+            Self::Hsv => Color::hsv_data(),
+            Self::Cmyk => Color::cmyk_data(),
+        }
+        .into_value()
+    }
 
+    /// Given a constructor, return the matching variant.
+    fn try_from_constructor(func: Func) -> Option<Self> {
         // Here comparing the function pointer since it's `Eq`
         // whereas the `NativeFuncData` is not.
-        if func == Color::oklab_data() {
+        Some(if func == Color::oklab_data() {
             Self::Oklab
         } else if func == Color::oklch_data() {
             Self::Oklch
@@ -1863,7 +2482,30 @@ cast! {
         } else if func == Color::cmyk_data() {
             Self::Cmyk
         } else {
-            bail!("{expected}");
+            return None;
+        })
+    }
+}
+
+impl From<ProcessColorSpace> for ColorSpace {
+    fn from(value: ProcessColorSpace) -> Self {
+        Self::Process(value)
+    }
+}
+
+cast! {
+    ProcessColorSpace,
+    self => self.variant_constructor(),
+    v: Value => {
+        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`";
+
+        let Value::Func(func) = v else {
+            bail!("{expected}, found {}", v.ty());
+        };
+
+        match Self::try_from_constructor(func) {
+            Some(space) => space,
+            None => bail!("{expected}")
         }
     },
 }
@@ -1938,7 +2580,7 @@ macro_rules! preset {
         fn $name() -> Array {
             Array::from(
                 [$(Color::from_u32($colors)),*]
-                    .iter()
+                    .into_iter()
                     .map(|c| c.into_value())
                     .collect::<EcoVec<_>>()
             )

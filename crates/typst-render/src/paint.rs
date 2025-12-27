@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tiny_skia as sk;
 use typst_library::layout::{Axes, Point, Ratio, Size};
-use typst_library::visualize::{Color, Gradient, Paint, RelativeTo, Tiling};
+use typst_library::visualize::{Gradient, Paint, ProcessColor, RelativeTo, Tiling};
 
 use crate::{AbsExt, State};
 
@@ -64,10 +64,14 @@ impl PaintSampler for GradientSampler<'_> {
         self.transform_to_parent.map_point(&mut point);
 
         // Sample the gradient
-        to_sk_color_u8(self.gradient.sample_at(
-            (point.x, point.y),
-            (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
-        ))
+        to_sk_color_u8(
+            self.gradient
+                .sample_at(
+                    (point.x, point.y),
+                    (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
+                )
+                .to_process(),
+        )
         .premultiply()
     }
 }
@@ -159,7 +163,7 @@ pub fn to_sk_paint<'a>(
                 );
 
                 pixmap.pixels_mut()[(y * width + x) as usize] =
-                    to_sk_color(color).premultiply().to_color_u8();
+                    to_sk_color(color.to_process()).premultiply().to_color_u8();
             }
         }
 
@@ -169,7 +173,7 @@ pub fn to_sk_paint<'a>(
     let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
     match paint {
         Paint::Solid(color) => {
-            sk_paint.set_color(to_sk_color(*color));
+            sk_paint.set_color(to_sk_color(color.to_process()));
             sk_paint.anti_alias = true;
         }
         Paint::Gradient(gradient) => {
@@ -254,13 +258,13 @@ pub fn to_sk_paint<'a>(
     sk_paint
 }
 
-pub fn to_sk_color(color: Color) -> sk::Color {
+pub fn to_sk_color(color: ProcessColor) -> sk::Color {
     let (r, g, b, a) = color.to_rgb().into_components();
     sk::Color::from_rgba(r, g, b, a)
         .expect("components must always be in the range [0..=1]")
 }
 
-pub fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
+pub fn to_sk_color_u8(color: ProcessColor) -> sk::ColorU8 {
     let (r, g, b, a) = color.to_rgb().into_format::<u8, u8>().into_components();
     sk::ColorU8::from_rgba(r, g, b, a)
 }
