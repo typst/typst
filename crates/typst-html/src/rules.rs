@@ -6,8 +6,8 @@ use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, SequenceElem, ShowFn,
+    Smart, StyleChain, Target,
 };
 use typst_library::introspection::{
     Counter, DocumentIntrospection, Locator, QueryIntrospection,
@@ -54,7 +54,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
-    rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_GROUP_RULE);
     rules.register(Html, FOOTNOTE_MARKER_RULE);
     rules.register(Html, FOOTNOTE_CONTAINER_RULE);
     rules.register(Html, FOOTNOTE_ENTRY_RULE);
@@ -327,21 +327,30 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-
-    // The footnote number that links to the footnote entry.
-    let link = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(link)
-        .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
-        .spanned(span);
-
-    // Indicates the presence of a default footnote rule to emit an error when
-    // no footnote container is available.
-    let marker = FootnoteMarker::new().pack().spanned(span);
-
-    Ok(HElem::hole().clone() + sup + marker)
+const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
+    let separator = elem.separator.get_cloned(styles).map(|c| SuperElem::new(c).pack());
+    let mut sups = Vec::<Content>::new();
+    for (i, note) in elem.children.iter().enumerate() {
+        if let Some(separator) = &separator
+            && i != 0
+        {
+            // TODO: Use `Iterator::intersperse` when stabilized.
+            sups.push(separator.clone());
+        }
+        let span = note.span();
+        let (dest, num) = note.realize(engine, styles)?;
+        let sup = SuperElem::new(num).pack().spanned(span);
+        // Link to the footnote entry.
+        let link = LinkElem::new(dest.into(), sup)
+            .pack()
+            .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+        // Indicates the presence of a default footnote rule to emit an error when
+        // no footnote container is available.
+        let marker = FootnoteMarker::new().pack().spanned(span);
+        sups.push(link + marker);
+    }
+    let content = SequenceElem::new(sups).pack().spanned(elem.span());
+    Ok(HElem::hole().clone() + content)
 };
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
