@@ -183,10 +183,16 @@ impl Count for Packed<FootnoteElem> {
 pub struct FootnoteGroup {
     /// The separator between the footnote indicators in the text.
     ///
-    /// - When set to `{auto}`, a comma `,` will be used. This is the default.
-    /// - When set to `{none}`, there will be no separators.
-    /// - A custom separator can be set by passing content.
-    pub separator: Smart<Option<Content>>,
+    /// By default, it is a comma. If set to `{none}`, there's no separator.
+    ///
+    /// ```example
+    /// Hello#footnote[A]#footnote[B]#footnote[C]
+    ///
+    /// #set footnote.group(separator: "&")
+    /// Hallo#footnote[D]#footnote[E]
+    /// ```
+    #[default(Some(TextElem::packed(",\u{200B}")))]
+    pub separator: Option<Content>,
 
     /// The footnotes.
     #[required]
@@ -209,7 +215,6 @@ impl Packed<FootnoteGroup> {
         let separator = self
             .separator
             .get_cloned(styles)
-            .unwrap_or_else(|| Some(TextElem::packed(",\u{200B}")))
             .unwrap_or_else(|| TextElem::packed(""));
         let mut sups = Vec::<Content>::new();
         for (i, note) in self.children.iter().enumerate() {
