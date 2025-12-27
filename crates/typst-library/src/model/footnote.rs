@@ -7,8 +7,8 @@ use typst_utils::NonZeroExt;
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, SequenceElem, ShowSet, Smart, StyleChain,
-    Styles, cast, elem, scope,
+    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
+    elem, scope,
 };
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
@@ -203,36 +203,6 @@ impl FootnoteGroup {
     pub fn alt_text(styles: StyleChain, nums: Vec<&str>) -> EcoString {
         let local_name = Packed::<FootnoteElem>::local_name_in(styles);
         eco_format!("{local_name} {}", nums.join(","))
-    }
-}
-
-impl Packed<FootnoteGroup> {
-    pub fn realize(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
-        let separator = self
-            .separator
-            .get_cloned(styles)
-            .unwrap_or_else(|| TextElem::packed(""));
-        let mut sups = Vec::<Content>::new();
-        for (i, note) in self.children.iter().enumerate() {
-            if i != 0 {
-                // TODO: Use `Iterator::intersperse` when stabilized.
-                sups.push(separator.clone());
-            }
-            let (dest, num) = note.realize(engine, styles)?;
-            let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-            let sup = SuperElem::new(num)
-                .pack()
-                .spanned(note.span())
-                .linked(dest, Some(alt));
-            sups.push(sup);
-        }
-        Ok(SuperElem::new(SequenceElem::new(sups).pack())
-            .pack()
-            .spanned(self.span()))
     }
 }
 

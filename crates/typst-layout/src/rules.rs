@@ -3,8 +3,8 @@ use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, dict,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, SequenceElem,
+    ShowFn, Smart, StyleChain, Synthesize, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -18,9 +18,9 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
+    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
@@ -394,7 +394,27 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
-    let content = elem.realize(engine, styles)?;
+    let separator = elem
+        .separator
+        .get_cloned(styles)
+        .unwrap_or_else(|| TextElem::packed(""));
+    let mut sups = Vec::<Content>::new();
+    for (i, note) in elem.children.iter().enumerate() {
+        if i != 0 {
+            // TODO: Use `Iterator::intersperse` when stabilized.
+            sups.push(separator.clone());
+        }
+        let (dest, num) = note.realize(engine, styles)?;
+        let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+        let sup = SuperElem::new(num)
+            .pack()
+            .spanned(note.span())
+            .linked(dest, Some(alt));
+        sups.push(sup);
+    }
+    let content = SuperElem::new(SequenceElem::new(sups).pack())
+        .pack()
+        .spanned(elem.span());
     Ok(HElem::hole().clone() + PdfMarkerTag::Label(content))
 };
 
