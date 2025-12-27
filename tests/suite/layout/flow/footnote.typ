@@ -290,6 +290,15 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
+--- footnote-multiple-in-one-place paged ---
+Hi#footnote[A]#footnote[B]#footnote[C]
+
+#set footnote.group(separator: ".")
+Hi#footnote[D]#footnote[E]
+
+#set footnote.group(separator: none)
+Hi#footnote[F]#footnote[G]
+
 --- footnote-multiple-in-one-line paged ---
 #set page(height: 100pt)
 #v(50pt)
@@ -371,6 +380,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 // pages.
 #set page(width: 20pt, height: 20pt)
 #set footnote.entry(indent: 0pt)
+#set footnote.group(separator: none)
 
 A
 
