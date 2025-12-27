@@ -89,6 +89,8 @@ pub struct FootnoteElem {
 impl FootnoteElem {
     #[elem]
     type FootnoteEntry;
+    #[elem]
+    type FootnoteGroup;
 }
 
 impl LocalName for Packed<FootnoteElem> {
@@ -177,9 +179,16 @@ impl Count for Packed<FootnoteElem> {
 ///
 /// This is automatically created from adjacent footnotes during show rule
 /// application.
-#[elem(Locatable)]
+#[elem(name = "group", title = "Footnote Group", Locatable)]
 pub struct FootnoteGroup {
-    /// The citations.
+    /// The separator between the footnote indicators in the text.
+    ///
+    /// - When set to `{auto}`, a comma `,` will be used. This is the default.
+    /// - When set to `{none}`, there will be no separators.
+    /// - A custom separator can be set by passing content.
+    pub separator: Smart<Option<Content>>,
+
+    /// The footnotes.
     #[required]
     pub children: Vec<Packed<FootnoteElem>>,
 }
@@ -197,13 +206,15 @@ impl Packed<FootnoteGroup> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        // TODO: Use `Iterator::intersperse` when stabilized.
-        // Now, we don't add the commas in order to not break image tests.
-        // let separator = TextElem::new(",\u{200B}".into()).pack();
-        let separator = TextElem::new("".into()).pack();
+        let separator = self
+            .separator
+            .get_cloned(styles)
+            .unwrap_or_else(|| Some(TextElem::packed(",\u{200B}")))
+            .unwrap_or_else(|| TextElem::packed(""));
         let mut sups = Vec::<Content>::new();
         for (i, note) in self.children.iter().enumerate() {
             if i != 0 {
+                // TODO: Use `Iterator::intersperse` when stabilized.
                 sups.push(separator.clone());
             }
             let (dest, num) = note.realize(engine, styles)?;
