@@ -290,7 +290,7 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
---- footnote-multiple-in-one-place paged ---
+--- footnote-multiple-in-one-place paged html ---
 Hi#footnote[A]#footnote[B]#footnote[C]
 
 #set footnote.group(separator: "&")

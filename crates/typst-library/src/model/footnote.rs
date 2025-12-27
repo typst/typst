@@ -181,15 +181,16 @@ impl Count for Packed<FootnoteElem> {
 /// application.
 #[elem(name = "group", title = "Footnote Group", Locatable)]
 pub struct FootnoteGroup {
-    /// The separator between the footnote indicators in the text.
+    /// The separator between the footnote markers in the text.
     ///
     /// By default, it is a comma. If set to `{none}`, there's no separator.
     ///
     /// ```example
-    /// Hello#footnote[A]#footnote[B]#footnote[C]
-    ///
     /// #set footnote.group(separator: "&")
-    /// Hallo#footnote[D]#footnote[E]
+    ///
+    /// The coldest winter is the summer in San Francisco
+    /// #footnote[Referring to the city's characteristic summer fog.]
+    /// #footnote[This quip is often misattributed to Mark Twain.].
     /// ```
     #[default(Some(TextElem::packed(",\u{200B}")))]
     pub separator: Option<Content>,
