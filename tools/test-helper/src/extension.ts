@@ -523,6 +523,7 @@ async function getWebviewContent(
         iframe, pre.shiki {
           border: 1px solid rgb(189, 191, 204);
           border-radius: 6px;
+          resize: vertical;
         }
         iframe {
           background: white;
