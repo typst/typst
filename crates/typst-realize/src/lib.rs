@@ -928,7 +928,7 @@ static HTML_FRAGMENT_RULES: &[&GroupingRule] =
     &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
-static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
+static MATH_RULES: &[&GroupingRule] = &[&CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Groups adjacent textual elements for text show rule application.
 static TEXTUAL: GroupingRule = GroupingRule {
