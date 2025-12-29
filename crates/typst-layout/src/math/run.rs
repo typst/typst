@@ -1,4 +1,5 @@
 use std::iter::once;
+use std::ops::{Deref, DerefMut};
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
@@ -20,10 +21,16 @@ impl MathRun {
         let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
         let mut space: Option<MathFragment> = None;
-        let mut resolved: Vec<MathFragment> = vec![];
+        let mut resolved = MathBuffer::new();
 
         for mut fragment in iter {
             match fragment {
+                // Tags don't affect layout.
+                MathFragment::Tag(_) => {
+                    resolved.push(fragment);
+                    continue;
+                }
+
                 // Keep space only if supported by spaced fragments.
                 MathFragment::Space(_) => {
                     if last.is_some() {
@@ -99,11 +106,13 @@ impl MathRun {
             resolved.push(fragment);
         }
 
-        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
-            resolved.pop();
+        if let Some(idx) = resolved.last_index()
+            && let MathFragment::Spacing(_, true) = resolved.0[idx]
+        {
+            resolved.0.remove(idx);
         }
 
-        Self(resolved)
+        Self(resolved.0)
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, MathFragment> {
@@ -454,5 +463,43 @@ fn spacing(
         _ if (l.is_spaced() || r.is_spaced()) => space,
 
         _ => None,
+    }
+}
+
+/// A wrapper around [`Vec<MathFragment>`] that ignores [`MathFragment::Tag`]s
+/// in some access methods.
+struct MathBuffer(Vec<MathFragment>);
+
+impl MathBuffer {
+    fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Returns a reference to the last non-Tag fragment.
+    fn last(&self) -> Option<&MathFragment> {
+        self.0.iter().rev().find(|f| !matches!(f, MathFragment::Tag(_)))
+    }
+
+    /// Returns a mutable reference to the last non-Tag fragment.
+    fn last_mut(&mut self) -> Option<&mut MathFragment> {
+        self.0.iter_mut().rev().find(|f| !matches!(f, MathFragment::Tag(_)))
+    }
+
+    /// Returns the physical index of the last non-Tag fragment.
+    fn last_index(&self) -> Option<usize> {
+        self.0.iter().rposition(|f| !matches!(f, MathFragment::Tag(_)))
+    }
+}
+
+impl Deref for MathBuffer {
+    type Target = Vec<MathFragment>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MathBuffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
