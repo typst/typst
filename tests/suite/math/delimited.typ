@@ -108,6 +108,10 @@ $lr(lr(|, size: #4em), size: #50%)$
 $lr(body1, size: #50%)$
 $lr(body2, size: #50%)$
 
+--- math-lr-nested-mid paged ---
+// Test nested lr calls with mid.
+$ lr(lr({ integral_0^1 x mid(|) 1/e }, size: #3em), size: #50%) $
+
 --- math-lr-ignore-ignorant paged ---
 // Test ignoring leading and trailing ignorant fragments.
 #box($ (1 / 2) $)

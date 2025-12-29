@@ -190,6 +190,10 @@ $ 2 baz(x,y,baz(u, v)) $
 #let length = context repr(measure("--").width)
 $ a length a ^ length $
 
+--- math-size-space paged ---
+$ x space x script(space) x sscript(space) x \
+  x^inline(space) x^space x^sscript(space) x $
+
 --- math-size-arbitrary-content paged ---
 // Test sizing of both relative and absolute non math content in math sizes.
 #let stuff = square(inset: 0pt)[hello]
