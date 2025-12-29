@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.code-server
     container_name: typst-editor
     ports:
-      - "8080:8080"
+      - "${EDITOR_PORT:-8585}:8080"
     environment:
       - PASSWORD=${EDITOR_PASSWORD:-typst123}
       - PUID=1000
