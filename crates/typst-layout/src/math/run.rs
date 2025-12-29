@@ -17,6 +17,12 @@ pub struct MathRun(Vec<MathFragment>);
 
 impl MathRun {
     /// Takes the given [`MathFragment`]s and do some basic processing.
+    ///
+    /// The behavior of spacing around alignment points is subtle and differs
+    /// from the `align` environment in amsmath. The current policy is:
+    /// > always put the correct spacing between fragments separated by an
+    /// > alignment point, and always put the space on the left of the
+    /// > alignment point
     pub fn new(fragments: Vec<MathFragment>) -> Self {
         let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
