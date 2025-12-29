@@ -97,7 +97,14 @@ impl MathRun {
                 if let Some(i) = last
                     && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
                 {
-                    resolved.insert(i + 1, s);
+                    let idx = if matches!(resolved.last(), Some(MathFragment::Align)) {
+                        // Only one alignment point should be skipped when
+                        // inserting spacing.
+                        resolved.last_index().unwrap()
+                    } else {
+                        i + 1
+                    };
+                    resolved.insert(idx, s);
                 }
 
                 last = Some(resolved.len());
