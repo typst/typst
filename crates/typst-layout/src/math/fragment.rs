@@ -11,27 +11,25 @@ use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
-use typst_library::math::{EquationElem, Limits, MathSize, families};
-use typst_library::text::{Font, TextElem, features, language, variant};
+use typst_library::math::ir::MathProperties;
+use typst_library::math::{EquationElem, MathSize, families};
+use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language, variant};
 use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::MathContext;
-use crate::math::shaping::{Glyphs, ShapedGlyph, ShapedText, shape};
+use super::shaping::shape;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum MathFragment {
     Glyph(GlyphFragment),
     Frame(FrameFragment),
-    Spacing(Abs, bool),
     Space(Abs),
     Linebreak,
     Align,
@@ -43,7 +41,6 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.size,
             Self::Frame(fragment) => fragment.frame.size(),
-            Self::Spacing(amount, _) => Size::with_x(*amount),
             Self::Space(amount) => Size::with_x(*amount),
             _ => Size::zero(),
         }
@@ -53,7 +50,6 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.size.x,
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount, _) => *amount,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -90,6 +86,20 @@ impl MathFragment {
         }
     }
 
+    pub fn base_ascent(&self) -> Abs {
+        match self {
+            Self::Frame(fragment) => fragment.base_ascent,
+            _ => self.ascent(),
+        }
+    }
+
+    pub fn base_descent(&self) -> Abs {
+        match self {
+            Self::Frame(fragment) => fragment.base_descent,
+            _ => self.descent(),
+        }
+    }
+
     pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Frame(fragment) => fragment.ignorant,
@@ -102,7 +112,6 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Frame(fragment) => fragment.class,
-            Self::Spacing(_, _) => MathClass::Space,
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
@@ -129,43 +138,12 @@ impl MathFragment {
         )
     }
 
-    pub fn font_size(&self) -> Option<Abs> {
+    fn font_size(&self) -> Option<Abs> {
         match self {
             Self::Glyph(glyph) => Some(glyph.item.size),
             Self::Frame(fragment) => Some(fragment.font_size),
             _ => None,
         }
-    }
-
-    pub fn set_class(&mut self, class: MathClass) {
-        match self {
-            Self::Glyph(glyph) => glyph.class = class,
-            Self::Frame(fragment) => fragment.class = class,
-            _ => {}
-        }
-    }
-
-    pub fn set_limits(&mut self, limits: Limits) {
-        match self {
-            Self::Glyph(glyph) => glyph.limits = limits,
-            Self::Frame(fragment) => fragment.limits = limits,
-            _ => {}
-        }
-    }
-
-    pub fn is_spaced(&self) -> bool {
-        if self.class() == MathClass::Fence {
-            return true;
-        }
-
-        matches!(
-            self,
-            MathFragment::Frame(FrameFragment {
-                spaced: true,
-                class: MathClass::Normal | MathClass::Alphabetic,
-                ..
-            })
-        )
     }
 
     pub fn is_text_like(&self) -> bool {
@@ -205,46 +183,10 @@ impl MathFragment {
         }
     }
 
-    pub fn limits(&self) -> Limits {
-        match self {
-            MathFragment::Glyph(glyph) => glyph.limits,
-            MathFragment::Frame(fragment) => fragment.limits,
-            _ => Limits::Never,
-        }
-    }
-
     pub fn fill(&self) -> Option<Paint> {
         match self {
             Self::Glyph(glyph) => Some(glyph.item.fill.clone()),
             _ => None,
-        }
-    }
-
-    pub fn stretch_vertical(
-        &mut self,
-        engine: &mut Engine,
-        height: Abs,
-        short_fall: Abs,
-    ) {
-        if let Self::Glyph(glyph) = self {
-            glyph.stretch_vertical(engine, height, short_fall)
-        }
-    }
-
-    pub fn stretch_horizontal(
-        &mut self,
-        engine: &mut Engine,
-        width: Abs,
-        short_fall: Abs,
-    ) {
-        if let Self::Glyph(glyph) = self {
-            glyph.stretch_horizontal(engine, width, short_fall)
-        }
-    }
-
-    pub fn center_on_axis(&mut self) {
-        if let Self::Glyph(glyph) = self {
-            glyph.center_on_axis()
         }
     }
 
@@ -296,21 +238,19 @@ impl From<FrameFragment> for MathFragment {
 #[derive(Clone)]
 pub struct GlyphFragment {
     // Text stuff.
-    pub item: ShapedText,
+    pub item: TextItem,
     // Math stuff.
     pub size: Size,
-    pub baseline: Option<Abs>,
-    pub italics_correction: Abs,
-    pub accent_attach: (Abs, Abs),
-    pub math_size: MathSize,
+    baseline: Option<Abs>,
+    italics_correction: Abs,
+    accent_attach: (Abs, Abs),
+    math_size: MathSize,
     pub class: MathClass,
-    pub limits: Limits,
-    pub extended_shape: bool,
-    pub mid_stretched: Option<bool>,
+    extended_shape: bool,
     // External frame stuff.
-    pub modifiers: FrameModifiers,
-    pub shift: Abs,
-    pub align: Abs,
+    modifiers: FrameModifiers,
+    shift: Abs,
+    align: Abs,
 }
 
 impl GlyphFragment {
@@ -332,9 +272,7 @@ impl GlyphFragment {
         text: &str,
         span: Span,
     ) -> Option<GlyphFragment> {
-        assert!(text.graphemes(true).count() == 1);
-
-        let (font, glyphs) = shape(
+        let (font, mut glyphs) = shape(
             world,
             variant(styles),
             features(styles),
@@ -344,7 +282,11 @@ impl GlyphFragment {
             families(styles).collect(),
         )?;
 
-        let item = ShapedText {
+        for glyph in &mut glyphs {
+            glyph.span = (span, 0);
+        }
+
+        let item = TextItem {
             text: text.into(),
             font,
             size: styles.resolve(TextElem::size),
@@ -352,12 +294,10 @@ impl GlyphFragment {
             stroke: styles.resolve(TextElem::stroke).map(|s| s.unwrap_or_default()),
             lang: styles.get(TextElem::lang),
             region: styles.get(TextElem::region),
-            glyphs: Glyphs::new(glyphs),
-            span,
+            glyphs,
         };
 
         let c = text.chars().next().unwrap();
-        let limits = Limits::for_char(c);
         let class = styles
             .get(EquationElem::class)
             .or_else(|| default_math_class(c))
@@ -368,8 +308,6 @@ impl GlyphFragment {
             // Math
             math_size: styles.get(EquationElem::size),
             class,
-            limits,
-            mid_stretched: None,
             // Math in need of updating.
             extended_shape: false,
             italics_correction: Abs::zero(),
@@ -381,22 +319,19 @@ impl GlyphFragment {
             shift: styles.resolve(TextElem::baseline),
             modifiers: FrameModifiers::get_in(styles),
         };
-        fragment.update_glyph(true);
+        fragment.update_glyph();
         Some(fragment)
     }
 
     /// Sets element id and boxes in appropriate way without changing other
     /// styles. This is used to replace the glyph with a stretch variant.
-    pub fn update_glyph(&mut self, initial: bool) {
+    fn update_glyph(&mut self) {
         let id = GlyphId(self.item.glyphs[0].id);
 
         let extended_shape = is_extended_shape(&self.item.font, id);
         let italics = italics_correction(&self.item.font, id).unwrap_or_default();
         let width = self.item.width();
-        // The second condition below is needed so we don't accidentally add the
-        // italic correction again to the original glyphs. This can happen when
-        // `reset_glyph` is called after the glyph fragment is created.
-        if !extended_shape && (initial || id.0 != self.item.original_id()) {
+        if !extended_shape {
             self.item.glyphs[0].x_advance += italics;
         }
         let italics = italics.at(self.item.size);
@@ -423,15 +358,7 @@ impl GlyphFragment {
         self.extended_shape = extended_shape;
     }
 
-    // Reset a GlyphFragment's text field and math properties back to its
-    // base_id's. This is used to return a glyph to its unstretched state.
-    pub fn reset_glyph(&mut self) {
-        self.align = Abs::zero();
-        self.item.glyphs.reset();
-        self.update_glyph(false);
-    }
-
-    pub fn baseline(&self) -> Abs {
+    fn baseline(&self) -> Abs {
         self.ascent()
     }
 
@@ -445,35 +372,38 @@ impl GlyphFragment {
         self.size.y - self.ascent()
     }
 
-    pub fn into_frame(self) -> Frame {
+    fn into_frame(self) -> Frame {
         let mut frame = Frame::soft(self.size);
         frame.set_baseline(self.baseline());
         frame.push(
             Point::with_y(self.ascent() + self.shift + self.align),
-            FrameItem::Text(self.item.into()),
+            FrameItem::Text(self.item),
         );
         frame.modify(&self.modifiers);
         frame
     }
 
-    /// Try to stretch a glyph to a desired height.
-    pub fn stretch_vertical(
-        &mut self,
-        engine: &mut Engine,
-        height: Abs,
-        short_fall: Abs,
-    ) {
-        self.stretch(engine, height, short_fall, Axis::Y)
-    }
-
-    /// Try to stretch a glyph to a desired width.
-    pub fn stretch_horizontal(
-        &mut self,
-        engine: &mut Engine,
-        width: Abs,
-        short_fall: Abs,
-    ) {
-        self.stretch(engine, width, short_fall, Axis::X)
+    pub fn stretch_axis(&self, engine: &mut Engine) -> Option<Axis> {
+        // Return if we attempt to stretch along an axis which isn't stretchable,
+        // so that the original fragment isn't modified.
+        let axes = stretch_axes(&self.item.font, self.item.glyphs[0].id);
+        match (axes.x, axes.y) {
+            (true, false) => Some(Axis::X),
+            (false, true) => Some(Axis::Y),
+            (false, false) => None,
+            (true, true) => {
+                // As far as we know, there aren't any glyphs that have both
+                // vertical and horizontal constructions. So for the time being, we
+                // will assume that a glyph cannot have both.
+                engine.sink.warn(warning!(
+                   self.item.glyphs[0].span.0,
+                   "glyph has both vertical and horizontal constructions";
+                   hint: "this is probably a font bug";
+                   hint: "please file an issue at https://github.com/typst/typst/issues";
+                ));
+                None
+            }
+        }
     }
 
     /// Try to stretch a glyph to a desired width or height.
@@ -486,8 +416,6 @@ impl GlyphFragment {
         short_fall: Abs,
         axis: Axis,
     ) {
-        self.reset_glyph();
-
         // If the base glyph is good enough, use it.
         let mut advance = self.size.get(axis);
         if axis == Axis::X && !self.extended_shape {
@@ -518,14 +446,16 @@ impl GlyphFragment {
 
         // This is either good or the best we've got.
         if short_target <= best_advance || construction.assembly.is_none() {
-            self.item.glyphs.update(vec![ShapedGlyph {
+            self.item.glyphs = vec![Glyph {
                 id: best_id.0,
                 x_advance: self.item.font.x_advance(best_id.0).unwrap_or_default(),
                 x_offset: Em::zero(),
                 y_advance: self.item.font.y_advance(best_id.0).unwrap_or_default(),
                 y_offset: Em::zero(),
-            }]);
-            self.update_glyph(false);
+                range: self.item.glyphs[0].range.clone(),
+                span: self.item.glyphs[0].span,
+            }];
+            self.update_glyph();
             return;
         }
 
@@ -545,7 +475,7 @@ impl GlyphFragment {
 
     /// Vertically adjust the fragment's frame so that it is aligned
     /// to the given alignment on the axis.
-    pub fn align_on_axis(&mut self, align: VAlignment) {
+    fn align_on_axis(&mut self, align: VAlignment) {
         let h = self.size.y;
         let axis = self.item.font.math().axis_height.at(self.item.size);
         self.align += self.baseline();
@@ -562,47 +492,36 @@ impl Debug for GlyphFragment {
 
 #[derive(Debug, Clone)]
 pub struct FrameFragment {
-    pub frame: Frame,
-    pub font_size: Abs,
-    pub class: MathClass,
-    pub math_size: MathSize,
-    pub limits: Limits,
-    pub spaced: bool,
-    pub base_ascent: Abs,
-    pub base_descent: Abs,
-    pub italics_correction: Abs,
-    pub accent_attach: (Abs, Abs),
-    pub text_like: bool,
-    pub ignorant: bool,
+    frame: Frame,
+    font_size: Abs,
+    class: MathClass,
+    math_size: MathSize,
+    base_ascent: Abs,
+    base_descent: Abs,
+    italics_correction: Abs,
+    accent_attach: (Abs, Abs),
+    text_like: bool,
+    ignorant: bool,
 }
 
 impl FrameFragment {
-    pub fn new(styles: StyleChain, frame: Frame) -> Self {
+    pub fn new(props: &MathProperties, styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let base_descent = frame.descent();
         let accent_attach = frame.width() / 2.0;
+        let modifiers = FrameModifiers::get_in(styles);
         Self {
-            frame: frame.modified(&FrameModifiers::get_in(styles)),
+            frame: frame.modified(&modifiers),
             font_size: styles.resolve(TextElem::size),
-            class: styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
-            math_size: styles.get(EquationElem::size),
-            limits: Limits::Never,
-            spaced: false,
+            class: props.class,
+            math_size: props.size,
             base_ascent,
             base_descent,
             italics_correction: Abs::zero(),
             accent_attach: (accent_attach, accent_attach),
             text_like: false,
-            ignorant: false,
+            ignorant: props.ignorant,
         }
-    }
-
-    pub fn with_class(self, class: MathClass) -> Self {
-        Self { class, ..self }
-    }
-
-    pub fn with_spaced(self, spaced: bool) -> Self {
-        Self { spaced, ..self }
     }
 
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
@@ -623,10 +542,6 @@ impl FrameFragment {
 
     pub fn with_text_like(self, text_like: bool) -> Self {
         Self { text_like, ..self }
-    }
-
-    pub fn with_ignorant(self, ignorant: bool) -> Self {
-        Self { ignorant, ..self }
     }
 }
 
@@ -686,7 +601,7 @@ fn kern_at_height(font: &Font, id: GlyphId, corner: Corner, height: Em) -> Optio
     Some(font.to_em(kern.kern(i)?.value))
 }
 
-pub fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
+fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
     let id = GlyphId(id);
     let horizontal = font
         .ttf()
@@ -764,7 +679,7 @@ fn assemble(
                     // This condition happening is indicative of a bug in the
                     // font.
                     engine.sink.warn(warning!(
-                       base.item.span,
+                       base.item.glyphs[0].span.0,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
                        hint: "please file an issue at https://github.com/typst/typst/issues";
@@ -826,12 +741,14 @@ fn assemble(
                     .unwrap_or_default(),
             ),
         };
-        glyphs.push(ShapedGlyph {
+        glyphs.push(Glyph {
             id: part.glyph_id.0,
             x_advance,
             x_offset: Em::zero(),
             y_advance,
             y_offset,
+            range: base.item.glyphs[0].range.clone(),
+            span: base.item.glyphs[0].span,
         });
     }
 
@@ -858,7 +775,7 @@ fn assemble(
         }
     }
 
-    base.item.glyphs.update(glyphs);
+    base.item.glyphs = glyphs;
     base.italics_correction = base
         .item
         .font
@@ -867,7 +784,6 @@ fn assemble(
     if axis == Axis::X {
         base.accent_attach = (full / 2.0, full / 2.0);
     }
-    base.mid_stretched = None;
     base.extended_shape = true;
 }
 
@@ -881,12 +797,4 @@ fn parts(
         let count = if part.part_flags.extender() { repeat } else { 1 };
         std::iter::repeat_n(part, count)
     })
-}
-
-pub fn has_dtls_feat(font: &Font) -> bool {
-    font.ttf()
-        .tables()
-        .gsub
-        .and_then(|gsub| gsub.features.index(ttf_parser::Tag::from_bytes(b"dtls")))
-        .is_some()
 }

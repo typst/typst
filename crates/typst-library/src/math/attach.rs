@@ -2,7 +2,7 @@ use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{Content, Packed, StyleChain, elem};
-use crate::layout::{Abs, Length, Rel};
+use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, MathSize, Mathy};
 
 /// A base with optional attachments.
@@ -81,18 +81,6 @@ impl Packed<AttachElem> {
         }
 
         None
-    }
-
-    /// Get the size to stretch the base to.
-    pub fn stretch_size(&self, styles: StyleChain) -> Option<Rel<Abs>> {
-        // Extract from an EquationElem.
-        let mut base = &self.base;
-        while let Some(equation) = base.to_packed::<EquationElem>() {
-            base = &equation.body;
-        }
-
-        base.to_packed::<StretchElem>()
-            .map(|stretch| stretch.size.resolve(styles))
     }
 }
 
