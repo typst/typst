@@ -1,0 +1,117 @@
+{
+  "models": [
+    {
+      "title": "Slab-Typer (Typst Specialist)",
+      "provider": "ollama",
+      "model": "slab-typer",
+      "apiBase": "http://ollama:11434",
+      "contextLength": 4096,
+      "completionOptions": {
+        "temperature": 0.2,
+        "topP": 0.9,
+        "maxTokens": 2048
+      }
+    },
+    {
+      "title": "Llama 3.2 (General Purpose)",
+      "provider": "ollama",
+      "model": "llama3.2",
+      "apiBase": "http://ollama:11434",
+      "contextLength": 8192,
+      "completionOptions": {
+        "temperature": 0.7,
+        "maxTokens": 4096
+      }
+    },
+    {
+      "title": "Qwen 2.5 Coder (Code Heavy)",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "apiBase": "http://ollama:11434",
+      "contextLength": 32768,
+      "completionOptions": {
+        "temperature": 0.3,
+        "maxTokens": 4096
+      }
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Slab-Typer Autocomplete",
+    "provider": "ollama",
+    "model": "slab-typer",
+    "apiBase": "http://ollama:11434"
+  },
+  "customCommands": [
+    {
+      "name": "typst",
+      "description": "Convert natural language to Typst markup",
+      "prompt": "You are a Typst expert. Convert the following natural language description into valid Typst markup code. Use appropriate Typst syntax, functions, and packages from @preview when helpful. Only output the Typst code, no explanations.\n\nDescription: {{{ input }}}"
+    },
+    {
+      "name": "table",
+      "description": "Generate a Typst table from description",
+      "prompt": "Generate a Typst table based on this description. Use the #table() function with appropriate columns, headers, and sample data. Format it nicely with alternating row colors if appropriate.\n\nDescription: {{{ input }}}"
+    },
+    {
+      "name": "fix-typst",
+      "description": "Fix Typst syntax errors",
+      "prompt": "The following Typst code has errors. Fix them and explain what was wrong:\n\n```typst\n{{{ input }}}\n```"
+    },
+    {
+      "name": "latex-to-typst",
+      "description": "Convert LaTeX to Typst",
+      "prompt": "Convert this LaTeX code to equivalent Typst markup. Preserve the structure and formatting:\n\n```latex\n{{{ input }}}\n```"
+    },
+    {
+      "name": "document",
+      "description": "Generate a complete Typst document structure",
+      "prompt": "Create a complete Typst document with proper structure for: {{{ input }}}\n\nInclude:\n- Document setup with #set rules\n- Title and metadata\n- Appropriate sections\n- Sample content\n- Use relevant @preview packages if helpful"
+    }
+  ],
+  "slashCommands": [
+    {
+      "name": "generate-table",
+      "description": "Generate a table with columns and sample data"
+    },
+    {
+      "name": "add-section",
+      "description": "Add a new section with heading and content"
+    },
+    {
+      "name": "create-figure",
+      "description": "Create a figure with caption"
+    },
+    {
+      "name": "math-equation",
+      "description": "Generate a math equation block"
+    }
+  ],
+  "contextProviders": [
+    {
+      "name": "file",
+      "params": {}
+    },
+    {
+      "name": "codebase",
+      "params": {
+        "nRetrieve": 25,
+        "nFinal": 5
+      }
+    },
+    {
+      "name": "folder",
+      "params": {}
+    }
+  ],
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "sse",
+          "url": "http://typst-mcp:3000/sse"
+        }
+      }
+    ]
+  },
+  "systemMessage": "You are an expert Typst document assistant. Typst is a modern markup-based typesetting system (alternative to LaTeX). When generating Typst code:\n\n1. Use proper Typst syntax: #set, #let, #show for configuration\n2. Use $ for inline math and $$ for display math (or $ ... $ with display: true)\n3. Tables use #table(columns: N, [...cells...])\n4. Figures use #figure(image(\"path\"), caption: [...])\n5. Import packages with #import \"@preview/package:version\": *\n6. Use proper Typst functions, not LaTeX commands\n\nAlways generate clean, valid Typst code that compiles without errors."
+}

@@ -1,0 +1,23 @@
+# Environment
+.env
+
+# Editor state
+config/code-server/
+config/vscode/
+
+# Typst cache
+.cache/
+
+# Docker volumes (if local)
+ollama-models/
+caddy-data/
+caddy-config/
+
+# Generated files
+*.pdf
+*.png
+*.svg
+
+# OS files
+.DS_Store
+Thumbs.db

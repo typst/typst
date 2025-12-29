@@ -1,0 +1,47 @@
+# Caddy reverse proxy configuration
+# Replace yourdomain.com with your actual domain
+
+# For local development (comment out for production)
+:80 {
+    # Editor
+    handle /editor/* {
+        uri strip_prefix /editor
+        reverse_proxy code-server:8080
+    }
+
+    # Ollama API
+    handle /ollama/* {
+        uri strip_prefix /ollama
+        reverse_proxy ollama:11434
+    }
+
+    # Typst MCP
+    handle /mcp/* {
+        uri strip_prefix /mcp
+        reverse_proxy typst-mcp:3000
+    }
+
+    # Default to editor
+    handle {
+        reverse_proxy code-server:8080
+    }
+}
+
+# For production with HTTPS (uncomment and configure)
+# yourdomain.com {
+#     # Automatic HTTPS via Let's Encrypt
+#
+#     # Editor at root
+#     reverse_proxy code-server:8080
+#
+#     # API routes
+#     handle /api/ollama/* {
+#         uri strip_prefix /api/ollama
+#         reverse_proxy ollama:11434
+#     }
+#
+#     handle /api/mcp/* {
+#         uri strip_prefix /api/mcp
+#         reverse_proxy typst-mcp:3000
+#     }
+# }

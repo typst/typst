@@ -1,0 +1,66 @@
+# Code-server with Typst support
+FROM codercom/code-server:latest
+
+USER root
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    fontconfig \
+    fonts-liberation \
+    fonts-dejavu \
+    unzip \
+    jq \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Typst compiler (latest version)
+ARG TYPST_VERSION=0.14.0
+RUN curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
+    | tar -xJ -C /usr/local/bin --strip-components=1 \
+    && chmod +x /usr/local/bin/typst
+
+# Install additional fonts for better document rendering
+RUN mkdir -p /usr/share/fonts/custom && \
+    cd /usr/share/fonts/custom && \
+    # Install Google Fonts (common ones for documents)
+    wget -q "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Regular.ttf" && \
+    wget -q "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans-Regular.ttf" && \
+    fc-cache -fv
+
+# Create workspace directories
+RUN mkdir -p /home/coder/projects \
+    /home/coder/.local/share/code-server/User \
+    /home/coder/.cache/typst
+
+# Pre-install VS Code extensions
+USER coder
+
+# Install Tinymist (Typst language server)
+RUN code-server --install-extension myriad-dreamin.tinymist
+
+# Install Continue.dev for AI assistance
+RUN code-server --install-extension Continue.continue
+
+# Install helpful extensions
+RUN code-server --install-extension esbenp.prettier-vscode && \
+    code-server --install-extension PKief.material-icon-theme
+
+# Copy configuration files
+COPY --chown=coder:coder config/settings.json /home/coder/.local/share/code-server/User/settings.json
+COPY --chown=coder:coder config/continue-config.json /home/coder/.continue/config.json
+
+USER root
+
+# Set up entrypoint script
+COPY --chmod=755 scripts/entrypoint.sh /entrypoint.sh
+
+USER coder
+WORKDIR /home/coder/projects
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]

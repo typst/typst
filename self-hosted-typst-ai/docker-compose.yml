@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Web-based VS Code with Typst support
+  code-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.code-server
+    container_name: typst-editor
+    ports:
+      - "8080:8080"
+    environment:
+      - PASSWORD=${EDITOR_PASSWORD:-typst123}
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - ./projects:/home/coder/projects
+      - ./config/code-server:/home/coder/.config/code-server
+      - ./config/vscode:/home/coder/.local/share/code-server
+      - typst-cache:/home/coder/.cache/typst
+    networks:
+      - typst-network
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  # Ollama for local LLM inference
+  ollama:
+    image: ollama/ollama:latest
+    container_name: typst-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - typst-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # Typst MCP Server for AI tools
+  typst-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.typst-mcp
+    container_name: typst-mcp
+    ports:
+      - "3000:3000"
+    networks:
+      - typst-network
+    restart: unless-stopped
+
+  # Optional: Reverse proxy for HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: typst-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - typst-network
+    restart: unless-stopped
+
+networks:
+  typst-network:
+    driver: bridge
+
+volumes:
+  ollama-models:
+  typst-cache:
+  caddy-data:
+  caddy-config:

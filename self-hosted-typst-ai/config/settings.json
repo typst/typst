@@ -1,0 +1,25 @@
+{
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', monospace",
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+  "editor.minimap.enabled": false,
+  "editor.formatOnSave": true,
+
+  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.iconTheme": "material-icon-theme",
+
+  "files.associations": {
+    "*.typ": "typst"
+  },
+
+  "tinymist.formatterMode": "typstyle",
+  "tinymist.preview.refresh": "onSave",
+  "tinymist.compileStatus": "enable",
+  "tinymist.typstExtraArgs": [],
+
+  "continue.enableTabAutocomplete": true,
+  "continue.showInlineTip": true,
+
+  "terminal.integrated.defaultProfile.linux": "bash"
+}

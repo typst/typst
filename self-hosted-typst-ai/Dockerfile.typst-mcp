@@ -1,0 +1,28 @@
+# Typst MCP Server
+FROM node:20-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    pandoc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Typst compiler
+ARG TYPST_VERSION=0.14.0
+RUN curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
+    | tar -xJ -C /usr/local/bin --strip-components=1 \
+    && chmod +x /usr/local/bin/typst
+
+WORKDIR /app
+
+# Clone and build the MCP server
+RUN git clone https://github.com/johannesbrandenburger/typst-mcp.git . && \
+    npm install && \
+    npm run build
+
+# Expose MCP server port
+EXPOSE 3000
+
+# Run the MCP server
+CMD ["node", "dist/index.js"]
