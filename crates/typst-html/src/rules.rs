@@ -436,12 +436,12 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num, body) = elem.realize(engine, styles)?;
     let alt = num.plain_text();
-    let backlink = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
+    let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
 
-    // The backlink is a link back to the first footnote reference, so
+    // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let sup =
-        SuperElem::new(backlink.styled(HtmlElem::role.set(Some("doc-backlink".into()))))
+    let prefix =
+        SuperElem::new(link.styled(HtmlElem::role.set(Some("doc-backlink".into()))))
             .pack()
             .spanned(span);
 
@@ -450,7 +450,7 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
     // appropriately modelled as ARIA endnotes. This is also in line with how
     // Pandoc handles footnotes.
-    Ok(sup + body)
+    Ok(prefix + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {

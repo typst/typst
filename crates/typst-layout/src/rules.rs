@@ -408,10 +408,12 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let (dest, num, body) = elem.realize(engine, styles)?;
     let alt = num.plain_text();
     let sup = SuperElem::new(num).pack().spanned(span);
-    let prefix = DirectLinkElem::new(dest, sup, Some(alt)).pack().spanned(span);
+    let prefix = PdfMarkerTag::Label(
+        DirectLinkElem::new(dest, sup, Some(alt)).pack().spanned(span),
+    );
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        PdfMarkerTag::Label(prefix),
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
