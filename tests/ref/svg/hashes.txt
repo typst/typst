@@ -1157,6 +1157,7 @@ b0b648840a25ed1684ce348aaeb0bba8 math-frac-implicit-func
 fb20734fd787dc8cfcbb4fc5045baf79 math-frac-styles-inline
 42f5ce8fdd092f78fcc5cfc74451375f math-frac-tan-sin-cos
 cd0762e2374658786b55fab97b16ae12 math-glyph-show-rule
+7e2ac69cdae123fb4bc2bf6b8e80f265 math-linebreak-delimited
 2876b8755e4f33d2192f14b30d934625 math-linebreaking-after-binop-and-rel
 6b901cf073f8521ab7ed88796e655f59 math-linebreaking-after-relation-without-space
 b44b39553a5d388f9c1872af49e0629c math-linebreaking-between-consecutive-relations
