@@ -9,10 +9,12 @@ use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
+use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::{CjkBreaking, Lang, TextElem};
 use typst_syntax::link_prefix;
+use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -717,6 +719,20 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         // Skip breakpoint if there is no char before it. icu4x generates one
         // at offset 0, but we don't want it.
         let Some(c) = text[..point].chars().next_back() else { continue };
+
+        // If cjk-breaking is set to 'keep-all', we want to skip break
+        // opportunities between two CJK characters.
+        if matches!(
+            p.config.cjk_breaking,
+            Smart::Custom(CjkBreaking::KeepAll)
+        ) && point < text.len()
+        {
+            if let Some(next_c) = text[point..].chars().next() {
+                if is_cjk_script(c) && is_cjk_script(next_c) {
+                    continue;
+                }
+            }
+        }
 
         // Find out whether the last break was mandatory by checking against
         // rules LB4 and LB5, special-casing the end of text according to LB3.
