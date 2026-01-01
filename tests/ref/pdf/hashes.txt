@@ -1106,7 +1106,6 @@ bfff37ad7896a46ea9807ba46061c9d4 math-lr-mid-size-nested-equation
 2fabbf8f043211a2b3a8557df2b86ec7 math-lr-sym-call
 03bf12b8ff11ff3ef8350abb9c626a9e math-lr-sym-call-size
 86bfa865271408764ca903e8fb79c2ea math-lr-symbol-unmatched
-a0584161f45f8da49ecbd08b03f4b9cd math-lr-unbalanced
 d2480b2d146b3a407307e3cbdca41f5f math-lr-unmatched
 c7feb90c4afe051cdf7bf54adee3cb4f math-lr-unparen
 59caa55b9dd0f6f5a6bc685d2fc3192b math-lr-weak-spacing

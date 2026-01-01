@@ -85,11 +85,27 @@ $ (a class("unary", |) b) $
 $ (a class("unary", mid(|)) b) $
 $ (a mid(class("unary", |)) b) $
 
---- math-lr-unbalanced paged ---
+--- math-lr-unbalanced eval ---
 // Test unbalanced delimiters.
+// Error: 5-6 unclosed delimiter
+// Hint: 5-6 delimiters must be correctly matched when used for grouping
+// Hint: 5-6 try adding a closing delimiter: `)`
 $ 1/(2 (x) $
-$ 1_(2 y (x) () $
-$ 1/(2 y (x) (2(3)) $
+// Error: 5-6 unclosed delimiter
+// Hint: 5-6 delimiters must be correctly matched when used for grouping
+// Hint: 5-6 try adding a closing delimiter: `]`
+$ 1_[2 y [x] [] $
+// Error: 5-6 unclosed delimiter
+// Hint: 5-6 delimiters must be correctly matched when used for grouping
+$ 1/⟨2 y ⟨x⟩ (2(3)⟩ $
+
+--- math-lr-missing-operator-sides eval ---
+// The operator should not steal the closing paren.
+// Error: 6 expected an expression to the right of the operator
+// Error: 13 expected an expression to the right of the operator
+// Error: 22 expected an expression to the right of the operator
+// Error: 33 expected an expression to the right of the operator
+$ (1/) [1/2_] {1/2_3^} (1/2_3^4_] $
 
 --- math-lr-weak-spacing paged ---
 // Test ignoring weak spacing immediately after the opening
