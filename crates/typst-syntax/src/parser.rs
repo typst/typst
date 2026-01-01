@@ -233,9 +233,18 @@ fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
     let Some(p) = p.check_depth_until(stop_set) else { return 1 };
 
+    /// We only allow these kinds at the top-level of a math expression, never
+    /// directly inside an operator. That is, we produce an error for `&^2`, but
+    /// not for `(&)^2`.
+    const TOP_LEVEL: SyntaxSet = syntax_set!(Linebreak, MathAlignPoint);
+
     let mut count = 0;
     while !p.at_set(stop_set) {
-        math_expr_prec(p, 0, stop_set);
+        if p.at_set(TOP_LEVEL) {
+            p.eat();
+        } else {
+            math_expr_prec(p, 0, stop_set.union(TOP_LEVEL));
+        }
         count += 1;
     }
     count
@@ -294,9 +303,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             continuable = true;
             p.eat();
         }
-        SyntaxKind::Linebreak
-        | SyntaxKind::MathAlignPoint
-        | SyntaxKind::MathShorthand => p.eat(),
+        SyntaxKind::MathShorthand => p.eat(),
 
         // The only prefix operator in math.
         SyntaxKind::Root => {
@@ -315,6 +322,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 
         // Any other kinds must have been due to an error.
         SyntaxKind::Error => p.eat(),
+        SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => {
+            unreachable!("handled above by `math_exprs`")
+        }
         _ => unreachable!("the lexer doesn't produce any other syntax kinds in math"),
     }
 
