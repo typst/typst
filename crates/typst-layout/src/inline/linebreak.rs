@@ -734,10 +734,11 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             Smart::Custom(CjkBreaking::KeepAll)
         ) && point < text.len()
         {
-            if let Some(next_c) = text[point..].chars().next() {
-                if is_cjk_script(c) && is_cjk_script(next_c) {
-                    continue;
-                }
+            if let Some(next_c) = text[point..].chars().next()
+                && is_cjk_script(c)
+                && is_cjk_script(next_c)
+            {
+                continue;
             }
         }
 
