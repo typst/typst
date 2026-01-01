@@ -1188,7 +1188,6 @@ fa030eb5d5b5ce523908a301f35fed09 math-lr-single-line-align
 080ca93ba2eeb0a09b93acbbae60e3f2 math-lr-sym-call
 d9aa3e9283d9c4670daa5f892052c510 math-lr-sym-call-size
 db728dad23c8a002bf7846b869e434bd math-lr-symbol-unmatched
-0ccf9ea32d50427f0afee2347d1394b4 math-lr-unbalanced
 e0decdc3d070ce5f4a35f0aaca1c8ced math-lr-unmatched
 844ce27686eeb0e8948ee047953c101d math-lr-unparen
 8d1bf452cf32483443701623e9c8c367 math-lr-weak-spacing

@@ -250,7 +250,6 @@ abf4a5e72f6dd39b99be546080bddc9c math-lr-scripts
 3af85261f5583af580bb6359a9cf3591 math-lr-sym-call
 989aae07d65ab05884be6fe40af5fc95 math-lr-sym-call-size
 b9bdd39bc2ab7abf4b607ad8757ddbcc math-lr-symbol-unmatched
-b980b9da63350fcfe75e31498d157058 math-lr-unbalanced
 701bf4051e532d04bbe37c7ff89d6050 math-lr-unmatched
 53544a1e2ea17e20dac097d6c30b450d math-lr-unparen
 78914c49185f6c69f72cf228be8ead9f math-lr-weak-spacing
