@@ -50,6 +50,11 @@ $ (√2+3) = (sqrt(2)+3) $
 $ √a/b ∛a_b ∜f' √n! \
   √a b^c  √a (b)^c  √a(b)^c $
 
+--- math-root-syntax-missing-side eval ---
+// Error: 5 expected an expression to the right of the operator
+// Error: 8 expected an expression to the right of the operator
+$ (∜) √ $
+
 --- math-root-frame-size-index paged ---
 // Test size of final frame when there is an index.
 $ a root(, 3)         & a root(., 3) \
