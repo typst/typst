@@ -62,32 +62,6 @@ pub(crate) use syntax_set;
 /// Syntax kinds that can start a statement.
 pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return);
 
-/// Syntax kinds that can start a math expression.
-pub const MATH_EXPR: SyntaxSet = syntax_set!(
-    Hash,
-    MathIdent,
-    FieldAccess,
-    Dot,
-    Comma,
-    Semicolon,
-    // Parens and braces are converted to `MathText` unless they're parsed as a
-    // function call.
-    LeftBrace,
-    RightBrace,
-    LeftParen,
-    RightParen,
-    MathText,
-    MathShorthand,
-    Linebreak,
-    MathAlignPoint,
-    MathPrimes,
-    Escape,
-    Str,
-    Root,
-    // `Bang` is converted to `MathText` when parsing.
-    Bang,
-);
-
 /// Syntax kinds that can start a code expression.
 pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
 
