@@ -242,33 +242,29 @@ fn math(p: &mut Parser, stop_set: SyntaxSet) {
 }
 
 /// Parses a sequence of math expressions. Returns the number of expressions
-/// parsed (including errors).
+/// parsed.
 fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
     debug_assert!(stop_set.contains(SyntaxKind::End));
     let Some(p) = p.check_depth_until(stop_set) else { return 1 };
 
     let mut count = 0;
     while !p.at_set(stop_set) {
-        if p.at_set(set::MATH_EXPR) {
-            math_expr(p);
-        } else {
-            p.unexpected();
-        }
+        math_expr_prec(p, 0, stop_set);
         count += 1;
     }
     count
-}
-
-/// Parses a single math expression: This includes math elements like
-/// attachment, fractions, roots, and embedded code expressions.
-fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, syntax_set!());
 }
 
 /// Parses a math expression with at least the given precedence, possibly
 /// chaining with another operator by returning early.
 fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let Some(p) = &mut p.increase_depth() else { return };
+
+    if p.at_set(stop_set) {
+        // The only non-op caller, `math_exprs`, checks its stop set first.
+        p.expected("an expression to the right of the operator");
+        return;
+    }
 
     let m = p.marker();
     // Whether this expression can group with a following open delimiter as an
@@ -291,7 +287,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 
         // Parse delimiters as an atomic unit.
         SyntaxKind::MathOpening | SyntaxKind::LeftParen => {
-            math_delimited(p);
+            math_delimited(p, min_prec);
         }
         // An unmatched closing delimiter.
         SyntaxKind::MathClosing | SyntaxKind::RightParen => {
@@ -319,13 +315,21 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         // The only prefix operator in math.
         SyntaxKind::Root => {
             p.eat();
-            let m2 = p.marker();
-            math_expr_prec(p, MATH_ROOT_PREC, syntax_set!());
-            math_unparen(p, m2);
+            let m_rhs = p.marker();
+            math_expr_prec(p, MATH_ROOT_PREC, stop_set);
+            math_unparen(p, m_rhs);
             p.wrap(m, SyntaxKind::MathRoot);
         }
 
-        _ => p.expected("expression"),
+        // Infix/postfix operators here produce an error, but we'll still parse
+        // the operator in the loop below for resilience.
+        SyntaxKind::Hat | SyntaxKind::Slash | SyntaxKind::Underscore => {
+            p.expected("an expression to the left of the operator");
+        }
+
+        // Any other kinds must have been due to an error.
+        SyntaxKind::Error => p.eat(),
+        _ => unreachable!("the lexer doesn't produce any other syntax kinds in math"),
     }
 
     // Maybe recognize an implicit function call: a 'continuable' token followed
@@ -336,7 +340,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         && !p.had_trivia()
         && p.at_set(syntax_set!(MathOpening, LeftParen))
     {
-        math_delimited(p);
+        math_delimited(p, min_prec);
         p.wrap(m, SyntaxKind::Math);
     }
 
@@ -377,7 +381,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
                 ast::Assoc::Right => prec,
             };
             let m_rhs = p.marker();
-            math_expr_prec(p, prec, chain_set);
+            math_expr_prec(p, prec, stop_set.union(chain_set));
             math_unparen(p, m_rhs);
         }
 
@@ -389,7 +393,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
                 chain_set = chain_set.remove(p.current());
                 p.eat();
                 let m_chain_rhs = p.marker();
-                math_expr_prec(p, prec, chain_set);
+                math_expr_prec(p, prec, stop_set.union(chain_set));
                 math_unparen(p, m_chain_rhs);
             }
         }
@@ -424,7 +428,7 @@ fn math_op(
 /// `{Left,Right}Paren` need to be converted to `Math{Opening,Closing}` since we
 /// parens are separated out to aid function call parsing. Note that they may be
 /// converted _back_ to `{Left,Right}Paren` by a later `math_unparen` call.
-fn math_delimited(p: &mut Parser) {
+fn math_delimited(p: &mut Parser, prec: u8) {
     let m = p.marker();
     p.convert_and_eat(SyntaxKind::MathOpening); // Converts `LeftParen`.
     let m_body = p.marker();
@@ -435,6 +439,20 @@ fn math_delimited(p: &mut Parser) {
         p.wrap(m, SyntaxKind::MathDelimited);
     } else {
         // If we had no closing delimiter, just produce a math sequence.
+        if prec > 0 {
+            // Unless we were to the right of an operator, then we error.
+            let common_closing = match p[m].leaf_text().as_str() {
+                "(" => Some(')'),
+                "[" => Some(']'),
+                "{" => Some('}'),
+                _ => None,
+            };
+            p[m].convert_to_error("unclosed delimiter");
+            p[m].hint("delimiters must be correctly matched when used for grouping");
+            if let Some(c) = common_closing {
+                p[m].hint(eco_format!("try adding a closing delimiter: `{c}`"));
+            }
+        }
         p.wrap(m, SyntaxKind::Math);
     }
 }

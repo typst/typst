@@ -62,33 +62,6 @@ pub(crate) use syntax_set;
 /// Syntax kinds that can start a statement.
 pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return);
 
-/// Syntax kinds that can start a math expression.
-pub const MATH_EXPR: SyntaxSet = syntax_set!(
-    Hash,
-    MathIdent,
-    MathFieldAccess,
-    Comma,
-    Semicolon,
-    // Parens will be converted to `Math{Opening,Closing}` unless they're parsed
-    // as a function call or are ignored as an operand to frac/root/attach.
-    LeftParen,
-    RightParen,
-    MathOpening,
-    MathClosing,
-    MathLetter,
-    MathGrapheme,
-    MathNumber,
-    MathShorthand,
-    Linebreak,
-    MathAlignPoint,
-    MathPrimes,
-    Escape,
-    Str,
-    Root,
-    // `Bang` is converted to `MathText` when parsing.
-    Bang,
-);
-
 /// Syntax kinds that can start a code expression.
 ///
 /// Underscores can only start an arrow function (`_ => {}`) or an assignment
