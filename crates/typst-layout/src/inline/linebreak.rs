@@ -22,6 +22,13 @@ use super::*;
 /// The cost of a line or inline layout.
 type Cost = f64;
 
+/// Whether the character is a CJK character.
+fn is_cjk_script(c: char) -> bool {
+    use Script::*;
+    // U+30FC: Katakana-Hiragana Prolonged Sound Mark
+    matches!(c.script(), Hiragana | Katakana | Han | Hangul) || c == '\u{30FC}'
+}
+
 // Cost parameters.
 //
 // We choose higher costs than the Knuth-Plass paper (which would be 50) because
