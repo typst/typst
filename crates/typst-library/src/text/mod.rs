@@ -548,7 +548,7 @@ pub struct TextElem {
     /// ```
     #[ghost]
     pub cjk_breaking: Smart<CjkBreaking>,
-    
+
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
     /// as a ratio of the default cost, so `{50%}` will make text layout twice
