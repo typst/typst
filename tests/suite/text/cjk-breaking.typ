@@ -1,7 +1,7 @@
 // CJK Breaking Property Test
 // Validation of Typst's cjk-breaking option (keep-all vs distribute) behavior
 
----
+--- cjk-breaking-basic paged ---
 
 #set page(paper: "a4", margin: 2cm)
 #set text(
