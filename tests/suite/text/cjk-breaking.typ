@@ -1,32 +1,4 @@
-// CJK Breaking Property Test
-// Validation of Typst's cjk-breaking option (keep-all vs distribute) behavior
-
 --- cjk-breaking-basic paged ---
-
-#set page(paper: "a4", margin: 2cm)
-#set text(
-  size: 11pt,
-  lang: "en",
-  font: (
-    "Times New Roman",
-    "SimSun",           // Chinese (Simplified)
-    "SimHei",           // Chinese (Simplified)
-    "Microsoft YaHei",  // Chinese (Simplified)
-    "Malgun Gothic",    // Korean
-    "Apple SD Gothic Neo", // Korean
-    "Hiragino Sans",    // Japanese
-    "Yu Gothic",        // Japanese
-  )
-)
-#set heading(numbering: "1.")
-
-= CJK Breaking Option Test
-
-This document validates that Typst's `cjk-breaking` property works correctly 
-with Chinese, Korean, Japanese, and English text.
-
-== Test Case Definitions
-
 #let test-cases = (
   (
     name: "Long Korean Sentence (No Spaces)",
@@ -54,7 +26,7 @@ with Chinese, Korean, Japanese, and English text.
   ),
   (
     name: "Long Japanese Sentence (No Spaces)",
-    text: "これはにほんごのテキストのかいぎょうほうしきをテストするためのサンプルテキストですひらがなとカタカナがこんざいしています",
+    text: "これはにほんごのテキストのかいぎょうをテストするためのサンプルです",
     width: 8em,
     description: "Long Japanese sentence without spaces (Hiragana and Katakana only)"
   ),
@@ -78,10 +50,8 @@ with Chinese, Korean, Japanese, and English text.
   ),
 )
 
-== Visual Comparison Test
-
 #table(
-  columns: (12em, 1fr, 1fr),
+  columns: (12em, 15em, 15em),
   stroke: 1pt + black,
   inset: 0.5em,
   table.header(
@@ -114,78 +84,3 @@ with Chinese, Korean, Japanese, and English text.
     )
   },
 )
-
-#pagebreak()
-
-== Automated Validation Test
-
-#context {
-  let results = ()
-  
-  for case in test-cases {
-    let t-keep-all = text(cjk-breaking: "keep-all", case.text)
-    let t-distribute = text(cjk-breaking: "distribute", case.text)
-    
-    let m-keep-all = measure(t-keep-all, width: case.width)
-    let m-distribute = measure(t-distribute, width: case.width)
-    
-    // keep-all does not break inside words, so if text is too long,
-    // it may not fit on a single line
-    // distribute breaks at character level, so more lines may be created
-    
-    let height-diff = m-distribute.height - m-keep-all.height
-    
-    results.push((
-      name: case.name,
-      keep-all-height: m-keep-all.height,
-      distribute-height: m-distribute.height,
-      height-diff: height-diff
-    ))
-  }
-  
-  table(
-    columns: (1fr, auto, auto, auto),
-    stroke: 0.5pt + gray,
-    inset: 0.3em,
-    table.header(
-      [*Test Case*],
-      [*keep-all Height*],
-      [*distribute Height*],
-      [*Difference*]
-    ),
-    ..for result in results {
-      (
-        [*#result.name*],
-        [#result.keep-all-height],
-        [#result.distribute-height],
-        [#result.height-diff]
-      )
-    }
-  )
-}
-
-== Expected Behavior
-
-- *keep-all*: Keeps words or phrases together on a single line as much as possible. 
-  If text exceeds the box width, overflow may occur.
-  For CJK characters (Chinese, Korean, Japanese), word boundaries are not clear, 
-  so this option may provide more natural line breaking.
-
-- *distribute*: Allows text to break at character level. 
-  Uses space efficiently but may not respect word boundaries.
-  For English, line breaking typically occurs at word boundaries, 
-  but for CJK characters, it may break at character level.
-
-== Test Results Interpretation
-
-In the table above:
-- The left column shows the name and description of each test case.
-- The middle column shows results using the `keep-all` option.
-- The right column shows results using the `distribute` option.
-- You can visually compare the line breaking behavior differences between the two options.
-
-Notable points:
-- *CJK Characters* (Chinese, Korean, Japanese): `keep-all` tries not to separate words, 
-  but `distribute` can break at character level.
-- *English*: Line breaking typically occurs at word boundaries, 
-  and the difference between the two options may be less pronounced.
