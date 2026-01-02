@@ -461,18 +461,15 @@ fn math_delimited(p: &mut Parser) {
 /// Remove one set of parentheses (if any) from a previously parsed expression
 /// by converting to non-expression [`SyntaxKind`]s.
 fn math_unparen(p: &mut Parser, m: Marker) {
-    let Some(node) = p.nodes.get_mut(m.0) else { return };
-    if node.kind() != SyntaxKind::MathDelimited {
-        return;
-    }
-
-    if let [first, .., last] = node.children_mut()
+    let node = &mut p[m];
+    if node.kind() == SyntaxKind::MathDelimited
+        && let [first, .., last] = node.children_mut()
         && first.leaf_text() == "("
         && last.leaf_text() == ")"
     {
+        // `LeftParen` and `RightParen` kinds are skipped in the AST.
         first.convert_to_kind(SyntaxKind::LeftParen);
         last.convert_to_kind(SyntaxKind::RightParen);
-        // Only convert if we did have regular parens.
         node.convert_to_kind(SyntaxKind::Math);
     }
 }

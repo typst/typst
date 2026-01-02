@@ -928,12 +928,12 @@ impl<'a> Math<'a> {
 
     /// Whether this `Math` node was originally parenthesized.
     pub fn was_deparenthesized(self) -> bool {
-        let mut iter = self.0.children();
-        matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
-            && matches!(
-                iter.next_back().map(SyntaxNode::kind),
-                Some(SyntaxKind::RightParen)
-            )
+        matches!(
+            self.0.children().as_slice(),
+            [first, .., last]
+            if first.kind() == SyntaxKind::LeftParen
+                && last.kind() == SyntaxKind::RightParen
+        )
     }
 }
 
