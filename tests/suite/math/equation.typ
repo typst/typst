@@ -1,6 +1,86 @@
 // Test alignment of block equations.
 // Test show rules on equations.
 
+--- math-equation-block-syntax eval ---
+// Block equations require whitespace on both sides.
+#assert($ x $.block)
+#assert($ x y z $.block)
+#assert($
+x
+$.block)
+#assert($
+x
+y
+$.block)
+
+// Just whitespace only creates a block equation if it contains multiple
+// characters or a single newline.
+#assert($  $.block)
+#assert($       $.block)
+#assert(not $ $.block) // A single space doesn't make a block.
+#assert($
+$.block)
+#assert($
+
+
+$.block)
+
+// If either side lacks whitespace, we have an inline equation.
+#assert(not $x$.block)
+#assert(not $x
+$.block)
+#assert(not $
+x$.block)
+
+// Even if the inside has lots of whitespace.
+#assert(not $x
+
+
+y$.block)
+
+// And inline comments _do_ interrupt the block status.
+#assert($ /**/ $.block)
+#assert(not $/**/ $.block)
+#assert(not $ /**/$.block)
+#assert(not $/**/
+$.block)
+
+--- math-equation-block-syntax-unicode eval ---
+// Test equation block edge cases using odd unicode whitespace characters.
+// Just a representative sample, not exhaustive.
+#let spaces = ("\t", "\u{A0}", "\u{2009}", "\u{205F}", "\u{3000}")
+#let newlines = ("\r", "\u{B}", "\u{2029}")
+#let non-spaces = ("\u{200B}", "\u{200C}", "\u{2060}")
+
+// To debug these, add `message: str(thing.to-unicode(), base: 16)`.
+#for space in spaces {
+  assert(eval("not $" + space + "$.block"))
+  for space2 in spaces {
+    assert(eval("$" + space + space2 + "$.block"))
+  }
+  for newline in spaces {
+    assert(eval("$" + space + newline + "$.block"))
+    assert(eval("$" + newline + space + "$.block"))
+  }
+  for non-space in non-spaces {
+    assert(eval("$" + space + non-space + space + "$.block"))
+    assert(eval("not $" + space + non-space + "$.block"))
+    assert(eval("not $" + non-space + space + "$.block"))
+  }
+}
+
+#for newline in newlines {
+  assert(eval("$" + newline + "$.block"))
+  for newline2 in newlines {
+    assert(eval("$" + newline + newline2 + "$.block"))
+  }
+  for non-space in non-spaces {
+    assert(eval("$" + newline + non-space + newline + "$.block"))
+    assert(eval("not $" + newline + non-space + "$.block"))
+    assert(eval("not $" + non-space + newline + "$.block"))
+  }
+}
+
 --- math-equation-numbering paged ---
 #set page(width: 150pt)
 #set math.equation(numbering: "(I)")
