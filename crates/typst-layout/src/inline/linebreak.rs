@@ -752,6 +752,16 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                     continue;
                 }
 
+                // Skip breakpoints for space-separated French guillemets
+                // https://github.com/typst/typst/issues/1920
+                LineBreak::Space
+                    if p.config.lang == Some(Lang::FRENCH)
+                        && (text[..point - 1].ends_with(['«', '‹'])
+                            || text[point..].starts_with(['»', '›'])) =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
