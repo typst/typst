@@ -23,7 +23,7 @@ See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distr
   title: [Works to be cited],
   style: "chicago-author-date",
 )
-#line(length: 100%)
+#horizontal-rule()
 
 As described by #cite(<netwok>, form: "prose"),
 the net-work is a creature of its own.

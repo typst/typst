@@ -9,6 +9,7 @@ use typst_library::layout::{
     Abs, Axes, Corner, Corners, Frame, FrameItem, Length, Point, Ratio, Region, Rel,
     Sides, Size,
 };
+use typst_library::model::HorizontalRuleElem;
 use typst_library::visualize::{
     CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
     FixedStroke, Geometry, LineCap, LineElem, Paint, PathElem, PathVertex, PolygonElem,
@@ -50,6 +51,32 @@ pub fn layout_line(
     let mut frame = Frame::soft(size);
     let shape = Geometry::Line(delta.to_point()).stroked(stroke);
     frame.push(start.to_point(), FrameItem::Shape(shape, elem.span()));
+    Ok(frame)
+}
+
+/// Layout the horizontal rule.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_horizontal_rule(
+    elem: &Packed<HorizontalRuleElem>,
+    _: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    region: Region,
+) -> SourceResult<Frame> {
+    let stroke = elem.stroke.resolve(styles).unwrap_or_default();
+    let width = region.size.x;
+    let thickness = stroke.thickness;
+
+    // Create a frame with the width of the region and height based on stroke.
+    let size = Size::new(width, thickness);
+    let mut frame = Frame::soft(size);
+
+    // Draw a horizontal line spanning the full width.
+    let delta = Point::new(width, Abs::zero());
+    let start = Point::new(Abs::zero(), thickness / 2.0);
+    let shape = Geometry::Line(delta).stroked(stroke);
+    frame.push(start, FrameItem::Shape(shape, elem.span()));
+
     Ok(frame)
 }
 
