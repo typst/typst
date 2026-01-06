@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use typst_utils::Static;
+use typst_utils::{DefSite, Static};
 
 use crate::diag::{StrResult, WarningSink, bail};
 use crate::foundations::{
@@ -86,6 +86,11 @@ impl Type {
     /// Documentation for the type (as Markdown).
     pub fn docs(&self) -> &'static str {
         self.0.docs
+    }
+
+    /// Where the function is type in the Rust source code.
+    pub fn def_site(&self) -> DefSite {
+        self.0.def_site
     }
 
     /// Search keywords for the type.
@@ -206,6 +211,8 @@ pub struct NativeTypeData {
     pub title: &'static str,
     /// The documentation for this type as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],
     /// The constructor for this type.

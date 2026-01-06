@@ -395,6 +395,7 @@ fn create_with_field_method(field: &Field) -> TokenStream {
 /// Creates the element's `NativeElement` implementation.
 fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let Elem { name, ident, title, scope, keywords, docs, .. } = element;
+    let def_site_key = ident.to_string();
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;
@@ -447,6 +448,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                         #name,
                         #title,
                         #docs,
+                        ::typst_utils::DefSite { path: file!(), key: #def_site_key },
                         &[#(#fields),*],
                         #field_id,
                         #capable_func,
@@ -467,6 +469,10 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
     let elem_ident = &element.ident;
     let Field { i, ty, ident, default, positional, name, docs, .. } = field;
+    let def_site_key = format!("{elem_ident}::{ident}");
+    let def_site = quote! {
+        ::typst_utils::DefSite { path: file!(), key: #def_site_key }
+    };
 
     let default = match default {
         Some(default) => quote! { || #default },
@@ -481,6 +487,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                     #foundations::ExternalFieldData::<Self, #i>::new(
                         #name,
                         #docs,
+                        #def_site,
                         #default,
                     );
             }
@@ -493,6 +500,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                     #foundations::RequiredFieldData::<Self, #i>::new(
                         #name,
                         #docs,
+                        #def_site,
                         |elem| &elem.#ident,
                     );
             }
@@ -505,6 +513,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                     #foundations::SynthesizedFieldData::<Self, #i>::new(
                         #name,
                         #docs,
+                        #def_site,
                         |elem| &elem.#ident,
                     );
             }
@@ -532,6 +541,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                         #foundations::SettablePropertyData::<Self, #i>::new(
                             #name,
                             #docs,
+                            #def_site,
                             #positional,
                             #default,
                             #slot,
@@ -547,6 +557,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                         #foundations::SettableFieldData::<Self, #i>::new(
                             #name,
                             #docs,
+                            #def_site,
                             #positional,
                             |elem| &elem.#ident,
                             |elem| &mut elem.#ident,

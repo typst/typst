@@ -60,6 +60,7 @@ fn create_func_data(
             title
         },
         docs: element.docs,
+        def_site: None,
         keywords: &["typed-html"],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
@@ -75,6 +76,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
         params.push(NativeParamInfo {
             name: attr.name,
             docs: attr.docs,
+            def_site: None,
             input: AttrType::convert(attr.ty).input(),
             default: None,
             positional: false,
@@ -94,6 +96,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
             } else {
                 "The contents of the HTML element."
             },
+            def_site: None,
             input: CastInfo::Type(if raw {
                 Type::of::<Str>()
             } else {
