@@ -24,7 +24,7 @@ pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
-use typst_library::foundations::{Content, Module, Scope};
+use typst_library::foundations::{Content, Module, Scope, cast};
 use typst_library::introspection::Location;
 use typst_macros::elem;
 
@@ -94,6 +94,14 @@ pub struct HtmlElem {
     #[internal]
     #[ghost]
     pub role: Option<EcoString>,
+
+    /// Marks the element as inline for the purposes of paragraph
+    /// detection/collection.
+    ///
+    /// This property is temporary and will be removed in the future.
+    #[internal]
+    #[synthesized]
+    pub inline: bool,
 }
 
 impl HtmlElem {
@@ -126,9 +134,15 @@ impl HtmlElem {
 
     /// Checks whether the given element is "phrasing content" in HTML.
     fn is_phrasing(elem: &Content) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
+        elem.to_packed::<HtmlElem>().is_some_and(|elem| {
+            tag::is_phrasing_content(elem.tag) || elem.inline == Some(true)
+        })
     }
+}
+
+cast! {
+    HtmlElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected html elem")?,
 }
 
 /// An element that lays out its content as an inline SVG.
