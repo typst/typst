@@ -7,7 +7,7 @@ use syn::{Ident, Result, Token};
 
 use crate::util::{
     BlockWithReturn, determine_name_and_title, documentation, foundations, has_attr, kw,
-    parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
+    oneliner, parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.
@@ -293,9 +293,10 @@ fn create_struct(element: &Elem) -> TokenStream {
 
     let debug = element.cannot("Debug").then(|| quote! { Debug, });
     let fields = element.struct_fields().map(create_field);
+    let oneliner = oneliner(docs);
 
     quote! {
-        #[doc = #docs]
+        #[doc = #oneliner]
         #[derive(Hash, #debug Clone)]
         #[allow(rustdoc::broken_intra_doc_links)]
         #vis struct #ident {
