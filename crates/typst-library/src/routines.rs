@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use comemo::{Tracked, TrackedMut};
-use typst_syntax::{Span, SyntaxMode};
+use typst_syntax::{FileId, RangeMapper, Span, SyntaxMode};
 use typst_utils::LazyHash;
 
 use crate::World;
@@ -59,7 +59,7 @@ routines! {
         introspector: Tracked<dyn Introspector + '_>,
         context: Tracked<Context>,
         string: &str,
-        span: Span,
+        spans: SpanMode,
         mode: SyntaxMode,
         scope: Scope,
     ) -> SourceResult<Value>
@@ -105,6 +105,40 @@ routines! {
     /// This is a temporary workaround until `TextElem::fill` is supported in
     /// HTML export.
     fn html_span_filled(content: Content, color: Color) -> Content
+}
+
+// The types below only live here to enable the routines to be defined here.
+// Conceptually, they belong with the modules where the functions they are used
+// with are defined in.
+
+/// Defines how spans are assigned to syntax nodes in evaluated text.
+///
+/// This affects
+/// - where diagnostics for the evaluated text show up,
+/// - the spans assigned to content resulting from the text. This will then also
+///   have an effect on IDE functionality.
+#[derive(Hash)]
+pub enum SpanMode<'a> {
+    /// All syntax nodes will receive the same span. Consequently, all resulting
+    /// content and all errors will use this span.
+    Uniform(Span),
+    /// Syntax nodes will receive spans as defined by the two fields.
+    ///
+    /// Unlike `Uniform`, this does not associate all the source `text` with a
+    /// single source span. Instead, the caller can specify exactly how the text
+    /// is supposed to map into a real source file. This makes it possible to
+    /// evaluate Typst markup that resides outside of Typst files and to then
+    /// receive precise diagnostics in these files rather than at some generic
+    /// `eval` call site.
+    Mapped {
+        /// The id of the file with which all syntax nodes will be associated.
+        id: FileId,
+        /// Defines how ranges of the evaluated text map to ranges in the file
+        /// identified by `id`. In the `RangeMapper` terminology, `id` defines
+        /// the file holding the original text and the evaluated text is the
+        /// derived one.
+        mapper: &'a RangeMapper,
+    },
 }
 
 /// Defines what kind of realization we are performing.
