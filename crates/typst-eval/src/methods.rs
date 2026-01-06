@@ -30,9 +30,7 @@ pub(crate) fn call_method_mut(
         Value::Array(array) => match method {
             "push" => array.push(args.expect("value")?),
             "pop" => output = array.pop().at(span)?,
-            "insert" => {
-                array.insert(args.expect("index")?, args.expect("value")?).at(span)?
-            }
+            "insert" => array.insert(&mut args)?,
             "remove" => {
                 output = array
                     .remove(args.expect("index")?, args.named("default")?)

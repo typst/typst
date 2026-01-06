@@ -236,22 +236,42 @@ impl Array {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
-    /// Inserts a value into the array at the specified index, shifting all
-    /// subsequent elements to the right. Fails with an error if the index is
-    /// out of bounds.
+    /// Inserts one or more values into the array at the specified index,
+    /// shifting all subsequent elements to the right. Fails with an error if
+    /// the index is out of bounds.
     ///
     /// To replace an element of an array, use [`at`]($array.at).
+    ///
+    /// ```example
+    /// #let array = ("A", "B", "C")
+    /// #array.insert(1, "x", "y", "z")
+    /// #array
+    /// ```
     #[func]
     pub fn insert(
         &mut self,
-        /// The index at which to insert the item. If negative, indexes from
+        /// The arguments.
+        args: &mut Args,
+        /// The index at which to insert the items. If negative, indexes from
         /// the back.
+        #[external]
         index: i64,
-        /// The value to insert into the array.
-        value: Value,
-    ) -> StrResult<()> {
-        let i = self.locate(index, true)?;
-        self.0.insert(i, value);
+        /// The values to insert into the array.
+        #[external]
+        #[variadic]
+        values: Vec<Value>,
+    ) -> SourceResult<()> {
+        let index = args.expect::<i64>("index")?;
+        let i = self.locate(index, true).at(args.span)?;
+        // First required value
+        let first: Value = args.expect("value")?;
+        // Any additional values
+        let rest = args.all::<Value>()?;
+        // Insert in reverse order at the same index to maintain order
+        for value in rest.into_iter().rev() {
+            self.0.insert(i, value);
+        }
+        self.0.insert(i, first);
         Ok(())
     }
 

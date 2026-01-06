@@ -212,6 +212,38 @@
   test(array, (0, 2, 3, 4, 5))
 }
 
+--- array-insert-multiple-values paged ---
+// Test inserting multiple values.
+#{
+  let array = ("A", "B", "C")
+  array.insert(1, "x", "y", "z")
+  test(array, ("A", "x", "y", "z", "B", "C"))
+}
+
+--- array-insert-multiple-at-start paged ---
+// Test inserting multiple values at the start.
+#{
+  let array = (1, 2, 3)
+  array.insert(0, "a", "b")
+  test(array, ("a", "b", 1, 2, 3))
+}
+
+--- array-insert-multiple-at-end paged ---
+// Test inserting multiple values at the end.
+#{
+  let array = (1, 2, 3)
+  array.insert(3, "x", "y")
+  test(array, (1, 2, 3, "x", "y"))
+}
+
+--- array-insert-multiple-negative-index paged ---
+// Test inserting multiple values with negative index.
+#{
+  let array = (1, 2, 3)
+  array.insert(-1, "a", "b")
+  test(array, (1, 2, "a", "b", 3))
+}
+
 --- array-insert-missing-index paged ---
 // Error: 2:2-2:18 missing argument: index
 #let numbers = ()
