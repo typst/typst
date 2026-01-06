@@ -4,25 +4,26 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, Result};
 
 use crate::util::{
-    BareType, determine_name_and_title, documentation, foundations, kw, parse_flag,
-    parse_string, parse_string_array,
+    BareType, determine_name_and_title, documentation, foundations, kw, oneliner,
+    parse_flag, parse_string, parse_string_array,
 };
 
 /// Expand the `#[ty]` macro.
-pub fn ty(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
+pub fn ty(stream: TokenStream, mut item: syn::Item) -> Result<TokenStream> {
     let meta: Meta = syn::parse2(stream)?;
-    let bare: BareType;
-    let (ident, attrs, keep) = match &item {
-        syn::Item::Struct(item) => (&item.ident, &item.attrs, true),
-        syn::Item::Type(item) => (&item.ident, &item.attrs, true),
-        syn::Item::Enum(item) => (&item.ident, &item.attrs, true),
+    let mut bare: BareType;
+    let (ident, attrs, keep) = match &mut item {
+        syn::Item::Struct(item) => (&item.ident, &mut item.attrs, true),
+        syn::Item::Type(item) => (&item.ident, &mut item.attrs, true),
+        syn::Item::Enum(item) => (&item.ident, &mut item.attrs, true),
         syn::Item::Verbatim(item) => {
             bare = syn::parse2(item.clone())?;
-            (&bare.ident, &bare.attrs, false)
+            (&bare.ident, &mut bare.attrs, false)
         }
         _ => bail!(item, "invalid type item"),
     };
     let ty = parse(meta, ident.clone(), attrs)?;
+    attrs.retain(|attr| !attr.path().is_ident("doc"));
     Ok(create(&ty, keep.then_some(&item)))
 }
 
@@ -76,6 +77,7 @@ fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
 fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
     let Type { ident, name, long, title, docs, meta, .. } = ty;
     let Meta { keywords, .. } = meta;
+    let oneliner = oneliner(docs);
 
     let constructor = if meta.scope {
         quote! { <#ident as #foundations::NativeScope>::constructor() }
@@ -107,14 +109,8 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
         }
     };
 
-    let attr = item.map(|_| {
-        quote! {
-            #[allow(rustdoc::broken_intra_doc_links)]
-        }
-    });
-
     quote! {
-        #attr
+        #[doc = #oneliner]
         #item
         #cast
 

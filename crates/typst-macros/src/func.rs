@@ -5,9 +5,9 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Ident, Result, parse_quote};
 
 use crate::util::{
-    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
-    parse_flag, parse_key_value, parse_string, parse_string_array, quote_option,
-    validate_attrs,
+    determine_name_and_title, documentation, foundations, has_attr, kw, oneliner,
+    parse_attr, parse_flag, parse_key_value, parse_string, parse_string_array,
+    quote_option, validate_attrs,
 };
 
 /// Expand the `#[func]` macro.
@@ -248,6 +248,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     let item = rewrite_fn_item(item);
     let ty = create_func_ty(func);
     let data = create_func_data(func);
+    let oneliner = oneliner(docs);
 
     let creator = if ty.is_some() {
         quote! {
@@ -271,7 +272,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     };
 
     quote! {
-        #[doc = #docs]
+        #[doc = #oneliner]
         #[allow(dead_code)]
         #[allow(rustdoc::broken_intra_doc_links)]
         #item
