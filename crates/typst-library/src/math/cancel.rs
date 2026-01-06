@@ -7,7 +7,7 @@ use crate::visualize::Stroke;
 ///
 /// This is commonly used to show the elimination of a term.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:
@@ -33,8 +33,8 @@ pub struct CancelElem {
     pub length: Rel<Length>,
 
     /// Whether the cancel line should be inverted (flipped along the y-axis).
-    /// For the default angle setting, inverted means the cancel line
-    /// points to the top left instead of top right.
+    /// For the default angle setting, inverted means the cancel line points to
+    /// the top left instead of top right.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -75,7 +75,7 @@ pub struct CancelElem {
     /// ```
     pub angle: Smart<CancelAngle>,
 
-    /// How to [stroke]($stroke) the cancel line.
+    /// How to @stroke[stroke] the cancel line.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)

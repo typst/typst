@@ -12,23 +12,23 @@ use crate::model::{ListItemLike, ListLike};
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
 #[elem(scope, title = "Term List", Locatable, Tagged)]
 pub struct TermsElem {
-    /// Defines the default [spacing]($terms.spacing) of the term list. If it is
-    /// `{false}`, the items are spaced apart with
-    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
-    /// [paragraph leading]($par.leading) instead. This makes the list more
-    /// compact, which can look better if the items are short.
+    /// Defines the default @terms.spacing[spacing] of the term list. If it is
+    /// `{false}`, the items are spaced apart with @par.spacing[paragraph
+    ///   spacing]. If it is `{true}`, they use @par.leading[paragraph leading]
+    /// instead. This makes the list more compact, which can look better if the
+    /// items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
@@ -80,9 +80,9 @@ pub struct TermsElem {
 
     /// The spacing between the items of the term list.
     ///
-    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
-    /// term lists and paragraph [`spacing`]($par.spacing) for wide
-    /// (non-tight) term lists.
+    /// If set to `{auto}`, uses paragraph @par.leading[`leading`] for tight
+    /// term lists and paragraph @par.spacing[`spacing`] for wide (non-tight)
+    /// term lists.
     pub spacing: Smart<Length>,
 
     /// The term list's children.

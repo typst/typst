@@ -40,26 +40,27 @@ pub use crate::__select_where as select_where;
 /// A filter for selecting elements within the document.
 ///
 /// To construct a selector you can:
-/// - use an [element function]($function/#element-functions)
-/// - filter for an element function with [specific fields]($function.where)
-/// - use a [string]($str) or [regular expression]($regex)
-/// - use a [`{<label>}`]($label)
-/// - use a [`location`]
-/// - call the [`selector`] constructor to convert any of the above types into a
+/// - use an @function:element-functions[element function]
+/// - filter for an element function with @function.where[specific fields]
+/// - use a @str[string] or @regex[regular expression]
+/// - use a @label[`{<label>}`]
+/// - use a @location
+/// - call the @selector constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
 ///
-/// Selectors are used to [apply styling rules]($styling/#show-rules) to
-/// elements. You can also use selectors to [query] the document for certain
-/// types of elements.
+/// Selectors are used to @reference:styling:show-rules[apply styling rules] to
+/// elements. You can also use selectors to @query[query] the document for
+/// certain types of elements.
 ///
 /// Furthermore, you can pass a selector to several of Typst's built-in
-/// functions to configure their behaviour. One such example is the [outline]
-/// where it can be used to change which elements are listed within the outline.
+/// functions to configure their behaviour. One such example is the
+/// @outline[outline] where it can be used to change which elements are listed
+/// within the outline.
 ///
 /// Multiple selectors can be combined using the methods shown below. However,
 /// not all kinds of selectors are supported in all places, at the moment.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #context query(
 ///   heading.where(level: 1)
@@ -158,14 +159,15 @@ impl Selector {
 impl Selector {
     /// Turns a value into a selector. The following values are accepted:
     /// - An element function like a `heading` or `figure`.
-    /// - A [string]($str) or [regular expression]($regex).
+    /// - A @str[string] or @regex[regular expression].
     /// - A `{<label>}`.
-    /// - A [`location`].
+    /// - A @location.
     /// - A more complex selector like `{heading.where(level: 1)}`.
     #[func(constructor)]
     pub fn construct(
-        /// Can be an element function like a `heading` or `figure`, a `{<label>}`
-        /// or a more complex selector like `{heading.where(level: 1)}`.
+        /// Can be an element function like a `heading` or `figure`, a
+        /// `{<label>}` or a more complex selector like
+        /// `{heading.where(level: 1)}`.
         target: Selector,
     ) -> Selector {
         target
@@ -220,9 +222,8 @@ impl Selector {
         self,
         /// The original selection will start at the first match of `start`.
         start: LocatableSelector,
-        ///  Whether `start` itself should match or not. This is only relevant
-        ///  if both selectors match the same type of element. Defaults to
-        ///  `{true}`.
+        /// Whether `start` itself should match or not. This is only relevant if
+        /// both selectors match the same type of element. Defaults to `{true}`.
         #[named]
         #[default(true)]
         inclusive: bool,

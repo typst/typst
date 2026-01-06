@@ -6,11 +6,11 @@ use crate::introspection::Locatable;
 
 /// Adds a custom file to a bundle.
 ///
-/// This function creates a single file in a [bundle], from [raw byte
-/// data]($bytes). Unlike [documents]($document), assets will be emitted as-is
-/// without undergoing compilation.
+/// This function creates a single file in a @reference:bundle[bundle], from
+/// @bytes[raw byte data]. Unlike @document[documents], assets will be emitted
+/// as-is without undergoing compilation.
 ///
-/// The `asset` function can be combined with [`read`] to copy a file from the
+/// The `asset` function can be combined with @read to copy a file from the
 /// project into the output bundle. The first argument to `asset` defines the
 /// output path for the asset in the bundle, while the path passed to `read`
 /// defines where in the project to read the data from.
@@ -21,7 +21,7 @@ use crate::introspection::Locatable;
 /// ```
 ///
 /// That said, `asset` is not tied to `read`. You can also generate bytes
-/// directly or use a function like [`json.encode`] to emit serialized data.
+/// directly or use a function like @json.encode to emit serialized data.
 ///
 /// ```typ
 /// // Emits a JSON file with the number
@@ -42,13 +42,14 @@ use crate::introspection::Locatable;
 ///
 /// This would emit a `meta.json` file with the following contents into the
 /// resulting bundle:
+///
 /// ```json
 /// {
 ///   "count": 2
 /// }
 /// ```
 ///
-/// This function may only be used in the [bundle] target.
+/// This function may only be used in the @reference:bundle[bundle] target.
 #[elem(Locatable)]
 pub struct AssetElem {
     /// The path in the bundle at which the asset will be placed.

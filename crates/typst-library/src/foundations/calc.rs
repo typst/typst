@@ -104,7 +104,7 @@ pub fn pow(
     span: Span,
     /// The base of the power.
     ///
-    /// If this is a [`decimal`], the exponent can only be an [integer]($int).
+    /// If this is a @decimal, the exponent can only be an @int[integer].
     base: DecNum,
     /// The exponent of the power.
     exponent: Spanned<Num>,
@@ -234,8 +234,7 @@ pub fn root(
 
 /// Calculates the sine of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.sin(1.5) \
@@ -255,8 +254,7 @@ pub fn sin(
 
 /// Calculates the cosine of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.cos(1.5) \
@@ -276,8 +274,7 @@ pub fn cos(
 
 /// Calculates the tangent of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.tan(1.5) \
@@ -682,9 +679,9 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.floor(500.1)
@@ -709,9 +706,9 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.ceil(500.1)
@@ -736,9 +733,9 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.trunc(15.9)
@@ -789,9 +786,9 @@ pub fn fract(
 /// remove before the decimal point.
 ///
 /// Note that this function will return the same type as the operand. That is,
-/// applying `round` to a [`float`] will return a `float`, and to a [`decimal`],
+/// applying `round` to a @float will return a `float`, and to a @decimal,
 /// another `decimal`. You may explicitly convert the output of this function to
-/// an integer with [`int`], but note that such a conversion will error if the
+/// an integer with @int, but note that such a conversion will error if the
 /// `float` or `decimal` is larger than the maximum 64-bit signed integer or
 /// smaller than the minimum integer.
 ///
@@ -884,8 +881,8 @@ pub fn clamp(
 #[func(title = "Minimum")]
 pub fn min(
     span: Span,
-    /// The sequence of values from which to extract the minimum.
-    /// Must not be empty.
+    /// The sequence of values from which to extract the minimum. Must not be
+    /// empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
@@ -901,8 +898,8 @@ pub fn min(
 #[func(title = "Maximum")]
 pub fn max(
     span: Span,
-    /// The sequence of values from which to extract the maximum.
-    /// Must not be empty.
+    /// The sequence of values from which to extract the maximum. Must not be
+    /// empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
@@ -965,7 +962,7 @@ pub fn odd(
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if given a [`decimal`] input and the dividend is too small in
+/// This can error if given a @decimal input and the dividend is too small in
 /// magnitude compared to the divisor.
 ///
 /// ```example
@@ -1005,8 +1002,8 @@ pub fn rem(
 /// Performs euclidean division of two numbers.
 ///
 /// The result of this computation is that of a division rounded to the integer
-/// `{n}` such that the dividend is greater than or equal to `{n}` times
-/// the divisor.
+/// `{n}` such that the dividend is greater than or equal to `{n}` times the
+/// divisor.
 ///
 /// This can error if the resulting number is larger than the maximum value or
 /// smaller than the minimum value for its type.
@@ -1051,7 +1048,7 @@ pub fn div_euclid(
 /// magnitude than the divisor and the dividend is negative. This only applies
 /// for floating point inputs.
 ///
-/// In addition, this can error if given a [`decimal`] input and the dividend is
+/// In addition, this can error if given a @decimal input and the dividend is
 /// too small in magnitude compared to the divisor.
 ///
 /// ```example
@@ -1091,9 +1088,9 @@ pub fn rem_euclid(
 
 /// Calculates the quotient (floored division) of two numbers.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting number is larger than the maximum 64-bit signed
-/// integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting number is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
@@ -1147,8 +1144,8 @@ pub fn norm(
     #[named]
     #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
-    /// The sequence of values from which to calculate the p-norm.
-    /// Returns `0.0` if empty.
+    /// The sequence of values from which to calculate the p-norm. Returns `0.0`
+    /// if empty.
     #[variadic]
     values: Vec<f64>,
 ) -> SourceResult<f64> {

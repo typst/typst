@@ -20,34 +20,33 @@ use crate::text::TextElem;
 /// A reference to a label or bibliography.
 ///
 /// Takes a label and cross-references it. There are two kind of references,
-/// determined by its [`form`]($ref.form): `{"normal"}` and `{"page"}`.
+/// determined by its @ref.form[`form`]: `{"normal"}` and `{"page"}`.
 ///
 /// The default, a `{"normal"}` reference, produces a textual reference to a
 /// label. For example, a reference to a heading will yield an appropriate
 /// string such as "Section 1" for a reference to the first heading. The word
-/// "Section" depends on the [`lang`]($text.lang) setting and is localized
+/// "Section" depends on the @text.lang[`lang`] setting and is localized
 /// accordingly. The references are also links to the respective element.
-/// Reference syntax can also be used to [cite] from a bibliography.
+/// Reference syntax can also be used to @cite[cite] from a bibliography.
 ///
 /// As the default form requires a supplement and numbering, the label must be
 /// attached to a _referenceable element_. Referenceable elements include
-/// [headings]($heading), [figures]($figure), [equations]($math.equation), and
-/// [footnotes]($footnote). To create a custom referenceable element like a
-/// theorem, you can create a figure of a custom [`kind`]($figure.kind) and
-/// write a show rule for it. In the future, there might be a more direct way
-/// to define a custom referenceable element.
+/// @heading[headings], @figure[figures], @math.equation[equations], and
+/// @footnote[footnotes]. To create a custom referenceable element like a
+/// theorem, you can create a figure of a custom @figure.kind[`kind`] and write
+/// a show rule for it. In the future, there might be a more direct way to
+/// define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
-/// textual reference, consider using the [`link`] function instead.
+/// textual reference, consider using the @link function instead.
 ///
 /// A `{"page"}` reference produces a page reference to a label, displaying the
-/// page number at its location. You can use the
-/// [page's supplement]($page.supplement) to modify the text before the page
-/// number. Unlike a `{"normal"}` reference, the label can be attached to any
-/// element as long as the corresponding [page's numbering]($page.numbering) is
-/// set.
+/// page number at its location. You can use the @page.supplement[page's
+///   supplement] to modify the text before the page number. Unlike a
+/// `{"normal"}` reference, the label can be attached to any element as long as
+/// the corresponding @page.numbering[page's numbering] is set.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set page(numbering: "1")
 /// #set heading(numbering: "1.")
@@ -74,19 +73,19 @@ use crate::text::TextElem;
 /// #bibliography("works.bib")
 /// ```
 ///
-/// # Syntax
-/// This function also has dedicated syntax: A `{"normal"}` reference to a
-/// label can be created by typing an `[@]` followed by the name of the label
-/// (e.g. `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
+/// = Syntax <syntax>
+/// This function also has dedicated syntax: A `{"normal"}` reference to a label
+/// can be created by typing an `[@]` followed by the name of the label (e.g.
+/// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
 ///
-/// # Customization
+/// = Customization <customization>
 /// When you only ever need to reference pages of a figure/table/heading/etc. in
 /// a document, the default `form` field value can be changed to `{"page"}` with
 /// a set rule. If you prefer a short "p." supplement over "page", the
-/// [`page.supplement`] field can be used for changing this:
+/// @page.supplement field can be used for changing this:
 ///
 /// ```example
 /// #set page(
@@ -114,9 +113,9 @@ use crate::text::TextElem;
 /// ```
 ///
 /// If you write a show rule for references, you can access the referenced
-/// element through the `element` field of the reference. The `element` may
-/// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
-/// always need to handle that case in your code.
+/// element through the `element` field of the reference. The `element` may be
+/// `{none}` even if it exists if Typst hasn't discovered it yet, so you always
+/// need to handle that case in your code.
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -140,20 +139,20 @@ pub struct RefElem {
     /// The target label that should be referenced.
     ///
     /// Can be a label that is defined in the document or, if the
-    /// [`form`]($ref.form) is set to `["normal"]`, an entry from the
-    /// [`bibliography`].
+    /// @ref.form[`form`] is set to `["normal"]`, an entry from the
+    /// @bibliography.
     #[required]
     pub target: Label,
 
     /// A supplement for the reference.
     ///
-    /// If the [`form`]($ref.form) is set to `{"normal"}`:
+    /// If the @ref.form[`form`] is set to `{"normal"}`:
     /// - For references to headings or figures, this is added before the
     ///   referenced number.
     /// - For citations, this can be used to add a page number.
     ///
-    /// If the [`form`]($ref.form) is set to `{"page"}`, then this is added
-    /// before the page number of the label referenced.
+    /// If the @ref.form[`form`] is set to `{"page"}`, then this is added before
+    /// the page number of the label referenced.
     ///
     /// If a function is specified, it is passed the referenced element and
     /// should return content.

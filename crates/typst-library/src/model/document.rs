@@ -11,11 +11,11 @@ use crate::text::{Locale, TextElem};
 
 /// Manages metadata and is used to add a document file to a bundle.
 ///
-/// # Metadata
+/// = Metadata <metadata>
 /// The document element is the single source of truth for document metadata.
 /// With it, you can specify the document's title, authors, date, etc. in one
-/// place. Typically, the element is used with a [set rule]($styling/#set-rules)
-/// like this:
+/// place. Typically, the element is used with a
+/// @reference:styling:set-rules[set rule] like this:
 ///
 /// ```example
 /// #set document(title: [My doc])
@@ -25,10 +25,10 @@ use crate::text::{Locale, TextElem};
 /// ```
 ///
 /// By default, the metadata is embedded into the output, but not visibly
-/// rendered in the document. However, it becomes [contextually
-/// available]($context) to the full document and can be used by elements and
-/// templates. For instance, the built-in [`title`] element automatically picks
-/// up the configured document title:
+/// rendered in the document. However, it becomes
+/// @reference:context[contextually available] to the full document and can be
+/// used by elements and templates. For instance, the built-in @title element
+/// automatically picks up the configured document title:
 ///
 /// ```example
 /// #set document(title: [My doc])
@@ -39,7 +39,7 @@ use crate::text::{Locale, TextElem};
 /// ```
 ///
 /// In a similar fashion to the `title` element, you can also access metadata
-/// yourself using a [context expression]($context).
+/// yourself using a @reference:context[context expression].
 ///
 /// ```example
 /// // In the document.
@@ -52,14 +52,13 @@ use crate::text::{Locale, TextElem};
 /// #context document.keywords.join(", ")
 /// ```
 ///
-/// In single-document export formats, this function is only used with [set
-/// rules]($styling/#set-rules). Such set rules must only occur at the
-/// top level, not inside of any layout container. You can also explicitly
-/// create a `document` element, but [this is only relevant in bundle
-/// export]($document/#documents-in-bundle-export).
+/// In single-document export formats, this function is only used with
+/// @reference:styling:set-rules[set rules]. Such set rules must only occur at
+/// the top level, not inside of any layout container. You can also explicitly
+/// create a `document` element, but @document:documents-in-bundle-export[this
+///   is only relevant in bundle export].
 ///
-/// ## Format-specific considerations
-///
+/// == Format-specific considerations <format-specific-considerations>
 /// Metadata is embedded into the output to varying extents:
 ///
 /// - PDF export supports the full range of metadata and emits it into the PDF
@@ -71,13 +70,13 @@ use crate::text::{Locale, TextElem};
 ///
 /// - SVG and PNG export do not have any metadata support at all.
 ///
-/// # Documents in bundle export
-/// In [bundle export]($bundle), a document element represents a single file in
-/// the bundle output, in one of Typst's other export formats. When creating a
-/// document, you must provide an output path and some content. Typst will
-/// compile and export the provided content with the appropriate format. By
+/// = Documents in bundle export <documents-in-bundle-export>
+/// In @reference:bundle[bundle export], a document element represents a single
+/// file in the bundle output, in one of Typst's other export formats. When
+/// creating a document, you must provide an output path and some content. Typst
+/// will compile and export the provided content with the appropriate format. By
 /// default, the format is inferred from the file extension of the path you
-/// specified, but you can also configure the [`format`]($document.format)
+/// specified, but you can also configure the @document.format[`format`]
 /// explicitly.
 ///
 /// ```typ
@@ -94,7 +93,7 @@ use crate::text::{Locale, TextElem};
 /// ] <list>
 /// ```
 ///
-/// ## Metadata
+/// == Metadata <metadata>
 /// Document elements pick up metadata from top-level `{set document}` rules
 /// within them. This means that documents written for single-document export
 /// can be used with explicit `document` elements while properly retaining
@@ -104,6 +103,7 @@ use crate::text::{Locale, TextElem};
 /// // Will pick up the title defined in `paper.typ`.
 /// #document("paper.pdf", include "paper.typ")
 /// ```
+///
 /// ```typ
 /// // paper.typ
 /// #set document(title: [My Paper])
@@ -130,25 +130,24 @@ pub struct DocumentElem {
     /// May contain interior slashes, in which case intermediate directories
     /// will be automatically created.
     ///
-    /// This property is only supported in the [bundle] target.
+    /// This property is only supported in the @reference:bundle[bundle] target.
     #[required]
     pub path: BundlePath,
 
     /// Which format to export in.
     ///
     /// If `{auto}`, Typst attempts to infer the export format from the
-    /// [`path`'s]($document.path) file extension.
+    /// @document.path[`path`'s] file extension.
     ///
-    /// This property is only supported in the [bundle] target.
+    /// This property is only supported in the @reference:bundle[bundle] target.
     pub format: Smart<DocumentFormat>,
 
     /// The document's title. This is rendered as the title of the PDF viewer
     /// window or the browser tab of the page.
     ///
     /// By default, the configured title is not visibly rendered in the
-    /// document. You can add the title to the document's contents by using
-    /// the [`title`] element. It will automatically pick up the title
-    /// configured here.
+    /// document. You can add the title to the document's contents by using the
+    /// @title element. It will automatically pick up the title configured here.
     ///
     /// Adding a title is important for accessibility, as it makes it easier to
     /// navigate to your document and identify it among other open documents.
@@ -182,7 +181,7 @@ pub struct DocumentElem {
 
     /// The content that makes up the document.
     ///
-    /// This property is only supported in the [bundle] target.
+    /// This property is only supported in the @reference:bundle[bundle] target.
     #[required]
     pub body: Content,
 }

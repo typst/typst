@@ -8,16 +8,16 @@ use crate::foundations::{Content, NativeElement, elem};
 /// end of a paragraph is ignored, but more than one creates additional empty
 /// lines.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// *Date:* 26.12.2022 \
 /// *Topic:* Infrastructure Test \
 /// *Severity:* High \
 /// ```
 ///
-/// # Syntax
-/// This function also has dedicated syntax: To insert a line break, simply write
-/// a backslash followed by whitespace. This always creates an unjustified
+/// = Syntax <syntax>
+/// This function also has dedicated syntax: To insert a line break, simply
+/// write a backslash followed by whitespace. This always creates an unjustified
 /// break.
 #[elem(title = "Line Break")]
 pub struct LinebreakElem {

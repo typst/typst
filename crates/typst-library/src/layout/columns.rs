@@ -11,10 +11,10 @@ use crate::layout::{Length, Ratio, Rel};
 /// remaining height on the page. Support for balanced columns is planned for
 /// the future.
 ///
-/// When arranging content across multiple columns, use [`colbreak`]($colbreak)
-/// to explicitly continue in the next column.
+/// When arranging content across multiple columns, use @colbreak to explicitly
+/// continue in the next column.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #columns(2, gutter: 8pt)[
 ///   This text is in the
@@ -27,34 +27,36 @@ use crate::layout::{Length, Ratio, Rel};
 /// ]
 /// ```
 ///
-/// # Page-level columns { #page-level }
+/// = Page-level columns <page-level>
 /// If you need to insert columns across your whole document, use the `{page}`
-/// function's [`columns` parameter]($page.columns) instead. This will create
-/// the columns directly at the page-level rather than wrapping all of your
-/// content in a layout container. As a result, things like
-/// [pagebreaks]($pagebreak), [footnotes]($footnote), and [line
-/// numbers]($par.line) will continue to work as expected. For more information,
-/// also read the [relevant part of the page setup
-/// guide]($guides/page-setup/#columns).
+/// function's @page.columns[`columns` parameter] instead. This will create the
+/// columns directly at the page-level rather than wrapping all of your content
+/// in a layout container. As a result, things like @pagebreak[pagebreaks],
+/// @footnote[footnotes], and @par.line[line numbers] will continue to work as
+/// expected. For more information, also read the
+/// @guides:page-setup:columns[relevant part of the page setup guide].
 ///
-/// # Breaking out of columns { #breaking-out }
+/// = Breaking out of columns <breaking-out>
 /// To temporarily break out of columns (e.g. for a paper's title), use
 /// parent-scoped floating placement:
 ///
-/// ```example:single
-/// #set page(columns: 2, height: 150pt)
+/// #example(
+///   single: true,
+///   ```
+///   #set page(columns: 2, height: 150pt)
 ///
-/// #place(
-///   top + center,
-///   scope: "parent",
-///   float: true,
-///   text(1.4em, weight: "bold")[
-///     My document
-///   ],
+///   #place(
+///     top + center,
+///     scope: "parent",
+///     float: true,
+///     text(1.4em, weight: "bold")[
+///       My document
+///     ],
+///   )
+///
+///   #lorem(40)
+///   ```
 /// )
-///
-/// #lorem(40)
-/// ```
 #[elem]
 pub struct ColumnsElem {
     /// The number of columns.
@@ -73,11 +75,11 @@ pub struct ColumnsElem {
 
 /// Forces a column break.
 ///
-/// The function will behave like a [page break]($pagebreak) when used in a
-/// single column layout or the last column on a page. Otherwise, content after
-/// the column break will be placed in the next column.
+/// The function will behave like a @pagebreak[page break] when used in a single
+/// column layout or the last column on a page. Otherwise, content after the
+/// column break will be placed in the next column.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set page(columns: 2)
 /// Preliminary findings from our

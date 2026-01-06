@@ -3,12 +3,12 @@ use crate::introspection::{Locatable, Tagged};
 
 /// Emphasizes content by toggling italics.
 ///
-/// - If the current [text style]($text.style) is `{"normal"}`, this turns it
-///   into `{"italic"}`.
+/// - If the current @text.style[text style] is `{"normal"}`, this turns it into
+///   `{"italic"}`.
 /// - If it is already `{"italic"}` or `{"oblique"}`, it turns it back to
 ///   `{"normal"}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is _emphasized._ \
 /// This is #emph[too.]
@@ -20,7 +20,7 @@ use crate::introspection::{Locatable, Tagged};
 /// This is _emphasized_ differently.
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.

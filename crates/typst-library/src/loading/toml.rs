@@ -9,15 +9,15 @@ use crate::loading::{DataSource, Load, Readable};
 /// Reads structured data from a TOML file.
 ///
 /// The file must contain a valid TOML table. The TOML values will be converted
-/// into corresponding Typst values as listed in the
-/// [table below]($toml/#conversion).
+/// into corresponding Typst values as listed in the @toml:conversion[table
+///   below].
 ///
 /// The function returns a dictionary representing the TOML table.
 ///
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let details = toml("details.toml")
 ///
@@ -27,40 +27,67 @@ use crate::loading::{DataSource, Load, Readable};
 ///   .join(", ", last: " and "))
 /// ```
 ///
-/// # Conversion details { #conversion }
-///
+/// = Conversion details <conversion>
 /// First of all, TOML documents are tables. Other values must be put in a table
 /// to be encoded or decoded.
 ///
-/// | TOML value | Converted into Typst |
-/// | ---------- | -------------------- |
-/// | string     | [`str`]              |
-/// | integer    | [`int`]              |
-/// | float      | [`float`]            |
-/// | boolean    | [`bool`]             |
-/// | datetime   | [`datetime`]         |
-/// | array      | [`array`]            |
-/// | table      | [`dictionary`]       |
+/// #docs-table(
+///   table.header[TOML value][Converted into Typst],
 ///
-/// | Typst value                           | Converted into TOML            |
-/// | ------------------------------------- | ------------------------------ |
-/// | types that can be converted from TOML | corresponding TOML value       |
-/// | `{none}`                              | ignored                        |
-/// | [`bytes`]                             | string via [`repr`]            |
-/// | [`symbol`]                            | string                         |
-/// | [`content`]                           | a table describing the content |
-/// | other types ([`length`], etc.)        | string via [`repr`]            |
+///   [string],
+///   [@str],
 ///
-/// ## Notes
-/// - Be aware that TOML integers larger than 2<sup>63</sup>-1 or smaller
-///   than -2<sup>63</sup> cannot be represented losslessly in Typst, and an
-///   error will be thrown according to the
-///   [specification](https://toml.io/en/v1.0.0#integer).
+///   [integer],
+///   [@int],
+///
+///   [float],
+///   [@float],
+///
+///   [boolean],
+///   [@bool],
+///
+///   [datetime],
+///   [@datetime],
+///
+///   [array],
+///   [@array],
+///
+///   [table],
+///   [@dictionary],
+/// )
+///
+/// #docs-table(
+///   table.header[Typst value][Converted into TOML],
+///
+///   [types that can be converted from TOML],
+///   [corresponding TOML value],
+///
+///   [`{none}`],
+///   [ignored],
+///
+///   [@bytes],
+///   [string via @repr],
+///
+///   [@symbol],
+///   [string],
+///
+///   [@content],
+///   [a table describing the content],
+///
+///   [other types (@length, etc.)],
+///   [string via @repr],
+/// )
+///
+/// == Notes <notes>
+/// - Be aware that TOML integers larger than 2#super[63]-1 or smaller
+///   than -2#super[63] cannot be represented losslessly in Typst, and an error
+///   will be thrown according to the
+///   #link("https://toml.io/en/v1.0.0#integer")[specification].
 ///
 /// - Bytes are not encoded as TOML arrays for performance and readability
-///   reasons. Consider using [`cbor.encode`] for binary data.
+///   reasons. Consider using @cbor.encode for binary data.
 ///
-/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+/// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "TOML")]
 pub fn toml(
@@ -94,7 +121,8 @@ impl toml {
     pub fn encode(
         /// Value to be encoded.
         ///
-        /// TOML documents are tables. Therefore, only dictionaries are suitable.
+        /// TOML documents are tables. Therefore, only dictionaries are
+        /// suitable.
         value: Spanned<Dict>,
         /// Whether to pretty-print the resulting TOML.
         #[named]
