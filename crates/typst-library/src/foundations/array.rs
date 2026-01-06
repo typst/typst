@@ -267,11 +267,21 @@ impl Array {
         let first: Value = args.expect("value")?;
         // Any additional values
         let rest = args.all::<Value>()?;
-        // Insert in reverse order at the same index to maintain order
-        for value in rest.into_iter().rev() {
-            self.0.insert(i, value);
+
+        // Fast path: single value insertion
+        if rest.is_empty() {
+            self.0.insert(i, first);
+            return Ok(());
         }
-        self.0.insert(i, first);
+
+        // Multiple values: build new array in one pass to avoid repeated shifts
+        let values_count = 1 + rest.len();
+        let mut new = EcoVec::with_capacity(self.0.len() + values_count);
+        new.extend(self.0[..i].iter().cloned());
+        new.push(first);
+        new.extend(rest);
+        new.extend(self.0[i..].iter().cloned());
+        self.0 = new;
         Ok(())
     }
 
