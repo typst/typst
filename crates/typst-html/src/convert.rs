@@ -4,6 +4,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
 use typst_library::layout::{Abs, Axes, HElem, Region, Size};
+use typst_library::math::EquationElem;
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -12,6 +13,7 @@ use typst_library::text::{
 use typst_syntax::Span;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment};
+use crate::mathml::convert_math_to_nodes;
 use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, tag};
 
 /// What and how to convert.
@@ -125,6 +127,16 @@ fn handle(
             SmartQuotes::fallback(double)
         };
         handle_text(converter, quote.into(), child.span());
+    } else if let Some(elem) = child.to_packed::<EquationElem>() {
+        let locator = converter.locator.next(&elem.span());
+        let children = convert_math_to_nodes(elem, converter.engine, locator, styles)?;
+        let display = elem.block.get(styles).then_some("block");
+        converter.push(
+            HtmlElement::new(tag::mathml::math)
+                .with_optional_attr(attr::mathml::display, display)
+                .with_children(children)
+                .spanned(elem.span()),
+        );
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = converter.locator.next(&elem.span());
         let style = TargetElem::target.set(Target::Paged).wrap();

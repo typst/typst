@@ -59,8 +59,8 @@ $ cal(P)_i (X) * cal(C)_1 $
 $ x + y = z $
 
 --- math-font-error paged ---
-// Warning: 37-54 unknown font family: libertinus math
-#show math.equation: set text(font: "Libertinus Math", fallback: false)
+// Warning: 37-51 unknown font family: cambria math
+#show math.equation: set text(font: "Cambria Math", fallback: false)
 // Error: 1-39 no font could be found
 $ brace.stroked.l -1 brace.stroked.r $
 

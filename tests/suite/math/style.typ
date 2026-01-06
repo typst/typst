@@ -34,6 +34,16 @@ $ dotless.i dotless.j,
   bold(frak(dotless.i)) upright(sans(dotless.j)),
   italic(bb(dotless.i)) frak(sans(dotless.j)) $
 
+--- math-style-font-no-dotless paged ---
+// Test dotless i and j codepoints work without the dtls feature. In
+// particular, make sure that the variation selector is not present with scr
+// and cal.
+#show math.equation: set text(font: "Libertinus Math")
+$ dotless.i dotless.j, upright(dotless.i dotless.j),
+  scr(dotless.i dotless.j), cal(dotless.i dotless.j),
+  frak(dotless.i dotless.j), mono(dotless.i dotless.j),
+  upright(bold(dotless.i dotless.j)), bold(upright(sans(dotless.i dotless.j))) $
+
 --- math-style-exceptions paged ---
 // Test a few style exceptions.
 $h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta)) \
