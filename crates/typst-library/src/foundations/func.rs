@@ -9,7 +9,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
 use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
-use typst_utils::{LazyHash, Static, singleton};
+use typst_utils::{DefSite, LazyHash, Static, singleton};
 
 use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -250,6 +250,17 @@ impl Func {
             FuncInner::Closure(_) => &[],
             FuncInner::Plugin(_) => &[],
             FuncInner::With(with) => with.0.keywords(),
+        }
+    }
+
+    /// Where the function is defined in the Rust source code (only `Some(_)` if
+    /// it is native, and even then it can be `None` if the function is
+    /// generated, like the typed HTML API).
+    pub fn def_site(&self) -> Option<DefSite> {
+        match &self.inner {
+            FuncInner::Native(native) => native.def_site,
+            FuncInner::Element(elem) => Some(elem.def_site()),
+            _ => None,
         }
     }
 
@@ -616,6 +627,8 @@ pub struct NativeFuncData {
     pub title: &'static str,
     /// The documentation for this function as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// A list of alternate search terms for this function.
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
@@ -662,6 +675,8 @@ pub struct NativeParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
+    /// Where the parameter is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// Describe what values this parameter accepts.
     pub input: CastInfo,
     /// Creates an instance of the parameter's default value.
