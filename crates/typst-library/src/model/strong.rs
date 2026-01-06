@@ -5,7 +5,7 @@ use crate::introspection::{Locatable, Tagged};
 ///
 /// Increases the current font weight by a given `delta`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is *strong.* \
 /// This is #strong[too.] \
@@ -14,7 +14,7 @@ use crate::introspection::{Locatable, Tagged};
 /// And this is *evermore.*
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: To strongly emphasize content,
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the

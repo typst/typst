@@ -9,12 +9,13 @@ use crate::introspection::Location;
 /// Determines the location of an element in the document.
 ///
 /// Takes a selector that must match exactly one element and returns that
-/// element's [`location`]. This location can, in particular, be used to
-/// retrieve the physical [`page`]($location.page) number and
-/// [`position`]($location.position) (page, x, y) for that element.
+/// element's @location. This location can, in particular, be used to retrieve
+/// the physical @location.page[`page`] number and
+/// @location.position[`position`] (page, x, y) for that element.
 ///
-/// # Examples
+/// = Examples <examples>
 /// Locating a specific element:
+///
 /// ```example
 /// #context [
 ///   Introduction is at: \
@@ -32,9 +33,9 @@ pub fn locate(
     /// located.
     ///
     /// Especially useful in combination with
-    /// - [`here`] to locate the current context,
-    /// - a [`location`] retrieved from some queried element via the
-    ///   [`location()`]($content.location) method on content.
+    /// - @here to locate the current context,
+    /// - a @location retrieved from some queried element via the
+    ///   @content.location[`location()`] method on content.
     selector: LocatableSelector,
 ) -> SourceResult<Location> {
     selector.resolve_unique(engine, context, span)

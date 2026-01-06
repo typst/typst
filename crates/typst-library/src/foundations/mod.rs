@@ -130,8 +130,9 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
 /// Arguments are displayed to the user (not rendered in the document) as
 /// strings, converting with `repr` if necessary.
 ///
-/// # Example
+/// = Example <example>
 /// The code below produces the error `panicked with: "this is wrong"`.
+///
 /// ```typ
 /// #panic("this is wrong")
 /// ```
@@ -156,13 +157,13 @@ pub fn panic(
 
 /// Ensures that a condition is fulfilled.
 ///
-/// Fails with an error if the condition is not fulfilled. Does not
-/// produce any output in the document.
+/// Fails with an error if the condition is not fulfilled. Does not produce any
+/// output in the document.
 ///
-/// If you wish to test equality between two values, see [`assert.eq`] and
-/// [`assert.ne`].
+/// If you wish to test equality between two values, see @assert.eq and
+/// @assert.ne.
 ///
-/// # Example
+/// = Example <example>
 /// ```typ
 /// #assert(1 < 2, message: "math broke")
 /// ```
@@ -188,8 +189,8 @@ pub fn assert(
 impl assert {
     /// Ensures that two values are equal.
     ///
-    /// Fails with an error if the first value is not equal to the second. Does not
-    /// produce any output in the document.
+    /// Fails with an error if the first value is not equal to the second. Does
+    /// not produce any output in the document.
     ///
     /// ```typ
     /// #assert.eq(10, 10)
@@ -200,8 +201,8 @@ impl assert {
         left: Value,
         /// The second value to compare.
         right: Value,
-        /// An optional message to display on error instead of the representations
-        /// of the compared values.
+        /// An optional message to display on error instead of the
+        /// representations of the compared values.
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
@@ -233,8 +234,8 @@ impl assert {
         left: Value,
         /// The second value to compare.
         right: Value,
-        /// An optional message to display on error instead of the representations
-        /// of the compared values.
+        /// An optional message to display on error instead of the
+        /// representations of the compared values.
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
@@ -257,7 +258,7 @@ impl assert {
 ///
 /// This function should only be used as a last resort.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #eval("1 + 1") \
 /// #eval("(1, 2, 3, 4)").len() \
@@ -268,7 +269,8 @@ pub fn eval(
     engine: &mut Engine,
     /// A string of Typst code to evaluate.
     source: Spanned<String>,
-    /// The [syntactical mode]($syntax/#modes) in which the string is parsed.
+    /// The @reference:syntax:modes[syntactical mode] in which the string is
+    /// parsed.
     ///
     /// ```example
     /// #eval("= Heading", mode: "markup")

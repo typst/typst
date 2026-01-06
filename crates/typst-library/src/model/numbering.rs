@@ -20,7 +20,7 @@ use crate::foundations::{Context, Func, Str, Value, cast, func};
 /// number is substituted, their prefixes, and one suffix. The prefixes and the
 /// suffix are displayed as-is.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \
@@ -34,15 +34,16 @@ use crate::foundations::{Context, Func, Str, Value, cast, func};
 /// )
 /// ```
 ///
-/// # Numbering patterns and numbering functions
+/// = Numbering patterns and numbering functions <numbering-patterns-and-numbering-functions>
 /// There are multiple instances where you can provide a numbering pattern or
 /// function in Typst. For example, when defining how to number
-/// [headings]($heading) or [figures]($figure). Every time, the expected format
-/// is the same as the one described below for the
-/// [`numbering`]($numbering.numbering) parameter.
+/// @heading[headings] or @figure[figures]. Every time, the expected format is
+/// the same as the one described below for the
+/// @numbering.numbering[`numbering`] parameter.
 ///
 /// The following example illustrates that a numbering function is just a
-/// regular [function] that accepts numbers and returns [`content`].
+/// regular @function[function] that accepts numbers and returns @content.
+///
 /// ```example
 /// #let unary(.., last) = "|" * last
 /// #set heading(numbering: unary)
@@ -57,19 +58,19 @@ pub fn numbering(
     span: Span,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
+    /// *Counting symbols* are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
     /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `١`, `۱`, `१`, `১`, `ক`,
     /// `①`, and `⓵`. They are replaced by the number in the sequence,
     /// preserving the original case.
     ///
     /// The `*` character means that symbols should be used to count, in the
-    /// order of `*`, `†`, `‡`, `§`, `¶`, `‖`. If there are more than six
-    /// items, the number is represented using repeated symbols.
+    /// order of `*`, `†`, `‡`, `§`, `¶`, `‖`. If there are more than six items,
+    /// the number is represented using repeated symbols.
     ///
-    /// **Suffixes** are all characters after the last counting symbol. They are
+    /// *Suffixes* are all characters after the last counting symbol. They are
     /// displayed as-is at the end of any rendered number.
     ///
-    /// **Prefixes** are all characters that are neither counting symbols nor
+    /// *Prefixes* are all characters that are neither counting symbols nor
     /// suffixes. They are displayed as-is at in front of their rendered
     /// equivalent of their counting symbol.
     ///

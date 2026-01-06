@@ -7,14 +7,14 @@ use crate::visualize::{LineElem, Stroke};
 /// By default, it renders as a horizontal line, but it can be customized
 /// through show rules.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// She left without a word.
 /// #divider()
 /// Three days later, she returned.
 /// ```
 ///
-/// # Styling
+/// = Styling <styling>
 /// The divider can be styled through show rules.
 ///
 /// Since the divider shows as a line by default, you can use a set rule to
@@ -27,8 +27,8 @@ use crate::visualize::{LineElem, Stroke};
 /// Second part
 /// ```
 ///
-/// You can also fully replace the divider with custom content like a floral
-/// or asterisks, but then you should wrap it in a block to preserve spacing:
+/// You can also fully replace the divider with custom content like a floral or
+/// asterisks, but then you should wrap it in a block to preserve spacing:
 ///
 /// ```example
 /// #show divider: set align(center)

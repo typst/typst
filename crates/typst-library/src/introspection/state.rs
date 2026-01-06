@@ -17,10 +17,10 @@ use crate::routines::Routines;
 ///
 /// Let's say you have some computations in your document and want to remember
 /// the result of your last computation to use it in the next one. You might try
-/// something similar to the code below and expect it to output 10, 13, 26, and
-/// 21. However this **does not work** in Typst. If you test this code, you will
-/// see that Typst complains with the following error message: _Variables from
-/// outside the function are read-only and cannot be modified._
+/// something similar to the code below and expect it to output 10, 13, 26,
+/// and 21. However this *does not work* in Typst. If you test this code, you
+/// will see that Typst complains with the following error message: _Variables
+/// from outside the function are read-only and cannot be modified._
 ///
 /// ```typ
 /// // This doesn't work!
@@ -38,7 +38,7 @@ use crate::routines::Routines;
 /// #compute("⭐ - 5")
 /// ```
 ///
-/// # State and document markup { #state-and-markup }
+/// = State and document markup <state-and-markup>
 /// Why does it do that? Because, in general, this kind of computation with side
 /// effects is problematic in document markup and Typst is upfront about that.
 /// For the results to make sense, the computation must proceed in the same
@@ -69,18 +69,18 @@ use crate::routines::Routines;
 /// `template` function and only then sees the `Outline`. Just counting up would
 /// number the `Introduction` with `1` and the `Outline` with `2`.
 ///
-/// # Managing state in Typst { #state-in-typst }
+/// = Managing state in Typst <state-in-typst>
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
 /// value gives you a state value which exposes a few functions. The two most
 /// important ones are `get` and `update`:
 ///
-/// - The [`get`]($state.get) function retrieves the current value of the state.
+/// - The @state.get[`get`] function retrieves the current value of the state.
 ///   Because the value can vary over the course of the document, it is a
-///   _contextual_ function that can only be used when [context]($context) is
-///   available.
+///   _contextual_ function that can only be used when
+///   @reference:context[context] is available.
 ///
-/// - The [`update`]($state.update) function modifies the state. You can give it
+/// - The @state.update[`update`] function modifies the state. You can give it
 ///   any value. If given a non-function value, it sets the state to that value.
 ///   If given a function, that function receives the previous state and has to
 ///   return the new state.
@@ -131,9 +131,9 @@ use crate::routines::Routines;
 ///
 /// This example is of course a bit silly, but in practice this is often exactly
 /// what you want! A good example are heading counters, which is why Typst's
-/// [counting system]($counter) is very similar to its state system.
+/// @counter[counting system] is very similar to its state system.
 ///
-/// # Time Travel
+/// = Time Travel <time-travel>
 /// By using Typst's state management system you also get time travel
 /// capabilities! We can find out what the value of the state will be at any
 /// position in the document from anywhere else. In particular, the `at` method
@@ -160,7 +160,7 @@ use crate::routines::Routines;
 /// #compute("⭐ - 5")
 /// ```
 ///
-/// # A word of caution { #caution }
+/// = A word of caution <caution>
 /// To resolve the values of all states, Typst evaluates parts of your code
 /// multiple times. However, there is no guarantee that your state manipulation
 /// can actually be completely resolved.
@@ -217,9 +217,9 @@ impl State {
     pub fn construct(
         /// The key that identifies this state.
         ///
-        /// Any [updates]($state.update) to the state will be identified with
-        /// the string key. If you construct multiple states with the same
-        /// `key`, then updating any one will affect all of them.
+        /// Any @state.update[updates] to the state will be identified with the
+        /// string key. If you construct multiple states with the same `key`,
+        /// then updating any one will affect all of them.
         key: Str,
         /// The initial value of the state.
         ///
@@ -265,8 +265,8 @@ impl State {
     /// Retrieves the value of the state at the given selector's unique match.
     ///
     /// The `selector` must match exactly one element in the document. The most
-    /// useful kinds of selectors for this are [labels]($label) and
-    /// [locations]($location).
+    /// useful kinds of selectors for this are @label[labels] and
+    /// @location[locations].
     #[typst_macros::time(name = "state.at", span = span)]
     #[func(contextual)]
     pub fn at(
@@ -295,10 +295,10 @@ impl State {
 
     /// Updates the value of the state.
     ///
-    /// Returns an invisible piece of [content] that must be inserted into the
-    /// document to take effect. This invisible content tells Typst that the
-    /// specified update should take place wherever the content is inserted into
-    /// the document.
+    /// Returns an invisible piece of @content[content] that must be inserted
+    /// into the document to take effect. This invisible content tells Typst
+    /// that the specified update should take place wherever the content is
+    /// inserted into the document.
     ///
     /// State is a part of your document and runs like a thread embedded in the
     /// document content. The value of a state is the result of all state
@@ -307,9 +307,9 @@ impl State {
     /// That's why `state.update` returns an invisible sliver of content that
     /// you need to return and include in the document — a state update that is
     /// not "placed" in the document does not happen, and "when" it happens is
-    /// determined by where you place it. That's also why you need [context] to
-    /// read state: You need to use the current document position to know where
-    /// on the state's "thread" you are.
+    /// determined by where you place it. That's also why you need
+    /// @reference:context[context] to read state: You need to use the current
+    /// document position to know where on the state's "thread" you are.
     ///
     /// Storing a state update in a variable (e.g.
     /// `{let my-update = state("key").update(c => c * 2)}`) will have no effect
@@ -319,11 +319,11 @@ impl State {
     /// different positions. Then, the update will take effect multiple times as
     /// well.
     ///
-    /// In contrast to [`get`]($state.get), [`at`]($state.at), and
-    /// [`final`]($state.final), this function does not require [context]. This
-    /// is because, to create the state update, we do not need to know where in
-    /// the document we are. We only need this information to resolve the
-    /// state's value.
+    /// In contrast to @state.get[`get`], @state.at[`at`], and
+    /// @state.final[`final`], this function does not require
+    /// @reference:context[context]. This is because, to create the state
+    /// update, we do not need to know where in the document we are. We only
+    /// need this information to resolve the state's value.
     #[func]
     pub fn update(
         self,
@@ -336,12 +336,12 @@ impl State {
         ///
         /// When updating the state based on its previous value, you should
         /// prefer the function form instead of retrieving the previous value
-        /// from the [context]($context). This allows the compiler to resolve
-        /// the final state efficiently, minimizing the number of
-        /// [layout iterations]($context/#compiler-iterations) required.
+        /// from the @reference:context[context]. This allows the compiler to
+        /// resolve the final state efficiently, minimizing the number of
+        /// @reference:context:compiler-iterations[layout iterations] required.
         ///
         /// In the following example, `{fill.update(f => not f)}` will paint odd
-        /// [items in the bullet list]($list.item) as expected. However, if it's
+        /// @list.item[items in the bullet list] as expected. However, if it's
         /// replaced with `{context fill.update(not fill.get())}`, then layout
         /// will not converge within 5 attempts, as each update will take one
         /// additional iteration to propagate.

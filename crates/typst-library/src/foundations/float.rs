@@ -13,14 +13,14 @@ use crate::layout::Ratio;
 ///
 /// A limited-precision representation of a real number. Typst uses 64 bits to
 /// store floats. Wherever a float is expected, you can also pass an
-/// [integer]($int).
+/// @int[integer].
 ///
 /// You can convert a value to a float with this type's constructor.
 ///
 /// NaN and positive infinity are available as `{float.nan}` and `{float.inf}`
 /// respectively.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #3.14 \
 /// #1e4 \
@@ -121,8 +121,8 @@ impl f64 {
     pub fn from_bytes(
         /// The bytes that should be converted to a float.
         ///
-        /// Must have a length of either 4 or 8. The bytes are then
-        /// interpreted in [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s
+        /// Must have a length of either 4 or 8. The bytes are then interpreted
+        /// in #link("https://en.wikipedia.org/wiki/IEEE_754")[IEEE 754]'s
         /// binary32 (single-precision) or binary64 (double-precision) format
         /// depending on the length of the bytes.
         bytes: Bytes,
@@ -163,11 +163,11 @@ impl f64 {
         endian: Endianness,
         /// The size of the resulting bytes.
         ///
-        /// This must be either 4 or 8. The call will return the
-        /// representation of this float in either
-        /// [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s binary32
-        /// (single-precision) or binary64 (double-precision) format
-        /// depending on the provided size.
+        /// This must be either 4 or 8. The call will return the representation
+        /// of this float in either
+        /// #link("https://en.wikipedia.org/wiki/IEEE_754")[IEEE 754]'s binary32
+        /// (single-precision) or binary64 (double-precision) format depending
+        /// on the provided size.
         #[named]
         #[default(8)]
         size: u32,

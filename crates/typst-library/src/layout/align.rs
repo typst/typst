@@ -12,8 +12,9 @@ use crate::text::TextElem;
 
 /// Aligns content horizontally and vertically.
 ///
-/// # Example
+/// = Example <example>
 /// Let's start with centering our content horizontally:
+///
 /// ```example
 /// #set page(height: 120pt)
 /// #set align(center)
@@ -25,6 +26,7 @@ use crate::text::TextElem;
 /// ```
 ///
 /// To center something vertically, use _horizon_ alignment:
+///
 /// ```example
 /// #set page(height: 120pt)
 /// #set align(horizon)
@@ -34,10 +36,11 @@ use crate::text::TextElem;
 /// a new paragraph.
 /// ```
 ///
-/// # Combining alignments
+/// = Combining alignments <combining-alignments>
 /// You can combine two alignments with the `+` operator. Let's also only apply
 /// this to one piece of content by using the function form instead of a set
 /// rule:
+///
 /// ```example
 /// #set page(height: 120pt)
 /// Though left in the beginning ...
@@ -49,7 +52,7 @@ use crate::text::TextElem;
 /// ]
 /// ```
 ///
-/// # Nested alignment
+/// = Nested alignment <nested-alignment>
 /// You can use varying alignments for layout containers and the elements within
 /// them. This way, you can create intricate layouts:
 ///
@@ -64,17 +67,17 @@ use crate::text::TextElem;
 /// ])
 /// ```
 ///
-/// # Alignment within the same line
+/// = Alignment within the same line <alignment-within-the-same-line>
 /// The `align` function performs block-level alignment and thus always
-/// interrupts the current paragraph. To have different alignment for parts
-/// of the same line, you should use [fractional spacing]($h) instead:
+/// interrupts the current paragraph. To have different alignment for parts of
+/// the same line, you should use @h[fractional spacing] instead:
 ///
 /// ```example
 /// Start #h(1fr) End
 /// ```
 #[elem]
 pub struct AlignElem {
-    /// The [alignment] along both axes.
+    /// The @alignment[alignment] along both axes.
     ///
     /// ```example
     /// #set page(height: 6cm)
@@ -99,10 +102,9 @@ pub struct AlignElem {
 /// Where to align something along an axis.
 ///
 /// Possible values are:
-/// - `start`: Aligns at the [start]($direction.start) of the [text
-///   direction]($text.dir).
-/// - `end`: Aligns at the [end]($direction.end) of the [text
-///   direction]($text.dir).
+/// - `start`: Aligns at the @direction.start[start] of the @text.dir[text
+///     direction].
+/// - `end`: Aligns at the @direction.end[end] of the @text.dir[text direction].
 /// - `left`: Align at the left.
 /// - `center`: Aligns in the middle, horizontally.
 /// - `right`: Aligns at the right.
@@ -118,7 +120,7 @@ pub struct AlignElem {
 /// #align(alignment.center)[Hi]
 /// ```
 ///
-/// # 2D alignments
+/// = 2D alignments <2d-alignments>
 /// To align along both axes at the same time, add the two alignments using the
 /// `+` operator. For example, `top + right` aligns the content to the top right
 /// corner.
@@ -128,7 +130,7 @@ pub struct AlignElem {
 /// #align(center + bottom)[Hi]
 /// ```
 ///
-/// # Fields
+/// = Fields <fields>
 /// The `x` and `y` fields hold the alignment's horizontal and vertical
 /// components, respectively (as yet another `alignment`). They may be `{none}`.
 ///

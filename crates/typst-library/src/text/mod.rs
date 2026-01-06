@@ -82,7 +82,7 @@ pub(super) fn define(global: &mut Scope) {
 /// the set rule is often the simpler choice, calling the `text` function
 /// directly can be useful when passing text as an argument to another function.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set text(18pt)
 /// With a set rule.
@@ -105,7 +105,7 @@ pub struct TextElem {
     ///     - `{"latin-in-cjk"}` covers all codepoints except for those which
     ///       exist in Latin fonts, but should preferably be taken from CJK
     ///       fonts.
-    ///   - A [regular expression]($regex) that defines exactly which codepoints
+    ///   - A @regex[regular expression] that defines exactly which codepoints
     ///     shall be covered. Accepts only the subset of regular expressions
     ///     which consist of exactly one dot, letter, or character class.
     ///
@@ -194,14 +194,14 @@ pub struct TextElem {
     ///
     /// When an italic style is requested and only an oblique one is available,
     /// it is used. Similarly, the other way around, an italic style can stand
-    /// in for an oblique one.  When neither an italic nor an oblique style is
+    /// in for an oblique one. When neither an italic nor an oblique style is
     /// available, Typst selects the normal style. Since most fonts are only
     /// available either in an italic or oblique style, the difference between
     /// italic and oblique style is rarely observable.
     ///
-    /// If you want to emphasize your text, you should do so using the [emph]
-    /// function instead. This makes it easy to adapt the style later if you
-    /// change your mind about how to signify the emphasis.
+    /// If you want to emphasize your text, you should do so using the
+    /// @emph[emph] function instead. This makes it easy to adapt the style
+    /// later if you change your mind about how to signify the emphasis.
     ///
     /// ```example
     /// #text(font: "Libertinus Serif", style: "italic")[Italic]
@@ -216,8 +216,8 @@ pub struct TextElem {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong] function instead. This makes it easy to adapt the style later
-    /// if you change your mind about how to signify the strong emphasis.
+    /// @strong[strong] function instead. This makes it easy to adapt the style
+    /// later if you change your mind about how to signify the strong emphasis.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Sans")
@@ -237,7 +237,7 @@ pub struct TextElem {
     /// the text if a condensed or expanded version of the font is available.
     ///
     /// If you want to adjust the amount of space between characters instead of
-    /// stretching the glyphs itself, use the [`tracking`]($text.tracking)
+    /// stretching the glyphs itself, use the @text.tracking[`tracking`]
     /// property instead.
     ///
     /// ```example
@@ -308,7 +308,7 @@ pub struct TextElem {
     /// the space character in the font.
     ///
     /// If you want to adjust the amount of space between characters rather than
-    /// words, use the [`tracking`]($text.tracking) property instead.
+    /// words, use the @text.tracking[`tracking`] property instead.
     ///
     /// ```example
     /// #set text(spacing: 200%)
@@ -318,7 +318,8 @@ pub struct TextElem {
     #[ghost]
     pub spacing: Rel<Length>,
 
-    /// Whether to automatically insert spacing between CJK and Latin characters.
+    /// Whether to automatically insert spacing between CJK and Latin
+    /// characters.
     ///
     /// ```example
     /// #set text(cjk-latin-spacing: auto)
@@ -395,13 +396,14 @@ pub struct TextElem {
     #[ghost]
     pub bottom_edge: BottomEdge,
 
-    /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
+    /// An
+    /// #link("https://en.wikipedia.org/wiki/ISO_639")[ISO 639-1/2/3 language code.]
     ///
     /// Setting the correct language affects various parts of Typst:
     ///
     /// - The text processing pipeline can make more informed choices.
     /// - Hyphenation will use the correct patterns for the language.
-    /// - [Smart quotes]($smartquote) turns into the correct quotes for the
+    /// - @smartquote[Smart quotes] turns into the correct quotes for the
     ///   language.
     /// - And all other things which are language-aware.
     ///
@@ -410,13 +412,14 @@ pub struct TextElem {
     /// language of the text. If your document is in another language than
     /// English (the default), you should set the text language at the start of
     /// your document, before any other content. You can, for example, put it
-    /// right after the `[#set document(/* ... */)]` rule that [sets your
-    /// document's title]($document.title).
+    /// right after the `[#set document(/* ... */)]` rule that
+    /// @document.title[sets your document's title].
     ///
     /// If your document contains passages in a different language than the main
-    /// language, you should locally change the text language just for those parts,
-    /// either with a set rule [scoped to a block]($scripting/#blocks) or using
-    /// a direct text function call such as `[#text(lang: "de")[...]]`.
+    /// language, you should locally change the text language just for those
+    /// parts, either with a set rule @reference:scripting:blocks[scoped to a
+    ///   block] or using a direct text function call such as
+    /// `[#text(lang: "de")[...]]`.
     ///
     /// If multiple codes are available for your language, you should prefer the
     /// two-letter code (ISO 639-1) over the three-letter codes (ISO 639-2/3).
@@ -426,25 +429,29 @@ pub struct TextElem {
     /// export.
     ///
     /// The language code is case-insensitive, and will be lowercased when
-    /// accessed through [context]($context).
+    /// accessed through @reference:context[context].
     ///
-    /// ```example:"Setting the text language to German"
-    /// #set text(lang: "de")
-    /// #outline()
+    /// #example(
+    ///   title: "Setting the text language to German",
+    ///   ```
+    ///   #set text(lang: "de")
+    ///   #outline()
     ///
-    /// = Einleitung
-    /// In diesem Dokument, ...
-    /// ```
+    ///   = Einleitung
+    ///   In diesem Dokument, ...
+    ///   ```
+    /// )
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
 
-    /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+    /// An
+    /// #link("https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2")[ISO 3166-1 alpha-2 region code.]
     ///
     /// This lets the text processing pipeline make more informed choices.
     ///
     /// The region code is case-insensitive, and will be uppercased when
-    /// accessed through [context]($context).
+    /// accessed through @reference:context[context].
     #[ghost]
     pub region: Option<Region>,
 
@@ -485,8 +492,8 @@ pub struct TextElem {
     /// - `{rtl}`: Layout text from right to left.
     ///
     /// When writing in right-to-left scripts like Arabic or Hebrew, you should
-    /// set the [text language]($text.lang) or direction. While individual runs
-    /// of text are automatically layouted in the correct direction, setting the
+    /// set the @text.lang[text language] or direction. While individual runs of
+    /// text are automatically layouted in the correct direction, setting the
     /// dominant direction gives the bidirectional reordering algorithm the
     /// necessary information to correctly place punctuation and inline objects.
     /// Furthermore, setting the direction affects the alignment values `start`
@@ -495,9 +502,9 @@ pub struct TextElem {
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
     /// output, please get in touch with us through the
-    /// [Forum](https://forum.typst.app/),
-    /// [Discord server](https://discord.gg/2uDybryKPe),
-    /// or our [contact form](https://typst.app/contact).
+    /// #link("https://forum.typst.app/")[Forum],
+    /// #link("https://discord.gg/2uDybryKPe")[Discord server], or our
+    /// #link("https://typst.app/contact")[contact form].
     ///
     /// ```example
     /// #set text(dir: rtl)
@@ -509,7 +516,7 @@ pub struct TextElem {
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
     ///
-    /// Setting the [text language]($text.lang) ensures that the correct
+    /// Setting the @text.lang[text language] ensures that the correct
     /// hyphenation patterns are used.
     ///
     /// ```example
@@ -543,8 +550,8 @@ pub struct TextElem {
     /// Hyphenation is generally avoided by placing the whole word on the next
     /// line, so a higher hyphenation cost can result in awkward justification
     /// spacing. Note: Hyphenation costs will only be applied when the
-    /// [`linebreaks`]($par.linebreaks) are set to "optimized". (For example
-    /// by default implied by [`justify`]($par.justify).)
+    /// @par.linebreaks[`linebreaks`] are set to "optimized". (For example by
+    /// default implied by @par.justify[`justify`].)
     ///
     /// Runts are avoided by placing more or fewer words on previous lines, so a
     /// higher runt cost can result in more awkward in justification spacing.
@@ -617,10 +624,10 @@ pub struct TextElem {
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
     /// you need to consult your font to know which sets are available.
     ///
-    /// This can be set to an integer or an array of integers, all
-    /// of which must be between `{1}` and `{20}`, enabling the
-    /// corresponding OpenType feature(s) from `ss01` to `ss20`.
-    /// Setting this to `{none}` will disable all stylistic sets.
+    /// This can be set to an integer or an array of integers, all of which must
+    /// be between `{1}` and `{20}`, enabling the corresponding OpenType
+    /// feature(s) from `ss01` to `ss20`. Setting this to `{none}` will disable
+    /// all stylistic sets.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Serif")
@@ -648,7 +655,7 @@ pub struct TextElem {
     /// Note that some programming fonts use other OpenType font features to
     /// implement "ligatures," including the contextual alternates (`calt`)
     /// feature, which is also enabled by default. Use the general
-    /// [`features`]($text.features) parameter to control such features.
+    /// @text.features[`features`] parameter to control such features.
     #[default(true)]
     #[ghost]
     pub ligatures: bool,
@@ -705,8 +712,8 @@ pub struct TextElem {
     #[ghost]
     pub slashed_zero: bool,
 
-    /// Whether to turn numbers into fractions. Setting this to `{true}`
-    /// enables the OpenType `frac` font feature.
+    /// Whether to turn numbers into fractions. Setting this to `{true}` enables
+    /// the OpenType `frac` font feature.
     ///
     /// It is not advisable to enable this property globally as it will mess
     /// with all appearances of numbers after a slash (e.g., in URLs). Instead,
@@ -724,23 +731,29 @@ pub struct TextElem {
     ///
     /// - If given an array of strings, sets the features identified by the
     ///   strings to `{1}`.
-    /// - If given a dictionary mapping to numbers, sets the features
-    ///   identified by the keys to the values. This allows interacting with
-    ///   non-boolean features such as `swsh`.
+    /// - If given a dictionary mapping to numbers, sets the features identified
+    ///   by the keys to the values. This allows interacting with non-boolean
+    ///   features such as `swsh`.
     ///
-    /// ```example:"Give an array of strings"
-    /// // Enable the `frac` feature manually.
-    /// #set text(features: ("frac",))
-    /// 1/2
-    /// ```
+    /// #example(
+    ///   title: "Give an array of strings",
+    ///   ```
+    ///   // Enable the `frac` feature manually.
+    ///   #set text(features: ("frac",))
+    ///   1/2
+    ///   ```
+    /// )
     ///
-    /// ```example:"Give a dictionary mapping to numbers"
-    /// #set text(font: "Cascadia Code")
-    /// =>
-    /// // Disable the contextual alternates (`calt`) feature.
-    /// #set text(features: (calt: 0))
-    /// =>
-    /// ```
+    /// #example(
+    ///   title: "Give a dictionary mapping to numbers",
+    ///   ```
+    ///   #set text(font: "Cascadia Code")
+    ///   =>
+    ///   // Disable the contextual alternates (`calt`) feature.
+    ///   #set text(features: (calt: 0))
+    ///   =>
+    ///   ```
+    /// )
     #[fold]
     #[ghost]
     pub features: FontFeatures,

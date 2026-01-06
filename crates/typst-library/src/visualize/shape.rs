@@ -5,7 +5,7 @@ use kurbo::{PathEl, Shape as _};
 
 /// A rectangle with optional content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Without content.
 /// #rect(width: 35%, height: 30pt)
@@ -41,7 +41,7 @@ pub struct RectElem {
     /// - `{auto}` for a stroke of `{1pt + black}` if and only if no fill is
     ///   given.
     ///
-    /// - Any kind of [stroke]
+    /// - Any kind of @stroke[stroke]
     ///
     /// - A dictionary describing the stroke for each side individually. The
     ///   dictionary can contain the following keys in order of precedence:
@@ -108,14 +108,14 @@ pub struct RectElem {
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the rectangle's content.
-    /// See the [box's documentation]($box.inset) for more details.
+    /// How much to pad the rectangle's content. See the @box.inset[box's
+    ///   documentation] for more details.
     #[fold]
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the rectangle's size without affecting the layout.
-    /// See the [box's documentation]($box.outset) for more details.
+    /// See the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -129,7 +129,7 @@ pub struct RectElem {
 
 /// A square with optional content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Without content.
 /// #square(size: 40pt)
@@ -170,28 +170,28 @@ pub struct SquareElem {
     })]
     pub height: Sizing,
 
-    /// How to fill the square. See the [rectangle's documentation]($rect.fill)
+    /// How to fill the square. See the @rect.fill[rectangle's documentation]
     /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the square. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// How to stroke the square. See the @rect.stroke[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub stroke: Smart<Sides<Option<Option<Stroke>>>>,
 
-    /// How much to round the square's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// How much to round the square's corners. See the @rect.radius[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the square's content. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// How much to pad the square's content. See the @box.inset[box's
+    ///   documentation] for more details.
     #[fold]
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the square's size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
+    /// the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -206,7 +206,7 @@ pub struct SquareElem {
 
 /// An ellipse with optional content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Without content.
 /// #ellipse(width: 35%, height: 30pt)
@@ -226,23 +226,23 @@ pub struct EllipseElem {
     /// The ellipse's height, relative to its parent container.
     pub height: Sizing,
 
-    /// How to fill the ellipse. See the [rectangle's documentation]($rect.fill)
+    /// How to fill the ellipse. See the @rect.fill[rectangle's documentation]
     /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the ellipse. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// How to stroke the ellipse. See the @rect.stroke[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// How much to pad the ellipse's content. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// How much to pad the ellipse's content. See the @box.inset[box's
+    ///   documentation] for more details.
     #[fold]
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the ellipse's size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
+    /// the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -256,7 +256,7 @@ pub struct EllipseElem {
 
 /// A circle with optional content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Without content.
 /// #circle(radius: 25pt)
@@ -302,24 +302,24 @@ pub struct CircleElem {
     })]
     pub height: Sizing,
 
-    /// How to fill the circle. See the [rectangle's documentation]($rect.fill)
+    /// How to fill the circle. See the @rect.fill[rectangle's documentation]
     /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the circle. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// How to stroke the circle. See the @rect.stroke[rectangle's
+    ///   documentation] for more details.
     #[fold]
     #[default(Smart::Auto)]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// How much to pad the circle's content. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// How much to pad the circle's content. See the @box.inset[box's
+    ///   documentation] for more details.
     #[fold]
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the circle's size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
+    /// the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 

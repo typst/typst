@@ -9,16 +9,16 @@ use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 /// remaining space on the line is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// First #h(1cm) Second \
 /// First #h(30%) Second
 /// ```
 ///
-/// # Fractional spacing
+/// = Fractional spacing <fractional-spacing>
 /// With fractional spacing, you can align things within a line without forcing
-/// a paragraph break (like [`align`] would). Each fractionally sized element
-/// gets space based on the ratio of its fraction to the sum of all fractions.
+/// a paragraph break (like @align would). Each fractionally sized element gets
+/// space based on the ratio of its fraction to the sum of all fractions.
 ///
 /// ```example
 /// First #h(1fr) Second \
@@ -26,10 +26,10 @@ use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 /// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
-/// # Mathematical Spacing { #math-spacing }
-/// In [mathematical formulas]($category/math), you can additionally use these
-/// constants to add spacing between elements: `thin` (1/6 em), `med` (2/9 em),
-/// `thick` (5/18 em), `quad` (1 em), `wide` (2 em).
+/// = Mathematical Spacing <math-spacing>
+/// In @math[mathematical formulas], you can additionally use these constants to
+/// add spacing between elements: `thin` (1/6 em), `med` (2/9 em), `thick`
+/// (5/18 em), `quad` (1 em), `wide` (2 em).
 #[elem(title = "Spacing (H)")]
 pub struct HElem {
     /// How much spacing to insert.
@@ -74,11 +74,11 @@ impl HElem {
 
 /// Inserts vertical spacing into a flow of blocks.
 ///
-/// The spacing can be absolute, relative, or fractional. In the last case,
-/// the remaining space on the page is distributed among all fractional spacings
+/// The spacing can be absolute, relative, or fractional. In the last case, the
+/// remaining space on the page is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #grid(
 ///   rows: 3cm,

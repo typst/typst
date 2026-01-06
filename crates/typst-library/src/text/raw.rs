@@ -36,10 +36,10 @@ use crate::visualize::Color;
 /// Note that text given to this element cannot contain arbitrary formatting,
 /// such as `[*strong*]` or `[_emphasis_]`, as it is displayed verbatim. If
 /// you'd like to display any kind of content with a monospace font, instead of
-/// using [`raw`], you should change its font to a monospace font using the
-/// [`text`]($text) function.
+/// using @raw, you should change its font to a monospace font using the @text
+/// function.
 ///
-/// # Example
+/// = Example <example>
 /// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
@@ -59,13 +59,14 @@ use crate::visualize::Color;
 /// also trimmed.
 /// ````
 ///
-/// You can also construct a [`raw`] element programmatically from a string (and
-/// provide the language tag via the optional [`lang`]($raw.lang) argument).
+/// You can also construct a @raw element programmatically from a string (and
+/// provide the language tag via the optional @raw.lang[`lang`] argument).
+///
 /// ```example
 /// #raw("fn " + "main() {}", lang: "rust")
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (``` ` ```) to make it raw. Two backticks produce empty raw text.
 /// This works both in markup and code.
@@ -83,13 +84,13 @@ use crate::visualize::Color;
 ///
 /// If no syntax highlighting is available by default for your specified
 /// language tag (or if you want to override the built-in definition), you may
-/// provide a custom syntax specification file to the
-/// [`syntaxes`]($raw.syntaxes) field.
+/// provide a custom syntax specification file to the @raw.syntaxes[`syntaxes`]
+/// field.
 ///
-/// # Styling
+/// = Styling <styling>
 /// By default, the `raw` element uses the `DejaVu Sans Mono` font (included
-/// with Typst), with a smaller font size of `{0.8em}` (that is, 80% of
-/// the global font size). This is because monospace fonts tend to be visually
+/// with Typst), with a smaller font size of `{0.8em}` (that is, 80% of the
+/// global font size). This is because monospace fonts tend to be visually
 /// larger than non-monospace fonts.
 ///
 /// You can customize these properties with show-set rules:
@@ -112,17 +113,16 @@ use crate::visualize::Color;
 /// ```
 /// ````
 ///
-/// In addition, you can customize the syntax highlighting colors by setting
-/// a custom theme through the [`theme`]($raw.theme) field.
+/// In addition, you can customize the syntax highlighting colors by setting a
+/// custom theme through the @raw.theme[`theme`] field.
 ///
-/// For complete customization of the appearance of a raw block, a show rule
-/// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
+/// For complete customization of the appearance of a raw block, a show rule on
+/// @raw.line could be helpful, such as to add line numbers.
 ///
 /// Note that, in raw text, typesetting features like
-/// [hyphenation]($text.hyphenate), [overhang]($text.overhang),
-/// [CJK-Latin spacing]($text.cjk-latin-spacing) (and
-/// [justification]($par.justify) for [raw blocks]($raw.block)) will be
-/// disabled by default.
+/// @text.hyphenate[hyphenation], @text.overhang[overhang],
+/// @text.cjk-latin-spacing[CJK-Latin spacing] (and @par.justify[justification]
+/// for @raw.block[raw blocks]) will be disabled by default.
 #[elem(
     scope,
     title = "Raw Text / Code",
@@ -140,28 +140,31 @@ pub struct RawElem {
     /// You can also use raw blocks creatively to create custom syntaxes for
     /// your automations.
     ///
-    /// ````example:"Implementing a DSL using raw and show rules"
-    /// // Parse numbers in raw blocks with the
-    /// // `mydsl` tag and sum them up.
-    /// #show raw.where(lang: "mydsl"): it => {
-    ///   let sum = 0
-    ///   for part in it.text.split("+") {
-    ///     sum += int(part.trim())
+    /// #example(
+    ///   title: "Implementing a DSL using raw and show rules",
+    ///   ````
+    ///   // Parse numbers in raw blocks with the
+    ///   // `mydsl` tag and sum them up.
+    ///   #show raw.where(lang: "mydsl"): it => {
+    ///     let sum = 0
+    ///     for part in it.text.split("+") {
+    ///       sum += int(part.trim())
+    ///     }
+    ///     sum
     ///   }
-    ///   sum
-    /// }
     ///
-    /// ```mydsl
-    /// 1 + 2 + 3 + 4 + 5
-    /// ```
-    /// ````
+    ///   ```mydsl
+    ///   1 + 2 + 3 + 4 + 5
+    ///   ```
+    ///   ````
+    /// )
     #[required]
     pub text: RawContent,
 
     /// Whether the raw text is displayed as a separate block.
     ///
-    /// In markup mode, using one-backtick notation makes this `{false}`.
-    /// Using three-backtick notation makes it `{true}` if the enclosed content
+    /// In markup mode, using one-backtick notation makes this `{false}`. Using
+    /// three-backtick notation makes it `{true}` if the enclosed content
     /// contains at least one line break.
     ///
     /// ````example
@@ -196,9 +199,9 @@ pub struct RawElem {
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
-    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for [Typst
-    /// markup]($syntax/#markup), [Typst code]($syntax/#code), and [Typst
-    /// math]($syntax/#math), respectively.
+    /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for
+    /// @reference:syntax:markup[Typst markup], @reference:syntax:code[Typst
+    ///   code], and @reference:syntax:math[Typst math], respectively.
     ///
     /// ````example
     /// ```typ
@@ -209,15 +212,14 @@ pub struct RawElem {
     /// ````
     pub lang: Option<EcoString>,
 
-    /// The horizontal alignment that each line in a raw block should have.
-    /// This option is ignored if this is not a raw block (if specified
+    /// The horizontal alignment that each line in a raw block should have. This
+    /// option is ignored if this is not a raw block (if specified
     /// `block: false` or single backticks were used in markup mode).
     ///
-    /// By default, this is set to `{start}`, meaning that raw text is
-    /// aligned towards the start of the text direction inside the block
-    /// by default, regardless of the current context's alignment (allowing
-    /// you to center the raw block itself without centering the text inside
-    /// it, for example).
+    /// By default, this is set to `{start}`, meaning that raw text is aligned
+    /// towards the start of the text direction inside the block by default,
+    /// regardless of the current context's alignment (allowing you to center
+    /// the raw block itself without centering the text inside it, for example).
     ///
     /// ````example
     /// #set raw(align: center)
@@ -231,11 +233,12 @@ pub struct RawElem {
     pub align: HAlignment,
 
     /// Additional syntax definitions to load. The syntax definitions should be
-    /// in the [`sublime-syntax` file format](https://www.sublimetext.com/docs/syntax.html).
+    /// in the
+    /// #link("https://www.sublimetext.com/docs/syntax.html")[`sublime-syntax` file format].
     ///
     /// You can pass any of the following values:
     ///
-    /// - A path string or [`path`] to load a syntax file from.
+    /// - A path string or @path to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
     ///
@@ -258,21 +261,21 @@ pub struct RawElem {
     pub syntaxes: Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>,
 
     /// The theme to use for syntax highlighting. Themes should be in the
-    /// [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
+    /// #link("https://www.sublimetext.com/docs/color_schemes_tmtheme.html")[`tmTheme` file format].
     ///
     /// You can pass any of the following values:
     ///
     /// - `{none}`: Disables syntax highlighting.
     /// - `{auto}`: Highlights with Typst's default theme.
-    /// - A path string or [`path`] to load a theme file from.
+    /// - A path string or @path to load a theme file from.
     /// - Raw bytes from which the theme should be decoded.
     ///
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
     /// properties, so that you retain control over the color of raw text. You
-    /// can apply the foreground color yourself with the [`text`] function and
-    /// the background with a [filled block]($block.fill). You could also use
-    /// the [`xml`] function to extract these properties from the theme.
+    /// can apply the foreground color yourself with the @text function and the
+    /// background with a @block.fill[filled block]. You could also use the @xml
+    /// function to extract these properties from the theme.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
@@ -298,8 +301,8 @@ pub struct RawElem {
     })]
     pub theme: Smart<Option<Derived<DataSource, RawTheme>>>,
 
-    /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
-    /// align with the next multiple of the size.
+    /// The size for a tab stop in spaces. A tab is replaced with enough spaces
+    /// to align with the next multiple of the size.
     ///
     /// ````example
     /// #set raw(tab-size: 8)
@@ -315,8 +318,8 @@ pub struct RawElem {
 
     /// The stylized lines of raw text.
     ///
-    /// Made accessible for the [`raw.line` element]($raw.line).
-    /// Allows more styling control in `show` rules.
+    /// Made accessible for the @raw.line[`raw.line` element]. Allows more
+    /// styling control in `show` rules.
     #[synthesized]
     pub lines: Vec<Packed<RawLine>>,
 }
@@ -667,7 +670,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 
 /// A highlighted line of raw text.
 ///
-/// This is a helper element that is synthesized by [`raw`] elements.
+/// This is a helper element that is synthesized by @raw elements.
 ///
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
