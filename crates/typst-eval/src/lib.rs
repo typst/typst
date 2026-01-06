@@ -30,7 +30,7 @@ use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
-use typst_library::routines::Routines;
+use typst_library::routines::{Routines, SpanMode};
 use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
 use typst_utils::Protected;
 
@@ -89,9 +89,8 @@ pub fn eval(
     Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }
 
-/// Evaluate a string as code and return the resulting value.
-///
-/// Everything in the output is associated with the given `span`.
+/// Evaluates a string in the given syntax `mode` and returns the resulting
+/// value.
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 pub fn eval_string(
@@ -101,7 +100,7 @@ pub fn eval_string(
     introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
     string: &str,
-    span: Span,
+    spans: SpanMode,
     mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
@@ -111,7 +110,15 @@ pub fn eval_string(
         SyntaxMode::Math => parse_math(string),
     };
 
-    root.synthesize(span);
+    match spans {
+        SpanMode::Uniform(span) => root.synthesize(span),
+        SpanMode::Mapped { id, mapper } => {
+            root.synthesize_with(|range| match mapper.map(range) {
+                Some(mapped) => Span::from_range(id, mapped),
+                None => Span::detached(),
+            });
+        }
+    }
 
     // Check for well-formedness.
     let errors = root.errors();
@@ -141,12 +148,18 @@ pub fn eval_string(
         SyntaxMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        SyntaxMode::Math => Value::Content(
-            EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-                .with_block(false)
-                .pack()
-                .spanned(span),
-        ),
+        SyntaxMode::Math => {
+            let span = match spans {
+                SpanMode::Uniform(span) => span,
+                SpanMode::Mapped { .. } => Span::detached(),
+            };
+            Value::Content(
+                EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
+                    .with_block(false)
+                    .pack()
+                    .spanned(span),
+            )
+        }
     };
 
     // Handle control flow.

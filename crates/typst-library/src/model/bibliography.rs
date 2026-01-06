@@ -39,7 +39,7 @@ use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
     LinkElem, Url,
 };
-use crate::routines::Routines;
+use crate::routines::{Routines, SpanMode};
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
 
 /// A bibliography / reference listing.
@@ -1061,7 +1061,7 @@ impl ElemRenderer<'_> {
             EmptyIntrospector.track(),
             Context::none().track(),
             math,
-            self.span,
+            SpanMode::Uniform(self.span),
             SyntaxMode::Math,
             Scope::new(),
         )
