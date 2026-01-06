@@ -65,6 +65,7 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
+    #[fold]
     pub attrs: HtmlAttrs,
 
     /// The contents of the HTML element.
