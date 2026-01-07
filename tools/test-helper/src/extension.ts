@@ -407,7 +407,7 @@ enum Format {
 const FORMAT_TO_FILE_EXTENSION = {
   [Format.HTML]: "html",
   [Format.RENDER]: "png",
-  [Format.PDFTAGS]: "yml"
+  [Format.PDFTAGS]: "yml",
 };
 
 function getUri(name: string, bucket: Bucket, format: Format) {
@@ -546,7 +546,11 @@ async function getWebviewContent(
     <body>
       ${showRender ? renderSection(panel, name) : ""}
       ${showHtml ? await textSection(name, Format.HTML, htmlSnippet) : ""}
-      ${showPdftags ? await textSection(name, Format.PDFTAGS, pdftagsSnippet): ""}
+      ${
+        showPdftags
+          ? await textSection(name, Format.PDFTAGS, pdftagsSnippet)
+          : ""
+      }
       ${stdout}
       ${stderr}
     </body>
@@ -587,7 +591,8 @@ type ColumnSuffix = "Output" | "Reference";
 async function textSection(
   name: string,
   format: Format.HTML | Format.PDFTAGS,
-  makeSnippet: (suffix: ColumnSuffix, uri: vscode.Uri) => Promise<string>) {
+  makeSnippet: (suffix: ColumnSuffix, uri: vscode.Uri) => Promise<string>
+) {
   const store = await makeSnippet("Output", getUri(name, "store", format));
   const ref = await makeSnippet("Reference", getUri(name, "ref", format));
   return `<div
@@ -600,7 +605,9 @@ async function textSection(
 }
 
 async function htmlSnippet(
-  suffix: ColumnSuffix, uri: vscode.Uri): Promise<string> {
+  suffix: ColumnSuffix,
+  uri: vscode.Uri
+): Promise<string> {
   const title = `HTML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
@@ -618,7 +625,9 @@ async function htmlSnippet(
 }
 
 async function pdftagsSnippet(
-  suffix: ColumnSuffix, uri: vscode.Uri): Promise<string> {
+  suffix: ColumnSuffix,
+  uri: vscode.Uri
+): Promise<string> {
   const title = `PdfTags YAML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
@@ -639,7 +648,7 @@ function linkedTitle(title: string, uri: vscode.Uri) {
 }
 
 async function highlight(code: string, lang: string): Promise<string> {
-  return (await shiki).codeToHtml(code, {lang, theme: selectTheme()});
+  return (await shiki).codeToHtml(code, { lang, theme: selectTheme() });
 }
 
 function selectTheme() {
