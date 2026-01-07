@@ -479,8 +479,8 @@ fn spacing(
     }
 }
 
-/// A wrapper around [`Vec<MathFragment>`] that ignores [`MathFragment::Tag`]s
-/// in some access methods.
+/// A wrapper around [`Vec<MathFragment>`] that ignores ignorant fragments in
+/// some access methods.
 struct MathBuffer(Vec<MathFragment>);
 
 impl MathBuffer {
@@ -488,14 +488,14 @@ impl MathBuffer {
         Self(vec![])
     }
 
-    /// Returns a mutable reference to the last non-Tag fragment.
+    /// Returns a mutable reference to the last non-ignorant fragment.
     fn last_mut(&mut self) -> Option<&mut MathFragment> {
-        self.0.iter_mut().rev().find(|f| !matches!(f, MathFragment::Tag(_)))
+        self.0.iter_mut().rev().find(|f| !f.is_ignorant())
     }
 
-    /// Returns the physical index of the last non-Tag fragment.
+    /// Returns the physical index of the last non-ignorant fragment.
     fn last_index(&self) -> Option<usize> {
-        self.0.iter().rposition(|f| !matches!(f, MathFragment::Tag(_)))
+        self.0.iter().rposition(|f| !f.is_ignorant())
     }
 }
 
