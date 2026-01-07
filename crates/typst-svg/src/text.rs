@@ -33,7 +33,6 @@ impl SVGRenderer<'_> {
         text: &TextItem,
     ) {
         let svg = &mut svg.elem("g");
-        svg.attr("class", "typst-text");
 
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
@@ -186,8 +185,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "glyph");
-
         let glyphs = std::mem::take(&mut self.glyphs);
         for (id, glyph) in glyphs.iter() {
             let Some(glyph) = glyph else { continue };

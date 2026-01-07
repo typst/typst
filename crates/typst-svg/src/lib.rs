@@ -71,7 +71,6 @@ pub fn svg_html_frame(
         if let Some(id) = id {
             svg.attr("id", id);
         }
-        svg.attr("class", "typst-frame");
         svg.attr_with("style", |attr| {
             // TODO: Maybe make this a little more elegant?
             attr.push_str("overflow: visible; width: ");
@@ -363,8 +362,6 @@ impl<'a> SVGRenderer<'a> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "clip-path");
-
         for (id, path) in self.clip_paths.iter() {
             defs.elem("clipPath").attr("id", id).with(|svg| {
                 svg.elem("path").attr("d", path);
@@ -376,9 +373,7 @@ impl<'a> SVGRenderer<'a> {
 /// Write the default SVG header, including a `typst-doc` class, the
 /// `viewBox` and `width` and `height` attributes.
 fn svg_header(xml: &mut XmlWriter, size: Size) -> SvgElem<'_> {
-    svg_header_with_custom_attrs(xml, size, |svg| {
-        svg.attr("class", "typst-doc");
-    })
+    svg_header_with_custom_attrs(xml, size, |_| {})
 }
 
 /// Write the SVG header with additional attributes and standard attributes.

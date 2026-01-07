@@ -108,8 +108,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "gradients");
-
         for (id, (gradient, ratio)) in self.gradients.iter() {
             let mut svg = match &gradient {
                 Gradient::Linear(linear) => {
@@ -262,7 +260,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "subgradients");
         for (id, gradient) in self.conic_subgradients.iter() {
             let x1 = 2.0 - gradient.t0.cos() + gradient.center.x.get();
             let y1 = gradient.t0.sin() + gradient.center.y.get();
@@ -294,7 +291,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "gradient-refs");
         for (id, gradient_ref) in self.gradient_refs.iter() {
             let (elem_name, transform_name) = match gradient_ref.kind {
                 GradientKind::Linear => ("linearGradient", "gradientTransform"),
@@ -318,8 +314,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "tilings");
-
         for (id, tiling) in
             self.tilings.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
@@ -347,7 +341,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        defs.attr("id", "tilings-refs");
         for (id, tiling_ref) in self.tiling_refs.iter() {
             defs.elem("pattern")
                 .attr("patternTransform", SvgTransform(tiling_ref.transform))

@@ -17,7 +17,6 @@ impl SVGRenderer<'_> {
         shape: &Shape,
     ) {
         let svg = &mut svg.elem("path");
-        svg.attr("class", "typst-shape");
 
         if let Some(paint) = &shape.fill {
             self.write_fill(
