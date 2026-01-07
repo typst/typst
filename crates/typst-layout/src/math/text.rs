@@ -89,6 +89,7 @@ fn layout_inline_text(
         let local = [
             TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
             TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+            TextElem::overhang.set(false),
         ]
         .map(|p| p.wrap());
 
