@@ -68,6 +68,14 @@ $ "abc" &= c \
   $,
 )
 
+--- math-align-spacing-ignorant paged ---
+// Test how ignorant content affects spacing around alignment points.
+#let p = place[]
+$
+  a + & b + & c & e &    + d \
+  a + &     & c &   & #p + d
+$
+
 --- math-attach-subscript-multiline paged ---
 // Test multiline subscript.
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $

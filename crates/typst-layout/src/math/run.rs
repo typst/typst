@@ -103,13 +103,13 @@ impl MathRun {
                 if let Some(i) = last
                     && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
                 {
-                    let idx = if matches!(resolved.last(), Some(MathFragment::Align)) {
-                        // Only one alignment point should be skipped when
-                        // inserting spacing.
-                        resolved.last_index().unwrap()
-                    } else {
-                        i + 1
-                    };
+                    // Only one alignment point should be skipped when inserting
+                    // spacing.
+                    let idx = resolved
+                        .last_index()
+                        .filter(|&k| matches!(resolved[k], MathFragment::Align))
+                        .unwrap_or(i + 1);
+
                     resolved.insert(idx, s);
                 }
 
@@ -488,11 +488,6 @@ impl MathBuffer {
         Self(vec![])
     }
 
-    /// Returns a reference to the last non-Tag fragment.
-    fn last(&self) -> Option<&MathFragment> {
-        self.0.iter().rev().find(|f| !matches!(f, MathFragment::Tag(_)))
-    }
-
     /// Returns a mutable reference to the last non-Tag fragment.
     fn last_mut(&mut self) -> Option<&mut MathFragment> {
         self.0.iter_mut().rev().find(|f| !matches!(f, MathFragment::Tag(_)))
@@ -506,6 +501,7 @@ impl MathBuffer {
 
 impl Deref for MathBuffer {
     type Target = Vec<MathFragment>;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }
