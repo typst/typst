@@ -755,7 +755,7 @@ fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
         // If this is a fragment realization and all we've got is phrasing
         // content, don't turn it into a paragraph.
-        if is_fully_phrasing(s) {
+        if is_fully_inline(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
             s.groupings.pop();
             collapse_spaces(&mut s.sink, 0);
@@ -782,7 +782,7 @@ fn finish_interrupted(s: &mut State, local: &Styles) -> SourceResult<()> {
         }
         finish_grouping_while(s, |s| {
             s.groupings.iter().any(|grouping| (grouping.rule.interrupt)(elem))
-                && if is_fully_phrasing(s) {
+                && if is_fully_inline(s) {
                     s.groupings[0].interrupted = true;
                     false
                 } else {
@@ -956,7 +956,7 @@ static TEXTUAL: GroupingRule = GroupingRule {
     finish: finish_textual,
 };
 
-/// Collects phrasing-level elements into a `ParElem`.
+/// Collects inline-level elements into a `ParElem`.
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
@@ -1062,7 +1062,7 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
 /// spans the whole sink (with the exception of leading tags).
-fn is_fully_phrasing(s: &State) -> bool {
+fn is_fully_inline(s: &State) -> bool {
     s.kind.is_fragment()
         && !s.saw_parbreak
         && match s.groupings.as_slice() {
@@ -1074,7 +1074,7 @@ fn is_fully_phrasing(s: &State) -> bool {
         }
 }
 
-/// Builds the `ParElem` from phrasing-level elements.
+/// Builds the `ParElem` from inline-level elements.
 fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     // Collapse unsupported spaces in-place.
     let (sink, start) = grouped.get_mut();
