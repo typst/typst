@@ -120,15 +120,15 @@ pub enum RealizationKind<'a> {
     /// This the root realization for HTML. Requires a mutable reference to
     /// document metadata that will be filled from `set document` rules.
     ///
-    /// The `is_inline` function checks whether content consists of an inline
-    /// HTML element. It's used by the `PAR` grouping rules. This is slightly
-    /// hacky and might be replaced by a mechanism to supply the grouping rules
-    /// as a realization user.
-    HtmlDocument { info: &'a mut DocumentInfo, is_inline: fn(&Content) -> bool },
+    /// The `is_phrasing` function checks whether content consists of a
+    /// "phrasing content" HTML element. It's used by the `PAR` grouping rules.
+    /// This is slightly hacky and might be replaced by a mechanism to supply
+    /// the grouping rules as a realization user.
+    HtmlDocument { info: &'a mut DocumentInfo, is_phrasing: fn(&Content) -> bool },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    HtmlFragment { kind: &'a mut FragmentKind, is_inline: fn(&Content) -> bool },
+    HtmlFragment { kind: &'a mut FragmentKind, is_phrasing: fn(&Content) -> bool },
     /// A realization within math.
     Math,
 }

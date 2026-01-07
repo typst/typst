@@ -753,7 +753,7 @@ fn visit_filter_rules<'a>(
 /// Finishes all grouping.
 fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
-        // If this is a fragment realization and all we've got is inline
+        // If this is a fragment realization and all we've got is phrasing
         // content, don't turn it into a paragraph.
         if is_fully_inline(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
@@ -969,8 +969,10 @@ static PAR: GroupingRule = GroupingRule {
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
             || match state.kind {
-                RealizationKind::HtmlDocument { is_inline, .. }
-                | RealizationKind::HtmlFragment { is_inline, .. } => is_inline(content),
+                RealizationKind::HtmlDocument { is_phrasing, .. }
+                | RealizationKind::HtmlFragment { is_phrasing, .. } => {
+                    is_phrasing(content)
+                }
                 _ => false,
             }
     },
