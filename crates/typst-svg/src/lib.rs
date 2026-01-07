@@ -21,17 +21,23 @@ use typst_library::layout::{
     Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
-use xmlwriter::{Options, XmlWriter};
+use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
 
+const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
+    use_single_quote: false,
+    indent: xmlwriter::Indent::Spaces(2),
+    attributes_indent: xmlwriter::Indent::None,
+};
+
 /// Export a frame into a SVG file.
 #[typst_macros::time(name = "svg")]
 pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(Options::default());
+    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, page.frame.size());
 
     let state = State::new(page.frame.size());
@@ -44,7 +50,7 @@ pub fn svg(page: &Page) -> String {
 #[typst_macros::time(name = "svg frame")]
 pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(Options::default());
+    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, frame.size());
 
     let state = State::new(frame.size());
@@ -65,7 +71,7 @@ pub fn svg_html_frame(
     let mut renderer = SVGRenderer::with_options(Some(introspector));
     let mut xml = XmlWriter::new(xmlwriter::Options {
         indent: xmlwriter::Indent::None,
-        ..Default::default()
+        ..XML_WRITE_OPTIONS
     });
     let mut svg = svg_header_with_custom_attrs(&mut xml, frame.size(), |svg| {
         if let Some(id) = id {
@@ -106,7 +112,7 @@ pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
         + document.pages.iter().map(|page| page.frame.height()).sum::<Abs>();
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(Options::default());
+    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, Size::new(width, height));
 
     let mut y = Abs::zero();
