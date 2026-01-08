@@ -287,7 +287,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.composer
                 .footnotes(&self.regions, &frame, Abs::zero(), false, true)?;
             self.flush_tags();
-            self.items.push(Item::Fr(fr, 5, Some(single)));
+            self.items.push(Item::Fr(fr, 0, Some(single)));
             return Ok(());
         }
 
