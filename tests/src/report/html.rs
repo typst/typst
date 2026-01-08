@@ -6,7 +6,9 @@ use rustc_hash::FxHashMap;
 use xmlwriter::XmlWriter;
 
 use crate::report::html::icons::SvgIcon;
-use crate::report::{DiffKind, ImageFileDiff, Line, TestReport, TextFileDiff, TextSpan};
+use crate::report::{
+    DiffKind, File, FileDiff, FileReport, Image, Line, Lines, TestReport, TextSpan,
+};
 
 use super::LineKind;
 
@@ -307,65 +309,39 @@ fn write_reports(body: &mut HtmlElem, reports: Vec<TestReport>) {
             div.h2().class("diff-container-header").text("Changes");
 
             let mut num_image_diffs = 0;
-            for report in reports.iter() {
-                for (i, diff) in report.diffs.iter().enumerate() {
-                    let file_diff_id = (i == 0).then_some(&report.name);
-                    let close_by_default = match diff {
-                        DiffKind::Text(diff) => {
-                            let sum_text_len = |lines: &[Line]| {
-                                lines
-                                    .iter()
-                                    .map(|l| {
-                                        l.spans
-                                            .iter()
-                                            .map(|s| s.text.len())
-                                            .sum::<usize>()
-                                    })
-                                    .sum::<usize>()
-                            };
-                            diff.left.lines.len() > 100
-                                || sum_text_len(&diff.left.lines) > 1000
-                                || sum_text_len(&diff.right.lines) > 1000
-                        }
-                        DiffKind::Image(_) => false,
-                    };
-                    div.div().class("file-diff").opt_attr("id", file_diff_id).with(
-                        |div| {
-                            div.details().open(!close_by_default).with(|details| {
-                                details.summary().class("diff-summary").with(|summary| {
-                                    summary.h1().class("diff-header").with(|h1| {
-                                        h1.div().class("diff-header-split").with(|div| {
-                                            div.a()
-                                                .href(display!(
-                                                    "../../{}",
-                                                    diff.left_path()
-                                                ))
-                                                .text(diff.left_path());
-                                        });
-                                        h1.div().class("diff-header-split").with(|div| {
-                                            div.a()
-                                                .href(display!(
-                                                    "../../{}",
-                                                    diff.right_path()
-                                                ))
-                                                .text(diff.right_path());
-                                        });
-                                    });
-                                    summary.div().class("diff-spacer");
-                                });
+            for test_report in reports.iter() {
+                for (i, file_report) in test_report.files.iter().enumerate() {
+                    let file_diff_id = (i == 0).then_some(&test_report.name);
+                    for diff in file_report.diffs.iter() {
+                        let close_by_default = match diff {
+                            DiffKind::Text(diff) => is_large_text_diff(diff),
+                            DiffKind::Image(_) => false,
+                        };
 
-                                match diff {
-                                    DiffKind::Text(diff) => {
-                                        text_diff(details, diff);
+                        div.div()
+                            // TODO: Allow filtering diffs based on:
+                            // - image/text diff
+                            // - output type
+                            .class(display!("file-diff file-diff-{}", file_report.output))
+                            .opt_attr("id", file_diff_id)
+                            .with(|div| {
+                                div.details().open(!close_by_default).with(|details| {
+                                    details.summary().class("diff-summary").with(
+                                        |summary| diff_header(summary, file_report),
+                                    );
+
+                                    match diff {
+                                        DiffKind::Text(diff) => {
+                                            text_diff(details, diff);
+                                        }
+                                        DiffKind::Image(diff) => {
+                                            image_diff(details, diff, num_image_diffs);
+                                            num_image_diffs += 1;
+                                        }
                                     }
-                                    DiffKind::Image(diff) => {
-                                        image_diff(details, diff, num_image_diffs);
-                                        num_image_diffs += 1;
-                                    }
-                                }
+                                });
                             });
-                        },
-                    );
+                    }
                 }
             }
 
@@ -378,7 +354,65 @@ fn write_reports(body: &mut HtmlElem, reports: Vec<TestReport>) {
     })
 }
 
-fn text_diff(parent: &mut HtmlElem, diff: &TextFileDiff) {
+fn is_large_text_diff(diff: &FileDiff<Lines>) -> bool {
+    let is_large = |lines: Option<&Lines>| {
+        let Some(lines) = lines else { return false };
+
+        if lines.lines.len() > 100 {
+            return true;
+        }
+
+        let text_size = lines
+            .lines
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.text.len()).sum::<usize>())
+            .sum::<usize>();
+        text_size > 1000
+    };
+
+    is_large(diff.left().and_then(|o| o.data()))
+        || is_large(diff.right().and_then(|r| r.as_ref().ok()))
+}
+
+fn diff_header(summary: &mut HtmlElem, file_report: &FileReport) {
+    summary.h1().class("diff-header").with(|h1| {
+        h1.div().class("diff-header-split").with(|div| {
+            file_header(div, &file_report.left);
+        });
+        h1.div().class("diff-header-split").with(|div| {
+            file_header(div, &file_report.right);
+        });
+    });
+    summary.div().class("diff-spacer");
+}
+
+fn file_header(div: &mut HtmlElem, file: &Option<File>) {
+    div.a()
+        .href(typst_utils::display(|f| {
+            if let Some(file) = file {
+                write!(f, "../../{}", file.path)?;
+            }
+            Ok(())
+        }))
+        .text_opt(file.as_ref().map(|file| {
+            typst_utils::display(|f| {
+                write!(f, "{} (", file.path)?;
+                if let Some(size) = file.size {
+                    let size = size.get();
+                    match size {
+                        ..1000 => write!(f, "{}b", size),
+                        ..1000_000 => write!(f, "{}kb", round::<1>(size as f64 / 1000.0)),
+                        _ => write!(f, "{}mb", round::<1>(size as f64 / 1000_000.0)),
+                    }?;
+                } else {
+                    f.write_str("missing")?;
+                }
+                f.write_str(")")
+            })
+        }));
+}
+
+fn text_diff(parent: &mut HtmlElem, diff: &FileDiff<Lines>) {
     parent.table().class("text-diff").with(|table| {
         table.colgroup().with(|colgroup| {
             colgroup.col().span(1).class("col-line-gutter");
@@ -387,17 +421,38 @@ fn text_diff(parent: &mut HtmlElem, diff: &TextFileDiff) {
             colgroup.col().span(1).class("col-line-body");
         });
 
-        for (l, r) in diff.left.lines.iter().zip(diff.right.lines.iter()) {
-            table.tr().class("diff-line").with(|tr| {
-                diff_cells(tr, l);
-                diff_cells(tr, r);
-            });
-        }
+        let left = diff
+            .left()
+            .and_then(|old| old.data())
+            .map(|l| l.lines.as_slice())
+            .unwrap_or(&[]);
+        let right = diff
+            .right()
+            .and_then(|res| res.as_ref().ok())
+            .map(|l| l.lines.as_slice())
+            .unwrap_or(&[]);
+
+        text_diff_lines(table, left, right);
+
         table.tr().class("diff-line").with(|tr| {
             diff_line(tr, LineKind::End, 0, &[]);
             diff_line(tr, LineKind::End, 0, &[]);
         });
     });
+}
+
+fn text_diff_lines(table: &mut HtmlElem, left: &[Line], right: &[Line]) {
+    let len = left.len().max(right.len());
+    let empty_line = Line::EMPTY;
+    for i in 0..len {
+        // Fill missing lines.
+        let l = left.get(i).unwrap_or(&empty_line);
+        let r = right.get(i).unwrap_or(&empty_line);
+        table.tr().class("diff-line").with(|tr| {
+            diff_cells(tr, l);
+            diff_cells(tr, r);
+        });
+    }
 }
 
 fn diff_cells(parent: &mut HtmlElem, line: &Line) {
@@ -431,7 +486,7 @@ fn diff_line(parent: &mut HtmlElem, kind: LineKind, line_nr: u32, spans: &[TextS
     });
 }
 
-fn image_diff(parent: &mut HtmlElem, diff: &ImageFileDiff, n: usize) {
+fn image_diff(parent: &mut HtmlElem, diff: &FileDiff<Image>, n: usize) {
     let radio_icon_button = |parent: &mut HtmlElem, name, value, title, icon, checked| {
         parent.label().class("icon-toggle-button").with(|label| {
             label
@@ -549,10 +604,18 @@ fn image_diff(parent: &mut HtmlElem, diff: &ImageFileDiff, n: usize) {
         div.div().class("image-diff-area").with(|div| {
             div.div().class("image-diff-wrapper").with(|div| {
                 div.div().class("image-split side-by-side").with(|div| {
-                    div.img().src(&diff.left.data_url);
+                    let data_url = (diff.left())
+                        .and_then(|old| old.data())
+                        .map(|img| img.data_url.as_str())
+                        .unwrap_or("");
+                    div.img().src(data_url);
                 });
                 div.div().class("image-split side-by-side").with(|div| {
-                    div.img().src(&diff.right.data_url);
+                    let data_url = (diff.right())
+                        .and_then(|res| res.as_ref().ok())
+                        .map(|img| img.data_url.as_str())
+                        .unwrap_or("");
+                    div.img().src(data_url);
                 });
             });
         });
@@ -627,4 +690,9 @@ fn image_diff(parent: &mut HtmlElem, diff: &ImageFileDiff, n: usize) {
                 });
         });
     });
+}
+
+fn round<const DIGITS: u32>(num: f64) -> f64 {
+    let factor = 10_u32.pow(DIGITS) as f64;
+    (num * factor).round() / factor
 }

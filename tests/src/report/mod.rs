@@ -1,60 +1,131 @@
 use std::fmt::Display;
-use std::path::Path;
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use base64::Engine;
-use ecow::{EcoString, eco_format};
+use ecow::EcoString;
 use similar::{ChangeTag, InlineChange, TextDiff};
 use smallvec::SmallVec;
+
+use crate::collect::TestOutput;
 
 pub mod html;
 
 pub struct TestReport {
     pub name: EcoString,
-    pub diffs: Vec<DiffKind>,
+    pub files: Vec<FileReport>,
 }
 
 impl TestReport {
     pub fn new(name: EcoString) -> Self {
-        Self { name, diffs: Vec::new() }
+        Self { name, files: Vec::new() }
     }
+}
+
+pub struct FileReport {
+    pub output: TestOutput,
+    pub left: Option<File>,
+    pub right: Option<File>,
+    pub diffs: SmallVec<[DiffKind; 2]>,
+}
+
+impl FileReport {
+    pub fn new(
+        output: TestOutput,
+        old: Option<File>,
+        new: Option<File>,
+        diffs: impl IntoIterator<Item = DiffKind>,
+    ) -> Self {
+        Self {
+            output,
+            left: old,
+            right: new,
+            diffs: diffs.into_iter().collect(),
+        }
+    }
+}
+
+pub struct File {
+    pub path: EcoString,
+    pub size: Option<NonZeroUsize>,
 }
 
 pub enum DiffKind {
-    Text(TextFileDiff),
-    Image(ImageFileDiff),
+    Text(FileDiff<Lines>),
+    Image(FileDiff<Image>),
 }
 
-impl DiffKind {
-    fn left_path(&self) -> &str {
+pub enum FileDiff<T> {
+    /// There is a diff.
+    Diff(Old<T>, Result<T, ()>),
+    /// There is a new test output.
+    Right(Result<T, ()>),
+    /// The test output was removed.
+    Left(Old<T>),
+}
+
+impl<T> FileDiff<T> {
+    pub fn left(&self) -> Option<&Old<T>> {
         match self {
-            DiffKind::Text(diff) => &diff.left.path,
-            DiffKind::Image(diff) => &diff.left.path,
+            FileDiff::Diff(l, _) => Some(l),
+            FileDiff::Right(_) => None,
+            FileDiff::Left(l) => Some(l),
         }
     }
 
-    fn right_path(&self) -> &str {
+    pub fn right(&self) -> Option<&Result<T, ()>> {
         match self {
-            DiffKind::Text(diff) => &diff.right.path,
-            DiffKind::Image(diff) => &diff.right.path,
+            FileDiff::Diff(_, r) => Some(r),
+            FileDiff::Right(r) => Some(r),
+            FileDiff::Left(_) => None,
         }
     }
 }
 
-pub struct TextFileDiff {
-    left: Lines,
-    right: Lines,
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Old<T> {
+    /// The expected reference data.
+    Data(T),
+    /// Only the reference hash is available, the live output is missing.
+    OnlyHash,
+}
+
+impl<T> Old<T> {
+    pub fn data(&self) -> Option<&T> {
+        match self {
+            Old::Data(d) => Some(d),
+            Old::OnlyHash => None,
+        }
+    }
+
+    pub fn map<V, F>(self, f: F) -> Old<V>
+    where
+        F: FnOnce(T) -> V,
+    {
+        match self {
+            Old::Data(d) => Old::Data(f(d)),
+            Old::OnlyHash => Old::OnlyHash,
+        }
+    }
+
+    pub fn as_deref<R: ?Sized>(&self) -> Old<&R>
+    where
+        T: std::ops::Deref<Target = R>,
+    {
+        match self {
+            Old::Data(d) => Old::Data(d),
+            Old::OnlyHash => Old::OnlyHash,
+        }
+    }
 }
 
 pub struct Lines {
-    path: EcoString,
     lines: Vec<Line>,
 }
 
 impl Lines {
-    pub fn new(path: &Path, lines: Vec<Line>) -> Self {
-        let path = eco_format!("{}", path.display());
-        Self { path, lines }
+    pub fn new(lines: Vec<Line>) -> Self {
+        Self { lines }
     }
 }
 
@@ -87,13 +158,36 @@ pub struct Line {
     spans: SmallVec<[TextSpan; 3]>,
 }
 
+impl Line {
+    pub const EMPTY: Line = Line {
+        kind: LineKind::Empty,
+        nr: 0,
+        spans: SmallVec::new_const(),
+    };
+}
+
 pub struct TextSpan {
     emph: bool,
     text: EcoString,
 }
 
 /// Create a rich HTML text diff.
-pub fn text_diff((path_a, a): (&Path, &str), (path_b, b): (&Path, &str)) -> TextFileDiff {
+pub fn text_diff(a: Option<Old<&str>>, b: Option<Result<&str, ()>>) -> FileDiff<Lines> {
+    let lines = |kind| move |str| file_lines(str, kind);
+
+    let (a, b) = match (a, b) {
+        (Some(Old::Data(a)), Some(Ok(b))) => (a, b),
+        (Some(a), Some(b)) => {
+            return FileDiff::Diff(
+                a.map(lines(LineKind::Unchanged)),
+                b.map(lines(LineKind::Unchanged)),
+            );
+        }
+        (Some(a), None) => return FileDiff::Left(a.map(lines(LineKind::Del))),
+        (None, Some(b)) => return FileDiff::Right(b.map(lines(LineKind::Add))),
+        (None, None) => unreachable!(),
+    };
+
     let diff = TextDiff::configure()
         .timeout(Duration::from_millis(500))
         .diff_lines(a, b);
@@ -112,10 +206,10 @@ pub fn text_diff((path_a, a): (&Path, &str), (path_b, b): (&Path, &str)) -> Text
                 match change.tag() {
                     ChangeTag::Equal => {
                         while left.len() < right.len() {
-                            left.push(line_empty());
+                            left.push(Line::EMPTY);
                         }
                         while right.len() < left.len() {
-                            right.push(line_empty());
+                            right.push(Line::EMPTY);
                         }
 
                         let left_line_nr = change.old_index().unwrap();
@@ -137,25 +231,27 @@ pub fn text_diff((path_a, a): (&Path, &str), (path_b, b): (&Path, &str)) -> Text
         }
 
         while left.len() < right.len() {
-            left.push(line_empty());
+            left.push(Line::EMPTY);
         }
         while right.len() < left.len() {
-            right.push(line_empty());
+            right.push(Line::EMPTY);
         }
     }
 
-    TextFileDiff {
-        left: Lines::new(path_a, left),
-        right: Lines::new(path_b, right),
-    }
+    FileDiff::Diff(Old::Data(Lines::new(left)), Ok(Lines::new(right)))
 }
 
-fn line_empty() -> Line {
-    Line {
-        kind: LineKind::Empty,
-        nr: 0,
-        spans: SmallVec::new(),
-    }
+fn file_lines(text: &str, kind: LineKind) -> Lines {
+    let lines = text
+        .lines()
+        .zip(1..)
+        .map(|(line, nr)| Line {
+            kind,
+            nr,
+            spans: SmallVec::from_iter([TextSpan { emph: false, text: line.into() }]),
+        })
+        .collect();
+    Lines { lines }
 }
 
 fn line_del(line_nr: usize, change: &InlineChange<str>) -> Line {
@@ -189,31 +285,27 @@ fn line_spans(change: &InlineChange<str>) -> SmallVec<[TextSpan; 3]> {
         .collect()
 }
 
-pub struct ImageFileDiff {
-    left: Image,
-    right: Image,
-}
-
 pub struct Image {
-    path: EcoString,
     data_url: String,
 }
 
 impl Image {
-    pub fn new(path: &Path, data_url: String) -> Self {
-        let path = eco_format!("{}", path.display());
-        Self { path, data_url }
+    pub fn new(data_url: String) -> Self {
+        Self { data_url }
     }
 }
 
 pub fn image_diff(
-    (path_a, a): (&Path, &[u8]),
-    (path_b, b): (&Path, &[u8]),
+    a: Option<Old<&[u8]>>,
+    b: Option<Result<&[u8], ()>>,
     format: &str,
-) -> ImageFileDiff {
-    ImageFileDiff {
-        left: Image::new(path_a, data_url(format, a)),
-        right: Image::new(path_b, data_url(format, b)),
+) -> FileDiff<Image> {
+    let image = |bytes| Image::new(data_url(format, bytes));
+    match (a, b) {
+        (Some(a), Some(b)) => FileDiff::Diff(a.map(image), b.map(image)),
+        (Some(a), None) => FileDiff::Left(a.map(image)),
+        (None, Some(res)) => FileDiff::Right(res.map(image)),
+        (None, None) => unreachable!(),
     }
 }
 

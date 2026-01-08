@@ -13,8 +13,8 @@ use typst_syntax::{FileId, Lines};
 
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
-use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
-use crate::report::TestReport;
+use crate::output::{FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType};
+use crate::report::Old;
 use crate::world::{TestWorld, system_path};
 use crate::{ARGS, STORE_PATH, custom, output};
 
@@ -290,9 +290,15 @@ impl<'a> Runner<'a> {
 
         let old_ref_data = std::fs::read(&ref_path);
         let Some((doc, live, _)) = output else {
-            if old_ref_data.is_ok() {
+            if let Ok(old_ref_data) = old_ref_data {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
+
+                let file_report = T::make_report(
+                    Some((&ref_path, Old::Data(&old_ref_data))),
+                    Some(Err(())),
+                );
+                self.result.add_report(self.test.name.clone(), file_report);
             }
             return;
         };
@@ -356,17 +362,18 @@ impl<'a> Runner<'a> {
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
 
-                let report = self
-                    .result
-                    .report
-                    .get_or_insert_with(|| TestReport::new(self.test.name.clone()));
-                report.diffs.extend(T::make_diff(
-                    (&ref_path, &old_ref_data),
-                    (&live_path, new_ref_data),
-                ));
+                let file_report = T::make_report(
+                    Some((&ref_path, Old::Data(&old_ref_data))),
+                    Some(Ok((&live_path, new_ref_data))),
+                );
+                self.result.add_report(self.test.name.clone(), file_report);
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
+
+                let file_report =
+                    T::make_report(None, Some(Ok((&live_path, new_ref_data))));
+                self.result.add_report(self.test.name.clone(), file_report);
             }
         }
     }
@@ -381,10 +388,19 @@ impl<'a> Runner<'a> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let old_hash = self.hashes[T::INDEX].read().get(&self.test.name);
         let Some((doc, live, live_data)) = output else {
-            if old_hash.is_some() {
+            if let Some(old_hash) = old_hash {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", self.test.name);
+
+                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                let old_live_data = self.read_old_live_data::<T>(old_hash);
+                let file_report = T::make_report(
+                    Some((&old_hash_path, old_live_data.as_deref())),
+                    Some(Err(())),
+                );
+                self.result.add_report(self.test.name.clone(), file_report);
             }
+
             return;
         };
 
@@ -436,26 +452,39 @@ impl<'a> Runner<'a> {
 
                 let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
                 let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
-
-                if let Ok(old_live_data) = std::fs::read(&old_hash_path) {
-                    let report = self
-                        .result
-                        .report
-                        .get_or_insert_with(|| TestReport::new(self.test.name.clone()));
-                    report.diffs.extend(T::make_diff(
-                        (&old_hash_path, &old_live_data),
-                        (&new_hash_path, live_data.as_ref()),
-                    ));
-                } else {
-                    // TODO: Here we could check out a previous version of the
-                    // repository and generate the live data.
-                    log!(self, "couldn't find old live data {}", old_hash_path.display());
-                }
+                let old_live_data = self.read_old_live_data::<T>(old_hash);
+                let file_report = T::make_report(
+                    Some((&old_hash_path, old_live_data.as_deref())),
+                    Some(Ok((&new_hash_path, live_data.as_ref()))),
+                );
+                self.result.add_report(self.test.name.clone(), file_report);
             } else {
                 log!(self, "missing reference hash");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  new       | {new_hash}");
+
+                let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+                let file_report =
+                    T::make_report(None, Some(Ok((&new_hash_path, live_data.as_ref()))));
+                self.result.add_report(self.test.name.clone(), file_report);
             }
+        }
+    }
+
+    fn read_old_live_data<T: HashOutputType>(
+        &mut self,
+        old_hash: HashedRef,
+    ) -> Old<Vec<u8>> {
+        let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+
+        let old_live_data = std::fs::read(&old_hash_path).inspect_err(|_| {
+            // TODO: Here we could check out a previous version of the
+            // repository and generate the live data.
+            log!(self, "couldn't find old live data {}", old_hash_path.display());
+        });
+        match old_live_data {
+            Ok(data) => Old::Data(data),
+            Err(_) => Old::OnlyHash,
         }
     }
 

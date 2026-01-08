@@ -2,8 +2,10 @@ use std::io::{self, IsTerminal, StderrLock, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+use ecow::EcoString;
+
 use crate::collect::Test;
-use crate::report::TestReport;
+use crate::report::{FileReport, TestReport};
 use crate::{STORE_PATH, report};
 
 /// The result of running a single test.
@@ -16,6 +18,13 @@ pub struct TestResult {
     pub mismatched_output: bool,
     /// The data necessary to generate a HTML report.
     pub report: Option<TestReport>,
+}
+
+impl TestResult {
+    pub fn add_report(&mut self, name: EcoString, file_report: FileReport) {
+        let report = self.report.get_or_insert_with(|| TestReport::new(name));
+        report.files.push(file_report);
+    }
 }
 
 /// Receives status updates by individual test runs.
