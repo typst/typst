@@ -36,6 +36,8 @@ use crate::visualize::image::pdf::PdfDocument;
 /// A raster or vector graphic.
 ///
 /// You can wrap the image in a [`figure`] to give it a number and caption.
+/// You can wrap the image in a [`box`] or [`block`] to give it a background
+/// or a border, or to clip it.
 ///
 /// Like most elements, images are _block-level_ by default and thus do not
 /// integrate themselves into adjacent paragraphs. To force an image to become
@@ -48,6 +50,14 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   caption: [
 ///     A step in the molecular testing
 ///     pipeline of our lab.
+///   ],
+/// )
+/// #figure(
+///   box(clip: true, inset: (left: -50%, right: -50%, bottom: -80%),
+///     image("molecular.jpg", width: 80%),
+///   ),
+///   caption: [
+///     A closer look at the testing process.
 ///   ],
 /// )
 /// ```
