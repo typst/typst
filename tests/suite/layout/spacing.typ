@@ -77,7 +77,7 @@ This is the first line \ #h(2cm, weak: false) A new line
 --- issue-5253-consecutive-weak-space-math paged ---
 $= thin thin$ a
 
---- issue-6650-fr-collapse ---
+--- issue-6650-fr-collapse paged ---
 #set page(height: 200pt)
 // Fractional weak spacing should collapse like rel weak spacing.
 A
@@ -86,20 +86,20 @@ A
 B
 #v(1fr, weak: false)
 
---- issue-6650-fr-standalone ---
+--- issue-6650-fr-standalone paged ---
 #set page(height: 200pt)
 // Standalone fractional weak spacing should collapse.
 #v(1fr, weak: true)
 Standalone
 
---- issue-6650-fr-standalone-end ---
+--- issue-6650-fr-standalone-end paged ---
 #set page(height: 200pt)
 // Standalone factional weak spacing at the end should collapse.
 #v(1fr, weak: false)
 Standalone
 #v(1fr, weak: true)
 
---- issue-6650-fr-destructs-rel-abs ---
+--- issue-6650-fr-destructs-rel-abs paged ---
 #set page(height: 200pt)
 // fr spacing destructs rel/abs spacing
 Destructs
@@ -110,7 +110,7 @@ Destructs
 #v(2em, weak: true)
 Destructs
 
---- issue-6650-fr-destructs-smaller ---
+--- issue-6650-fr-destructs-smaller paged ---
 #set page(height: 200pt)
 // Larger fr destructs smaller fr
 First 2fr
@@ -121,7 +121,7 @@ Second 5fr
 #v(5fr, weak: true)
 End
 
---- issue-6650-fr-survives-with-strong ---
+--- issue-6650-fr-survives-with-strong paged ---
 #set page(height: 200pt)
 // Weak fr survives with strong fr
 #v(1fr, weak: false)
