@@ -54,7 +54,10 @@ can configure it as follows:
 - Pass `--no-serve` to disable the server altogether.
 
 ## Web App
-Not currently available.
+
+HTML can be enabled as an experimental feature in the web app. For more details
+on how to use it, you can refer to [the dedicated documentation on HTML export
+in the web app](web-app/export-and-preview.md#html-preview-and-export).
 
 # HTML-specific functionality
 Typst exposes HTML-specific functionality in the global `html` module. See below
