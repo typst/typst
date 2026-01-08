@@ -201,16 +201,17 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn keep_spacing_fr(&mut self, fr: Fr, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
-                Item::Fr(prev_fr, prev_weakness @ 1.., child) => {
+                Item::Fr(prev_fr, prev_weakness @ 1.., None) => {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || fr > prev_fr)
                     {
-                        *item = Item::Fr(fr, weakness, child);
+                        *item = Item::Fr(fr, weakness, None);
                     }
                     return false;
                 }
-                Item::Frame(..) | Item::Fr(..) => return true,
                 Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Fr(.., None) => return true,
+                Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
             }
         }
         false
