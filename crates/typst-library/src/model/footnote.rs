@@ -192,7 +192,7 @@ pub struct FootnoteGroup {
     /// #footnote[Referring to the city's characteristic summer fog.]
     /// #footnote[This quip is often misattributed to Mark Twain.].
     /// ```
-    #[default(Some(TextElem::packed(",\u{200B}")))]
+    #[default(Some(TextElem::packed(",")))]
     pub separator: Option<Content>,
 
     /// The footnotes.
