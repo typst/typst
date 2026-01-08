@@ -18,9 +18,6 @@ use crate::pdftags;
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
 pub struct HashedRefs {
-    /// Whether a reference hash has been added/removed/updated and the hash
-    /// file on disk should be updated.
-    pub changed: bool,
     refs: IndexMap<EcoString, HashedRef, FxBuildHasher>,
 }
 
@@ -37,22 +34,17 @@ impl HashedRefs {
 
     /// Remove a reference hash.
     pub fn remove(&mut self, name: &str) {
-        self.changed = true;
         self.refs.shift_remove(name);
     }
 
     /// Update a reference hash.
     pub fn update(&mut self, name: EcoString, hashed_ref: HashedRef) {
-        self.changed = true;
         self.refs.insert(name, hashed_ref);
     }
 
     /// Sort the reference hashes lexicographically.
     pub fn sort(&mut self) {
-        if !self.refs.keys().is_sorted() {
-            self.changed = true;
-            self.refs.sort_keys();
-        }
+        self.refs.sort_keys();
     }
 
     /// The names of all tests in this map.
@@ -90,7 +82,7 @@ impl FromStr for HashedRefs {
                 Ok((name.into(), hash))
             })
             .collect::<StrResult<IndexMap<_, _, _>>>()?;
-        Ok(HashedRefs { changed: false, refs })
+        Ok(HashedRefs { refs })
     }
 }
 
@@ -154,7 +146,7 @@ pub trait FileOutputType: OutputType {
 
 /// An output type that produces hashed references.
 pub trait HashOutputType: OutputType {
-    /// The index into the [`crate::run::HASHES`] array.
+    /// The index into the shared `hashes` array.
     const INDEX: usize;
 }
 
