@@ -21,6 +21,11 @@ pub fn resolve(link: &str, base: &str) -> StrResult<String> {
     }
 
     let (head, tail) = split_link(link);
+
+    if head == "web-app" {
+        return Ok(format!("{base}/web-app/{tail}"));
+    }
+
     let mut route = match resolve_known(head, base) {
         Some(route) => route,
         None => resolve_definition(head, base)?,
@@ -57,6 +62,8 @@ fn resolve_known(head: &str, base: &str) -> Option<String> {
         "$context" => format!("{base}reference/context"),
         "$html" => format!("{base}reference/html"),
         "$pdf" => format!("{base}reference/pdf"),
+        "$png" => format!("{base}reference/png"),
+        "$svg" => format!("{base}reference/svg"),
         "$guides" => format!("{base}guides"),
         "$changelog" => format!("{base}changelog"),
         "$universe" => "https://typst.app/universe".into(),
