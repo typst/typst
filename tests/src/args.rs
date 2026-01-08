@@ -53,6 +53,9 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+    /// Don't generate a HTML test report.
+    #[arg(long)]
+    pub no_report: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a
@@ -110,6 +113,11 @@ impl CliArguments {
         // Must be in this order, otherwise any paged output target
         // would enable all others.
         self.stages().with_implied().with_required()
+    }
+
+    /// Whether a HTML test report should be generated.
+    pub fn gen_report(&self) -> bool {
+        !self.no_report
     }
 }
 
