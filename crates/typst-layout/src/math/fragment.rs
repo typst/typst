@@ -12,7 +12,7 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, TextElem, features, language, variant};
-use typst_library::visualize::Paint;
+use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
@@ -79,6 +79,13 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.descent(),
             Self::Frame(fragment) => fragment.frame.descent(),
             _ => Abs::zero(),
+        }
+    }
+
+    pub fn stroke(&self) -> Option<FixedStroke> {
+        match self {
+            Self::Glyph(glyph) => glyph.item.stroke.clone(),
+            _ => None,
         }
     }
 

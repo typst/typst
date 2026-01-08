@@ -383,6 +383,20 @@ impl Geometry {
         }
     }
 
+    /// Set the geometry's background fill and stroke.
+    pub fn filled_and_stroked(
+        self,
+        fill: impl Into<Paint>,
+        stroke: FixedStroke,
+    ) -> Shape {
+        Shape {
+            geometry: self,
+            fill: Some(fill.into()),
+            fill_rule: FillRule::default(),
+            stroke: Some(stroke),
+        }
+    }
+
     /// The bounding box of the geometry.
     pub fn bbox(&self) -> Rect {
         match self {

@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{
     Accent, OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
@@ -194,18 +194,18 @@ fn layout_underoverline(
     span: Span,
     position: Position,
 ) -> SourceResult<()> {
-    let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_adjust);
+    let (extra_height, content, line_pos, content_pos, baseline, thickness, line_adjust);
     match position {
         Position::Under => {
             content = ctx.layout_into_fragment(body, styles)?;
 
             let (font, size) = content.font(ctx, styles);
             let sep = font.math().underbar_extra_descender.at(size);
-            bar_height = font.math().underbar_rule_thickness.at(size);
+            thickness = font.math().underbar_rule_thickness.at(size);
             let gap = font.math().underbar_vertical_gap.at(size);
-            extra_height = sep + bar_height + gap;
+            extra_height = sep + thickness + gap;
 
-            line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
+            line_pos = Point::with_y(content.height() + gap + thickness / 2.0);
             content_pos = Point::zero();
             baseline = content.ascent();
             line_adjust = -content.italics_correction();
@@ -217,11 +217,11 @@ fn layout_underoverline(
 
             let (font, size) = content.font(ctx, styles);
             let sep = font.math().overbar_extra_ascender.at(size);
-            bar_height = font.math().overbar_rule_thickness.at(size);
+            thickness = font.math().overbar_rule_thickness.at(size);
             let gap = font.math().overbar_vertical_gap.at(size);
-            extra_height = sep + bar_height + gap;
+            extra_height = sep + thickness + gap;
 
-            line_pos = Point::with_y(sep + bar_height / 2.0);
+            line_pos = Point::with_y(sep + thickness / 2.0);
             content_pos = Point::with_y(extra_height);
             baseline = content.ascent() + extra_height;
             line_adjust = Abs::zero();
@@ -239,17 +239,18 @@ fn layout_underoverline(
     let mut frame = Frame::soft(size);
     frame.set_baseline(baseline);
     frame.push_frame(content_pos, content.into_frame());
-    frame.push(
-        line_pos,
-        FrameItem::Shape(
-            Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
-                paint: styles.get_ref(TextElem::fill).as_decoration(),
-                thickness: bar_height,
-                ..FixedStroke::default()
-            }),
-            span,
-        ),
-    );
+
+    let text_fill = styles.get_ref(TextElem::fill).as_decoration();
+    let line = match styles.get_ref(TextElem::stroke) {
+        Some(stroke) => Geometry::Rect(Size::new(line_width, thickness))
+            .filled_and_stroked(
+                text_fill.clone(),
+                stroke.clone().resolve(styles).unwrap_or_default(),
+            ),
+        None => Geometry::Line(Point::with_x(line_width))
+            .stroked(FixedStroke::from_pair(text_fill, thickness)),
+    };
+    frame.push(line_pos, FrameItem::Shape(line, span));
 
     ctx.push(
         FrameFragment::new(styles, frame)
