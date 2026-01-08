@@ -201,7 +201,6 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn keep_spacing_fr(&mut self, fr: Fr, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Fr(prev_fr, prev_weakness @ 1.., child) => {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || fr > prev_fr)
@@ -211,6 +210,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     return false;
                 }
                 Item::Frame(..) | Item::Fr(..) => return true,
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
             }
         }
         false
@@ -225,13 +225,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     self.items.remove(i);
                     break;
                 }
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Fr(_, 1.., _) => {
                     if i == self.items.len() - 1 {
                         self.items.remove(i);
                         break;
                     }
                 }
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
