@@ -23,6 +23,90 @@ Add #h(10pt) #h(10pt) up
 A #h(10pt) B \
 A #h(1fr) B
 
+--- spacing-weak-versus-block-spacing paged ---
+// Weak spacing wins against block spacing.
+0
+#v(1cm, weak: true)
+#block(above: 2cm, below: 0pt, height: 0pt)
+1
+#v(1cm, weak: true)
+2
+
+--- spacing-fr-weak-collapse paged ---
+// Fractional weak spacing should collapse like rel weak spacing.
+#set page(height: 100pt)
+0
+#v(1fr, weak: true)
+#v(1fr, weak: false)
+1
+#v(1fr, weak: false)
+
+--- spacing-fr-weak-standalone-start paged ---
+// Standalone fractional weak spacing should collapse.
+#set page(height: 60pt)
+#v(1fr, weak: true)
+0
+
+--- spacing-fr-weak-standalone-end paged ---
+// Standalone factional weak spacing at the end should collapse..
+#set page(height: 60pt)
+#v(1fr, weak: false)
+1
+#v(1fr, weak: true)
+
+--- spacing-fr-weak-destructs-rel-abs paged ---
+// Fr spacing destructs weak rel/abs spacing.
+#set page(height: 100pt)
+0
+#v(1fr, weak: true)
+#v(1em, weak: true)
+1
+#v(1fr, weak: true)
+#v(2em, weak: true)
+2
+
+--- spacing-fr-weak-destructs-smaller paged ---
+// Larger fr destructs smaller fr.
+#set page(height: 100pt)
+0
+#v(1fr, weak: true)
+#v(2fr, weak: true) // wins
+2
+#v(2fr, weak: true)
+#v(4fr, weak: true) // wins
+6
+
+--- spacing-fr-weak-survives-with-strong paged ---
+// Weak fr survives with strong fr, like weak rel survives with strong rel.
+#set page(height: 100pt)
+#v(1fr, weak: false)
+#v(1fr, weak: true)
+2
+#v(1fr, weak: false)
+#v(2fr, weak: true)
+4
+
+--- spacing-fr-weak-with-fr-block paged ---
+#set page(height: 150pt)
+0
+#v(2fr, weak: true)
+2
+#v(1fr, weak: true)
+#block(spacing: 0pt, height: 1fr, fill: aqua)[A]
+#v(4fr, weak: true)
+8
+
+--- spacing-fr-weak-versus-fr-block-spacing paged ---
+// Weak fr spacing wins against fr block spacing, just like for weak rel
+// spacing.
+#set page(height: 100pt)
+0
+#v(1fr, weak: true)
+#block(above: 2fr, below: 0pt, height: 0pt)
+1
+#v(1fr, weak: true)
+2
+
 --- spacing-missing-amount paged ---
 // Missing spacing.
 // Error: 10-13 missing argument: amount
@@ -76,57 +160,3 @@ This is the first line \ #h(2cm, weak: false) A new line
 
 --- issue-5253-consecutive-weak-space-math paged ---
 $= thin thin$ a
-
---- issue-6650-fr-collapse paged ---
-#set page(height: 200pt)
-// Fractional weak spacing should collapse like rel weak spacing.
-A
-#v(1fr, weak: true)
-#v(1fr, weak: false)
-B
-#v(1fr, weak: false)
-
---- issue-6650-fr-standalone paged ---
-#set page(height: 200pt)
-// Standalone fractional weak spacing should collapse.
-#v(1fr, weak: true)
-Standalone
-
---- issue-6650-fr-standalone-end paged ---
-#set page(height: 200pt)
-// Standalone factional weak spacing at the end should collapse.
-#v(1fr, weak: false)
-Standalone
-#v(1fr, weak: true)
-
---- issue-6650-fr-destructs-rel-abs paged ---
-#set page(height: 200pt)
-// fr spacing destructs rel/abs spacing
-Destructs
-#v(1fr, weak: true)
-#v(2em, weak: true)
-Destructs
-#v(1fr, weak: true)
-#v(2em, weak: true)
-Destructs
-
---- issue-6650-fr-destructs-smaller paged ---
-#set page(height: 200pt)
-// Larger fr destructs smaller fr
-First 2fr
-#v(1fr, weak: true)
-#v(2fr, weak: true)
-Second 5fr
-#v(2fr, weak: true)
-#v(5fr, weak: true)
-End
-
---- issue-6650-fr-survives-with-strong paged ---
-#set page(height: 200pt)
-// Weak fr survives with strong fr
-#v(1fr, weak: false)
-#v(1fr, weak: true)
-First 2fr
-#v(1fr, weak: false)
-#v(2fr, weak: true)
-Second 3fr
