@@ -151,9 +151,14 @@ fn test() {
 
     let mut logger = logger.into_inner();
 
-    logger.reports.sort_by(|a, b| a.name.cmp(&b.name));
-    let html = report::html::generate(&logger.reports);
-    std::fs::write(Path::new(STORE_PATH).join("report.html"), html).unwrap();
+    let report_path = Path::new(STORE_PATH).join("report.html");
+    if ARGS.gen_report() {
+        logger.reports.sort_by(|a, b| a.name.cmp(&b.name));
+        let html = report::html::generate(&logger.reports);
+        std::fs::write(report_path, html).unwrap();
+    } else {
+        _ = std::fs::remove_file(report_path);
+    }
 
     let passed = logger.finish();
     if !passed {

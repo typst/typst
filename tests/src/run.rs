@@ -447,11 +447,12 @@ impl<'a> Runner<'a> {
             Err(()) => {
                 self.result.mismatched_output = true;
 
-                let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
-                let new = output.map(|(_, _, data)| (live_path, data));
-                let file_report = make_report::<T>(old, new);
-                self.result.add_report(self.test.name.clone(), file_report);
-
+                if ARGS.gen_report() {
+                    let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
+                    let new = output.map(|(_, _, data)| (live_path, data));
+                    let file_report = make_report::<T>(old, new);
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
                 return;
             }
         };
@@ -500,8 +501,10 @@ impl<'a> Runner<'a> {
                 None
             };
 
-            let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
-            self.result.add_report(self.test.name.clone(), file_report);
+            if ARGS.gen_report() {
+                let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
+                self.result.add_report(self.test.name.clone(), file_report);
+            }
         }
     }
 
@@ -523,20 +526,24 @@ impl<'a> Runner<'a> {
             Err(()) => {
                 self.result.mismatched_output = true;
 
-                let old = old_hash.map(|old_hash| {
-                    let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
-                    let old_live_data = self.read_old_live_data::<T>(old_hash);
-                    (old_hash_path, old_live_data)
-                });
+                if ARGS.gen_report() {
+                    let old = old_hash.map(|old_hash| {
+                        let old_hash_path =
+                            T::OUTPUT.hash_path(old_hash, &self.test.name);
+                        let old_live_data = self.read_old_live_data::<T>(old_hash);
+                        (old_hash_path, old_live_data)
+                    });
 
-                let new = output.map(|(_, live, data)| {
-                    let new_hash = T::make_hash(live);
-                    let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
-                    (new_hash_path, data)
-                });
+                    let new = output.map(|(_, live, data)| {
+                        let new_hash = T::make_hash(live);
+                        let new_hash_path =
+                            T::OUTPUT.hash_path(new_hash, &self.test.name);
+                        (new_hash_path, data)
+                    });
 
-                let file_report = make_report::<T>(old, new);
-                self.result.add_report(self.test.name.clone(), file_report);
+                    let file_report = make_report::<T>(old, new);
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
 
                 return;
             }
@@ -576,9 +583,11 @@ impl<'a> Runner<'a> {
                 None
             };
 
-            let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
-            let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
-            self.result.add_report(self.test.name.clone(), file_report);
+            if ARGS.gen_report() {
+                let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+                let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
+                self.result.add_report(self.test.name.clone(), file_report);
+            }
         }
     }
 
