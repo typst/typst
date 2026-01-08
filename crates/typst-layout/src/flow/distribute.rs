@@ -172,7 +172,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         if weakness > 0 && !self.keep_weak_fr_spacing(fr, weakness) {
             return;
         }
+
+        // If we decided to keep the fr spacing, it's safe to trim previous
+        // spacing as no stronger fr spacing can exist.
         self.trim_spacing();
+
         self.items.push(Item::Fr(fr, weakness, None));
     }
 
@@ -181,6 +185,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn keep_weak_rel_spacing(&mut self, amount: Abs, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
+                // When previous weak relative spacing exists that's at most as
+                // weak, we reuse the old item, set it to the maximum of both,
+                // and discard the new item.
                 Item::Abs(prev_amount, prev_weakness @ 1..) => {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || amount > prev_amount)
@@ -190,17 +197,26 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     }
                     return false;
                 }
+                // These are "peeked beyond" for spacing collapsing purposes.
                 Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) => {}
+                // Any kind of fractional spacing destructs weak relative
+                // spacing.
                 Item::Fr(.., None) => return false,
+                // These naturally support the spacing.
                 Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
             }
         }
         false
     }
 
+    /// Decides whether to keep weak fractional spacing based on previous items.
+    /// If there is a preceding weak spacing, it might be patched in place.
     fn keep_weak_fr_spacing(&mut self, fr: Fr, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
+                // When previous weak fr spacing exists that's at most as weak,
+                // we reuse the old item, set it to the maximum of both, and
+                // discard the new item.
                 Item::Fr(prev_fr, prev_weakness @ 1.., None) => {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || fr > prev_fr)
@@ -209,8 +225,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     }
                     return false;
                 }
+                // These are "peeked beyond" for spacing collapsing purposes.
+                // Weak absolute spacing, in particular, will be trimmed once
+                // we push the fractional spacing.
                 Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                // For weak + strong fr spacing, we keep both, same as for
+                // weak + strong rel spacing.
                 Item::Fr(.., None) => return true,
+                // These naturally support the spacing.
                 Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
             }
         }
