@@ -319,7 +319,7 @@
 
 --- import-file-not-valid-utf-8 paged ---
 // Some non-text stuff.
-// Error: 9-35 file is not valid utf-8
+// Error: 9-35 file is not valid UTF-8
 #import "/assets/images/rhino.png"
 
 --- import-item-not-found paged ---

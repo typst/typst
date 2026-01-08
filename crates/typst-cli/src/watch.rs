@@ -354,7 +354,7 @@ fn warn_watching_std(world: &SystemWorld, config: &CompileConfig) -> StrResult<(
         Span::detached(),
         "cannot watch changes for stdin";
         hint: "to recompile on changes, watch a regular file instead";
-        hint: "to compile once and exit, please use `typst compile` instead"
+        hint: "to compile once and exit, please use `typst compile` instead";
     );
     print_diagnostics(world, &[], &[warning], config.diagnostic_format)
         .map_err(|err| eco_format!("failed to print diagnostics ({err})"))

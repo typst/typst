@@ -17,9 +17,16 @@
 #test(int(false), 0)
 #test(int(true), 1)
 #test(int(10), 10)
-#test(int("150"), 150)
+#test(int("0"), 0)
+#test(int("+150"), 150)
 #test(int("-834"), -834)
+#test(int("beef", base: 16), 48879)
+#test(int("-cAfFe", base: 16), -831486)
+#test(int("10", base: 2), 2)
+#test(int("644", base: 8), 420)
 #test(int("\u{2212}79"), -79)
+#test(int("9223372036854775807"), 9223372036854775807)
+#test(int("-9223372036854775808"), -9223372036854775807 - 1)
 #test(int(10 / 3), 3)
 #test(int(-58.34), -58)
 #test(int(decimal("92492.193848921")), 92492)
@@ -29,9 +36,45 @@
 // Error: 6-10 expected integer, boolean, float, decimal, or string, found length
 #int(10pt)
 
+--- int-constructor-str-empty paged ---
+// Error: 6-8 string must not be empty
+#int("")
+
+--- int-constructor-str-empty-based paged ---
+// Error: 6-8 string must not be empty
+#int("", base: 16)
+
 --- int-constructor-bad-value paged ---
-// Error: 6-12 invalid integer: nope
+// Error: 6-12 string contains invalid digits
 #int("nope")
+
+--- int-constructor-bad-value-based paged ---
+// Error: 6-11 string contains invalid digits for a base 3 integer
+#int("123", base: 3)
+
+--- int-constructor-base-with-non-string paged ---
+// Error: 16-18 base is only supported for strings
+#int(40, base: 16)
+
+--- int-constructor-str-small-base paged ---
+// Error: 17-18 base must be between 2 and 36
+#int("0", base: 1)
+
+--- int-constructor-str-large-base paged ---
+// Error: 17-19 base must be between 2 and 36
+#int("0", base: 42)
+
+--- int-constructor-str-too-large paged ---
+// Error: 6-27 integer value is too large
+// Hint: 6-27 value does not fit into a signed 64-bit integer
+// Hint: 6-27 try using a floating point number
+#int("9223372036854775808")
+
+--- int-constructor-str-too-small paged ---
+// Error: 6-28 integer value is too small
+// Hint: 6-28 value does not fit into a signed 64-bit integer
+// Hint: 6-28 try using a floating point number
+#int("-9223372036854775809")
 
 --- int-constructor-float-too-large paged ---
 // Error: 6-27 number too large

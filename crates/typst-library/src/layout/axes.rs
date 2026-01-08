@@ -301,7 +301,7 @@ impl<T: FromValue> FromValue for Axes<T> {
             _ => bail!(
                 "array must contain exactly two items";
                 hint: "the first item determines the value for the X axis \
-                       and the second item the value for the Y axis"
+                       and the second item the value for the Y axis";
             ),
         }
     }

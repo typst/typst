@@ -12,7 +12,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
@@ -599,7 +599,7 @@ fn visit_styled<'a>(
             } else {
                 bail!(
                     style.span(),
-                    "document set rules are not allowed inside of containers"
+                    "document set rules are not allowed inside of containers",
                 );
             }
         } else if elem == TextElem::ELEM {
@@ -608,16 +608,22 @@ fn visit_styled<'a>(
                 info.populate_locale(&local)
             }
         } else if elem == PageElem::ELEM {
-            if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
-                bail!(
+            match s.kind {
+                RealizationKind::LayoutDocument { .. } => {
+                    // When there are page styles, we "break free" from our show
+                    // rule cage.
+                    pagebreak = true;
+                    s.outside = true;
+                }
+                RealizationKind::HtmlDocument { .. } => s.engine.sink.warn(warning!(
                     style.span(),
-                    "page configuration is not allowed inside of containers"
-                );
+                    "page set rule was ignored during HTML export"
+                )),
+                _ => bail!(
+                    style.span(),
+                    "page configuration is not allowed inside of containers",
+                ),
             }
-
-            // When there are page styles, we "break free" from our show rule cage.
-            pagebreak = true;
-            s.outside = true;
         }
     }
 
@@ -747,7 +753,7 @@ fn visit_filter_rules<'a>(
 /// Finishes all grouping.
 fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
-        // If this is a fragment realization and all we've got is inline
+        // If this is a fragment realization and all we've got is phrasing
         // content, don't turn it into a paragraph.
         if is_fully_inline(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
@@ -963,8 +969,10 @@ static PAR: GroupingRule = GroupingRule {
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
             || match state.kind {
-                RealizationKind::HtmlDocument { is_inline, .. }
-                | RealizationKind::HtmlFragment { is_inline, .. } => is_inline(content),
+                RealizationKind::HtmlDocument { is_phrasing, .. }
+                | RealizationKind::HtmlFragment { is_phrasing, .. } => {
+                    is_phrasing(content)
+                }
                 _ => false,
             }
     },

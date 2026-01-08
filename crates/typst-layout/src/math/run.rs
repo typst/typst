@@ -1,4 +1,5 @@
 use std::iter::once;
+use std::ops::{Deref, DerefMut};
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
@@ -16,14 +17,26 @@ pub struct MathRun(Vec<MathFragment>);
 
 impl MathRun {
     /// Takes the given [`MathFragment`]s and do some basic processing.
+    ///
+    /// The behavior of spacing around alignment points is subtle and differs
+    /// from the `align` environment in amsmath. The current policy is:
+    /// > always put the correct spacing between fragments separated by an
+    /// > alignment point, and always put the space on the left of the
+    /// > alignment point
     pub fn new(fragments: Vec<MathFragment>) -> Self {
         let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
         let mut space: Option<MathFragment> = None;
-        let mut resolved: Vec<MathFragment> = vec![];
+        let mut resolved = MathBuffer::new();
 
         for mut fragment in iter {
             match fragment {
+                // Tags don't affect layout.
+                MathFragment::Tag(_) => {
+                    resolved.push(fragment);
+                    continue;
+                }
+
                 // Keep space only if supported by spaced fragments.
                 MathFragment::Space(_) => {
                     if last.is_some() {
@@ -90,7 +103,14 @@ impl MathRun {
                 if let Some(i) = last
                     && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
                 {
-                    resolved.insert(i + 1, s);
+                    // Only one alignment point should be skipped when inserting
+                    // spacing.
+                    let idx = resolved
+                        .last_index()
+                        .filter(|&k| matches!(resolved[k], MathFragment::Align))
+                        .unwrap_or(i + 1);
+
+                    resolved.insert(idx, s);
                 }
 
                 last = Some(resolved.len());
@@ -99,11 +119,13 @@ impl MathRun {
             resolved.push(fragment);
         }
 
-        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
-            resolved.pop();
+        if let Some(idx) = resolved.last_index()
+            && let MathFragment::Spacing(_, true) = resolved.0[idx]
+        {
+            resolved.0.remove(idx);
         }
 
-        Self(resolved)
+        Self(resolved.0)
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, MathFragment> {
@@ -454,5 +476,39 @@ fn spacing(
         _ if (l.is_spaced() || r.is_spaced()) => space,
 
         _ => None,
+    }
+}
+
+/// A wrapper around [`Vec<MathFragment>`] that ignores ignorant fragments in
+/// some access methods.
+struct MathBuffer(Vec<MathFragment>);
+
+impl MathBuffer {
+    fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Returns a mutable reference to the last non-ignorant fragment.
+    fn last_mut(&mut self) -> Option<&mut MathFragment> {
+        self.0.iter_mut().rev().find(|f| !f.is_ignorant())
+    }
+
+    /// Returns the physical index of the last non-ignorant fragment.
+    fn last_index(&self) -> Option<usize> {
+        self.0.iter().rposition(|f| !f.is_ignorant())
+    }
+}
+
+impl Deref for MathBuffer {
+    type Target = Vec<MathFragment>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MathBuffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

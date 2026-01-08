@@ -88,7 +88,7 @@ impl Length {
             self.repr();
             hint: "use `length.to-absolute()` to resolve its em component \
                    (requires context)";
-            hint: "or use `length.abs.{unit}()` instead to ignore its em component"
+            hint: "or use `length.abs.{unit}()` instead to ignore its em component";
         )
     }
 }

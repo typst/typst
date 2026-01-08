@@ -385,7 +385,7 @@ impl GlyphFragment {
         let extended_shape = is_extended_shape(&self.item.font, id);
         let italics = italics_correction(&self.item.font, id).unwrap_or_default();
         let width = self.item.width();
-        // The second condition below is needed so we don't accidently add the
+        // The second condition below is needed so we don't accidentally add the
         // italic correction again to the original glyphs. This can happen when
         // `reset_glyph` is called after the glyph fragment is created.
         if !extended_shape && (initial || id.0 != self.item.original_id()) {
@@ -759,7 +759,7 @@ fn assemble(
                        base.item.span,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
-                       hint: "please file an issue at https://github.com/typst/typst/issues"
+                       hint: "please file an issue at https://github.com/typst/typst/issues";
                     ));
                 }
 

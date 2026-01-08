@@ -360,7 +360,7 @@ impl TryFrom<Alignment> for HAlignment {
             Alignment::H(h) => Ok(h),
             v => bail!(
                 "expected `start`, `left`, `center`, `right`, or `end`, found {}",
-                v.repr()
+                v.repr(),
             ),
         }
     }

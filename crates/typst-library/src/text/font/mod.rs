@@ -27,10 +27,10 @@ use crate::text::{
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone)]
-pub struct Font(Arc<Repr>);
+pub struct Font(Arc<FontInner>);
 
-/// The internal representation of a font.
-struct Repr {
+/// The internal representation of a [`Font`].
+struct FontInner {
     /// The font's index in the buffer.
     index: u32,
     /// Metadata about the font.
@@ -68,7 +68,7 @@ impl Font {
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
     }
 
     /// Parse all fonts in the given data.

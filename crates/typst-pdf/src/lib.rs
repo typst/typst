@@ -100,7 +100,7 @@ impl PdfStandards {
                 bail!(
                     "PDF cannot conform to {} and {} at the same time",
                     prev.as_str(),
-                    v.as_str()
+                    v.as_str(),
                 );
             }
             version = Some(v);

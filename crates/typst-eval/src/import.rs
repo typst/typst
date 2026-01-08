@@ -38,7 +38,7 @@ impl Eval for ast::ModuleImport<'_> {
                 bail!(
                     source_span,
                     "expected path, module, function, or type, found {}",
-                    v.ty()
+                    v.ty(),
                 )
             }
         }
@@ -79,11 +79,11 @@ impl Eval for ast::ModuleImport<'_> {
                         }
                         Ok(_) | Err(BareImportError::Dynamic) => bail!(
                             source_span, "dynamic import requires an explicit name";
-                            hint: "you can name the import with `as`"
+                            hint: "you can name the import with `as`";
                         ),
                         Err(BareImportError::PathInvalid) => bail!(
                             source_span, "module name would not be a valid identifier";
-                            hint: "you can rename the import with `as`",
+                            hint: "you can rename the import with `as`";
                         ),
                         // Bad package spec would have failed the import already.
                         Err(BareImportError::PackageInvalid) => unreachable!(),
@@ -116,7 +116,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 {
                                     error!(
                                         component.span(),
-                                        "cannot import from user-defined functions"
+                                        "cannot import from user-defined functions",
                                     )
                                 } else if !matches!(
                                     value,
@@ -125,7 +125,7 @@ impl Eval for ast::ModuleImport<'_> {
                                     error!(
                                         component.span(),
                                         "expected module, function, or type, found {}",
-                                        value.ty()
+                                        value.ty(),
                                     )
                                 } else {
                                     panic!("unexpected nested import failure")

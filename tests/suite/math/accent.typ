@@ -2,8 +2,10 @@
 
 --- math-accent-sym-call paged ---
 // Test function call.
-$grave(a), acute(b), hat(f), tilde(§), macron(ä), diaer(a), ä \
- breve(\&), dot(!), circle(a), caron(@), arrow(Z), arrow.l(Z)$
+$ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
+  dot(!), dot.double(a), diaer(a), dot.triple(a), dot.quad(a), circle(a), \
+  acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
+  harpoon(a), harpoon.lt(a) $
 
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $
@@ -92,3 +94,44 @@ $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, s
 $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
+
+--- math-accent-string-too-long paged ---
+// Error: 17-21 expected exactly one character
+$ accent(x + y, "..") $
+
+--- math-accent-content-too-long paged ---
+// Error: 17-19 expected a single-codepoint symbol
+$ accent(x + y, ..) $
+
+--- issue-7437-math-accent-text-presentation paged ---
+// Make sure that the `arrow.l.r` symbol correctly works as an accent even
+// though it includes a text presentation variation selector.
+
+// Ensure that symbol style works.
+$ accent(x + y, arrow.l.r) $
+// Ensure that string style works.
+$ accent(x + y, "↔") $
+// Ensure that content style works.
+$ accent(x + y, ↔) $
+// Ensure that shorthand style works.
+$ accent(x + y, <->) $
+// Ensure that function call works.
+$ arrow.l.r(x + y) $
+
+--- issue-7437-math-accent-emoji-presentation paged ---
+// Check that we do not normalize an accent character with emoji presentation
+// variation selector to an accent.
+//
+// Since we already support arbitrary characters as accents, we might want to
+// support clusters like this one, too, but it should render as an emoji instead
+// of normalizing into the same accent as `arrow.l.r`, so it's better to keep
+// this an error for now.
+
+// Error: 12-31 expected exactly one character
+$accent(A, std.emoji.arrow.l.r)$
+
+--- issue-7437-math-accent-trailing-text paged ---
+// Test that we don't allow extra text after the text variation selector.
+
+// Error: 13-47 expected exactly one character
+$accent(A, #symbol("\u{2194}\u{fe0e}\u{fe0f}"))$

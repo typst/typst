@@ -328,7 +328,7 @@ impl Introspect for MeasureIntrospection {
         let mut diag = warning!(
             self.measure_span, "a measured element did not stabilize";
             hint: "measurement tries to resolve introspections by finding the \
-                   closest matching elements in the real document"
+                   closest matching elements in the real document";
         );
         if !self.elem_span.is_detached() {
             diag.spanned_hint(

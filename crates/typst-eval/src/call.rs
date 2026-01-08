@@ -375,7 +375,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
             field.span(),
             "type {} has no method `{}`",
             target.ty(),
-            field.as_str()
+            field.as_str(),
         ),
     };
 

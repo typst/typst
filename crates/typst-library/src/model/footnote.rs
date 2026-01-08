@@ -303,7 +303,7 @@ impl Packed<FootnoteEntry> {
         let Some(loc) = self.note.location() else {
             bail!(
                 self.span(), "footnote entry must have a location";
-                hint: "try using a query or a show rule to customize the footnote instead"
+                hint: "try using a query or a show rule to customize the footnote instead";
             );
         };
 
