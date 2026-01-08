@@ -101,3 +101,21 @@ $ 1/(x^A) $
 // Ensure that math does not produce paragraphs.
 #show par: highlight
 $ a + "bc" + #[c] + #box[d] + #block[e] $
+
+--- issue-6090-math-overhang paged ---
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise"
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise.",
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise,",
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise!",
+) $
