@@ -32,7 +32,7 @@ $ lr(a/b\]) = a = lr(\{a/b) $
 --- math-lr-size paged ---
 // Test manual scaling.
 $ lr(]sum_(x=1)^n x], size: #70%)
-  < lr((1, 2), size: #200%) $
+  < lr((1, 2), size: #220%) $
 
 --- math-lr-shorthands paged ---
 // Test predefined delimiter pairings.
@@ -99,6 +99,7 @@ $ lr(\[#h(1em, weak: true)lr(A dif x, f(x) dif x\))sum#h(1em, weak:true)a) $
 
 --- math-lr-nested paged ---
 // Test nested lr calls.
+// As there is no body, relative lengths are relative to 0.
 #let body1 = math.lr($|$, size: 4em)
 #let body2 = $lr(|, size: #4em)$
 
@@ -188,7 +189,7 @@ $
 $
 
 --- math-lr-sym-call-size paged ---
-$ bracket.l(x, size: #200%) $
+$ bracket.l(x, size: #400%) $
 
 --- math-lr-sym-call-extra-arg paged ---
 // Error: 16-28 unexpected argument: nope
