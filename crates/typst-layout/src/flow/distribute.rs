@@ -190,7 +190,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     }
                     return false;
                 }
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) => {}
                 Item::Fr(.., None) => return false,
                 Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
             }
