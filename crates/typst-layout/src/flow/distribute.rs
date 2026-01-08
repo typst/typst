@@ -159,7 +159,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes relative spacing.
     fn rel(&mut self, amount: Rel<Abs>, weakness: u8) {
         let amount = amount.relative_to(self.regions.base().y);
-        if weakness > 0 && !self.keep_spacing(amount, weakness) {
+        if weakness > 0 && !self.keep_weak_rel_spacing(amount, weakness) {
             return;
         }
 
@@ -169,7 +169,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes fractional spacing.
     fn fr(&mut self, fr: Fr, weakness: u8) {
-        if weakness > 0 && !self.keep_spacing_fr(fr, weakness) {
+        if weakness > 0 && !self.keep_weak_fr_spacing(fr, weakness) {
             return;
         }
         self.trim_spacing();
@@ -178,7 +178,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Decides whether to keep weak spacing based on previous items. If there
     /// is a preceding weak spacing, it might be patched in place.
-    fn keep_spacing(&mut self, amount: Abs, weakness: u8) -> bool {
+    fn keep_weak_rel_spacing(&mut self, amount: Abs, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
                 Item::Abs(prev_amount, prev_weakness @ 1..) => {
@@ -198,7 +198,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         false
     }
 
-    fn keep_spacing_fr(&mut self, fr: Fr, weakness: u8) -> bool {
+    fn keep_weak_fr_spacing(&mut self, fr: Fr, weakness: u8) -> bool {
         for item in self.items.iter_mut().rev() {
             match *item {
                 Item::Fr(prev_fr, prev_weakness @ 1.., None) => {
