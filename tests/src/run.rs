@@ -294,11 +294,13 @@ impl<'a> Runner<'a> {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
 
-                let file_report = T::make_report(
-                    Some((&ref_path, Old::Data(&old_ref_data))),
-                    Some(Err(())),
-                );
-                self.result.add_report(self.test.name.clone(), file_report);
+                if !ARGS.no_report {
+                    let file_report = T::make_report(
+                        Some((&ref_path, Old::Data(&old_ref_data))),
+                        Some(Err(())),
+                    );
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
             }
             return;
         };
@@ -357,22 +359,22 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_output = true;
-            if let Ok(old_ref_data) = old_ref_data {
+            let old = if let Ok(old_ref_data) = &old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
 
-                let file_report = T::make_report(
-                    Some((&ref_path, Old::Data(&old_ref_data))),
-                    Some(Ok((&live_path, new_ref_data))),
-                );
-                self.result.add_report(self.test.name.clone(), file_report);
+                Some((ref_path.as_path(), Old::Data(old_ref_data.as_slice())))
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
 
+                None
+            };
+
+            if !ARGS.no_report {
                 let file_report =
-                    T::make_report(None, Some(Ok((&live_path, new_ref_data))));
+                    T::make_report(old, Some(Ok((&live_path, new_ref_data))));
                 self.result.add_report(self.test.name.clone(), file_report);
             }
         }
@@ -392,13 +394,15 @@ impl<'a> Runner<'a> {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", self.test.name);
 
-                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
-                let old_live_data = self.read_old_live_data::<T>(old_hash);
-                let file_report = T::make_report(
-                    Some((&old_hash_path, old_live_data.as_deref())),
-                    Some(Err(())),
-                );
-                self.result.add_report(self.test.name.clone(), file_report);
+                if !ARGS.no_report {
+                    let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                    let old_live_data = self.read_old_live_data::<T>(old_hash);
+                    let file_report = T::make_report(
+                        Some((&old_hash_path, old_live_data.as_deref())),
+                        Some(Err(())),
+                    );
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
             }
 
             return;
@@ -449,23 +453,25 @@ impl<'a> Runner<'a> {
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  old       | {old_hash}");
                 log!(self, "  new       | {new_hash}");
-
-                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
-                let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
-                let old_live_data = self.read_old_live_data::<T>(old_hash);
-                let file_report = T::make_report(
-                    Some((&old_hash_path, old_live_data.as_deref())),
-                    Some(Ok((&new_hash_path, live_data.as_ref()))),
-                );
-                self.result.add_report(self.test.name.clone(), file_report);
             } else {
                 log!(self, "missing reference hash");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  new       | {new_hash}");
+            }
 
+            if !ARGS.no_report {
                 let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
-                let file_report =
-                    T::make_report(None, Some(Ok((&new_hash_path, live_data.as_ref()))));
+                let file_report = if let Some(old_hash) = old_hash {
+                    let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                    let old_live_data = self.read_old_live_data::<T>(old_hash);
+                    T::make_report(
+                        Some((&old_hash_path, old_live_data.as_deref())),
+                        Some(Ok((&new_hash_path, live_data.as_ref()))),
+                    )
+                } else {
+                    T::make_report(None, Some(Ok((&new_hash_path, live_data.as_ref()))))
+                };
+
                 self.result.add_report(self.test.name.clone(), file_report);
             }
         }

@@ -1,12 +1,10 @@
 use std::io::{self, IsTerminal, StderrLock, Write};
-use std::path::Path;
 use std::time::{Duration, Instant};
 
 use ecow::EcoString;
 
 use crate::collect::Test;
 use crate::report::{FileReport, TestReport};
-use crate::{STORE_PATH, report};
 
 /// The result of running a single test.
 pub struct TestResult {
@@ -38,7 +36,7 @@ pub struct Logger<'a> {
     last_change: Instant,
     temp_lines: usize,
     terminal: bool,
-    reports: Vec<TestReport>,
+    pub reports: Vec<TestReport>,
 }
 
 impl<'a> Logger<'a> {
@@ -115,10 +113,7 @@ impl<'a> Logger<'a> {
 
     /// Prints a summary and returns whether the test suite passed.
     pub fn finish(self) -> bool {
-        let Self { selected, passed, failed, skipped, reports, .. } = self;
-
-        let html = report::html::generate(reports);
-        std::fs::write(Path::new(STORE_PATH).join("report.html"), html).unwrap();
+        let Self { selected, passed, failed, skipped, .. } = self;
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");

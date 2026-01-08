@@ -147,7 +147,17 @@ fn test() {
     run::update_hash_refs::<output::Pdf>(&hashes);
     run::update_hash_refs::<output::Svg>(&hashes);
 
-    let passed = logger.into_inner().finish();
+    let mut logger = logger.into_inner();
+    let report_path = Path::new(STORE_PATH).join("report.html");
+    if ARGS.no_report {
+        _ = std::fs::remove_file(report_path);
+    } else {
+        logger.reports.sort_by(|a, b| a.name.cmp(&b.name));
+        let html = report::html::generate(&logger.reports);
+        std::fs::write(report_path, html).unwrap();
+    }
+
+    let passed = logger.finish();
     if !passed {
         std::process::exit(1);
     }

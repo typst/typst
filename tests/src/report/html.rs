@@ -211,9 +211,7 @@ impl Drop for HtmlElem<'_> {
     }
 }
 
-pub fn generate(mut reports: Vec<TestReport>) -> String {
-    reports.sort_by(|a, b| a.name.cmp(&b.name));
-
+pub fn generate(reports: &[TestReport]) -> String {
     let mut html = Html::new();
 
     html.elem("html").attr("lang", "en").with(|root| {
@@ -254,7 +252,7 @@ fn svg_icon(parent: &mut HtmlElem, icon: SvgIcon) {
         });
 }
 
-fn write_reports(body: &mut HtmlElem, reports: Vec<TestReport>) {
+fn write_reports(body: &mut HtmlElem, reports: &[TestReport]) {
     body.div().class("container").with(|div| {
         div.div().class("sidebar-container").with(|div| {
             div.div().class("sidebar").with(|div| {
