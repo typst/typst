@@ -103,7 +103,7 @@ fn layout_inline_text(
 }
 
 /// Layout a [`NumElem`].
-pub fn layout_number(
+pub fn layout_num(
     elem: &Packed<NumElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
