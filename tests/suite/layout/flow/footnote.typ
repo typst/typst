@@ -392,10 +392,11 @@ C
 
 --- issue-7574-footnote-inside-math paged ---
 // Test whether the footnotes inside math are rendered properly.
-$"A" #footnote[foo]$
+$A_0 #footnote[foo] A_0^1$  // Also checks a footnote isn't the same as an attachment.
+
 #set footnote(numbering: "1")
 $"B" #footnote[foo]$
-#set footnote(numbering: "a")
+#set footnote(numbering: "I")
 $"C" #footnote[foo]$
 #set footnote(numbering: "f1")
 $"D" #footnote[foo]$
