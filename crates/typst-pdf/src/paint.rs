@@ -1,6 +1,7 @@
 //! Convert paint types from Typst to krilla.
 
-use krilla::color::{self, cmyk, luma, rgb};
+use krilla::color::separation::SeparationSpace;
+use krilla::color::{self, cmyk, luma, rgb, separation};
 use krilla::num::NormalizedF32;
 use krilla::paint::{
     Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke,
@@ -10,14 +11,16 @@ use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{
-    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint,
-    ProcessColorSpace, RatioOrAngle, RelativeTo, Tiling, WeightedColor,
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, ProcessColor,
+    ProcessColorSpace, RatioOrAngle, RelativeTo, SpotColor, Tiling, WeightedColor,
 };
 use typst_utils::Numeric;
 
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::tags;
-use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
+use crate::util::{
+    AbsExt, FillRuleExt, LineCapExt, LineJoinExt, SpotColorantNameExt, TransformExt,
+};
 
 pub(crate) fn convert_fill(
     gc: &mut GlobalContext,
@@ -87,18 +90,22 @@ fn convert_paint(
 }
 
 fn convert_solid(color: &Color) -> (color::Color, u8) {
+    match color {
+        Color::Process(color) => {
+            let (color, alpha) = convert_process_solid(*color);
+            (color.into(), alpha)
+        }
+        Color::Spot(color) => (convert_spot(color).into(), 255),
+    }
+}
+
+fn convert_process_solid(color: ProcessColor) -> (color::RegularColor, u8) {
     match color.space() {
-        ColorSpace::Process(ProcessColorSpace::D65Gray) => {
+        ProcessColorSpace::D65Gray => {
             let (c, a) = convert_luma(color);
             (c.into(), a)
         }
-        ColorSpace::Process(ProcessColorSpace::Cmyk) => (convert_cmyk(color).into(), 255),
-        ColorSpace::Spot(_) => {
-            // TODO: Add proper Separation color space support for spot colors.
-            // For now, convert to the fallback color.
-            let fallback = color.to_process();
-            convert_solid(&Color::Process(fallback))
-        }
+        ProcessColorSpace::Cmyk => (convert_cmyk(color).into(), 255),
         // Convert all other colors in different color spaces into RGB.
         _ => {
             let (c, a) = convert_rgb(color);
@@ -107,20 +114,30 @@ fn convert_solid(color: &Color) -> (color::Color, u8) {
     }
 }
 
-fn convert_cmyk(color: &Color) -> cmyk::Color {
-    let components = color.to_process_space(ProcessColorSpace::Cmyk).to_vec4_u8();
+fn convert_cmyk(color: ProcessColor) -> cmyk::Color {
+    let components = color.to_space(ProcessColorSpace::Cmyk).to_vec4_u8();
 
     cmyk::Color::new(components[0], components[1], components[2], components[3])
 }
 
-fn convert_rgb(color: &Color) -> (rgb::Color, u8) {
-    let components = color.to_process_space(ProcessColorSpace::Srgb).to_vec4_u8();
+fn convert_rgb(color: ProcessColor) -> (rgb::Color, u8) {
+    let components = color.to_space(ProcessColorSpace::Srgb).to_vec4_u8();
     (rgb::Color::new(components[0], components[1], components[2]), components[3])
 }
 
-fn convert_luma(color: &Color) -> (luma::Color, u8) {
-    let components = color.to_process_space(ProcessColorSpace::D65Gray).to_vec4_u8();
+fn convert_luma(color: ProcessColor) -> (luma::Color, u8) {
+    let components = color.to_space(ProcessColorSpace::D65Gray).to_vec4_u8();
     (luma::Color::new(components[0]), components[3])
+}
+
+fn convert_spot(color: &SpotColor) -> separation::Color {
+    separation::Color::new(
+        (color.tint.get() * 255.0).round() as u8,
+        SeparationSpace::new(
+            color.colorant.name.to_krilla(),
+            convert_process_solid(color.colorant.fallback).0,
+        ),
+    )
 }
 
 fn convert_pattern(
@@ -268,11 +285,16 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
         .all(|s| s.color.space() == ColorSpace::Process(ProcessColorSpace::Cmyk));
 
     let mut add_single = |color: &Color, offset: Ratio| {
-        let (color, opacity) = if use_cmyk {
-            (convert_cmyk(color).into(), 255)
-        } else {
-            let (c, a) = convert_rgb(color);
-            (c.into(), a)
+        let (color, opacity) = match color {
+            Color::Process(color) => {
+                if use_cmyk {
+                    (convert_cmyk(*color).into(), 255)
+                } else {
+                    let (c, a) = convert_rgb(*color);
+                    (c.into(), a)
+                }
+            }
+            Color::Spot(color) => (convert_spot(color).into(), 255),
         };
 
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();

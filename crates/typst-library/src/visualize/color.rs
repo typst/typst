@@ -2171,7 +2171,7 @@ pub struct SpotColor {
     /// How much of the colorant to apply to the medium.
     pub tint: Ratio,
     /// Which colorant to apply.
-    colorant: Arc<SpotColorant>,
+    pub colorant: Arc<SpotColorant>,
 }
 
 impl SpotColor {
@@ -2225,9 +2225,9 @@ impl Repr for SpotColor {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SpotColorant {
     /// Name of the spot colorant to use.
-    name: SpotColorantName,
+    pub name: SpotColorantName,
     /// How to render this color if the specified colorant is not available.
-    fallback: ProcessColor,
+    pub fallback: ProcessColor,
 }
 
 impl Repr for SpotColorant {

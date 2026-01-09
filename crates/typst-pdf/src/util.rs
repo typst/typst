@@ -1,6 +1,7 @@
 //! Basic utilities for converting Typst types to krilla.
 
 use ecow::{EcoString, eco_format};
+use krilla::color::separation as ks;
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
@@ -8,6 +9,7 @@ use krilla::tagging as kt;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
+use typst_library::visualize::SpotColorantName;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SidesExt<T> {
@@ -111,6 +113,29 @@ pub(crate) trait AbsExt {
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
+    }
+}
+
+pub(crate) trait SpotColorantNameExt {
+    fn to_krilla(&self) -> ks::SeparationColorant;
+    fn from_krilla(colorant: &ks::SeparationColorant) -> Self;
+}
+
+impl SpotColorantNameExt for SpotColorantName {
+    fn to_krilla(&self) -> ks::SeparationColorant {
+        match self {
+            Self::AllColorants => ks::SeparationColorant::AllColorants,
+            Self::NoColorant => ks::SeparationColorant::NoColorant,
+            Self::Custom(name) => ks::SeparationColorant::Custom(name.into()),
+        }
+    }
+
+    fn from_krilla(colorant: &ks::SeparationColorant) -> Self {
+        match colorant {
+            ks::SeparationColorant::AllColorants => Self::AllColorants,
+            ks::SeparationColorant::NoColorant => Self::NoColorant,
+            ks::SeparationColorant::Custom(name) => Self::Custom(name.into()),
+        }
     }
 }
 
