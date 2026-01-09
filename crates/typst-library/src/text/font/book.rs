@@ -67,8 +67,7 @@ impl FontBook {
         // first face's info.
         self.families.values().map(|ids| {
             let family = self.infos[ids[0]].family.as_str();
-            let ids_iter = ids.iter().copied();
-            (family, ids_iter)
+            (family, ids.iter().copied())
         })
     }
 

@@ -1184,10 +1184,10 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
+        let book = self.world.book();
         let equation = is_in_equation_show_rule(self.leaf);
-        for (family, iter) in self.world.book().families() {
-            let variants: Vec<_> =
-                iter.filter_map(|id| self.world.book().info(id)).collect();
+        for (family, iter) in book.families() {
+            let variants: Vec<_> = iter.filter_map(|id| book.info(id)).collect();
             let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
             let detail = summarize_font_family(variants);
             if !equation || is_math {
