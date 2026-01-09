@@ -18,6 +18,15 @@
   let x = include "modules/chap3.typ"
 }
 
+--- include-path paged ---
+#import "modules/chap1.typ": chap2-path
+#include chap2-path
+
+--- include-path-like-str-not-found paged ---
+#import "modules/chap1.typ": chap2-str
+// Error: 10-19 file not found (searched at tests/suite/scripting/chap2.typ)
+#include chap2-str
+
 --- include-no-bindings paged ---
 #include "modules/chap1.typ"
 

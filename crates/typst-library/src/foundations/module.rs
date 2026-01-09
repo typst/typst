@@ -2,7 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
-use typst_syntax::FileId;
+use typst_syntax::path::VirtualPath;
+use typst_utils::Id;
 
 use crate::diag::{DeprecationSink, StrResult, bail};
 use crate::foundations::{Content, Repr, Scope, Value, ty};
@@ -61,8 +62,8 @@ struct ModuleInner {
     scope: Scope,
     /// The module's layoutable contents.
     content: Content,
-    /// The id of the file which defines the module, if any.
-    file_id: Option<FileId>,
+    /// The path to the file which defined the module, if any.
+    path: Option<Id<VirtualPath>>,
 }
 
 impl Module {
@@ -70,11 +71,7 @@ impl Module {
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
             name: Some(name.into()),
-            inner: Arc::new(ModuleInner {
-                scope,
-                content: Content::empty(),
-                file_id: None,
-            }),
+            inner: Arc::new(ModuleInner { scope, content: Content::empty(), path: None }),
         }
     }
 
@@ -82,11 +79,7 @@ impl Module {
     pub fn anonymous(scope: Scope) -> Self {
         Self {
             name: None,
-            inner: Arc::new(ModuleInner {
-                scope,
-                content: Content::empty(),
-                file_id: None,
-            }),
+            inner: Arc::new(ModuleInner { scope, content: Content::empty(), path: None }),
         }
     }
 
@@ -108,9 +101,9 @@ impl Module {
         self
     }
 
-    /// Update the module's file id.
-    pub fn with_file_id(mut self, file_id: FileId) -> Self {
-        Arc::make_mut(&mut self.inner).file_id = Some(file_id);
+    /// Update the module's path.
+    pub fn with_path(mut self, path: Id<VirtualPath>) -> Self {
+        Arc::make_mut(&mut self.inner).path = Some(path);
         self
     }
 
@@ -124,11 +117,11 @@ impl Module {
         &self.inner.scope
     }
 
-    /// Access the module's file id.
+    /// Access the path to the file which defined the module, if any.
     ///
     /// Some modules are not associated with a file, like the built-in modules.
-    pub fn file_id(&self) -> Option<FileId> {
-        self.inner.file_id
+    pub fn path(&self) -> Option<Id<VirtualPath>> {
+        self.inner.path
     }
 
     /// Access the module's scope, mutably.

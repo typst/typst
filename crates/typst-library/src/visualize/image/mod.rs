@@ -10,15 +10,15 @@ pub use self::raster::{
 };
 pub use self::svg::SvgImage;
 
-use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
+use typst_syntax::path::VirtualPath;
 use typst_syntax::{Span, Spanned};
-use typst_utils::{LazyHash, NonZeroExt};
+use typst_utils::{Intern, LazyHash, NonZeroExt};
 
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
@@ -53,8 +53,8 @@ use crate::visualize::image::pdf::PdfDocument;
 /// ```
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
-    /// image in one of the supported [formats]($image.format).
+    /// A path to an image file or raw bytes making up an image in one of the
+    /// supported [formats]($image.format).
     ///
     /// Bytes can be used to specify raw pixel data in a row-major,
     /// left-to-right, top-to-bottom format.
@@ -304,16 +304,18 @@ impl Packed<ImageElem> {
                 }
 
                 // Identify the SVG file in case contained hrefs need to be resolved.
-                let svg_file = match self.source.source {
-                    DataSource::Path(ref path) => span.resolve_path(path).ok(),
-                    DataSource::Bytes(_) => span.id(),
+                let svg_path = match self.source.source {
+                    DataSource::Path(ref path) => {
+                        path.resolve_if_some(span.path()).ok().map(|v| v.intern())
+                    }
+                    DataSource::Bytes(_) => span.path(),
                 };
                 ImageKind::Svg(
                     SvgImage::with_fonts_images(
                         loaded.data.clone(),
                         engine.world,
                         &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-                        svg_file,
+                        svg_path,
                     )
                     .within(loaded)?,
                 )
@@ -381,9 +383,11 @@ impl Packed<ImageElem> {
             return Ok(v);
         };
 
+        let span = self.span();
         let Derived { source, derived: loaded } = &self.source;
         if let DataSource::Path(path) = source
-            && let Some(format) = determine_format_from_path(path.as_str())
+            && let Ok(path) = path.resolve_if_some(span.path())
+            && let Some(format) = determine_format_from_path(&path)
         {
             return Ok(format);
         }
@@ -393,14 +397,8 @@ impl Packed<ImageElem> {
 }
 
 /// Derive the image format from the file extension of a path.
-fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
-    let ext = std::path::Path::new(path)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or_default()
-        .to_lowercase();
-
-    match ext.as_str() {
+fn determine_format_from_path(path: &VirtualPath) -> Option<ImageFormat> {
+    match path.extension()? {
         // Raster formats
         "png" => Some(ExchangeFormat::Png.into()),
         "jpg" | "jpeg" => Some(ExchangeFormat::Jpg.into()),

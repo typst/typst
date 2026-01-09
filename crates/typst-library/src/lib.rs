@@ -29,8 +29,9 @@ pub mod visualize;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
-use typst_syntax::{FileId, Source, Span};
-use typst_utils::{LazyHash, SmallBitSet};
+use typst_syntax::path::VirtualPath;
+use typst_syntax::{Source, Span};
+use typst_utils::{Id, LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
@@ -64,14 +65,14 @@ pub trait World: Send + Sync {
     /// Metadata about all known fonts.
     fn book(&self) -> &LazyHash<FontBook>;
 
-    /// Get the file id of the main source file.
-    fn main(&self) -> FileId;
+    /// Get the path to the main source file.
+    fn main(&self) -> Id<VirtualPath>;
 
-    /// Try to access the specified source file.
-    fn source(&self, id: FileId) -> FileResult<Source>;
+    /// Try to access the specified path as a source file.
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source>;
 
-    /// Try to access the specified file.
-    fn file(&self, id: FileId) -> FileResult<Bytes>;
+    /// Try to access the specified path as a raw file.
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes>;
 
     /// Try to access the font with the given index in the font book.
     fn font(&self, index: usize) -> Option<Font>;
@@ -97,16 +98,16 @@ macro_rules! world_impl {
                 self.deref().book()
             }
 
-            fn main(&self) -> FileId {
+            fn main(&self) -> Id<VirtualPath> {
                 self.deref().main()
             }
 
-            fn source(&self, id: FileId) -> FileResult<Source> {
-                self.deref().source(id)
+            fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+                self.deref().source(path)
             }
 
-            fn file(&self, id: FileId) -> FileResult<Bytes> {
-                self.deref().file(id)
+            fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+                self.deref().file(path)
             }
 
             fn font(&self, index: usize) -> Option<Font> {
@@ -134,7 +135,7 @@ pub trait WorldExt {
 
 impl<T: World + ?Sized> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
+        span.range().or_else(|| self.source(span.path()?).ok()?.range(span))
     }
 }
 

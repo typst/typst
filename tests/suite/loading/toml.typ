@@ -36,6 +36,10 @@
   second: 57,
 ))
 
+// Test reading through path type.
+#let data-from-path = toml(path("/assets/data/toml-types.toml"))
+#test(data-from-path, data)
+
 --- toml-invalid paged ---
 // Error: "/assets/data/bad.toml" 1:16-2:1 failed to parse TOML (expected `.`, `=`)
 #toml("/assets/data/bad.toml")

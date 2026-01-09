@@ -5,10 +5,12 @@ use typst_library::diag::{
     At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Content, Module, Value};
+use typst_library::foundations::{Binding, Content, Module, PathOrStr, Reflect, Value};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
-use typst_syntax::{FileId, Span, VirtualPath};
+use typst_syntax::path::{VirtualPath, VirtualRoot};
+use typst_utils::{Id, Intern};
 
 use crate::{Eval, Vm, eval};
 
@@ -20,7 +22,7 @@ impl Eval for ast::ModuleImport<'_> {
         let source_span = source_expr.span();
 
         let mut source = source_expr.eval(vm)?;
-        let mut is_str = false;
+        let mut replaced_source = false;
 
         match &source {
             Value::Func(func) => {
@@ -32,7 +34,12 @@ impl Eval for ast::ModuleImport<'_> {
             Value::Module(_) => {}
             Value::Str(path) => {
                 source = Value::Module(import(&mut vm.engine, path, source_span)?);
-                is_str = true;
+                replaced_source = true;
+            }
+            v if VirtualPath::castable(v) => {
+                let path = v.clone().cast::<VirtualPath>().at(source_span)?.intern();
+                source = Value::Module(import_file(&mut vm.engine, path, source_span)?);
+                replaced_source = true;
             }
             v => {
                 bail!(
@@ -65,9 +72,10 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
-                        // Bare dynamic string imports are not allowed.
+                        // Bare dynamic string or path imports are not allowed.
                         Ok(name)
-                            if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
+                            if !replaced_source
+                                || matches!(source_expr, ast::Expr::Str(_)) =>
                         {
                             if matches!(source_expr, ast::Expr::Ident(_)) {
                                 vm.engine.sink.warn(warning!(
@@ -175,6 +183,10 @@ impl Eval for ast::ModuleInclude<'_> {
         let module = match source {
             Value::Str(path) => import(&mut vm.engine, &path, span)?,
             Value::Module(module) => module,
+            v if VirtualPath::castable(&v) => {
+                let path = v.cast::<VirtualPath>().at(span)?.intern();
+                import_file(&mut vm.engine, path, span)?
+            }
             v => bail!(span, "expected path or module, found {}", v.ty()),
         };
         Ok(module.content())
@@ -187,19 +199,25 @@ pub fn import(engine: &mut Engine, from: &str, span: Span) -> SourceResult<Modul
         let spec = from.parse::<PackageSpec>().at(span)?;
         import_package(engine, spec, span)
     } else {
-        let id = span.resolve_path(from).at(span)?;
-        import_file(engine, id, span)
+        let path = PathOrStr::Str(from.into())
+            .resolve_if_some(span.path())
+            .at(span)?
+            .intern();
+        import_file(engine, path, span)
     }
 }
 
-/// Import a file from a path. The path is resolved relative to the given
-/// `span`.
-fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Module> {
+/// Import a file from a path.
+fn import_file(
+    engine: &mut Engine,
+    path: Id<VirtualPath>,
+    span: Span,
+) -> SourceResult<Module> {
     // Load the source file.
-    let source = engine.world.source(id).at(span)?;
+    let source = engine.world.source(path).at(span)?;
 
     // Prevent cyclic importing.
-    if engine.route.contains(source.id()) {
+    if engine.route.contains(source.path()) {
         bail!(span, "cyclic import");
     }
 
@@ -231,10 +249,13 @@ fn resolve_package(
     engine: &mut Engine,
     spec: PackageSpec,
     span: Span,
-) -> SourceResult<(EcoString, FileId)> {
+) -> SourceResult<(EcoString, Id<VirtualPath>)> {
     // Evaluate the manifest.
-    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
-    let bytes = engine.world.file(manifest_id).at(span)?;
+    let manifest_path =
+        VirtualPath::new(VirtualRoot::Package(spec.clone()), "typst.toml")
+            .unwrap()
+            .intern();
+    let bytes = engine.world.file(manifest_path).at(span)?;
     let string = bytes.as_str().map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
         .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
@@ -242,5 +263,11 @@ fn resolve_package(
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    Ok((manifest.package.name, manifest_id.join(&manifest.package.entrypoint)))
+    Ok((
+        manifest.package.name,
+        PathOrStr::Str(manifest.package.entrypoint.into())
+            .resolve(&manifest_path)
+            .at(span)?
+            .intern(),
+    ))
 }

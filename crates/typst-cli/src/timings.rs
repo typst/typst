@@ -82,7 +82,7 @@ impl Timer {
 
 /// Turns a span into a (file, line) pair.
 fn resolve_span(world: &SystemWorld, span: Span) -> Option<(String, u32)> {
-    let id = span.id()?;
+    let id = span.path()?;
     let source = world.source(id).ok()?;
     let range = source.range(span)?;
     let line = source.lines().byte_to_line(range.start)?;

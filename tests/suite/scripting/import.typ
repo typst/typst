@@ -155,19 +155,28 @@
 // Hint: 9-26 you can name the import with `as`
 #import "mod" + "ule.typ"
 
---- import-from-var-bare paged ---
+--- import-from-path-bare paged ---
+// Error: 9-27 dynamic import requires an explicit name
+// Hint: 9-27 you can name the import with `as`
+#import path("module.typ")
+
+--- import-from-str-var-bare paged ---
 #let p = "module.typ"
 // Error: 9-10 dynamic import requires an explicit name
 // Hint: 9-10 you can name the import with `as`
 #import p
-#test(p.b, 1)
+
+--- import-from-path-var-bare paged ---
+#let p = path("module.typ")
+// Error: 9-10 dynamic import requires an explicit name
+// Hint: 9-10 you can name the import with `as`
+#import p
 
 --- import-from-dict-field-bare paged ---
 #let d = (p: "module.typ")
 // Error: 9-12 dynamic import requires an explicit name
 // Hint: 9-12 you can name the import with `as`
 #import d.p
-#test(p.b, 1)
 
 --- import-from-file-renamed-dynamic paged ---
 #import "mod" + "ule.typ" as mod
@@ -187,6 +196,16 @@
 #test(newval, 1)
 #test(item(1, 2), 3)
 #test(newname.item(1, 2), 3)
+
+--- import-from-str-var-renamed paged ---
+#let p = "module.typ"
+#import p as f
+#test(f.b, 1)
+
+--- import-from-path-renamed paged ---
+#import path("modules/chap1.typ") as chap1
+#import chap1.module-path as f
+#test(f.b, 1)
 
 --- import-from-function-scope-bare paged ---
 // Warning: 9-13 this import has no effect

@@ -2,21 +2,19 @@
 
 pub mod ast;
 pub mod package;
+pub mod path;
 
-mod file;
 mod highlight;
 mod kind;
 mod lexer;
 mod lines;
 mod node;
 mod parser;
-mod path;
 mod reparser;
 mod set;
 mod source;
 mod span;
 
-pub use self::file::FileId;
 pub use self::highlight::{Tag, highlight, highlight_html};
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{
@@ -26,7 +24,6 @@ pub use self::lexer::{
 pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::parser::{parse, parse_code, parse_math};
-pub use self::path::VirtualPath;
 pub use self::source::Source;
 pub use self::span::{Span, Spanned};
 
@@ -43,3 +40,10 @@ pub enum SyntaxMode {
     /// Keywords, literals and operators, as after hashes.
     Code,
 }
+
+/// Identifies a file in a project or package.
+#[deprecated = "use `typst_utils::Id<VirtualPath>` instead"]
+pub type FileId = typst_utils::Id<self::path::VirtualPath>;
+
+#[deprecated = "access the definition in the `path` module"]
+pub type VirtualPath = self::path::VirtualPath;

@@ -2,7 +2,9 @@ use ecow::EcoVec;
 use typst::introspection::{DocumentPosition, HtmlPosition};
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
-use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
+use typst::syntax::path::VirtualPath;
+use typst::syntax::{LinkedNode, Side, Source, Span, SyntaxKind};
+use typst::utils::Id;
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
 use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
@@ -13,7 +15,7 @@ use crate::IdeWorld;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Jump {
     /// Jump to a position in a file.
-    File(FileId, usize),
+    File(Id<VirtualPath>, usize),
     /// Jump to an external URL.
     Url(Url),
     /// Jump to a point on a page.
@@ -22,7 +24,7 @@ pub enum Jump {
 
 impl Jump {
     fn from_span(world: &dyn IdeWorld, span: Span) -> Option<Self> {
-        let id = span.id()?;
+        let id = span.path()?;
         let offset = world.range(span)?.start;
         Some(Self::File(id, offset))
     }
@@ -264,7 +266,7 @@ pub fn jump_from_click_in_frame(
                         click,
                     ) {
                         let (span, span_offset) = glyph.span;
-                        let Some(id) = span.id() else { continue };
+                        let Some(id) = span.path() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
                         let pos = if matches!(
@@ -280,7 +282,7 @@ pub fn jump_from_click_in_frame(
                         } else {
                             node.offset()
                         };
-                        return Some(Jump::File(source.id(), pos));
+                        return Some(Jump::File(source.path(), pos));
                     }
 
                     pos.x += width;

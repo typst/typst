@@ -324,7 +324,7 @@ impl Decimal {
 
 /// Emits a warning when a decimal is constructed from a float literal.
 fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
-    let id = span.id()?;
+    let id = span.path()?;
     let source = engine.world.source(id).ok()?;
     let node = source.find(span)?;
     if node.is::<ast::Float>() {

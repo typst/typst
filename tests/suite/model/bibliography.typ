@@ -40,6 +40,23 @@ And quark! @quark
 Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works_too.bib"))
 
+--- bibliography-source-path paged ---
+#show heading: none
+#bibliography(path("/assets/bib/works_too.bib"))
+
+--- bibliography-source-types paged ---
+#let src = ```yaml
+hi:
+  type: Book
+```
+
+#show heading: none
+#bibliography((
+  "/assets/bib/works.bib",
+  path("/assets/bib/works_too.bib"),
+  bytes(src.text)
+))
+
 --- bibliography-duplicate-key paged ---
 // Error: 15-65 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works.bib"))

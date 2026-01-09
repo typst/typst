@@ -16,8 +16,9 @@ mod xml_;
 mod yaml_;
 
 use comemo::Tracked;
-use ecow::EcoString;
-use typst_syntax::{FileId, Spanned};
+use typst_syntax::Spanned;
+use typst_syntax::path::VirtualPath;
+use typst_utils::{Id, Intern};
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
@@ -30,6 +31,7 @@ pub use self::yaml_::*;
 use crate::World;
 use crate::diag::{At, SourceResult};
 use crate::foundations::OneOrMultiple;
+use crate::foundations::PathOrStr;
 use crate::foundations::{Bytes, Scope, Str, cast};
 
 /// Hook up all `data-loading` definitions.
@@ -49,7 +51,7 @@ pub(super) fn define(global: &mut Scope) {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum DataSource {
     /// A path to a file.
-    Path(EcoString),
+    Path(PathOrStr),
     /// Raw bytes.
     Bytes(Bytes),
 }
@@ -60,7 +62,7 @@ cast! {
         Self::Path(v) => v.into_value(),
         Self::Bytes(v) => v.into_value(),
     },
-    v: EcoString => Self::Path(v),
+    v: PathOrStr => Self::Path(v),
     v: Bytes => Self::Bytes(v),
 }
 
@@ -85,11 +87,12 @@ impl Load for Spanned<&DataSource> {
     type Output = Loaded;
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
-        match &self.v {
+        match self.v {
             DataSource::Path(path) => {
-                let file_id = self.span.resolve_path(path).at(self.span)?;
-                let data = world.file(file_id).at(self.span)?;
-                let source = Spanned::new(LoadSource::Path(file_id), self.span);
+                let resolved =
+                    path.resolve_if_some(self.span.path()).at(self.span)?.intern();
+                let data = world.file(resolved).at(self.span)?;
+                let source = Spanned::new(LoadSource::Path(resolved), self.span);
                 Ok(Loaded::new(source, data))
             }
             DataSource::Bytes(data) => {
@@ -138,7 +141,7 @@ impl Loaded {
 /// A loaded [`DataSource`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum LoadSource {
-    Path(FileId),
+    Path(Id<VirtualPath>),
     Bytes,
 }
 

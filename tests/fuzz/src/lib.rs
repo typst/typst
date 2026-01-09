@@ -1,8 +1,9 @@
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
-use typst::syntax::{FileId, Source};
+use typst::syntax::Source;
+use typst::syntax::path::VirtualPath;
 use typst::text::{Font, FontBook};
-use typst::utils::LazyHash;
+use typst::utils::{Id, LazyHash};
 use typst::{Library, LibraryExt, World};
 
 pub struct FuzzWorld {
@@ -35,20 +36,20 @@ impl World for FuzzWorld {
         &self.book
     }
 
-    fn main(&self) -> FileId {
-        self.source.id()
+    fn main(&self) -> Id<VirtualPath> {
+        self.source.path()
     }
 
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        if id == self.source.id() {
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+        if path == self.source.path() {
             Ok(self.source.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            Err(FileError::NotFound(path.get_without_slash().into()))
         }
     }
 
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+        Err(FileError::NotFound(path.get_without_slash().into()))
     }
 
     fn font(&self, _: usize) -> Option<Font> {

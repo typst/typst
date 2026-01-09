@@ -12,6 +12,10 @@
 #test(data.keys().contains("true"), true)
 #test(data.at("1"), "ok")
 
+// Test reading through path type.
+#let data-from-path = yaml(path("/assets/data/yaml-types.yaml"))
+#test(data-from-path, data)
+
 --- yaml-invalid paged ---
 // Error: "/assets/data/bad.yaml" 2:1 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/assets/data/bad.yaml")

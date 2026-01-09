@@ -6,8 +6,9 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
-use typst_syntax::{FileId, Span};
-use typst_utils::Protected;
+use typst_syntax::Span;
+use typst_syntax::path::VirtualPath;
+use typst_utils::{Id, Protected};
 
 use crate::World;
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
@@ -135,8 +136,8 @@ impl Traced {
     ///
     /// We hide the span if it isn't in the given file so that only results for
     /// the file with the traced span are invalidated.
-    pub fn get(&self, id: FileId) -> Option<Span> {
-        if self.0.and_then(Span::id) == Some(id) { self.0 } else { None }
+    pub fn get(&self, path: Id<VirtualPath>) -> Option<Span> {
+        if self.0.and_then(Span::path) == Some(path) { self.0 } else { None }
     }
 }
 
@@ -258,7 +259,7 @@ pub struct Route<'a> {
     outer: Option<Tracked<'a, Self, <Route<'static> as Track>::Call>>,
     /// This is set if this route segment was inserted through the start of a
     /// module evaluation.
-    id: Option<FileId>,
+    path: Option<Id<VirtualPath>>,
     /// This is set whenever we enter a function, nested layout, or are applying
     /// a show rule. The length of this segment plus the lengths of all `outer`
     /// route segments make up the length of the route. If the length of the
@@ -277,7 +278,7 @@ impl<'a> Route<'a> {
     /// Create a new, empty route.
     pub fn root() -> Self {
         Self {
-            id: None,
+            path: None,
             outer: None,
             len: 0,
             upper: AtomicUsize::new(0),
@@ -288,15 +289,15 @@ impl<'a> Route<'a> {
     pub fn extend(outer: Tracked<'a, Self>) -> Self {
         Route {
             outer: Some(outer),
-            id: None,
+            path: None,
             len: 1,
             upper: AtomicUsize::new(usize::MAX),
         }
     }
 
-    /// Attach a file id to the route segment.
-    pub fn with_id(self, id: FileId) -> Self {
-        Self { id: Some(id), ..self }
+    /// Attach a file path to the route segment.
+    pub fn with_path(self, path: Id<VirtualPath>) -> Self {
+        Self { path: Some(path), ..self }
     }
 
     /// Set the length of the route segment to zero.
@@ -310,7 +311,7 @@ impl<'a> Route<'a> {
     /// if it does not contribute anything.
     pub fn track(&self) -> Tracked<'_, Self> {
         match self.outer {
-            Some(outer) if self.id.is_none() && self.len == 0 => outer,
+            Some(outer) if self.path.is_none() && self.len == 0 => outer,
             _ => Track::track(self),
         }
     }
@@ -390,8 +391,8 @@ impl Route<'_> {
 #[allow(clippy::needless_lifetimes)]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
-    pub fn contains(&self, id: FileId) -> bool {
-        self.id == Some(id) || self.outer.is_some_and(|outer| outer.contains(id))
+    pub fn contains(&self, path: Id<VirtualPath>) -> bool {
+        self.path == Some(path) || self.outer.is_some_and(|outer| outer.contains(path))
     }
 
     /// Whether the route's depth is less than or equal to the given depth.
@@ -431,7 +432,7 @@ impl Clone for Route<'_> {
     fn clone(&self) -> Self {
         Self {
             outer: self.outer,
-            id: self.id,
+            path: self.path,
             len: self.len,
             upper: AtomicUsize::new(self.upper.load(Ordering::Relaxed)),
         }

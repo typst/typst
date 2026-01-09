@@ -8,10 +8,11 @@ use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
-use typst::syntax::{FileId, Lines, Source, VirtualPath};
+use typst::foundations::{Bytes, Datetime, Dict, IntoValue, Repr};
+use typst::syntax::path::{PathError, VirtualPath, VirtualRoot, VirtualizeError};
+use typst::syntax::{Lines, Source};
 use typst::text::{Font, FontBook};
-use typst::utils::LazyHash;
+use typst::utils::{Id, Intern, LazyHash};
 use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::Fonts;
 use typst_kit::package::PackageStorage;
@@ -21,15 +22,17 @@ use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
-/// Static `FileId` allocated for stdin.
-/// This is to ensure that a file is read in the correct way.
-static STDIN_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+/// Static `FileId` allocated for stdin. This is to ensure that a file is read
+/// in the correct way.
+static STDIN_ID: LazyLock<Id<VirtualPath>> = LazyLock::new(|| {
+    Id::unique(VirtualPath::new(VirtualRoot::Project, "<stdin>").unwrap())
+});
 
-/// Static `FileId` allocated for empty/no input at all.
-/// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
-static EMPTY_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>")));
+/// Static `FileId` allocated for empty/no input at all. This is to ensure that
+/// we can create a [SystemWorld] based on no main file or stdin at all.
+static EMPTY_ID: LazyLock<Id<VirtualPath>> = LazyLock::new(|| {
+    Id::unique(VirtualPath::new(VirtualRoot::Project, "<empty>").unwrap())
+});
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -38,13 +41,13 @@ pub struct SystemWorld {
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
-    main: FileId,
+    main: Id<VirtualPath>,
     /// Typst's standard library.
     library: LazyHash<Library>,
     /// Metadata about discovered fonts and lazily loaded fonts.
     fonts: LazyLock<Fonts, Box<dyn Fn() -> Fonts + Send + Sync>>,
     /// Maps file ids to source files and buffers.
-    slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<Id<VirtualPath>, FileSlot>>,
     /// Holds information about where packages are stored.
     package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -99,9 +102,7 @@ impl SystemWorld {
 
         let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
-            let main_path = VirtualPath::within_root(path, &root)
-                .ok_or(WorldCreationError::InputOutsideRoot)?;
-            FileId::new(None, main_path)
+            VirtualPath::virtualize(VirtualRoot::Project, &root, path)?.intern()
         } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN.
             *STDIN_ID
@@ -148,7 +149,7 @@ impl SystemWorld {
     }
 
     /// The id of the main source file.
-    pub fn main(&self) -> FileId {
+    pub fn main(&self) -> Id<VirtualPath> {
         self.main
     }
 
@@ -169,7 +170,7 @@ impl SystemWorld {
             .values()
             .filter(|slot| slot.accessed())
             .filter_map(|slot| {
-                system_path(&self.root, slot.id, &self.package_storage).ok()
+                system_path(slot.path, &self.root, &self.package_storage).ok()
             })
     }
 
@@ -184,10 +185,10 @@ impl SystemWorld {
         }
     }
 
-    /// Lookup line metadata for a file by id.
+    /// Lookup line metadata for a file.
     #[track_caller]
-    pub fn lookup(&self, id: FileId) -> Lines<String> {
-        self.slot(id, |slot| {
+    pub fn lookup(&self, path: Id<VirtualPath>) -> Lines<String> {
+        self.slot(path, |slot| {
             if let Some(source) = slot.source.get() {
                 let source = source.as_ref().expect("file is not valid");
                 source.lines().clone()
@@ -217,16 +218,16 @@ impl World for SystemWorld {
         &self.fonts.book
     }
 
-    fn main(&self) -> FileId {
+    fn main(&self) -> Id<VirtualPath> {
         self.main
     }
 
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id, |slot| slot.source(&self.root, &self.package_storage))
+    fn source(&self, path: Id<VirtualPath>) -> FileResult<Source> {
+        self.slot(path, |slot| slot.source(&self.root, &self.package_storage))
     }
 
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, |slot| slot.file(&self.root, &self.package_storage))
+    fn file(&self, path: Id<VirtualPath>) -> FileResult<Bytes> {
+        self.slot(path, |slot| slot.file(&self.root, &self.package_storage))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -261,21 +262,21 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> T
+    fn slot<F, T>(&self, path: Id<VirtualPath>, f: F) -> T
     where
         F: FnOnce(&mut FileSlot) -> T,
     {
         let mut map = self.slots.lock();
-        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
+        f(map.entry(path).or_insert_with(|| FileSlot::new(path)))
     }
 }
 
-/// Holds the processed data for a file ID.
+/// Holds the processed data for a path.
 ///
 /// Both fields can be populated if the file is both imported and read().
 struct FileSlot {
-    /// The slot's file id.
-    id: FileId,
+    /// The slot's path.
+    path: Id<VirtualPath>,
     /// The lazily loaded and incrementally updated source file.
     source: SlotCell<Source>,
     /// The lazily loaded raw byte buffer.
@@ -284,8 +285,12 @@ struct FileSlot {
 
 impl FileSlot {
     /// Create a new file slot.
-    fn new(id: FileId) -> Self {
-        Self { id, file: SlotCell::new(), source: SlotCell::new() }
+    fn new(path: Id<VirtualPath>) -> Self {
+        Self {
+            path,
+            file: SlotCell::new(),
+            source: SlotCell::new(),
+        }
     }
 
     /// Whether the file was accessed in the ongoing compilation.
@@ -307,14 +312,14 @@ impl FileSlot {
         package_storage: &PackageStorage,
     ) -> FileResult<Source> {
         self.source.get_or_init(
-            || read(self.id, project_root, package_storage),
+            || read(self.path, project_root, package_storage),
             |data, prev| {
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
                     Ok(prev)
                 } else {
-                    Ok(Source::new(self.id, text.into()))
+                    Ok(Source::new(self.path, text.into()))
                 }
             },
         )
@@ -327,7 +332,7 @@ impl FileSlot {
         package_storage: &PackageStorage,
     ) -> FileResult<Bytes> {
         self.file.get_or_init(
-            || read(self.id, project_root, package_storage),
+            || read(self.path, project_root, package_storage),
             |data, _| Ok(Bytes::new(data)),
         )
     }
@@ -410,22 +415,20 @@ fn scan_fonts(args: &FontArgs) -> Fonts {
 /// Resolves the path of a file id on the system, downloading a package if
 /// necessary.
 fn system_path(
+    path: Id<VirtualPath>,
     project_root: &Path,
-    id: FileId,
     package_storage: &PackageStorage,
 ) -> FileResult<PathBuf> {
-    // Determine the root path relative to which the file path
-    // will be resolved.
+    // Determine the root path relative to which the file path will be resolved.
     let buf;
-    let mut root = project_root;
-    if let Some(spec) = id.package() {
-        buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
-        root = &buf;
-    }
-
-    // Join the path to the root. If it tries to escape, deny
-    // access. Note: It can still escape via symlinks.
-    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+    let root_path = match path.root() {
+        VirtualRoot::Project => project_root,
+        VirtualRoot::Package(spec) => {
+            buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
+            &buf
+        }
+    };
+    Ok(path.realize(root_path))
 }
 
 /// Reads a file from a `FileId`.
@@ -434,14 +437,14 @@ fn system_path(
 /// - If it represents empty/no input at all it will return an empty vector.
 /// - Otherwise, it gets the file path of the ID and reads the file from disk.
 fn read(
-    id: FileId,
+    path: Id<VirtualPath>,
     project_root: &Path,
     package_storage: &PackageStorage,
 ) -> FileResult<Vec<u8>> {
-    match id {
+    match path {
         id if id == *EMPTY_ID => Ok(Vec::new()),
         id if id == *STDIN_ID => read_from_stdin(),
-        _ => read_from_disk(&system_path(project_root, id, package_storage)?),
+        _ => read_from_disk(&system_path(path, project_root, package_storage)?),
     }
 }
 
@@ -487,8 +490,8 @@ enum Now {
 pub enum WorldCreationError {
     /// The input file does not appear to exist.
     InputNotFound(PathBuf),
-    /// The input file is not contained within the root folder.
-    InputOutsideRoot,
+    /// The input file path was malformed.
+    InputMalformed(VirtualizeError),
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
     /// Another type of I/O error.
@@ -498,17 +501,32 @@ pub enum WorldCreationError {
 impl fmt::Display for WorldCreationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            WorldCreationError::InputMalformed(err) => match err {
+                VirtualizeError::Path(PathError::Escapes) => {
+                    write!(f, "source file must be contained in project root")
+                }
+                VirtualizeError::Path(PathError::Backslash) => {
+                    write!(f, "source path must not contain a backslash")
+                }
+                VirtualizeError::Invalid(s) => {
+                    write!(f, "source path contains invalid sequence `{}`", s.repr())
+                }
+                VirtualizeError::Utf8 => write!(f, "source path must be valid UTF-8"),
+            },
             WorldCreationError::InputNotFound(path) => {
                 write!(f, "input file not found (searched at {})", path.display())
-            }
-            WorldCreationError::InputOutsideRoot => {
-                write!(f, "source file must be contained in project root")
             }
             WorldCreationError::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
             }
             WorldCreationError::Io(err) => write!(f, "{err}"),
         }
+    }
+}
+
+impl From<VirtualizeError> for WorldCreationError {
+    fn from(err: VirtualizeError) -> Self {
+        Self::InputMalformed(err)
     }
 }
 

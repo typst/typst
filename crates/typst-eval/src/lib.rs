@@ -46,9 +46,9 @@ pub fn eval(
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
-    let id = source.id();
-    if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
+    let path = source.path();
+    if route.contains(path) {
+        panic!("Tried to cyclicly evaluate {path:?}");
     }
 
     // Prepare the engine.
@@ -59,7 +59,7 @@ pub fn eval(
         introspector: Protected::new(introspector.track()),
         traced,
         sink,
-        route: Route::extend(route).with_id(id),
+        route: Route::extend(route).with_path(path),
     };
 
     // Prepare VM.
@@ -84,14 +84,9 @@ pub fn eval(
     }
 
     // Assemble the module.
-    let name = id
-        .vpath()
-        .as_rootless_path()
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy();
+    let name = path.file_stem().unwrap_or_default();
 
-    Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
+    Ok(Module::new(name, vm.scopes.top).with_content(output).with_path(path))
 }
 
 /// Evaluate a string as code and return the resulting value.

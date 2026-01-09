@@ -5,6 +5,10 @@
 #test(data.at(0).name, "Debby")
 #test(data.at(2).weight, 150)
 
+// Test reading through path type.
+#let data-from-path = json(path("/assets/data/zoo.json"))
+#test(data-from-path, data)
+
 --- json-with-bom paged ---
 // Error: 7-43 failed to parse JSON (unexpected Byte Order Mark at 1:1)
 // Hint: 7-43 JSON requires UTF-8 without a BOM

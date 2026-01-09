@@ -4,8 +4,10 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use typst_utils::Id;
 
-use crate::{FileId, Span, SyntaxKind};
+use crate::path::VirtualPath;
+use crate::{Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -213,7 +215,7 @@ impl SyntaxNode {
     /// Assign spans to each node.
     pub(super) fn numberize(
         &mut self,
-        id: FileId,
+        id: Id<VirtualPath>,
         within: Range<u64>,
     ) -> NumberingResult {
         if within.start >= within.end {
@@ -406,7 +408,7 @@ impl InnerNode {
     /// a `range` of its children.
     fn numberize(
         &mut self,
-        id: FileId,
+        id: Id<VirtualPath>,
         range: Option<Range<usize>>,
         within: Range<u64>,
     ) -> NumberingResult {
@@ -474,7 +476,7 @@ impl InnerNode {
         mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
     ) -> NumberingResult {
-        let Some(id) = self.span.id() else { return Err(Unnumberable) };
+        let Some(id) = self.span.path() else { return Err(Unnumberable) };
         let mut replacement_range = 0..replacement.len();
 
         // Trim off common prefix.
