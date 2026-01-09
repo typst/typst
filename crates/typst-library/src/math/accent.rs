@@ -13,8 +13,11 @@ use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
     NativeFuncPtr, ParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
 };
-use crate::layout::{Length, Rel};
+use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;
+
+/// How much the accent can be shorter than the base.
+pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attaches an accent to a base.
 ///

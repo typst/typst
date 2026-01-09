@@ -1,82 +1,78 @@
 use comemo::Track;
 use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Context, Packed, Smart, StyleChain};
+use typst_library::engine::Engine;
+use typst_library::foundations::{Context, Smart, StyleChain};
 use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Transform};
-use typst_library::math::{CancelAngle, CancelElem};
-use typst_library::text::TextElem;
+use typst_library::math::CancelAngle;
+use typst_library::math::ir::{CancelItem, MathProperties};
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
-use super::{FrameFragment, MathContext};
+use super::MathContext;
+use super::fragment::FrameFragment;
 
-/// Lays out a [`CancelElem`].
-#[typst_macros::time(name = "math.cancel", span = elem.span())]
+/// Lays out a [`CancelItem`].
+#[typst_macros::time(name = "math cancel layout", span = props.span)]
 pub fn layout_cancel(
-    elem: &Packed<CancelElem>,
+    item: &CancelItem,
     ctx: &mut MathContext,
     styles: StyleChain,
+    props: &MathProperties,
 ) -> SourceResult<()> {
-    let body = ctx.layout_into_fragment(&elem.body, styles)?;
+    let body = ctx.layout_into_fragment(&item.base, styles)?;
 
     // Preserve properties of body.
-    let body_class = body.class();
+    let body_text_like = body.is_text_like();
     let body_italics = body.italics_correction();
     let body_attach = body.accent_attach();
-    let body_text_like = body.is_text_like();
 
     let mut body = body.into_frame();
     let body_size = body.size();
-    let span = elem.span();
-    let length = elem.length.resolve(styles);
 
-    let stroke = elem.stroke.resolve(styles).unwrap_or(FixedStroke {
-        paint: styles.get_ref(TextElem::fill).as_decoration(),
-        ..Default::default()
-    });
-
-    let invert = elem.inverted.get(styles);
-    let cross = elem.cross.get(styles);
-    let angle = elem.angle.get_ref(styles);
-
-    let invert_first_line = !cross && invert;
     let first_line = draw_cancel_line(
-        ctx,
-        length,
-        stroke.clone(),
-        invert_first_line,
-        angle,
+        ctx.engine,
+        item.length,
+        item.stroke.clone(),
+        item.invert_first_line,
+        &item.angle,
         body_size,
         styles,
-        span,
+        props.span,
     )?;
 
     // The origin of our line is the very middle of the element.
     let center = body_size.to_point() / 2.0;
     body.push_frame(center, first_line);
 
-    if cross {
+    if item.cross {
         // Draw the second line.
-        let second_line =
-            draw_cancel_line(ctx, length, stroke, true, angle, body_size, styles, span)?;
+        let second_line = draw_cancel_line(
+            ctx.engine,
+            item.length,
+            item.stroke.clone(),
+            true,
+            &item.angle,
+            body_size,
+            styles,
+            props.span,
+        )?;
 
         body.push_frame(center, second_line);
     }
 
     ctx.push(
-        FrameFragment::new(styles, body)
-            .with_class(body_class)
+        FrameFragment::new(props, styles, body)
             .with_italics_correction(body_italics)
-            .with_accent_attach(body_attach)
-            .with_text_like(body_text_like),
+            .with_text_like(body_text_like)
+            .with_accent_attach(body_attach),
     );
-
     Ok(())
 }
 
 /// Draws a cancel line.
 #[allow(clippy::too_many_arguments)]
 fn draw_cancel_line(
-    ctx: &mut MathContext,
+    engine: &mut Engine,
     length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
@@ -94,7 +90,7 @@ fn draw_cancel_line(
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
             CancelAngle::Func(func) => func
-                .call(ctx.engine, Context::new(None, Some(styles)).track(), [default])?
+                .call(engine, Context::new(None, Some(styles)).track(), [default])?
                 .cast()
                 .at(span)?,
         },

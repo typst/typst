@@ -2,7 +2,11 @@ use typst_syntax::Spanned;
 
 use crate::diag::bail;
 use crate::foundations::{Cast, Content, Value, elem};
+use crate::layout::Em;
 use crate::math::Mathy;
+
+/// How much padding to add around each side of a fraction.
+pub const FRAC_PADDING: Em = Em::new(0.1);
 
 /// A mathematical fraction.
 ///
