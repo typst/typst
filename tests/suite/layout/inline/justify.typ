@@ -274,3 +274,9 @@ int main() {
 // Test whether `Formal` would be in one line.
 #set par(justify: true)
 #table(columns: 1, [Formal])
+
+--- issue-6062-justify-cjk-latin-spacing paged ---
+// Test whether cjk-latin-spacing would be stretched evenly when justified.
+#set par(justify: true)
+あaあ#linebreak(justify: true)
+ああaa aaああ#linebreak(justify: true)
