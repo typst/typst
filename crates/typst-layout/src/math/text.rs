@@ -3,7 +3,7 @@ use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Size};
-use typst_library::math::{EquationElem, MathSize, NumberElem};
+use typst_library::math::{EquationElem, MathSize, NumElem};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
@@ -102,9 +102,9 @@ fn layout_inline_text(
         .with_spaced(true))
 }
 
-/// Layout a [`NumberElem`].
+/// Layout a [`NumElem`].
 pub fn layout_number(
-    elem: &Packed<NumberElem>,
+    elem: &Packed<NumElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
