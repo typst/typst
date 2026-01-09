@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -52,10 +53,15 @@ pub struct CliArguments {
     pub verbose: bool,
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
-    pub num_threads: Option<usize>,
+    pub num_threads: Option<NonZeroUsize>,
     /// Don't generate a HTML test report.
     #[arg(long)]
     pub no_report: bool,
+    /// The git base revision against which the tests will be run.
+    ///
+    /// If none is specified, it's compared against the current working tree.
+    #[arg(long)]
+    pub base_revision: Option<String>,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a

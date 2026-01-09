@@ -86,15 +86,16 @@ impl<T> FileDiff<T> {
 pub enum Old<T> {
     /// The expected reference data.
     Data(T),
+    /// Either the reference data couldn't be read, or
     /// Only the reference hash is available, the live output is missing.
-    OnlyHash,
+    Missing,
 }
 
 impl<T> Old<T> {
     pub fn data(&self) -> Option<&T> {
         match self {
             Old::Data(d) => Some(d),
-            Old::OnlyHash => None,
+            Old::Missing => None,
         }
     }
 
@@ -104,7 +105,7 @@ impl<T> Old<T> {
     {
         match self {
             Old::Data(d) => Old::Data(f(d)),
-            Old::OnlyHash => Old::OnlyHash,
+            Old::Missing => Old::Missing,
         }
     }
 
@@ -114,7 +115,7 @@ impl<T> Old<T> {
     {
         match self {
             Old::Data(d) => Old::Data(d),
-            Old::OnlyHash => Old::OnlyHash,
+            Old::Missing => Old::Missing,
         }
     }
 }

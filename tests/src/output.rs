@@ -162,6 +162,10 @@ pub trait HashOutputType: OutputType {
     const INDEX: usize;
 }
 
+/// TODO: docs
+/// NOTE: This has to be kept in sync with the [`Self::INDEX`].
+pub const HASH_OUTPUTS: [TestOutput; 2] = [TestOutput::Pdf, TestOutput::Svg];
+
 pub struct Render;
 
 impl OutputType for Render {

@@ -30,6 +30,7 @@ clap = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+gix = { workspace = true }
 hayro = { workspace = true }
 hayro-svg = { workspace = true }
 hayro-syntax = { workspace = true }

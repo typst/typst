@@ -21,8 +21,12 @@ use crate::{ARGS, STORE_PATH, custom, output};
 /// Runs a single test.
 ///
 /// Returns whether the test passed.
-pub fn run(hashes: &[RwLock<HashedRefs>], test: &Test) -> TestResult {
-    Runner::new(hashes, test).run()
+pub fn run(
+    base_rev_tree: Option<&gix::Tree>,
+    hashes: &[RwLock<HashedRefs>],
+    test: &Test,
+) -> TestResult {
+    Runner::new(base_rev_tree, hashes, test).run()
 }
 
 /// Write all hashed references that have been updated
@@ -50,6 +54,7 @@ macro_rules! log {
 
 /// Runs a single test.
 pub struct Runner<'a> {
+    base_rev_tree: Option<&'a gix::Tree<'a>>,
     hashes: &'a [RwLock<HashedRefs>],
     test: &'a Test,
     world: TestWorld,
@@ -61,8 +66,13 @@ pub struct Runner<'a> {
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a Test) -> Self {
+    fn new(
+        base_rev_tree: Option<&'a gix::Tree>,
+        hashes: &'a [RwLock<HashedRefs>],
+        test: &'a Test,
+    ) -> Self {
         Self {
+            base_rev_tree,
             hashes,
             test,
             world: TestWorld::new(test.source.clone()),
@@ -288,9 +298,9 @@ impl<'a> Runner<'a> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let ref_path = T::OUTPUT.file_ref_path(&self.test.name);
 
-        let old_ref_data = std::fs::read(&ref_path);
+        let old_ref_data = self.read_ref_data::<T>(&ref_path);
         let Some((doc, live, _)) = output else {
-            if let Ok(old_ref_data) = old_ref_data {
+            if let Some(old_ref_data) = old_ref_data {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
 
@@ -315,13 +325,13 @@ impl<'a> Runner<'a> {
 
         // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && old_ref_data.is_err() {
+        if skippable && old_ref_data.is_none() {
             return;
         }
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        if old_ref_data.as_ref().is_ok_and(|r| T::matches(r, live)) {
+        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
             return;
         }
 
@@ -359,7 +369,7 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_output = true;
-            let old = if let Ok(old_ref_data) = &old_ref_data {
+            let old = if let Some(old_ref_data) = &old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
@@ -477,6 +487,20 @@ impl<'a> Runner<'a> {
         }
     }
 
+    /// Read a reference file either from a specific git base revision, or from
+    /// the file system.
+    fn read_ref_data<T: FileOutputType>(&mut self, ref_path: &Path) -> Option<Vec<u8>> {
+        match &self.base_rev_tree {
+            Some(tree) => {
+                let entry = tree.lookup_entry_by_path(ref_path).ok()??;
+                let obj = entry.object().ok()?;
+                assert_eq!(obj.kind, gix::object::Kind::Blob);
+                Some(obj.data.clone())
+            }
+            None => std::fs::read(ref_path).ok(),
+        }
+    }
+
     fn read_old_live_data<T: HashOutputType>(
         &mut self,
         old_hash: HashedRef,
@@ -490,7 +514,7 @@ impl<'a> Runner<'a> {
         });
         match old_live_data {
             Ok(data) => Old::Data(data),
-            Err(_) => Old::OnlyHash,
+            Err(_) => Old::Missing,
         }
     }
 

@@ -10,18 +10,21 @@ mod report;
 mod run;
 mod world;
 
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::LazyLock;
+use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
 use clap::Parser;
 use parking_lot::{Mutex, RwLock};
-use rayon::iter::{ParallelBridge, ParallelIterator};
 use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
 use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
+use crate::output::{HASH_OUTPUTS, HashedRefs};
 
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
@@ -65,18 +68,10 @@ fn setup() {
     for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
-
-    // Set up the thread pool.
-    if let Some(num_threads) = ARGS.num_threads {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build_global()
-            .unwrap();
-    }
 }
 
 fn test() {
-    let (hashes, tests, skipped) = match crate::collect::collect() {
+    let (mut hashes, tests, skipped) = match crate::collect::collect() {
         Ok(output) => output,
         Err(errors) => {
             eprintln!("failed to collect tests");
@@ -85,6 +80,35 @@ fn test() {
             }
             std::process::exit(1);
         }
+    };
+
+    // Read the reference hashes at the specified git base revision instead.
+    let repo = if let Some(rev) = &ARGS.base_revision {
+        let repo = gix::open(".").unwrap();
+        {
+            let Some(tree) = commit_tree(&repo, rev) else {
+                eprintln!("couldn't find base-revision: {rev}");
+                std::process::exit(1);
+            };
+            eprintln!("compairing against base revision: {}", tree.id);
+
+            hashes = HASH_OUTPUTS.map(|output| {
+                // TODO: proper error handling
+                let entry = tree.lookup_entry_by_path(output.hash_refs_path()).unwrap();
+                let Some(entry) = entry else {
+                    eprintln!("Couldn't read hashed references on revision `{rev}`");
+                    std::process::exit(1);
+                };
+                let obj = entry.object().unwrap();
+                assert_eq!(obj.kind, gix::object::Kind::Blob);
+                let str = std::str::from_utf8(&obj.data).unwrap();
+                HashedRefs::from_str(str).unwrap()
+            });
+        }
+
+        Some(repo)
+    } else {
+        None
     };
 
     let selected = tests.len();
@@ -102,23 +126,24 @@ fn test() {
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
     let hashes = hashes.map(RwLock::new);
-    let runner = |test: &Test| {
+    let runner = |tree: Option<&gix::Tree>, test: &Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
-            run::run(&hashes, test)
+            run::run(tree, &hashes, test)
         }
     };
 
     // Run the tests.
     let logger = Mutex::new(Logger::new(selected, skipped));
+    let (idle_sender, idle_receiver) = std::sync::mpsc::sync_channel(1);
+    let tests = SyncSliceIter::new(&tests);
     std::thread::scope(|scope| {
         let logger = &logger;
-        let (sender, receiver) = std::sync::mpsc::channel();
 
         // Regularly refresh the logger in case we make no progress.
         scope.spawn(move || {
-            while receiver.recv_timeout(Duration::from_millis(500)).is_err() {
+            while idle_receiver.recv_timeout(Duration::from_millis(500)).is_err() {
                 if !logger.lock().refresh() {
                     eprintln!("tests seem to be stuck");
                     std::process::exit(1);
@@ -126,26 +151,46 @@ fn test() {
             }
         });
 
-        // Run the tests.
-        //
-        // We use `par_bridge` instead of `par_iter` because the former
-        // results in a stack overflow during PDF export. Probably related
-        // to `typst::utils::Deferred` yielding.
-        tests.iter().par_bridge().for_each(|test| {
-            logger.lock().start(test);
+        // Build a worker pool.
+        let num_workers = (ARGS.num_threads)
+            .or_else(|| std::thread::available_parallelism().ok())
+            .unwrap_or(NonZeroUsize::new(4).unwrap());
+        let workers = (0..num_workers.get())
+            .map(|_| {
+                let repo = repo.clone();
+                let tests = &tests;
+                scope.spawn(move || {
+                    let base_rev_tree = repo
+                        .as_ref()
+                        .zip(ARGS.base_revision.as_ref())
+                        .map(|(repo, rev)| commit_tree(repo, rev).unwrap());
 
-            // This is in fact not formally unwind safe, but the code paths that
-            // hold a lock of the hashes are quite short and shouldn't panic.
-            let closure = std::panic::AssertUnwindSafe(|| runner(test));
-            let result = std::panic::catch_unwind(closure);
-            logger.lock().end(test, result);
-        });
+                    while let Some(test) = tests.next() {
+                        logger.lock().start(test);
 
-        sender.send(()).unwrap();
+                        // This is in fact not formally unwind safe, but the code paths that
+                        // hold a lock of the hashes are quite short and shouldn't panic.
+                        let closure = std::panic::AssertUnwindSafe(|| {
+                            runner(base_rev_tree.as_ref(), test)
+                        });
+                        let result = std::panic::catch_unwind(closure);
+                        logger.lock().end(test, result);
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for worker in workers {
+            worker.join().unwrap();
+        }
+
+        idle_sender.send(()).unwrap();
     });
 
-    run::update_hash_refs::<output::Pdf>(&hashes);
-    run::update_hash_refs::<output::Svg>(&hashes);
+    if ARGS.update {
+        run::update_hash_refs::<output::Pdf>(&hashes);
+        run::update_hash_refs::<output::Svg>(&hashes);
+    }
 
     let mut logger = logger.into_inner();
     let report_path = Path::new(STORE_PATH).join("report.html");
@@ -248,4 +293,26 @@ fn run_parser_test(
     }
 
     result
+}
+
+fn commit_tree<'r>(repo: &'r gix::Repository, rev: &str) -> Option<gix::Tree<'r>> {
+    let id = repo.rev_parse_single(rev).ok()?;
+    let commit = repo.find_commit(id).ok()?;
+    commit.tree().ok()
+}
+
+struct SyncSliceIter<'a, T> {
+    idx: AtomicUsize,
+    slice: &'a [T],
+}
+
+impl<'a, T> SyncSliceIter<'a, T> {
+    pub fn new(slice: &'a [T]) -> Self {
+        Self { idx: AtomicUsize::new(0), slice }
+    }
+
+    pub fn next(&self) -> Option<&'a T> {
+        let idx = self.idx.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.slice.get(idx)
+    }
 }

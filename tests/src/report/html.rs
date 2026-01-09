@@ -290,7 +290,7 @@ fn write_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                         );
                     });
 
-                    ul.h2().text("Failed tests");
+                    ul.h2().text("Tests");
                     for report in reports.iter() {
                         ul.li().with(|li| {
                             li.a().href(display!("#{}", report.name)).text(&report.name);
