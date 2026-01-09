@@ -82,7 +82,9 @@ macro_rules! scope_with_color_definitions {
 /// - Linear RGB through the [`color.linear-rgb` function]($color.linear-rgb)
 /// - HSL through the [`color.hsl` function]($color.hsl)
 /// - HSV through the [`color.hsv` function]($color.hsv)
+/// - Color spaces described by Spot colorants through the [`spot-colorant` function]($spot-colorant)
 ///
+/// All color spaces except for CMYK and any Spot colorants have alpha channels.
 ///
 /// # Example
 ///
@@ -789,7 +791,7 @@ scope_with_color_definitions! {
     #[func]
     pub fn space(&self) -> ColorSpace {
         match self {
-            Self::Process(p) => p.space().into(),
+            Self::Process(c) => c.space().into(),
             Self::Spot(c) => ColorSpace::Spot(c.colorant.as_ref().clone()),
         }
     }
@@ -800,8 +802,8 @@ scope_with_color_definitions! {
     #[func]
     pub fn to_hex(&self) -> EcoString {
         match self {
-            Self::Process(p) => p.to_hex(),
-            Self::Spot(s) => s.fallback().to_hex(),
+            Self::Process(c) => c.to_hex(),
+            Self::Spot(c) => c.fallback().to_hex(),
         }
     }
 
@@ -832,6 +834,9 @@ scope_with_color_definitions! {
     }
 
     /// Increases the saturation of a color by a given factor.
+    ///
+    /// Only process colors can be saturated. If you want to saturate a spot
+    /// color, convert it into a process color first.
     #[func]
     pub fn saturate(
         &self,
@@ -850,6 +855,9 @@ scope_with_color_definitions! {
     }
 
     /// Decreases the saturation of a color by a given factor.
+    ///
+    /// Only process colors can be desaturated. If you want to desaturate a spot
+    /// color, convert it into a process color first.
     #[func]
     pub fn desaturate(
         &self,
@@ -896,6 +904,9 @@ scope_with_color_definitions! {
     }
 
     /// Rotates the hue of the color by a given angle.
+    ///
+    /// This function only works on color models with a well-defined hue
+    /// component, i.e. Oklch, HSL, and HSV.
     #[func]
     pub fn rotate(
         &self,
@@ -936,7 +947,7 @@ scope_with_color_definitions! {
 
     /// Create a color by mixing two or more colors.
     ///
-    /// In color spaces with a hue component (hsl, hsv, oklch), only two colors
+    /// In color spaces with a hue component (HSL, HSV, Oklch), only two colors
     /// can be mixed at once. Mixing more than two colors in such a space will
     /// result in an error!
     ///
@@ -958,6 +969,10 @@ scope_with_color_definitions! {
         colors: Vec<WeightedColor>,
         /// The color space to mix in. By default, this happens in a perceptual
         /// color space ([`oklab`]($color.oklab)).
+        ///
+        /// All colors will be converted into this color space. To mix spot
+        /// colors sharing a single colorant without converting them into
+        /// process colors, provide their shared colorant as the mixing space.
         #[named]
         #[default(ColorSpace::Process(ProcessColorSpace::Oklab))]
         space: ColorSpace,
@@ -1134,8 +1149,11 @@ impl Color {
 
     /// Scales the alpha value of a color by a given amount.
     ///
-    /// For positive scales, computes `alpha + scale - alpha * scale`.
-    /// For non-positive scales, computes `alpha + alpha * scale`.
+    /// For positive scales, computes `alpha + scale - alpha * scale`. For
+    /// non-positive scales, computes `alpha + alpha * scale`.
+    ///
+    /// Note that this function will fail for colors in a color space without an
+    /// alpha component.
     fn scale_alpha(&self, scale: Ratio) -> StrResult<Self> {
         Ok(match self {
             Color::Process(c) => c.scale_alpha(scale)?.into(),
@@ -1250,8 +1268,8 @@ impl Color {
     /// expressed and need to be converted to their fallback representation.
     pub fn to_process(&self) -> ProcessColor {
         match self {
-            Self::Process(p) => *p,
-            Self::Spot(s) => s.fallback(),
+            Self::Process(c) => *c,
+            Self::Spot(c) => c.fallback(),
         }
     }
 }
@@ -2272,7 +2290,7 @@ impl SpotColorant {
         /// DIC, etc.
         ///
         /// Values in here may be treated case-sensitively during production:
-        /// `{"PANTONE 2221 C"}` and `{"PANTONE 2221 C"}` may be treated as
+        /// `{"PANTONE 2221 C"}` and `{"PANTONE 2221 c"}` may be treated as
         /// separate colors. Ensure that you are using a consistent naming
         /// convention, either referencing a registry or through coordination
         /// with your production printing experts.
