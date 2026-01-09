@@ -56,6 +56,11 @@ pub struct CliArguments {
     /// Don't generate a HTML test report.
     #[arg(long)]
     pub no_report: bool,
+    /// The git base revision against which the tests will be run.
+    ///
+    /// If none is specified, it's compared against the current working tree.
+    #[arg(long, conflicts_with = "update")]
+    pub base_revision: Option<String>,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a

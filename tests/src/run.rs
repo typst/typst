@@ -22,7 +22,7 @@ use crate::output::{
 };
 use crate::report::{FileReport, Old};
 use crate::world::{TestFiles, TestWorld};
-use crate::{ARGS, STORE_PATH, custom, output};
+use crate::{ARGS, STORE_PATH, custom, git, output};
 
 /// Runs a single test.
 ///
@@ -437,7 +437,7 @@ impl<'a> Runner<'a> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let ref_path = T::OUTPUT.file_ref_path(&self.test.name);
 
-        let old_ref_data = std::fs::read(&ref_path).ok();
+        let old_ref_data = read_ref_data(&ref_path);
 
         let live = match self.expect_output::<T>(&output) {
             Ok(non_empty) => match non_empty.and(output) {
@@ -790,6 +790,15 @@ fn make_report<T: OutputType>(
         .map(|(path, data)| (path.as_ref(), data.as_ref().map(|d| d.as_ref())));
     let b = b.as_ref().map(|(path, data)| (path.as_ref(), data.as_ref()));
     T::make_report(a, b.ok_or(()))
+}
+
+/// Read a reference file either from a specific git base revision, or from
+/// the file system.
+pub fn read_ref_data(ref_path: &Path) -> Option<Vec<u8>> {
+    match &ARGS.base_revision {
+        Some(rev) => git::read_file(rev, ref_path),
+        None => std::fs::read(ref_path).ok(),
+    }
 }
 
 /// A bunch of copy pasted code from the `typst` crate, so we don't have to
