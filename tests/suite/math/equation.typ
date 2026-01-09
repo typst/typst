@@ -13,7 +13,7 @@ $ F_n = round(1 / sqrt(5) phi.alt^n) $ <fib>
 
 --- math-equation-font paged ---
 // Test different font.
-#show math.equation: set text(font: "Fira Math")
+#show math.equation: set text(font: "Noto Sans Math")
 $ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $
 
 --- math-equation-show-rule paged ---
