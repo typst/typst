@@ -176,6 +176,12 @@ pub trait HashOutputType: OutputType {
     const INDEX: usize;
 }
 
+/// The [`HashOutputType`]s [`OutputType::OUTPUT`] in an array corresponding to
+/// the [`HashOutputType::INDEX`].
+///
+/// NOTE: This has to be kept in sync with the [`HashOutputType::INDEX`].
+pub const HASH_OUTPUTS: [TestOutput; 2] = [TestOutput::Pdf, TestOutput::Svg];
+
 pub struct Render;
 
 impl OutputType for Render {
