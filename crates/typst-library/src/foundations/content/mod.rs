@@ -467,7 +467,7 @@ impl Content {
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
         let span = self.span();
-        LinkMarker::new(self, alt)
+        LinkMarker::new(self, alt, None)
             .pack()
             .spanned(span)
             .set(LinkElem::current, Some(dest))
