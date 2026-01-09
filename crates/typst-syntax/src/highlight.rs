@@ -144,7 +144,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         }
         SyntaxKind::Markup => None,
         SyntaxKind::Text => None,
-        SyntaxKind::Space => None,
+        SyntaxKind::SpaceNoNewline => None,
+        SyntaxKind::SpaceWithNewline => None,
         SyntaxKind::Linebreak => Some(Tag::Escape),
         SyntaxKind::Parbreak => None,
         SyntaxKind::Escape => Some(Tag::Escape),

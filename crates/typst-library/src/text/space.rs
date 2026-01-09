@@ -6,13 +6,28 @@ use crate::foundations::{
 };
 
 /// A text space.
-#[elem(Unlabellable, PlainText, Repr)]
-pub struct SpaceElem {}
+#[elem(Unlabellable, PlainText, Repr, PartialEq)]
+pub struct SpaceElem {
+    #[required]
+    pub had_newline: bool,
+}
+
+impl PartialEq for SpaceElem {
+    fn eq(&self, _other: &Self) -> bool {
+        // Note: This is fine for comemo because it only compares based on hash.
+        true
+    }
+}
 
 impl SpaceElem {
     /// Get the globally shared space element.
     pub fn shared() -> &'static Content {
-        singleton!(Content, SpaceElem::new().pack())
+        singleton!(Content, SpaceElem::new(false).pack())
+    }
+
+    /// A globally shared space element with `had_newline` set to true.
+    pub fn shared_with_newline() -> &'static Content {
+        singleton!(Content, SpaceElem::new(true).pack())
     }
 }
 
