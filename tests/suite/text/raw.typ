@@ -160,7 +160,7 @@ b = 324923
   lang: "typ",
   block: true,
   align: right,
-  "#let f(x) = x\n#align(center, line(length: 1em))",
+  "\#let f(x) = x\n\#align(center, line(length: 1em))",
 ))
 
 --- raw-align-invalid paged ---
@@ -665,7 +665,7 @@ print(y)
 
 --- issue-3841-tabs-in-raw-type-code paged ---
 // Tab chars were not rendered in raw blocks with lang: "typ(c)"
-#raw("#if true {\n\tf()\t// typ\n}", lang: "typ")
+#raw("\#if true {\n\tf()\t// typ\n}", lang: "typ")
 
 #raw("if true {\n\tf()\t// typc\n}", lang: "typc")
 

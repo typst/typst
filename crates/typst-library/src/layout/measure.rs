@@ -34,7 +34,7 @@ use crate::layout::{Abs, Axes, Length, Region, Size};
 /// ```example
 /// #let thing(body) = context {
 ///   let size = measure(body)
-///   [Width of "#body" is #size.width]
+///   [Width of "\#body" is #size.width]
 /// }
 ///
 /// #thing[Hey] \

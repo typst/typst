@@ -144,9 +144,9 @@ B #cite(<netwok>) #cite(<arrgh>).
 
 --- cite-type-error-hint-invalid-literal paged ---
 // Test hint for cast error from str to label
-// Error: 7-17 expected label, found string
-// Hint: 7-17 use `label("%@&#*!\\")` to create a label
-#cite("%@&#*!\\")
+// Error: 7-16 expected label, found string
+// Hint: 7-16 use `label("%@&*!\\")` to create a label
+#cite("%@&*!\\")
 
 --- issue-5775-cite-order-rtl paged ---
 // Test citation order in RTL text.

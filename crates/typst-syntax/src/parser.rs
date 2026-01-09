@@ -20,6 +20,14 @@ pub fn parse(text: &str) -> SyntaxNode {
     p.finish_into(SyntaxKind::Markup)
 }
 
+/// Parses a source file as top-level string.
+pub fn parse_string(text: &str) -> SyntaxNode {
+    let _scope = typst_timing::TimingScope::new("parse");
+    let mut p = Parser::new(text, 0, SyntaxMode::String);
+    string_items(&mut p, syntax_set!(End));
+    p.finish_into(SyntaxKind::Str)
+}
+
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse code");
@@ -209,6 +217,41 @@ fn reference(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Ref);
 }
 
+/// Parses a string literal: `"Hello #foo"`.
+fn string_literal(p: &mut Parser) {
+    let m = p.marker();
+    p.enter_modes(SyntaxMode::String, AtNewline::Continue, |p| {
+        p.assert(SyntaxKind::StrQuote);
+        string_items(p, syntax_set!(StrQuote, End));
+        p.expect_closing_string_quote(m);
+    });
+    p.wrap(m, SyntaxKind::Str);
+}
+
+/// Parses a sequence of items.
+fn string_items(p: &mut Parser, stop_set: SyntaxSet) {
+    debug_assert!(stop_set.contains(SyntaxKind::StrQuote));
+
+    while !p.at_set(stop_set) {
+        if p.at_set(set::STR_CONTENT) {
+            string_item(p);
+        } else {
+            p.unexpected();
+        }
+    }
+}
+
+/// Parses a single string item, this includes regular text, string escapes, and
+/// embedded code expressions.
+fn string_item(p: &mut Parser) {
+    match p.current() {
+        SyntaxKind::StrText => p.eat(),
+        SyntaxKind::StrEscape => p.eat(),
+        SyntaxKind::Hash => embedded_code_expr(p),
+        _ => p.expected("text, escape, or interpolation"),
+    }
+}
+
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
@@ -272,6 +315,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             }
         }
 
+        SyntaxKind::StrQuote => {
+            continuable = true;
+            string_literal(p);
+        }
         SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
             math_delimited(p);
         }
@@ -296,7 +343,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         | SyntaxKind::MathAlignPoint
         | SyntaxKind::MathShorthand => p.eat(),
 
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::MathPrimes | SyntaxKind::Escape => {
             continuable = true;
             p.eat();
         }
@@ -708,7 +755,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     }
 }
 
-/// Parses an primary in a code expression. These are the atoms that unary and
+/// Parses a primary in a code expression. These are the atoms that unary and
 /// binary operations, functions calls, and field accesses start with / are
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
@@ -738,6 +785,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
             }
         }
 
+        SyntaxKind::StrQuote => string_literal(p),
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => expr_with_paren(p, atomic),
@@ -763,7 +811,6 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Float
         | SyntaxKind::Bool
         | SyntaxKind::Numeric
-        | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
 
         _ => p.expected("expression"),
@@ -971,7 +1018,12 @@ fn import_items(p: &mut Parser) {
     while !p.current().is_terminator() {
         let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
-            p.unexpected();
+            if p.current() == SyntaxKind::StrQuote {
+                string_literal(p);
+                p.wrap_error(item_marker, "unexpected string");
+            } else {
+                p.unexpected();
+            }
         }
 
         // Nested import path: `a.b.c`
@@ -1192,7 +1244,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
 
         if let Some(key) = match node.cast::<ast::Expr>() {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
-            Some(ast::Expr::Str(s)) => Some(s.get()),
+            Some(ast::Expr::Str(s)) => s.get_bare(),
             _ => None,
         } && !state.seen.insert(key.clone())
         {
@@ -2024,6 +2076,17 @@ impl Parser<'_> {
     fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
         if !self.eat_if(kind) {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
+        }
+    }
+
+    /// Consume the given closing `StrQuote` or produce an error for the
+    /// matching opening delimiter at `open`. This is distinct from
+    /// `expect_closing_delimiter` because it uses the entire span instead
+    /// of just the opening delimiter.
+    #[track_caller]
+    fn expect_closing_string_quote(&mut self, open: Marker) {
+        if !self.eat_if(SyntaxKind::StrQuote) {
+            self.wrap_error(open, "unclosed string");
         }
     }
 

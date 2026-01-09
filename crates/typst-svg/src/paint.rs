@@ -238,7 +238,7 @@ impl SVGRenderer<'_> {
 
                 self.xml.start_element("stop");
                 self.xml.write_attribute("offset", &start_t.repr());
-                self.xml.write_attribute("stop-color", &start_c.to_hex());
+                self.xml.write_attribute("stop-color", &start_c.to_hex(true));
                 self.xml.end_element();
 
                 // Generate (256 / len) stops between the two stops.
@@ -259,13 +259,13 @@ impl SVGRenderer<'_> {
 
                     self.xml.start_element("stop");
                     self.xml.write_attribute("offset", &t.repr());
-                    self.xml.write_attribute("stop-color", &c.to_hex());
+                    self.xml.write_attribute("stop-color", &c.to_hex(true));
                     self.xml.end_element();
                 }
 
                 self.xml.start_element("stop");
                 self.xml.write_attribute("offset", &end_t.repr());
-                self.xml.write_attribute("stop-color", &end_c.to_hex());
+                self.xml.write_attribute("stop-color", &end_c.to_hex(true));
                 self.xml.end_element()
             }
 
@@ -299,12 +299,12 @@ impl SVGRenderer<'_> {
 
             self.xml.start_element("stop");
             self.xml.write_attribute("offset", "0%");
-            self.xml.write_attribute("stop-color", &gradient.c0.to_hex());
+            self.xml.write_attribute("stop-color", &gradient.c0.to_hex(true));
             self.xml.end_element();
 
             self.xml.start_element("stop");
             self.xml.write_attribute("offset", "100%");
-            self.xml.write_attribute("stop-color", &gradient.c1.to_hex());
+            self.xml.write_attribute("stop-color", &gradient.c1.to_hex(true));
             self.xml.end_element();
 
             self.xml.end_element();
@@ -498,7 +498,7 @@ impl ColorEncode for Color {
             c @ Color::Rgb(_)
             | c @ Color::Luma(_)
             | c @ Color::Cmyk(_)
-            | c @ Color::Hsv(_) => c.to_hex(),
+            | c @ Color::Hsv(_) => c.to_hex(true),
             Color::LinearRgb(rgb) => {
                 if rgb.alpha != 1.0 {
                     eco_format!(

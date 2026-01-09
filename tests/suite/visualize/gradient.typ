@@ -238,11 +238,11 @@
 --- gradient-radial-focal-center-and-radius paged ---
 #circle(
   radius: 25pt,
-  fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (35%, 35%), focal-radius: 5%),
+  fill: gradient.radial(white, rgb("8fbc8f"), focal-center: (35%, 35%), focal-radius: 5%),
 )
 #circle(
   radius: 25pt,
-  fill: gradient.radial(white, rgb("#8fbc8f"), focal-center: (75%, 35%), focal-radius: 5%),
+  fill: gradient.radial(white, rgb("8fbc8f"), focal-center: (75%, 35%), focal-radius: 5%),
 )
 
 --- gradient-radial-relative-parent paged ---
@@ -577,9 +577,9 @@ $ A = mat(
 
 --- gradient-sample paged ---
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
-#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("97873b"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
-#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("17a08c"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
 
 --- gradient-space paged ---

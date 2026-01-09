@@ -10,30 +10,30 @@
 // Test color modification methods.
 #test(rgb(25, 35, 45).lighten(10%), rgb(48, 57, 66))
 #test(rgb(40, 30, 20).darken(10%), rgb(36, 27, 18))
-#test(rgb("#133337").negate(space: rgb), rgb(236, 204, 200))
+#test(rgb("133337").negate(space: rgb), rgb(236, 204, 200))
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
-#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"))), rgb("#d0a800"))
-#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: oklab)), rgb("#d0a800"))
-#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: rgb)), rgb("#808000"))
+#test(rgb(color.mix(rgb("ff0000"), rgb("00ff00"))), rgb("d0a800"))
+#test(rgb(color.mix(rgb("ff0000"), rgb("00ff00"), space: oklab)), rgb("d0a800"))
+#test(rgb(color.mix(rgb("ff0000"), rgb("00ff00"), space: rgb)), rgb("808000"))
 
-#test(rgb(color.mix(red, green, blue)), rgb("#909282"))
-#test(rgb(color.mix(red, blue, green)), rgb("#909282"))
-#test(rgb(color.mix(blue, red, green)), rgb("#909282"))
+#test(rgb(color.mix(red, green, blue)), rgb("909282"))
+#test(rgb(color.mix(red, blue, green)), rgb("909282"))
+#test(rgb(color.mix(blue, red, green)), rgb("909282"))
 
 // Mix with weights.
-#test(rgb(color.mix((red, 50%), (green, 50%))), rgb("#c0983b"))
-#test(rgb(color.mix((red, 0.5), (green, 0.5))), rgb("#c0983b"))
-#test(rgb(color.mix((red, 5), (green, 5))), rgb("#c0983b"))
-#test(rgb(color.mix((green, 5), (white, 0), (red, 5))), rgb("#c0983b"))
-#test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: rgb), rgb("#aa40bf"))
-#test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: rgb), rgb("#aa8080"))
-#test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: rgb), rgb("#aabf40"))
+#test(rgb(color.mix((red, 50%), (green, 50%))), rgb("c0983b"))
+#test(rgb(color.mix((red, 0.5), (green, 0.5))), rgb("c0983b"))
+#test(rgb(color.mix((red, 5), (green, 5))), rgb("c0983b"))
+#test(rgb(color.mix((green, 5), (white, 0), (red, 5))), rgb("c0983b"))
+#test(color.mix((rgb("aaff00"), 25%), (rgb("aa00ff"), 75%), space: rgb), rgb("aa40bf"))
+#test(color.mix((rgb("aaff00"), 50%), (rgb("aa00ff"), 50%), space: rgb), rgb("aa8080"))
+#test(color.mix((rgb("aaff00"), 75%), (rgb("aa00ff"), 25%), space: rgb), rgb("aabf40"))
 
 // Mix in hue-based space.
-#test(rgb(color.mix(red, blue, space: color.hsl)), rgb("#c408ff"))
-#test(rgb(color.mix((red, 50%), (blue, 100%), space: color.hsl)), rgb("#5100f8"))
+#test(rgb(color.mix(red, blue, space: color.hsl)), rgb("c408ff"))
+#test(rgb(color.mix((red, 50%), (blue, 100%), space: color.hsl)), rgb("5100f8"))
 // Error: 6-51 cannot mix more than two colors in a hue-based space
 #rgb(color.mix(red, blue, white, space: color.hsl))
 
@@ -111,10 +111,10 @@
 #test(cmyk(luma(10%)).space(), cmyk)
 #test(luma(luma(10%)).space(), luma)
 
-#test(rgb(1, 2, 3).to-hex(), "#010203")
-#test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(luma(40).to-hex(), "#282828")
-#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e0dcda")
+#test(rgb(1, 2, 3).to-hex(), "010203")
+#test(rgb(1, 2, 3, 4).to-hex(), "01020304")
+#test(luma(40).to-hex(), "282828")
+#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "e0dcda")
 #test-repr(rgb(cmyk(4%, 5%, 6%, 7%)), rgb(87.84%, 86.27%, 85.49%, 100%))
 #test-repr(rgb(luma(40%)), rgb(40%, 40%, 40%))
 #test-repr(cmyk(luma(40)), cmyk(63.24%, 57.33%, 56.49%, 75.88%))
