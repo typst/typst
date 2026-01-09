@@ -40,6 +40,7 @@ image = { workspace = true }
 indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
+libm = { workspace = true }
 lipsum = { workspace = true }
 memchr = { workspace = true }
 palette = { workspace = true }

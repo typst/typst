@@ -3171,6 +3171,7 @@ dependencies = [
  "indexmap",
  "kamadak-exif",
  "kurbo 0.12.0",
+ "libm",
  "lipsum",
  "memchr",
  "palette",
