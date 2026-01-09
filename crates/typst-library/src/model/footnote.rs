@@ -14,8 +14,8 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
-use crate::text::{LocalName, SuperElem, TextElem, TextSize};
+use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
+use crate::text::{LocalName, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -295,25 +295,22 @@ impl Packed<FootnoteEntry> {
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Content, Content)> {
+    ) -> SourceResult<(Location, Content, Content)> {
         let span = self.span();
         let default = StyleChain::default();
         let numbering = self.note.numbering.get_ref(default);
         let counter = Counter::of(FootnoteElem::ELEM);
-        let Some(loc) = self.note.location() else {
+        let Some(dest) = self.note.location() else {
             bail!(
                 self.span(), "footnote entry must have a location";
                 hint: "try using a query or a show rule to customize the footnote instead";
             );
         };
 
-        let num = counter.display_at(engine, loc, styles, numbering, span)?;
-        let alt = num.plain_text();
-        let sup = SuperElem::new(num).pack().spanned(span);
-        let prefix = DirectLinkElem::new(loc, sup, Some(alt)).pack().spanned(span);
+        let num = counter.display_at(engine, dest, styles, numbering, span)?;
         let body = self.note.body_content().unwrap().clone();
 
-        Ok((prefix, body))
+        Ok((dest, num, body))
     }
 }
 
