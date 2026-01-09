@@ -528,6 +528,27 @@ pub struct TextElem {
     #[ghost]
     pub hyphenate: Smart<bool>,
 
+    /// How to handle line breaks in CJK text.
+    ///
+    /// - `{auto}`: Automatically choose the breaking behavior. Currently, this
+    ///   is the same as `{distribute}`.
+    /// - `{distribute}`: Allow breaks between any CJK characters.
+    /// - `{keep-all}`: Keep CJK words together (only break at spaces or
+    ///   punctuation).
+    ///
+    /// ```example
+    /// #set page(width: 50pt)
+    /// #set text(cjk-breaking: "distribute")
+    /// 한글은 띄어쓰기가 있어도
+    /// 글자 단위 줄바꿈이 가능합니다.
+    ///
+    /// #set text(cjk-breaking: "keep-all")
+    /// 한글은 띄어쓰기가 있어도
+    /// 글자 단위 줄바꿈이 가능합니다.
+    /// ```
+    #[ghost]
+    pub cjk_breaking: Smart<CjkBreaking>,
+
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
     /// as a ratio of the default cost, so `{50%}` will make text layout twice
@@ -1218,6 +1239,15 @@ cast! {
         }
         Self(flags)
     },
+}
+
+/// How to handle line breaks in CJK text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum CjkBreaking {
+    /// Allow breaks between any CJK characters.
+    Distribute,
+    /// Keep CJK words together (only break at spaces or punctuation).
+    KeepAll,
 }
 
 /// Which kind of numbers / figures to select.
