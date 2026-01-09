@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use ecow::{EcoString, EcoVec, eco_format};
 use palette::encoding::{self, Linear};
@@ -790,7 +790,7 @@ scope_with_color_definitions! {
     pub fn space(&self) -> ColorSpace {
         match self {
             Self::Process(p) => p.space().into(),
-            Self::Spot(s) => ColorSpace::Spot(s.colorant.clone()),
+            Self::Spot(c) => ColorSpace::Spot(c.colorant.as_ref().clone()),
         }
     }
 
@@ -1101,7 +1101,7 @@ impl Color {
             }
             ColorSpace::Spot(colorant) => Color::Spot(SpotColor::new(
                 Ratio::new(m[0].clamp(0.0, 1.0) as f64),
-                colorant,
+                Arc::new(colorant),
             )),
         })
     }
@@ -1161,7 +1161,7 @@ impl Color {
             (ColorSpace::Process(s), Self::Process(c)) => c.to_space(*s).into(),
             (ColorSpace::Process(s), Self::Spot(c)) => c.fallback().to_space(*s).into(),
             (ColorSpace::Spot(s), Self::Spot(c)) => {
-                if s == &c.colorant {
+                if s == c.colorant.as_ref() {
                     self.clone()
                 } else {
                     bail!(
@@ -2153,11 +2153,11 @@ pub struct SpotColor {
     /// How much of the colorant to apply to the medium.
     pub tint: Ratio,
     /// Which colorant to apply.
-    colorant: SpotColorant,
+    colorant: Arc<SpotColorant>,
 }
 
 impl SpotColor {
-    pub fn new(tint: Ratio, colorant: SpotColorant) -> Self {
+    pub fn new(tint: Ratio, colorant: Arc<SpotColorant>) -> Self {
         Self { tint, colorant }
     }
 }
@@ -2331,7 +2331,7 @@ impl SpotColorant {
             bail!(value.span, "spot color tint must not exceed 100%")
         }
 
-        Ok(Color::Spot(SpotColor::new(value.v, self.clone())))
+        Ok(Color::Spot(SpotColor::new(value.v, Arc::new(self.clone()))))
     }
 }
 
