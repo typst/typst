@@ -1,12 +1,13 @@
 use std::any::TypeId;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format};
+use comemo::{Track, Tracked, TrackedMut};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
@@ -17,18 +18,18 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt, PicoStr, Protected};
 
 use crate::World;
 use crate::diag::{
     At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
     SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
-use crate::engine::{Engine, Sink};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, Value, elem,
+    NativeElement, OneOrMultiple, Packed, Reflect, Scope, Selector, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
@@ -36,8 +37,8 @@ use crate::introspection::{
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
-    LinkElem, Url,
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
+    HeadingElem, LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -121,6 +122,21 @@ pub struct BibliographyElem {
     #[default(false)]
     pub full: bool,
 
+    /// Defines the target of the bibliography, when making a document with
+    /// multiple bibliographies. The default will include citations from the
+    /// whole document.
+    ///
+    /// This can be:
+    /// - A selector of `cite` elements. The citations it selects will be
+    ///   included in the bibliography.
+    pub target: Smart<Selector>,
+
+    /// When using multiple bibliographies in a single document, indicates
+    /// whether this bibliography should start numbering its citations after
+    /// the ones from previous bibliographies (`shared`) or start at 1 (`standalone`).
+    #[default("shared".into())]
+    pub kind: EcoString,
+
     /// The bibliography style.
     ///
     /// This can be:
@@ -153,19 +169,146 @@ pub struct BibliographyElem {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find(engine: &mut Engine, span: Span) -> StrResult<Packed<Self>> {
+    pub fn find(engine: &mut Engine, span: Span) -> StrResult<Vec<Packed<Self>>> {
         let elems = engine.introspect(QueryIntrospection(Self::ELEM.select(), span));
 
-        let mut iter = elems.iter();
-        let Some(elem) = iter.next() else {
+        if elems.is_empty() {
             bail!("the document does not contain a bibliography");
         };
 
-        if iter.next().is_some() {
-            bail!("multiple bibliographies are not yet supported");
+        Ok(elems
+            .into_iter()
+            .map(|elem| elem.to_packed::<Self>().unwrap().clone())
+            .collect())
+    }
+
+    pub fn assign_citations(
+        engine: &mut Engine,
+        span: Span,
+    ) -> BTreeMap<Location, Location> {
+        let citations_and_bib = engine.introspect(QueryIntrospection(
+            Selector::Or(eco_vec![
+                CiteElem::ELEM.select(),
+                BibliographyElem::ELEM.select()
+            ]),
+            span,
+        ));
+        Self::assign_citations_impl(
+            engine.routines,
+            engine.world,
+            engine.introspector.into_raw(),
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
+            engine.route.track(),
+            citations_and_bib,
+        )
+    }
+
+    #[comemo::memoize]
+    pub fn assign_citations_impl(
+        routines: &Routines,
+        world: Tracked<dyn World + '_>,
+        introspector: Tracked<Introspector>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
+        route: Tracked<Route>,
+        citations_and_bib: EcoVec<Content>,
+    ) -> BTreeMap<Location, Location> {
+        let mut engine = Engine {
+            routines,
+            world,
+            introspector: Protected::from_raw(introspector),
+            traced,
+            sink,
+            route: Route::extend(route),
+        };
+        let mut citation_map: BTreeMap<Location, Location> = BTreeMap::default();
+        let bibliographies: Vec<Packed<Self>> = citations_and_bib
+            .iter()
+            .filter_map(|elem| match elem.elem() == Self::ELEM {
+                true => Some(elem.to_packed::<Self>().unwrap().clone()),
+                false => None,
+            })
+            .collect();
+
+        // First citations from bibliographies with selectors
+        for bibliography in &bibliographies {
+            if let Smart::Custom(bibliography_selector) =
+                &bibliography.target.get_ref(StyleChain::default())
+            {
+                let bibliography_location = bibliography.location().unwrap();
+                let bibliography_citations = engine.introspect(QueryIntrospection(
+                    bibliography_selector.clone(),
+                    bibliography.span(),
+                ));
+                for citation in bibliography_citations {
+                    citation_map
+                        .entry(citation.location().unwrap())
+                        .or_insert(bibliography_location);
+                }
+            }
         }
 
-        Ok(elem.to_packed::<Self>().unwrap().clone())
+        // Find the bibliography for the remaining citations. Priority order:
+        // 1. First following auto bibliography containing the label
+        // 2. First preceding auto bibliography containing the label
+        let bib_indexes: Vec<usize> = citations_and_bib
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.elem() == Self::ELEM)
+            .map(|(i, _)| i)
+            .collect();
+
+        // Checks that the bib is after (before if forward is false) the citation and contains the
+        // citation_key label
+        fn is_valid_bib(
+            bib_index: usize,
+            citation_index: usize,
+            citation_key: Label,
+            citations_and_bib: &EcoVec<Content>,
+            forward: bool,
+        ) -> Option<&Packed<BibliographyElem>> {
+            let bibliography =
+                citations_and_bib[bib_index].to_packed::<BibliographyElem>().unwrap();
+            if (bib_index > citation_index) == forward
+                && bibliography.target.get_ref(StyleChain::default()).is_auto()
+                && bibliography.sources.derived.has(citation_key)
+            {
+                Some(bibliography)
+            } else {
+                None
+            }
+        }
+
+        for (i, citation) in citations_and_bib.iter().enumerate() {
+            if let Some(citation_elem) = citation.to_packed::<CiteElem>()
+                && !citation_map.contains_key(&citation.location().unwrap())
+            {
+                let citation_key = citation_elem.key;
+                if let Some(next_bib) = bib_indexes
+                    .iter()
+                    .filter_map(|&bib_index| {
+                        is_valid_bib(bib_index, i, citation_key, &citations_and_bib, true)
+                    })
+                    .chain(bib_indexes.iter().rev().filter_map(|&bib_index| {
+                        is_valid_bib(
+                            bib_index,
+                            i,
+                            citation_key,
+                            &citations_and_bib,
+                            false,
+                        )
+                    }))
+                    .next()
+                {
+                    citation_map
+                        .entry(citation.location().unwrap())
+                        .or_insert(next_bib.location().unwrap());
+                }
+            }
+        }
+
+        citation_map
     }
 
     /// Whether the bibliography contains the given key.
@@ -549,6 +692,11 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
+    /// Works for each bibliography
+    pub works: FxHashMap<Location, IndivWorks>,
+}
+
+pub struct IndivWorks {
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
     pub references: Option<Vec<(Option<Content>, Content, Location)>>,
@@ -559,20 +707,17 @@ pub struct Works {
 impl Works {
     /// Generate all citations and the whole bibliography.
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
-        let bibliography = BibliographyElem::find(engine, span).at(span)?;
-        let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
-    }
-
-    /// Generate all citations and the whole bibliography, given an existing
-    /// bibliography (no need to query it).
-    pub fn with_bibliography(
-        engine: &mut Engine,
-        bibliography: Packed<BibliographyElem>,
-    ) -> SourceResult<Arc<Works>> {
-        let span = bibliography.span();
-        let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+        let bibliographies = BibliographyElem::find(engine, span).at(span)?;
+        let citation_groups_all = engine.introspect(CiteGroupIntrospection(span));
+        let citation_map = BibliographyElem::assign_citations(engine, span);
+        Self::generate_impl(
+            engine.routines,
+            engine.world,
+            bibliographies,
+            &citation_map,
+            citation_groups_all,
+        )
+        .at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
@@ -580,10 +725,17 @@ impl Works {
     fn generate_impl(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        bibliography: Packed<BibliographyElem>,
-        groups: EcoVec<Content>,
+        bibliographies: Vec<Packed<BibliographyElem>>,
+        citation_map: &BTreeMap<Location, Location>,
+        citation_groups_all: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, bibliography, groups)?;
+        let mut generator = Generator::new(
+            routines,
+            world,
+            citation_map,
+            bibliographies,
+            citation_groups_all,
+        )?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -596,18 +748,28 @@ impl Works {
         elem: &Packed<BibliographyElem>,
         styles: StyleChain,
     ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
-        self.references
-            .as_deref()
-            .ok_or_else(|| match elem.style.get_ref(styles).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            })
-            .at(elem.span())
+        if let Some(indiv_works) = self.works.get(&elem.location().unwrap()) {
+            indiv_works
+                .references
+                .as_deref()
+                .ok_or_else(|| match elem.style.get_ref(styles).source {
+                    CslSource::Named(style, _) => eco_format!(
+                        "CSL style \"{}\" is not suitable for bibliographies",
+                        style.display_name()
+                    ),
+                    CslSource::Normal(..) => {
+                        "CSL style is not suitable for bibliographies".into()
+                    }
+                })
+                .at(elem.span())
+        } else {
+            bail!(elem.span(), "Bibliography not found in global bibliography")
+        }
+    }
+
+    /// Specifies whether the given bibliography should have an hanging indent
+    pub fn hanging_indent(&self, elem: &Packed<BibliographyElem>) -> bool {
+        self.works.get(&elem.location().unwrap()).unwrap().hanging_indent
     }
 }
 
@@ -645,13 +807,14 @@ struct Generator<'a> {
     routines: &'a Routines,
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
-    /// The document's bibliography.
-    bibliography: Packed<BibliographyElem>,
-    /// The document's citation groups.
-    groups: EcoVec<Content>,
+    /// The document's bibliographies.
+    bibliographies: Vec<Packed<BibliographyElem>>,
+    /// The document's citation groups for each bibliography.
+    groups: FxHashMap<Location, EcoVec<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
-    infos: Vec<GroupInfo>,
+    /// Grouped by bibliography.
+    infos: FxHashMap<Location, Vec<GroupInfo>>,
     /// Citations with unresolved keys.
     failures: FxHashMap<Location, SourceResult<Content>>,
 }
@@ -681,193 +844,252 @@ struct CiteInfo {
 }
 
 impl<'a> Generator<'a> {
-    /// Create a new generator.
+    /// Create a new generator
     fn new(
         routines: &'a Routines,
         world: Tracked<'a, dyn World + 'a>,
-        bibliography: Packed<BibliographyElem>,
-        groups: EcoVec<Content>,
+        citation_map: &BTreeMap<Location, Location>,
+        bibliographies: Vec<Packed<BibliographyElem>>,
+        citation_groups_all: EcoVec<Content>,
     ) -> StrResult<Self> {
-        let infos = Vec::with_capacity(groups.len());
+        let mut groups = FxHashMap::default();
+        for bibliography in &bibliographies {
+            let bibliography_location = bibliography.location().unwrap();
+            let bibliography_groups = citation_groups_all
+                .iter()
+                .filter(|group| {
+                    let cite_group = group.to_packed::<CiteGroup>().unwrap();
+                    citation_map
+                        .get(&cite_group.children.first().unwrap().location().unwrap())
+                        .is_some_and(|location| *location == bibliography_location)
+                })
+                .cloned()
+                .collect();
+            groups.insert(bibliography_location, bibliography_groups);
+        }
         Ok(Self {
             routines,
             world,
-            bibliography,
+            bibliographies,
             groups,
-            infos,
+            infos: FxHashMap::default(),
             failures: FxHashMap::default(),
         })
     }
 
     /// Drives hayagriva's citation driver.
-    fn drive(&mut self) -> hayagriva::Rendered {
+    fn drive(&mut self) -> Vec<hayagriva::Rendered> {
         static LOCALES: LazyLock<Vec<citationberg::Locale>> =
             LazyLock::new(hayagriva::archive::locales);
 
-        let database = &self.bibliography.sources.derived;
-        let bibliography_style =
-            &self.bibliography.style.get_ref(StyleChain::default()).derived;
+        let mut rendered = vec![];
+        // Keeps track of the number of citation to offset it correctly
+        let mut citation_count = 0;
 
-        // Process all citation groups.
-        let mut driver = BibliographyDriver::new();
-        for elem in &self.groups {
-            let group = elem.to_packed::<CiteGroup>().unwrap();
-            let location = elem.location().unwrap();
-            let children = &group.children;
+        for bibliography in &self.bibliographies {
+            let mut driver = BibliographyDriver::new();
+            if bibliography.kind.get_ref(StyleChain::default()) == "shared" {
+                driver.citation_number_offset = Some(citation_count);
+            }
+            let bibliography_style =
+                &bibliography.style.get_ref(StyleChain::default()).derived;
+            let database = &bibliography.sources.derived;
+            let bibliography_location = bibliography.location().unwrap();
 
-            // Groups should never be empty.
-            let Some(first) = children.first() else { continue };
+            // Process all citation groups.
+            for elem in self.groups.get(&bibliography_location).unwrap() {
+                let group = elem.to_packed::<CiteGroup>().unwrap();
+                let location = elem.location().unwrap();
+                let children = &group.children;
 
-            let mut subinfos = SmallVec::with_capacity(children.len());
-            let mut items = Vec::with_capacity(children.len());
-            let mut errors = EcoVec::new();
-            let mut normal = true;
+                // Groups should never be empty.
+                let Some(first) = children.first() else { continue };
 
-            // Create infos and items for each child in the group.
-            for child in children {
-                let Some(entry) = database.get(child.key) else {
-                    errors.push(error!(
-                        child.span(),
-                        "key `{}` does not exist in the bibliography",
-                        child.key.resolve(),
+                let mut subinfos = SmallVec::with_capacity(children.len());
+                let mut items = Vec::with_capacity(children.len());
+                let mut errors = EcoVec::new();
+                let mut normal = true;
+
+                // Create infos and items for each child in the group.
+                for child in children {
+                    let Some(entry) = database.get(child.key) else {
+                        errors.push(error!(
+                            child.span(),
+                            "key `{}` does not exist in the bibliography",
+                            child.key.resolve(),
+                        ));
+                        continue;
+                    };
+
+                    let supplement = child.supplement.get_cloned(StyleChain::default());
+                    let locator = supplement.as_ref().map(|c| {
+                        SpecificLocator(
+                            citationberg::taxonomy::Locator::Custom,
+                            hayagriva::LocatorPayload::Transparent(
+                                TransparentLocator::new(c.clone()),
+                            ),
+                        )
+                    });
+
+                    let mut hidden = false;
+                    let special_form = match child.form.get(StyleChain::default()) {
+                        None => {
+                            hidden = true;
+                            None
+                        }
+                        Some(CitationForm::Normal) => None,
+                        Some(CitationForm::Prose) => Some(hayagriva::CitePurpose::Prose),
+                        Some(CitationForm::Full) => Some(hayagriva::CitePurpose::Full),
+                        Some(CitationForm::Author) => {
+                            Some(hayagriva::CitePurpose::Author)
+                        }
+                        Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
+                    };
+
+                    normal &= special_form.is_none();
+                    subinfos.push(CiteInfo { key: child.key, supplement, hidden });
+                    items.push(CitationItem::new(
+                        entry,
+                        locator,
+                        None,
+                        hidden,
+                        special_form,
                     ));
+                }
+
+                if !errors.is_empty() {
+                    self.failures.insert(location, Err(errors));
                     continue;
+                }
+
+                let style = match first.style.get_ref(StyleChain::default()) {
+                    Smart::Auto => bibliography_style.get(),
+                    Smart::Custom(style) => style.derived.get(),
                 };
 
-                let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|c| {
-                    SpecificLocator(
-                        citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
-                            c.clone(),
-                        )),
-                    )
+                self.infos.entry(bibliography_location).or_default().push(GroupInfo {
+                    location,
+                    subinfos,
+                    span: first.span(),
+                    footnote: normal
+                        && style.settings.class == citationberg::StyleClass::Note,
                 });
 
-                let mut hidden = false;
-                let special_form = match child.form.get(StyleChain::default()) {
-                    None => {
-                        hidden = true;
-                        None
-                    }
-                    Some(CitationForm::Normal) => None,
-                    Some(CitationForm::Prose) => Some(hayagriva::CitePurpose::Prose),
-                    Some(CitationForm::Full) => Some(hayagriva::CitePurpose::Full),
-                    Some(CitationForm::Author) => Some(hayagriva::CitePurpose::Author),
-                    Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
-                };
-
-                normal &= special_form.is_none();
-                subinfos.push(CiteInfo { key: child.key, supplement, hidden });
-                items.push(CitationItem::new(entry, locator, None, hidden, special_form));
-            }
-
-            if !errors.is_empty() {
-                self.failures.insert(location, Err(errors));
-                continue;
-            }
-
-            let style = match first.style.get_ref(StyleChain::default()) {
-                Smart::Auto => bibliography_style.get(),
-                Smart::Custom(style) => style.derived.get(),
-            };
-
-            self.infos.push(GroupInfo {
-                location,
-                subinfos,
-                span: first.span(),
-                footnote: normal
-                    && style.settings.class == citationberg::StyleClass::Note,
-            });
-
-            driver.citation(CitationRequest::new(
-                items,
-                style,
-                Some(locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten())),
-                &LOCALES,
-                None,
-            ));
-        }
-
-        let locale = locale(
-            self.bibliography.lang.unwrap_or(Lang::ENGLISH),
-            self.bibliography.region.flatten(),
-        );
-
-        // Add hidden items for everything if we should print the whole
-        // bibliography.
-        if self.bibliography.full.get(StyleChain::default()) {
-            for (_, entry) in database.iter() {
                 driver.citation(CitationRequest::new(
-                    vec![CitationItem::new(entry, None, None, true, None)],
-                    bibliography_style.get(),
-                    Some(locale.clone()),
+                    items,
+                    style,
+                    Some(locale(
+                        first.lang.unwrap_or(Lang::ENGLISH),
+                        first.region.flatten(),
+                    )),
                     &LOCALES,
                     None,
                 ));
             }
-        }
 
-        driver.finish(BibliographyRequest {
-            style: bibliography_style.get(),
-            locale: Some(locale),
-            locale_files: &LOCALES,
-        })
+            let locale = locale(
+                bibliography.lang.unwrap_or(Lang::ENGLISH),
+                bibliography.region.flatten(),
+            );
+            // Add hidden items for everything if we should print the whole
+            // bibliography.
+            if bibliography.full.get(StyleChain::default()) {
+                for (_, entry) in database.iter() {
+                    driver.citation(CitationRequest::new(
+                        vec![CitationItem::new(entry, None, None, true, None)],
+                        bibliography_style.get(),
+                        Some(locale.clone()),
+                        &LOCALES,
+                        None,
+                    ));
+                }
+            }
+            rendered.push(driver.finish(BibliographyRequest {
+                style: bibliography_style.get(),
+                locale: Some(locale),
+                locale_files: &LOCALES,
+            }));
+            if bibliography.kind.get_ref(StyleChain::default()) == "shared"
+                && let Some(bib) = rendered.last().unwrap().bibliography.as_ref()
+            {
+                citation_count += bib.items.len();
+            }
+        }
+        rendered
     }
 
     /// Displays hayagriva's output as content for the citations and references.
-    fn display(&mut self, rendered: &hayagriva::Rendered) -> StrResult<Works> {
+    fn display(&mut self, rendered: &Vec<hayagriva::Rendered>) -> StrResult<Works> {
+        let mut works = FxHashMap::default();
         let citations = self.display_citations(rendered)?;
-        let references = self.display_references(rendered)?;
-        let hanging_indent =
-            rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Ok(Works { citations, references, hanging_indent })
+        for (bibliography, rendered_indiv) in
+            self.bibliographies.clone().iter().zip(rendered)
+        {
+            let references = self.display_references(rendered_indiv, bibliography)?;
+            let hanging_indent =
+                rendered_indiv.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
+            works.insert(
+                bibliography.location().unwrap(),
+                IndivWorks { references, hanging_indent },
+            );
+        }
+        Ok(Works { citations, works })
     }
 
     /// Display the citation groups.
     fn display_citations(
         &mut self,
-        rendered: &hayagriva::Rendered,
+        rendered: &Vec<hayagriva::Rendered>,
     ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
-        // Determine for each citation key where in the bibliography it is,
-        // so that we can link there.
-        let mut links = FxHashMap::default();
-        if let Some(bibliography) = &rendered.bibliography {
-            let location = self.bibliography.location().unwrap();
-            for (k, item) in bibliography.items.iter().enumerate() {
-                links.insert(item.key.as_str(), location.variant(k + 1));
-            }
-        }
-
         let mut output = std::mem::take(&mut self.failures);
-        for (info, citation) in self.infos.iter().zip(&rendered.citations) {
-            let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link = |i: usize| {
-                links.get(info.subinfos.get(i)?.key.resolve().as_str()).copied()
-            };
 
-            let renderer = ElemRenderer {
-                routines: self.routines,
-                world: self.world,
-                span: info.span,
-                supplement: &supplement,
-                link: &link,
-            };
-
-            let content = if info.subinfos.iter().all(|sub| sub.hidden) {
-                Content::empty()
-            } else {
-                let mut content =
-                    renderer.display_elem_children(&citation.citation, None, true)?;
-
-                if info.footnote {
-                    content = FootnoteElem::with_content(content).pack();
+        for (source_bibliography, rendered_indiv) in
+            self.bibliographies.clone().iter().zip(rendered)
+        {
+            // Determine for each citation key where in the bibliography it is,
+            // so that we can link there.
+            let mut links = FxHashMap::default();
+            if let Some(bibliography) = &rendered_indiv.bibliography {
+                let location = source_bibliography.location().unwrap();
+                for (k, item) in bibliography.items.iter().enumerate() {
+                    links.insert(item.key.as_str(), location.variant(k + 1));
                 }
+            }
 
-                content
-            };
+            if let Some(infos) = self.infos.get(&source_bibliography.location().unwrap())
+            {
+                for (info, citation) in infos.iter().zip(&rendered_indiv.citations) {
+                    let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
+                    let link = |i: usize| {
+                        links.get(info.subinfos.get(i)?.key.resolve().as_str()).copied()
+                    };
 
-            output.insert(info.location, Ok(content));
+                    let renderer = ElemRenderer {
+                        routines: self.routines,
+                        world: self.world,
+                        span: info.span,
+                        supplement: &supplement,
+                        link: &link,
+                    };
+
+                    let content = if info.subinfos.iter().all(|sub| sub.hidden) {
+                        Content::empty()
+                    } else {
+                        let mut content = renderer.display_elem_children(
+                            &citation.citation,
+                            None,
+                            true,
+                        )?;
+
+                        if info.footnote {
+                            content = FootnoteElem::with_content(content).pack();
+                        }
+
+                        content
+                    };
+                    output.entry(info.location).or_insert(Ok(content));
+                }
+            }
         }
 
         Ok(output)
@@ -878,28 +1100,31 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
+        bibliography: &Packed<BibliographyElem>,
     ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
+
+        // The location of the bibliography.
+        let location = bibliography.location().unwrap();
 
         // Determine for each citation key where it first occurred, so that we
         // can link there.
         let mut first_occurrences = FxHashMap::default();
-        for info in &self.infos {
-            for subinfo in &info.subinfos {
-                let key = subinfo.key.resolve();
-                first_occurrences.entry(key).or_insert(info.location);
+        if let Some(infos) = self.infos.get(&bibliography.location().unwrap()) {
+            for info in infos {
+                for subinfo in &info.subinfos {
+                    let key = subinfo.key.resolve();
+                    first_occurrences.entry(key).or_insert(info.location);
+                }
             }
         }
-
-        // The location of the bibliography.
-        let location = self.bibliography.location().unwrap();
 
         let mut output = vec![];
         for (k, item) in rendered.items.iter().enumerate() {
             let renderer = ElemRenderer {
                 routines: self.routines,
                 world: self.world,
-                span: self.bibliography.span(),
+                span: bibliography.span(),
                 supplement: &|_| None,
                 link: &|_| None,
             };
@@ -926,7 +1151,7 @@ impl<'a> Generator<'a> {
             let prefix = prefix.map(|content| {
                 if let Some(location) = first_occurrences.get(item.key.as_str()) {
                     let alt = content.plain_text();
-                    let body = content.spanned(self.bibliography.span());
+                    let body = content.spanned(bibliography.span());
                     DirectLinkElem::new(*location, body, Some(alt)).pack()
                 } else {
                     content
