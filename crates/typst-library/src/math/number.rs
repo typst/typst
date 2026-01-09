@@ -4,11 +4,7 @@ use ecow::{EcoString, eco_format};
 
 /// A number in math.
 ///
-/// A number is made of one or more ASCII digits and a possibly a decimal
-/// point in the middle.
-///
-/// If you want to make a string that doesn't fit the above definition
-/// to be rendered like a number, you may use function `number()`.
+/// If you want to render a string like a number, you may use function `number`.
 ///
 /// # Example
 /// ```example
@@ -23,14 +19,13 @@ pub struct NumberElem {
 }
 
 impl NumberElem {
-    /// Create a new packed symbol element.
+    /// Create a new packed number element.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
     }
 }
 
 impl Repr for NumberElem {
-    /// Use a custom repr that matches normal content.
     fn repr(&self) -> EcoString {
         eco_format!("[{}]", self.text)
     }
