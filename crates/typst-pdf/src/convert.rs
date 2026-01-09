@@ -5,6 +5,7 @@ use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
+use krilla::graphic::Graphic;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
@@ -22,7 +23,7 @@ use typst_library::layout::{
 };
 use typst_library::model::HeadingElem;
 use typst_library::text::Font;
-use typst_library::visualize::{Geometry, Paint};
+use typst_library::visualize::{Geometry, Image, Paint};
 use typst_syntax::Span;
 
 use crate::PdfOptions;
@@ -248,6 +249,8 @@ pub(crate) struct GlobalContext<'a> {
     /// The spans of all images that appear in the document. We use this so
     /// we can give more accurate error messages.
     pub(crate) image_spans: FxHashSet<Span>,
+    /// Cache for SVG graphics.
+    pub(crate) svg_graphics: FxHashMap<Image, Graphic>,
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
@@ -275,6 +278,7 @@ impl<'a> GlobalContext<'a> {
             loc_to_names,
             image_to_spans: FxHashMap::default(),
             image_spans: FxHashSet::default(),
+            svg_graphics: FxHashMap::default(),
             page_index_converter,
             tags,
         }
