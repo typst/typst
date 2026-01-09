@@ -302,11 +302,11 @@
 #import 5 as x
 
 --- import-from-string-invalid paged ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "": name
 
 --- import-from-string-renamed-invalid paged ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "" as x
 
 --- import-file-not-found-invalid paged ---
@@ -320,6 +320,7 @@
 --- import-file-not-valid-utf-8 paged ---
 // Some non-text stuff.
 // Error: 9-35 file is not valid UTF-8
+// Hint: 9-35 tried to read /assets/images/rhino.png
 #import "/assets/images/rhino.png"
 
 --- import-item-not-found paged ---
@@ -483,3 +484,4 @@ This is never reached.
 --- import-from-file-package-lookalike paged ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
