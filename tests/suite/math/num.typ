@@ -2,7 +2,7 @@
 
 --- math-num-parsed paged ---
 // Test that number is correctly rendered, separately from number-like text.
-#set page(width: auto)
+#set page(width: 15em)
 #show math.num: set text(red)
 
 #let a0 = math.attach(math.alpha, b: $0$)
