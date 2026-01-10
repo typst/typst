@@ -117,6 +117,8 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         write_raw(w, element)?;
     } else if tag::is_escapable_raw(element.tag) {
         write_escapable_raw(w, element)?;
+    } else if tag::is_code(element.tag) {
+        write_code(w, element)?;
     } else if !element.children.is_empty() {
         write_children(w, element)?;
     }
@@ -214,6 +216,17 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 /// Encodes the contents of an escapable raw text element.
 fn write_escapable_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     walk_raw_text(element, |piece, span| write_text(w, piece, span, false))
+}
+
+/// Encodes the contents of a code element.
+fn write_code(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
+    for child in &element.children {
+        match child {
+            HtmlNode::Element(e) if e.tag == tag::br => w.buf.push('\n'),
+            _ => write_node(w, child, element.pre_span)?,
+        }
+    }
+    Ok(())
 }
 
 /// Collects the textual contents of a raw text element.
