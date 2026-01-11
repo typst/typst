@@ -85,53 +85,51 @@ impl<'a> Logger<'a> {
     pub fn end(&mut self, test: &'a Test, result: std::thread::Result<TestResult>) {
         self.active.retain(|t| t.name != test.name);
 
-        let result = match result {
-            Ok(result) => result,
-            Err(_) => {
-                self.failed += 1;
-                self.temp_lines = 0;
-                self.print(move |out| {
-                    writeln!(out, "❌ {test} panicked")?;
-                    Ok(())
-                })
-                .unwrap();
-                return;
-            }
+        let Ok(result) = result else {
+            self.failed += 1;
+            self.temp_lines = 0;
+            self.print(move |out| {
+                writeln!(out, "❌ {test} panicked")?;
+                Ok(())
+            })
+            .unwrap();
+            return;
         };
+        let TestResult { errors, infos, mismatched_output, report } = result;
 
-        if result.errors.is_empty() {
+        if errors.is_empty() {
             self.passed += 1;
         } else {
             self.failed += 1;
         }
 
-        self.mismatched_output |= result.mismatched_output;
+        self.mismatched_output |= mismatched_output;
         self.last_change = Instant::now();
 
-        self.reports.extend(result.report);
+        self.reports.extend(report);
 
         self.print(move |out| {
-            if !result.errors.is_empty() {
+            if !errors.is_empty() {
                 if ARGS.use_github_annotations {
                     let file = test.pos.path.display();
                     let line = test.pos.line;
                     write!(out, "::error file={file},line={line}::{test}")?;
-                    for line in result.errors.lines() {
+                    for line in errors.lines() {
                         write!(out, "%0A  {line}")?;
                     }
                     writeln!(out)?;
                 } else {
                     writeln!(out, "❌ {test}")?;
-                    if !crate::ARGS.compact {
-                        for line in result.errors.lines() {
+                    if !ARGS.compact {
+                        for line in errors.lines() {
                             writeln!(out, "  {line}")?;
                         }
                     }
                 }
-            } else if crate::ARGS.verbose || !result.infos.is_empty() {
+            } else if ARGS.verbose || !infos.is_empty() {
                 writeln!(out, "✅ {test}")?;
             }
-            for line in result.infos.lines() {
+            for line in infos.lines() {
                 writeln!(out, "  {line}")?;
             }
             Ok(())

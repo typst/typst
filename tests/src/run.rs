@@ -147,7 +147,7 @@ impl<'a> Runner<'a> {
 
     /// Run the test.
     fn run(mut self) -> TestResult {
-        if crate::ARGS.syntax {
+        if ARGS.syntax {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
@@ -464,7 +464,7 @@ impl<'a> Runner<'a> {
 
         let new_ref_data = T::save_ref(live);
         let new_ref_data = new_ref_data.as_ref();
-        if crate::ARGS.update {
+        if ARGS.update {
             if !self.test.attrs.large && new_ref_data.len() > crate::REF_LIMIT {
                 log!(self, "reference output would exceed maximum size");
                 log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
@@ -555,7 +555,7 @@ impl<'a> Runner<'a> {
             return;
         }
 
-        if crate::ARGS.update {
+        if ARGS.update {
             let mut hashed_refs = self.hashes[T::INDEX].write();
             let ref_path = T::OUTPUT.hash_refs_path();
             hashed_refs.update(self.test.name.clone(), new_hash);

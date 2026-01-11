@@ -970,13 +970,13 @@ fn selected(name: &str, abs: PathBuf) -> bool {
         return false;
     }
 
-    let paths = &crate::ARGS.path;
+    let paths = &ARGS.path;
     if !paths.is_empty() && !paths.iter().any(|path| abs.starts_with(path)) {
         return false;
     }
 
-    let exact = crate::ARGS.exact;
-    let patterns = &crate::ARGS.pattern;
+    let exact = ARGS.exact;
+    let patterns = &ARGS.pattern;
     patterns.is_empty()
         || patterns.iter().any(|pattern: &regex::Regex| {
             if exact { name == pattern.as_str() } else { pattern.is_match(name) }
