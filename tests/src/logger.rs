@@ -44,20 +44,20 @@ impl TestResult {
 }
 
 /// Receives status updates by individual test runs.
-pub struct Logger<'a> {
+pub struct Logger {
     selected: usize,
     passed: usize,
     failed: usize,
     skipped: usize,
     mismatched_output: bool,
-    active: Vec<&'a Test>,
+    active: Vec<EcoString>,
     last_change: Instant,
     temp_lines: usize,
     terminal: bool,
     pub reports: Vec<TestReport>,
 }
 
-impl<'a> Logger<'a> {
+impl Logger {
     /// Create a new logger.
     pub fn new(selected: usize, skipped: usize) -> Self {
         Self {
@@ -75,15 +75,15 @@ impl<'a> Logger<'a> {
     }
 
     /// Register the start of a test.
-    pub fn start(&mut self, test: &'a Test) {
-        self.active.push(test);
+    pub fn start(&mut self, test: &Test) {
+        self.active.push(test.name.clone());
         self.last_change = Instant::now();
         self.refresh();
     }
 
     /// Register a finished test.
-    pub fn end(&mut self, test: &'a Test, result: std::thread::Result<TestResult>) {
-        self.active.retain(|t| t.name != test.name);
+    pub fn end(&mut self, test: Test, result: std::thread::Result<TestResult>) {
+        self.active.retain(|name| *name != test.name);
 
         let Ok(result) = result else {
             self.failed += 1;

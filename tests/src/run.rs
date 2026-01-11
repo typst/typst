@@ -27,7 +27,7 @@ use crate::{ARGS, STORE_PATH, custom, git, output};
 /// Runs a single test.
 ///
 /// Returns whether the test passed.
-pub fn run(hashes: &[RwLock<HashedRefs>], test: &Test) -> TestResult {
+pub fn run(hashes: &[RwLock<HashedRefs>], test: &mut Test) -> TestResult {
     Runner::new(hashes, test).run()
 }
 
@@ -57,10 +57,8 @@ macro_rules! log {
 /// Runs a single test.
 pub struct Runner<'a> {
     hashes: &'a [RwLock<HashedRefs>],
-    test: &'a Test,
+    test: &'a mut Test,
     world: TestWorld,
-    /// In which targets the note has been seen.
-    seen: Vec<TestStages>,
     result: TestResult,
     not_annotated: String,
     unexpected_empty: UnexpectedEmpty,
@@ -127,12 +125,12 @@ impl UnexpectedEmpty {
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a Test) -> Self {
+    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
+        let world = TestWorld::new(test.source.clone());
         Self {
             hashes,
             test,
-            world: TestWorld::new(test.source.clone()),
-            seen: vec![TestStages::empty(); test.notes.len()],
+            world,
             result: TestResult {
                 errors: String::new(),
                 infos: String::new(),
@@ -258,9 +256,9 @@ impl<'a> Runner<'a> {
 
     /// Handle notes that weren't handled before.
     fn handle_not_emitted(&mut self) {
-        for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
+        for note in self.test.notes.iter() {
             let possible = self.test.attrs.implied_stages() & ARGS.required_stages();
-            if seen.is_empty() && !possible.is_empty() {
+            if note.seen.is_empty() && !possible.is_empty() {
                 log!(self, "not emitted");
                 let note_range = self.format_range(note.file, &note.range);
                 log!(
@@ -268,7 +266,7 @@ impl<'a> Runner<'a> {
                     "  {}: {note_range} {} ({})",
                     note.kind,
                     note.message,
-                    note.pos
+                    note.pos,
                 );
                 continue;
             }
@@ -279,18 +277,19 @@ impl<'a> Runner<'a> {
             // See the doc comment on `TestStages` for an overview.
             let attr_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
             let full_branch_coverage =
-                attr_stages.iter().all(|s| s.with_required().intersects(seen));
+                attr_stages.iter().all(|s| s.with_required().intersects(note.seen));
             if full_branch_coverage {
                 continue;
             }
 
-            let siblings = seen.with_siblings()
+            let siblings = note.seen.with_siblings()
                 & self.test.attrs.implied_stages()
                 & ARGS.required_stages();
             log!(
                 self,
-                "only emitted in [{seen}] but expected in [{siblings}], \
+                "only emitted in [{}] but expected in [{siblings}], \
                  consider narrowing the test attributes",
+                note.seen
             );
 
             let note_range = self.format_range(note.file, &note.range);
@@ -690,32 +689,36 @@ impl<'a> Runner<'a> {
 
         // Try to find perfect match.
         let file = file.unwrap_or(self.test.source.id());
-        if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
+        if let Some(note) = self.test.notes.iter_mut().find(|note| {
+            !note.seen.contains(stage.into())
                 && note.kind == kind
                 && note.range == range
                 && note.message == message
                 && note.file == file
         }) {
-            self.seen[i] |= stage.into();
+            note.seen |= stage.into();
             return;
         }
 
         // Try to find closely matching annotation. If the note has the same
         // range or message, it's most likely the one we're interested in.
-        let Some((i, note)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
+        let Some(note_idx) = self.test.notes.iter_mut().position(|note| {
+            let close_match = !note.seen.contains(stage.into())
                 && note.kind == kind
-                && (note.range == range || note.message == message)
+                && (note.range == range || note.message == message);
+            if close_match {
+                // Mark the annotation as visited during this stage.
+                note.seen |= stage.into();
+            }
+            close_match
         }) else {
             // Not even a close match, diagnostic is not annotated.
             let diag_range = self.format_range(file, &range);
             log!(into: self.not_annotated, "  {kind} [{stage}]: {diag_range} {}", message);
             return;
         };
-
-        // Mark this annotation as visited and return it.
-        self.seen[i] |= stage.into();
+        // We use indexing to avoid holding a mutable reference to the note.
+        let note = &self.test.notes[note_idx];
 
         // Range is wrong.
         if range != note.range || file != note.file {

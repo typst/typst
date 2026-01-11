@@ -408,6 +408,7 @@ pub struct Note {
     pub file: FileId,
     pub range: Option<Range<usize>>,
     pub message: String,
+    pub seen: TestStages,
 }
 
 /// A kind of annotation in a test.
@@ -860,6 +861,7 @@ impl<'a> Parser<'a> {
             file: file.unwrap_or(source.id()),
             range,
             message,
+            seen: TestStages::empty(),
         })
     }
 

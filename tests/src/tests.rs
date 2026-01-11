@@ -122,7 +122,7 @@ fn test() {
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
     let hashes = hashes.map(RwLock::new);
-    let runner = |test: &Test| {
+    let runner = |test: &mut Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
@@ -151,12 +151,12 @@ fn test() {
         // We use `par_bridge` instead of `par_iter` because the former
         // results in a stack overflow during PDF export. Probably related
         // to `typst::utils::Deferred` yielding.
-        tests.iter().par_bridge().for_each(|test| {
-            logger.lock().start(test);
+        tests.into_iter().par_bridge().for_each(|mut test| {
+            logger.lock().start(&test);
 
             // This is in fact not formally unwind safe, but the code paths that
             // hold a lock of the hashes are quite short and shouldn't panic.
-            let closure = std::panic::AssertUnwindSafe(|| runner(test));
+            let closure = std::panic::AssertUnwindSafe(|| runner(&mut test));
             let result = std::panic::catch_unwind(closure);
             logger.lock().end(test, result);
         });
