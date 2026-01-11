@@ -162,6 +162,7 @@ impl Value {
             }
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
+            Self::Args(args) => args.field(field).cloned(),
             Self::Content(content) => content.field_by_name(field),
             Self::Type(ty) => ty.field(field, sink).cloned(),
             Self::Func(func) => func.field(field, sink).cloned(),

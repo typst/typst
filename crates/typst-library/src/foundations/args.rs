@@ -299,6 +299,20 @@ impl Args {
         };
         item.map(|item| &item.value.v)
     }
+
+    pub fn contains(&self, key: &str) -> bool {
+        self.items
+            .iter()
+            .any(|item| item.name.as_ref().map(|n| n.as_str()) == Some(key))
+    }
+
+    pub fn field(&self, field: &str) -> StrResult<&Value> {
+        self.items
+            .iter()
+            .rfind(|item| item.name.as_ref().map(|name| name.as_str()) == Some(field))
+            .ok_or_else(|| eco_format!("arguments do not contain key {}", field.repr()))
+            .map(|item| &item.value.v)
+    }
 }
 
 #[scope]
@@ -330,6 +344,8 @@ impl Args {
 
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
+    /// Named arguments can also be accessed with field syntax `arguments(key: 42).key`
+    /// if no default is needed.
     ///
     /// If the key is an [integer]($int), this is equivalent to first calling
     /// [`pos`]($arguments.pos) and then [`array.at`]. If it is a [string]($str),
