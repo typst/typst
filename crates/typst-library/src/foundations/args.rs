@@ -300,12 +300,6 @@ impl Args {
         item.map(|item| &item.value.v)
     }
 
-    pub fn contains(&self, key: &str) -> bool {
-        self.items
-            .iter()
-            .any(|item| item.name.as_ref().map(|n| n.as_str()) == Some(key))
-    }
-
     pub fn field(&self, field: &str) -> StrResult<&Value> {
         self.items
             .iter()
