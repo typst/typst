@@ -304,7 +304,7 @@ impl Args {
         self.items
             .iter()
             .rfind(|item| item.name.as_ref().map(|name| name.as_str()) == Some(field))
-            .ok_or_else(|| eco_format!("arguments do not contain key {}", field.repr()))
+            .ok_or_else(|| eco_format!("no named argument {}", field.repr()))
             .map(|item| &item.value.v)
     }
 }
@@ -565,8 +565,7 @@ where
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
     eco_format!(
-        "arguments do not contain key {} \
-         and no default value was specified",
+        "no named argument {} and no default value was specified",
         match key {
             ArgumentKey::Index(i) => i.repr(),
             ArgumentKey::Name(name) => name.repr(),
