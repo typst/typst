@@ -72,6 +72,11 @@ pub struct ImageElem {
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
+        if let DataSource::Path(path) = &source.v {
+            if path.starts_with("http://") || path.starts_with("https://") {
+                bail!(source.span, "network access is not supported"; hint: "download the image and place it as a file next to the document");
+            }
+        }
         let loaded = source.load(engine.world)?;
         Derived::new(source.v, loaded)
     )]
