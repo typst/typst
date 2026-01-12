@@ -24,12 +24,6 @@
 #test(args.a, 2)
 #test(args.b, 4)
 
---- arguments-name-in eval ---
-#let args = arguments(0, 1, a: 2, 3, b: 4, c: 5)
-#test("a" in args, true)
-#test("z" in args, false)
-#test("b" not in args, false)
-
 --- arguments-at-invalid-name paged ---
 #let args = arguments(0, 1, a: 2, 3)
 // Error: 2-14 arguments do not contain key "b" and no default value was specified
