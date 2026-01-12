@@ -970,7 +970,7 @@ fn shape_segment<'a>(
     let (shaping_text, smallcaps_scale, cluster_map): (
         Cow<str>,
         Em,
-        Option<&[(usize, usize, char, bool)]>,
+        Option<&[ClusterMapEntry]>,
     ) = match &smallcaps_mode {
         Some(SmallcapsMode::Synthesize { text: synth_text, scale, cluster_map }) => {
             (Cow::Borrowed(synth_text.as_str()), *scale, Some(cluster_map.as_slice()))
@@ -1279,6 +1279,10 @@ fn determine_shift(
         })
 }
 
+/// Cluster map entry for synthesized smallcaps.
+/// (synth_start, orig_idx, orig_char, should_scale)
+type ClusterMapEntry = (usize, usize, char, bool);
+
 /// The result of determining smallcaps rendering mode.
 #[derive(Debug, Clone)]
 enum SmallcapsMode {
@@ -1292,7 +1296,7 @@ enum SmallcapsMode {
         scale: Em,
         /// Maps byte indices in synthesized text to (original_byte_idx, should_scale).
         /// Each entry is (synth_start, orig_start, orig_char, should_scale).
-        cluster_map: Vec<(usize, usize, char, bool)>,
+        cluster_map: Vec<ClusterMapEntry>,
     },
 }
 
