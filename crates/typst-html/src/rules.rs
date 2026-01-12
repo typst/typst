@@ -526,7 +526,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
-    let works = Works::with_bibliography(engine, elem.clone())?;
+    let works = Works::generate(engine, span)?;
     let references = works.references(elem, styles)?;
 
     let items = references.iter().map(|(prefix, reference, loc)| {
@@ -565,7 +565,10 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
-        .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
+        .with_optional_attr(
+            attr::class,
+            works.hanging_indent(elem).then_some("hanging-indent"),
+        )
         .with_body(Some(title.unwrap_or_default() + list))
         .pack())
 };
