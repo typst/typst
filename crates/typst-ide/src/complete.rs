@@ -510,8 +510,8 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
         ctx.leaf.parent_kind()
         && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+        && let Some(value) = str.get_bare()
     {
-        let value = str.get();
         ctx.from = ctx.leaf.offset();
         if value.starts_with('@') {
             let all_versions = value.contains(':');

@@ -84,20 +84,20 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 /// | `gray`    | `{luma(170)}`      |
 /// | `silver`  | `{luma(221)}`      |
 /// | `white`   | `{luma(255)}`      |
-/// | `navy`    | `{rgb("#001f3f")}` |
-/// | `blue`    | `{rgb("#0074d9")}` |
-/// | `aqua`    | `{rgb("#7fdbff")}` |
-/// | `teal`    | `{rgb("#39cccc")}` |
-/// | `eastern` | `{rgb("#239dad")}` |
-/// | `purple`  | `{rgb("#b10dc9")}` |
-/// | `fuchsia` | `{rgb("#f012be")}` |
-/// | `maroon`  | `{rgb("#85144b")}` |
-/// | `red`     | `{rgb("#ff4136")}` |
-/// | `orange`  | `{rgb("#ff851b")}` |
-/// | `yellow`  | `{rgb("#ffdc00")}` |
-/// | `olive`   | `{rgb("#3d9970")}` |
-/// | `green`   | `{rgb("#2ecc40")}` |
-/// | `lime`    | `{rgb("#01ff70")}` |
+/// | `navy`    | `{rgb("001f3f")}` |
+/// | `blue`    | `{rgb("0074d9")}` |
+/// | `aqua`    | `{rgb("7fdbff")}` |
+/// | `teal`    | `{rgb("39cccc")}` |
+/// | `eastern` | `{rgb("239dad")}` |
+/// | `purple`  | `{rgb("b10dc9")}` |
+/// | `fuchsia` | `{rgb("f012be")}` |
+/// | `maroon`  | `{rgb("85144b")}` |
+/// | `red`     | `{rgb("ff4136")}` |
+/// | `orange`  | `{rgb("ff851b")}` |
+/// | `yellow`  | `{rgb("ffdc00")}` |
+/// | `olive`   | `{rgb("3d9970")}` |
+/// | `green`   | `{rgb("2ecc40")}` |
+/// | `lime`    | `{rgb("01ff70")}` |
 ///
 /// The predefined colors and the most important color constructors are
 /// available globally and also in the color type's scope, so you can write
@@ -464,7 +464,7 @@ impl Color {
     /// method.
     ///
     /// ```example
-    /// #square(fill: rgb("#b1f2eb"))
+    /// #square(fill: rgb("b1f2eb"))
     /// #square(fill: rgb(87, 127, 230))
     /// #square(fill: rgb(25%, 13%, 65%))
     /// ```
@@ -485,13 +485,12 @@ impl Color {
         alpha: Component,
         /// Alternatively: The color in hexadecimal notation.
         ///
-        /// Accepts three, four, six or eight hexadecimal digits and optionally
-        /// a leading hash.
+        /// Accepts three, four, six or eight hexadecimal digits.
         ///
         /// If this is given, the individual components should not be given.
         ///
         /// ```example
-        /// #text(16pt, rgb("#239dad"))[
+        /// #text(16pt, rgb("239dad"))[
         ///   *Typst*
         /// ]
         /// ```
@@ -829,15 +828,22 @@ impl Color {
     }
 
     /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
-    /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
+    /// `020304fe`). The alpha component (last two digits in `020304fe`) is
     /// omitted if it is equal to `ff` (255 / 100%).
     #[func]
-    pub fn to_hex(self) -> EcoString {
+    pub fn to_hex(
+        self,
+        /// Whether to include the hash at the start of the string.
+        #[named]
+        #[default(false)]
+        hash: bool,
+    ) -> EcoString {
+        let hash = if hash { "#" } else { "" };
         let (r, g, b, a) = self.to_rgb().into_format::<u8, u8>().into_components();
         if a != 255 {
-            eco_format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
+            eco_format!("{hash}{r:02x}{g:02x}{b:02x}{a:02x}")
         } else {
-            eco_format!("#{:02x}{:02x}{:02x}", r, g, b)
+            eco_format!("{hash}{r:02x}{g:02x}{b:02x}")
         }
     }
 
@@ -1452,7 +1458,7 @@ impl Repr for Color {
                     )
                 }
             }
-            Self::Rgb(_) => eco_format!("rgb({})", self.to_hex().repr()),
+            Self::Rgb(_) => eco_format!("rgb({})", self.to_hex(false).repr()),
             Self::LinearRgb(c) => {
                 if c.alpha == 1.0 {
                     eco_format!(
@@ -1597,13 +1603,12 @@ impl FromStr for Color {
     type Err = &'static str;
 
     /// Constructs a new color from hex strings like the following:
-    /// - `#aef` (shorthand, with leading hash),
+    /// - `aef` (shorthand),
     /// - `7a03c2` (without alpha),
     /// - `abcdefff` (with alpha).
     ///
     /// The hash is optional and both lower and upper case are fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
-        let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
             return Err("color string contains non-hexadecimal letters");
         }

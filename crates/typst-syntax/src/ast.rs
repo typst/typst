@@ -282,6 +282,10 @@ pub enum Expr<'a> {
     Numeric(Numeric<'a>),
     /// A quoted string: `"..."`.
     Str(Str<'a>),
+    /// Plain string text without escapes or interpolations.
+    StrText(StrText<'a>),
+    /// A string escape sequence: `\#`, `\r`, `\u{1F5FA}`.
+    StrEscape(StrEscape<'a>),
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock(CodeBlock<'a>),
     /// A content block: `[*Hi* there!]`.
@@ -380,6 +384,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Float => Some(Self::Float(Float(node))),
             SyntaxKind::Numeric => Some(Self::Numeric(Numeric(node))),
             SyntaxKind::Str => Some(Self::Str(Str(node))),
+            SyntaxKind::StrText => Some(Self::StrText(StrText(node))),
+            SyntaxKind::StrEscape => Some(Self::StrEscape(StrEscape(node))),
             SyntaxKind::CodeBlock => Some(Self::CodeBlock(CodeBlock(node))),
             SyntaxKind::ContentBlock => Some(Self::ContentBlock(ContentBlock(node))),
             SyntaxKind::Parenthesized => Some(Self::Parenthesized(Parenthesized(node))),
@@ -447,6 +453,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Float(v) => v.to_untyped(),
             Self::Numeric(v) => v.to_untyped(),
             Self::Str(v) => v.to_untyped(),
+            Self::StrText(v) => v.to_untyped(),
+            Self::StrEscape(v) => v.to_untyped(),
             Self::CodeBlock(v) => v.to_untyped(),
             Self::ContentBlock(v) => v.to_untyped(),
             Self::Array(v) => v.to_untyped(),
@@ -475,7 +483,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
 }
 
 impl Expr<'_> {
-    /// Can this expression be embedded into markup with a hash?
+    /// Can this expression be embedded into markup and strings with a hash?
     pub fn hash(self) -> bool {
         matches!(
             self,
@@ -1223,49 +1231,122 @@ node! {
     struct Str
 }
 
-impl Str<'_> {
-    /// Get the string value with resolved escape sequences.
-    pub fn get(self) -> EcoString {
+impl<'a> Str<'a> {
+    /// Get the bare string value with resolved escape sequences.
+    ///
+    /// Returns `None` if this string had interpolations that need to be
+    /// evaluated.
+    pub fn get_bare(self) -> Option<EcoString> {
+        if !self.0.children().all(|node| {
+            matches!(
+                node.kind(),
+                SyntaxKind::StrText | SyntaxKind::StrEscape | SyntaxKind::StrQuote
+            )
+        }) {
+            return Option::None;
+        }
+
         let text = self.0.text();
-        let unquoted = &text[1..text.len() - 1];
-        if !unquoted.contains('\\') {
-            return unquoted.into();
-        }
+        let mut out = EcoString::with_capacity(text.len());
 
-        let mut out = EcoString::with_capacity(unquoted.len());
-        let mut s = Scanner::new(unquoted);
-
-        while let Some(c) = s.eat() {
-            if c != '\\' {
-                out.push(c);
-                continue;
-            }
-
-            let start = s.locate(-1);
-            match s.eat() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('u') if s.eat_if('{') => {
-                    let sequence = s.eat_while(char::is_ascii_hexdigit);
-                    s.eat_if('}');
-
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
-                    {
-                        Some(c) => out.push(c),
-                        Option::None => out.push_str(s.from(start)),
+        for item in self.get_items() {
+            match item {
+                Expr::StrText(text) => out.push_str(text.get()),
+                Expr::StrEscape(escape) => match escape.get() {
+                    Ok(c) => out.push(c),
+                    Err(c) => {
+                        out.push('\\');
+                        out.push(c);
                     }
-                }
-                _ => out.push_str(s.from(start)),
+                },
+                _ => return Option::None,
             }
         }
 
-        out
+        Some(out)
     }
+
+    /// Returns the string items.
+    pub fn get_items(&self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+node! {
+    /// Plain string text without escapes or interpolations.
+    struct StrText
+}
+
+impl<'a> StrText<'a> {
+    /// Get the text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    /// A string escape sequence: `\#`, `\r`, `\u{1F5FA}`.
+    struct StrEscape
+}
+
+impl StrEscape<'_> {
+    /// Get the escaped character and whether it was a valid escpae sequence.
+    pub fn get(self) -> Result<char, char> {
+        let mut s = Scanner::new(self.0.text());
+        s.expect('\\');
+        Ok(match s.eat().unwrap_or_default() {
+            '\\' => '\\',
+            '"' => '"',
+            '#' => '#',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'u' if s.eat_if('{') => {
+                let sequence = s.eat_while(char::is_ascii_hexdigit);
+                s.eat_if('}');
+
+                u32::from_str_radix(sequence, 16)
+                    .ok()
+                    .and_then(std::char::from_u32)
+                    .unwrap_or_default()
+            }
+            c => return Err(c),
+        })
+    }
+}
+
+/// A fragment in a string literal with interpolations.
+///
+/// There are currently two kinds of interpolations:
+/// - A bare interpolation like `#foo-bar`, this interpolation stops at the next
+///   non-identifier character.
+/// - A bracketed interpolation like `#[foo]`, this interpolation.
+///
+/// The bracketed interpolation can be used to resolve ambiguities with
+/// identifiers in interpolated strings. If only the binding `foo` is in scope,
+/// then attempting to evaluate `"#foo-bar"` would fail because `foo-bar` is not
+/// bound while `#[foo]-bar` would correctly evaluate.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Interpolation {
+    /// A raw fragment is a regular part of the string with its escape sequences
+    /// resovled.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `"foo "`, `""`
+    /// (between bar and qux), and `"-quux"`.
+    Raw(EcoString),
+
+    /// A reference fragment is an identifier in the current scope of the
+    /// string.
+    ///
+    /// For a string like `"foo #bar#[qux]-#quux"` this is `bar`, `qux` and
+    /// `quux`.
+    Ref {
+        /// The identifier that is being regered to.
+        ident: EcoString,
+
+        /// Whether this reference used brackets.
+        bracket: bool,
+    },
 }
 
 node! {
@@ -2212,26 +2293,28 @@ impl<'a> ModuleImport<'a> {
         match self.source() {
             Expr::Ident(ident) => Ok(ident.get().clone()),
             Expr::FieldAccess(access) => Ok(access.field().get().clone()),
-            Expr::Str(string) => {
-                let string = string.get();
-                let name = if string.starts_with('@') {
-                    PackageSpec::from_str(&string)
-                        .map_err(|_| BareImportError::PackageInvalid)?
-                        .name
-                } else {
-                    Path::new(string.as_str())
-                        .file_stem()
-                        .and_then(|path| path.to_str())
-                        .ok_or(BareImportError::PathInvalid)?
-                        .into()
-                };
+            Expr::Str(string) => match string.get_bare() {
+                Some(string) => {
+                    let name = if string.starts_with('@') {
+                        PackageSpec::from_str(&string)
+                            .map_err(|_| BareImportError::PackageInvalid)?
+                            .name
+                    } else {
+                        Path::new(string.as_str())
+                            .file_stem()
+                            .and_then(|path| path.to_str())
+                            .ok_or(BareImportError::PathInvalid)?
+                            .into()
+                    };
 
-                if !is_ident(&name) {
-                    return Err(BareImportError::PathInvalid);
+                    if !is_ident(&name) {
+                        return Err(BareImportError::PathInvalid);
+                    }
+
+                    Ok(name)
                 }
-
-                Ok(name)
-            }
+                _ => Err(BareImportError::Dynamic),
+            },
             _ => Err(BareImportError::Dynamic),
         }
     }
