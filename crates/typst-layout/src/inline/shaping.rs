@@ -14,8 +14,9 @@ use typst_library::foundations::{Regex, Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
-    Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
-    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
+    DEFAULT_SMALLCAPS_SIZE, Font, FontFamily, FontVariant, Glyph, Lang, Region,
+    ShiftSettings, Smallcaps, SmallcapsSettings, TextEdgeBounds, TextElem, TextItem,
+    families, features, is_default_ignorable, language, variant,
 };
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -790,6 +791,7 @@ fn shape<'a>(
 ) -> ShapedText<'a> {
     let size = styles.resolve(TextElem::size);
     let shift_settings = styles.get(TextElem::shift_settings);
+    let smallcaps_settings = styles.get(TextElem::smallcaps_settings);
     let mut ctx = ShapingContext {
         world: engine.world,
         size,
@@ -801,6 +803,7 @@ fn shape<'a>(
         fallback: styles.get(TextElem::fallback),
         dir,
         shift_settings,
+        smallcaps_settings,
     };
 
     if !text.is_empty() {
@@ -839,6 +842,7 @@ struct ShapingContext<'a> {
     fallback: bool,
     dir: Dir,
     shift_settings: Option<ShiftSettings>,
+    smallcaps_settings: Option<SmallcapsSettings>,
 }
 
 pub trait SharedShapingContext<'a> {
@@ -955,7 +959,26 @@ fn shape_segment<'a>(
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
-    buffer.push_str(text);
+
+    // Determine smallcaps mode and potentially transform text.
+    let smallcaps_mode = ctx
+        .smallcaps_settings
+        .and_then(|settings| determine_smallcaps(text, &font, settings));
+
+    // Extract synthesis information if applicable.
+    // cluster_map maps synthesized byte indices to original info.
+    let (shaping_text, smallcaps_scale, cluster_map): (
+        Cow<str>,
+        Em,
+        Option<&[(usize, usize, char, bool)]>,
+    ) = match &smallcaps_mode {
+        Some(SmallcapsMode::Synthesize { text: synth_text, scale, cluster_map }) => {
+            (Cow::Borrowed(synth_text.as_str()), *scale, Some(cluster_map.as_slice()))
+        }
+        _ => (Cow::Borrowed(text), Em::one(), None),
+    };
+
+    buffer.push_str(&shaping_text);
     buffer.set_language(language(ctx.styles));
     if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
@@ -981,10 +1004,20 @@ fn shape_segment<'a>(
             determine_shift(text, &font, settings)
         });
 
-    let has_shift_feature = shift_feature.is_some();
+    // Collect features to apply.
+    let mut added_features = 0;
+
     if let Some(feat) = shift_feature {
-        // Temporarily push the feature.
-        ctx.features.push(feat)
+        ctx.features.push(feat);
+        added_features += 1;
+    }
+
+    // Add smallcaps OpenType features if using typographic mode.
+    if let Some(SmallcapsMode::Typographic(feats)) = &smallcaps_mode {
+        for feat in feats {
+            ctx.features.push(*feat);
+            added_features += 1;
+        }
     }
 
     // Prepare the shape plan. This plan depends on direction, script, language,
@@ -997,7 +1030,8 @@ fn shape_segment<'a>(
         &ctx.features,
     );
 
-    if has_shift_feature {
+    // Remove temporarily added features.
+    for _ in 0..added_features {
         ctx.features.pop();
     }
 
@@ -1008,13 +1042,18 @@ fn shape_segment<'a>(
     let ltr = ctx.dir.is_positive();
 
     // Whether the character at the given offset is covered by the coverage.
-    let is_covered = |offset| {
-        let end = text[offset..]
+    // When synthesizing smallcaps, we use the synthesized text for coverage check.
+    let is_covered = |offset: usize| {
+        let check_text: &str = &shaping_text;
+        if offset >= check_text.len() {
+            return false;
+        }
+        let end = check_text[offset..]
             .char_indices()
             .nth(1)
             .map(|(i, _)| offset + i)
-            .unwrap_or(text.len());
-        covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
+            .unwrap_or(check_text.len());
+        covers.is_none_or(|cov| cov.is_match(&check_text[offset..end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
@@ -1040,19 +1079,20 @@ fn shape_segment<'a>(
             // scenarios.
 
             // The start of the glyph's text range.
-            let start = base + cluster;
+            let _start = base + cluster;
 
-            // Determine the end of the glyph's text range.
+            // Determine the end of the glyph's text range (in terms of the
+            // shaped/synthesized text).
             let mut k = i;
             let step: isize = if ltr { 1 } else { -1 };
-            let end = loop {
+            let _end = loop {
                 // If we've reached the end of the glyphs, the `end` of the
                 // range should be the end of the full text.
                 let Some((next, next_info)) = k
                     .checked_add_signed(step)
                     .and_then(|n| infos.get(n).map(|info| (n, info)))
                 else {
-                    break base + text.len();
+                    break base + shaping_text.len();
                 };
 
                 // If the cluster doesn't match anymore, we've reached the end.
@@ -1063,9 +1103,55 @@ fn shape_segment<'a>(
                 k = next;
             };
 
-            let c = text[cluster..].chars().next().unwrap();
+            // When synthesizing smallcaps, the cluster indices refer to the
+            // synthesized text, but we need the original character for the
+            // glyph. Look up the mapping if available.
+            let (c, should_scale_smallcaps, orig_cluster) = if let Some(map) = cluster_map
+            {
+                // Find the entry in cluster_map for this synthesized cluster.
+                // The cluster_map entries are sorted by synth_start.
+                let entry = map
+                    .iter()
+                    .rev()
+                    .find(|(synth_start, _, _, _)| *synth_start <= cluster);
+                match entry {
+                    Some((_, orig_idx, orig_char, should_scale)) => {
+                        (*orig_char, *should_scale, *orig_idx)
+                    }
+                    None => {
+                        // Fallback to original text if no mapping found.
+                        let c = text[cluster..].chars().next().unwrap();
+                        (c, false, cluster)
+                    }
+                }
+            } else {
+                let c = text[cluster..].chars().next().unwrap();
+                (c, false, cluster)
+            };
+
             let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
+
+            // Determine the glyph size, accounting for both script scaling and
+            // smallcaps synthesis.
+            let mut glyph_size = scale.at(ctx.size);
+            if should_scale_smallcaps {
+                glyph_size = smallcaps_scale.at(glyph_size);
+            }
+
+            // Use original cluster for the range when synthesizing.
+            let glyph_start = base + orig_cluster;
+            let glyph_end = if cluster_map.is_some() {
+                // For synthesized text, calculate end from original text.
+                text[orig_cluster..]
+                    .char_indices()
+                    .nth(1)
+                    .map(|(i, _)| base + orig_cluster + i)
+                    .unwrap_or(base + text.len())
+            } else {
+                _end
+            };
+
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
                 glyph_id: info.glyph_id as u16,
@@ -1073,9 +1159,9 @@ fn shape_segment<'a>(
                 x_advance,
                 x_offset: font.to_em(pos[i].x_offset) + script_compensation,
                 y_offset: font.to_em(pos[i].y_offset) + script_shift,
-                size: scale.at(ctx.size),
+                size: glyph_size,
                 adjustability: Adjustability::default(),
-                range: start..end,
+                range: glyph_start..glyph_end,
                 safe_to_break: !info.unsafe_to_break(),
                 c,
                 is_justifiable: is_justifiable(
@@ -1191,6 +1277,112 @@ fn determine_shift(
                 None,
             )
         })
+}
+
+/// The result of determining smallcaps rendering mode.
+#[derive(Debug, Clone)]
+enum SmallcapsMode {
+    /// Use OpenType features (smcp, and optionally c2sc).
+    Typographic(Vec<Feature>),
+    /// Synthesize smallcaps by uppercasing and scaling.
+    Synthesize {
+        /// The text transformed to uppercase for lowercase letters.
+        text: String,
+        /// The size scaling factor for synthesized characters.
+        scale: Em,
+        /// Maps byte indices in synthesized text to (original_byte_idx, should_scale).
+        /// Each entry is (synth_start, orig_start, orig_char, should_scale).
+        cluster_map: Vec<(usize, usize, char, bool)>,
+    },
+}
+
+/// Determines whether to use OpenType smallcaps features or synthesize.
+///
+/// Returns either the OpenType features to apply, or the transformed text
+/// and scaling information for synthesis.
+fn determine_smallcaps(
+    text: &str,
+    font: &Font,
+    settings: SmallcapsSettings,
+) -> Option<SmallcapsMode> {
+    let smcp_tag = Tag::from_bytes(b"smcp");
+    let c2sc_tag = Tag::from_bytes(b"c2sc");
+
+    // Check if we should try to use OpenType features.
+    if settings.typographic {
+        // Check if the font has the smcp feature and covers the text.
+        let gsub = font.rusty().tables().gsub;
+        let has_smcp = gsub.as_ref().and_then(|g| g.features.find(smcp_tag)).is_some();
+        let has_c2sc = gsub.as_ref().and_then(|g| g.features.find(c2sc_tag)).is_some();
+
+        if has_smcp {
+            // Check if all lowercase letters have smallcaps coverage.
+            let smcp_lookups = gsub
+                .as_ref()
+                .and_then(|g| g.features.find(smcp_tag))
+                .map(|f| f.lookup_indices);
+
+            let all_covered = smcp_lookups.is_some_and(|lookups| {
+                text.chars().filter(|c| c.is_lowercase()).all(|c| {
+                    let Some(glyph_id) = font.rusty().glyph_index(c) else {
+                        return false;
+                    };
+                    lookups
+                        .into_iter()
+                        .flat_map(|i| gsub.as_ref().unwrap().lookups.get(i))
+                        .flat_map(|lookup| {
+                            lookup.subtables.into_iter::<SubstitutionSubtable>()
+                        })
+                        .any(|subtable| subtable.coverage().contains(glyph_id))
+                })
+            });
+
+            if all_covered {
+                let mut feats = vec![Feature::new(smcp_tag, 1, ..)];
+                if settings.sc == Smallcaps::All && has_c2sc {
+                    feats.push(Feature::new(c2sc_tag, 1, ..));
+                }
+                return Some(SmallcapsMode::Typographic(feats));
+            }
+        }
+    }
+
+    // If typographic is false, or the font doesn't support smallcaps features,
+    // or not all characters are covered, we need to synthesize.
+    let should_synthesize_uppercase = settings.sc == Smallcaps::All;
+
+    let mut synthesized_text = String::with_capacity(text.len());
+    // Maps synthesized byte index to (original byte index, original char, should scale)
+    let mut cluster_map = Vec::new();
+
+    for (orig_idx, c) in text.char_indices() {
+        let synth_start = synthesized_text.len();
+        let should_scale;
+
+        if c.is_lowercase() {
+            // Synthesize lowercase letters by converting to uppercase.
+            for upper_c in c.to_uppercase() {
+                synthesized_text.push(upper_c);
+            }
+            should_scale = true;
+        } else if should_synthesize_uppercase && c.is_uppercase() {
+            // If all: true, uppercase letters also get scaled.
+            synthesized_text.push(c);
+            should_scale = true;
+        } else {
+            // Keep other characters as-is.
+            synthesized_text.push(c);
+            should_scale = false;
+        }
+
+        cluster_map.push((synth_start, orig_idx, c, should_scale));
+    }
+
+    Some(SmallcapsMode::Synthesize {
+        text: synthesized_text,
+        scale: DEFAULT_SMALLCAPS_SIZE,
+        cluster_map,
+    })
 }
 
 /// Create a shape plan.
