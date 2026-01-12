@@ -87,9 +87,11 @@ impl SVGRenderer<'_> {
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
-        self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
+        let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        let tiling_id = self.tilings.insert_with(tiling, || tiling.clone());
+        // Use the rendered SVG as a key, since the `Tiling` itself includes
+        // `Location`s which aren't stable.
+        let tiling_id = self.tilings.insert_with(rendered, || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
