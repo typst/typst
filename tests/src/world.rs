@@ -20,7 +20,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
-use typst_syntax::Lines;
+use typst_syntax::{Lines, VirtualRoot};
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -167,9 +167,11 @@ impl FileSlot {
 
 /// The file system path for a file ID.
 pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
-    let root: PathBuf = match id.package() {
-        Some(spec) => format!("tests/packages/{}-{}", spec.name, spec.version).into(),
-        None => PathBuf::new(),
+    let root = match id.root() {
+        VirtualRoot::Project => PathBuf::new(),
+        VirtualRoot::Package(spec) => {
+            format!("tests/packages/{}-{}", spec.name, spec.version).into()
+        }
     };
     Ok(id.vpath().realize(&root))
 }

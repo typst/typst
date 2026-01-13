@@ -9,7 +9,9 @@ use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue, Repr};
-use typst::syntax::{FileId, Lines, PathError, Source, VirtualPath, VirtualizeError};
+use typst::syntax::{
+    FileId, Lines, PathError, Source, VirtualPath, VirtualRoot, VirtualizeError,
+};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
@@ -23,13 +25,15 @@ use crate::package;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
-static STDIN_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>").unwrap()));
+static STDIN_ID: LazyLock<FileId> = LazyLock::new(|| {
+    FileId::new_fake(VirtualRoot::Project, VirtualPath::new("<stdin>").unwrap())
+});
 
 /// Static `FileId` allocated for empty/no input at all.
 /// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
-static EMPTY_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>").unwrap()));
+static EMPTY_ID: LazyLock<FileId> = LazyLock::new(|| {
+    FileId::new_fake(VirtualRoot::Project, VirtualPath::new("<empty>").unwrap())
+});
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -100,7 +104,7 @@ impl SystemWorld {
         let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::virtualize(path, &root)?;
-            FileId::new(None, main_path)
+            FileId::new(VirtualRoot::Project, main_path)
         } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN.
             *STDIN_ID
@@ -413,14 +417,15 @@ fn system_path(
     id: FileId,
     package_storage: &PackageStorage,
 ) -> FileResult<PathBuf> {
-    // Determine the root path relative to which the file path
-    // will be resolved.
+    // Determine the root path relative to which the file path will be resolved.
     let buf;
-    let mut root = project_root;
-    if let Some(spec) = id.package() {
-        buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
-        root = &buf;
-    }
+    let root = match id.root() {
+        VirtualRoot::Project => project_root,
+        VirtualRoot::Package(spec) => {
+            buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
+            &buf
+        }
+    };
     Ok(id.vpath().realize(root))
 }
 
