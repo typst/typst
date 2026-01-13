@@ -233,7 +233,8 @@ fn resolve_package(
     span: Span,
 ) -> SourceResult<(EcoString, FileId)> {
     // Evaluate the manifest.
-    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
+    let manifest_id =
+        FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml").unwrap());
     let bytes = engine.world.file(manifest_id).at(span)?;
     let string = bytes.as_str().map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
@@ -242,5 +243,8 @@ fn resolve_package(
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    Ok((manifest.package.name, manifest_id.join(&manifest.package.entrypoint)))
+    Ok((
+        manifest.package.name,
+        manifest_id.resolve_path(&manifest.package.entrypoint).at(span)?,
+    ))
 }

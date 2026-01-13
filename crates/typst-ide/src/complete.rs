@@ -1,6 +1,5 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
@@ -1220,19 +1219,15 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all available files.
     fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
-        let Some(base_id) = self.leaf.span().id() else { return };
-        let Some(base_path) = base_id.vpath().as_rooted_path().parent() else { return };
+        let Some(current_id) = self.leaf.span().id() else { return };
+        let Some(current_dir) = current_id.vpath().parent() else { return };
 
         let mut paths: Vec<EcoString> = self
             .world
             .files()
             .iter()
-            .filter(|&&file_id| file_id != base_id && filter(file_id))
-            .filter_map(|file_id| {
-                let file_path = file_id.vpath().as_rooted_path();
-                pathdiff::diff_paths(file_path, base_path)
-            })
-            .map(|path| path.to_string_lossy().replace('\\', "/").into())
+            .filter(|&&id| id != current_id && filter(id))
+            .filter_map(|id| id.vpath().relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1252,9 +1247,7 @@ impl<'a> CompletionContext<'a> {
         self.file_completions(|id| {
             let ext = id
                 .vpath()
-                .as_rooted_path()
                 .extension()
-                .and_then(OsStr::to_str)
                 .map(EcoString::from)
                 .unwrap_or_default()
                 .to_lowercase();

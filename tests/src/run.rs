@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::ops::Range;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -36,7 +37,8 @@ pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<OutputHashes>]) {
             continue;
         }
 
-        let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+        let ref_path =
+            T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
         if hashed_refs.is_empty() {
             std::fs::remove_file(ref_path).ok();
         } else {
@@ -351,7 +353,8 @@ impl<'a> Runner<'a> {
             if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
                 hashed_refs.get(&self.test.name)
             } else {
-                let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+                let ref_path =
+                    T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
                 let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
                 let hashed_refs = HashedRefs::from_str(&string)
                     .inspect_err(|e| {
@@ -396,7 +399,8 @@ impl<'a> Runner<'a> {
         if crate::ARGS.update {
             let mut hashes = self.hashes[T::INDEX].write();
             let hashed_refs = hashes.get_mut(source_path).unwrap();
-            let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+            let ref_path =
+                T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
             if skippable {
                 hashed_refs.remove(&self.test.name);
                 log!(

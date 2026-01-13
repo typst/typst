@@ -629,9 +629,9 @@ dependencies = [
 
 [[package]]
 name = "ecow"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e42fc0a93992b20c58b99e59d61eaf1635a25bfbe49e4275c34ba0aee98119ba"
+checksum = "78e4f79b296fbaab6ce2e22d52cb4c7f010fe0ebe7a32e34fa25885fd797bd02"
 dependencies = [
  "serde",
 ]
@@ -2990,7 +2990,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.14.2"
-source = "git+https://github.com/typst/typst-dev-assets?rev=fe6cad9#fe6cad916d8b20c20742512b2a3f3b247a2bc4f8"
+source = "git+https://github.com/typst/typst-dev-assets?rev=c4e80f3#c4e80f363066e92e38eac25be1fca5f98acfbe9a"
 
 [[package]]
 name = "typst-docs"

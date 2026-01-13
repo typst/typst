@@ -8,8 +8,8 @@ use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
-use typst::syntax::{FileId, Lines, Source, VirtualPath};
+use typst::foundations::{Bytes, Datetime, Dict, IntoValue, Repr};
+use typst::syntax::{FileId, Lines, PathError, Source, VirtualPath, VirtualizeError};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
@@ -24,12 +24,12 @@ use crate::package;
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
 static STDIN_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<stdin>").unwrap()));
 
 /// Static `FileId` allocated for empty/no input at all.
 /// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
 static EMPTY_ID: LazyLock<FileId> =
-    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>")));
+    LazyLock::new(|| FileId::new_fake(VirtualPath::new("<empty>").unwrap()));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -99,8 +99,7 @@ impl SystemWorld {
 
         let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
-            let main_path = VirtualPath::within_root(path, &root)
-                .ok_or(WorldCreationError::InputOutsideRoot)?;
+            let main_path = VirtualPath::virtualize(path, &root)?;
             FileId::new(None, main_path)
         } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN.
@@ -422,10 +421,7 @@ fn system_path(
         buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
         root = &buf;
     }
-
-    // Join the path to the root. If it tries to escape, deny
-    // access. Note: It can still escape via symlinks.
-    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+    Ok(id.vpath().realize(root))
 }
 
 /// Reads a file from a `FileId`.
@@ -487,8 +483,8 @@ enum Now {
 pub enum WorldCreationError {
     /// The input file does not appear to exist.
     InputNotFound(PathBuf),
-    /// The input file is not contained within the root folder.
-    InputOutsideRoot,
+    /// The input file path was malformed.
+    InputMalformed(VirtualizeError),
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
     /// Another type of I/O error.
@@ -498,17 +494,32 @@ pub enum WorldCreationError {
 impl fmt::Display for WorldCreationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            WorldCreationError::InputMalformed(err) => match err {
+                VirtualizeError::Path(PathError::Escapes) => {
+                    write!(f, "source file must be contained in project root")
+                }
+                VirtualizeError::Path(PathError::Backslash) => {
+                    write!(f, "source path must not contain a backslash")
+                }
+                VirtualizeError::Invalid(s) => {
+                    write!(f, "source path contains invalid sequence `{}`", s.repr())
+                }
+                VirtualizeError::Utf8 => write!(f, "source path must be valid UTF-8"),
+            },
             WorldCreationError::InputNotFound(path) => {
                 write!(f, "input file not found (searched at {})", path.display())
-            }
-            WorldCreationError::InputOutsideRoot => {
-                write!(f, "source file must be contained in project root")
             }
             WorldCreationError::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
             }
             WorldCreationError::Io(err) => write!(f, "{err}"),
         }
+    }
+}
+
+impl From<VirtualizeError> for WorldCreationError {
+    fn from(err: VirtualizeError) -> Self {
+        Self::InputMalformed(err)
     }
 }
 
