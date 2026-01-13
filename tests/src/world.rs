@@ -171,8 +171,7 @@ pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
         Some(spec) => format!("tests/packages/{}-{}", spec.name, spec.version).into(),
         None => PathBuf::new(),
     };
-
-    id.vpath().resolve(&root).ok_or(FileError::AccessDenied)
+    Ok(id.vpath().realize(&root))
 }
 
 /// Read a file.

@@ -11,6 +11,11 @@ The MIT License applies to:
    closely modelled after the `DownloadTracker` from rustup
    (https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs)
 
+* The path diffing algorithm in `crates/typst-syntax/src/path.rs` which is
+  modified from rustc's `path_relative_from` function
+  (https://github.com/rust-lang/rust/blob/e1d0de82cc40b666b88d4a6d2c9dcbc81d7ed27f/src/librustc_back/rpath.rs#L116-L158)
+  Copyright 2012-2015 The Rust Project Developers.
+
 * The `SyntaxSet` defined in `crates/typst-syntax/src/set.rs` which is
   based on the `TokenSet` from rust-analyzer
   (https://github.com/rust-lang/rust-analyzer/blob/master/crates/parser/src/token_set.rs)

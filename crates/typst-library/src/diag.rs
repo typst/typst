@@ -758,15 +758,10 @@ fn load_err_in_invalid_text(
         (LoadSource::Path(file), _) => {
             message.pop();
             if let Some(package) = file.package() {
-                write!(
-                    &mut message,
-                    " in {package}{}",
-                    file.vpath().as_rooted_path().display()
-                )
-                .ok();
-            } else {
-                write!(&mut message, " in {}", file.vpath().as_rootless_path().display())
+                write!(&mut message, " in {package}{}", file.vpath().get_with_slash())
                     .ok();
+            } else {
+                write!(&mut message, " in {}", file.vpath().get_without_slash()).ok();
             };
             if let Some((line, col)) = line_col {
                 write!(&mut message, ":{line}:{col}").ok();

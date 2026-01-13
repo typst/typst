@@ -41,7 +41,7 @@ pub struct AttachElem {
             args.expect::<Spanned<EcoString>>("path")?;
         let id = span.resolve_path(&path).at(span)?;
         // The derived part is the project-relative resolved path.
-        let resolved = id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/").into();
+        let resolved = id.vpath().get_without_slash().into();
         Derived::new(path.clone(), resolved)
     )]
     pub path: Derived<EcoString, EcoString>,

@@ -170,7 +170,7 @@ impl Span {
         let Some(file) = self.id() else {
             return Err("cannot access file system from here".into());
         };
-        Ok(file.join(path))
+        file.resolve_path(path)
     }
 }
 

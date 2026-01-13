@@ -585,7 +585,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::new(self.path);
+            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
             let source = Source::new(FileId::new(None, vpath), text.into());
 
             self.s.jump(start);
@@ -709,7 +709,7 @@ impl<'a> Parser<'a> {
                 return None;
             }
 
-            let vpath = VirtualPath::new(path);
+            let vpath = VirtualPath::new(path).unwrap();
             file = Some(FileId::new(None, vpath));
 
             self.s.eat_if(' ');
