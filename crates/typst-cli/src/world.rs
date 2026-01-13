@@ -103,7 +103,7 @@ impl SystemWorld {
 
         let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
-            let main_path = VirtualPath::virtualize(path, &root)?;
+            let main_path = VirtualPath::virtualize(&root, path)?;
             FileId::new(VirtualRoot::Project, main_path)
         } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN.
