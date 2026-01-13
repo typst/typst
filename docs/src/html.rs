@@ -9,7 +9,7 @@ use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, PagedDocument, Point, Size};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
@@ -458,7 +458,7 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
         highlighted = Some(html);
     }
 
-    let id = FileId::new(None, VirtualPath::new("main.typ").unwrap());
+    let id = FileId::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap());
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
@@ -528,7 +528,7 @@ impl World for DocWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        assert!(id.package().is_none());
+        assert_eq!(*id.root(), VirtualRoot::Project);
         Ok(Bytes::new(
             typst_dev_assets::get_by_name(id.vpath().get_without_slash())
                 .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),

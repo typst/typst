@@ -16,7 +16,7 @@ mod set;
 mod source;
 mod span;
 
-pub use self::file::FileId;
+pub use self::file::{FileId, VirtualRoot};
 pub use self::highlight::{Tag, highlight, highlight_html};
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{

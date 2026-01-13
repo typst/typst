@@ -23,7 +23,7 @@ struct Interner {
 }
 
 /// An interned pair of a package specification and a path.
-type Pair = &'static (Option<PackageSpec>, VirtualPath);
+type Pair = &'static (VirtualRoot, VirtualPath);
 
 /// Identifies a file in a project or package.
 ///
@@ -37,7 +37,7 @@ impl FileId {
     /// The path must start with a `/` or this function will panic.
     /// Note that the path is normalized before interning.
     #[track_caller]
-    pub fn new(package: Option<PackageSpec>, path: VirtualPath) -> Self {
+    pub fn new(package: VirtualRoot, path: VirtualPath) -> Self {
         // Try to find an existing entry that we can reuse.
         //
         // We could check with just a read lock, but if the pair is not yet
@@ -71,21 +71,30 @@ impl FileId {
     /// if the path is the same. This method should only be used for generating
     /// "virtual" file ids such as content read from stdin.
     #[track_caller]
-    pub fn new_fake(path: VirtualPath) -> Self {
+    pub fn new_fake(root: VirtualRoot, path: VirtualPath) -> Self {
         let mut interner = INTERNER.write().unwrap();
         let num = u16::try_from(interner.from_id.len() + 1)
             .and_then(NonZeroU16::try_from)
             .expect("out of file ids");
 
         let id = FileId(num);
-        let leaked = Box::leak(Box::new((None, path)));
+        let leaked = Box::leak(Box::new((root, path)));
         interner.from_id.push(leaked);
         id
     }
 
+    /// The root this file id is in.
+    pub fn root(&self) -> &'static VirtualRoot {
+        &self.pair().0
+    }
+
     /// The package the file resides in, if any.
+    #[deprecated = "use `root` instead"]
     pub fn package(&self) -> Option<&'static PackageSpec> {
-        self.pair().0.as_ref()
+        match self.root() {
+            VirtualRoot::Project => None,
+            VirtualRoot::Package(package) => Some(package),
+        }
     }
 
     /// The absolute and normalized path to the file _within_ the project or
@@ -96,7 +105,7 @@ impl FileId {
 
     /// Resolve a path relative to this file.
     pub fn resolve_path(self, path: &str) -> Result<Self, EcoString> {
-        let (package, base) = self.pair();
+        let (root, base) = self.pair();
 
         let joined = match base.parent() {
             Some(parent) => parent.join(path),
@@ -107,21 +116,21 @@ impl FileId {
             PathError::Escapes => {
                 eco_format!(
                     "path would escape the {} root",
-                    match package {
-                        None => "project",
-                        Some(_) => "package",
+                    match root {
+                        VirtualRoot::Project => "project",
+                        VirtualRoot::Package(_) => "package",
                     }
                 )
             }
             PathError::Backslash => "path must not contain a backslash".into(),
         })?;
 
-        Ok(Self::new(package.clone(), resolved))
+        Ok(Self::new(root.clone(), resolved))
     }
 
     /// The same file location, but with a different extension.
     pub fn with_extension(&self, extension: &str) -> Self {
-        Self::new(self.package().cloned(), self.vpath().with_extension(extension))
+        Self::new(self.root().clone(), self.vpath().with_extension(extension))
     }
 
     /// Construct from a raw number.
@@ -147,9 +156,20 @@ impl FileId {
 impl Debug for FileId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let vpath = self.vpath();
-        match self.package() {
-            Some(package) => write!(f, "{package:?}{vpath:?}"),
-            None => write!(f, "{vpath:?}"),
+        match self.root() {
+            VirtualRoot::Project => write!(f, "{vpath:?}"),
+            VirtualRoot::Package(package) => write!(f, "{package:?}{vpath:?}"),
         }
     }
+}
+
+/// The root of a virtual file system.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum VirtualRoot {
+    /// The canonical root of the Typst project.
+    ///
+    /// This is what `TYPST_ROOT` defines.
+    Project,
+    /// A root in a package.
+    Package(PackageSpec),
 }

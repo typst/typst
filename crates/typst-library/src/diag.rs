@@ -11,7 +11,7 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -757,12 +757,19 @@ fn load_err_in_invalid_text(
     match (loaded.source.v, line_col) {
         (LoadSource::Path(file), _) => {
             message.pop();
-            if let Some(package) = file.package() {
-                write!(&mut message, " in {package}{}", file.vpath().get_with_slash())
+            match file.root() {
+                VirtualRoot::Project => {
+                    write!(&mut message, " in {}", file.vpath().get_without_slash()).ok();
+                }
+                VirtualRoot::Package(package) => {
+                    write!(
+                        &mut message,
+                        " in {package}{}",
+                        file.vpath().get_with_slash()
+                    )
                     .ok();
-            } else {
-                write!(&mut message, " in {}", file.vpath().get_without_slash()).ok();
-            };
+                }
+            }
             if let Some((line, col)) = line_col {
                 write!(&mut message, ":{line}:{col}").ok();
             }

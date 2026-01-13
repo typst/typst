@@ -14,7 +14,7 @@ use typst::diag::{
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Lines, Span};
+use typst::syntax::{FileId, Lines, Span, VirtualRoot};
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -684,14 +684,17 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
         let vpath = id.vpath();
-        Ok(if let Some(package) = id.package() {
-            format!("{package}{}", vpath.get_with_slash())
-        } else {
-            // Try to express the path relative to the working directory.
-            let rooted = vpath.realize(self.root());
-            pathdiff::diff_paths(rooted, self.workdir())
-                .map(|path| path.to_string_lossy().into_owned())
-                .unwrap_or_else(|| vpath.get_without_slash().into())
+        Ok(match id.root() {
+            VirtualRoot::Project => {
+                // Try to express the path relative to the working directory.
+                let rooted = vpath.realize(self.root());
+                pathdiff::diff_paths(rooted, self.workdir())
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| vpath.get_without_slash().into())
+            }
+            VirtualRoot::Package(package) => {
+                format!("{package}{}", vpath.get_with_slash())
+            }
         })
     }
 
