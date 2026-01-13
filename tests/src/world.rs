@@ -73,10 +73,10 @@ impl World for TestWorld {
         self.base.fonts.get(index).cloned()
     }
 
-    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         let mut date = Datetime::from_ymd(1970, 1, 1).unwrap();
-        if let Some(hours) = offset {
-            date = date + Duration::construct(0, 0, hours, 0, 0);
+        if let Some(offset) = offset {
+            date = date + offset;
         }
         Some(date)
     }
