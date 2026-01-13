@@ -111,10 +111,7 @@ mod tests {
             match self.1 {
                 Some(Definition::Span(span)) => {
                     let range = self.0.range(span);
-                    assert_eq!(
-                        span.id().unwrap().vpath().as_rootless_path().to_string_lossy(),
-                        path
-                    );
+                    assert_eq!(span.id().unwrap().vpath().get_without_slash(), path);
                     assert_eq!(range, Some(expected));
                 }
                 _ => panic!("expected span definition"),

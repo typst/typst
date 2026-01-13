@@ -12,7 +12,7 @@ use typst::foundations::Bytes;
 use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
+    FileId, Lines, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident, is_newline,
 };
 use unscanny::Scanner;
 
@@ -585,8 +585,9 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::new(self.path);
-            let source = Source::new(FileId::new(None, vpath), text.into());
+            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
+            let source =
+                Source::new(FileId::new(VirtualRoot::Project, vpath), text.into());
 
             self.s.jump(start);
             self.line = self.test_start_line;
@@ -709,8 +710,8 @@ impl<'a> Parser<'a> {
                 return None;
             }
 
-            let vpath = VirtualPath::new(path);
-            file = Some(FileId::new(None, vpath));
+            let vpath = VirtualPath::new(path).unwrap();
+            file = Some(FileId::new(VirtualRoot::Project, vpath));
 
             self.s.eat_if(' ');
         }
