@@ -368,10 +368,8 @@ impl Datetime {
         #[default]
         offset: Smart<i64>,
     ) -> StrResult<Datetime> {
-        Ok(engine
-            .world
-            .today(offset.custom())
-            .ok_or("unable to get the current date")?)
+        let offset = offset.custom().map(|hours| Duration::construct(0, 0, hours, 0, 0));
+        Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
     }
 
     /// Displays the datetime in a specified format.
