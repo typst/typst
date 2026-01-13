@@ -168,7 +168,7 @@ impl VirtualPath {
 
 impl VirtualPath {
     /// Create a virtual path from a real path and a real root.
-    #[deprecated = "use `virtualize` instead"]
+    #[deprecated = "use `virtualize` with swapped arguments instead"]
     pub fn within_root(path: &Path, root: &Path) -> Option<Self> {
         Self::virtualize(root, path).ok()
     }

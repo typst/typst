@@ -5,7 +5,7 @@ use typst_library::diag::{
     At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Content, Module, Value};
+use typst_library::foundations::{Binding, Content, Module, PathStr, Value};
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, Span, VirtualPath, VirtualRoot};
@@ -65,7 +65,7 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
-                        // Bare dynamic string imports are not allowed.
+                        // Bare dynamic string or path imports are not allowed.
                         Ok(name)
                             if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
                         {
@@ -187,8 +187,8 @@ pub fn import(engine: &mut Engine, from: &str, span: Span) -> SourceResult<Modul
         let spec = from.parse::<PackageSpec>().at(span)?;
         import_package(engine, spec, span)
     } else {
-        let id = span.resolve_path(from).at(span)?;
-        import_file(engine, id, span)
+        let path = PathStr(from.into()).resolve_if_some(span.id()).at(span)?;
+        import_file(engine, path, span)
     }
 }
 
@@ -247,6 +247,8 @@ fn resolve_package(
     // Evaluate the entry point.
     Ok((
         manifest.package.name,
-        manifest_id.resolve_path(&manifest.package.entrypoint).at(span)?,
+        PathStr(manifest.package.entrypoint.into())
+            .resolve(manifest_id)
+            .at(span)?,
     ))
 }

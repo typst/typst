@@ -4,12 +4,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU16;
 use std::sync::{LazyLock, RwLock};
 
-use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 
 use crate::VirtualPath;
 use crate::package::PackageSpec;
-use crate::path::PathError;
 
 /// The global package-path interner.
 static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
@@ -101,31 +99,6 @@ impl FileId {
     /// package.
     pub fn vpath(&self) -> &'static VirtualPath {
         &self.pair().1
-    }
-
-    /// Resolve a path relative to this file.
-    pub fn resolve_path(self, path: &str) -> Result<Self, EcoString> {
-        let (root, base) = self.pair();
-
-        let joined = match base.parent() {
-            Some(parent) => parent.join(path),
-            None => base.join(path),
-        };
-
-        let resolved = joined.map_err(|err| match err {
-            PathError::Escapes => {
-                eco_format!(
-                    "path would escape the {} root",
-                    match root {
-                        VirtualRoot::Project => "project",
-                        VirtualRoot::Package(_) => "package",
-                    }
-                )
-            }
-            PathError::Backslash => "path must not contain a backslash".into(),
-        })?;
-
-        Ok(Self::new(root.clone(), resolved))
     }
 
     /// The same file location, but with a different extension.
