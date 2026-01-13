@@ -364,11 +364,14 @@ impl Datetime {
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
         /// offset will be the local offset.
+        ///
+        /// When an integer offset is given, it will be treated as a duration in
+        /// hours.
         #[named]
         #[default]
-        offset: Smart<i64>,
+        offset: Smart<TodayOffset>,
     ) -> StrResult<Datetime> {
-        let offset = offset.custom().map(|hours| Duration::construct(0, 0, hours, 0, 0));
+        let offset = offset.custom().map(|v| v.0);
         Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
     }
 
@@ -617,4 +620,14 @@ fn format_time_invalid_format_description_error(
         }
         err => eco_format!("failed to parse datetime format ({err})"),
     }
+}
+
+/// A duration which automatically converts integer values into hours.
+pub struct TodayOffset(Duration);
+
+cast! {
+    TodayOffset,
+    self => self.0.into_value(),
+    v: Duration => Self(v),
+    hours: i64 => Self(Duration::construct(0, 0, hours, 0, 0)),
 }
