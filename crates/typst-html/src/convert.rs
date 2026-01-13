@@ -109,7 +109,11 @@ fn handle(
         // Nothing to do for zero-sized spacing. This is sometimes used to
         // destruct spaces, e.g. in footnotes. See [`HElem::hole`].
     } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
-        converter.push(HtmlElement::new(tag::br).spanned(elem.span()));
+        if converter.whitespace == Whitespace::Pre {
+            converter.push(HtmlNode::text("\n", elem.span()));
+        } else {
+            converter.push(HtmlElement::new(tag::br).spanned(elem.span()));
+        }
     } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
         let double = elem.double.get(styles);
         let quote = if elem.enabled.get(styles) {

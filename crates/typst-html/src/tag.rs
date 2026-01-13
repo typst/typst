@@ -151,11 +151,6 @@ pub fn is_escapable_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::textarea | self::title)
 }
 
-/// Whether this is a tag containing code.
-pub fn is_code(tag: HtmlTag) -> bool {
-    matches!(tag, self::code)
-}
-
 // HTML spec § 3.2.5.2 Kinds of content
 
 /// Whether an element is considered metadata content.
