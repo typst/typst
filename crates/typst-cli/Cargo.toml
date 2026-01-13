@@ -59,6 +59,9 @@ ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [build-dependencies]
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
