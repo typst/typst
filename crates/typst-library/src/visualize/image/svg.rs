@@ -2,22 +2,23 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use ecow::{EcoString, eco_format};
+use ecow::eco_format;
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst_syntax::FileId;
 
 use crate::World;
-use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
-use crate::foundations::Bytes;
+use crate::diag::{
+    FileError, LoadError, LoadResult, ReportPos, StrResult, bail, format_xml_like_error,
+};
+use crate::foundations::{Bytes, PathStr};
 use crate::layout::Axes;
-use crate::visualize::VectorFormat;
-use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
-use crate::visualize::image::{ImageFormat, determine_format_from_path};
-
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
+use crate::visualize::VectorFormat;
+use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
+use crate::visualize::image::{ImageFormat, determine_format_from_path};
 
 /// A decoded SVG.
 #[derive(Clone, Hash)]
@@ -356,14 +357,14 @@ impl<'a> ImageResolver<'a> {
     }
 
     /// Load a linked image or return an error message string.
-    fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+    fn load_or_error(&mut self, href: &str) -> StrResult<usvg::ImageKind> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
         let href = href.strip_prefix("file://").unwrap_or(href);
 
         // Do not accept absolute hrefs. They would be parsed in Typst in a way
         // that is not compatible with their interpretation in the SVG standard.
         if href.starts_with("/") {
-            return Err("absolute paths are not allowed".into());
+            bail!("absolute paths are not allowed");
         }
 
         // Exit early if the href is an URL.
@@ -373,22 +374,20 @@ impl<'a> ImageResolver<'a> {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
             {
-                return Err("URLs are not allowed".into());
+                bail!("URLs are not allowed");
             }
         }
 
         // Resolve the path to the linked image.
-        if self.svg_file.is_none() {
-            return Err("cannot access file system from here".into());
-        }
-        // Replace the file name in svg_file by href.
-        let href_file = self.svg_file.unwrap().resolve_path(href)?;
+        let href_file = PathStr(href.into())
+            .resolve_if_some(self.svg_file)
+            .map_err(|hinted| hinted.message().clone())?;
 
         // Load image if file can be accessed.
         match self.world.file(href_file) {
             Ok(bytes) => {
                 let arc_data = Arc::new(bytes.to_vec());
-                let format = match determine_format_from_path(href) {
+                let format = match determine_format_from_path(href_file.vpath()) {
                     Some(format) => Some(format),
                     None => ImageFormat::detect(&arc_data),
                 };

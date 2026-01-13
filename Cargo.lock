@@ -3076,7 +3076,6 @@ dependencies = [
  "comemo",
  "ecow",
  "once_cell",
- "pathdiff",
  "rustc-hash",
  "serde",
  "typst",
