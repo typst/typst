@@ -88,7 +88,14 @@ impl Load for Spanned<&DataSource> {
         match &self.v {
             DataSource::Path(path) => {
                 let file_id = self.span.resolve_path(path).at(self.span)?;
-                let data = world.file(file_id).at(self.span)?;
+                let data = world.file(file_id).at(self.span).map_err(|mut diags| {
+                    if path.starts_with("http://") || path.starts_with("https://") {
+                        for diag in diags.make_mut() {
+                            diag.hint("network access is not supported");
+                        }
+                    }
+                    diags
+                })?;
                 let source = Spanned::new(LoadSource::Path(file_id), self.span);
                 Ok(Loaded::new(source, data))
             }

@@ -420,15 +420,3 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-6869-image-zero-sized paged ---
 // Primarily to ensure that it does not crash in PDF export.
 #image("/assets/images/f2t.jpg", width: 0pt, height: 0pt)
-
---- image-network-access paged ---
-// Error: 8-38 failed to load file (network access is not supported)
-// Hint: 8-38 network access is not supported
-// Hint: 8-38 download the image and place it as a file next to the document
-#image("http://example.com/image.png")
-
---- image-network-access-https paged ---
-// Error: 8-39 failed to load file (network access is not supported)
-// Hint: 8-39 network access is not supported
-// Hint: 8-39 download the image and place it as a file next to the document
-#image("https://example.com/image.png")

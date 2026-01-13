@@ -72,17 +72,7 @@ pub struct ImageElem {
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
-        let loaded = source.load(engine.world).map_err(|mut errors| {
-            if let DataSource::Path(path) = &source.v
-                && (path.starts_with("http://") || path.starts_with("https://")) {
-                    for error in errors.make_mut() {
-                        error.message = "failed to load file (network access is not supported)".into();
-                        error.hint("network access is not supported");
-                        error.hint("download the image and place it as a file next to the document");
-                    }
-                }
-            errors
-        })?;
+        let loaded = source.load(engine.world)?;
         Derived::new(source.v, loaded)
     )]
     pub source: Derived<DataSource, Loaded>,
