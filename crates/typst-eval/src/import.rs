@@ -8,7 +8,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Binding, Content, Module, Value};
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
-use typst_syntax::{FileId, Span, VirtualPath};
+use typst_syntax::{FileId, Span, VirtualPath, VirtualRoot};
 
 use crate::{Eval, Vm, eval};
 
@@ -233,8 +233,10 @@ fn resolve_package(
     span: Span,
 ) -> SourceResult<(EcoString, FileId)> {
     // Evaluate the manifest.
-    let manifest_id =
-        FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml").unwrap());
+    let manifest_id = FileId::new(
+        VirtualRoot::Package(spec.clone()),
+        VirtualPath::new("typst.toml").unwrap(),
+    );
     let bytes = engine.world.file(manifest_id).at(span)?;
     let string = bytes.as_str().map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
