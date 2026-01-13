@@ -135,10 +135,9 @@ pub fn layout_equation_block(
         let mut last_first_pos = Point::zero();
         let mut regions = regions;
 
-        loop {
+        while let Some(&(_, first_pos)) = rows.peek() {
             // Keep track of the position of the first row in this region,
             // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
             last_first_pos = first_pos;
 
             let mut frames = vec![];
