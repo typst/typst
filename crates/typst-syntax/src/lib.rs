@@ -26,7 +26,7 @@ pub use self::lexer::{
 pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::parser::{parse, parse_code, parse_math};
-pub use self::path::VirtualPath;
+pub use self::path::{PathError, VirtualPath, VirtualizeError};
 pub use self::source::Source;
 pub use self::span::{Span, Spanned};
 

@@ -84,12 +84,7 @@ pub fn eval(
     }
 
     // Assemble the module.
-    let name = id
-        .vpath()
-        .as_rootless_path()
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy();
+    let name = id.vpath().file_stem().unwrap_or_default();
 
     Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }

@@ -382,7 +382,7 @@ impl<'a> ImageResolver<'a> {
             return Err("cannot access file system from here".into());
         }
         // Replace the file name in svg_file by href.
-        let href_file = self.svg_file.unwrap().join(href);
+        let href_file = self.svg_file.unwrap().resolve_path(href)?;
 
         // Load image if file can be accessed.
         match self.world.file(href_file) {
