@@ -17,55 +17,59 @@ pub fn layout_fraction(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    let constants = ctx.font().math();
-    let size = styles.resolve(TextElem::size);
-    let axis = constants.axis_height.at(size);
-    let thickness = constants.fraction_rule_thickness.at(size);
-    let math_size = props.size;
-    let shift_up = match math_size {
-        MathSize::Display => constants.fraction_numerator_display_style_shift_up,
-        _ => constants.fraction_numerator_shift_up,
-    }
-    .at(size);
-    let shift_down = match math_size {
-        MathSize::Display => constants.fraction_denominator_display_style_shift_down,
-        _ => constants.fraction_denominator_shift_down,
-    }
-    .at(size);
-    let num_min = match math_size {
-        MathSize::Display => constants.fraction_num_display_style_gap_min,
-        _ => constants.fraction_numerator_gap_min,
-    }
-    .at(size);
-    let denom_min = match math_size {
-        MathSize::Display => constants.fraction_denom_display_style_gap_min,
-        _ => constants.fraction_denominator_gap_min,
-    }
-    .at(size);
-
     let num = ctx.layout_into_fragment(&item.numerator, styles)?.into_frame();
     let denom = ctx.layout_into_fragment(&item.denominator, styles)?.into_frame();
 
-    let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
-    let denom_gap =
-        (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);
+    let constants = ctx.font().math();
+    let size = styles.resolve(TextElem::size);
+    let math_size = props.size;
 
-    let line_width = num.width().max(denom.width());
-    let width = line_width + 2.0 * item.padding.at(size);
-    let height = num.height() + num_gap + thickness + denom_gap + denom.height();
-    let size = Size::new(width, height);
-    let num_pos = Point::with_x((width - num.width()) / 2.0);
-    let line_pos =
-        Point::new((width - line_width) / 2.0, num.height() + num_gap + thickness / 2.0);
-    let denom_pos = Point::new((width - denom.width()) / 2.0, height - denom.height());
-    let baseline = line_pos.y + axis;
+    let frame = if item.line {
+        let axis = constants.axis_height.at(size);
+        let thickness = constants.fraction_rule_thickness.at(size);
+        let shift_up = match math_size {
+            MathSize::Display => constants.fraction_numerator_display_style_shift_up,
+            _ => constants.fraction_numerator_shift_up,
+        }
+        .at(size);
+        let shift_down = match math_size {
+            MathSize::Display => constants.fraction_denominator_display_style_shift_down,
+            _ => constants.fraction_denominator_shift_down,
+        }
+        .at(size);
+        let num_min = match math_size {
+            MathSize::Display => constants.fraction_num_display_style_gap_min,
+            _ => constants.fraction_numerator_gap_min,
+        }
+        .at(size);
+        let denom_min = match math_size {
+            MathSize::Display => constants.fraction_denom_display_style_gap_min,
+            _ => constants.fraction_denominator_gap_min,
+        }
+        .at(size);
 
-    let mut frame = Frame::soft(size);
-    frame.set_baseline(baseline);
-    frame.push_frame(num_pos, num);
-    frame.push_frame(denom_pos, denom);
+        let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
+        let denom_gap =
+            (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);
 
-    if item.line {
+        let line_width = num.width().max(denom.width());
+        let width = line_width + 2.0 * item.padding.at(size);
+        let height = num.height() + num_gap + thickness + denom_gap + denom.height();
+        let size = Size::new(width, height);
+        let num_pos = Point::with_x((width - num.width()) / 2.0);
+        let line_pos = Point::new(
+            (width - line_width) / 2.0,
+            num.height() + num_gap + thickness / 2.0,
+        );
+        let denom_pos =
+            Point::new((width - denom.width()) / 2.0, height - denom.height());
+        let baseline = line_pos.y + axis;
+
+        let mut frame = Frame::soft(size);
+        frame.set_baseline(baseline);
+        frame.push_frame(num_pos, num);
+        frame.push_frame(denom_pos, denom);
+
         let text_fill = styles.get_ref(TextElem::fill).as_decoration();
         let line = match styles.get_ref(TextElem::stroke) {
             Some(stroke) => Geometry::Rect(Size::new(line_width, thickness))
@@ -77,7 +81,41 @@ pub fn layout_fraction(
                 .stroked(FixedStroke::from_pair(text_fill, thickness)),
         };
         frame.push(line_pos, FrameItem::Shape(line, props.span));
-    }
+        frame
+    } else {
+        let shift_up = match math_size {
+            MathSize::Display => constants.stack_top_display_style_shift_up,
+            _ => constants.stack_top_shift_up,
+        }
+        .at(size);
+        let shift_down = match math_size {
+            MathSize::Display => constants.stack_bottom_display_style_shift_down,
+            _ => constants.stack_bottom_shift_down,
+        }
+        .at(size);
+        let gap_min = match math_size {
+            MathSize::Display => constants.stack_display_style_gap_min,
+            _ => constants.stack_gap_min,
+        }
+        .at(size);
+
+        let gap = (shift_up - num.descent()) + (shift_down - denom.ascent());
+
+        let width = num.width().max(denom.width()) + 2.0 * item.padding.at(size);
+        let height = num.height() + gap.max(gap_min) + denom.height();
+        let size = Size::new(width, height);
+
+        let num_pos = Point::with_x((width - num.width()) / 2.0);
+        let denom_pos =
+            Point::new((width - denom.width()) / 2.0, height - denom.height());
+
+        let baseline = num.ascent() + shift_up + (gap_min - gap).max(Abs::zero()) / 2.0;
+        let mut frame = Frame::soft(size);
+        frame.set_baseline(baseline);
+        frame.push_frame(num_pos, num);
+        frame.push_frame(denom_pos, denom);
+        frame
+    };
 
     ctx.push(FrameFragment::new(props, styles, frame));
     Ok(())
