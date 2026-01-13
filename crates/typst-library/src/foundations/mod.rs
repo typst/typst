@@ -24,6 +24,7 @@ mod int;
 mod label;
 mod module;
 mod none;
+mod path;
 #[path = "plugin.rs"]
 mod plugin_;
 mod scope;
@@ -55,6 +56,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
+pub use self::path::*;
 pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;

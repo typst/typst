@@ -1,9 +1,8 @@
-use ecow::EcoString;
 use typst_syntax::Spanned;
 
 use crate::diag::{LoadedWithin, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Cast, func};
+use crate::foundations::{Cast, PathStr, func};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads plain text or data from a file.
@@ -27,7 +26,7 @@ pub fn read(
     /// Path to a file.
     ///
     /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    path: Spanned<PathStr>,
     /// The encoding to read the file with.
     ///
     /// If set to `{none}`, this function returns raw bytes.

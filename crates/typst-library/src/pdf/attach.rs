@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::World;
 use crate::diag::At;
-use crate::foundations::{Bytes, Cast, Derived, elem};
+use crate::foundations::{Bytes, Cast, Derived, PathStr, elem};
 use crate::introspection::Locatable;
 
 /// A file that will be attached to the output PDF.
@@ -38,13 +38,13 @@ pub struct AttachElem {
     #[required]
     #[parse(
         let Spanned { v: path, span } =
-            args.expect::<Spanned<EcoString>>("path")?;
-        let id = span.resolve_path(&path).at(span)?;
-        // The derived part is the project-relative resolved path.
-        let resolved = id.vpath().get_without_slash().into();
-        Derived::new(path.clone(), resolved)
+            args.expect::<Spanned<PathStr>>("path")?;
+        let resolved = path.resolve_if_some(span.id()).at(span)?;
+        // The derived part is the virtual-root-relative resolved path.
+        let derived = resolved.vpath().get_without_slash().into();
+        Derived::new(path, derived)
     )]
-    pub path: Derived<EcoString, EcoString>,
+    pub path: Derived<PathStr, EcoString>,
 
     /// Raw file data, optionally.
     ///
@@ -56,7 +56,7 @@ pub struct AttachElem {
     #[parse(
         match args.eat::<Bytes>()? {
             Some(data) => data,
-            None => engine.world.file(id).at(span)?,
+            None => engine.world.file(resolved).at(span)?,
         }
     )]
     pub data: Bytes,
