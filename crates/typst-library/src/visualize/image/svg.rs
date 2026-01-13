@@ -11,7 +11,7 @@ use crate::World;
 use crate::diag::{
     FileError, LoadError, LoadResult, ReportPos, StrResult, bail, format_xml_like_error,
 };
-use crate::foundations::{Bytes, PathStr};
+use crate::foundations::{Bytes, PathOrStr};
 use crate::layout::Axes;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
@@ -379,9 +379,10 @@ impl<'a> ImageResolver<'a> {
         }
 
         // Resolve the path to the linked image.
-        let href_file = PathStr(href.into())
+        let href_file = PathOrStr::Str(href.into())
             .resolve_if_some(self.svg_file)
-            .map_err(|hinted| hinted.message().clone())?;
+            .map_err(|hinted| hinted.message().clone())?
+            .intern();
 
         // Load image if file can be accessed.
         match self.world.file(href_file) {

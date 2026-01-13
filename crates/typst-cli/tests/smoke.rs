@@ -155,6 +155,36 @@ fn test_package_unresolved() {
         .must_contain("error: package not found (searched for @local/demo:0.1.0)");
 }
 
+#[test]
+fn test_path_to_package() {
+    let project = tempfs();
+    let package = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#import \"@local/demo:0.1.0\": g
+         #let x = g(path(\"a.typ\")) // from project
+         #let y = g(\"a.typ\")       // from package
+         #panic((x, y))",
+    );
+    project.write("a.typ", "#let f() = 7");
+    package.write(
+        "local/demo/0.1.0/typst.toml",
+        r#"[package]
+           name = "demo"
+           version = "0.1.0"
+           entrypoint = "lib.typ""#,
+    );
+    package.write("local/demo/0.1.0/lib.typ", "#let g(p) = { import p: f; f() }");
+    package.write("local/demo/0.1.0/a.typ", "#let f() = 42");
+    let output = exec()
+        .arg("compile")
+        .arg(&main)
+        .arg("--package-path")
+        .arg(package.path())
+        .must_fail();
+    output.stderr.must_contain("error: panicked with: (7, 42)");
+}
+
 /// Executes a command with the Typst CLI.
 fn exec() -> Command {
     Command::new(env!("CARGO_BIN_EXE_typst"))

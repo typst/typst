@@ -52,8 +52,8 @@ use crate::visualize::image::pdf::PdfDocument;
 /// ```
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
-    /// image in one of the supported [formats]($image.format).
+    /// A path to an image file or raw bytes making up an image in one of the
+    /// supported [formats]($image.format).
     ///
     /// Bytes can be used to specify raw pixel data in a row-major,
     /// left-to-right, top-to-bottom format.
@@ -304,7 +304,9 @@ impl Packed<ImageElem> {
 
                 // Identify the SVG file in case contained hrefs need to be resolved.
                 let svg_file = match &self.source.source {
-                    DataSource::Path(path) => path.resolve_if_some(span.id()).ok(),
+                    DataSource::Path(path) => {
+                        path.resolve_if_some(span.id()).ok().map(|v| v.intern())
+                    }
                     DataSource::Bytes(_) => span.id(),
                 };
                 ImageKind::Svg(

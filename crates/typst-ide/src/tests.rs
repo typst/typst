@@ -7,7 +7,7 @@ use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Smart};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::package::{PackageSpec, PackageVersion};
-use typst::syntax::{FileId, Source, VirtualPath, VirtualRoot};
+use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::{Feature, Library, LibraryExt, World};
@@ -39,7 +39,8 @@ impl TestWorld {
     /// Add an additional source file to the test world.
     #[track_caller]
     pub fn with_source(mut self, path: &str, text: &str) -> Self {
-        let id = FileId::new(VirtualRoot::Project, VirtualPath::new(path).unwrap());
+        let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new(path).unwrap())
+            .intern();
         let source = Source::new(id, text.into());
         Arc::make_mut(&mut self.files).sources.insert(id, source);
         self
@@ -54,7 +55,8 @@ impl TestWorld {
     /// Add an additional asset file to the test world.
     #[track_caller]
     pub fn with_asset_at(mut self, path: &str, filename: &str) -> Self {
-        let id = FileId::new(VirtualRoot::Project, VirtualPath::new(path).unwrap());
+        let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new(path).unwrap())
+            .intern();
         let data = typst_dev_assets::get_by_name(filename).unwrap();
         let bytes = Bytes::new(data);
         Arc::make_mut(&mut self.files).assets.insert(id, bytes);
@@ -65,7 +67,8 @@ impl TestWorld {
     pub fn main_id() -> FileId {
         *singleton!(
             FileId,
-            FileId::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+            RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+                .intern()
         )
     }
 }
@@ -222,7 +225,8 @@ impl FilePos for isize {
 impl FilePos for (&str, isize) {
     #[track_caller]
     fn resolve(self, world: &TestWorld) -> (Source, usize) {
-        let id = FileId::new(VirtualRoot::Project, VirtualPath::new(self.0).unwrap());
+        let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new(self.0).unwrap())
+            .intern();
         let source = world.source(id).unwrap();
         let cursor = cursor(&source, self.1);
         (source, cursor)

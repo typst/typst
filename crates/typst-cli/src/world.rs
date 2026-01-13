@@ -10,7 +10,8 @@ use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue, Repr};
 use typst::syntax::{
-    FileId, Lines, PathError, Source, VirtualPath, VirtualRoot, VirtualizeError,
+    FileId, Lines, PathError, RootedPath, Source, VirtualPath, VirtualRoot,
+    VirtualizeError,
 };
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
@@ -23,16 +24,22 @@ use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 use crate::download::PrintDownload;
 use crate::package;
 
-/// Static `FileId` allocated for stdin.
-/// This is to ensure that a file is read in the correct way.
+/// Static `FileId` allocated for stdin. This is to ensure that stdin can live
+/// in the project root without colliding with any real on-disk file.
 static STDIN_ID: LazyLock<FileId> = LazyLock::new(|| {
-    FileId::new_fake(VirtualRoot::Project, VirtualPath::new("<stdin>").unwrap())
+    FileId::unique(RootedPath::new(
+        VirtualRoot::Project,
+        VirtualPath::new("<stdin>").unwrap(),
+    ))
 });
 
-/// Static `FileId` allocated for empty/no input at all.
-/// This is to ensure that we can create a [SystemWorld] based on no main file or stdin at all.
+/// Static `FileId` allocated for empty/no input at all. This is to ensure that
+/// we can create a [`SystemWorld`] based on no main file or stdin at all.
 static EMPTY_ID: LazyLock<FileId> = LazyLock::new(|| {
-    FileId::new_fake(VirtualRoot::Project, VirtualPath::new("<empty>").unwrap())
+    FileId::unique(RootedPath::new(
+        VirtualRoot::Project,
+        VirtualPath::new("<empty>").unwrap(),
+    ))
 });
 
 /// A world that provides access to the operating system.
@@ -103,8 +110,8 @@ impl SystemWorld {
 
         let main = if let Some(path) = &input_path {
             // Resolve the virtual path of the main file within the project root.
-            let main_path = VirtualPath::virtualize(&root, path)?;
-            FileId::new(VirtualRoot::Project, main_path)
+            RootedPath::new(VirtualRoot::Project, VirtualPath::virtualize(&root, path)?)
+                .intern()
         } else if matches!(input, Some(Input::Stdin)) {
             // Return the special id of STDIN.
             *STDIN_ID

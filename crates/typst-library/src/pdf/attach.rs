@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::World;
 use crate::diag::At;
-use crate::foundations::{Bytes, Cast, Derived, PathStr, elem};
+use crate::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
 use crate::introspection::Locatable;
 
 /// A file that will be attached to the output PDF.
@@ -31,20 +31,20 @@ use crate::introspection::Locatable;
 ///   attached file conforms to PDF/A-1 or PDF/A-2.
 #[elem(keywords = ["embed"], Locatable)]
 pub struct AttachElem {
-    /// The [path]($syntax/#paths) of the file to be attached.
+    /// The path of the file to be attached.
     ///
     /// Must always be specified, but is only read from if no data is provided
     /// in the following argument.
     #[required]
     #[parse(
         let Spanned { v: path, span } =
-            args.expect::<Spanned<PathStr>>("path")?;
+            args.expect::<Spanned<PathOrStr>>("path")?;
         let resolved = path.resolve_if_some(span.id()).at(span)?;
         // The derived part is the virtual-root-relative resolved path.
         let derived = resolved.vpath().get_without_slash().into();
         Derived::new(path, derived)
     )]
-    pub path: Derived<PathStr, EcoString>,
+    pub path: Derived<PathOrStr, EcoString>,
 
     /// Raw file data, optionally.
     ///
@@ -56,7 +56,7 @@ pub struct AttachElem {
     #[parse(
         match args.eat::<Bytes>()? {
             Some(data) => data,
-            None => engine.world.file(resolved).at(span)?,
+            None => engine.world.file(resolved.intern()).at(span)?,
         }
     )]
     pub data: Bytes,

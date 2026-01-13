@@ -95,8 +95,7 @@ pub struct CiteElem {
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string to a [CSL file](https://citationstyles.org/). For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
