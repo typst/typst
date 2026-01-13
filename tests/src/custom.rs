@@ -1,12 +1,13 @@
 use std::fmt::Write;
 
+use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::foundations::Smart;
 use typst::introspection::{Location, Tag};
 use typst::layout::{Frame, FrameItem, PagedDocument};
 use typst::model::DocumentInfo;
 
-use crate::collect::Test;
+use crate::collect::{Attrs, Test};
 use crate::world::TestWorld;
 
 /// We don't want to panic when there is a failure.
@@ -16,6 +17,44 @@ macro_rules! test_eq {
             writeln!(&mut $sink, "{:?} != {:?}", $lhs, $rhs).unwrap();
         }
     };
+}
+
+/// Math fonts to test when the `math-fonts` attribute is set.
+const MATH_FONTS: [(&str, &str); 11] = [
+    ("default", "New Computer Modern Math"),
+    ("asana", "Asana Math"),
+    ("concrete", "Concrete Math"),
+    ("garamond", "Garamond-Math"),
+    ("ibm-plex", "IBM Plex Math"),
+    ("libertinus", "Libertinus Math"),
+    ("noto-sans", "Noto Sans Math"),
+    ("pennstander", "Pennstander Math"),
+    ("stix-two", "STIX Two Math"),
+    ("tex-gyre-bonum", "TeX Gyre Bonum Math"),
+    ("xits", "XITS Math"),
+];
+
+/// Generates test variants based on attributes.
+///
+/// Returns a list of pairs `(test_name, optional_source_prepend)`.
+pub fn generate_variants(
+    base_name: &EcoString,
+    attrs: Attrs,
+) -> Vec<(EcoString, Option<String>)> {
+    if attrs.math_fonts {
+        MATH_FONTS
+            .iter()
+            .map(|(short, full)| {
+                let name = eco_format!("{base_name}-{short}");
+                let prepend = format!(
+                    "#show math.equation: set text(font: \"{full}\", fallback: false)\n"
+                );
+                (name, Some(prepend))
+            })
+            .collect()
+    } else {
+        vec![(base_name.clone(), None)]
+    }
 }
 
 /// Run special checks for specific tests for which it is not worth it to create
