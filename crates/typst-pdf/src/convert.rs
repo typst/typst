@@ -22,7 +22,7 @@ use typst_library::layout::{
 };
 use typst_library::model::HeadingElem;
 use typst_library::text::Font;
-use typst_library::visualize::{Geometry, Paint};
+use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
 use crate::PdfOptions;
@@ -35,7 +35,9 @@ use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
-use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::util::{
+    AbsExt, SpotColorantNameExt, TransformExt, convert_path, display_font,
+};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -506,6 +508,14 @@ fn convert_error(
             "{prefix} the PDF is missing a CMYK profile";
             hint: "CMYK colors are not yet supported in this export mode";
         ),
+        ValidationError::InconsistentSeparationFallback(colorant) => {
+            let repr = SpotColorantName::from_krilla(colorant).repr();
+            error!(
+                Span::detached(),
+                "spot colorant {repr} appeared with multiple distinct fallback colors";
+                hint: "define a particular spot colorant once and store it in a variable to reuse it later";
+            )
+        }
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
             "{prefix} the text `{}` could not be displayed with {}",

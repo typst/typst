@@ -28,6 +28,7 @@ use crate::foundations::{Deprecation, Scope, Type};
 pub(super) fn define(global: &mut Scope) {
     global.start_category(crate::Category::Visualize);
     global.define_type::<Color>();
+    global.define_type::<SpotColorant>();
     global.define_type::<Gradient>();
     global.define_type::<Tiling>();
     global.define_type::<Stroke>();

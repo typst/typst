@@ -220,15 +220,15 @@
 #color.mix((red, 1, 2))
 
 --- color-mix-bad-space-type paged ---
-// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
+// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or `spot-colorant`, found string
 #color.mix(red, green, space: "cyber")
 
 --- color-mix-bad-space-value-1 paged ---
-// Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+// Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or `spot-colorant`
 #color.mix(red, green, space: image)
 
 --- color-mix-bad-space-value-2 paged ---
-// Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+// Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or `spot-colorant`
 #color.mix(red, green, space: calc.round)
 
 --- color-cmyk-ops paged ---
@@ -327,3 +327,75 @@
 // output with a PDF comparison script.
 #rect(fill: red.transparentize(50%))
 #image("/assets/images/tiger.jpg", width: 45pt)
+
+--- spot-color-basic paged ---
+// Test basic spot color creation and rendering
+#let pantone = spot-colorant("PANTONE 2221 C", eastern)
+#let tinted = pantone.tint(80%)
+#box(square(size: 20pt, fill: tinted))
+
+--- spot-color-tints paged ---
+// Test different tint levels of the same spot colorant
+#let pantone = spot-colorant("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#box(square(size: 15pt, fill: pantone.tint(100%)))
+#box(square(size: 15pt, fill: pantone.tint(75%)))
+#box(square(size: 15pt, fill: pantone.tint(50%)))
+#box(square(size: 15pt, fill: pantone.tint(25%)))
+#box(square(size: 15pt, fill: pantone.tint(0%)))
+
+--- spot-color-none paged ---
+// Test spot color with name set to none
+#let varnish = spot-colorant(none, luma(0%))
+#let layer = varnish.tint(100%)
+#box(square(size: 20pt, fill: layer))
+
+--- spot-color-components paged ---
+// Test spot color components method
+#let pantone = spot-colorant("PANTONE 2221 C", eastern)
+#let tinted = pantone.tint(80%)
+#test(tinted.components(), (80%,))
+#test(tinted.components(alpha: false), (80%,))
+
+--- spot-color-tint-out-of-range-negative paged ---
+#let pantone = spot-colorant("PANTONE 2221 C", eastern)
+// Error: 15-19 spot color tint must be positive
+#pantone.tint(-10%)
+
+--- spot-color-tint-out-of-range-large paged ---
+#let pantone = spot-colorant("PANTONE 2221 C", eastern)
+// Error: 15-19 spot color tint must not exceed 100%
+#pantone.tint(120%)
+
+--- spot-color-lighten paged ---
+// Test lighten on spot colors
+#let pantone = spot-colorant("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#let base = pantone.tint(80%)
+#let light = base.lighten(25%)
+#box(square(size: 15pt, fill: base))
+#box(square(size: 15pt, fill: light))
+
+--- spot-color-darken paged ---
+// Test darken on spot colors
+#let pantone = spot-colorant("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#let base = pantone.tint(50%)
+#let dark = base.darken(25%)
+#box(square(size: 15pt, fill: base))
+#box(square(size: 15pt, fill: dark))
+
+--- spot-color-negate paged ---
+// Test negate on spot colors
+#let pantone = spot-colorant("PANTONE 185 C", rgb(89.4%, 0.7%, 17%))
+#let base = pantone.tint(70%)
+#let neg = base.negate()
+#let eps = 0.0001 * 100%
+#let components = neg.components()
+#if components.len() != 1 { panic("expected 1 component, got " + components.len()) }
+#if calc.abs(components.at(0) - 30%) > eps { panic("spot color negation failed") }
+
+--- spot-colorant-none paged ---
+#let c = spot-colorant(none, red)
+#box(square(size: 15pt, fill: c.tint(50%)))
+
+--- spot-colorant-all paged ---
+#let c = spot-colorant("all", blue)
+#box(square(size: 15pt, fill: c.tint(75%)))
