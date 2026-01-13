@@ -309,7 +309,7 @@ impl FileSlot {
         self.source.get_or_init(
             || read(self.id, project_root, package_storage),
             |data, prev| {
-                let text = decode_utf8(&data)?;
+                let text = decode_utf8(&data, self.id.vpath().as_rooted_path())?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
                     Ok(prev)
@@ -425,7 +425,9 @@ fn system_path(
 
     // Join the path to the root. If it tries to escape, deny
     // access. Note: It can still escape via symlinks.
-    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+    id.vpath()
+        .resolve(root)
+        .ok_or_else(|| FileError::AccessDenied(id.vpath().as_rootless_path().into()))
 }
 
 /// Reads a file from a `FileId`.
@@ -449,7 +451,7 @@ fn read(
 fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {
-        Err(FileError::IsDirectory)
+        Err(FileError::IsDirectory(path.into()))
     } else {
         fs::read(path).map_err(f)
     }
@@ -468,9 +470,12 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
 }
 
 /// Decode UTF-8 with an optional BOM.
-fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
+fn decode_utf8<'buf>(buf: &'buf [u8], path: &Path) -> FileResult<&'buf str> {
     // Remove UTF-8 BOM.
-    Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
+    let stripped = buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf);
+    let decoded =
+        std::str::from_utf8(stripped).map_err(|_| FileError::InvalidUtf8(path.into()))?;
+    Ok(decoded)
 }
 
 /// The current date and time.

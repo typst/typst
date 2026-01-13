@@ -146,7 +146,9 @@ impl FileSlot {
         self.source
             .get_or_init(|| {
                 let buf = read(&system_path(self.id)?)?;
-                let text = String::from_utf8(buf.into_owned())?;
+                let text = String::from_utf8(buf.into_owned()).map_err(|_| {
+                    FileError::InvalidUtf8(self.id.vpath().as_rooted_path().into())
+                })?;
                 Ok(Source::new(self.id, text))
             })
             .clone()
@@ -172,7 +174,9 @@ pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
         None => PathBuf::new(),
     };
 
-    id.vpath().resolve(&root).ok_or(FileError::AccessDenied)
+    id.vpath()
+        .resolve(&root)
+        .ok_or_else(|| FileError::AccessDenied(id.vpath().as_rootless_path().into()))
 }
 
 /// Read a file.
@@ -186,7 +190,7 @@ pub(crate) fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
 
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {
-        Err(FileError::IsDirectory)
+        Err(FileError::IsDirectory(path.into()))
     } else {
         fs::read(path).map(Cow::Owned).map_err(f)
     }
