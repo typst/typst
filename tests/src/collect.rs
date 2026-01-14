@@ -39,6 +39,13 @@ pub struct Test {
     pub notes: Vec<Note>,
 }
 
+impl Test {
+    /// Whether the test is expected to error, and thus not generate any output.
+    pub fn should_error(&self) -> bool {
+        self.notes.iter().any(|note| note.kind == NoteKind::Error)
+    }
+}
+
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path

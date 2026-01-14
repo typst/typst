@@ -251,33 +251,33 @@ impl<'a> Runner<'a> {
         &mut self,
         output: &'d Option<(&'d T::Doc, T::Live)>,
     ) -> Option<(&'d T::Doc, &'d T::Live, impl AsRef<[u8]> + use<'d, T>)> {
-        let skippable = match &output {
-            Some((doc, live)) => T::is_skippable(doc, live).unwrap_or(true),
-            None => false,
-        };
-
         let live_path = T::OUTPUT.live_path(&self.test.name);
         match output {
-            Some((doc, live)) if !skippable => {
+            Some((doc, live)) => {
                 // Convert and save live version.
                 let live_data = T::save_live(doc, live);
 
-                // Write the file to a path of its hash.
-                let hash = T::make_hash(live);
-                let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
-                std::fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
-                std::fs::write(&hash_path, &live_data).unwrap();
+                if T::is_skippable(doc, live).unwrap_or(true) {
+                    std::fs::remove_file(&live_path).ok();
+                } else {
+                    // Write the file to a path of its hash.
+                    let hash = T::make_hash(live);
+                    let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
+                    std::fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
+                    std::fs::write(&hash_path, &live_data).unwrap();
 
-                // Create a link in the store directory.
-                std::fs::remove_file(&live_path).ok();
+                    // Create a link in the store directory.
+                    std::fs::remove_file(&live_path).ok();
 
-                let relative_path = hash_path.strip_prefix(STORE_PATH).unwrap();
-                let link_path = Path::new("..").join(relative_path);
+                    let relative_path = hash_path.strip_prefix(STORE_PATH).unwrap();
+                    let link_path = Path::new("..").join(relative_path);
 
-                #[cfg(target_family = "unix")]
-                std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
-                #[cfg(target_family = "windows")]
-                std::os::windows::fs::symlink_file(&link_path, &live_path).unwrap();
+                    #[cfg(target_family = "unix")]
+                    std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
+                    #[cfg(target_family = "windows")]
+                    std::os::windows::fs::symlink_file(&link_path, &live_path).unwrap();
+                }
+
                 Some((doc, live, live_data))
             }
             _ => {
@@ -300,15 +300,17 @@ impl<'a> Runner<'a> {
 
         let old_ref_data = self.read_ref_data::<T>(&ref_path);
         let Some((doc, live, _)) = output else {
-            if let Some(old_ref_data) = old_ref_data {
-                log!(self, "missing document");
-                log!(self, "  ref       | {}", ref_path.display());
+            if !self.test.should_error() {
+                log!(self, "missing output [{}]", T::OUTPUT);
+                if old_ref_data.is_some() {
+                    log!(self, "  ref       | {}", ref_path.display());
+                }
 
                 if !ARGS.no_report {
-                    let file_report = T::make_report(
-                        Some((&ref_path, Old::Data(&old_ref_data))),
-                        Some(Err(())),
-                    );
+                    let old = old_ref_data
+                        .as_ref()
+                        .map(|data| (ref_path.as_path(), Old::Data(data.as_slice())));
+                    let file_report = T::make_report(old, Some(Err(())));
                     self.result.add_report(self.test.name.clone(), file_report);
                 }
             }
@@ -323,16 +325,18 @@ impl<'a> Runner<'a> {
             }
         };
 
-        // Tests without visible output and no reference output don't need to be
-        // compared.
-        if skippable && old_ref_data.is_none() {
-            return;
-        }
-
-        // Compare against reference output if available.
-        // Test that is ok doesn't need to be updated.
-        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
-            return;
+        if skippable {
+            // Tests without visible output and no reference output don't need to be
+            // compared.
+            if old_ref_data.is_none() {
+                return;
+            }
+        } else {
+            // Compare against reference output if available.
+            // Test that is ok doesn't need to be updated.
+            if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
+                return;
+            }
         }
 
         let new_ref_data = T::save_ref(live);
@@ -400,17 +404,23 @@ impl<'a> Runner<'a> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let old_hash = self.hashes[T::INDEX].read().get(&self.test.name);
         let Some((doc, live, live_data)) = output else {
-            if let Some(old_hash) = old_hash {
-                log!(self, "missing document");
-                log!(self, "  ref       | {}", self.test.name);
+            if !self.test.should_error() {
+                let old = old_hash.map(|old_hash| {
+                    let path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                    let data = self.read_old_live_data::<T>(old_hash);
+                    (path, data)
+                });
+
+                log!(self, "missing output [{}]", T::OUTPUT);
+                if let Some((path, Old::Data(_))) = &old {
+                    log!(self, "  ref       | {}", path.display());
+                }
 
                 if !ARGS.no_report {
-                    let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
-                    let old_live_data = self.read_old_live_data::<T>(old_hash);
-                    let file_report = T::make_report(
-                        Some((&old_hash_path, old_live_data.as_deref())),
-                        Some(Err(())),
-                    );
+                    let old = old
+                        .as_ref()
+                        .map(|(path, data)| (path.as_path(), data.as_deref()));
+                    let file_report = T::make_report(old, Some(Err(())));
                     self.result.add_report(self.test.name.clone(), file_report);
                 }
             }
