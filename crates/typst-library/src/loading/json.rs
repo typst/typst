@@ -77,7 +77,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "JSON")]
 pub fn json(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a JSON file or raw JSON bytes.
+    /// A path to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;

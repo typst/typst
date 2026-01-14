@@ -89,8 +89,7 @@ pub struct BibliographyElem {
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
-    /// - A path string to load a bibliography file from the given path. For
-    ///   more details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a bibliography file from.
     /// - Raw bytes from which the bibliography should be decoded.
     /// - An array where each item is one of the above.
     #[required]
@@ -126,8 +125,7 @@ pub struct BibliographyElem {
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string to a [CSL file](https://citationstyles.org/). For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
         Some(source) => Some(CslStyle::load(engine, source)?),

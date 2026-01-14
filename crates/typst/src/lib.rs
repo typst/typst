@@ -227,7 +227,7 @@ fn hint_invalid_main_file(
             }
         };
 
-        if world.source(input.with_extension("typ")).is_ok() {
+        if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
     }

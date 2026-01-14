@@ -80,7 +80,7 @@ pub use {
 
 use comemo::{Track, TrackedMut};
 use ecow::EcoString;
-use typst_syntax::{Spanned, SyntaxMode};
+use typst_syntax::{RootedPath, Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -110,6 +110,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Symbol>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
+    global.define_type::<RootedPath>();
     global.define_func::<repr::repr>();
     global.define_func::<panic>();
     global.define_func::<assert>();

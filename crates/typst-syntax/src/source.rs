@@ -7,10 +7,11 @@ use std::sync::Arc;
 
 use typst_utils::LazyHash;
 
-use crate::file::VirtualRoot;
 use crate::lines::Lines;
 use crate::reparser::reparse;
-use crate::{FileId, LinkedNode, Span, SyntaxNode, VirtualPath, parse};
+use crate::{
+    FileId, LinkedNode, RootedPath, Span, SyntaxNode, VirtualPath, VirtualRoot, parse,
+};
 
 /// A source file.
 ///
@@ -45,7 +46,8 @@ impl Source {
     /// Create a source file without a real id and path, usually for testing.
     pub fn detached(text: impl Into<String>) -> Self {
         Self::new(
-            FileId::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap()),
+            RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+                .intern(),
             text.into(),
         )
     }

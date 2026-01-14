@@ -150,7 +150,7 @@ use crate::loading::{DataSource, Load};
 #[func(scope)]
 pub fn plugin(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a WebAssembly file or raw WebAssembly bytes.
+    /// A path to a WebAssembly file or raw WebAssembly bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
     let loaded = source.load(engine.world)?;
