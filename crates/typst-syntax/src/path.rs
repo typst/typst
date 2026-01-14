@@ -1,14 +1,188 @@
 //! Virtual, cross-platform reproducible path handling.
 
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroU16;
+use std::ops::Deref;
 use std::path::{self, Path, PathBuf};
+use std::sync::{LazyLock, RwLock};
 
 use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 
-// Special symbols in virtual paths.
-const SEPARATOR: char = '/';
-const CURRENT: &str = ".";
-const PARENT: &str = "..";
+use crate::package::PackageSpec;
+
+/// A path in a specific virtual file system root.
+///
+/// This identifies a location in a project or package.
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct RootedPath {
+    root: VirtualRoot,
+    vpath: VirtualPath,
+}
+
+impl RootedPath {
+    /// Create a rooted path from a root and a virtual path within the root.
+    pub fn new(root: VirtualRoot, vpath: VirtualPath) -> Self {
+        Self { root, vpath }
+    }
+
+    /// Turns this path into a `FileId`.
+    pub fn intern(self) -> FileId {
+        FileId::new(self)
+    }
+
+    /// The root this path resides in.
+    pub fn root(&self) -> &VirtualRoot {
+        &self.root
+    }
+
+    /// The package the path resides in, if any.
+    #[deprecated = "use `root` instead"]
+    pub fn package(&self) -> Option<&PackageSpec> {
+        match self.root() {
+            VirtualRoot::Project => None,
+            VirtualRoot::Package(package) => Some(package),
+        }
+    }
+
+    /// The absolute and normalized path to the file _within_ the project or
+    /// package.
+    pub fn vpath(&self) -> &VirtualPath {
+        &self.vpath
+    }
+
+    /// Maps the virtual path while retaining the root.
+    pub fn map(&self, f: impl FnOnce(&VirtualPath) -> VirtualPath) -> Self {
+        Self::new(self.root.clone(), f(&self.vpath))
+    }
+}
+
+impl Debug for RootedPath {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let vpath = self.vpath();
+        match self.root() {
+            VirtualRoot::Project => Debug::fmt(vpath, f),
+            VirtualRoot::Package(package) => write!(f, "{package:?}{vpath:?}"),
+        }
+    }
+}
+
+/// The root of a virtual file system.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum VirtualRoot {
+    /// The canonical root of the Typst project.
+    ///
+    /// This is what `TYPST_ROOT` defines.
+    Project,
+    /// A root in a package.
+    Package(PackageSpec),
+}
+
+/// The global interner for rooted paths.
+static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
+    RwLock::new(Interner { to_id: FxHashMap::default(), from_id: Vec::new() })
+});
+
+/// An interner for rooted paths.
+struct Interner {
+    to_id: FxHashMap<&'static RootedPath, FileId>,
+    from_id: Vec<&'static RootedPath>,
+}
+
+/// An interned version of [`RootedPath`].
+///
+/// This type is globally interned and thus cheap to copy, compare, and hash.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct FileId(NonZeroU16);
+
+impl FileId {
+    /// Create a new interned file specification.
+    ///
+    /// This is the same as [`RootedPath::intern`].
+    #[track_caller]
+    pub fn new(path: RootedPath) -> Self {
+        // Try to find an existing entry that we can reuse.
+        //
+        // We could check with just a read lock, but if the pair is not yet
+        // present, we would then need to recheck after acquiring a write lock,
+        // which is probably not worth it.
+        let mut interner = INTERNER.write().unwrap();
+        if let Some(&id) = interner.to_id.get(&path) {
+            return id;
+        }
+
+        // Create a new entry forever by leaking the pair. We can't leak more
+        // than 2^16 pair (and typically will leak a lot less), so its not a
+        // big deal.
+        let num = u16::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU16::try_from)
+            .expect("out of file ids");
+
+        let id = FileId(num);
+        let leaked = Box::leak(Box::new(path));
+        interner.to_id.insert(leaked, id);
+        interner.from_id.push(leaked);
+        id
+    }
+
+    /// Create a new unique ("fake") file specification, which is not accessible
+    /// by path.
+    ///
+    /// Caution: the ID returned by this method is the *only* identifier of the
+    /// file, constructing a file ID with a path will *not* reuse the ID even if
+    /// the path is the same. This method should only be used for generating
+    /// "virtual" file ids such as content read from stdin.
+    ///
+    /// While the returned ID is not otherwise accessible, the provided root and
+    /// path still matter as they define how paths within the identified file
+    /// will resolve. For the example of content read from stdin, it will define
+    /// how a relative path in the stdin content is resolved.
+    #[track_caller]
+    pub fn unique(path: RootedPath) -> Self {
+        let mut interner = INTERNER.write().unwrap();
+        let num = u16::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU16::try_from)
+            .expect("out of file ids");
+
+        let id = FileId(num);
+        let leaked = Box::leak(Box::new(path));
+        interner.from_id.push(leaked);
+        id
+    }
+
+    /// Construct from a raw number.
+    ///
+    /// Should only be used with numbers retrieved via
+    /// [`into_raw`](Self::into_raw). Misuse may results in panics, but no
+    /// unsafety.
+    pub const fn from_raw(v: NonZeroU16) -> Self {
+        Self(v)
+    }
+
+    /// Extract the raw underlying number.
+    pub const fn into_raw(self) -> NonZeroU16 {
+        self.0
+    }
+
+    /// Get the static, interned rooted path.
+    pub fn get(&self) -> &'static RootedPath {
+        INTERNER.read().unwrap().from_id[usize::from(self.0.get() - 1)]
+    }
+}
+
+impl Deref for FileId {
+    type Target = RootedPath;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl Debug for FileId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.get().fmt(f)
+    }
+}
 
 /// A path in a virtual file system.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -207,6 +381,11 @@ enum Component<'a> {
     Parent,
     Normal(Segment<'a>),
 }
+
+// Special symbols in virtual paths.
+const SEPARATOR: char = '/';
+const CURRENT: &str = ".";
+const PARENT: &str = "..";
 
 /// Splits a user-supplied path into its constituent parts.
 ///

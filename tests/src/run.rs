@@ -348,7 +348,7 @@ impl<'a> Runner<'a> {
     fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
-        let source_path = self.test.source.id().vpath();
+        let source_path = self.test.source.id().get().vpath();
         let old_ref_hash =
             if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
                 hashed_refs.get(&self.test.name)

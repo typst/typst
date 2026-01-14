@@ -28,7 +28,7 @@ use typst_syntax::{FileId, Spanned};
 
 use crate::World;
 use crate::diag::{At, SourceResult};
-use crate::foundations::{Bytes, OneOrMultiple, PathStr, Scope, Str, cast};
+use crate::foundations::{Bytes, OneOrMultiple, PathOrStr, Scope, Str, cast};
 
 /// Hook up all `data-loading` definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -47,7 +47,7 @@ pub(super) fn define(global: &mut Scope) {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum DataSource {
     /// A path to a file.
-    Path(PathStr),
+    Path(PathOrStr),
     /// Raw bytes.
     Bytes(Bytes),
 }
@@ -58,7 +58,7 @@ cast! {
         Self::Path(v) => v.into_value(),
         Self::Bytes(v) => v.into_value(),
     },
-    v: PathStr => Self::Path(v),
+    v: PathOrStr => Self::Path(v),
     v: Bytes => Self::Bytes(v),
 }
 
@@ -85,7 +85,8 @@ impl Load for Spanned<&DataSource> {
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         match self.v {
             DataSource::Path(path) => {
-                let resolved = path.resolve_if_some(self.span.id()).at(self.span)?;
+                let resolved =
+                    path.resolve_if_some(self.span.id()).at(self.span)?.intern();
                 let data = world.file(resolved).at(self.span)?;
                 let source = Spanned::new(LoadSource::Path(resolved), self.span);
                 Ok(Loaded::new(source, data))

@@ -2954,6 +2954,7 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
+ "memchr",
  "notify",
  "open",
  "parking_lot",
@@ -2973,6 +2974,7 @@ dependencies = [
  "tiny_http",
  "toml",
  "typst",
+ "typst-dev-assets",
  "typst-eval",
  "typst-html",
  "typst-kit",
@@ -3289,14 +3291,16 @@ dependencies = [
  "hayro",
  "hayro-svg",
  "image",
+ "indexmap",
+ "itoa",
  "rustc-hash",
+ "ryu",
  "ttf-parser",
  "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-timing",
  "typst-utils",
- "xmlparser",
  "xmlwriter",
 ]
 
@@ -3896,12 +3900,6 @@ dependencies = [
  "linux-raw-sys",
  "rustix",
 ]
-
-[[package]]
-name = "xmlparser"
-version = "0.13.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
 
 [[package]]
 name = "xmlwriter"
