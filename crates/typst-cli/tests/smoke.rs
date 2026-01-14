@@ -1,7 +1,11 @@
 use std::collections::HashSet;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::io::{BufRead, BufReader, Lines};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{ChildStderr, Command, Output, Stdio};
+use std::sync::mpsc;
+use std::sync::mpsc::Sender;
+use std::time::Duration;
 
 use tempfile::TempDir;
 use typst::foundations::Bytes;
@@ -22,6 +26,22 @@ fn test_compile_pdf() {
     let hello = project.write("hello.typ", format!("#set document(title: \"{title}\")"));
     exec().arg("compile").arg(&hello).must_succeed();
     project.read("hello.pdf").must_start_with("%PDF").must_contain(title);
+}
+
+#[test]
+fn test_watch_pdf() {
+    let project = tempfs();
+    let mut live = exec()
+        .arg("watch")
+        .arg("--ignore-system-fonts") // System font scanning can be slow
+        .arg(project.resolve("main.typ"))
+        .live();
+    live.wait_for("input file not found");
+    project.write("main.typ", "#panic(42)");
+    live.wait_for("panicked with: 42");
+    project.write("main.typ", "Hello");
+    live.wait_for("compiled successfully");
+    project.read("main.pdf").must_start_with("%PDF");
 }
 
 #[test]
@@ -163,6 +183,7 @@ fn exec() -> Command {
 trait CommandExt {
     fn must_succeed(&mut self) -> TestOutput;
     fn must_fail(&mut self) -> TestOutput;
+    fn live(&mut self) -> LiveProcess;
 }
 
 impl CommandExt for Command {
@@ -183,6 +204,11 @@ impl CommandExt for Command {
         let output = self.output().unwrap();
         assert!(!output.status.success(), "process succeeded ({})", output.status);
         output.into()
+    }
+
+    #[track_caller]
+    fn live(&mut self) -> LiveProcess {
+        LiveProcess::spawn(self)
     }
 }
 
@@ -279,5 +305,45 @@ impl<T: AsRef<[u8]>> Debug for Stream<T> {
 impl<T: AsRef<[u8]>> Display for Stream<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&String::from_utf8_lossy(self.0.as_ref()), f)
+    }
+}
+
+struct LiveProcess {
+    lines: Lines<BufReader<ChildStderr>>,
+    terminator: Sender<()>,
+}
+
+impl LiveProcess {
+    #[track_caller]
+    fn spawn(command: &mut Command) -> Self {
+        const TIMEOUT: Duration = Duration::from_secs(5);
+
+        // We terminate the process through a second thread.
+        #[allow(clippy::zombie_processes)]
+        let mut child =
+            command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let lines = BufReader::new(child.stderr.take().unwrap()).lines();
+
+        let (terminator, waiter) = mpsc::channel();
+        std::thread::spawn(move || {
+            let result = waiter.recv_timeout(TIMEOUT);
+            child.kill().unwrap();
+            result.expect("child process timed out");
+        });
+
+        Self { lines, terminator }
+    }
+
+    #[track_caller]
+    fn wait_for(&mut self, text: &str) {
+        while let line = self.lines.next().unwrap().unwrap()
+            && !line.contains(text)
+        {}
+    }
+}
+
+impl Drop for LiveProcess {
+    fn drop(&mut self) {
+        self.terminator.send(()).ok();
     }
 }
