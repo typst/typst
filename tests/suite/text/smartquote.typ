@@ -38,6 +38,10 @@
 #set text(lang: "he")
 "הסוס לא אוכל סלט מלפפונים" היה המשפט ההראשון שנאמר ב'טלפון'.
 
+--- smartquote-he-geresh paged html ---
+#set text(lang: "he")
+"אתמול טסתי לדר' קוריאה מנתב"ג עם סרג'ו."
+
 --- smartquote-ro paged ---
 #set text(lang: "ro")
 "Calul nu mănâncă salată de castraveți" a fost prima propoziție rostită vreodată la 'telefon'.

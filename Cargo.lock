@@ -3204,6 +3204,7 @@ dependencies = [
  "typst-utils",
  "unicode-math-class",
  "unicode-normalization",
+ "unicode-script",
  "unicode-segmentation",
  "unscanny",
  "usvg",
