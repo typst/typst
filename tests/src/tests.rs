@@ -169,20 +169,8 @@ fn test() {
         run::update_hash_refs::<output::Svg>(&hashes);
     }
 
-    let mut logger = logger.into_inner();
-
-    let report_path = Path::new(STORE_PATH).join("report.html");
-    if ARGS.gen_report() {
-        logger.reports.sort_by(|a, b| a.name.cmp(&b.name));
-        let html = report::html::generate(&logger.reports);
-        std::fs::write(report_path, html).unwrap();
-    } else {
-        _ = std::fs::remove_file(report_path);
-    }
-
-    let passed = logger.finish();
-    if !passed {
-        std::process::exit(1);
+    if let Err(err) = logger.into_inner().finish() {
+        std::process::exit(err.exit_code());
     }
 }
 

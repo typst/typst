@@ -2747,6 +2747,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-wrapper"
+version = "0.14.2"
+
+[[package]]
 name = "thin-vec"
 version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3369,6 +3373,7 @@ dependencies = [
  "serde_yaml",
  "similar",
  "smallvec",
+ "time",
  "tiny-skia",
  "typst",
  "typst-assets",

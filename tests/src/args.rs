@@ -55,12 +55,17 @@ pub struct CliArguments {
     pub num_threads: Option<usize>,
     /// Don't generate a HTML test report.
     #[arg(long)]
-    pub no_report: bool,
+    no_report: bool,
     /// The git base revision against which the tests will be run.
     ///
     /// If none is specified, it's compared against the current working tree.
     #[arg(long, conflicts_with = "update")]
     pub base_revision: Option<String>,
+    /// Print errors in a format that github actions can pick up to generate
+    /// annotations that will be displayed on PR files:
+    /// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message
+    #[arg(long, env = "USE_GITHUB_ANNOTATIONS")]
+    pub use_github_annotations: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a
@@ -122,7 +127,7 @@ impl CliArguments {
 
     /// Whether a HTML test report should be generated.
     pub fn gen_report(&self) -> bool {
-        !self.no_report
+        !self.no_report && !self.update
     }
 }
 

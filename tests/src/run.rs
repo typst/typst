@@ -632,7 +632,7 @@ impl<'a> Runner<'a> {
         });
         match old_live_data {
             Ok(data) => Old::Data(data),
-            Err(_) => Old::Missing,
+            Err(_) => Old::Missing(old_hash),
         }
     }
 

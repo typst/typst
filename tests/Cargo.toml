@@ -44,6 +44,7 @@ rustc-hash = { workspace = true }
 serde_yaml = { workspace = true }
 similar = { workspace = true }
 smallvec = { workspace = true }
+time = { workspace = true }
 tiny-skia = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }

@@ -18,7 +18,7 @@ use typst_syntax::{
 };
 use unscanny::Scanner;
 
-use crate::output::{self, HashOutputType, HashedRefs};
+use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
 use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
@@ -295,7 +295,7 @@ impl Display for TestTarget {
 }
 
 /// A test output format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum TestOutput {
     Render = TestStages::RENDER.bits(),
@@ -324,7 +324,7 @@ impl TestOutput {
         }
     }
 
-    /// The file extension used for live outputs and file references.
+    /// The file extension used for live output and file references.
     pub const fn extension(&self) -> &'static str {
         match self {
             Self::Render => "png",
@@ -336,7 +336,7 @@ impl TestOutput {
     }
 
     /// The path at which the live output will be stored.
-    pub fn hash_path(&self, hash: impl Display, name: &str) -> PathBuf {
+    pub fn hash_path(&self, hash: HashedRef, name: &str) -> PathBuf {
         let ext = self.extension();
         PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
     }

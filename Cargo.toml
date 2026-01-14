@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "docs", "tests", "tests/fuzz"]
+members = ["crates/*", "docs", "tests", "tests/fuzz", "tests/wrapper"]
 default-members = ["crates/typst-cli"]
 resolver = "2"
 
