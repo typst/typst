@@ -92,7 +92,7 @@ impl<'a> Runner<'a> {
         }
 
         // Only compile paged document when the paged target is specified or
-        // implied. If so, run tests for all paged outputs unless excluded by
+        // required. If so, run tests for all paged outputs unless excluded by
         // the `--stages` flag. The test attribute still control which
         // reference outputs are saved and compared though.
         if ARGS.should_run(self.test.attrs.stages & TestStages::PAGED_STAGES) {
@@ -117,7 +117,7 @@ impl<'a> Runner<'a> {
             }
             if ARGS.should_run(self.test.attrs.stages & TestStages::PDF_STAGES) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
-                if ARGS.should_run(TestStages::PDFTAGS) {
+                if ARGS.should_run(self.test.attrs.stages & TestStages::PDFTAGS) {
                     self.run_file_test::<output::Pdftags>(pdf.as_ref());
                 }
             }
@@ -148,35 +148,71 @@ impl<'a> Runner<'a> {
 
     /// Handle notes that weren't handled before.
     fn handle_not_emitted(&mut self) {
-        let mut first = true;
         for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            let mut missing_stages = TestStages::empty();
-            let required_stages = ARGS.stages() & self.test.attrs.stages;
+            let note_pos = &note.pos;
+            let stages = match note.stages {
+                Some(annotated) => {
+                    // The stages of a diagnostic are annotated, check if the
+                    // stages it was emitted in match.
+                    let required = annotated & ARGS.stages();
+                    if seen == required {
+                        continue;
+                    }
 
-            // If a test stage requiring the paged target has been specified,
-            // require the annotated diagnostics to be present in any paged
-            // stage. For example if `pdftags` is specified and an error is
-            // emitted in the pdf stage, that is ok.
-            if !(required_stages & TestStages::PAGED_STAGES).is_empty()
-                && (seen & TestStages::PAGED_STAGES).is_empty()
-            {
-                missing_stages |= TestStages::PAGED;
-            }
-            if !(required_stages & TestStages::HTML).is_empty()
-                && (seen & TestStages::HTML).is_empty()
-            {
-                missing_stages |= TestStages::HTML;
-            }
+                    let not_emitted_stages = required.difference(seen);
+                    let not_annotated_stages = seen.difference(required);
+                    let title = typst_utils::display(|f| {
+                        if !not_emitted_stages.is_empty() {
+                            write!(f, "not emitted in [{not_emitted_stages}]")?;
+                        }
+                        if !not_emitted_stages.is_empty()
+                            && !not_annotated_stages.is_empty()
+                        {
+                            f.write_str(" - ")?;
+                        }
+                        if !not_annotated_stages.is_empty() {
+                            write!(f, "not annotated for [{not_annotated_stages}]")?;
+                        }
+                        Ok(())
+                    });
+                    log!(self, "{title} ({note_pos})");
 
-            if missing_stages.is_empty() {
-                continue;
-            }
+                    annotated
+                }
+                None => {
+                    let possible = self.test.attrs.stages & ARGS.stages();
+                    if seen.is_empty() && !possible.is_empty() {
+                        log!(self, "not emitted");
+                        let note_range = self.format_range(note.file, &note.range);
+                        log!(self, "  {}: {note_range} {}", note.kind, note.message);
+                        continue;
+                    }
+
+                    // Figure out if the diagnostic stages must be annotated.
+                    // This is enforced for diagnostics that are only generated
+                    // in a specific output/target that isn't hit by all possible
+                    // branches of the stage tree.
+                    // See the doc comment on `TestStages` for an overview.
+                    let attr_stages = self.test.attrs.stages & ARGS.stages();
+                    let full_branch_coverage =
+                        attr_stages.iter().all(|s| s.with_required().intersects(seen));
+                    if full_branch_coverage {
+                        continue;
+                    }
+
+                    log!(
+                        self,
+                        "diagnostic is only emitted in [{seen}] but the test is run for [{}]",
+                        self.test.attrs.stages
+                    );
+                    log!(self, "the specific stage(s) should be annotated ({note_pos})");
+
+                    seen
+                }
+            };
+
             let note_range = self.format_range(note.file, &note.range);
-            if first {
-                log!(self, "not emitted [{missing_stages}]");
-                first = false;
-            }
-            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos,);
+            log!(self, "  {}: [{stages}] {note_range} {}", note.kind, note.message);
         }
     }
 

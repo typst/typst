@@ -99,11 +99,13 @@ There are, broadly speaking, three kinds of tests:
   target.
 
 - Tests that ensure the code emits particular diagnostic messages: Those have
-  inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
-  start with either "Error", "Warning", or "Hint". The range designates the
-  code span the diagnostic message refers to in the first non-comment line
-  below. If the code span is in a line further below, you can write ranges
-  like `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
+  inline annotations like `// Error: [pdf] 2-7 thing was wrong`. An annotation
+  can start with either "Error", "Warning", or "Hint". In square brackets one
+  or more [stages](#test-stages) can be specified, this is only necessary in
+  specific cases, and the test suite will tell you about it. The range designates
+  the code span the diagnostic message refers to in the first non-comment line
+  below. If the code span is in a line further below, you can write ranges like
+  `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
 
 - Tests that ensure certain output is produced:
 
