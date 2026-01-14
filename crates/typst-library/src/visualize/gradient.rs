@@ -70,6 +70,25 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Stops can be specified in two ways:
+/// - Just as colors: `gradient.linear(red, blue)` - offsets are computed
+///   automatically
+/// - As arrays of color and offset: `gradient.linear((red, 0%), (blue, 100%))`
+///   - allows precise control over color positions
+///
+/// ```example
+/// >>> #set rect(width: 100%, height: 20pt)
+/// // Evenly spaced stops (automatic offsets)
+/// #rect(fill: gradient.linear(red, yellow, blue))
+///
+/// // Explicit offsets using array syntax
+/// #rect(fill: gradient.linear(
+///   (red, 0%),
+///   (yellow, 75%),
+///   (blue, 100%),
+/// ))
+/// ```
+///
 /// Typst predefines color maps that you can use as stops. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.
 ///
@@ -201,6 +220,13 @@ impl Gradient {
         args: &mut Args,
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be specified as either:
+        /// - A [color]: `red`
+        /// - An [array] of color and [ratio] offset: `(red, 50%)`
+        ///
+        /// If offsets are provided, the first stop must be at `{0%}` and
+        /// the last stop must be at `{100%}`.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -290,6 +316,13 @@ impl Gradient {
     fn radial(
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be specified as either:
+        /// - A [color]: `red`
+        /// - An [array] of color and [ratio] offset: `(red, 50%)`
+        ///
+        /// If offsets are provided, the first stop must be at `{0%}` and
+        /// the last stop must be at `{100%}`.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -404,6 +437,13 @@ impl Gradient {
     pub fn conic(
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be specified as either:
+        /// - A [color]: `red`
+        /// - An [array] of color and [ratio] offset: `(red, 50%)`
+        ///
+        /// If offsets are provided, the first stop must be at `{0%}` and
+        /// the last stop must be at `{100%}`.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
