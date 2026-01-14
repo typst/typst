@@ -20,12 +20,15 @@ pub enum SyntaxKind {
     Markup,
     /// Plain text without markup.
     Text,
-    /// Whitespace. Contains at most one newline in markup, as more indicate a
-    /// paragraph break.
-    Space,
+    /// Whitespace with no newlines.
+    SpaceNoNewline,
+    /// Whitespace with _exactly one_ newline in Markup (more would be a ParBreak)
+    /// and _at least one_ newline in Code/Math.
+    SpaceWithNewline,
     /// A forced line break: `\`.
     Linebreak,
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     Parbreak,
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape,
@@ -364,7 +367,8 @@ impl SyntaxKind {
             Self::Shebang
                 | Self::LineComment
                 | Self::BlockComment
-                | Self::Space
+                | Self::SpaceNoNewline
+                | Self::SpaceWithNewline
                 | Self::Parbreak
         )
     }
@@ -384,7 +388,8 @@ impl SyntaxKind {
             Self::BlockComment => "block comment",
             Self::Markup => "markup",
             Self::Text => "text",
-            Self::Space => "space",
+            Self::SpaceNoNewline => "space",
+            Self::SpaceWithNewline => "space",
             Self::Linebreak => "line break",
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",

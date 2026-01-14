@@ -1,8 +1,6 @@
 use std::ops::Range;
 
-use crate::{
-    Span, SyntaxKind, SyntaxNode, is_newline, parse, reparse_block, reparse_markup,
-};
+use crate::{Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup};
 
 /// Refresh the given syntax node with as little parsing as possible.
 ///
@@ -218,8 +216,7 @@ fn expand(node: &SyntaxNode) -> bool {
 fn next_at_start(node: &SyntaxNode, at_start: &mut bool) {
     let kind = node.kind();
     if kind.is_trivia() {
-        *at_start |= kind == SyntaxKind::Parbreak
-            || (kind == SyntaxKind::Space && node.text().chars().any(is_newline));
+        *at_start |= matches!(kind, SyntaxKind::Parbreak | SyntaxKind::SpaceWithNewline);
     } else {
         *at_start = false;
     }

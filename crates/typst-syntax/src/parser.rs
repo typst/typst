@@ -1880,11 +1880,11 @@ impl<'s> Parser<'s> {
         let mut start = prev_end;
         let (mut kind, mut node) = lexer.next();
         let mut n_trivia = 0;
-        let mut had_newline = false;
+        let mut space_with_newline = false;
         let mut parbreak = false;
 
         while kind.is_trivia() {
-            had_newline |= lexer.newline(); // Newlines are always trivia.
+            space_with_newline |= kind == SyntaxKind::SpaceWithNewline;
             parbreak |= kind == SyntaxKind::Parbreak;
             n_trivia += 1;
             nodes.push(node);
@@ -1892,7 +1892,7 @@ impl<'s> Parser<'s> {
             (kind, node) = lexer.next();
         }
 
-        let newline = if had_newline {
+        let newline = if space_with_newline || parbreak {
             let column =
                 (lexer.mode() == SyntaxMode::Markup).then(|| lexer.column(start));
             let newline = Newline { column, parbreak };

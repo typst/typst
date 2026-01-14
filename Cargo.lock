@@ -3254,6 +3254,7 @@ dependencies = [
  "bumpalo",
  "comemo",
  "ecow",
+ "icu_properties",
  "regex",
  "typst-library",
  "typst-macros",
