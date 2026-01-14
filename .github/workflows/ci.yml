@@ -4,7 +4,6 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
-  TYPST_TESTS_EXTENDED: true
   PKG_CONFIG_i686-unknown-linux-gnu: /usr/bin/i686-linux-gnu-pkgconf
 
 permissions:
@@ -31,6 +30,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        # TODO: This was for testing cross platform compatibility, but it might
+        # be nice to test more platforms.
+        arch: [amd64, arm64]
         bits: [64]
         include:
           - os: ubuntu-latest
@@ -51,25 +53,29 @@ jobs:
           key: ${{ matrix.bits }}
       - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
-      - name: Upload rendered test output
-        if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: tests-rendered-${{ matrix.os }}-${{ matrix.bits }}
-          path: tests/store/render/**
-          retention-days: 3
-      - name: Update test artifacts
+
+      # TODO: generate missing live output
+      - name: Generate diff with failed tests
         if: failure()
         run: |
-          cargo test --workspace --test tests ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }} -- --update
-          echo 'updated_artifacts=1' >> "$GITHUB_ENV"
-      - name: Upload updated reference output (for use if the test changes are desired)
-        if: failure() && env.updated_artifacts
+          cargo test --workspace --test tests ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
+
+      - name: Upload test store
+        if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: tests-updated-${{ matrix.os }}-${{ matrix.bits }}
-          path: tests/ref/**
+          name: tests-store-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          path: |
+            tests/store/report.html
+            tests/store/by-hash
           retention-days: 3
+
+      # TODO: generate missing live output
+      # TODO: upload artifacts with diff
+      - name: Generate diff to merge base
+        if: success() && github.event_name == 'pull_request'
+        run: |
+          cargo test --workspace --test tests -- --base-revision=${{ github.event.pull_request.base.sha }} ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
 
   checks:
     name: Check clippy, formatting, and documentation
