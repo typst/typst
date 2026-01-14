@@ -30,6 +30,15 @@ fn test_compile_pdf() {
 
 #[test]
 fn test_watch_pdf() {
+    // When a file is edited _immediately_ after the process printed the text,
+    // it's not always picked up by the watcher (primarily on Linux). Probably
+    // because the watcher is not be ready yet. Even 1ns of wait seems to work
+    // in some testing...
+    //
+    // Ideally, we'd have a better proxy for when the watcher is actually ready.
+    // At the same time, I'm not yet sure whether this could also be considered
+    // a bug in the watcher.
+    let brief_wait = || std::thread::sleep(Duration::from_millis(50));
     let project = tempfs();
     let mut live = exec()
         .arg("watch")
@@ -39,6 +48,7 @@ fn test_watch_pdf() {
     live.wait_for("input file not found");
     project.write("main.typ", "#panic(42)");
     live.wait_for("panicked with: 42");
+    brief_wait();
     project.write("main.typ", "Hello");
     live.wait_for("compiled successfully");
     project.read("main.pdf").must_start_with("%PDF");
