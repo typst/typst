@@ -6,12 +6,9 @@ use rustc_hash::FxHashMap;
 use xmlwriter::XmlWriter;
 
 use crate::collect::{FileSize, TestOutput};
+use crate::report::diff::{FileDiff, Image, Line, LineKind, Lines, TextSpan};
 use crate::report::html::icons::SvgIcon;
-use crate::report::{
-    DiffKind, File, FileDiff, FileReport, Image, Line, Lines, TestReport, TextSpan,
-};
-
-use super::LineKind;
+use crate::report::{DiffKind, File, FileReport, TestReport};
 
 #[rustfmt::skip]
 mod icons {
@@ -29,7 +26,7 @@ mod icons {
     pub static VIEW_DIFFERENCE: SvgIcon  = SvgIcon("M5 4a4 4 0 1 0 1.693 7.625c.14-.065.142-.258.016-.346A4 4 0 0 1 5 8c0-1.357.676-2.556 1.709-3.28.126-.088.124-.28-.016-.345A4 4 0 0 0 5 4m6 0a4.01 4.01 0 0 0-4 4c0 2.202 1.798 4 4 4s4-1.798 4-4-1.798-4-4-4m0 1.2c1.554 0 2.8 1.246 2.8 2.8s-1.246 2.8-2.8 2.8A2.79 2.79 0 0 1 8.2 8c0-1.554 1.246-2.8 2.8-2.8");
 
     pub static ALIGN_TOP: SvgIcon = SvgIcon("M2 3.016v1.25h12v-1.25zm6 3-.443.441-2 2-.442.441.885.885.441-.441.934-.934v4.582h1.25V8.408l.932.934.443.441.883-.885-.442-.441-2-2Z");
-    pub const ALIGN_HORIZON: SvgIcon = SvgIcon("M7.375 10.174v4.857h1.25v-4.857zM8 9.504l-2.441 2.441-.444.444.885.882.441-.44.934-.935v-1.722h1.25v1.722l.934.934.441.441.883-.882-.442-.444Zm-.625-8.486v3.134l-.934-.931L6 2.779l-.885.883.444.443 2 2L8 6.547l.441-.442 2.002-2 .442-.443L10 2.78l-.441.442-.934.931V1.018ZM2 7.75V9h12V7.75Z");
+    pub static ALIGN_HORIZON: SvgIcon = SvgIcon("M7.375 10.174v4.857h1.25v-4.857zM8 9.504l-2.441 2.441-.444.444.885.882.441-.44.934-.935v-1.722h1.25v1.722l.934.934.441.441.883-.882-.442-.444Zm-.625-8.486v3.134l-.934-.931L6 2.779l-.885.883.444.443 2 2L8 6.547l.441-.442 2.002-2 .442-.443L10 2.78l-.441.442-.934.931V1.018ZM2 7.75V9h12V7.75Z");
     pub static ALIGN_BOTTOM: SvgIcon = SvgIcon("M2 11.75V13h12v-1.25Zm5.375-8.775V7.64l-.932-.934L6 6.266l-.883.884.442.442 2 2 .441.441.443-.441 2-2 .442-.442L10 6.266l-.441.441-.934.934V2.975Z");
 
     pub static ALIGN_LEFT: SvgIcon = SvgIcon("M3.38 2v12h1.25V2ZM2 9c-.554 0-1 .446-1 1v1c0 .554.446 1 1 1h1.38V9Zm2.63 0v3H6c.554 0 1-.446 1-1v-1c0-.554-.446-1-1-1ZM2 4c-.554 0-1 .446-1 1v1c0 .554.446 1 1 1h1.38V4Zm2.63 0v3H12c.554 0 1-.446 1-1V5c0-.554-.446-1-1-1Z");

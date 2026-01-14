@@ -21,7 +21,7 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput, TestTarget};
-use crate::report::{DiffKind, File, FileDiff, FileReport, Image, Lines, Old};
+use crate::report::{DiffKind, File, FileReport, Old};
 use crate::{pdftags, report};
 
 pub trait TestDocument: Document {
@@ -44,6 +44,20 @@ pub struct HashedRefs {
 }
 
 impl HashedRefs {
+    pub fn parse_line(line: &str) -> StrResult<(EcoString, HashedRef)> {
+        let mut parts = line.split_whitespace();
+        let Some(hash) = parts.next() else { bail!("found empty line") };
+        let hash = hash.parse()?;
+
+        let Some(name) = parts.next() else { bail!("missing test name") };
+
+        if parts.next().is_some() {
+            bail!("found trailing characters");
+        }
+
+        Ok((name.into(), hash))
+    }
+
     /// Get the reference hash for a test.
     pub fn get(&self, name: &str) -> Option<HashedRef> {
         self.refs.get(name).copied()
@@ -88,27 +102,12 @@ impl FromStr for HashedRefs {
     type Err = EcoString;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let refs = s
-            .lines()
-            .map(|line| {
-                let mut parts = line.split_whitespace();
-                let Some(hash) = parts.next() else { bail!("found empty line") };
-                let hash = hash.parse()?;
-
-                let Some(name) = parts.next() else { bail!("missing test name") };
-
-                if parts.next().is_some() {
-                    bail!("found trailing characters");
-                }
-
-                Ok((name.into(), hash))
-            })
-            .collect::<StrResult<IndexMap<_, _, _>>>()?;
+        let refs = s.lines().map(HashedRefs::parse_line).collect::<StrResult<_>>()?;
         Ok(HashedRefs { refs })
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HashedRef(u128);
 
 impl Display for HashedRef {
@@ -219,7 +218,7 @@ impl OutputType for Render {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> FileReport {
-        let diffs = [DiffKind::Image(image_diff(a, b, "png"))];
+        let diffs = [image_diff(a, b, "png")];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -366,7 +365,7 @@ impl OutputType for Pdftags {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> FileReport {
-        let diffs = [DiffKind::Text(text_diff(a, b))];
+        let diffs = [text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -409,10 +408,7 @@ impl OutputType for Svg {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> FileReport {
-        let diffs = [
-            DiffKind::Image(image_diff(a, b, "svg+xml")),
-            DiffKind::Text(text_diff(a, b)),
-        ];
+        let diffs = [image_diff(a, b, "svg+xml"), text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -460,7 +456,7 @@ impl OutputType for Html {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> FileReport {
-        let diffs = [DiffKind::Text(text_diff(a, b))];
+        let diffs = [text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -479,19 +475,16 @@ fn image_diff(
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
     format: &str,
-) -> FileDiff<Image> {
+) -> DiffKind {
     let a = a.map(|(_, old)| old);
     let b = b.map(|(_, bytes)| bytes);
-    report::image_diff(a, b, format)
+    DiffKind::Image(report::image_diff(a, b, format))
 }
 
-fn text_diff(
-    a: Option<(&Path, Old<&[u8]>)>,
-    b: Result<(&Path, &[u8]), ()>,
-) -> FileDiff<Lines> {
+fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> DiffKind {
     let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
     let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
-    report::text_diff(a, b)
+    DiffKind::Text(report::text_diff(a, b))
 }
 
 fn file_report(

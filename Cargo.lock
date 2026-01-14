@@ -2228,6 +2228,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "regen"
+version = "0.1.0"
+
+[[package]]
 name = "regex"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3368,6 +3372,7 @@ dependencies = [
  "serde_yaml",
  "similar",
  "smallvec",
+ "time",
  "tiny-skia",
  "typst",
  "typst-assets",

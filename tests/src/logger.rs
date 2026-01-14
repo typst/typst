@@ -5,6 +5,7 @@ use ecow::EcoString;
 
 use crate::collect::Test;
 use crate::report::{FileReport, TestReport};
+use crate::{ARGS, report};
 
 /// The result of running a single test.
 pub struct TestResult {
@@ -94,10 +95,20 @@ impl<'a> Logger<'a> {
 
         self.print(move |out| {
             if !result.errors.is_empty() {
-                writeln!(out, "❌ {test}")?;
-                if !crate::ARGS.compact {
+                if ARGS.use_github_annotations {
+                    let file = test.pos.path.display();
+                    let line = test.pos.line;
+                    write!(out, "::error file={file},line={line}::{test}")?;
                     for line in result.errors.lines() {
-                        writeln!(out, "  {line}")?;
+                        write!(out, "%0A  {line}")?;
+                    }
+                    writeln!(out)?;
+                } else {
+                    writeln!(out, "❌ {test}")?;
+                    if !crate::ARGS.compact {
+                        for line in result.errors.lines() {
+                            writeln!(out, "  {line}")?;
+                        }
                     }
                 }
             } else if crate::ARGS.verbose || !result.infos.is_empty() {
@@ -113,13 +124,17 @@ impl<'a> Logger<'a> {
 
     /// Prints a summary and returns whether the test suite passed.
     pub fn finish(self) -> bool {
-        let Self { selected, passed, failed, skipped, .. } = self;
+        let Self { selected, passed, failed, skipped, reports, .. } = self;
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
         if self.mismatched_output {
             eprintln!("  pass the --update flag to update the reference output");
+        }
+
+        if ARGS.gen_report() {
+            report::write(reports);
         }
 
         self.failed == 0
