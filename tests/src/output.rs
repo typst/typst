@@ -138,7 +138,7 @@ pub trait OutputType: Sized {
 /// An output type that produces file references.
 pub trait FileOutputType: OutputType {
     /// Produces the reference output from the live output.
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]>;
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
     fn matches(old: &[u8], new: &Self::Live) -> bool;
@@ -185,7 +185,7 @@ impl OutputType for Render {
 }
 
 impl FileOutputType for Render {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         let opts = oxipng::Options::max_compression();
         let data = live.encode_png().unwrap();
         oxipng::optimize_from_memory(&data, &opts).unwrap()
@@ -270,7 +270,7 @@ impl OutputType for Pdftags {
 }
 
 impl FileOutputType for Pdftags {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
@@ -334,7 +334,7 @@ impl OutputType for Html {
 }
 
 impl FileOutputType for Html {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
