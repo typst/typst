@@ -335,14 +335,20 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
-    let separator = elem.separator.get_cloned(styles).map(|c| SuperElem::new(c).pack());
+    let sep = elem
+        .get_separator(
+            // This unwrap() is safe, as there's at least one footnote.
+            elem.children.first().unwrap().numbering.get_cloned(styles),
+            styles,
+        )
+        .map(|c| SuperElem::new(c).pack());
     let mut sups = Vec::<Content>::new();
     for (i, note) in elem.children.iter().enumerate() {
-        if let Some(separator) = &separator
+        if let Some(sep) = &sep
             && i != 0
         {
             // TODO: Use `Iterator::intersperse` when stabilized.
-            sups.push(separator.clone());
+            sups.push(sep.clone());
         }
         let span = note.span();
         let (dest, num) = note.realize(engine, styles)?;

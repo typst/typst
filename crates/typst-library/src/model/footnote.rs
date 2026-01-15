@@ -14,7 +14,9 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
+use crate::model::{
+    Destination, DirectLinkElem, Numbering, NumberingKind, NumberingPattern, ParElem,
+};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -183,7 +185,9 @@ impl Count for Packed<FootnoteElem> {
 pub struct FootnoteGroup {
     /// The separator between the footnote markers in the text.
     ///
-    /// By default, it is a comma. If set to `{none}`, there's no separator.
+    /// It is `{auto}` by default, and the separator depends on the footnote
+    /// [numbering pattern or function]($numbering). If set to `{none}`, there's
+    /// no separator.
     ///
     /// ```example
     /// #set footnote.group(separator: "&")
@@ -192,8 +196,8 @@ pub struct FootnoteGroup {
     /// #footnote[Referring to the city's characteristic summer fog.]
     /// #footnote[This quip is often misattributed to Mark Twain.].
     /// ```
-    #[default(Some(TextElem::packed(",")))]
-    pub separator: Option<Content>,
+    #[default(Smart::Auto)] // #[default(Some(TextElem::packed(",")))]
+    pub separator: Smart<Option<Content>>, // pub separator: Option<Content>,
 
     /// The footnotes.
     #[required]
@@ -204,6 +208,53 @@ impl FootnoteGroup {
     pub fn alt_text(styles: StyleChain, nums: Vec<&str>) -> EcoString {
         let local_name = Packed::<FootnoteElem>::local_name_in(styles);
         eco_format!("{local_name} {}", nums.join(","))
+    }
+
+    pub fn get_separator(
+        &self,
+        numbering: Numbering,
+        styles: StyleChain,
+    ) -> Option<Content> {
+        match self.separator.get_cloned(styles) {
+            Smart::Custom(content) => content,
+            Smart::Auto => {
+                let ascii_comma = Some(TextElem::packed(","));
+                match numbering {
+                    Numbering::Func(_) => None, // The safest default as it's arbitrary
+                    Numbering::Pattern(pattern) => match pattern {
+                        NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
+                        NumberingPattern { pieces, .. } => match pieces.as_slice() {
+                            [first, ..] if !first.0.is_empty() => None,
+                            [.., last] => match last.1 {
+                                NumberingKind::LowerSimplifiedChinese
+                                | NumberingKind::UpperSimplifiedChinese
+                                | NumberingKind::LowerTraditionalChinese
+                                | NumberingKind::UpperTraditionalChinese
+                                | NumberingKind::HiraganaAiueo
+                                | NumberingKind::HiraganaIroha
+                                | NumberingKind::KatakanaAiueo
+                                | NumberingKind::KatakanaIroha => {
+                                    Some(TextElem::packed("、"))
+                                }
+                                NumberingKind::KoreanJamo
+                                | NumberingKind::KoreanSyllable => {
+                                    Some(TextElem::packed("·"))
+                                }
+                                NumberingKind::EasternArabic
+                                | NumberingKind::EasternArabicPersian => {
+                                    Some(TextElem::packed("\u{0995}"))
+                                }
+                                NumberingKind::Symbol => Some(TextElem::packed(" ")),
+                                NumberingKind::CircledNumber
+                                | NumberingKind::DoubleCircledNumber => None,
+                                _ => ascii_comma,
+                            },
+                            _ => None,
+                        },
+                    },
+                }
+            }
+        }
     }
 }
 

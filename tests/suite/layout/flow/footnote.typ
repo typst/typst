@@ -290,7 +290,8 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
---- footnote-multiple-in-one-place paged html ---
+--- footnote-group paged html ---
+// Test that footnotes are organized in a footnote group.
 Hi#footnote[A]#footnote[B]#footnote[C]
 
 #set footnote.group(separator: "&")
@@ -298,6 +299,22 @@ Hi#footnote[D]#footnote[E]
 
 #set footnote.group(separator: none)
 Hi#footnote[F]#footnote[G]
+
+--- footnote-group-separator-auto paged ---
+// Test that the default separator between footnotes are chosen appropriately.
+Hi#footnote[A]#footnote[B] // The separator is ","
+
+#set footnote(numbering: "*")
+Hi#footnote[A]#footnote[B] // The separator is blank space
+
+#set footnote(numbering: "一")
+Hi#footnote[A]#footnote[B] // The separator is "、"
+
+#set footnote(numbering: "#1")
+Hi#footnote[A]#footnote[B] // No separator
+
+#set footnote(numbering: "1)")
+Hi#footnote[A]#footnote[B] // No separator
 
 --- footnote-multiple-in-one-line paged ---
 #set page(height: 100pt)
