@@ -947,8 +947,8 @@ fn find_in_frame_impl<T: NativeElement>(
         let y = y_offset + pos.y;
         match item {
             FrameItem::Group(group) => find_in_frame_impl(output, &group.frame, y),
-            FrameItem::Tag(Tag::Start(elem0, _)) => {
-                if let Some(elem) = elem0.to_packed::<T>() {
+            FrameItem::Tag(Tag::Start(elem, _)) => {
+                if let Some(elem) = elem.to_packed::<T>() {
                     output.push((y, elem.clone()));
                 }
             }
