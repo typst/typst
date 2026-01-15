@@ -451,10 +451,10 @@ impl Collector {
             let Some(output) =
                 TestOutput::from_sub_dir(sub_dir.as_os_str().to_str().unwrap())
             else {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, 0),
-                    message: "unknown reference file".into(),
-                });
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, 0),
+                    "unknown reference file",
+                ));
                 continue;
             };
 
@@ -476,29 +476,29 @@ impl Collector {
         let name = &*stem;
 
         let Some((pos, attrs)) = self.seen.get(name) else {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling reference output".into(),
-            });
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
             return;
         };
 
         if !attrs.stages.contains(output.into()) {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling reference output".into(),
-            });
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
         }
 
         let len = path.metadata().unwrap().len() as usize;
         if !attrs.large && len > crate::REF_LIMIT {
-            self.errors.push(TestParseError {
-                pos: pos.clone(),
-                message: format!(
+            self.errors.push(TestParseError::new(
+                pos.clone(),
+                format!(
                     "reference output size exceeds {}, but the test is not marked as `large`",
                     FileSize(crate::REF_LIMIT),
                 ),
-            });
+            ));
         }
     }
 
@@ -511,37 +511,37 @@ impl Collector {
         let path = Path::new(&path);
 
         if output.hash_refs_path() != path {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling reference hash file".into(),
-            });
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
             return None;
         }
 
         let string = std::fs::read_to_string(path).unwrap_or_default();
         let hashed_refs = HashedRefs::from_str(&string)
             .inspect_err(|err| {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, 0),
-                    message: format!("error parsing reference hash file: {err}"),
-                });
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, 0),
+                    format!("error parsing reference hash file: {err}"),
+                ));
             })
             .ok()?;
 
-        for (line, name) in hashed_refs.names().enumerate() {
+        for (name, line) in hashed_refs.names().zip(1..) {
             let Some((_, attrs)) = self.seen.get(name) else {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, line),
-                    message: format!("dangling reference hash ({name})"),
-                });
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, line),
+                    TestParseErrorKind::DanglingHash(name.clone()),
+                ));
                 continue;
             };
 
             if !attrs.stages.contains(output.into()) {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, line),
-                    message: format!("dangling reference hash ({name})"),
-                });
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, line),
+                    TestParseErrorKind::DanglingHash(name.clone()),
+                ));
                 continue;
             }
         }
@@ -889,10 +889,9 @@ impl<'a> Parser<'a> {
 
     /// Stores a test parsing error.
     fn error(&mut self, message: impl Into<String>) {
-        self.collector.errors.push(TestParseError {
-            pos: FilePos::new(self.path, self.line),
-            message: message.into(),
-        });
+        self.collector
+            .errors
+            .push(TestParseError::new(FilePos::new(self.path, self.line), message));
     }
 }
 
@@ -926,12 +925,42 @@ fn selected(name: &str, abs: PathBuf) -> bool {
 /// An error in a test file.
 pub struct TestParseError {
     pub pos: FilePos,
-    pub message: String,
+    pub kind: TestParseErrorKind,
+}
+
+impl TestParseError {
+    pub fn new(pos: FilePos, kind: impl Into<TestParseErrorKind>) -> Self {
+        Self { pos, kind: kind.into() }
+    }
 }
 
 impl Display for TestParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} ({})", self.message, self.pos)
+        write!(f, "{} ({})", self.kind, self.pos)
+    }
+}
+
+pub enum TestParseErrorKind {
+    DanglingFile,
+    DanglingHash(EcoString),
+    Other(String),
+}
+
+impl<S: Into<String>> From<S> for TestParseErrorKind {
+    fn from(v: S) -> Self {
+        Self::Other(v.into())
+    }
+}
+
+impl Display for TestParseErrorKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            TestParseErrorKind::DanglingFile => f.write_str("dangling reference file"),
+            TestParseErrorKind::DanglingHash(name) => {
+                write!(f, "dangling reference hash ({name})")
+            }
+            TestParseErrorKind::Other(message) => f.write_str(message),
+        }
     }
 }
 

@@ -16,9 +16,10 @@ use std::time::Duration;
 use clap::Parser;
 use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
-use crate::collect::Test;
+use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
 
 /// The parsed command line arguments.
@@ -157,13 +158,38 @@ fn clean() {
 
 fn undangle() {
     match crate::collect::collect() {
-        Ok(_) => eprintln!("no danging reference output"),
+        Ok(_) => eprintln!("no dangling reference output"),
         Err(errors) => {
-            for error in errors {
-                if error.message == "dangling reference output" {
-                    std::fs::remove_file(&error.pos.path).unwrap();
-                    eprintln!("✅ deleted {}", error.pos.path.display());
+            let mut dangling_hashes = FxHashMap::<&Path, Vec<usize>>::default();
+            for error in errors.iter() {
+                match &error.kind {
+                    TestParseErrorKind::DanglingFile => {
+                        std::fs::remove_file(&error.pos.path).unwrap();
+                        eprintln!("✅ deleted {}", error.pos.path.display());
+                    }
+                    TestParseErrorKind::DanglingHash(name) => {
+                        eprintln!("✅ removed hash {name} {}", error.pos);
+                        let lines = dangling_hashes.entry(&error.pos.path).or_default();
+                        lines.push(error.pos.line);
+                    }
+                    TestParseErrorKind::Other(_) => (),
                 }
+            }
+
+            // Remove dangling hashes from file.
+            for (path, mut line_nrs) in dangling_hashes {
+                line_nrs.sort();
+                let text = std::fs::read_to_string(path).unwrap();
+                let mut lines = { text.lines().collect::<Vec<_>>() };
+                for nr in line_nrs.iter().rev() {
+                    lines.remove(nr - 1);
+                }
+                let mut updated = String::with_capacity(text.len());
+                for line in lines.iter() {
+                    updated.push_str(line);
+                    updated.push('\n');
+                }
+                std::fs::write(path, updated).unwrap();
             }
         }
     }
