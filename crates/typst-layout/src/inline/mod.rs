@@ -9,6 +9,8 @@ mod prepare;
 mod shaping;
 
 pub use self::box_::layout_box;
+pub use self::line::{LineMetricsRaw, measure_line};
+pub use self::linebreak::linebreak_variable_width;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 use comemo::{Track, Tracked, TrackedMut};
@@ -29,7 +31,7 @@ use typst_utils::{Numeric, Protected, SliceExt};
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{Line, apply_shift, commit, line, measure_line};
+use self::line::{Line, apply_shift, commit, line};
 use self::linebreak::{Breakpoint, linebreak};
 use self::prepare::{Preparation, prepare};
 use self::shaping::{
