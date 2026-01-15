@@ -29,7 +29,7 @@ use typst_utils::{Numeric, Protected, SliceExt};
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{Line, apply_shift, commit, line};
+use self::line::{Line, apply_shift, commit, line, measure_line};
 use self::linebreak::{Breakpoint, linebreak};
 use self::prepare::{Preparation, prepare};
 use self::shaping::{
@@ -122,6 +122,182 @@ fn layout_par_impl(
     )
 }
 
+/// Measure a paragraph without creating frames.
+///
+/// Returns line metrics and break positions that can be used to:
+/// 1. Position the paragraph (using total_height)
+/// 2. Compute exclusion zones for wrap-floats (using line_metrics)
+/// 3. Later commit to frames via commit_par() (using break_info)
+///
+/// NOT memoized - the refinement loop needs fresh results each iteration.
+pub fn measure_par_with_exclusions(
+    elem: &Packed<ParElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    region: Size,
+    expand: bool,
+    situation: ParSituation,
+    // exclusions: Option<&ParExclusions>,  // Uncomment in Phase 2
+) -> SourceResult<ParMeasureResult> {
+    let arenas = Arenas::default();
+    let mut split_locator = locator.split();
+
+    let children = (engine.routines.realize)(
+        RealizationKind::LayoutPar,
+        engine,
+        &mut split_locator,
+        &arenas,
+        &elem.body,
+        styles,
+    )?;
+
+    let base = ConfigBase {
+        justify: elem.justify.get(styles),
+        linebreaks: elem.linebreaks.get(styles),
+        first_line_indent: elem.first_line_indent.get(styles),
+        hanging_indent: elem.hanging_indent.resolve(styles),
+    };
+
+    measure_par_inner(
+        engine,
+        &children,
+        &mut split_locator,
+        styles,
+        region,
+        expand,
+        Some(situation),
+        &base,
+    )
+}
+
+/// Inner measurement implementation.
+fn measure_par_inner<'a>(
+    engine: &mut Engine,
+    children: &[Pair<'a>],
+    locator: &mut SplitLocator<'a>,
+    styles: StyleChain<'a>,
+    region: Size,
+    _expand: bool,
+    par: Option<ParSituation>,
+    base: &ConfigBase,
+) -> SourceResult<ParMeasureResult> {
+    let config = configuration(base, children, styles, par);
+    let (text, segments, spans) = collect(children, engine, locator, &config, region)?;
+    let p = prepare(engine, &config, &text, segments, spans)?;
+
+    // Line breaking
+    let width = region.x - config.hanging_indent;
+    let lines = linebreak(engine, &p, width);
+
+    // Extract metrics WITHOUT building frames
+    let leading = styles.resolve(ParElem::leading);
+    let mut total_height = Abs::zero();
+    let mut line_metrics = Vec::with_capacity(lines.len());
+    let mut break_info = Vec::with_capacity(lines.len());
+
+    for (i, ln) in lines.iter().enumerate() {
+        if i > 0 {
+            total_height += leading;
+        }
+
+        let raw = measure_line(engine, ln);
+        let metrics = LineMetrics {
+            width: ln.width,
+            height: raw.height(),
+            ascent: raw.ascent,
+            descent: raw.descent,
+        };
+
+        total_height += metrics.height;
+        line_metrics.push(metrics);
+
+        break_info.push(BreakInfo {
+            end: ln.end,
+            breakpoint: ln.breakpoint,
+        });
+    }
+
+    Ok(ParMeasureResult {
+        line_metrics,
+        total_height,
+        break_info,
+    })
+}
+
+/// Commit a measured paragraph to frames.
+///
+/// Must be called with the SAME inputs as measure_par_with_exclusions().
+/// If inputs differ, line reconstruction may produce different results.
+pub fn commit_par(
+    elem: &Packed<ParElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    region: Size,
+    expand: bool,
+    situation: ParSituation,
+    measured: &ParMeasureResult,
+    // exclusions: Option<&ParExclusions>,  // Uncomment in Phase 2
+) -> SourceResult<ParCommitResult> {
+    let arenas = Arenas::default();
+    let mut split_locator = locator.split();
+
+    let children = (engine.routines.realize)(
+        RealizationKind::LayoutPar,
+        engine,
+        &mut split_locator,
+        &arenas,
+        &elem.body,
+        styles,
+    )?;
+
+    let base = ConfigBase {
+        justify: elem.justify.get(styles),
+        linebreaks: elem.linebreaks.get(styles),
+        first_line_indent: elem.first_line_indent.get(styles),
+        hanging_indent: elem.hanging_indent.resolve(styles),
+    };
+
+    let config = configuration(&base, &children, styles, Some(situation));
+    let (text, segments, spans) = collect(&children, engine, &mut split_locator, &config, region)?;
+    let p = prepare(engine, &config, &text, segments, spans)?;
+
+    // Reconstruct lines from stored break info (NOT re-running linebreak)
+    let lines = reconstruct_lines(engine, &p, &measured.break_info);
+
+    // Create frames using existing finalize
+    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator)?;
+
+    Ok(ParCommitResult {
+        frames: fragment.into_frames(),
+    })
+}
+
+/// Reconstruct Line objects from stored break information.
+///
+/// Produces identical lines to original linebreak() because:
+/// 1. Preparation rebuilt from same inputs
+/// 2. line() is deterministic given (range, breakpoint, pred)
+/// 3. Built sequentially for correct predecessor chain
+fn reconstruct_lines<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    break_info: &[BreakInfo],
+) -> Vec<Line<'a>> {
+    let mut lines = Vec::with_capacity(break_info.len());
+    let mut start = 0;
+
+    for info in break_info {
+        let prev = lines.last();
+        let ln = line(engine, p, start..info.end, info.breakpoint, prev);
+        start = info.end;
+        lines.push(ln);
+    }
+
+    lines
+}
+
 /// Lays out realized content with inline layout.
 pub fn layout_inline<'a>(
     engine: &mut Engine,
@@ -172,6 +348,49 @@ fn layout_inline_impl<'a>(
 
     // Break the text into lines.
     let lines = linebreak(engine, &p, region.x - config.hanging_indent);
+
+    // DEBUG: Verify that reconstruct_lines produces identical lines to linebreak.
+    // This is the core invariant for the measure/commit split.
+    #[cfg(debug_assertions)]
+    {
+        // Extract break info from the lines (simulating what measure_par does)
+        let break_info: Vec<BreakInfo> = lines
+            .iter()
+            .map(|ln| BreakInfo {
+                end: ln.end,
+                breakpoint: ln.breakpoint,
+            })
+            .collect();
+
+        // Reconstruct lines from break info (simulating what commit_par does)
+        let reconstructed = reconstruct_lines(engine, &p, &break_info);
+
+        // Verify line count matches
+        debug_assert_eq!(
+            lines.len(),
+            reconstructed.len(),
+            "reconstruct_lines produced different number of lines"
+        );
+
+        // Verify each line matches
+        for (i, (orig, recon)) in lines.iter().zip(reconstructed.iter()).enumerate() {
+            debug_assert_eq!(
+                orig.end, recon.end,
+                "Line {i}: end position differs ({} vs {})",
+                orig.end, recon.end
+            );
+            debug_assert_eq!(
+                orig.breakpoint, recon.breakpoint,
+                "Line {i}: breakpoint differs"
+            );
+            // Compare widths with small tolerance for floating point
+            let width_diff = (orig.width - recon.width).abs();
+            debug_assert!(
+                width_diff < Abs::pt(0.001),
+                "Line {i}: width differs by {width_diff:?}"
+            );
+        }
+    }
 
     // Turn the selected lines into frames.
     finalize(engine, &p, &lines, region, expand, locator)
