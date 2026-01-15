@@ -17,7 +17,7 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
+use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Frame, Size};
 use typst_library::model::{
     EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
     ParLine, ParLineMarker, TermsElem,
@@ -252,6 +252,45 @@ pub enum ParSituation {
     Consecutive,
     /// Any other kind of paragraph.
     Other,
+}
+
+/// Result of measuring a paragraph without creating frames.
+#[derive(Debug, Clone)]
+pub struct ParMeasureResult {
+    /// Per-line metrics for exclusion zone calculations.
+    pub line_metrics: Vec<LineMetrics>,
+    /// Total height including leading between lines.
+    pub total_height: Abs,
+    /// Break information for reconstructing lines during commit.
+    pub break_info: Vec<BreakInfo>,
+}
+
+/// Metrics for a single line.
+#[derive(Debug, Clone, Copy)]
+pub struct LineMetrics {
+    /// Natural width of the line content.
+    pub width: Abs,
+    /// Total height (ascent + descent).
+    pub height: Abs,
+    /// Distance from top of line to baseline.
+    pub ascent: Abs,
+    /// Distance from baseline to bottom of line.
+    pub descent: Abs,
+}
+
+/// Information needed to reconstruct a line break.
+#[derive(Debug, Clone, Copy)]
+pub struct BreakInfo {
+    /// End byte offset of this line in the paragraph text.
+    pub end: usize,
+    /// The breakpoint type (normal, mandatory, or hyphen).
+    pub breakpoint: Breakpoint,
+}
+
+/// Result of committing a measured paragraph to frames.
+pub struct ParCommitResult {
+    /// One frame per line, ready for positioning.
+    pub frames: Vec<Frame>,
 }
 
 /// Raw values from a `ParElem` or style chain. Used to initialize a [`Config`].

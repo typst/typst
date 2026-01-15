@@ -10,7 +10,7 @@ use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
-use crate::inline::linebreak::Trim;
+use crate::inline::linebreak::{Breakpoint, Trim};
 use crate::inline::shaping::Adjustability;
 use crate::modifiers::layout_and_modify;
 
@@ -39,6 +39,10 @@ pub struct Line<'a> {
     /// Whether the line ends with a hyphen or dash, either naturally or through
     /// hyphenation.
     pub dash: Option<Dash>,
+    /// End byte offset in paragraph text (for measure/commit round-tripping).
+    pub end: usize,
+    /// The breakpoint type that ended this line.
+    pub breakpoint: Breakpoint,
 }
 
 impl Line<'_> {
@@ -49,6 +53,8 @@ impl Line<'_> {
             width: Abs::zero(),
             justify: false,
             dash: None,
+            end: 0,
+            breakpoint: Breakpoint::Mandatory,
         }
     }
 
@@ -112,6 +118,57 @@ impl Line<'_> {
     }
 }
 
+/// Line metrics computed without building full frames.
+#[derive(Debug, Clone, Copy)]
+pub struct LineMetricsRaw {
+    pub ascent: Abs,
+    pub descent: Abs,
+}
+
+impl LineMetricsRaw {
+    pub fn height(&self) -> Abs {
+        self.ascent + self.descent
+    }
+}
+
+/// Compute line metrics without creating full frames.
+///
+/// More efficient than commit() because it uses ShapedText::measure()
+/// instead of building frames for text items.
+pub fn measure_line(engine: &Engine, line: &Line) -> LineMetricsRaw {
+    let mut top = Abs::zero();
+    let mut bottom = Abs::zero();
+
+    for (_, item) in line.items.indexed_iter() {
+        match &**item {
+            Item::Absolute(_, _) | Item::Skip(_) | Item::Tag(_) => {
+                // These do not contribute to line height
+            }
+            Item::Fractional(_, elem) => {
+                // Estimate using font metrics (actual layout in commit)
+                if let Some((_, _, styles)) = elem {
+                    let size = styles.resolve(TextElem::size);
+                    top.set_max(size * 0.8);
+                    bottom.set_max(size * 0.2);
+                }
+            }
+            Item::Text(shaped) => {
+                // Use ShapedText::measure() - efficient, no frame creation
+                let (t, b) = shaped.measure(engine);
+                top.set_max(t);
+                bottom.set_max(b);
+            }
+            Item::Frame(frame) => {
+                // Pre-built frames have exact metrics
+                top.set_max(frame.baseline());
+                bottom.set_max(frame.size().y - frame.baseline());
+            }
+        }
+    }
+
+    LineMetricsRaw { ascent: top, descent: bottom }
+}
+
 /// A dash at the end of a line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dash {
@@ -167,6 +224,7 @@ pub fn line<'a>(
         items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
     }
 
+    let end = range.end;
     collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
@@ -191,7 +249,7 @@ pub fn line<'a>(
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
 
-    Line { items, width, justify, dash }
+    Line { items, width, justify, dash, end, breakpoint }
 }
 
 /// Collects / reshapes all items for the line with the given `range`.

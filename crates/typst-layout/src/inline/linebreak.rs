@@ -150,6 +150,26 @@ pub fn linebreak<'a>(
     }
 }
 
+/// Line breaking with variable widths for wrap-float support.
+///
+/// # Phase 0 (Current)
+/// This is a stub that delegates to standard linebreak().
+///
+/// # Phase 4 (Future)
+/// Will implement proper variable-width Knuth-Plass:
+/// - Query exclusions.available_width(base_width, y) per line
+/// - Iterative refinement with height estimates
+/// - Modified cost function for variable widths
+pub fn linebreak_variable_width<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    base_width: Abs,
+    // exclusions: Option<&ParExclusions>,  // Uncomment in Phase 2
+) -> Vec<Line<'a>> {
+    // Phase 0: Just delegate to standard linebreak
+    linebreak(engine, p, base_width)
+}
+
 /// Performs line breaking in simple first-fit style. This means that we build
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
