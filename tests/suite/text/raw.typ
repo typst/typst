@@ -108,7 +108,7 @@ contexts:
 // Error: 35-56 failed to parse syntax (Error while compiling regex '\': Parsing error at position 0: Backslash without following character)
 #raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
---- raw-syntaxes-types paged ---
+--- raw-syntaxes-types paged empty ---
 #let sublime-syntax = ```yaml
 %YAML 1.2
 ```.text + "\n---\n" + ```yaml
@@ -340,7 +340,7 @@ int main() {
 </tbody>
 ```
 
---- raw-blocky paged ---
+--- raw-blocky eval ---
 // Test various raw parsing edge cases.
 
 #let empty = (
@@ -631,7 +631,7 @@ print(x)
 print(y)
 ```
 
---- raw-line-scripting paged ---
+--- raw-line-scripting paged empty ---
 
 // Test line extraction works.
 
@@ -773,7 +773,7 @@ a b c --------------------
 #let hi = "你好world"
 ```
 
---- issue-6559-equality-between-raws paged ---
+--- issue-6559-equality-between-raws eval ---
 
 #test(`foo`, `foo`)
 #assert.ne(`foo`, `bar`)

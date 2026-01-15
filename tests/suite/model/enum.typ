@@ -181,7 +181,7 @@ a + 0.
    32. g
    64. h
 
---- enum-number-align-values paged ---
+--- enum-number-align-values paged empty ---
 // Test valid number align values (horizontal and vertical)
 #set enum(number-align: start)
 #set enum(number-align: end)

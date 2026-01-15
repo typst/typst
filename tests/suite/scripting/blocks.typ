@@ -20,23 +20,23 @@
   [you] + "?"
 }
 
---- code-block-empty paged ---
+--- code-block-empty eval ---
 // Nothing evaluates to none.
 #test({}, none)
 
---- code-block-let paged ---
+--- code-block-let eval ---
 // Let evaluates to none.
 #test({ let v = 0 }, none)
 
---- code-block-single-expression paged ---
+--- code-block-single-expression eval ---
 // Evaluates to single expression.
 #test({ "hello" }, "hello")
 
---- code-block-multiple-expressions-single-line paged ---
+--- code-block-multiple-expressions-single-line eval ---
 // Evaluates to string.
 #test({ let x = "m"; x + "y" }, "my")
 
---- code-block-join-let-with-expression paged ---
+--- code-block-join-let-with-expression eval ---
 // Evaluated to int.
 #test({
   let x = 1
@@ -44,7 +44,7 @@
   x + y
 }, 3)
 
---- code-block-join-expression-with-none paged ---
+--- code-block-join-expression-with-none eval ---
 // String is joined with trailing none, evaluates to string.
 #test({
   type("")
@@ -89,7 +89,7 @@
 // Error: 2-3 unknown variable: b
 #b
 
---- code-block-nested-scopes paged ---
+--- code-block-nested-scopes eval ---
 // Multiple nested scopes.
 #{
   let a = "a1"

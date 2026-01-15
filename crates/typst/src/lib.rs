@@ -49,7 +49,7 @@ use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
+use typst_library::foundations::{Content, NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
@@ -88,6 +88,35 @@ where
     sink.values()
 }
 
+/// Evaluate sources into content, without doing any layouting.
+///
+/// - Returns `Ok(content)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+#[typst_macros::time]
+pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
+    let mut sink = Sink::new();
+    let output = eval_impl(world.track(), Traced::default().track(), &mut sink)
+        .map_err(deduplicate);
+
+    Warned { output, warnings: sink.warnings() }
+}
+
+/// Compile content into a fully layouted document.
+///
+/// - Returns `Ok(document)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+#[typst_macros::time]
+pub fn realize<D>(world: &dyn World, content: Content) -> Warned<SourceResult<D>>
+where
+    D: Document,
+{
+    let mut sink = Sink::new();
+    let output =
+        realize_impl::<D>(world.track(), Traced::default().track(), &mut sink, content)
+            .map_err(deduplicate);
+    Warned { output, warnings: sink.warnings() }
+}
+
 /// The internal implementation of `compile` with a bit lower-level interface
 /// that is also used by `trace`.
 fn compile_impl<D: Document>(
@@ -99,12 +128,62 @@ fn compile_impl<D: Document>(
         warn_or_error_for_html(world, sink)?;
     }
 
-    let library = world.library();
-    let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::target()).wrap();
-    let styles = base.chain(&target);
-    let empty_introspector = Introspector::default();
+    let content = eval_sources(world, traced, sink)?;
+    let document = realize_content(world, traced, sink, content)?;
 
+    // Promote delayed errors.
+    let delayed = sink.delayed();
+    if !delayed.is_empty() {
+        return Err(delayed);
+    }
+
+    Ok(document)
+}
+
+/// The first part of compilation.
+fn eval_impl(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+) -> SourceResult<Content> {
+    let content = eval_sources(world, traced, sink)?;
+
+    // Promote delayed errors.
+    let delayed = sink.delayed();
+    if !delayed.is_empty() {
+        return Err(delayed);
+    }
+
+    Ok(content)
+}
+
+/// The second part of compilation.
+fn realize_impl<D: Document>(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+    content: Content,
+) -> SourceResult<D> {
+    if D::target() == Target::Html {
+        warn_or_error_for_html(world, sink)?;
+    }
+
+    let document = realize_content(world, traced, sink, content)?;
+
+    // Promote delayed errors.
+    let delayed = sink.delayed();
+    if !delayed.is_empty() {
+        return Err(delayed);
+    }
+
+    Ok(document)
+}
+
+fn eval_sources(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+) -> SourceResult<Content> {
     // Fetch the main source file once.
     let main = world.main();
     let main = world
@@ -121,6 +200,21 @@ fn compile_impl<D: Document>(
         &main,
     )?
     .content();
+
+    Ok(content)
+}
+
+fn realize_content<D: Document>(
+    world: Tracked<dyn World + '_>,
+    traced: Tracked<Traced>,
+    sink: &mut Sink,
+    content: Content,
+) -> SourceResult<D> {
+    let library = world.library();
+    let base = StyleChain::new(&library.styles);
+    let target = TargetElem::target.set(D::target()).wrap();
+    let styles = base.chain(&target);
+    let empty_introspector = Introspector::default();
 
     let mut history: ArrayVec<D, { MAX_ITERS - 1 }> = ArrayVec::new();
     let mut document: D;
@@ -174,12 +268,6 @@ fn compile_impl<D: Document>(
         }
 
         history.push(document);
-    }
-
-    // Promote delayed errors.
-    let delayed = sink.delayed();
-    if !delayed.is_empty() {
-        return Err(delayed);
     }
 
     Ok(document)

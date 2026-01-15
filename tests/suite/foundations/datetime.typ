@@ -12,7 +12,7 @@
 // Error: 2-41 date is invalid
 #datetime(year: 2000, month: 2, day: 30)
 
---- datetime-display paged ---
+--- datetime-display eval ---
 // Test displaying of dates.
 #test(datetime(year: 2023, month: 4, day: 29).display(), "2023-04-29")
 #test(datetime(year: 2023, month: 4, day: 29).display("[year]"), "2023")
@@ -66,7 +66,7 @@
 #test(datetime.today(offset: auto).display(), "1970-01-01")
 #test(datetime.today(offset: 2).display(), "1970-01-01")
 
---- datetime-ordinal paged ---
+--- datetime-ordinal eval ---
 // Test date methods.
 #test(datetime(day: 1, month: 1, year: 2000).ordinal(), 1);
 #test(datetime(day: 1, month: 3, year: 2000).ordinal(), 31 + 29 + 1);

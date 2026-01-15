@@ -1,4 +1,4 @@
---- calc-round paged ---
+--- calc-round eval ---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
 #test(type(calc.round(3.1415, digits: 2)), float)
@@ -8,7 +8,7 @@
 #test(type(calc.round(523, digits: -2)), int)
 #test(type(calc.round(decimal("314.15"), digits: -2)), decimal)
 
---- calc-round-large-inputs paged ---
+--- calc-round-large-inputs eval ---
 #test(calc.round(31114, digits: 4000000000), 31114)
 #test(calc.round(9223372036854775807, digits: 12), 9223372036854775807)
 #test(calc.round(9223372036854775807, digits: -20), 0)
@@ -22,7 +22,7 @@
 #test(calc.round(decimal("79228162514264337593543950335"), digits: -50), decimal("0"))
 #test(calc.round(decimal("-79228162514264337593543950335"), digits: -2), decimal("-79228162514264337593543950300"))
 
---- calc-abs paged ---
+--- calc-abs eval ---
 // Test the `abs` function.
 #test(calc.abs(-3), 3)
 #test(calc.abs(3), 3)
@@ -38,14 +38,14 @@
 // Error: 11-22 expected integer, float, length, angle, ratio, fraction, or decimal, found string
 #calc.abs("no number")
 
---- calc-even-and-odd paged ---
+--- calc-even-and-odd eval ---
 // Test the `even` and `odd` functions.
 #test(calc.even(2), true)
 #test(calc.odd(2), false)
 #test(calc.odd(-1), true)
 #test(calc.even(-11), false)
 
---- calc-rem paged ---
+--- calc-rem eval ---
 // Test the `rem` function.
 #test(calc.rem(1, 1), 0)
 #test(calc.rem(5, 3), 2)
@@ -76,7 +76,7 @@
 // Error: 27-39 divisor must not be zero
 #calc.rem(decimal("4.0"), decimal("0"))
 
---- calc-div-euclid paged ---
+--- calc-div-euclid eval ---
 // Test the `div-euclid` function.
 #test(calc.div-euclid(7, 3), 2)
 #test(calc.div-euclid(7, -3), -2)
@@ -105,7 +105,7 @@
 // Error: 2-50 the result is too large
 #calc.div-euclid(int("-9223372036854775808"), -1)
 
---- calc-rem-euclid paged ---
+--- calc-rem-euclid eval ---
 // Test the `rem-euclid` function.
 #test(calc.rem-euclid(7, 3), 1)
 #test(calc.rem-euclid(7, -3), 1)
@@ -134,7 +134,7 @@
 // Error: 35-50 divisor must not be zero
 #calc.rem-euclid(decimal("3.00"), decimal("0.00"))
 
---- calc-quo paged ---
+--- calc-quo eval ---
 // Test the `quo` function.
 #test(calc.quo(1, 1), 1)
 #test(calc.quo(5, 3), 1)
@@ -166,7 +166,7 @@
 // Error: 2-43 the result is too large
 #calc.quo(int("-9223372036854775808"), -1)
 
---- calc-min-and-max paged ---
+--- calc-min-and-max eval ---
 // Test the `min` and `max` functions.
 #test(calc.min(2, -4), -4)
 #test(calc.min(3.5, 1e2, -0.1, 3), -0.1)
@@ -175,7 +175,7 @@
 #test(calc.max(decimal("3"), 45), 45)
 #test(calc.min("hi"), "hi")
 
---- calc-pow-log-exp-ln paged ---
+--- calc-pow-log-exp-ln eval ---
 // Test the `pow`, `log`, `exp`, and `ln` functions.
 #test(calc.pow(10, 0), 1)
 #test(calc.pow(2, 4), 16)
@@ -183,7 +183,7 @@
 #test(calc.exp(2), calc.pow(calc.e, 2))
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
---- calc-bit-logical paged ---
+--- calc-bit-logical eval ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
 #test(64.bit-not(), -65)
 #test(0.bit-not(), -1)
@@ -201,7 +201,7 @@
 #test((-1).bit-xor(-7), 6)
 #test(0.bit-xor(492), 492)
 
---- calc-bit-shift paged ---
+--- calc-bit-shift eval ---
 // Test the `bit-lshift` and `bit-rshift` functions.
 #test(32.bit-lshift(2), 128)
 #test(694.bit-lshift(0), 694)
@@ -254,7 +254,7 @@
 // Error: 12-14 cannot take square root of negative number
 #calc.sqrt(-1)
 
---- calc-root paged ---
+--- calc-root eval ---
 #test(calc.root(12.0, 1), 12.0)
 #test(calc.root(9.0, 2), 3.0)
 #test(calc.root(27.0, 3), 3.0)
@@ -282,7 +282,7 @@
 // Error: 2-24 the result is not a real number
 #calc.log(10, base: -1)
 
---- calc-fact paged ---
+--- calc-fact eval ---
 // Test the `fact` function.
 #test(calc.fact(0), 1)
 #test(calc.fact(5), 120)
@@ -291,7 +291,7 @@
 // Error: 2-15 the result is too large
 #calc.fact(21)
 
---- calc-perm paged ---
+--- calc-perm eval ---
 // Test the `perm` function.
 #test(calc.perm(0, 0), 1)
 #test(calc.perm(5, 3), 60)
@@ -302,7 +302,7 @@
 // Error: 2-19 the result is too large
 #calc.perm(21, 21)
 
---- calc-binom paged ---
+--- calc-binom eval ---
 // Test the `binom` function.
 #test(calc.binom(0, 0), 1)
 #test(calc.binom(5, 3), 10)
@@ -310,7 +310,7 @@
 #test(calc.binom(5, 6), 0)
 #test(calc.binom(6, 2), 15)
 
---- calc-gcd paged ---
+--- calc-gcd eval ---
 // Test the `gcd` function.
 #test(calc.gcd(112, 77), 7)
 #test(calc.gcd(12, 96), 12)
@@ -324,7 +324,7 @@
 // Error: 2-43 the result is too large
 #calc.gcd(int("-9223372036854775808"), -1)
 
---- calc-lcm paged ---
+--- calc-lcm eval ---
 // Test the `lcm` function.
 #test(calc.lcm(112, 77), 1232)
 #test(calc.lcm(12, 96), 96)
@@ -338,7 +338,7 @@
 // Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
 
---- calc-round-larger-than-max-int paged ---
+--- calc-round-larger-than-max-int eval ---
 #test(calc.round(decimal("9223372036854775809.5")), decimal("9223372036854775810"))
 #test(calc.round(9223372036854775809.5), 9223372036854775810.0)
 
@@ -350,7 +350,7 @@
 // Error: 2-46 the result is too large
 #calc.floor(decimal("9223372036854775809.5"))
 
---- calc-round-smaller-than-min-int paged ---
+--- calc-round-smaller-than-min-int eval ---
 #test(calc.round(decimal("-9223372036854775809.5")), decimal("-9223372036854775810"))
 #test(calc.round(-9223372036854775809.5), -9223372036854775810.0)
 
@@ -395,7 +395,7 @@
 // Hint: 2-37 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
 #calc.clamp(decimal("10"), 5.5, 6.6)
 
---- calc-norm paged ---
+--- calc-norm eval ---
 #test(calc.norm(1, 2, -3, 0.5), calc.sqrt(14.25))
 #test(calc.norm(3, 4), 5.0)
 #test(calc.norm(3, 4), 5.0)

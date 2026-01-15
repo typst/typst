@@ -102,11 +102,6 @@ impl CliArguments {
             })
         })
     }
-
-    /// Whether the stage should be run depending on the `--stages` flag.
-    pub fn should_run(&self, stage: TestStages) -> bool {
-        self.stages().intersects(stage)
-    }
 }
 
 /// What to do.
@@ -121,6 +116,7 @@ pub enum Command {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum TestStage {
+    Eval,
     Paged,
     Render,
     Pdf,
@@ -132,6 +128,7 @@ pub enum TestStage {
 impl From<TestStage> for TestStages {
     fn from(value: TestStage) -> Self {
         match value {
+            TestStage::Eval => TestStages::EVAL,
             TestStage::Paged => TestStages::PAGED,
             TestStage::Render => TestStages::RENDER,
             TestStage::Pdf => TestStages::PDF,

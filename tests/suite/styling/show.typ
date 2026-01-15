@@ -82,7 +82,7 @@ Another text.
 #show heading: it => it.page
 = Heading
 
---- show-text-element-discard paged ---
+--- show-text-element-discard paged empty ---
 #show text: none
 Hey
 

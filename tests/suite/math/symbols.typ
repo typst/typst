@@ -1,6 +1,6 @@
 // Test math symbol edge cases.
 
---- math-symbol-basic paged ---
+--- math-symbol-basic eval ---
 #let sym = symbol("s", ("basic", "s"))
 #test($sym.basic$, $s$)
 
@@ -14,7 +14,7 @@ $sym.test_underscore$
 // Error: 6-10 unknown symbol modifier
 $sym.test-dash$
 
---- math-symbol-double paged ---
+--- math-symbol-double eval ---
 #let sym = symbol("s", ("test.basic", "s"))
 #test($sym.test.basic$, $s$)
 

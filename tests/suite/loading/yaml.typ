@@ -1,4 +1,4 @@
---- yaml paged ---
+--- yaml eval ---
 // Test reading YAML data
 #let data = yaml("/assets/data/yaml-types.yaml")
 #test(data.len(), 9)
@@ -20,12 +20,12 @@
 // Error: "/assets/data/bad.yaml" 2:1 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/assets/data/bad.yaml")
 
---- yaml-decode-deprecated paged ---
+--- yaml-decode-deprecated eval ---
 // Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
 
---- yaml-decode-number paged ---
+--- yaml-decode-number eval ---
 #import "edge-case.typ": large-integer, representable-integer
 
 #for (name, source) in representable-integer {
@@ -44,7 +44,7 @@
   )
 }
 
---- yaml-encode-any paged ---
+--- yaml-encode-any eval ---
 #import "edge-case.typ": special-types-for-human
 #for value in special-types-for-human {
   test(

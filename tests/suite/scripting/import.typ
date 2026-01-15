@@ -15,37 +15,37 @@
 // Stop at semicolon.
 #import "module.typ": a, c;bye
 
---- import-item-markup paged ---
+--- import-item-markup eval ---
 // An item import.
 #import "module.typ": item
 #test(item(1, 2), 3)
 
---- import-item-in-code paged ---
+--- import-item-in-code eval ---
 // Code mode
 #{
   import "module.typ": b
   test(b, 1)
 }
 
---- import-wildcard-in-markup paged ---
+--- import-wildcard-in-markup eval ---
 // A wildcard import.
 #import "module.typ": *
 
 // It exists now!
 #test(d, 3)
 
---- import-item-renamed paged ---
+--- import-item-renamed eval ---
 // A renamed item import.
 #import "module.typ": item as something
 #test(something(1, 2), 3)
 
---- import-items-renamed-mixed paged ---
+--- import-items-renamed-mixed eval ---
 // Mixing renamed and not renamed items.
 #import "module.typ": fn, b as val, item as other
 #test(val, 1)
 #test(other(1, 2), 3)
 
---- import-nested-item paged ---
+--- import-nested-item eval ---
 // Nested item imports.
 #import "modules/chap1.typ" as orig-chap1
 #import "modules/chap2.typ" as orig-chap2
@@ -55,7 +55,7 @@
 #test(name, "Peter")
 #test(othername, "Klaus")
 
---- import-items-parenthesized paged ---
+--- import-items-parenthesized eval ---
 #import "module.typ": ()
 #import "module.typ": (a)
 #import "module.typ": (a, b)
@@ -66,7 +66,7 @@
 #test(c, 2)
 #test(d, 3)
 
---- import-items-parenthesized-multiline paged ---
+--- import-items-parenthesized-multiline eval ---
 #import "module.typ": (
   a
 )
@@ -111,34 +111,34 @@
 #eq(10, 10)
 #ne(5, 6)
 
---- import-from-function-scope-item-renamed paged ---
+--- import-from-function-scope-item-renamed eval ---
 // Test renaming items imported from function scopes.
 #import assert: eq as aseq
 #aseq(10, 10)
 
---- import-from-function-scope-nested-import paged ---
+--- import-from-function-scope-nested-import eval ---
 // Test importing items from function scopes via nested import.
 #import std: grid.cell, table.cell as tcell
 #test(cell, grid.cell)
 #test(tcell, table.cell)
 
---- import-from-type-scope paged ---
+--- import-from-type-scope eval ---
 // Test importing from a type's scope.
 #import array: zip
 #test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
 
---- import-from-type-scope-item-renamed paged ---
+--- import-from-type-scope-item-renamed eval ---
 // Test importing from a type's scope with renaming.
 #import array: pop as renamed-pop
 #test(renamed-pop((1, 2)), 2)
 
---- import-from-type-scope-nested-import paged ---
+--- import-from-type-scope-nested-import eval ---
 // Test importing from a type's scope with nested import.
 #import std: array.zip, array.pop as renamed-pop
 #test(zip((1, 2), (3, 4)), ((1, 3), (2, 4)))
 #test(renamed-pop((1, 2)), 2)
 
---- import-from-file-bare paged ---
+--- import-from-file-bare eval ---
 // A module import without items.
 #import "module.typ"
 #test(module.b, 1)
@@ -178,18 +178,18 @@
 // Hint: 9-12 you can name the import with `as`
 #import d.p
 
---- import-from-file-renamed-dynamic paged ---
+--- import-from-file-renamed-dynamic eval ---
 #import "mod" + "ule.typ" as mod
 #test(mod.b, 1)
 
---- import-from-file-renamed paged ---
+--- import-from-file-renamed eval ---
 // A renamed module import without items.
 #import "module.typ" as other
 #test(other.b, 1)
 #test(other.item(1, 2), 3)
 #test(other.push(2), 3)
 
---- import-from-file-items-renamed-mixed paged ---
+--- import-from-file-items-renamed-mixed eval ---
 // Mixing renamed module and items.
 #import "module.typ" as newname: b as newval, item
 #test(newname.b, 1)
@@ -197,26 +197,26 @@
 #test(item(1, 2), 3)
 #test(newname.item(1, 2), 3)
 
---- import-from-str-var-renamed paged ---
+--- import-from-str-var-renamed eval ---
 #let p = "module.typ"
 #import p as f
 #test(f.b, 1)
 
---- import-from-path-renamed paged ---
+--- import-from-path-renamed eval ---
 #import path("modules/chap1.typ") as chap1
 #import chap1.module-path as f
 #test(f.b, 1)
 
---- import-from-function-scope-bare paged ---
+--- import-from-function-scope-bare eval ---
 // Warning: 9-13 this import has no effect
 #import enum
 
---- import-from-function-scope-renamed paged ---
+--- import-from-function-scope-renamed eval ---
 // Renamed module import with function scopes.
 #import enum as othernum
 #test(enum, othernum)
 
---- import-from-function-scope-renamed-twice paged ---
+--- import-from-function-scope-renamed-twice eval ---
 // Mixing renamed module import from function with renamed item import.
 #import assert as asrt
 #import asrt: ne as asne
@@ -230,11 +230,11 @@
 // Error: 2-7 unknown variable: chap1
 #chap1
 
---- import-module-nested paged ---
+--- import-module-nested eval ---
 #import std.calc: pi
 #test(pi, calc.pi)
 
---- import-module-nested-bare paged ---
+--- import-module-nested-bare eval ---
 #import "module.typ"
 #import module.chap2
 #test(chap2.name, "Peter")
@@ -250,11 +250,11 @@
 // Error: 2-11 cannot mutate a temporary value
 #(module,).at(0).push()
 
---- import-no-whitespace paged ---
+--- import-no-whitespace eval ---
 // Who needs whitespace anyways?
 #import"module.typ":*
 
---- import-trailing-comma paged ---
+--- import-trailing-comma eval ---
 // Allow the trailing comma.
 #import "module.typ": a, c,
 
@@ -266,19 +266,19 @@
 #import d.e: item
 #item(2)[a]
 
---- import-item-rename-unnecessary paged ---
+--- import-item-rename-unnecessary eval ---
 // Warning: 23-27 unnecessary import rename to same name
 #import enum: item as item
 
---- import-rename-unnecessary paged ---
+--- import-rename-unnecessary eval ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum
 
---- import-rename-necessary paged ---
+--- import-rename-necessary eval ---
 #import "module.typ" as module: a
 #test(module.a, a)
 
---- import-rename-unnecessary-mixed paged ---
+--- import-rename-unnecessary-mixed eval ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum: item
 
@@ -286,7 +286,7 @@
 // Warning: 31-35 unnecessary import rename to same name
 #import enum as enum: item as item
 
---- import-item-rename-unnecessary-but-ok paged ---
+--- import-item-rename-unnecessary-but-ok eval ---
 #import "modul" + "e.typ" as module
 #test(module.b, 1)
 
@@ -427,7 +427,7 @@ This is never reached.
 // Error: 14 expected comma
 #import "": a b
 
---- import-from-package-bare paged ---
+--- import-from-package-bare eval ---
 // Test import without items.
 #import "@test/adder:0.1.0"
 #test(adder.add(2, 8), 10)
@@ -437,11 +437,11 @@ This is never reached.
 // Hint: 9-33 you can name the import with `as`
 #import "@test/" + "adder:0.1.0"
 
---- import-from-package-renamed-dynamic paged ---
+--- import-from-package-renamed-dynamic eval ---
 #import "@test/" + "adder:0.1.0" as adder
 #test(adder.add(2, 8), 10)
 
---- import-from-package-items paged ---
+--- import-from-package-items eval ---
 // Test import with items.
 #import "@test/adder:0.1.0": add
 #test(add(2, 8), 10)

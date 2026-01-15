@@ -40,11 +40,11 @@ And quark! @quark
 Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works_too.bib"))
 
---- bibliography-source-path paged ---
+--- bibliography-source-path paged empty ---
 #show heading: none
 #bibliography(path("/assets/bib/works_too.bib"))
 
---- bibliography-source-types paged ---
+--- bibliography-source-types paged empty ---
 #let src = ```yaml
 hi:
   type: Book
@@ -122,12 +122,12 @@ hi:
 
 #bibliography("/assets/bib/works_too.bib")
 
---- bibliography-chicago-fullnotes-warning paged ---
+--- bibliography-chicago-fullnotes-warning paged empty ---
 // Test warning for deprecated alias.
 // Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
---- bibliography-modern-humanities-research-association-warning paged ---
+--- bibliography-modern-humanities-research-association-warning paged empty ---
 // Test warning for deprecated alias.
 // Warning: 47-87 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)

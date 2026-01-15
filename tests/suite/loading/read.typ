@@ -1,4 +1,4 @@
---- read-text paged ---
+--- read-text eval ---
 // Test reading plain text files
 #let data = read("/assets/text/hello.txt")
 #test(data, "Hello, world!\n")
@@ -17,7 +17,7 @@
 // Hint: 7-29 you can adjust the project root with the `--root` argument
 #read("../../../../file.txt")
 
---- read-through-package paged ---
+--- read-through-package eval ---
 #import "@local/reader:0.1.0"
 
 // Reads from the package.

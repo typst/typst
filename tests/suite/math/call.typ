@@ -61,7 +61,7 @@ $ func(_: a) $
 // Error: 8-13 unexpected argument
 $ func(m : a) $
 
---- math-call-named-args-repr paged ---
+--- math-call-named-args-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(_a: a)$, "arguments(_a: [a])")
@@ -107,13 +107,13 @@ $
 #let func(body) = body
 $func(...)$
 
---- math-call-spread-empty paged ---
+--- math-call-spread-empty eval ---
 // Test that a spread operator followed by nothing generates two dots.
 #let args(..body) = body
 #test-repr($args(..)$.body.text, "arguments(sequence([.], [.]))")
 #test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
 
---- math-call-named-spread-override paged ---
+--- math-call-named-spread-override eval ---
 // Test named argument overriding with the spread operator.
 #let check(it, s) = test(it.body.text, repr(s))
 #let func(a: 1, b: 1) = (a: a, b: b)
@@ -133,7 +133,7 @@ $func(...)$
 // Error: 22-23 duplicate argument: a
 $func(a: #2, ..dict, a: #3)$
 
---- math-call-spread-repr paged ---
+--- math-call-spread-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(..#range(0, 4).chunks(2))$, "arguments((0, 1), (2, 3))")
@@ -155,7 +155,7 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 #check($args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 
---- math-call-repr paged ---
+--- math-call-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a)$, "arguments([a])")
@@ -175,14 +175,14 @@ $ pi(a;b) $
 $ mat(#"math" ; "wins") $
 $ mat(#"code"; "wins") $
 
---- math-call-2d-repr paged ---
+--- math-call-2d-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a;b)$, "arguments(([a],), ([b],))")
 #check($args(a,b;c)$, "arguments(([a], [b]), ([c],))")
 #check($args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
 
---- math-call-2d-named-repr paged ---
+--- math-call-2d-named-repr eval ---
 #let args(..body) = (body.pos(), body.named())
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a: b)$, "((), (a: [b]))")
@@ -198,7 +198,7 @@ $ mat(#"code"; "wins") $
 #check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
 #check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
---- math-call-2d-escape-repr paged ---
+--- math-call-2d-escape-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a\;b)$, "arguments(sequence([a], [;], [b]))")
@@ -210,7 +210,7 @@ $ mat(#"code"; "wins") $
 #check($args(.. a)$, "arguments(sequence([.], [.], [ ], [a]))")
 #check($args(a..b)$, "arguments(sequence([a], [.], [.], [b]))")
 
---- math-call-2d-repr-structure paged ---
+--- math-call-2d-repr-structure eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args( a; b; )$, "arguments(([a],), ([b],))")
@@ -228,7 +228,7 @@ $ sin(,x,y,,,) $
 // with whitespace/trivia:
 $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 
---- math-call-empty-args-repr paged ---
+--- math-call-empty-args-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(,x,,y,,)$, "arguments([], [x], [], [y], [])")
