@@ -1,12 +1,14 @@
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
+    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Ratio, Region, Regions, Rel,
+    Size,
 };
+use typst_library::text::TextElem;
 use typst_utils::Numeric;
 
 use super::{
-    Child, Composer, FlowResult, LineChild, MultiChild, MultiSpill, PlacedChild,
-    SingleChild, Stop, Work,
+    Child, Composer, FlowResult, LineChild, MultiChild, MultiSpill, ParChild, ParSpill,
+    PlacedChild, SingleChild, Stop, Work,
 };
 
 /// Distributes as many children as fit from `composer.work` into the first
@@ -110,6 +112,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.multi_spill(spill)?;
         }
 
+        // Handle spill of a paragraph that broke across regions.
+        if let Some(spill) = self.composer.work.par_spill.take() {
+            self.par_spill(spill)?;
+        }
+
         // If spill are taken care of, process children until no space is left
         // or no children are left.
         while let Some(child) = self.composer.work.head() {
@@ -133,7 +140,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             Child::Rel(amount, weakness) => self.rel(*amount, *weakness),
             Child::Fr(fr, weakness) => self.fr(*fr, *weakness),
             Child::Line(line) => self.line(line)?,
-            Child::Par(_par) => todo!("Handle Child::Par in distribution"),
+            Child::Par(par) => self.par(par)?,
             Child::Single(single) => self.single(single)?,
             Child::Multi(multi) => self.multi(multi)?,
             Child::Placed(placed) => self.placed(placed)?,
@@ -294,6 +301,130 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         self.frame(line.frame.clone(), line.align, false, false)
+    }
+
+    /// Processes a paragraph with deferred layout.
+    ///
+    /// This measures and commits the paragraph, then processes each resulting
+    /// frame like a line. If a frame doesn't fit, remaining frames are saved
+    /// to `par_spill` for processing in the next region.
+    fn par(&mut self, par: &'b ParChild<'a>) -> FlowResult<()> {
+        // Measure the paragraph to get line metrics.
+        let measured = par.measure(self.composer.engine)?;
+
+        // Commit to get the actual frames.
+        let result = par.commit(self.composer.engine, &measured)?;
+
+        // Compute widow/orphan prevention needs, replicating collector's lines() logic.
+        let costs = par.styles.get(TextElem::costs);
+        let len = result.frames.len();
+        let prevent_orphans = costs.orphan() > Ratio::zero()
+            && len >= 2
+            && !result.frames.get(1).map_or(true, |f| f.is_empty());
+        let prevent_widows = costs.widow() > Ratio::zero()
+            && len >= 2
+            && !result
+                .frames
+                .get(len.saturating_sub(2))
+                .map_or(true, |f| f.is_empty());
+        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+
+        // Compute heights for widow/orphan logic.
+        let height_at = |i: usize| result.frames.get(i).map(Frame::height).unwrap_or_default();
+        let front_1 = height_at(0);
+        let front_2 = height_at(1);
+        let back_2 = height_at(len.saturating_sub(2));
+        let back_1 = height_at(len.saturating_sub(1));
+        let leading = par.leading;
+
+        // Pre-compute (frame, need) pairs for all lines.
+        let frames_with_needs: Vec<(Frame, Abs)> = result
+            .frames
+            .into_iter()
+            .enumerate()
+            .map(|(i, frame)| {
+                let need = if prevent_all && i == 0 {
+                    front_1 + leading + front_2 + leading + back_1
+                } else if prevent_orphans && i == 0 {
+                    front_1 + leading + front_2
+                } else if prevent_widows && i >= 2 && i + 2 == len {
+                    back_2 + leading + back_1
+                } else {
+                    frame.height()
+                };
+                (frame, need)
+            })
+            .collect();
+
+        // Process frames through par_spill mechanism.
+        let spill = ParSpill {
+            frames: frames_with_needs.into_iter(),
+            align: par.align,
+            leading,
+        };
+
+        // If par_spill saves remaining frames and returns Err, we must advance
+        // past this Child::Par so it's not reprocessed in the next region.
+        // This matches how multi() handles MultiSpill.
+        match self.par_spill(spill) {
+            Ok(()) => Ok(()),
+            Err(Stop::Finish(forced)) => {
+                self.composer.work.advance();
+                Err(Stop::Finish(forced))
+            }
+            Err(other) => Err(other),
+        }
+    }
+
+    /// Processes spillover from a paragraph that broke across regions.
+    fn par_spill(&mut self, mut spill: ParSpill) -> FlowResult<()> {
+        let mut first = true;
+
+        while let Some((frame, need)) = spill.frames.next() {
+            // Add leading between lines (but not before first in this region).
+            if !first {
+                self.rel(spill.leading.into(), 5);
+            }
+            first = false;
+
+            // If the line doesn't fit and a followup region may improve things,
+            // save remaining frames and finish the region.
+            if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
+                // Put this frame back by creating new spill with it prepended.
+                let remaining: Vec<(Frame, Abs)> =
+                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                self.composer.work.par_spill = Some(ParSpill {
+                    frames: remaining.into_iter(),
+                    align: spill.align,
+                    leading: spill.leading,
+                });
+                return Err(Stop::Finish(false));
+            }
+
+            // If the line's need doesn't fit here but does fit in next region,
+            // save remaining frames and finish the region.
+            if !self.regions.size.y.fits(need)
+                && self
+                    .regions
+                    .iter()
+                    .nth(1)
+                    .is_some_and(|region| region.y.fits(need))
+            {
+                let remaining: Vec<(Frame, Abs)> =
+                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                self.composer.work.par_spill = Some(ParSpill {
+                    frames: remaining.into_iter(),
+                    align: spill.align,
+                    leading: spill.leading,
+                });
+                return Err(Stop::Finish(false));
+            }
+
+            // Place the frame.
+            self.frame(frame, spill.align, false, false)?;
+        }
+
+        Ok(())
     }
 
     /// Processes an unbreakable block.

@@ -153,31 +153,40 @@ impl<'a> Collector<'a, '_, '_> {
         });
     }
 
-    /// Collect a paragraph into [`LineChild`]ren. This already performs line
-    /// layout since it is not dependent on the concrete regions.
+    /// Collect a paragraph into a [`ParChild`] for deferred layout.
+    ///
+    /// Unlike immediate layout, this stores the paragraph data so layout
+    /// can happen later when y-positions and exclusion zones are known.
+    /// This enables wrap-float text wrapping.
     fn par(
         &mut self,
         elem: &'a Packed<ParElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let lines = crate::inline::layout_par(
-            elem,
-            self.engine,
-            self.locator.next(&elem.span()),
-            styles,
-            self.base,
-            self.expand,
-            self.par_situation,
-        )?
-        .into_frames();
-
+        // Extract values needed for deferred layout.
+        let locator = self.locator.next(&elem.span());
         let spacing = elem.spacing.resolve(styles);
         let leading = elem.leading.resolve(styles);
+        let align = styles.resolve(AlignElem::alignment);
 
+        // Add spacing before the paragraph.
         self.output.push(Child::Rel(spacing.into(), 4));
 
-        self.lines(lines, leading, styles);
+        // Create ParChild for deferred layout instead of laying out immediately.
+        let par_child = ParChild {
+            elem,
+            styles,
+            locator,
+            base: self.base,
+            expand: self.expand,
+            situation: self.par_situation,
+            spacing: Spacing::Rel(spacing.into()),
+            leading,
+            align,
+        };
+        self.output.push(Child::Par(self.boxed(par_child)));
 
+        // Add spacing after the paragraph.
         self.output.push(Child::Rel(spacing.into(), 4));
         self.par_situation = ParSituation::Consecutive;
 
@@ -412,19 +421,17 @@ impl<'a> ParChild<'a> {
     /// across multiple measure calls.
     pub fn measure(
         &self,
-        _engine: &mut Engine,
+        engine: &mut Engine,
     ) -> SourceResult<crate::inline::ParMeasureResult> {
-        // TODO(typst-zut): Implement using measure_par_with_exclusions
-        // Should call: crate::inline::measure_par_with_exclusions(
-        //     self.elem,
-        //     engine,
-        //     self.locator.relayout(),
-        //     self.styles,
-        //     self.base,
-        //     self.expand,
-        //     self.situation,
-        // )
-        todo!("ParChild::measure - implement in typst-zut")
+        crate::inline::measure_par_with_exclusions(
+            self.elem,
+            engine,
+            self.locator.relayout(),
+            self.styles,
+            self.base,
+            self.expand,
+            self.situation,
+        )
     }
 
     /// Commit a measured paragraph to frames.
@@ -434,21 +441,19 @@ impl<'a> ParChild<'a> {
     /// as the measure phase.
     pub fn commit(
         &self,
-        _engine: &mut Engine,
-        _measured: &crate::inline::ParMeasureResult,
+        engine: &mut Engine,
+        measured: &crate::inline::ParMeasureResult,
     ) -> SourceResult<crate::inline::ParCommitResult> {
-        // TODO(typst-zut): Implement using commit_par
-        // Should call: crate::inline::commit_par(
-        //     self.elem,
-        //     engine,
-        //     self.locator.relayout(),
-        //     self.styles,
-        //     self.base,
-        //     self.expand,
-        //     self.situation,
-        //     measured,
-        // )
-        todo!("ParChild::commit - implement in typst-zut")
+        crate::inline::commit_par(
+            self.elem,
+            engine,
+            self.locator.relayout(),
+            self.styles,
+            self.base,
+            self.expand,
+            self.situation,
+            measured,
+        )
     }
 
     /// Convenience method: measure then immediately commit.
@@ -489,6 +494,20 @@ impl LineHeights {
             len,
         }
     }
+}
+
+/// Spilled remains of a paragraph that broke across regions.
+///
+/// When a paragraph doesn't fully fit in a region, the remaining frames
+/// are stored here along with their pre-computed widow/orphan needs.
+#[derive(Debug, Clone)]
+pub struct ParSpill {
+    /// Remaining line frames with their widow/orphan need values.
+    pub frames: std::vec::IntoIter<(Frame, Abs)>,
+    /// Text alignment for the frames.
+    pub align: Axes<FixedAlignment>,
+    /// Leading between lines.
+    pub leading: Abs,
 }
 
 /// A child that encapsulates a prepared unbreakable block.

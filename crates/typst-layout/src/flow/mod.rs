@@ -33,7 +33,8 @@ use typst_utils::{NonZeroExt, Numeric, Protected};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
-    Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, collect,
+    Child, LineChild, MultiChild, MultiSpill, ParChild, ParSpill, PlacedChild, SingleChild,
+    collect,
 };
 use self::compose::{Composer, compose};
 use self::distribute::distribute;
@@ -296,6 +297,8 @@ struct Work<'a, 'b> {
     children: &'b [Child<'a>],
     /// Leftovers from a breakable block.
     spill: Option<MultiSpill<'a, 'b>>,
+    /// Leftovers from a paragraph that broke across regions.
+    par_spill: Option<ParSpill>,
     /// Queued floats that didn't fit in previous regions.
     floats: EcoVec<&'b PlacedChild<'a>>,
     /// Queued footnotes that didn't fit in previous regions.
@@ -316,6 +319,7 @@ impl<'a, 'b> Work<'a, 'b> {
         Self {
             children,
             spill: None,
+            par_spill: None,
             floats: EcoVec::new(),
             footnotes: EcoVec::new(),
             footnote_spill: None,
@@ -338,6 +342,7 @@ impl<'a, 'b> Work<'a, 'b> {
     fn done(&self) -> bool {
         self.children.is_empty()
             && self.spill.is_none()
+            && self.par_spill.is_none()
             && self.floats.is_empty()
             && self.footnote_spill.is_none()
             && self.footnotes.is_empty()
