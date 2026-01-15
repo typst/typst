@@ -23,6 +23,10 @@
   ),
 ),))
 
+// Test reading through path type.
+#let data-from-path = xml(path("/assets/data/hello.xml"))
+#test(data-from-path, data)
+
 --- xml-invalid paged ---
 // Error: "/assets/data/bad.xml" 3:0 failed to parse XML (found closing tag 'data' instead of 'hello')
 #xml("/assets/data/bad.xml")

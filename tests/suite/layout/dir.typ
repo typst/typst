@@ -14,7 +14,7 @@
 #test(direction.to(top), btt)
 #test(direction.to(bottom), ttb)
 
--- dir-to-invalid ---
+--- dir-to-invalid paged ---
 // Error: 15-21 cannot convert this alignment to a side
 #direction.to(center)
 

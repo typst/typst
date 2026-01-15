@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use typst::text::FontVariant;
 use typst_kit::fonts::Fonts;
 
@@ -11,12 +13,22 @@ pub fn fonts(command: &FontsCommand) {
     fonts.include_embedded_fonts(!command.font.ignore_embedded_fonts);
     let fonts = fonts.search_with(&command.font.font_paths);
 
-    for (name, infos) in fonts.book.families() {
-        println!("{name}");
+    for (family, indices) in fonts.book.families() {
+        println!("{family}");
         if command.variants {
-            for info in infos {
-                let FontVariant { style, weight, stretch } = info.variant;
-                println!("- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}");
+            for index in indices {
+                let Some(font_info) = fonts.book.info(index) else { continue };
+                let FontVariant { style, weight, stretch } = font_info.variant;
+                let path = fonts
+                    .slots
+                    .get(index)
+                    .and_then(|slot| slot.path())
+                    .unwrap_or_else(|| Path::new("<embedded>"))
+                    .display();
+
+                println!(
+                    "- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}, Path: {path}",
+                );
             }
         }
     }

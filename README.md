@@ -127,8 +127,8 @@ Typst's CLI is available from different sources:
 
 - Nix users can
   - use the `typst` package with `nix-shell -p typst`
-  - build and run a development version with
-    `nix run github:typst/typst -- --version`.
+  - build and run the [Typst flake](https://github.com/typst/typst-flake) with
+    `nix run github:typst/typst-flake -- --version`.
 
 - Docker users can run a prebuilt image with
   `docker run ghcr.io/typst/typst:latest --help`.

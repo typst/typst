@@ -5,6 +5,7 @@ mod attach;
 mod cancel;
 mod equation;
 mod frac;
+pub mod ir;
 mod lr;
 mod matrix;
 mod op;
@@ -12,7 +13,7 @@ mod root;
 mod style;
 mod underover;
 
-pub use self::accent::{Accent, AccentElem};
+pub use self::accent::{ACCENT_SHORT_FALL, Accent, AccentElem};
 pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::equation::*;
@@ -27,9 +28,9 @@ pub use self::underover::*;
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{Content, Module, NativeElement, Scope, elem};
+use crate::foundations::{Content, Module, NativeElement, Scope, StyleChain, elem};
 use crate::layout::{Em, HElem};
-use crate::text::TextElem;
+use crate::text::{FontFamily, TextElem};
 
 // Spacings.
 pub const THIN: Em = Em::new(1.0 / 6.0);
@@ -146,4 +147,47 @@ pub struct ClassElem {
     /// The content to which the class is applied.
     #[required]
     pub body: Content,
+}
+
+/// An iterator that alternates between the `Left` and `Right` values, if the
+/// initial value is not `None`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum LeftRightAlternator {
+    None,
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::None => {}
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
+    }
+}
+
+/// Resolve a prioritized iterator over the font families for math.
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> + Clone {
+    let fallbacks = singleton!(Vec<FontFamily>, {
+        [
+            "new computer modern math",
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
+        .into_iter()
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }

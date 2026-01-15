@@ -30,6 +30,52 @@ $ "abc" &= c \
    &= d + 1 \
    = x $
 
+--- math-align-spacing paged ---
+// Test how spacing is inserted around alignment points.
+#set page(width: auto)
+#grid(
+  columns: 2,
+  stroke: 1pt,
+  inset: 1em,
+  $
+    a & + b + & c \
+    a & + b   &   & e & + d \
+    a & + b + & c & e & + d \
+      &       & c &   & + d \
+      & = 0
+  $,
+  $
+    a & + b + & c \
+    a & + b   &   & e & + d \
+    a & + b + & c &   & + d \
+      &       & c & e & + d \
+      & = 0
+  $,
+
+  $
+    a & + b + & c \
+    a & + b   &   &   & + d \
+    a & + b + & c & e & + d \
+      &       & c & e & + d \
+      & = 0
+  $,
+  $
+    a & + b + & c \
+    a & + b   &   & e & + d \
+    a & + b + & c & e & + d \
+      &       & c & e & + d \
+      & = 0
+  $,
+)
+
+--- math-align-spacing-ignorant paged ---
+// Test how ignorant content affects spacing around alignment points.
+#let p = place[]
+$
+  a + & b + & c & e &    + d \
+  a + &     & c &   & #p + d
+$
+
 --- math-attach-subscript-multiline paged ---
 // Test multiline subscript.
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $

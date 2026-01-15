@@ -1,139 +1,12 @@
-use std::ops::{Deref, DerefMut};
-
 use az::SaturatingAs;
 use comemo::Tracked;
-use ecow::EcoString;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use typst_library::World;
-use typst_library::layout::{Abs, Em};
-use typst_library::text::{Font, FontFamily, FontVariant, Glyph, Lang, Region, TextItem};
-use typst_library::visualize::{FixedStroke, Paint};
+use typst_library::layout::Em;
+use typst_library::text::{Font, FontFamily, FontVariant, Glyph};
 use typst_syntax::Span;
 
 use crate::inline::{SharedShapingContext, create_shape_plan, get_font_and_covers};
-
-/// A text item in Math.
-///
-/// This type is almost identical to
-/// [`TextItem`](typst_library::text::TextItem), the difference being the
-/// representation of the glyphs. See [`Glyphs`] for more info.
-#[derive(Clone)]
-pub struct ShapedText {
-    /// The text that was shaped.
-    pub text: EcoString,
-    /// The text's font.
-    pub font: Font,
-    /// The text's size
-    pub size: Abs,
-    /// Glyph color.
-    pub fill: Paint,
-    /// Glyph stroke.
-    pub stroke: Option<FixedStroke>,
-    /// The natural language of the text.
-    pub lang: Lang,
-    /// The region of the text.
-    pub region: Option<Region>,
-    /// The text's span.
-    pub span: Span,
-    /// The shaped glyphs.
-    pub glyphs: Glyphs,
-}
-
-impl ShapedText {
-    /// The width of the text run.
-    pub fn width(&self) -> Abs {
-        self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
-    }
-
-    /// The id of the first glyph in the original text.
-    pub fn original_id(&self) -> u16 {
-        self.glyphs.original()[0].id
-    }
-}
-
-impl From<ShapedText> for TextItem {
-    fn from(item: ShapedText) -> Self {
-        TextItem {
-            font: item.font,
-            size: item.size,
-            fill: item.fill,
-            stroke: item.stroke,
-            lang: item.lang,
-            region: item.region,
-            text: item.text.clone(),
-            glyphs: item
-                .glyphs
-                .iter()
-                .map(|g| Glyph {
-                    id: g.id,
-                    x_advance: g.x_advance,
-                    x_offset: g.x_offset,
-                    y_advance: g.y_advance,
-                    y_offset: g.y_offset,
-                    range: 0..item.text.len().saturating_as(),
-                    span: (item.span, 0),
-                })
-                .collect(),
-        }
-    }
-}
-
-/// A collection of glyphs that stores the original set of glyphs when created.
-#[derive(Clone)]
-pub struct Glyphs {
-    original: Vec<ShapedGlyph>,
-    updated: Option<Vec<ShapedGlyph>>,
-}
-
-impl Deref for Glyphs {
-    type Target = Vec<ShapedGlyph>;
-
-    fn deref(&self) -> &Self::Target {
-        self.updated.as_ref().unwrap_or(&self.original)
-    }
-}
-
-impl DerefMut for Glyphs {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.updated.as_mut().unwrap_or(self.original.as_mut())
-    }
-}
-
-impl Glyphs {
-    /// Create a new set of glyphs.
-    pub fn new(initial: Vec<ShapedGlyph>) -> Self {
-        Self { original: initial, updated: None }
-    }
-
-    /// Update the glyphs with the given value.
-    pub fn update(&mut self, new_value: Vec<ShapedGlyph>) {
-        self.updated = Some(new_value);
-    }
-
-    /// Reset the glyphs back their originals.
-    pub fn reset(&mut self) {
-        self.updated = None;
-    }
-
-    fn original(&self) -> &[ShapedGlyph] {
-        &self.original
-    }
-}
-
-/// A single glyph resulting from shaping.
-#[derive(Clone)]
-pub struct ShapedGlyph {
-    /// The glyph's index in the font.
-    pub id: u16,
-    /// The advance width of the glyph.
-    pub x_advance: Em,
-    /// The horizontal offset of the glyph.
-    pub x_offset: Em,
-    /// The advance height of the glyph.
-    pub y_advance: Em,
-    /// The vertical offset of the glyph.
-    pub y_offset: Em,
-}
 
 /// Shape some text in math.
 #[comemo::memoize]
@@ -145,7 +18,7 @@ pub fn shape(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
-) -> Option<(Font, Vec<ShapedGlyph>)> {
+) -> Option<(Font, Vec<Glyph>)> {
     let mut ctx = ShapingContext {
         world,
         used: vec![],
@@ -170,7 +43,7 @@ struct ShapingContext<'a> {
     features: Vec<rustybuzz::Feature>,
     language: rustybuzz::Language,
     fallback: bool,
-    glyphs: Vec<ShapedGlyph>,
+    glyphs: Vec<Glyph>,
     font: Option<Font>,
 }
 
@@ -205,12 +78,14 @@ fn shape_impl<'a>(
     let Some((font, covers)) =
         get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
             let add_glyph = |_| {
-                ctx.glyphs.push(ShapedGlyph {
+                ctx.glyphs.push(Glyph {
                     id: 0,
                     x_advance: font.x_advance(0).unwrap_or_default(),
                     x_offset: Em::zero(),
                     y_advance: Em::zero(),
                     y_offset: Em::zero(),
+                    range: 0..text.len().saturating_as(),
+                    span: (Span::detached(), 0),
                 })
             };
             text.chars().for_each(add_glyph);
@@ -255,12 +130,14 @@ fn shape_impl<'a>(
         for i in 0..buffer.len() {
             let info = buffer.glyph_infos()[i];
             let pos = buffer.glyph_positions()[i];
-            ctx.glyphs.push(ShapedGlyph {
+            ctx.glyphs.push(Glyph {
                 id: info.glyph_id as u16,
                 x_advance: font.to_em(pos.x_advance),
                 x_offset: font.to_em(pos.x_offset),
                 y_advance: font.to_em(pos.y_advance),
                 y_offset: font.to_em(pos.y_offset),
+                range: 0..text.len().saturating_as(),
+                span: (Span::detached(), 0),
             });
         }
         if !buffer.is_empty() {
