@@ -402,6 +402,65 @@ pub struct ParChild<'a> {
     pub align: Axes<FixedAlignment>,
 }
 
+impl<'a> ParChild<'a> {
+    /// Measure the paragraph to determine line breaks and metrics.
+    ///
+    /// This does NOT create frames - it only computes where lines break
+    /// and what their dimensions are. Call `commit()` afterward to create frames.
+    ///
+    /// The locator is handled via `relayout()` to ensure stable locations
+    /// across multiple measure calls.
+    pub fn measure(
+        &self,
+        _engine: &mut Engine,
+    ) -> SourceResult<crate::inline::ParMeasureResult> {
+        // TODO(typst-zut): Implement using measure_par_with_exclusions
+        // Should call: crate::inline::measure_par_with_exclusions(
+        //     self.elem,
+        //     engine,
+        //     self.locator.relayout(),
+        //     self.styles,
+        //     self.base,
+        //     self.expand,
+        //     self.situation,
+        // )
+        todo!("ParChild::measure - implement in typst-zut")
+    }
+
+    /// Commit a measured paragraph to frames.
+    ///
+    /// Must be called with the result from a previous `measure()` call.
+    /// Uses `relayout()` on the locator to produce identical locations
+    /// as the measure phase.
+    pub fn commit(
+        &self,
+        _engine: &mut Engine,
+        _measured: &crate::inline::ParMeasureResult,
+    ) -> SourceResult<crate::inline::ParCommitResult> {
+        // TODO(typst-zut): Implement using commit_par
+        // Should call: crate::inline::commit_par(
+        //     self.elem,
+        //     engine,
+        //     self.locator.relayout(),
+        //     self.styles,
+        //     self.base,
+        //     self.expand,
+        //     self.situation,
+        //     measured,
+        // )
+        todo!("ParChild::commit - implement in typst-zut")
+    }
+
+    /// Convenience method: measure then immediately commit.
+    ///
+    /// Use this when deferred layout isn't needed (no wrap-floats).
+    /// Equivalent to calling `measure()` followed by `commit()`.
+    pub fn layout(&self, engine: &mut Engine) -> SourceResult<crate::inline::ParCommitResult> {
+        let measured = self.measure(engine)?;
+        self.commit(engine, &measured)
+    }
+}
+
 /// Heights of lines at the edges of a paragraph, for widow/orphan prevention.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LineHeights {
