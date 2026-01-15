@@ -1,224 +1,166 @@
-use std::io::Read;
-
-use base64::Engine;
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use typst_library::foundations::Bytes;
-use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
-use typst_library::text::color::colr_glyph_to_svg;
-use typst_library::text::{Font, TextItem};
-use typst_library::visualize::{
-    ExchangeFormat, FillRule, Image, Paint, RasterImage, RelativeTo,
+use typst_library::layout::{Abs, Ratio, Size, Transform};
+use typst_library::text::TextItem;
+use typst_library::text::color::{
+    GlyphFrame, GlyphFrameItem, glyph_frame, should_outline,
 };
-use typst_utils::hash128;
+use typst_library::visualize::{FillRule, Paint, RelativeTo};
 
-use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::path::SvgPathBuilder;
+use crate::write::{SvgElem, SvgIdRef, SvgTransform};
+use crate::{DedupId, SVGRenderer, State};
+
+/// Represents a glyph to be rendered.
+#[derive(Clone)]
+pub enum RenderedGlyph {
+    /// A frame that contains an image glpyh.
+    Frame(GlyphFrame),
+    /// A path is a sequence of drawing commands.
+    ///
+    /// It is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
+    Path(EcoString),
+}
 
 impl SVGRenderer<'_> {
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
-    pub(super) fn render_text(&mut self, state: &State, text: &TextItem) {
-        let scale: f64 = text.size.to_pt() / text.font.units_per_em();
+    pub(super) fn render_text(
+        &mut self,
+        svg: &mut SvgElem,
+        state: &State,
+        text: &TextItem,
+    ) {
+        let svg = &mut svg.elem("g");
 
-        self.xml.start_element("g");
-        self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute(
-            "transform",
-            &format!(
-                "{}",
-                &SvgMatrix(
-                    state
-                        .transform
-                        .pre_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0)))
-                )
-            ),
-        );
+        // Flip the transform since fonts use a Y-Up coordinate system.
+        let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
+        svg.attr("transform", SvgTransform(state.transform));
 
-        let mut x: f64 = 0.0;
-        let mut y: f64 = 0.0;
+        let mut x = Abs::pt(0.0);
+        let mut y = Abs::pt(0.0);
         for glyph in &text.glyphs {
             let id = GlyphId(glyph.id);
-            let x_offset = x + glyph.x_offset.at(text.size).to_pt();
-            let y_offset = y + glyph.y_offset.at(text.size).to_pt();
+            let x_offset = x + glyph.x_offset.at(text.size);
+            let y_offset = y + glyph.y_offset.at(text.size);
 
-            self.render_colr_glyph(text, id, x_offset, y_offset, scale)
-                .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale))
-                .or_else(|| self.render_bitmap_glyph(text, id, x_offset, y_offset))
-                .or_else(|| {
-                    self.render_outline_glyph(
-                        state
-                            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
-                            .pre_translate(Point::new(
-                                Abs::pt(x_offset),
-                                Abs::pt(y_offset),
-                            )),
-                        text,
-                        id,
-                        x_offset,
-                        y_offset,
-                        scale,
-                    )
-                });
+            self.render_glyph(svg, &state, text, id, x_offset, y_offset);
 
-            x += glyph.x_advance.at(text.size).to_pt();
-            y += glyph.y_advance.at(text.size).to_pt();
+            x += glyph.x_advance.at(text.size);
+            y += glyph.y_advance.at(text.size);
         }
-
-        self.xml.end_element();
     }
 
-    /// Render a glyph defined by an SVG.
-    fn render_svg_glyph(
+    fn render_glyph(
         &mut self,
-        text: &TextItem,
-        id: GlyphId,
-        x_offset: f64,
-        y_offset: f64,
-        scale: f64,
-    ) -> Option<()> {
-        let data_url = convert_svg_glyph_to_base64_url(&text.font, id)?;
-        let upem = text.font.units_per_em();
-        let origin_ascender = text.font.metrics().ascender.at(Abs::pt(upem));
-
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
-            url: data_url,
-            width: upem,
-            height: upem,
-            ts: Transform::translate(Abs::zero(), -origin_ascender)
-                .post_concat(Transform::scale(Ratio::new(scale), Ratio::new(-scale))),
-        });
-
-        self.xml.start_element("use");
-        self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml.write_attribute("x", &x_offset);
-        self.xml.write_attribute("y", &y_offset);
-        self.xml.end_element();
-
-        Some(())
-    }
-
-    /// Render a glyph defined by COLR glyph descriptions.
-    fn render_colr_glyph(
-        &mut self,
-        text: &TextItem,
-        id: GlyphId,
-        x_offset: f64,
-        y_offset: f64,
-        scale: f64,
-    ) -> Option<()> {
-        let ttf = text.font.ttf();
-        let converted = colr_glyph_to_svg(&text.font, id)?;
-        let width = ttf.global_bounding_box().width() as f64;
-        let height = ttf.global_bounding_box().height() as f64;
-        let data_url = svg_to_base64(&converted);
-
-        let x_min = ttf.global_bounding_box().x_min as f64;
-        let y_max = ttf.global_bounding_box().y_max as f64;
-
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
-            url: data_url,
-            width,
-            height,
-            ts: Transform::scale(Ratio::new(scale), Ratio::new(-scale))
-                .pre_concat(Transform::translate(Abs::pt(x_min), -Abs::pt(y_max))),
-        });
-
-        self.xml.start_element("use");
-        self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml.write_attribute("x", &(x_offset));
-        self.xml.write_attribute("y", &(y_offset));
-        self.xml.end_element();
-
-        Some(())
-    }
-
-    /// Render a glyph defined by a bitmap.
-    fn render_bitmap_glyph(
-        &mut self,
-        text: &TextItem,
-        id: GlyphId,
-        x_offset: f64,
-        y_offset: f64,
-    ) -> Option<()> {
-        let (image, bitmap_x_offset, bitmap_y_offset) =
-            convert_bitmap_glyph_to_image(&text.font, id)?;
-
-        let glyph_hash = hash128(&(&text.font, id));
-        let id = self.glyphs.insert_with(glyph_hash, || {
-            let width = image.width();
-            let height = image.height();
-            let url = crate::image::convert_image_to_base64_url(&image);
-            let ts = Transform::translate(
-                Abs::pt(bitmap_x_offset),
-                Abs::pt(-height - bitmap_y_offset),
-            );
-            RenderedGlyph::Image { url, width, height, ts }
-        });
-
-        let target_height = text.size.to_pt();
-        self.xml.start_element("use");
-        self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-
-        // The image is stored with the height of `image.height()`, but we want
-        // to render it with a height of `target_height`. So we need to scale
-        // it.
-        let scale_factor = target_height / image.height();
-        self.xml.write_attribute("x", &(x_offset / scale_factor));
-        self.xml.write_attribute("y", &(y_offset / scale_factor));
-        self.xml.write_attribute_fmt(
-            "transform",
-            format_args!("scale({scale_factor} -{scale_factor})",),
-        );
-        self.xml.end_element();
-
-        Some(())
-    }
-
-    /// Render a glyph defined by an outline.
-    fn render_outline_glyph(
-        &mut self,
-        state: State,
+        svg: &mut SvgElem,
+        state: &State,
         text: &TextItem,
         glyph_id: GlyphId,
-        x_offset: f64,
-        y_offset: f64,
-        scale: f64,
-    ) -> Option<()> {
-        let scale = Ratio::new(scale);
-        let path = convert_outline_glyph_to_path(&text.font, glyph_id, scale)?;
-        let hash = hash128(&(&text.font, glyph_id, scale));
-        let id = self.glyphs.insert_with(hash, || RenderedGlyph::Path(path));
+        x_offset: Abs,
+        y_offset: Abs,
+    ) {
+        if should_outline(&text.font, glyph_id) {
+            // Pre-scale outlined glyphs, so strokes and fill patterns don't
+            // need to consider text size glyph scaling.
+            let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
+            let key = (&text.font, glyph_id, scale);
+            let (id, path) = self.glyphs.insert_with_val(key, || {
+                let mut builder = SvgPathBuilder::with_scale(scale);
+                text.font.ttf().outline_glyph(glyph_id, &mut builder)?;
+                Some(RenderedGlyph::Path(builder.finsish()))
+            });
 
-        let glyph_size = text.font.ttf().glyph_bounding_box(glyph_id)?;
-        let width = glyph_size.width() as f64 * scale.get();
-        let height = glyph_size.height() as f64 * scale.get();
+            if path.is_some() {
+                self.render_path_glyph(svg, state, text, glyph_id, x_offset, y_offset, id)
+            }
+        } else {
+            // Image glyphs apply a `scale` at use site, since colr, svg-, and
+            // bitmap glyph images are usually quite large, and having one glyph
+            // per text size is a bit of a waste.
+            let key = (&text.font, glyph_id);
+            let (id, frame) = self.glyphs.insert_with_val(key, || {
+                let frame = glyph_frame(&text.font, glyph_id.0)?;
+                Some(RenderedGlyph::Frame(frame))
+            });
 
-        self.xml.start_element("use");
-        self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml.write_attribute_fmt("x", format_args!("{x_offset}"));
-        self.xml.write_attribute_fmt("y", format_args!("{y_offset}"));
+            if frame.is_some() {
+                self.render_image_glyph(svg, x_offset, y_offset, text, id);
+            }
+        }
+    }
+
+    /// Write a reference to an image glyph that is stored in font units.
+    fn render_image_glyph(
+        &mut self,
+        svg: &mut SvgElem,
+        x_offset: Abs,
+        y_offset: Abs,
+        text: &TextItem,
+        id: DedupId,
+    ) {
+        let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
+        // Flip the transform again, since images are drawn Y-Down.
+        let ts = Transform::translate(x_offset, y_offset + text.size)
+            .pre_concat(Transform::scale(scale, -scale));
+
+        svg.elem("use")
+            .attr("xlink:href", SvgIdRef(id))
+            .attr("transform", SvgTransform(ts));
+    }
+
+    /// Render a pre-scaled path glyph defined by an outline.
+    #[allow(clippy::too_many_arguments)]
+    fn render_path_glyph(
+        &mut self,
+        svg: &mut SvgElem,
+        state: &State,
+        text: &TextItem,
+        glyph_id: GlyphId,
+        x_offset: Abs,
+        y_offset: Abs,
+        id: DedupId,
+    ) {
+        // Apply the transform here, because the state transform is used to draw
+        // strokes and fills with gradients and tilings.
+        let state = state.pre_concat(Transform::translate(x_offset, y_offset));
+
+        let Some(glyph_size) = text.font.ttf().glyph_bounding_box(glyph_id) else {
+            // This shouldn't happen, because the glyph has been successfully
+            // outlined to create the path.
+            return;
+        };
+
+        let aspect_ratio = Size::new(
+            Abs::pt(glyph_size.width() as f64),
+            Abs::pt(glyph_size.height() as f64),
+        )
+        .aspect_ratio();
+
+        let mut use_ = svg.elem("use");
+        use_.attr("xlink:href", SvgIdRef(id))
+            .attr("x", x_offset.to_pt())
+            .attr("y", y_offset.to_pt());
+
         self.write_fill(
+            &mut use_,
             &text.fill,
             FillRule::default(),
-            Size::new(Abs::pt(width), Abs::pt(height)),
-            self.text_paint_transform(state, &text.fill),
+            aspect_ratio,
+            self.text_paint_transform(&state, &text.fill),
         );
         if let Some(stroke) = &text.stroke {
             self.write_stroke(
+                &mut use_,
                 stroke,
-                Size::new(Abs::pt(width), Abs::pt(height)),
-                self.text_paint_transform(state, &stroke.paint),
+                aspect_ratio,
+                self.text_paint_transform(&state, &stroke.paint),
             );
         }
-        self.xml.end_element();
-
-        Some(())
     }
 
-    fn text_paint_transform(&self, state: State, paint: &Paint) -> Transform {
+    fn text_paint_transform(&self, state: &State, paint: &Paint) -> Transform {
         match paint {
             Paint::Solid(_) => Transform::identity(),
             Paint::Gradient(gradient) => match gradient.unwrap_relative(true) {
@@ -237,145 +179,40 @@ impl SVGRenderer<'_> {
     }
 
     /// Build the glyph definitions.
-    pub(super) fn write_glyph_defs(&mut self) {
-        if self.glyphs.is_empty() {
+    pub(super) fn write_glyph_defs(&mut self, svg: &mut SvgElem) {
+        if self.glyphs.iter().all(|(_, g)| g.is_none()) {
             return;
         }
 
-        self.xml.start_element("defs");
-        self.xml.write_attribute("id", "glyph");
+        let mut defs = svg.elem("defs");
+        let glyphs = std::mem::take(&mut self.glyphs);
+        for (id, glyph) in glyphs.iter() {
+            let Some(glyph) = glyph else { continue };
 
-        for (id, glyph) in self.glyphs.iter() {
-            self.xml.start_element("symbol");
-            self.xml.write_attribute("id", &id);
-            self.xml.write_attribute("overflow", "visible");
+            let mut symbol = defs.elem("symbol");
+            symbol.attr("id", id);
+            symbol.attr("overflow", "visible");
 
             match glyph {
-                RenderedGlyph::Path(path) => {
-                    self.xml.start_element("path");
-                    self.xml.write_attribute("d", &path);
-                    self.xml.end_element();
-                }
-                RenderedGlyph::Image { url, width, height, ts } => {
-                    self.xml.start_element("image");
-                    self.xml.write_attribute("xlink:href", &url);
-                    self.xml.write_attribute("width", &width);
-                    self.xml.write_attribute("height", &height);
-                    if !ts.is_identity() {
-                        self.xml.write_attribute("transform", &SvgMatrix(*ts));
+                RenderedGlyph::Frame(frame) => {
+                    let state = State::new(frame.size()).pre_translate(frame.item.pos());
+                    match &frame.item {
+                        GlyphFrameItem::Tofu(_, shape) => {
+                            self.render_shape(&mut symbol, &state, shape);
+                        }
+                        GlyphFrameItem::Image(_, image, size) => {
+                            self.render_image(&mut symbol, &state, image, size);
+                        }
                     }
-                    self.xml.write_attribute("preserveAspectRatio", "none");
-                    self.xml.end_element();
+                }
+                RenderedGlyph::Path(path) => {
+                    symbol.elem("path").attr("d", path);
                 }
             }
-
-            self.xml.end_element();
         }
 
-        self.xml.end_element();
+        // The glyphs have been taken above, there shouldn't be any new glyphs
+        // produced from writing the glyph definitions.
+        assert!(self.glyphs.is_empty());
     }
-}
-
-/// Represents a glyph to be rendered.
-pub enum RenderedGlyph {
-    /// A path is a sequence of drawing commands.
-    ///
-    /// It is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
-    Path(EcoString),
-    /// An image is a URL to an image file, plus the size and transform.
-    ///
-    /// The url is in the format of `data:image/{format};base64,`.
-    Image { url: EcoString, width: f64, height: f64, ts: Transform },
-}
-
-/// Convert an outline glyph to an SVG path.
-#[comemo::memoize]
-fn convert_outline_glyph_to_path(
-    font: &Font,
-    id: GlyphId,
-    scale: Ratio,
-) -> Option<EcoString> {
-    let mut builder = SvgPathBuilder::with_scale(scale);
-    font.ttf().outline_glyph(id, &mut builder)?;
-    Some(builder.path)
-}
-
-/// Convert a bitmap glyph to an encoded image URL.
-#[comemo::memoize]
-fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64, f64)> {
-    let raster = font.ttf().glyph_raster_image(id, u16::MAX)?;
-    if raster.format != ttf_parser::RasterImageFormat::PNG {
-        return None;
-    }
-    let image = Image::plain(
-        RasterImage::plain(Bytes::new(raster.data.to_vec()), ExchangeFormat::Png).ok()?,
-    );
-    Some((image, raster.x as f64, raster.y as f64))
-}
-
-/// Convert an SVG glyph to an encoded image URL.
-#[comemo::memoize]
-fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString> {
-    let mut data = font.ttf().glyph_svg_image(id)?.data;
-
-    // Decompress SVGZ.
-    let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = flate2::read::GzDecoder::new(data);
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
-    }
-
-    let upem = font.units_per_em();
-    let width = upem;
-    let height = upem;
-    let origin_ascender = font.metrics().ascender.at(Abs::pt(upem));
-
-    // Parse XML.
-    let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
-    let mut start_span = None;
-    let mut last_viewbox = None;
-
-    // Parse xml and find the viewBox of the svg element.
-    // <svg viewBox="0 0 1000 1000">...</svg>
-    // ~~~~~^~~~~~~
-    for n in xmlparser::Tokenizer::from(svg_str.as_str()) {
-        let tok = n.unwrap();
-        match tok {
-            xmlparser::Token::ElementStart { span, local, .. } => {
-                if local.as_str() == "svg" {
-                    start_span = Some(span);
-                    break;
-                }
-            }
-            xmlparser::Token::Attribute { span, local, value, .. } => {
-                if local.as_str() == "viewBox" {
-                    last_viewbox = Some((span, value));
-                }
-            }
-            xmlparser::Token::ElementEnd { .. } => break,
-            _ => {}
-        }
-    }
-
-    if last_viewbox.is_none() {
-        // Correct the viewbox if it is not present. `-origin_ascender` is to
-        // make sure the glyph is rendered at the correct position
-        svg_str.insert_str(
-            start_span.unwrap().range().end,
-            format!(r#" viewBox="0 {} {width} {height}""#, -origin_ascender.to_pt())
-                .as_str(),
-        );
-    }
-
-    Some(svg_to_base64(&svg_str))
-}
-
-fn svg_to_base64(svg_str: &str) -> EcoString {
-    let mut url: EcoString = "data:image/svg+xml;base64,".into();
-    let b64_encoded =
-        base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
-    url.push_str(&b64_encoded);
-
-    url
 }

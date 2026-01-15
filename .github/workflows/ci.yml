@@ -7,6 +7,9 @@ env:
   TYPST_TESTS_EXTENDED: true
   PKG_CONFIG_i686-unknown-linux-gnu: /usr/bin/i686-linux-gnu-pkgconf
 
+permissions:
+  contents: read
+
 jobs:
   # This allows us to have one branch protection rule for the full test matrix.
   # See: https://github.com/orgs/community/discussions/4324
@@ -34,23 +37,23 @@ jobs:
             bits: 32
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - if: startsWith(matrix.os, 'ubuntu-') && matrix.bits == 32
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt install -y gcc-multilib g++-multilib libssl-dev:i386 pkg-config:i386
-      - uses: dtolnay/rust-toolchain@1.91.0
+      - uses: dtolnay/rust-toolchain@f941e41d00837ee686f9d4575861485df1f7a655 # Rust 1.91.0
         with:
           targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: ${{ matrix.bits }}
       - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - name: Upload rendered test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: tests-rendered-${{ matrix.os }}-${{ matrix.bits }}
           path: tests/store/render/**
@@ -62,7 +65,7 @@ jobs:
           echo 'updated_artifacts=1' >> "$GITHUB_ENV"
       - name: Upload updated reference output (for use if the test changes are desired)
         if: failure() && env.updated_artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: tests-updated-${{ matrix.os }}-${{ matrix.bits }}
           path: tests/ref/**
@@ -72,11 +75,11 @@ jobs:
     name: Check clippy, formatting, and documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.91.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@f941e41d00837ee686f9d4575861485df1f7a655 # Rust 1.91.0
         with:
           components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo clippy --workspace --all-targets --all-features
       - run: cargo clippy --workspace --all-targets --no-default-features
       - run: cargo fmt --check --all
@@ -87,20 +90,20 @@ jobs:
     name: Check minimum Rust version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@9710f9012180ecfb08dcfc878269be6dc6f1d80e # Rust 1.89.0
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo check --workspace
 
   fuzz:
     name: Check fuzzers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: nightly-2025-10-28
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo install --locked cargo-fuzz@0.12.0
       - run: cd tests/fuzz && cargo fuzz build --dev
 
@@ -108,10 +111,10 @@ jobs:
     name: Check unsafe code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           components: miri
           toolchain: nightly-2025-10-28
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo miri test -p typst-library test_miri

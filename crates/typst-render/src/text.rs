@@ -20,7 +20,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         let x_offset = x + glyph.x_offset.at(text.size);
         let y_offset = y + glyph.y_offset.at(text.size);
 
-        if should_outline(&text.font, glyph) {
+        if should_outline(&text.font, id) {
             let state = state.pre_translate(Point::new(x_offset, -y_offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
@@ -30,8 +30,9 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
                 .pre_translate(Point::new(x_offset, -y_offset - text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
-            let (glyph_frame, _) = glyph_frame(&text.font, glyph.id);
-            crate::render_frame(canvas, state, &glyph_frame);
+            if let Some(frame) = glyph_frame(&text.font, glyph.id) {
+                crate::render_frame(canvas, state, &frame.into());
+            }
         }
 
         x += glyph.x_advance.at(text.size);

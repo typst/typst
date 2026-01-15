@@ -59,14 +59,14 @@ $ cal(P)_i (X) * cal(C)_1 $
 $ x + y = z $
 
 --- math-font-error paged ---
-// Warning: 37-54 unknown font family: libertinus math
-#show math.equation: set text(font: "Libertinus Math", fallback: false)
+// Warning: 37-51 unknown font family: cambria math
+#show math.equation: set text(font: "Cambria Math", fallback: false)
 // Error: 1-39 no font could be found
 $ brace.stroked.l -1 brace.stroked.r $
 
 --- math-font-fallback-class paged ---
 // Test that math class is preserved even when the result is a tofu.
-#show math.equation: set text(font: "Fira Math", fallback: false)
+#show math.equation: set text(font: "Garamond-Math", fallback: false)
 $ brace.stroked.l -1 brace.stroked.r $
 $ lr(brace.stroked.l -1 brace.stroked.r) $
 
@@ -101,3 +101,21 @@ $ 1/(x^A) $
 // Ensure that math does not produce paragraphs.
 #show par: highlight
 $ a + "bc" + #[c] + #box[d] + #block[e] $
+
+--- issue-6090-math-overhang paged ---
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise"
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise.",
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise,",
+) $
+$ f(t) = cases(
+    1 quad & "if" 0 < t < 1\,,
+    0 quad & "otherwise!",
+) $

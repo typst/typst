@@ -255,12 +255,12 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
         && named.name().as_str() == "font"
 
         // Find the font family.
-        && let Some((_, iter)) = world
-            .book()
+        && let book = world.book()
+        && let Some((_, iter)) = book
             .families()
             .find(|&(family, _)| family.to_lowercase().as_str() == lower.as_str())
     {
-        let detail = summarize_font_family(iter.collect());
+        let detail = summarize_font_family(iter.filter_map(|id| book.info(id)).collect());
         return Some(Tooltip::Text(detail));
     }
 

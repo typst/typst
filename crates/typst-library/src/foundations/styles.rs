@@ -179,6 +179,12 @@ impl From<LazyHash<Style>> for Styles {
     }
 }
 
+impl<const N: usize> From<[LazyHash<Style>; N]> for Styles {
+    fn from(arr: [LazyHash<Style>; N]) -> Self {
+        Self(arr.into())
+    }
+}
+
 impl From<Style> for Styles {
     fn from(style: Style) -> Self {
         Self(eco_vec![LazyHash::new(style)])

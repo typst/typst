@@ -71,7 +71,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "YAML")]
 pub fn yaml(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a YAML file or raw YAML bytes.
+    /// A path to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;

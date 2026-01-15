@@ -11,7 +11,7 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -381,15 +381,7 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| {
-            let mut diagnostic = SourceDiagnostic::error(span, message);
-            if diagnostic.message.contains("(access denied)") {
-                diagnostic.hint("cannot read file outside of project root");
-                diagnostic
-                    .hint("you can adjust the project root with the --root argument");
-            }
-            eco_vec![diagnostic]
-        })
+        self.map_err(|message| eco_vec![SourceDiagnostic::error(span, message)])
     }
 }
 
@@ -490,7 +482,7 @@ impl<T> Hint<T> for HintedStrResult<T> {
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 
-/// An error that occurred while trying to load of a file.
+/// An error that occurred while trying to load a file.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FileError {
     /// A file was not found at this path.
@@ -580,7 +572,7 @@ pub type PackageResult<T> = Result<T, PackageError>;
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
-    /// The specified package found, but the version does not exist.
+    /// The specified package was found, but the version does not exist.
     VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
@@ -757,17 +749,19 @@ fn load_err_in_invalid_text(
     match (loaded.source.v, line_col) {
         (LoadSource::Path(file), _) => {
             message.pop();
-            if let Some(package) = file.package() {
-                write!(
-                    &mut message,
-                    " in {package}{}",
-                    file.vpath().as_rooted_path().display()
-                )
-                .ok();
-            } else {
-                write!(&mut message, " in {}", file.vpath().as_rootless_path().display())
+            match file.root() {
+                VirtualRoot::Project => {
+                    write!(&mut message, " in {}", file.vpath().get_without_slash()).ok();
+                }
+                VirtualRoot::Package(package) => {
+                    write!(
+                        &mut message,
+                        " in {package}{}",
+                        file.vpath().get_with_slash()
+                    )
                     .ok();
-            };
+                }
+            }
             if let Some((line, col)) = line_col {
                 write!(&mut message, ":{line}:{col}").ok();
             }
