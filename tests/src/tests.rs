@@ -10,16 +10,19 @@ mod run;
 mod world;
 
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Duration;
 
 use clap::Parser;
 use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
-use crate::collect::Test;
+use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
+use crate::output::HashedRefs;
 
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
@@ -157,13 +160,33 @@ fn clean() {
 
 fn undangle() {
     match crate::collect::collect() {
-        Ok(_) => eprintln!("no danging reference output"),
+        Ok(_) => eprintln!("no dangling reference output"),
         Err(errors) => {
-            for error in errors {
-                if error.message == "dangling reference output" {
-                    std::fs::remove_file(&error.pos.path).unwrap();
-                    eprintln!("✅ deleted {}", error.pos.path.display());
+            let mut dangling_hashes = FxHashMap::<&Path, Vec<&str>>::default();
+            for error in errors.iter() {
+                match &error.kind {
+                    TestParseErrorKind::DanglingFile => {
+                        std::fs::remove_file(&error.pos.path).unwrap();
+                        eprintln!("✅ deleted {}", error.pos.path.display());
+                    }
+                    TestParseErrorKind::DanglingHash(name) => {
+                        eprintln!("✅ removed hash {name} {}", error.pos);
+                        let names = dangling_hashes.entry(&error.pos.path).or_default();
+                        names.push(name);
+                    }
+                    TestParseErrorKind::Other(_) => (),
                 }
+            }
+
+            // Remove dangling hashes from file.
+            #[allow(clippy::iter_over_hash_type)]
+            for (path, names) in dangling_hashes {
+                let text = std::fs::read_to_string(path).unwrap();
+                let mut hashed_refs = HashedRefs::from_str(&text).unwrap();
+                for name in names.iter() {
+                    hashed_refs.remove(name);
+                }
+                std::fs::write(path, hashed_refs.to_string()).unwrap();
             }
         }
     }
