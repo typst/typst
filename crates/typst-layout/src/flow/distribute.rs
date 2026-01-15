@@ -133,6 +133,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             Child::Rel(amount, weakness) => self.rel(*amount, *weakness),
             Child::Fr(fr, weakness) => self.fr(*fr, *weakness),
             Child::Line(line) => self.line(line)?,
+            Child::Par(_par) => todo!("Handle Child::Par in distribution"),
             Child::Single(single) => self.single(single)?,
             Child::Multi(multi) => self.multi(multi)?,
             Child::Placed(placed) => self.placed(placed)?,

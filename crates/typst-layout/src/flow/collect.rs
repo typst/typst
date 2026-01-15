@@ -353,6 +353,8 @@ pub enum Child<'a> {
     Fr(Fr, u8),
     /// An already layouted line of a paragraph.
     Line(BumpBox<'a, LineChild>),
+    /// A paragraph for deferred layout (wrap-float support).
+    Par(BumpBox<'a, ParChild<'a>>),
     /// An unbreakable block.
     Single(BumpBox<'a, SingleChild<'a>>),
     /// A breakable block.
@@ -371,6 +373,63 @@ pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
     pub need: Abs,
+}
+
+/// A child that stores a paragraph for deferred layout.
+///
+/// Unlike `LineChild` which holds already-laid-out frames, `ParChild` stores
+/// everything needed to layout a paragraph later when y-positions and exclusion
+/// zones are known. This enables wrap-float text wrapping.
+#[derive(Debug)]
+pub struct ParChild<'a> {
+    /// The paragraph element.
+    pub elem: &'a Packed<ParElem>,
+    /// Style chain for resolving paragraph properties.
+    pub styles: StyleChain<'a>,
+    /// Locator for introspection stability across measure/commit.
+    pub locator: Locator<'a>,
+    /// Base region size for layout.
+    pub base: Size,
+    /// Whether to expand to fill available space.
+    pub expand: bool,
+    /// Position in the flow (first paragraph vs consecutive).
+    pub situation: ParSituation,
+    /// Spacing before and after the paragraph.
+    pub spacing: Spacing,
+    /// Leading between lines.
+    pub leading: Abs,
+    /// Text alignment.
+    pub align: Axes<FixedAlignment>,
+}
+
+/// Heights of lines at the edges of a paragraph, for widow/orphan prevention.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LineHeights {
+    /// Height of the first line.
+    pub front_1: Abs,
+    /// Height of the second line.
+    pub front_2: Abs,
+    /// Height of the second-to-last line.
+    pub back_2: Abs,
+    /// Height of the last line.
+    pub back_1: Abs,
+    /// Total number of lines.
+    pub len: usize,
+}
+
+impl LineHeights {
+    /// Create `LineHeights` from a slice of line heights.
+    pub fn from_heights(heights: &[Abs]) -> Self {
+        let len = heights.len();
+        let get = |i: usize| heights.get(i).copied().unwrap_or_default();
+        Self {
+            front_1: get(0),
+            front_2: get(1),
+            back_2: get(len.saturating_sub(2)),
+            back_1: get(len.saturating_sub(1)),
+            len,
+        }
+    }
 }
 
 /// A child that encapsulates a prepared unbreakable block.
