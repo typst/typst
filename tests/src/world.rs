@@ -1,13 +1,9 @@
-use std::borrow::Cow;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::OnceLock;
 
 use comemo::Tracked;
-use parking_lot::Mutex;
-use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
@@ -20,6 +16,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
+use typst_kit::files::{FileLoader, FileStore};
 use typst_syntax::{Lines, VirtualRoot};
 
 /// A world that provides access to the tests environment.
@@ -59,12 +56,16 @@ impl World for TestWorld {
         if id == self.main.id() {
             Ok(self.main.clone())
         } else {
-            self.slot(id, FileSlot::source)
+            self.base.files.source(id)
         }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, FileSlot::file)
+        if id == self.main.id() {
+            Ok(Bytes::from_string(self.main.clone()))
+        } else {
+            self.base.files.file(id)
+        }
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -77,28 +78,12 @@ impl World for TestWorld {
 }
 
 impl TestWorld {
-    /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> T
-    where
-        F: FnOnce(&mut FileSlot) -> T,
-    {
-        let mut map = self.base.slots.lock();
-        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
-    }
-
-    /// Lookup line metadata for a file by id.
-    #[track_caller]
-    pub(crate) fn lookup(&self, id: FileId) -> Lines<String> {
-        self.slot(id, |slot| {
-            if let Some(source) = slot.source.get() {
-                let source = source.as_ref().expect("file is not valid");
-                source.lines().clone()
-            } else if let Some(bytes) = slot.file.get() {
-                let bytes = bytes.as_ref().expect("file is not valid");
-                Lines::try_from(bytes).expect("file is not valid UTF-8")
-            } else {
-                panic!("file id does not point to any source file");
-            }
+    /// Retrieves line metadata for a file.
+    pub fn lines(&self, id: FileId) -> FileResult<Lines<String>> {
+        Ok(if id == self.main.id() {
+            self.main.lines().clone()
+        } else {
+            self.base.files.file(id)?.lines()?
         })
     }
 }
@@ -108,7 +93,7 @@ struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
-    slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    files: FileStore<TestFiles>,
 }
 
 impl Default for TestBase {
@@ -122,74 +107,45 @@ impl Default for TestBase {
             library: LazyHash::new(library()),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
-            slots: Mutex::new(FxHashMap::default()),
+            files: FileStore::new(TestFiles),
         }
     }
 }
 
-/// Holds the processed data for a file ID.
-#[derive(Clone)]
-struct FileSlot {
-    id: FileId,
-    source: OnceLock<FileResult<Source>>,
-    file: OnceLock<FileResult<Bytes>>,
-}
+/// Loads files from the test suite, Typst assets, and the test packages.
+/// Excludes the main source file, which is directly handled by the `World`.
+pub struct TestFiles;
 
-impl FileSlot {
-    /// Create a new file slot.
-    fn new(id: FileId) -> Self {
-        Self { id, file: OnceLock::new(), source: OnceLock::new() }
-    }
-
-    /// Retrieve the source for this file.
-    fn source(&mut self) -> FileResult<Source> {
-        self.source
-            .get_or_init(|| {
-                let buf = read(&system_path(self.id)?)?;
-                let text = String::from_utf8(buf.into_owned())?;
-                Ok(Source::new(self.id, text))
-            })
-            .clone()
-    }
-
-    /// Retrieve the file's bytes.
-    fn file(&mut self) -> FileResult<Bytes> {
-        self.file
-            .get_or_init(|| {
-                read(&system_path(self.id)?).map(|cow| match cow {
-                    Cow::Owned(buf) => Bytes::new(buf),
-                    Cow::Borrowed(buf) => Bytes::new(buf),
-                })
-            })
-            .clone()
+impl TestFiles {
+    /// Resolves the file system path for a file ID.
+    pub fn resolve(&self, id: FileId) -> PathBuf {
+        let root = match id.root() {
+            VirtualRoot::Project => PathBuf::new(),
+            VirtualRoot::Package(spec) => {
+                format!("tests/packages/{}-{}", spec.name, spec.version).into()
+            }
+        };
+        id.vpath().realize(&root)
     }
 }
 
-/// The file system path for a file ID.
-pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
-    let root = match id.root() {
-        VirtualRoot::Project => PathBuf::new(),
-        VirtualRoot::Package(spec) => {
-            format!("tests/packages/{}-{}", spec.name, spec.version).into()
+impl FileLoader for TestFiles {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        let path = self.resolve(id);
+
+        // Resolve asset.
+        if let Ok(suffix) = path.strip_prefix("assets/") {
+            return typst_dev_assets::get(&suffix.to_string_lossy())
+                .map(Bytes::new)
+                .ok_or_else(|| FileError::NotFound(path));
         }
-    };
-    Ok(id.vpath().realize(&root))
-}
 
-/// Read a file.
-pub(crate) fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
-    // Resolve asset.
-    if let Ok(suffix) = path.strip_prefix("assets/") {
-        return typst_dev_assets::get(&suffix.to_string_lossy())
-            .map(Cow::Borrowed)
-            .ok_or_else(|| FileError::NotFound(path.into()));
-    }
-
-    let f = |e| FileError::from_io(e, path);
-    if fs::metadata(path).map_err(f)?.is_dir() {
-        Err(FileError::IsDirectory)
-    } else {
-        fs::read(path).map(Cow::Owned).map_err(f)
+        let f = |e| FileError::from_io(e, &path);
+        if fs::metadata(&path).map_err(f)?.is_dir() {
+            Err(FileError::IsDirectory)
+        } else {
+            fs::read(&path).map(Bytes::new).map_err(f)
+        }
     }
 }
 

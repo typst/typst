@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
-use typst_syntax::Lines;
+use typst_syntax::{Lines, Source};
 use typst_utils::LazyHash;
 
 use crate::diag::{StrResult, bail};
@@ -94,9 +94,46 @@ impl Bytes {
         self.inner().as_str()
     }
 
-    /// Return a copy of the bytes as a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.as_slice().to_vec()
+    /// Attempts to take ownership of an underlying vector. If this is not
+    /// possible, returns a newly allocated vector with the byte data.
+    ///
+    /// For the underlying allocation to be reused, the bytes must have been
+    /// created via [`Bytes::new`] from a [`Vec<u8>`] and the reference count
+    /// must be 1.
+    pub fn into_vec(mut self) -> Vec<u8> {
+        match self.to_underlying_mut::<Vec<u8>>() {
+            Some(vec) => std::mem::take(vec),
+            None => self.as_slice().to_vec(),
+        }
+    }
+
+    /// Attempts to take ownership of an underlying string or byte vector. If
+    /// this is not possible, returns a newly allocated vector with the byte
+    /// data.
+    ///
+    /// For the underlying allocation to be reused, the bytes must have been
+    /// created via [`Bytes::new`] from a [`Vec<u8>`] or via
+    /// [`Bytes::from_string`] from a [`String`] and the reference count must be
+    /// 1.
+    pub fn into_string(mut self) -> Result<String, IntoStringError> {
+        if let Some(string) = self.to_underlying_string_mut::<String>() {
+            return Ok(std::mem::take(string));
+        }
+
+        let result = if let Some(vec) = self.to_underlying_mut::<Vec<u8>>() {
+            match String::from_utf8(std::mem::take(vec)) {
+                Ok(string) => return Ok(string),
+                Err(err) => {
+                    let error = err.utf8_error();
+                    *vec = err.into_bytes();
+                    Err(error)
+                }
+            }
+        } else {
+            self.as_str().map(ToOwned::to_owned)
+        };
+
+        result.map_err(|error| IntoStringError { bytes: self, error })
     }
 
     /// Try to turn the bytes into a `Str`.
@@ -112,6 +149,29 @@ impl Bytes {
         }
     }
 
+    /// Try to produce line metadata for these bytes. Fails if the bytes are not
+    /// UTF-8 decodable.
+    ///
+    /// If the bytes were created from a [`Source`] file via
+    /// [`Bytes::from_string`], the source file's line metadata is reused.
+    /// Otherwise, line metadata is computed with internal memoization.
+    pub fn lines(&self) -> Result<Lines<String>, Utf8Error> {
+        #[comemo::memoize]
+        fn compute(bytes: &Bytes) -> Result<Lines<String>, Utf8Error> {
+            let text = bytes.as_str()?;
+            Ok(Lines::new(text.to_string()))
+        }
+
+        // Small optimization: If this comes from a source file via
+        // `Bytes::from_string`, we can directly use its lines.
+        match self.to_underlying_string::<Source>() {
+            Some(source) => Ok(source.lines().clone()),
+            None => compute(self),
+        }
+    }
+}
+
+impl Bytes {
     /// Resolve an index or throw an out of bounds error.
     fn locate(&self, index: i64) -> StrResult<usize> {
         self.locate_opt(index).ok_or_else(|| out_of_bounds(index, self.len()))
@@ -125,6 +185,40 @@ impl Bytes {
         let wrapped =
             if index >= 0 { Some(index) } else { (len as i64).checked_add(index) };
         wrapped.and_then(|v| usize::try_from(v).ok()).filter(|&v| v <= len)
+    }
+
+    /// Try to access a vector this was built from via [`Bytes::new`].
+    fn to_underlying_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: AsRef<[u8]> + Send + Sync + 'static,
+    {
+        Arc::get_mut(&mut self.0).and_then(|unique| {
+            let inner: &mut dyn Bytelike = &mut **unique;
+            (inner as &mut dyn Any).downcast_mut::<T>()
+        })
+    }
+
+    /// Try to access a string this was built from via [`Bytes::from_string`].
+    fn to_underlying_string<T>(&self) -> Option<&T>
+    where
+        T: AsRef<str> + Send + Sync + 'static,
+    {
+        (self.inner() as &dyn Any)
+            .downcast_ref::<StrWrapper<T>>()
+            .map(|wrapper| &wrapper.0)
+    }
+
+    /// Try to mutably access a string this was built from via [`Bytes::from_string`].
+    fn to_underlying_string_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: AsRef<str> + Send + Sync + 'static,
+    {
+        Arc::get_mut(&mut self.0).and_then(|unique| {
+            let inner: &mut dyn Bytelike = &mut **unique;
+            (inner as &mut dyn Any)
+                .downcast_mut::<StrWrapper<T>>()
+                .map(|wrapper| &mut wrapper.0)
+        })
     }
 
     /// Access the inner `dyn Bytelike`.
@@ -259,10 +353,7 @@ impl AddAssign for Bytes {
             // Nothing to do
         } else if self.is_empty() {
             *self = rhs;
-        } else if let Some(vec) = Arc::get_mut(&mut self.0).and_then(|unique| {
-            let inner: &mut dyn Bytelike = &mut **unique;
-            (inner as &mut dyn Any).downcast_mut::<Vec<u8>>()
-        }) {
+        } else if let Some(vec) = self.to_underlying_mut::<Vec<u8>>() {
             vec.extend_from_slice(&rhs);
         } else {
             *self = Self::new([self.as_slice(), rhs.as_slice()].concat());
@@ -283,14 +374,11 @@ impl Serialize for Bytes {
     }
 }
 
-impl TryFrom<&Bytes> for Lines<String> {
-    type Error = Utf8Error;
-
-    #[comemo::memoize]
-    fn try_from(value: &Bytes) -> Result<Lines<String>, Utf8Error> {
-        let text = value.as_str()?;
-        Ok(Lines::new(text.to_string()))
-    }
+/// An error that can occur in [`Bytes::into_string`].
+#[derive(Debug)]
+pub struct IntoStringError {
+    pub bytes: Bytes,
+    pub error: Utf8Error,
 }
 
 /// Any type that can back a byte buffer.
@@ -365,4 +453,55 @@ fn out_of_bounds_no_default(index: i64, len: usize) -> EcoString {
         "byte index out of bounds (index: {index}, len: {len}) \
          and no default value was specified",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Round-tripping with lone ownership should retain the same string.
+    #[test]
+    fn test_bytes_into_string_lone() {
+        let s1 = String::from("hello world");
+        let p1 = s1.as_ptr();
+        let s2 = Bytes::from_string(s1).into_string().unwrap();
+        let p2 = s2.as_ptr();
+        assert!(std::ptr::eq(p1, p2));
+    }
+
+    /// Round-tripping with shared ownership can yield a copy.
+    #[test]
+    fn test_bytes_into_string_shared() {
+        let s1 = String::from("hello world");
+        let p1 = s1.as_ptr();
+        let x = Bytes::from_string(s1);
+        let y = x.clone();
+        let s2 = x.into_string().unwrap();
+        let p2 = s2.as_ptr();
+        let s3 = y.into_string().unwrap();
+        let p3 = s3.as_ptr();
+        // The first one yields a copy.
+        assert!(!std::ptr::eq(p1, p2));
+        // The last one yields the original string.
+        assert!(std::ptr::eq(p1, p3));
+    }
+
+    /// Vector can also be reused as string.
+    #[test]
+    fn test_bytes_into_string_from_vec() {
+        let v1 = String::from("hello world").into_bytes();
+        let p1 = v1.as_ptr();
+        let v2 = Bytes::new(v1).into_string().unwrap().into_bytes();
+        let p2 = v2.as_ptr();
+        assert!(std::ptr::eq(p1, p2));
+    }
+
+    /// UTF-8 error should retain the original bytes if it's a vector that could
+    /// become a string.
+    #[test]
+    fn test_bytes_into_string_from_vec_error() {
+        let s = b"hello world\xFF";
+        let err = Bytes::new(Vec::from(s)).into_string().unwrap_err();
+        assert_eq!(err.bytes.as_slice(), s);
+    }
 }

@@ -11,12 +11,12 @@ use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, Lines, VirtualPath};
+use typst_syntax::{FileId, VirtualPath};
 
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
-use crate::world::{TestWorld, system_path};
+use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
@@ -537,7 +537,7 @@ impl<'a> Runner<'a> {
             return "(empty)".into();
         }
 
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
         lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
@@ -547,7 +547,7 @@ impl<'a> Runner<'a> {
 
         let mut preamble = String::new();
         if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+            preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
         }
 
         if range.start == range.end {
@@ -563,7 +563,7 @@ impl<'a> Runner<'a> {
 
     /// Display a position as a line:column pair.
     fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
 
         let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
@@ -571,14 +571,5 @@ impl<'a> Runner<'a> {
         };
 
         if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
-    }
-
-    #[track_caller]
-    fn lookup(&self, file: FileId) -> Lines<String> {
-        if self.test.source.id() == file {
-            self.test.source.lines().clone()
-        } else {
-            self.world.lookup(file)
-        }
     }
 }
