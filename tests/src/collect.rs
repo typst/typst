@@ -17,6 +17,7 @@ use typst_syntax::{
 };
 use unscanny::Scanner;
 
+use crate::custom::generate_variants;
 use crate::output::HashedRefs;
 use crate::world::{read, system_path};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
@@ -78,6 +79,7 @@ bitflags! {
     #[derive(Copy, Clone)]
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
+        const MATH_FONTS = 1 << 1;
     }
 }
 
@@ -85,6 +87,7 @@ bitflags! {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
+    pub math_fonts: bool,
     pub pdf_standard: Option<PdfStandard>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
@@ -310,6 +313,7 @@ impl Display for FileSize {
 }
 
 /// An annotation like `// Error: 2-6 message` in a test.
+#[derive(Clone)]
 pub struct Note {
     pub pos: FilePos,
     pub kind: NoteKind,
@@ -568,7 +572,11 @@ impl<'a> Parser<'a> {
             self.test_start_line = self.line;
 
             let pos = FilePos::new(self.path, self.test_start_line);
-            self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
+            let variants = generate_variants(&name, attrs);
+            let variant_count = variants.len();
+            self.collector.seen.extend(
+                variants.iter().map(|(name, _)| (name.clone(), (pos.clone(), attrs))),
+            );
 
             while !self.s.done() && !self.s.at("---") {
                 self.s.eat_until(is_newline);
@@ -579,12 +587,18 @@ impl<'a> Parser<'a> {
 
             let text = self.s.from(start);
 
-            if !ARGS.should_run(attrs.stages)
-                || !selected(&name, self.path.canonicalize().unwrap())
-            {
-                self.collector.skipped += 1;
+            // Filter to selected variants.
+            let canonical_path = self.path.canonicalize().unwrap();
+            let selected_variants: Vec<_> = variants
+                .into_iter()
+                .filter(|(name, _)| selected(name, &canonical_path))
+                .collect();
+
+            if !ARGS.should_run(attrs.stages) || selected_variants.is_empty() {
+                self.collector.skipped += variant_count;
                 continue;
             }
+            self.collector.skipped += variant_count - selected_variants.len();
 
             let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
             let source = Source::new(
@@ -607,7 +621,19 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            self.collector.tests.push(Test { pos, name, source, notes, attrs });
+            for (name, prepend) in selected_variants {
+                let mut source = source.clone();
+                if let Some(prepend) = prepend {
+                    source.edit(0..0, &prepend);
+                }
+                self.collector.tests.push(Test {
+                    pos: pos.clone(),
+                    name,
+                    source,
+                    notes: notes.clone(),
+                    attrs,
+                });
+            }
         }
     }
 
@@ -645,6 +671,9 @@ impl<'a> Parser<'a> {
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
+                "math-fonts" => {
+                    self.set_attr(attr_name, &mut flags, AttrFlags::MATH_FONTS)
+                }
 
                 found => {
                     self.error(format!(
@@ -667,6 +696,7 @@ impl<'a> Parser<'a> {
 
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
+            math_fonts: flags.contains(AttrFlags::MATH_FONTS),
             pdf_standard,
             stages: stages.with_implied(),
         }
@@ -857,7 +887,7 @@ impl<'a> Parser<'a> {
 }
 
 /// Whether a test is within the selected set to run.
-fn selected(name: &str, abs: PathBuf) -> bool {
+fn selected(name: &str, abs: &Path) -> bool {
     static SKIPPED: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
         String::leak(std::fs::read_to_string(crate::SKIP_PATH).unwrap())
             .lines()
