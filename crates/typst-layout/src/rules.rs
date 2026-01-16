@@ -26,8 +26,8 @@ use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem,
-    TextSize, UnderlineElem, WeightDelta,
+    SmallcapsSettings, SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem,
+    SuperElem, TextElem, TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
@@ -651,7 +651,10 @@ const HIGHLIGHT_RULE: ShowFn<HighlightElem> = |elem, _, styles| {
 
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
     let sc = if elem.all.get(styles) { Smallcaps::All } else { Smallcaps::Minuscules };
-    Ok(elem.body.clone().set(TextElem::smallcaps, Some(sc)))
+    Ok(elem.body.clone().set(
+        TextElem::smallcaps_settings,
+        Some(SmallcapsSettings { typographic: elem.typographic.get(styles), sc }),
+    ))
 };
 
 const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
