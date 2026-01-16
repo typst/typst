@@ -110,6 +110,60 @@ fn place(&mut self, elem: &'a Packed<PlaceElem>, styles: StyleChain<'a>) -> Sour
 
 **Goal:** Make wrap-floats actually affect paragraph layout.
 
+### ⚠️ Critical Issues from Phase 1 Learnings
+
+Before implementing, address these issues discovered during Phase 1:
+
+#### Issue 1: Citation Registry Duplication
+
+The iterative refinement loop calls `par.measure()` up to 3 times. Each call triggers realization → `prepare()` → `register_cite_group()`. This causes duplicate CiteGroup registrations.
+
+**Required fix:** Add deduplication to the citation registry:
+```rust
+// In bibliography.rs, modify register_cite_group()
+pub fn register_cite_group(group: Content) {
+    CITE_GROUPS.with(|cell| {
+        let mut groups = cell.borrow_mut();
+        // Deduplicate by location to handle multiple measure() calls
+        if let Some(loc) = group.location() {
+            if !groups.iter().any(|g| g.location() == Some(loc)) {
+                groups.push(group);
+            }
+        } else {
+            groups.push(group);
+        }
+    });
+}
+```
+
+#### Issue 2: ParSpill Loses Exclusion Context
+
+When a paragraph breaks across regions, `par_spill` processes remaining frames in the new region. But those frames were computed with the OLD region's exclusions.
+
+**Required fix:** Re-measure remaining content in the new region:
+```rust
+// In par_spill(), if exclusions changed between regions:
+fn par_spill(&mut self, mut spill: ParSpill) -> FlowResult<()> {
+    // Check if this region has different exclusions than when frames were computed
+    if spill.had_exclusions && self.wrap_state.floats.is_empty() {
+        // Frames were computed with exclusions, but this region has none.
+        // The frames have wrong widths. Need to re-layout.
+        // Option A: Return error to trigger full re-measure of paragraph
+        // Option B: Accept slight visual inconsistency (pragmatic)
+        // For Phase 3, we accept Option B with a warning.
+    }
+    // ... rest of implementation
+}
+```
+
+**Long-term fix:** Store `ParChild` reference in `ParSpill` to enable re-measurement.
+
+#### Issue 3: Thread Contention
+
+Phase 1 requires `--num-threads 4` due to citation registry contention. With 3x measure calls per paragraph, this may worsen. Document this limitation and consider lock-free registry design for future.
+
+---
+
 ### WrapState in Distributor
 
 **File: `crates/typst-layout/src/flow/distribute.rs`**
@@ -139,9 +193,34 @@ impl WrapState {
         if excl.is_empty() { None } else { Some(excl) }
     }
 
-    /// Clear all wrap-floats (called at region boundaries).
-    fn clear(&mut self) {
-        self.floats.clear();
+    /// Clear wrap-floats that are fully above the region boundary.
+    /// Floats that span into the next region are preserved (with adjusted y).
+    ///
+    /// # Arguments
+    /// * `region_height` - Height of the completed region
+    fn clear_for_region_break(&mut self, region_height: Abs) {
+        self.floats.retain_mut(|wf| {
+            let float_bottom = wf.y + wf.height;
+            if float_bottom <= region_height {
+                // Float fully in previous region, remove it
+                false
+            } else if wf.y >= region_height {
+                // Float fully in next region, adjust y
+                wf.y -= region_height;
+                true
+            } else {
+                // Float spans regions, adjust y and clip
+                let new_height = float_bottom - region_height;
+                wf.y = Abs::zero();
+                wf.height = new_height;
+                true
+            }
+        });
+    }
+
+    /// Check if any exclusions are active.
+    fn has_exclusions(&self) -> bool {
+        !self.floats.is_empty()
     }
 }
 ```
@@ -200,10 +279,20 @@ impl Distributor<'_, '_, '_, '_, '_> {
 
 ### Iterative Refinement
 
-The circular dependency (line height affects exclusions, exclusions affect line breaks) is resolved by iteration:
+The circular dependency (line height affects exclusions, exclusions affect line breaks) is resolved by iteration.
+
+**Prerequisites (from Phase 2 API Changes):**
+- `ParMeasureResult.break_positions: Vec<usize>` must exist for convergence detection
+- `par.measure()` must accept `Option<&ParExclusions>`
+
+**Note on `relayout()`:** Each `par.measure()` call uses `self.locator.relayout()`. This is safe to call multiple times - it produces identical locations each time. This is the intended behavior from Phase 1.
 
 ```rust
 /// Iterative refinement for paragraphs affected by wrap exclusions.
+///
+/// NOTE: This calls measure() up to MAX_WRAP_ITER times. Each call:
+/// - Uses locator.relayout() (safe, produces same locations)
+/// - Triggers realization (citation registry must deduplicate!)
 fn refine_paragraph_measure(
     &mut self,
     par: &ParChild<'_>,
@@ -223,6 +312,7 @@ fn refine_paragraph_measure(
         )?;
 
         // Check for convergence: same line breaks as previous iteration
+        // Requires ParMeasureResult.break_positions field (see Phase 2)
         if let Some(prev) = &prev_breaks {
             if *prev == measure.break_positions {
                 return Ok((measure, exclusions));
@@ -430,6 +520,59 @@ Text that wraps around the float which appears near this position.
 #lorem(80)
 ```
 
+## ParSpill with Exclusions
+
+When a paragraph breaks across regions with wrap-floats, special handling is needed.
+
+### The Problem
+
+1. Region 1 has wrap-float → paragraph measured with exclusions
+2. Frames 0-5 placed, frames 6-10 saved to `ParSpill`
+3. Region 2 has no wrap-floats → different exclusions
+4. Frames 6-10 have wrong widths (computed for Region 1's exclusions)
+
+### Mitigation (Phase 3)
+
+For initial implementation, accept this limitation with documentation:
+
+```rust
+struct ParSpill {
+    frames: std::vec::IntoIter<(Frame, Abs)>,
+    align: Axes<FixedAlignment>,
+    leading: Abs,
+    /// Whether frames were computed with exclusions.
+    /// If true and current region has no exclusions, text may appear indented.
+    had_exclusions: bool,
+}
+```
+
+Add test for this edge case with expected behavior documented.
+
+### Future Improvement
+
+Store `ParChild` reference in `ParSpill` to enable re-measurement:
+```rust
+struct ParSpill<'a> {
+    par: &'a ParChild<'a>,
+    remaining_content_start: usize,  // Where to resume
+    // ... rest
+}
+```
+
+This allows re-measuring remaining content with new region's exclusions.
+
+---
+
+## Known Limitations
+
+Document these for users:
+
+1. **Thread count:** Run tests with `--num-threads 4` due to citation registry contention
+2. **Paragraph spanning regions:** If a paragraph with wrap-float exclusions breaks across pages, continuation may have slight visual inconsistency
+3. **Citations in wrapped paragraphs:** Multiple measure iterations cause duplicate registry entries (mitigated by deduplication, but adds overhead)
+
+---
+
 ## Exit Criteria
 
 - [ ] Text wraps around wrap-floats correctly
@@ -437,10 +580,15 @@ Text that wraps around the float which appears near this position.
 - [ ] Edge cases handled: too-wide floats, narrow gaps
 - [ ] Wrap-floats do not consume vertical space
 - [ ] Page breaks work correctly with wrap-floats
+- [ ] Citation registry deduplication implemented (Issue 1)
+- [ ] WrapState.clear_for_region_break() handles spanning floats
+- [ ] ParSpill.had_exclusions flag added
+- [ ] Tests pass with `--num-threads 4`
 
 ## Dependencies
 
 - [Phase 2: Exclusion Data Structures](WRAP_PHASE_2.md) must be complete
+- Phase 2 API changes implemented (commit signature, break_positions)
 
 ## Next Phase
 

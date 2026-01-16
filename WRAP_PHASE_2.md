@@ -335,6 +335,55 @@ fn test_exclusion_no_overlap() {
 }
 ```
 
+## API Changes Required for Phase 3
+
+Phase 3 requires modifications to Phase 1's `ParChild` API. Document these here for awareness:
+
+### 1. ParChild::commit() Signature Change
+
+Current Phase 1 signature:
+```rust
+pub fn commit(&self, engine: &mut Engine, measured: &ParMeasureResult)
+    -> SourceResult<ParCommitResult>
+```
+
+Phase 3 needs exclusions passed to commit:
+```rust
+pub fn commit(
+    &self,
+    engine: &mut Engine,
+    measured: &ParMeasureResult,
+    exclusions: Option<&ParExclusions>,  // NEW
+) -> SourceResult<ParCommitResult>
+```
+
+### 2. ParMeasureResult::break_positions Field
+
+Phase 3's convergence detection needs to know where line breaks occur:
+```rust
+pub struct ParMeasureResult {
+    pub line_metrics: Vec<LineMetrics>,
+    pub total_height: Abs,
+    pub break_positions: Vec<usize>,  // NEW: indices where lines break
+}
+```
+
+This enables detecting convergence when exclusions change but line breaks don't.
+
+### 3. measure_par_with_exclusions() Exclusion Parameter
+
+The underlying layout function needs to accept exclusions:
+```rust
+pub fn measure_par_with_exclusions(
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    base: Size,
+    expand: bool,
+    exclusions: Option<&ParExclusions>,  // NEW
+) -> SourceResult<ParMeasureResult>
+```
+
 ## Exit Criteria
 
 - [ ] `ParExclusions::available_width()` correctly computes width at any y
@@ -342,6 +391,7 @@ fn test_exclusion_no_overlap() {
 - [ ] Coordinate system is documented and consistent
 - [ ] Unit tests pass for all edge cases
 - [ ] `wrap` parameter parses correctly on `PlaceElem`
+- [ ] API changes documented and ready for Phase 3
 
 ## Dependencies
 
