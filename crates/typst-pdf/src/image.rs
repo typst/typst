@@ -3,6 +3,7 @@ use std::sync::{Arc, OnceLock};
 
 use ecow::eco_format;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
+use krilla::graphic::Graphic;
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
@@ -63,11 +64,23 @@ pub(crate) fn handle_image(
         }
         ImageKind::Svg(svg) => {
             if let Some(size) = size.to_krilla() {
-                surface.draw_svg(
-                    svg.tree(),
-                    size,
-                    SvgSettings { embed_text: true, ..Default::default() },
-                );
+                let graphic = gc
+                    .svg_graphics
+                    .entry(image.clone())
+                    .or_insert_with(|| {
+                        let mut stream_builder = surface.stream_builder();
+                        let mut sub_surface = stream_builder.surface();
+                        sub_surface.draw_svg(
+                            svg.tree(),
+                            size,
+                            SvgSettings { embed_text: true, ..Default::default() },
+                        );
+                        sub_surface.finish();
+                        let stream = stream_builder.finish();
+                        Graphic::new(stream, true)
+                    })
+                    .clone();
+                surface.draw_graphic(graphic);
             }
         }
         ImageKind::Pdf(pdf) => {
