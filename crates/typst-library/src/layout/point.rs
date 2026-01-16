@@ -57,7 +57,11 @@ impl Point {
 
     /// The distance between this point and the origin.
     pub fn hypot(self) -> Abs {
-        Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))
+        // The `sqrt` function is defined by IEEE-754 and thus deterministic.
+        // In addition this should be faster than `f64::hypot` or `libm::hypot`.
+        let x = self.x.to_raw();
+        let y = self.y.to_raw();
+        Abs::raw((x * x + y * y).sqrt())
     }
 
     // TODO: this is a bit awkward on a point struct.
