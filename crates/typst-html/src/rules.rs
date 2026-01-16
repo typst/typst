@@ -27,7 +27,7 @@ use typst_library::model::{
 use typst_library::routines::Arenas;
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_syntax::Span;
@@ -354,6 +354,9 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
         // no footnote container is available.
         let marker = FootnoteMarker::new().pack().spanned(span);
         sups.push(link + marker);
+    }
+    if styles.resolve(TextElem::dir) == Dir::RTL {
+        sups.reverse();
     }
     let content = SequenceElem::new(sups).pack().spanned(elem.span());
     Ok(HElem::hole().clone() + content)
