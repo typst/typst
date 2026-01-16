@@ -8,7 +8,7 @@ mod fonts;
 mod greet;
 mod info;
 mod init;
-mod package;
+mod packages;
 mod query;
 #[cfg(feature = "http-server")]
 mod server;

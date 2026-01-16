@@ -67,13 +67,22 @@ pub trait World: Send + Sync {
     /// Get the file id of the main source file.
     fn main(&self) -> FileId;
 
-    /// Try to access the specified source file.
+    /// Try to access the specified file location as a source file.
     fn source(&self, id: FileId) -> FileResult<Source>;
 
     /// Try to access the specified file.
+    ///
+    /// For file locations for which [`source`](Self::source) succeeds, this
+    /// should also succeed. The [`Bytes`] can be cheaply created as a view into
+    /// an existing [`Source`] through [`Bytes::from_string`].
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
     /// Try to access the font with the given index in the font book.
+    ///
+    /// Note that the index is not guaranteed to be in bounds of the font book
+    /// returned by this world's `book()` function. This is the case because
+    /// this function may be invoked with indices from an outdated or different
+    /// font book during incremental compilation validation.
     fn font(&self, index: usize) -> Option<Font>;
 
     /// Get the current date.
