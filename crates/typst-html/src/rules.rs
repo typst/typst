@@ -357,8 +357,8 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
         let link = LinkElem::new(dest.into(), sup)
             .pack()
             .styled(HtmlElem::role.set(Some("doc-noteref".into())));
-        // Indicates the presence of a default footnote rule to emit an error when
-        // no footnote container is available.
+        // Indicates the presence of a default footnote rule to emit an error
+        // when no footnote container is available.
         let marker = FootnoteMarker::new().pack().spanned(span);
         sups.push(link + marker);
     }

@@ -186,8 +186,8 @@ pub struct FootnoteGroup {
     /// The separator between the footnote markers in the text.
     ///
     /// It is `{auto}` by default, and the separator depends on the footnote
-    /// [numbering pattern or function]($numbering). If set to `{none}`, there's
-    /// no separator.
+    /// [numbering pattern or function]($numbering). If set to `{none}`,
+    /// there's no separator.
     ///
     /// ```example
     /// #set footnote.group(separator: "&")
@@ -196,8 +196,8 @@ pub struct FootnoteGroup {
     /// #footnote[Referring to the city's characteristic summer fog.]
     /// #footnote[This quip is often misattributed to Mark Twain.].
     /// ```
-    #[default(Smart::Auto)] // #[default(Some(TextElem::packed(",")))]
-    pub separator: Smart<Option<Content>>, // pub separator: Option<Content>,
+    #[default(Smart::Auto)]
+    pub separator: Smart<Option<Content>>,
 
     /// The footnotes.
     #[required]
@@ -218,10 +218,14 @@ impl FootnoteGroup {
         match self.separator.get_cloned(styles) {
             Smart::Custom(content) => content,
             Smart::Auto => {
-                let ascii_comma = Some(TextElem::packed(","));
                 match numbering {
-                    Numbering::Func(_) => None, // The safest default as it's arbitrary
+                    // The most sensible default since a Func can be arbitrary
+                    // and we don't presume to guess.
+                    Numbering::Func(_) => None,
                     Numbering::Pattern(pattern) => match pattern {
+                        // If a footnote marker's either end is normal text
+                        // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
+                        // to add a separator.
                         NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
                         NumberingPattern { pieces, .. } => match pieces.as_slice() {
                             [first, ..] if !first.0.is_empty() => None,
@@ -247,7 +251,7 @@ impl FootnoteGroup {
                                 NumberingKind::Symbol => Some(TextElem::packed(" ")),
                                 NumberingKind::CircledNumber
                                 | NumberingKind::DoubleCircledNumber => None,
-                                _ => ascii_comma,
+                                _ => Some(TextElem::packed(",")),
                             },
                             _ => None,
                         },
