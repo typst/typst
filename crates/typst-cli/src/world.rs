@@ -8,7 +8,7 @@ use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Dict, IntoValue, Repr};
+use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue, Repr};
 use typst::syntax::{
     FileId, Lines, PathError, RootedPath, Source, VirtualPath, VirtualRoot,
     VirtualizeError,
@@ -246,7 +246,7 @@ impl World for SystemWorld {
         self.fonts.slots.get(index)?.get()
     }
 
-    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         let now = match &self.now {
             Now::Fixed(time) => time,
             Now::System(time) => time.get_or_init(Utc::now),
@@ -255,9 +255,16 @@ impl World for SystemWorld {
         // The time with the specified UTC offset, or within the local time zone.
         let with_offset = match offset {
             None => now.with_timezone(&Local).fixed_offset(),
-            Some(hours) => {
-                let seconds = i32::try_from(hours).ok()?.checked_mul(3600)?;
-                now.with_timezone(&FixedOffset::east_opt(seconds)?)
+            Some(offset) => {
+                let seconds: f64 = offset.seconds();
+                // Check whether we can convert seconds from f64 to i32
+                if !seconds.is_finite()
+                    || seconds < f64::from(i32::MIN)
+                    || seconds > f64::from(i32::MAX)
+                {
+                    return None;
+                }
+                now.with_timezone(&FixedOffset::east_opt(seconds as i32)?)
             }
         };
 
