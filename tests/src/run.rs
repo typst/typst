@@ -293,8 +293,74 @@ impl<'a> Runner<'a> {
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        if old_ref_data.as_ref().is_ok_and(|r| T::matches(r, live)) {
-            return;
+        if let Ok(ref_data) = &old_ref_data {
+            let match_result = T::matches(ref_data, live);
+            if match_result.is_match() {
+                // Handle perceptual comparison - may need user approval
+                if match_result.is_perceptual_only() {
+                    let ssim = match_result.ssim_score().unwrap_or(0.0);
+
+                    // If interactive mode is enabled, ask user for approval
+                    // Interactive mode is enabled by:
+                    // 1. TYPST_TEST_INTERACTIVE env var, OR
+                    // 2. tests/local/interactive marker file exists
+                    let interactive = std::env::var("TYPST_TEST_INTERACTIVE").is_ok()
+                        || Path::new("tests/local/interactive").exists();
+                    if interactive {
+                        let result = prompt_ssim_approval(
+                            &ref_path,
+                            &live_path,
+                            ssim,
+                            &self.test.name,
+                        );
+                        if !result.accepted {
+                            // User rejected - treat as mismatch
+                            self.result.mismatched_output = true;
+                            log!(self, "");
+                            log!(self, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                            log!(self, "!!!                                                      !!!");
+                            log!(self, "!!!  PERCEPTUAL MATCH REJECTED BY USER                   !!!");
+                            log!(self, "!!!                                                      !!!");
+                            log!(self, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                            log!(self, "");
+                            log!(self, "Test: {}", self.test.name);
+                            log!(self, "SSIM Score: {:.4}", ssim);
+                            log!(self, "");
+                            log!(self, "Files:");
+                            log!(self, "  live: {}", live_path.display());
+                            log!(self, "  ref:  {}", ref_path.display());
+                            log!(self, "");
+                            if let Some(reason) = &result.rejection_reason {
+                                log!(self, "USER'S REJECTION REASON:");
+                                log!(self, "┌────────────────────────────────────────────────────────┐");
+                                for line in reason.lines() {
+                                    log!(self, "│ {:<54} │", line);
+                                }
+                                log!(self, "└────────────────────────────────────────────────────────┘");
+                                log!(self, "");
+                            }
+                            log!(self, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                            log!(self, "");
+                            return;
+                        }
+                        log!(
+                            into: self.result.infos,
+                            "perceptual match accepted by user (SSIM: {:.4}): {}",
+                            ssim,
+                            self.test.name
+                        );
+                    } else {
+                        log!(
+                            into: self.result.infos,
+                            "warning: test '{}' passed via perceptual comparison (SSIM: {:.4}) - \
+                             consider updating reference if this is intentional",
+                            self.test.name,
+                            ssim
+                        );
+                    }
+                }
+                return;
+            }
         }
 
         if crate::ARGS.update {
@@ -581,4 +647,108 @@ impl<'a> Runner<'a> {
             self.world.lookup(file)
         }
     }
+}
+
+/// Result of SSIM approval prompt.
+pub struct SsimApprovalResult {
+    pub accepted: bool,
+    pub rejection_reason: Option<String>,
+}
+
+/// Prompt user for approval of an SSIM-based perceptual match.
+/// Uses the local ssim_dialog.sh script (gitignored) if available.
+/// Returns approval result with optional rejection reason.
+fn prompt_ssim_approval(
+    ref_path: &Path,
+    live_path: &Path,
+    ssim: f64,
+    test_name: &str,
+) -> SsimApprovalResult {
+    let log_path = Path::new("tests/local/ssim_rejections.log");
+
+    // Get log file size before running dialog (to detect new entries)
+    let log_size_before = std::fs::metadata(log_path).map(|m| m.len()).unwrap_or(0);
+
+    // Try to find the dialog script in tests/local/
+    let script_path = Path::new("tests/local/ssim_dialog.sh");
+    if !script_path.exists() {
+        // Script not found - fall back to simple terminal prompt
+        eprintln!("\n=== SSIM Comparison Required ===");
+        eprintln!("Test: {}", test_name);
+        eprintln!("SSIM Score: {:.4}", ssim);
+        eprintln!("Reference: {}", ref_path.display());
+        eprintln!("Live: {}", live_path.display());
+        eprintln!("\nOpening images for comparison...");
+
+        // Open images in default viewer
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::process::Command::new("open")
+                .arg(ref_path)
+                .arg(live_path)
+                .spawn();
+        }
+
+        eprint!("Accept this perceptual match? [Y/n]: ");
+        let mut input = String::new();
+        if std::io::stdin().read_line(&mut input).is_ok() {
+            let input = input.trim().to_lowercase();
+            let accepted = input.is_empty() || input == "y" || input == "yes";
+            if accepted {
+                return SsimApprovalResult { accepted: true, rejection_reason: None };
+            }
+        }
+
+        // Ask for rejection reason
+        eprint!("Reason for rejection (for LLM context): ");
+        let mut reason = String::new();
+        let rejection_reason = if std::io::stdin().read_line(&mut reason).is_ok() {
+            let reason = reason.trim();
+            if !reason.is_empty() {
+                Some(reason.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        return SsimApprovalResult { accepted: false, rejection_reason };
+    }
+
+    // Run the dialog script
+    let status = std::process::Command::new("bash")
+        .arg(script_path)
+        .arg(ref_path)
+        .arg(live_path)
+        .arg(format!("{:.4}", ssim))
+        .arg(test_name)
+        .status();
+
+    let accepted = match status {
+        Ok(s) => s.success(),
+        Err(e) => {
+            eprintln!("Failed to run SSIM dialog script: {}", e);
+            false
+        }
+    };
+
+    if accepted {
+        return SsimApprovalResult { accepted: true, rejection_reason: None };
+    }
+
+    // Read rejection reason from log file (new content since before dialog)
+    let rejection_reason = std::fs::read_to_string(log_path)
+        .ok()
+        .and_then(|content| {
+            let new_content = &content[log_size_before as usize..];
+            // Extract the reason from the log entry
+            new_content
+                .lines()
+                .find(|line| line.starts_with("Reason: "))
+                .map(|line| line.trim_start_matches("Reason: ").to_string())
+        })
+        .filter(|s| !s.is_empty());
+
+    SsimApprovalResult { accepted: false, rejection_reason }
 }

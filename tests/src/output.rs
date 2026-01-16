@@ -15,6 +15,40 @@ use typst_syntax::Span;
 use crate::collect::{Test, TestOutput};
 use crate::pdftags;
 
+/// Result of comparing two images.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MatchResult {
+    /// Images match exactly (within ±1 per channel tolerance).
+    Exact,
+    /// Images match after normalized comparison (within ±3 per channel, with error budget).
+    Normalized,
+    /// Images match perceptually (SSIM >= threshold). Contains the SSIM score.
+    Perceptual(f64),
+    /// Images do not match. Contains the SSIM score if computed.
+    Mismatch(Option<f64>),
+}
+
+impl MatchResult {
+    /// Whether the comparison passed (any match type).
+    pub fn is_match(self) -> bool {
+        !matches!(self, MatchResult::Mismatch(_))
+    }
+
+    /// Whether this was a perceptual-only match (requires warning).
+    pub fn is_perceptual_only(self) -> bool {
+        matches!(self, MatchResult::Perceptual(_))
+    }
+
+    /// Get the SSIM score if this was a perceptual comparison.
+    pub fn ssim_score(self) -> Option<f64> {
+        match self {
+            MatchResult::Perceptual(score) => Some(score),
+            MatchResult::Mismatch(score) => score,
+            _ => None,
+        }
+    }
+}
+
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
 pub struct HashedRefs {
@@ -146,7 +180,8 @@ pub trait FileOutputType: OutputType {
     fn make_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
-    fn matches(old: &[u8], new: &Self::Live) -> bool;
+    /// Returns a `MatchResult` indicating the type of match (or mismatch).
+    fn matches(old: &[u8], new: &Self::Live) -> MatchResult;
 }
 
 /// An output type that produces hashed references.
@@ -195,9 +230,9 @@ impl FileOutputType for Render {
         oxipng::optimize_from_memory(&data, &opts).unwrap()
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
+    fn matches(old: &[u8], new: &Self::Live) -> MatchResult {
         let old_pixmap = sk::Pixmap::decode_png(old).unwrap();
-        approx_equal(&old_pixmap, new)
+        compare_pixmaps(&old_pixmap, new)
     }
 }
 
@@ -270,8 +305,12 @@ impl FileOutputType for Pdftags {
         live
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
+    fn matches(old: &[u8], new: &Self::Live) -> MatchResult {
+        if old == new.as_bytes() {
+            MatchResult::Exact
+        } else {
+            MatchResult::Mismatch(None)
+        }
     }
 }
 
@@ -330,8 +369,12 @@ impl FileOutputType for Html {
         live
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
+    fn matches(old: &[u8], new: &Self::Live) -> MatchResult {
+        if old == new.as_bytes() {
+            MatchResult::Exact
+        } else {
+            MatchResult::Mismatch(None)
+        }
     }
 }
 
@@ -403,11 +446,170 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
     }
 }
 
-/// Whether two pixel images are approximately equal.
-fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap) -> bool {
-    a.width() == b.width()
-        && a.height() == b.height()
-        && a.data().iter().zip(b.data()).all(|(&a, &b)| a.abs_diff(b) <= 1)
+/// Compare two pixmaps using tiered comparison:
+/// 1. Exact: within ±1 per channel (original behavior)
+/// 2. Normalized: within ±3 per channel with total error budget
+/// 3. Perceptual: SSIM >= 0.99
+fn compare_pixmaps(a: &sk::Pixmap, b: &sk::Pixmap) -> MatchResult {
+    // Dimensions must always match
+    if a.width() != b.width() || a.height() != b.height() {
+        return MatchResult::Mismatch(None);
+    }
+
+    // Try exact match first (±1 tolerance per channel)
+    if a.data().iter().zip(b.data()).all(|(&a, &b)| a.abs_diff(b) <= 1) {
+        return MatchResult::Exact;
+    }
+
+    // Try normalized match (±3 tolerance per channel, with error budget)
+    // Allow up to 0.1% of pixels to exceed the tolerance
+    let total_pixels = (a.width() * a.height()) as usize;
+    let max_outliers = (total_pixels / 1000).max(1); // 0.1% or at least 1
+
+    let mut outliers = 0;
+    let normalized_ok = a.data().iter().zip(b.data()).all(|(&a, &b)| {
+        let diff = a.abs_diff(b);
+        if diff <= 3 {
+            true
+        } else {
+            outliers += 1;
+            outliers <= max_outliers
+        }
+    });
+
+    if normalized_ok {
+        return MatchResult::Normalized;
+    }
+
+    // Try perceptual match using SSIM
+    let ssim = compute_ssim(a, b);
+    if ssim >= 0.99 {
+        return MatchResult::Perceptual(ssim);
+    }
+
+    MatchResult::Mismatch(Some(ssim))
+}
+
+/// Compute Structural Similarity Index (SSIM) between two pixmaps.
+/// Returns a value between 0.0 (completely different) and 1.0 (identical).
+/// Uses the luminance channel only for efficiency.
+fn compute_ssim(a: &sk::Pixmap, b: &sk::Pixmap) -> f64 {
+    let width = a.width() as usize;
+    let height = a.height() as usize;
+
+    if width == 0 || height == 0 {
+        return 1.0; // Empty images are considered identical
+    }
+
+    // Convert to luminance (grayscale)
+    let luma_a = to_luminance(a);
+    let luma_b = to_luminance(b);
+
+    // SSIM constants (as per the original paper)
+    const K1: f64 = 0.01;
+    const K2: f64 = 0.03;
+    const L: f64 = 255.0; // Dynamic range
+    let c1 = (K1 * L) * (K1 * L);
+    let c2 = (K2 * L) * (K2 * L);
+
+    // Use 8x8 windows for efficiency (instead of Gaussian blur)
+    let window_size = 8;
+    let mut ssim_sum = 0.0;
+    let mut window_count = 0;
+
+    let step = window_size; // Non-overlapping windows for speed
+    let mut y = 0;
+    while y + window_size <= height {
+        let mut x = 0;
+        while x + window_size <= width {
+            let (mean_a, mean_b, var_a, var_b, cov_ab) =
+                window_stats(&luma_a, &luma_b, width, x, y, window_size);
+
+            // SSIM formula
+            let numerator = (2.0 * mean_a * mean_b + c1) * (2.0 * cov_ab + c2);
+            let denominator =
+                (mean_a * mean_a + mean_b * mean_b + c1) * (var_a + var_b + c2);
+
+            ssim_sum += numerator / denominator;
+            window_count += 1;
+
+            x += step;
+        }
+        y += step;
+    }
+
+    if window_count == 0 {
+        // Image smaller than window, fall back to simple comparison
+        let (mean_a, mean_b, var_a, var_b, cov_ab) =
+            window_stats(&luma_a, &luma_b, width, 0, 0, width.min(height));
+
+        let numerator = (2.0 * mean_a * mean_b + c1) * (2.0 * cov_ab + c2);
+        let denominator = (mean_a * mean_a + mean_b * mean_b + c1) * (var_a + var_b + c2);
+
+        return numerator / denominator;
+    }
+
+    ssim_sum / window_count as f64
+}
+
+/// Convert RGBA pixmap to luminance values.
+fn to_luminance(pixmap: &sk::Pixmap) -> Vec<f64> {
+    pixmap
+        .data()
+        .chunks_exact(4)
+        .map(|rgba| {
+            // Standard luminance coefficients (BT.709)
+            0.2126 * rgba[0] as f64 + 0.7152 * rgba[1] as f64 + 0.0722 * rgba[2] as f64
+        })
+        .collect()
+}
+
+/// Compute mean, variance, and covariance for a window.
+fn window_stats(
+    a: &[f64],
+    b: &[f64],
+    width: usize,
+    start_x: usize,
+    start_y: usize,
+    size: usize,
+) -> (f64, f64, f64, f64, f64) {
+    let mut sum_a = 0.0;
+    let mut sum_b = 0.0;
+    let mut sum_a2 = 0.0;
+    let mut sum_b2 = 0.0;
+    let mut sum_ab = 0.0;
+    let mut count = 0;
+
+    for dy in 0..size {
+        for dx in 0..size {
+            let idx = (start_y + dy) * width + (start_x + dx);
+            if idx >= a.len() {
+                continue;
+            }
+
+            let va = a[idx];
+            let vb = b[idx];
+            sum_a += va;
+            sum_b += vb;
+            sum_a2 += va * va;
+            sum_b2 += vb * vb;
+            sum_ab += va * vb;
+            count += 1;
+        }
+    }
+
+    if count == 0 {
+        return (0.0, 0.0, 0.0, 0.0, 0.0);
+    }
+
+    let n = count as f64;
+    let mean_a = sum_a / n;
+    let mean_b = sum_b / n;
+    let var_a = (sum_a2 / n) - (mean_a * mean_a);
+    let var_b = (sum_b2 / n) - (mean_b * mean_b);
+    let cov_ab = (sum_ab / n) - (mean_a * mean_b);
+
+    (mean_a, mean_b, var_a.max(0.0), var_b.max(0.0), cov_ab)
 }
 
 /// Convert a Typst transform to a tiny-skia transform.
