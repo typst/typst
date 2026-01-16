@@ -8,7 +8,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
+    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Dir, Em,
     FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
     InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
     PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
@@ -414,6 +414,9 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
             .spanned(note.span())
             .linked(dest, Some(alt));
         sups.push(sup);
+    }
+    if styles.resolve(TextElem::dir) == Dir::RTL {
+        sups.reverse();
     }
     let content = SuperElem::new(SequenceElem::new(sups).pack())
         .pack()

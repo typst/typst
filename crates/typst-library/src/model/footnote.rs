@@ -242,7 +242,7 @@ impl FootnoteGroup {
                                 }
                                 NumberingKind::EasternArabic
                                 | NumberingKind::EasternArabicPersian => {
-                                    Some(TextElem::packed("\u{0995}"))
+                                    Some(TextElem::packed("،"))
                                 }
                                 NumberingKind::Symbol => Some(TextElem::packed(" ")),
                                 NumberingKind::CircledNumber

@@ -292,29 +292,43 @@ Ref @fn
 
 --- footnote-group paged html ---
 // Test that footnotes are organized in a footnote group.
-Hi#footnote[A]#footnote[B]#footnote[C]
+Hi#footnote[1]#footnote[2]#footnote[3]
 
 #set footnote.group(separator: "&")
-Hi#footnote[D]#footnote[E]
+Hi#footnote[4]#footnote[5]
 
 #set footnote.group(separator: none)
-Hi#footnote[F]#footnote[G]
+Hi#footnote[6]#footnote[7]
+
+--- footnote-group-rtl paged html ---
+// Test that footnotes are organized right-to-left if the text language
+// direction is so.
+#set text(dir: rtl)
+
+هذا عربي#footnote[1]#footnote[2]
+
+#set footnote(numbering: "١")
+هذا عربي#footnote[3]#footnote[4]
 
 --- footnote-group-separator-auto paged ---
 // Test that the default separator between footnotes are chosen appropriately.
-Hi#footnote[A]#footnote[B] // The separator is ","
+#set page(width: 2cm)
+A#footnote[1]#footnote[2]
 
 #set footnote(numbering: "*")
-Hi#footnote[A]#footnote[B] // The separator is blank space
+A#footnote[3]#footnote[4] // Separator is blank space
 
 #set footnote(numbering: "一")
-Hi#footnote[A]#footnote[B] // The separator is "、"
+文#footnote[5]#footnote[6] // Separator is "、"
+
+#set footnote(numbering: "①")
+A#footnote[7]#footnote[8] // No separator
 
 #set footnote(numbering: "#1")
-Hi#footnote[A]#footnote[B] // No separator
+A#footnote[9]#footnote[10] // No separator
 
 #set footnote(numbering: "1)")
-Hi#footnote[A]#footnote[B] // No separator
+A#footnote[11]#footnote[12] // No separator
 
 --- footnote-multiple-in-one-line paged ---
 #set page(height: 100pt)
