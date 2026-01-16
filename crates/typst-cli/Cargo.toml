@@ -21,7 +21,6 @@ doc = false
 typst = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
-typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
@@ -37,7 +36,6 @@ comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 fs_extra = { workspace = true }
-notify = { workspace = true }
 open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
@@ -59,6 +57,19 @@ ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
+[dependencies.typst-kit]
+workspace = true
+features = [
+    "embedded-fonts",
+    "scan-fonts",
+    "system-packages",
+    "universe-packages",
+    "emit-diagnostics",
+    "system-downloader",
+    "watcher",
+    "server",
+]
+
 [dev-dependencies]
 typst-dev-assets = { workspace = true }
 memchr = { workspace = true }
@@ -75,10 +86,10 @@ serde = { workspace = true }
 typst-utils = { workspace = true }
 
 [features]
-default = ["embed-fonts", "http-server"]
+default = ["embedded-fonts", "http-server"]
 
 # Embeds some fonts into the binary, see typst-kit
-embed-fonts = ["typst-kit/embed-fonts"]
+embedded-fonts = ["typst-kit/embedded-fonts"]
 
 # Enables the built-in HTTP server for `typst watch` and HTML export.
 http-server = ["dep:tiny_http"]

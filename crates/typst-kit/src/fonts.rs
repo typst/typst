@@ -1,227 +1,188 @@
-//! Default implementation for searching local and system installed fonts as
-//! well as loading embedded default fonts.
+//! Font loading and management.
 //!
-//! # Embedded fonts
-//! The following fonts are available as embedded fonts via the `embed-fonts`
-//! feature flag:
-//! - For text: Libertinus Serif, New Computer Modern
-//! - For math: New Computer Modern Math
-//! - For code: Deja Vu Sans Mono
+//! This provides implementations to discover fonts [in directories](scan) and
+//! [from system](system) and can also serve standard [embedded] fonts.
 
+use std::any::Any;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use fontdb::{Database, Source};
 use typst_library::foundations::Bytes;
 use typst_library::text::{Font, FontBook, FontInfo};
-use typst_timing::TimingScope;
 use typst_utils::LazyHash;
 
-/// Holds details about the location of a font and lazily the font itself.
-#[derive(Debug)]
-pub struct FontSlot {
-    /// The path at which the font can be found on the system.
-    path: Option<PathBuf>,
-    /// The index of the font in its collection. Zero if the path does not point
-    /// to a collection.
-    index: u32,
-    /// The lazily loaded font.
+/// Holds loaded fonts.
+///
+/// Fonts can be added with [`push`](Self::push) and [`extend`](Self::extend).
+/// The three top-level font provider functions in this module can directly be
+/// used with [`FontStore::extend`].
+///
+/// Font are added in-order. The indices in the font book and those that should
+/// be passed to [`source`](Self::source) and [`source`](Self::font) match this
+/// order.
+pub struct FontStore {
+    book: LazyHash<FontBook>,
+    slots: Vec<FontSlot>,
+}
+
+impl FontStore {
+    /// Creates a new empty font store.
+    pub fn new() -> Self {
+        Self {
+            book: LazyHash::new(FontBook::new()),
+            slots: Vec::new(),
+        }
+    }
+
+    /// Adds a new entry to the store.
+    pub fn push(&mut self, entry: (impl FontSource, FontInfo)) {
+        self.book.push(entry.1);
+        self.slots
+            .push(FontSlot { source: Box::new(entry.0), font: OnceLock::new() });
+    }
+
+    /// Adds multiple new entries to the store.
+    pub fn extend<T>(&mut self, entries: impl IntoIterator<Item = (T, FontInfo)>)
+    where
+        T: FontSource,
+    {
+        for entry in entries {
+            self.push(entry);
+        }
+    }
+
+    /// Provides metadata for the added fonts.
+    ///
+    /// Can directly be used to implement
+    /// [`World::book`](typst_library::World::book).
+    pub fn book(&self) -> &LazyHash<FontBook> {
+        &self.book
+    }
+
+    /// Retrieves the font at the given index.
+    ///
+    /// Loads the font if it's not already loaded.
+    ///
+    /// Can directly be used to implement
+    /// [`World::font`](typst_library::World::font).
+    pub fn font(&self, index: usize) -> Option<Font> {
+        self.slots.get(index)?.get()
+    }
+
+    /// Retrieves the underlying font source for the font with this index.
+    pub fn source(&self, index: usize) -> Option<&dyn FontSource> {
+        Some(&*self.slots.get(index)?.source)
+    }
+}
+
+impl Default for FontStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Holds a font source and the lazily loaded font itself.
+struct FontSlot {
+    source: Box<dyn FontSource>,
     font: OnceLock<Option<Font>>,
 }
 
 impl FontSlot {
-    /// Returns the path at which the font can be found on the system, or `None`
-    /// if the font was embedded.
-    pub fn path(&self) -> Option<&Path> {
-        self.path.as_deref()
-    }
-
-    /// Returns the index of the font in its collection. Zero if the path does
-    /// not point to a collection.
-    pub fn index(&self) -> u32 {
-        self.index
-    }
-
     /// Get the font for this slot. This loads the font into memory on first
     /// access.
-    pub fn get(&self) -> Option<Font> {
-        self.font
-            .get_or_init(|| {
-                let _scope = TimingScope::new("load font");
-                let data = fs::read(
-                    self.path
-                        .as_ref()
-                        .expect("`path` is not `None` if `font` is uninitialized"),
-                )
-                .ok()?;
-                Font::new(Bytes::new(data), self.index)
-            })
-            .clone()
+    fn get(&self) -> Option<Font> {
+        self.font.get_or_init(|| self.source.load()).clone()
     }
 }
 
-/// The result of a font search, created by calling [`FontSearcher::search`].
+/// Serves a font on-demand.
+pub trait FontSource: Send + Sync + Any {
+    /// Try to load the font.
+    fn load(&self) -> Option<Font>;
+}
+
+impl FontSource for Font {
+    fn load(&self) -> Option<Font> {
+        Some(self.clone())
+    }
+}
+
+impl FontSource for FontPath {
+    fn load(&self) -> Option<Font> {
+        let _scope = typst_timing::TimingScope::new("load font");
+        let data = fs::read(&self.path).ok()?;
+        Font::new(Bytes::new(data), self.index)
+    }
+}
+
+/// Locates a font on the file system.
 #[derive(Debug)]
-pub struct Fonts {
-    /// Metadata about all discovered fonts.
-    ///
-    /// Can directly be used in [`World::book`](typst_library::World::book).
-    pub book: LazyHash<FontBook>,
-    /// Slots that the fonts are loaded into.
-    ///
-    /// Assuming your world implementation has a field `fonts: Fonts`, this can
-    /// be used in [`World::font`](typst_library::World::font) as such:
-    /// ```ignore
-    /// fn font(&self, index: usize) -> Option<Font> {
-    ///     self.fonts.slots.get(index)?.get()
-    /// }
-    /// ```
-    pub slots: Vec<FontSlot>,
+pub struct FontPath {
+    /// The path at which the font or font collection resides.
+    pub path: PathBuf,
+    /// The index in the font collection, or zero if the path points to a single
+    /// font rather than a collection.
+    pub index: u32,
 }
 
-impl Fonts {
-    /// Creates a new font searcer with the default settings.
-    pub fn searcher() -> FontSearcher {
-        FontSearcher::new()
-    }
-}
-
-/// Searches for fonts.
+/// Yields the embedded fonts.
 ///
-/// Fonts are added in the following order (descending priority):
-/// 1. Font directories
-/// 2. System fonts (if included & enabled)
-/// 3. Embedded fonts (if enabled)
-#[derive(Debug)]
-pub struct FontSearcher {
-    db: Database,
-    include_system_fonts: bool,
-    #[cfg(feature = "embed-fonts")]
-    include_embedded_fonts: bool,
-    book: FontBook,
-    fonts: Vec<FontSlot>,
+/// - For Text: _Libertinus Serif_, _New Computer Modern_
+/// - For Math: _New Computer Modern Math_
+/// - For Code: _Deja Vu Sans Mono_
+#[cfg(feature = "embedded-fonts")]
+pub fn embedded() -> impl Iterator<Item = (Font, FontInfo)> {
+    typst_assets::fonts().flat_map(|data| {
+        Font::iter(Bytes::new(data)).map(|font| {
+            let info = font.info().clone();
+            (font, info)
+        })
+    })
 }
 
-impl FontSearcher {
-    /// Create a new, empty system searcher. The searcher is created with the
-    /// default configuration, it will include embedded fonts and system fonts.
-    pub fn new() -> Self {
-        Self {
-            db: Database::new(),
-            include_system_fonts: true,
-            #[cfg(feature = "embed-fonts")]
-            include_embedded_fonts: true,
-            book: FontBook::new(),
-            fonts: vec![],
-        }
-    }
+/// Discovers system fonts.
+///
+/// This searches in operating-system dependant standard font locations.
+#[cfg(feature = "scan-fonts")]
+pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
+    let _scope = typst_timing::TimingScope::new("scan system fonts");
+    with_db(|db| db.load_system_fonts())
+}
 
-    /// Whether to search for and load system fonts, defaults to `true`.
-    pub fn include_system_fonts(&mut self, value: bool) -> &mut Self {
-        self.include_system_fonts = value;
-        self
-    }
+/// Scans for fonts in a directory.
+///
+/// The directory is searched recursively.
+#[cfg(feature = "scan-fonts")]
+pub fn scan(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)> {
+    let _scope = typst_timing::TimingScope::new("scan system fonts");
+    with_db(move |db| db.load_fonts_dir(path))
+}
 
-    /// Whether to load embedded fonts, defaults to `true`.
-    #[cfg(feature = "embed-fonts")]
-    pub fn include_embedded_fonts(&mut self, value: bool) -> &mut Self {
-        self.include_embedded_fonts = value;
-        self
-    }
-
-    /// Start searching for and loading fonts. To additionally load fonts
-    /// from specific directories, use [`search_with`][Self::search_with].
-    ///
-    /// # Examples
-    /// ```no_run
-    /// # use typst_kit::fonts::FontSearcher;
-    /// let fonts = FontSearcher::new()
-    ///     .include_system_fonts(true)
-    ///     .search();
-    /// ```
-    pub fn search(&mut self) -> Fonts {
-        self.search_with::<_, &str>([])
-    }
-
-    /// Start searching for and loading fonts, with additional directories.
-    ///
-    /// # Examples
-    /// ```no_run
-    /// # use typst_kit::fonts::FontSearcher;
-    /// let fonts = FontSearcher::new()
-    ///     .include_system_fonts(true)
-    ///     .search_with(["./assets/fonts/"]);
-    /// ```
-    pub fn search_with<I, P>(&mut self, font_dirs: I) -> Fonts
-    where
-        I: IntoIterator<Item = P>,
-        P: AsRef<Path>,
-    {
-        // Font paths have highest priority.
-        for path in font_dirs {
-            self.db.load_fonts_dir(path);
-        }
-
-        if self.include_system_fonts {
-            // System fonts have second priority.
-            self.db.load_system_fonts();
-        }
-
-        for face in self.db.faces() {
+/// Discovers fonts via `fontdb`.
+#[cfg(feature = "scan-fonts")]
+fn with_db(
+    f: impl FnOnce(&mut fontdb::Database),
+) -> impl Iterator<Item = (FontPath, FontInfo)> {
+    let mut db = fontdb::Database::new();
+    f(&mut db);
+    db.faces()
+        .filter_map(|face| {
             let path = match &face.source {
-                Source::File(path) | Source::SharedFile(path, _) => path,
+                fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => path,
                 // We never add binary sources to the database, so there
                 // shouldn't be any.
-                Source::Binary(_) => continue,
+                fontdb::Source::Binary(_) => return None,
             };
 
-            let info = self
-                .db
+            let info = db
                 .with_face_data(face.id, FontInfo::new)
-                .expect("database must contain this font");
+                .expect("database must contain this font")?;
 
-            if let Some(info) = info {
-                self.book.push(info);
-                self.fonts.push(FontSlot {
-                    path: Some(path.clone()),
-                    index: face.index,
-                    font: OnceLock::new(),
-                });
-            }
-        }
+            let path = FontPath { path: path.clone(), index: face.index };
 
-        // Embedded fonts have lowest priority.
-        #[cfg(feature = "embed-fonts")]
-        if self.include_embedded_fonts {
-            self.add_embedded();
-        }
-
-        Fonts {
-            book: LazyHash::new(std::mem::take(&mut self.book)),
-            slots: std::mem::take(&mut self.fonts),
-        }
-    }
-
-    /// Add fonts that are embedded in the binary.
-    #[cfg(feature = "embed-fonts")]
-    fn add_embedded(&mut self) {
-        for data in typst_assets::fonts() {
-            let buffer = Bytes::new(data);
-            for (i, font) in Font::iter(buffer).enumerate() {
-                self.book.push(font.info().clone());
-                self.fonts.push(FontSlot {
-                    path: None,
-                    index: i as u32,
-                    font: OnceLock::from(Some(font)),
-                });
-            }
-        }
-    }
-}
-
-impl Default for FontSearcher {
-    fn default() -> Self {
-        Self::new()
-    }
+            Some((path, info))
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
 }
