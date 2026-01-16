@@ -6,6 +6,7 @@ desktop.ini
 .DS_Store
 
 # Tests and benchmarks
+tests/local
 tests/store
 tests/suite/**/*.pdf
 tests/fuzz/target
