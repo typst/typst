@@ -28,7 +28,7 @@ use typst_library::layout::{
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
     CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    ParElem, ParbreakElem, TermsElem, register_cite_group,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -534,6 +534,13 @@ fn prepare(
     if elem.location().is_none() && flags.any() {
         let loc = locator.next_location(engine, key, elem.span());
         elem.set_location(loc);
+    }
+
+    // Register CiteGroups after they get their location so that Works::generate
+    // can find them during the current layout pass (before the introspector
+    // has been updated with the new elements).
+    if elem.is::<CiteGroup>() {
+        register_cite_group(elem.clone());
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already

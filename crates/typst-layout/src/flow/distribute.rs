@@ -420,8 +420,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 return Err(Stop::Finish(false));
             }
 
-            // Place the frame.
-            self.frame(frame, spill.align, false, false)?;
+            // Place the frame. If this fails (e.g., due to footnote migration),
+            // save the current frame and remaining frames so they can be
+            // processed in the next region.
+            if let Err(err) = self.frame(frame.clone(), spill.align, false, false) {
+                let remaining: Vec<(Frame, Abs)> =
+                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                self.composer.work.par_spill = Some(ParSpill {
+                    frames: remaining.into_iter(),
+                    align: spill.align,
+                    leading: spill.leading,
+                });
+                return Err(err);
+            }
         }
 
         Ok(())

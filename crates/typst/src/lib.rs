@@ -58,7 +58,7 @@ use typst_timing::{TimingScope, timed};
 use typst_utils::Protected;
 
 use crate::foundations::{Target, TargetElem};
-use crate::model::DocumentInfo;
+use crate::model::{clear_cite_group_registry, DocumentInfo};
 
 /// Compile sources into a fully layouted document.
 ///
@@ -128,6 +128,9 @@ fn compile_impl<D: Document>(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
+        // Clear citation registry at start of each iteration.
+        clear_cite_group_registry();
+
         let _scope = TimingScope::new(ITER_NAMES[history.len()]);
         let introspector = history
             .last()

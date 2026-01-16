@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::cell::RefCell;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -40,6 +41,27 @@ use crate::model::{
 };
 use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
+
+thread_local! {
+    /// Registry of CiteGroups created during the current layout pass.
+    /// This is needed because the introspector only has data from previous passes.
+    static CITE_GROUPS: RefCell<EcoVec<Content>> = const { RefCell::new(EcoVec::new()) };
+}
+
+/// Register a CiteGroup during layout.
+pub fn register_cite_group(group: Content) {
+    CITE_GROUPS.with(|groups| groups.borrow_mut().push(group));
+}
+
+/// Get registered CiteGroups (non-destructive snapshot).
+fn get_registered_cite_groups() -> EcoVec<Content> {
+    CITE_GROUPS.with(|groups| groups.borrow().clone())
+}
+
+/// Clear registry (call at layout pass start).
+pub fn clear_cite_group_registry() {
+    CITE_GROUPS.with(|groups| groups.borrow_mut().clear());
+}
 
 /// A bibliography / reference listing.
 ///
@@ -551,7 +573,7 @@ impl Works {
     /// Generate all citations and the whole bibliography.
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
         let bibliography = BibliographyElem::find(engine, span).at(span)?;
-        let groups = engine.introspect(CiteGroupIntrospection(span));
+        let groups = Self::merged_cite_groups(engine, span);
         Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
     }
 
@@ -562,8 +584,45 @@ impl Works {
         bibliography: Packed<BibliographyElem>,
     ) -> SourceResult<Arc<Works>> {
         let span = bibliography.span();
-        let groups = engine.introspect(CiteGroupIntrospection(span));
+        let groups = Self::merged_cite_groups(engine, span);
         Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+    }
+
+    /// Get cite groups by merging introspector groups (for complete disambiguation)
+    /// with registered groups (for current-pass citations not yet in introspector).
+    fn merged_cite_groups(engine: &mut Engine, span: Span) -> EcoVec<Content> {
+        let registered = get_registered_cite_groups();
+        let introspector_groups = engine.introspect(CiteGroupIntrospection(span));
+
+        // If no registered groups, just use introspector (common case, avoids allocation)
+        if registered.is_empty() {
+            return introspector_groups;
+        }
+
+        // If no introspector groups, just use registered
+        if introspector_groups.is_empty() {
+            return registered;
+        }
+
+        // Merge: start with introspector groups (for complete disambiguation),
+        // then add registered groups whose locations aren't already present.
+        // This ensures citations can find themselves while maintaining proper
+        // disambiguation based on all known citations.
+        let existing_locations: std::collections::HashSet<_> = introspector_groups
+            .iter()
+            .filter_map(|g| g.location())
+            .collect();
+
+        let mut result = introspector_groups;
+        for group in registered {
+            if let Some(loc) = group.location() {
+                if !existing_locations.contains(&loc) {
+                    result.push(group);
+                }
+            }
+        }
+
+        result
     }
 
     /// The internal implementation of [`Works::generate`].
