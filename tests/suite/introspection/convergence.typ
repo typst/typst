@@ -203,8 +203,6 @@
 // Hint: 26-63 this can happen if the citations and bibliographies in the document did not stabilize by the end of the third layout iteration
 #switch(n => if n >= 4 { bibliography("/assets/bib/works.bib") })
 
-// Error: 1-8 cannot format citation in isolation
-// Hint: 1-8 check whether this citation is measured without being inserted into the document
 // Warning: 1-8 citation grouping did not stabilize
 // Hint: 1-8 this can happen if the citations and bibliographies in the document did not stabilize by the end of the third layout iteration
 @netwok

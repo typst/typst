@@ -56,10 +56,9 @@
 #bibliography("/assets/bib/works.bib")
 
 --- measure-citation-in-flow-different-span paged ---
-// When the citation has a different span, it stops working.
+// When the citation has a different span, it still works thanks to the
+// citation registry that tracks cite groups created in the current pass.
 #context {
-  // Error: 22-29 cannot format citation in isolation
-  // Hint: 22-29 check whether this citation is measured without being inserted into the document
   let size = measure[@netwok]
   place(line(length: size.width))
   v(1mm)
