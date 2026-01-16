@@ -92,7 +92,9 @@ impl CliArguments {
                     stages |= s.into();
                 }
 
-                stages = stages.with_implied();
+                // Must be in this order, otherwise any paged output target
+                // would enable all others.
+                stages = stages.with_implied().with_required();
             };
 
             CACHED.store(stages.bits(), Ordering::Relaxed);
