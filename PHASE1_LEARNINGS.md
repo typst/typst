@@ -329,7 +329,90 @@ Two tests now PASS where they expected ERRORS:
 - Expected: "cannot format citation in isolation"
 - Now: Citation works
 
-**Decision needed:** Update these tests to expect success, or decide if the old failure behavior was intentional.
+**Resolution:** These tests have been updated to expect success. The error annotations were removed and reference outputs regenerated.
+
+---
+
+## Verified Implementation Details
+
+### Widow/Orphan Logic Duplication
+
+The widow/orphan `need` computation exists in two places:
+- `collect.rs` `lines()` method (for inline content via `run_inline()`)
+- `distribute.rs` `par()` method (for deferred paragraphs via `Child::Par`)
+
+**Verification result:** Both implementations are functionally identical. The only difference is defensive coding style (distributor uses `.get().map_or()` vs direct indexing). Duplication is acceptable (~15 lines each) given different output formats (`Child::Line` vs `(Frame, Abs)` pairs).
+
+### Leading Handling in par_spill
+
+The `first` flag in `par_spill()` controls inter-line spacing:
+
+```rust
+fn par_spill(&mut self, mut spill: ParSpill) -> FlowResult<()> {
+    let mut first = true;
+    while let Some((frame, need)) = spill.frames.next() {
+        if !first {
+            self.rel(spill.leading.into(), 5);  // Leading between lines
+        }
+        first = false;
+        // ... process frame
+    }
+}
+```
+
+**Key insight:** Each call to `par_spill()` resets `first = true`. This means:
+- No leading before the first line in each region (correct)
+- Leading only added between lines within a region
+- Matches old `Child::Line` behavior where `Child::Rel(leading)` was consumed in previous region
+
+### Locator Correctness with relayout()
+
+`ParChild` uses the locator correctly for introspection stability:
+
+```rust
+// In ParChild (collect.rs)
+pub fn measure(&self, engine: &mut Engine) -> SourceResult<ParMeasureResult> {
+    measure_par_with_exclusions(engine, self.locator.relayout(), ...)  // relayout()!
+}
+
+pub fn commit(&self, engine: &mut Engine, ...) -> SourceResult<ParCommitResult> {
+    layout_par_with_exclusions(engine, self.locator.relayout(), ...)  // relayout()!
+}
+```
+
+**Why this matters:**
+- `relayout()` produces identical locations across multiple calls
+- Same content measured/committed multiple times → same location
+- Introspection queries see consistent element identities
+- All locate/query/label/ref tests pass
+
+---
+
+## Test Execution Notes
+
+### Thread Contention Warning
+
+The thread-local citation registry can cause test hangs at high parallelism:
+
+```bash
+# May hang on some citation tests
+cargo test --package typst-tests
+
+# Recommended: limit threads
+cargo test --package typst-tests -- --num-threads 4
+```
+
+The `issue-785-cite-locate` test is particularly sensitive. It passes when run alone but can hang when run with many parallel threads due to citation registry contention.
+
+### Current Test Status (Phase 1 Complete)
+
+```bash
+# Full suite with thread limit
+cargo test --package typst-tests -- --num-threads 4
+# Result: 3213 passed, 17 failed (all wrap-float-* tests)
+```
+
+The 17 failures are all `wrap-float-*` tests, which are expected to fail until Phase 2+ implements the wrap-float feature.
 
 ---
 
@@ -339,19 +422,20 @@ After making changes to citation/footnote code:
 
 ```bash
 # Core citation tests (should all pass)
-cargo test --package typst-tests -- "cite"
+cargo test --package typst-tests -- "cite" --num-threads 4
 
-# Core footnote tests (should all pass except wrap-float-*)
-cargo test --package typst-tests -- "footnote"
+# Core footnote tests (should all pass)
+cargo test --package typst-tests -- "footnote" --num-threads 4
 
-# The specific bugs we fixed
-cargo test --package typst-tests -- "issue-1597" "issue-3481" "footnote-invariant"
+# Introspection tests (should all pass)
+cargo test --package typst-tests -- "locate" "query" "label" "ref" --num-threads 4
 
-# Bibliography edge cases
-cargo test --package typst-tests -- "bibliography-before-content"
+# Flow and paragraph tests
+cargo test --package typst-tests -- "flow" --num-threads 4
+cargo test --package typst-tests -- "paragraph" --num-threads 4
 
-# Full suite (expect ~19 failures, all wrap-float-* or edge case tests)
-cargo test --package typst-tests
+# Full suite (expect 17 failures, all wrap-float-* tests)
+cargo test --package typst-tests -- --num-threads 4
 ```
 
 ---
