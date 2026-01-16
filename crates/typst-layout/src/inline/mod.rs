@@ -23,7 +23,7 @@ use typst_library::model::{
     ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
-use typst_library::text::{Costs, Lang, TextElem};
+use typst_library::text::{CjkBreaking, Costs, Lang, TextElem};
 use typst_utils::{Numeric, Protected, SliceExt};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
@@ -236,6 +236,7 @@ fn configuration(
         lang: shared_get(children, shared, |s| s.get(TextElem::lang)),
         fallback: shared.get(TextElem::fallback),
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
+        cjk_breaking: shared.get(TextElem::cjk_breaking),
         costs: shared.get(TextElem::costs),
     }
 }
@@ -292,6 +293,8 @@ struct Config {
     fallback: bool,
     /// Whether to add spacing between CJK and Latin characters.
     cjk_latin_spacing: bool,
+    /// How to handle line breaks in CJK text.
+    cjk_breaking: Smart<CjkBreaking>,
     /// Costs for various layout decisions.
     costs: Costs,
 }
