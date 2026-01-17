@@ -240,10 +240,10 @@ impl ParExclusions {
             let rel_end = (wf_bottom - par_top).min(par_bottom - par_top);
 
             zones.push(ExclusionZone {
-                y_start: rel_start as i64,
-                y_end: rel_end as i64,
-                left: wf.left_margin.to_raw() as i64,
-                right: wf.right_margin.to_raw() as i64,
+                y_start: rel_start.round() as i64,
+                y_end: rel_end.round() as i64,
+                left: wf.left_margin.to_raw().round() as i64,
+                right: wf.right_margin.to_raw().round() as i64,
             });
         }
 
@@ -257,7 +257,7 @@ impl ParExclusions {
     ///
     /// If multiple exclusions overlap at this y, takes the maximum from each side.
     pub fn available_width(&self, base_width: Abs, y: Abs) -> Abs {
-        let y_raw = y.to_raw() as i64;
+        let y_raw = y.to_raw().round() as i64;
         let mut left_excluded = 0i64;
         let mut right_excluded = 0i64;
 
@@ -278,7 +278,7 @@ impl ParExclusions {
 
     /// Get left offset at a given y-offset (for text positioning).
     pub fn left_offset(&self, y: Abs) -> Abs {
-        let y_raw = y.to_raw() as i64;
+        let y_raw = y.to_raw().round() as i64;
         let mut left = 0i64;
 
         for zone in &self.zones {
@@ -295,7 +295,7 @@ impl ParExclusions {
 
     /// Check if any exclusion is active at this y-offset.
     pub fn has_exclusion_at(&self, y: Abs) -> bool {
-        let y_raw = y.to_raw() as i64;
+        let y_raw = y.to_raw().round() as i64;
         self.zones.iter().any(|z| y_raw >= z.y_start && y_raw < z.y_end)
     }
 
@@ -304,7 +304,7 @@ impl ParExclusions {
     /// Returns the next y where an exclusion starts or ends, enabling the
     /// line-breaking algorithm to skip to known boundary points.
     pub fn next_boundary(&self, y: Abs) -> Option<Abs> {
-        let y_raw = y.to_raw() as i64;
+        let y_raw = y.to_raw().round() as i64;
         self.zones
             .iter()
             .flat_map(|z| [z.y_start, z.y_end])
