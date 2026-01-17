@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::layout::{Abs, Axes, Size};
+use crate::layout::{Abs, Axes, FixedAlignment, Frame, Size};
 
 /// A single region to layout into.
 #[derive(Debug, Copy, Clone, Hash)]
@@ -199,6 +199,38 @@ pub struct WrapFloat {
     pub left_margin: Abs,
     /// Width excluded from right (float width + clearance, or zero if left-aligned).
     pub right_margin: Abs,
+}
+
+impl WrapFloat {
+    /// Create a wrap-float from a placed element's frame and positioning.
+    ///
+    /// Computes which margins to exclude based on horizontal alignment:
+    /// - Start/Left aligned: exclude from left (text wraps on right)
+    /// - End/Right aligned: exclude from right (text wraps on left)
+    /// - Center aligned: exclude from both sides (experimental)
+    pub fn from_placed(
+        frame: &Frame,
+        y: Abs,
+        align_x: FixedAlignment,
+        clearance: Abs,
+    ) -> Self {
+        let width = frame.width() + clearance;
+        let (left_margin, right_margin) = match align_x {
+            FixedAlignment::Start => (width, Abs::zero()),
+            FixedAlignment::End => (Abs::zero(), width),
+            FixedAlignment::Center => {
+                // Center-aligned wrap-floats exclude from both sides
+                let half = width / 2.0;
+                (half, half)
+            }
+        };
+        Self {
+            y,
+            height: frame.height(),
+            left_margin,
+            right_margin,
+        }
+    }
 }
 
 impl ParExclusions {
