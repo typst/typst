@@ -387,3 +387,12 @@ Paragraph after place.
 #place(auto, float: true, block(height: 100%, width: 100%, fill: aqua))
 #place(auto, float: true, block(height: 100%, width: 100%, fill: red))
 #lines(7)
+
+--- place-wrap-float-basic paged ---
+// Test that wrap-floats route correctly (M1: routing only, no text wrap yet).
+// The float should appear at the specified position; text wrapping is not
+// implemented until later milestones.
+#set page(height: 100pt, width: 100pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 30pt, height: 30pt, fill: aqua))
+#lorem(20)

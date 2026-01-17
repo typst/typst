@@ -300,6 +300,7 @@ impl<'a> Collector<'a, '_, '_> {
         let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
         let scope = elem.scope.get(styles);
         let float = elem.float.get(styles);
+        let wrap = elem.wrap.get(styles);
 
         match (float, align_y) {
             (true, Smart::Custom(None | Some(FixedAlignment::Center))) => bail!(
@@ -330,6 +331,7 @@ impl<'a> Collector<'a, '_, '_> {
             align_y,
             scope,
             float,
+            wrap,
             clearance,
             delta,
             elem,
@@ -761,6 +763,7 @@ pub struct PlacedChild<'a> {
     pub align_y: Smart<Option<FixedAlignment>>,
     pub scope: PlacementScope,
     pub float: bool,
+    pub wrap: bool,
     pub clearance: Abs,
     pub delta: Axes<Rel<Abs>>,
     elem: &'a Packed<PlaceElem>,

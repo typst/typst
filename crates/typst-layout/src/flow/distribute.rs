@@ -577,7 +577,21 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes an absolutely or floatingly placed child.
     fn placed(&mut self, placed: &'b PlacedChild<'a>) -> FlowResult<()> {
-        if placed.float {
+        if placed.float && placed.wrap {
+            // Wrap-floats: floats that text should wrap around.
+            // For now (M1), route through the regular float path. M2 will
+            // implement in-flow positioning and exclusion tracking.
+            // TODO(wrap-floats): Handle wrap-floats as in-flow items with exclusions.
+            let weak_spacing = self.weak_spacing();
+            self.regions.size.y += weak_spacing;
+            self.composer.float(
+                placed,
+                &self.regions,
+                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
+                true,
+            )?;
+            self.regions.size.y -= weak_spacing;
+        } else if placed.float {
             // If the element is floatingly placed, let the composer handle it.
             // It might require relayout because the area available for
             // distribution shrinks. We make the spacing occupied by weak
