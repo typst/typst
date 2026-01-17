@@ -171,17 +171,64 @@ pub struct ParExclusions {
 /// A single rectangular exclusion zone.
 ///
 /// Uses raw i64 units (not Abs) to avoid floating-point comparison issues
-/// in sorted lookups.
+/// in sorted lookups. The vertical range is half-open: `[y_start, y_end)`,
+/// meaning `y_start` is inclusive and `y_end` is exclusive.
+///
+/// # Coordinate System
+///
+/// All coordinates are in paragraph-relative space (y=0 at paragraph top).
+/// Use [`ExclusionZone::new`] to construct from `Abs` values, which handles
+/// the conversion to raw units consistently.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExclusionZone {
-    /// Y-offset from paragraph top where exclusion starts (in raw units).
+    /// Y-offset from paragraph top where exclusion starts (inclusive, in raw units).
     pub y_start: i64,
-    /// Y-offset from paragraph top where exclusion ends (in raw units).
+    /// Y-offset from paragraph top where exclusion ends (exclusive, in raw units).
     pub y_end: i64,
     /// Width excluded from left side (in raw units).
     pub left: i64,
     /// Width excluded from right side (in raw units).
     pub right: i64,
+}
+
+impl ExclusionZone {
+    /// Create an exclusion zone from `Abs` coordinates.
+    ///
+    /// This is the preferred constructor as it ensures consistent rounding
+    /// from floating-point `Abs` values to integer raw units.
+    ///
+    /// # Arguments
+    /// * `y_start` - Y-offset where exclusion starts (inclusive)
+    /// * `y_end` - Y-offset where exclusion ends (exclusive)
+    /// * `left` - Width to exclude from left side
+    /// * `right` - Width to exclude from right side
+    pub fn new(y_start: Abs, y_end: Abs, left: Abs, right: Abs) -> Self {
+        Self {
+            y_start: abs_to_raw(y_start),
+            y_end: abs_to_raw(y_end),
+            left: abs_to_raw(left),
+            right: abs_to_raw(right),
+        }
+    }
+}
+
+/// Convert an `Abs` value to raw i64 units with consistent rounding.
+///
+/// This centralizes the rounding strategy (round-to-nearest) to ensure
+/// all Abs-to-raw conversions in the exclusion system behave identically.
+#[inline]
+fn abs_to_raw(value: Abs) -> i64 {
+    value.to_raw().round() as i64
+}
+
+/// Convert raw i64 units back to `Abs`.
+///
+/// This is the inverse of [`abs_to_raw`]. Note that due to rounding in
+/// `abs_to_raw`, the round-trip `abs_to_raw(raw_to_abs(x))` may not equal `x`
+/// for values that were not originally derived from `Abs`.
+#[inline]
+fn raw_to_abs(value: i64) -> Abs {
+    Abs::raw(value as f64)
 }
 
 /// A positioned wrap-float in region coordinates.
@@ -267,16 +314,18 @@ impl ParExclusions {
                 continue;
             }
 
-            // Convert to paragraph-relative coordinates, clamped to paragraph bounds
-            let rel_start = (wf_top - par_top).max(0.0);
-            let rel_end = (wf_bottom - par_top).min(par_bottom - par_top);
+            // Convert to paragraph-relative coordinates, clamped to paragraph bounds.
+            // We work in raw f64 space here to avoid accumulating rounding errors
+            // from multiple Abs operations, then round once at the end.
+            let rel_start = Abs::raw((wf_top - par_top).max(0.0));
+            let rel_end = Abs::raw((wf_bottom - par_top).min(par_bottom - par_top));
 
-            zones.push(ExclusionZone {
-                y_start: rel_start.round() as i64,
-                y_end: rel_end.round() as i64,
-                left: wf.left_margin.to_raw().round() as i64,
-                right: wf.right_margin.to_raw().round() as i64,
-            });
+            zones.push(ExclusionZone::new(
+                rel_start,
+                rel_end,
+                wf.left_margin,
+                wf.right_margin,
+            ));
         }
 
         // Sort by y_start for efficient lookup
@@ -289,7 +338,7 @@ impl ParExclusions {
     ///
     /// If multiple exclusions overlap at this y, takes the maximum from each side.
     pub fn available_width(&self, base_width: Abs, y: Abs) -> Abs {
-        let y_raw = y.to_raw().round() as i64;
+        let y_raw = abs_to_raw(y);
         let mut left_excluded = 0i64;
         let mut right_excluded = 0i64;
 
@@ -304,13 +353,13 @@ impl ParExclusions {
             }
         }
 
-        let total_excluded = Abs::raw(left_excluded as f64) + Abs::raw(right_excluded as f64);
+        let total_excluded = raw_to_abs(left_excluded) + raw_to_abs(right_excluded);
         (base_width - total_excluded).max(Abs::zero())
     }
 
     /// Get left offset at a given y-offset (for text positioning).
     pub fn left_offset(&self, y: Abs) -> Abs {
-        let y_raw = y.to_raw().round() as i64;
+        let y_raw = abs_to_raw(y);
         let mut left = 0i64;
 
         for zone in &self.zones {
@@ -322,12 +371,12 @@ impl ParExclusions {
             }
         }
 
-        Abs::raw(left as f64)
+        raw_to_abs(left)
     }
 
     /// Check if any exclusion is active at this y-offset.
     pub fn has_exclusion_at(&self, y: Abs) -> bool {
-        let y_raw = y.to_raw().round() as i64;
+        let y_raw = abs_to_raw(y);
         self.zones.iter().any(|z| y_raw >= z.y_start && y_raw < z.y_end)
     }
 
@@ -336,13 +385,13 @@ impl ParExclusions {
     /// Returns the next y where an exclusion starts or ends, enabling the
     /// line-breaking algorithm to skip to known boundary points.
     pub fn next_boundary(&self, y: Abs) -> Option<Abs> {
-        let y_raw = y.to_raw().round() as i64;
+        let y_raw = abs_to_raw(y);
         self.zones
             .iter()
             .flat_map(|z| [z.y_start, z.y_end])
             .filter(|&boundary| boundary > y_raw)
             .min()
-            .map(|b| Abs::raw(b as f64))
+            .map(raw_to_abs)
     }
 }
 
@@ -362,12 +411,7 @@ mod exclusion_tests {
     #[test]
     fn test_available_width_before_exclusion() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(10.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         let base = pt(200.0);
@@ -379,12 +423,7 @@ mod exclusion_tests {
     #[test]
     fn test_available_width_during_exclusion() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(10.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         let base = pt(200.0);
@@ -396,12 +435,7 @@ mod exclusion_tests {
     #[test]
     fn test_available_width_after_exclusion() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(10.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         let base = pt(200.0);
@@ -413,12 +447,7 @@ mod exclusion_tests {
     #[test]
     fn test_available_width_both_sides() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(0.0).to_raw().round() as i64,
-                y_end: pt(100.0).to_raw().round() as i64,
-                left: pt(40.0).to_raw().round() as i64,
-                right: pt(60.0).to_raw().round() as i64,
-            }],
+            zones: vec![ExclusionZone::new(pt(0.0), pt(100.0), pt(40.0), pt(60.0))],
         };
 
         let base = pt(300.0);
@@ -431,18 +460,8 @@ mod exclusion_tests {
         // Two overlapping zones - should take max from each side
         let excl = ParExclusions {
             zones: vec![
-                ExclusionZone {
-                    y_start: pt(10.0).to_raw().round() as i64,
-                    y_end: pt(50.0).to_raw().round() as i64,
-                    left: pt(30.0).to_raw().round() as i64,
-                    right: 0,
-                },
-                ExclusionZone {
-                    y_start: pt(20.0).to_raw().round() as i64,
-                    y_end: pt(40.0).to_raw().round() as i64,
-                    left: pt(50.0).to_raw().round() as i64, // Larger left
-                    right: pt(20.0).to_raw().round() as i64,
-                },
+                ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), Abs::zero()),
+                ExclusionZone::new(pt(20.0), pt(40.0), pt(50.0), pt(20.0)), // Larger left
             ],
         };
 
@@ -607,12 +626,7 @@ mod exclusion_tests {
     #[test]
     fn test_left_offset_during_exclusion() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(10.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: pt(20.0).to_raw().round() as i64,
-            }],
+            zones: vec![ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), pt(20.0))],
         };
 
         // During exclusion
@@ -630,12 +644,7 @@ mod exclusion_tests {
     #[test]
     fn test_has_exclusion_at() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(10.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         assert!(!excl.has_exclusion_at(pt(5.0))); // Before
@@ -652,12 +661,7 @@ mod exclusion_tests {
     #[test]
     fn test_next_boundary_before_zone() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(20.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(20.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         // Query before zone: should return y_start
@@ -668,12 +672,7 @@ mod exclusion_tests {
     #[test]
     fn test_next_boundary_inside_zone() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(20.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(20.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         // Query inside zone: should return y_end
@@ -684,12 +683,7 @@ mod exclusion_tests {
     #[test]
     fn test_next_boundary_after_all_zones() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: pt(20.0).to_raw().round() as i64,
-                y_end: pt(50.0).to_raw().round() as i64,
-                left: pt(30.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(pt(20.0), pt(50.0), pt(30.0), Abs::zero())],
         };
 
         // Query after zone: no more boundaries
@@ -701,18 +695,8 @@ mod exclusion_tests {
     fn test_next_boundary_multiple_zones() {
         let excl = ParExclusions {
             zones: vec![
-                ExclusionZone {
-                    y_start: pt(10.0).to_raw().round() as i64,
-                    y_end: pt(30.0).to_raw().round() as i64,
-                    left: pt(20.0).to_raw().round() as i64,
-                    right: 0,
-                },
-                ExclusionZone {
-                    y_start: pt(50.0).to_raw().round() as i64,
-                    y_end: pt(70.0).to_raw().round() as i64,
-                    left: pt(20.0).to_raw().round() as i64,
-                    right: 0,
-                },
+                ExclusionZone::new(pt(10.0), pt(30.0), pt(20.0), Abs::zero()),
+                ExclusionZone::new(pt(50.0), pt(70.0), pt(20.0), Abs::zero()),
             ],
         };
 
@@ -788,12 +772,7 @@ mod exclusion_tests {
         assert!(ParExclusions { zones: vec![] }.is_empty());
 
         let non_empty = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: 0,
-                y_end: pt(100.0).to_raw().round() as i64,
-                left: pt(50.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), pt(50.0), Abs::zero())],
         };
         assert!(!non_empty.is_empty());
     }
@@ -802,12 +781,7 @@ mod exclusion_tests {
     fn test_available_width_clamped_to_zero() {
         // Exclusions larger than base width
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: 0,
-                y_end: pt(100.0).to_raw().round() as i64,
-                left: pt(150.0).to_raw().round() as i64,
-                right: pt(100.0).to_raw().round() as i64,
-            }],
+            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), pt(150.0), pt(100.0))],
         };
 
         let base = pt(200.0);
@@ -819,12 +793,7 @@ mod exclusion_tests {
     #[test]
     fn test_exclusion_zone_only_left() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: 0,
-                y_end: pt(100.0).to_raw().round() as i64,
-                left: pt(50.0).to_raw().round() as i64,
-                right: 0,
-            }],
+            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), pt(50.0), Abs::zero())],
         };
 
         let base = pt(200.0);
@@ -835,16 +804,38 @@ mod exclusion_tests {
     #[test]
     fn test_exclusion_zone_only_right() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone {
-                y_start: 0,
-                y_end: pt(100.0).to_raw().round() as i64,
-                left: 0,
-                right: pt(50.0).to_raw().round() as i64,
-            }],
+            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), Abs::zero(), pt(50.0))],
         };
 
         let base = pt(200.0);
         assert_eq!(excl.available_width(base, pt(50.0)), pt(150.0));
         assert_eq!(excl.left_offset(pt(50.0)), Abs::zero()); // No left offset
+    }
+
+    // ========================================
+    // ExclusionZone::new tests
+    // ========================================
+
+    #[test]
+    fn test_exclusion_zone_new_converts_correctly() {
+        let zone = ExclusionZone::new(pt(10.0), pt(50.0), pt(30.0), pt(20.0));
+
+        // Verify that the constructor produces the same result as manual conversion
+        assert_eq!(zone.y_start, abs_to_raw(pt(10.0)));
+        assert_eq!(zone.y_end, abs_to_raw(pt(50.0)));
+        assert_eq!(zone.left, abs_to_raw(pt(30.0)));
+        assert_eq!(zone.right, abs_to_raw(pt(20.0)));
+    }
+
+    #[test]
+    fn test_abs_to_raw_round_trip() {
+        // Verify that round-trip conversion is stable for values that came from Abs
+        let original = pt(123.456);
+        let raw = abs_to_raw(original);
+        let back = raw_to_abs(raw);
+        let raw_again = abs_to_raw(back);
+
+        // After one round-trip, further conversions should be stable
+        assert_eq!(raw, raw_again);
     }
 }
