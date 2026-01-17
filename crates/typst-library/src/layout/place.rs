@@ -134,6 +134,26 @@ pub struct PlaceElem {
     /// ```
     pub float: bool,
 
+    /// Whether text should wrap around this floating element.
+    ///
+    /// When enabled with `float: true`, paragraphs will have shortened
+    /// lines adjacent to this element. Only effective when horizontal
+    /// alignment is `left` or `right` (center-aligned wrapping is experimental).
+    ///
+    /// ```example
+    /// #set page(height: 200pt)
+    /// #place(
+    ///   top + right,
+    ///   float: true,
+    ///   wrap: true,
+    ///   clearance: 10pt,
+    ///   rect(width: 60pt, height: 80pt, fill: aqua),
+    /// )
+    /// #lorem(50)
+    /// ```
+    #[default(false)]
+    pub wrap: bool,
+
     /// The spacing between the placed element and other elements in a floating
     /// layout.
     ///
