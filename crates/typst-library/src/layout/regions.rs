@@ -157,3 +157,46 @@ impl Debug for Regions<'_> {
         list.finish()
     }
 }
+
+/// Width exclusions for text wrapping around floats.
+///
+/// Coordinates are relative to the paragraph's top-left corner.
+/// Use `from_wrap_floats()` to convert from region coordinates.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct ParExclusions {
+    /// Exclusion zones sorted by y_start.
+    pub zones: Vec<ExclusionZone>,
+}
+
+/// A single rectangular exclusion zone.
+///
+/// Uses raw i64 units (not Abs) to avoid floating-point comparison issues
+/// in sorted lookups.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ExclusionZone {
+    /// Y-offset from paragraph top where exclusion starts (in raw units).
+    pub y_start: i64,
+    /// Y-offset from paragraph top where exclusion ends (in raw units).
+    pub y_end: i64,
+    /// Width excluded from left side (in raw units).
+    pub left: i64,
+    /// Width excluded from right side (in raw units).
+    pub right: i64,
+}
+
+/// A positioned wrap-float in region coordinates.
+///
+/// Stores the position and dimensions of a float that text should wrap around.
+/// The coordinates are in inner-flow (region) coordinate space, where y=0
+/// is at the top of the content region.
+#[derive(Debug, Clone)]
+pub struct WrapFloat {
+    /// Top y-coordinate in region (inner-flow) coordinates.
+    pub y: Abs,
+    /// Height of the float.
+    pub height: Abs,
+    /// Width excluded from left (float width + clearance, or zero if right-aligned).
+    pub left_margin: Abs,
+    /// Width excluded from right (float width + clearance, or zero if left-aligned).
+    pub right_margin: Abs,
+}
