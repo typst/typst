@@ -49,8 +49,21 @@ thread_local! {
 }
 
 /// Register a CiteGroup during layout.
+///
+/// Deduplicates by location to handle iterative refinement in wrap-float
+/// layout, where the same paragraph may be measured multiple times.
 pub fn register_cite_group(group: Content) {
-    CITE_GROUPS.with(|groups| groups.borrow_mut().push(group));
+    CITE_GROUPS.with(|groups| {
+        let mut groups = groups.borrow_mut();
+        // Deduplicate by location to handle multiple measure() calls during
+        // iterative refinement for wrap-float exclusions.
+        if let Some(loc) = group.location() {
+            if groups.iter().any(|g| g.location() == Some(loc)) {
+                return; // Already registered
+            }
+        }
+        groups.push(group);
+    });
 }
 
 /// Get registered CiteGroups (non-destructive snapshot).

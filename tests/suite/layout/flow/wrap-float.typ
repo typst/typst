@@ -51,5 +51,6 @@
 #columns(2)[
   #place(top + right, float: true, wrap: true, scope: "parent", clearance: 8pt,
     rect(width: 50pt, height: 60pt, fill: aqua))
+  // Warning: 4-13 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
   #lorem(80)
 ]

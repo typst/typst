@@ -428,6 +428,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             frames: frames_with_needs.into_iter(),
             align: par.align,
             leading,
+            had_exclusions: final_exclusions.is_some(),
+            span: par.elem.span(),
         };
 
         // If par_spill saves remaining frames and returns Err, we must advance
@@ -521,6 +523,20 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes spillover from a paragraph that broke across regions.
     fn par_spill(&mut self, mut spill: ParSpill) -> FlowResult<()> {
+        // Warn if exclusion context changed between regions. This can cause
+        // visual inconsistencies since the line widths were computed for the
+        // previous region's wrap-float exclusions.
+        let current_region_has_exclusions = !self.wrap_state.floats.is_empty();
+        if spill.had_exclusions && !current_region_has_exclusions {
+            // Paragraph was computed with exclusions but this region has none.
+            // The continuation lines may appear incorrectly indented.
+            self.composer.engine.sink.warn(warning!(
+                spill.span,
+                "paragraph spans page break with changing wrap context; \
+                 text may appear incorrectly indented on continuation page"
+            ));
+        }
+
         let mut first = true;
 
         while let Some((frame, need)) = spill.frames.next() {
@@ -540,6 +556,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     frames: remaining.into_iter(),
                     align: spill.align,
                     leading: spill.leading,
+                    had_exclusions: spill.had_exclusions,
+                    span: spill.span,
                 });
                 return Err(Stop::Finish(false));
             }
@@ -559,6 +577,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     frames: remaining.into_iter(),
                     align: spill.align,
                     leading: spill.leading,
+                    had_exclusions: spill.had_exclusions,
+                    span: spill.span,
                 });
                 return Err(Stop::Finish(false));
             }
@@ -573,6 +593,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     frames: remaining.into_iter(),
                     align: spill.align,
                     leading: spill.leading,
+                    had_exclusions: spill.had_exclusions,
+                    span: spill.span,
                 });
                 return Err(err);
             }
@@ -750,6 +772,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         Ok(())
     }
 
+    /// Maximum ratio of column width a wrap-float can occupy (50%).
+    /// Floats wider than this leave too little room for text.
+    const MAX_WRAP_WIDTH_RATIO: f64 = 0.5;
+
     /// Processes a wrap-float: an in-flow float that text will wrap around.
     ///
     /// Unlike regular floats which go through the composer's insertion system,
@@ -758,6 +784,30 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn wrap_float(&mut self, placed: &'b PlacedChild<'a>) -> FlowResult<()> {
         // Layout the float content.
         let frame = placed.layout(self.composer.engine, self.regions.base())?;
+
+        // Validate width: if the float is too wide (>50% of column), there's not
+        // enough room for text to wrap. Fall back to regular float behavior.
+        let base_width = self.regions.base().x;
+        let max_wrap_width = base_width * Self::MAX_WRAP_WIDTH_RATIO;
+        if frame.width() > max_wrap_width {
+            self.composer.engine.sink.warn(warning!(
+                placed.span(),
+                "wrap-float too wide ({:.1}pt > {:.1}pt limit); treating as regular float",
+                frame.width().to_pt(),
+                max_wrap_width.to_pt()
+            ));
+            // Fall back to regular float handling through the composer.
+            let weak_spacing = self.weak_spacing();
+            self.regions.size.y += weak_spacing;
+            self.composer.float(
+                placed,
+                &self.regions,
+                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
+                true,
+            )?;
+            self.regions.size.y -= weak_spacing;
+            return Ok(());
+        }
 
         // Compute y-position based on vertical alignment.
         let region_height = self.regions.full;

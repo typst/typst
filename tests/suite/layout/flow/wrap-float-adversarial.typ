@@ -32,6 +32,7 @@
 #set page(width: 260pt, height: 260pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 70pt, height: 90pt, fill: aqua))
+// Warning: 2-12 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(220)
 
 --- wrap-float-overlap-zones paged ---
@@ -54,6 +55,7 @@
 #columns(2)[
   #place(top + right, float: true, wrap: true, scope: "parent", dx: -6pt, dy: 6pt,
     rect(width: 50pt, height: 60pt, fill: aqua))
+  // Warning: 4-13 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
   #lorem(80)
 ]
 

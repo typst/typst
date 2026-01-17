@@ -20,6 +20,7 @@ use typst_library::layout::{
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
+use typst_syntax::Span;
 use typst_utils::{Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
@@ -523,6 +524,12 @@ pub struct ParSpill {
     pub align: Axes<FixedAlignment>,
     /// Leading between lines.
     pub leading: Abs,
+    /// Whether the frames were computed with wrap-float exclusions.
+    /// If true and the continuation region has different exclusions,
+    /// the line widths may be incorrect for that region.
+    pub had_exclusions: bool,
+    /// Span of the original paragraph element, for diagnostics.
+    pub span: Span,
 }
 
 /// A child that encapsulates a prepared unbreakable block.
@@ -818,6 +825,11 @@ impl PlacedChild<'_> {
     /// The element's location.
     pub fn location(&self) -> Location {
         self.elem.location().unwrap()
+    }
+
+    /// The element's source span for diagnostics.
+    pub fn span(&self) -> Span {
+        self.elem.span()
     }
 }
 
