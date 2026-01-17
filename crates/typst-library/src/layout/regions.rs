@@ -345,3 +345,506 @@ impl ParExclusions {
             .map(|b| Abs::raw(b as f64))
     }
 }
+
+#[cfg(test)]
+mod exclusion_tests {
+    use super::*;
+
+    // Helper to create Abs from pt for cleaner test code
+    fn pt(value: f64) -> Abs {
+        Abs::pt(value)
+    }
+
+    // ========================================
+    // ParExclusions::available_width tests
+    // ========================================
+
+    #[test]
+    fn test_available_width_before_exclusion() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(10.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        let base = pt(200.0);
+        // Query at y=5, before exclusion starts at y=10
+        let width = excl.available_width(base, pt(5.0));
+        assert_eq!(width, pt(200.0));
+    }
+
+    #[test]
+    fn test_available_width_during_exclusion() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(10.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        let base = pt(200.0);
+        // Query at y=20, during exclusion (10-50)
+        let width = excl.available_width(base, pt(20.0));
+        assert_eq!(width, pt(170.0)); // 200 - 30 = 170
+    }
+
+    #[test]
+    fn test_available_width_after_exclusion() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(10.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        let base = pt(200.0);
+        // Query at y=60, after exclusion ends at y=50
+        let width = excl.available_width(base, pt(60.0));
+        assert_eq!(width, pt(200.0));
+    }
+
+    #[test]
+    fn test_available_width_both_sides() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(0.0).to_raw().round() as i64,
+                y_end: pt(100.0).to_raw().round() as i64,
+                left: pt(40.0).to_raw().round() as i64,
+                right: pt(60.0).to_raw().round() as i64,
+            }],
+        };
+
+        let base = pt(300.0);
+        let width = excl.available_width(base, pt(50.0));
+        assert_eq!(width, pt(200.0)); // 300 - 40 - 60 = 200
+    }
+
+    #[test]
+    fn test_available_width_overlapping_zones() {
+        // Two overlapping zones - should take max from each side
+        let excl = ParExclusions {
+            zones: vec![
+                ExclusionZone {
+                    y_start: pt(10.0).to_raw().round() as i64,
+                    y_end: pt(50.0).to_raw().round() as i64,
+                    left: pt(30.0).to_raw().round() as i64,
+                    right: 0,
+                },
+                ExclusionZone {
+                    y_start: pt(20.0).to_raw().round() as i64,
+                    y_end: pt(40.0).to_raw().round() as i64,
+                    left: pt(50.0).to_raw().round() as i64, // Larger left
+                    right: pt(20.0).to_raw().round() as i64,
+                },
+            ],
+        };
+
+        let base = pt(200.0);
+        // At y=25, both zones active: max(30, 50)=50 left, max(0, 20)=20 right
+        let width = excl.available_width(base, pt(25.0));
+        assert_eq!(width, pt(130.0)); // 200 - 50 - 20 = 130
+    }
+
+    #[test]
+    fn test_available_width_empty_exclusions() {
+        let excl = ParExclusions::default();
+        let base = pt(200.0);
+        // Empty exclusions should return full width
+        assert_eq!(excl.available_width(base, pt(0.0)), pt(200.0));
+        assert_eq!(excl.available_width(base, pt(100.0)), pt(200.0));
+    }
+
+    // ========================================
+    // ParExclusions::from_wrap_floats tests
+    // ========================================
+
+    #[test]
+    fn test_from_wrap_floats_basic_overlap() {
+        let floats = vec![WrapFloat {
+            y: pt(20.0),
+            height: pt(40.0), // Extends from y=20 to y=60
+            left_margin: Abs::zero(),
+            right_margin: pt(50.0),
+        }];
+
+        // Paragraph at y=30, height=100 (overlaps float 20-60)
+        let excl = ParExclusions::from_wrap_floats(pt(30.0), pt(100.0), &floats);
+
+        assert_eq!(excl.zones.len(), 1);
+        let zone = &excl.zones[0];
+        // Float runs from 20-60, paragraph starts at 30
+        // Exclusion starts at max(20-30, 0) = 0 (clamped)
+        // Exclusion ends at min(60-30, 100) = 30
+        assert_eq!(zone.y_start, 0);
+        assert_eq!(zone.y_end, pt(30.0).to_raw().round() as i64);
+        assert_eq!(zone.right, pt(50.0).to_raw().round() as i64);
+    }
+
+    #[test]
+    fn test_from_wrap_floats_no_overlap() {
+        let floats = vec![WrapFloat {
+            y: pt(100.0),
+            height: pt(40.0), // Extends from y=100 to y=140
+            left_margin: pt(50.0),
+            right_margin: Abs::zero(),
+        }];
+
+        // Paragraph at y=0, height=50 (doesn't overlap float at 100-140)
+        let excl = ParExclusions::from_wrap_floats(pt(0.0), pt(50.0), &floats);
+
+        assert!(excl.is_empty());
+    }
+
+    #[test]
+    fn test_from_wrap_floats_float_before_paragraph() {
+        let floats = vec![WrapFloat {
+            y: pt(0.0),
+            height: pt(30.0), // Extends from y=0 to y=30
+            left_margin: pt(40.0),
+            right_margin: Abs::zero(),
+        }];
+
+        // Paragraph at y=50 (after float ends)
+        let excl = ParExclusions::from_wrap_floats(pt(50.0), pt(100.0), &floats);
+
+        assert!(excl.is_empty());
+    }
+
+    #[test]
+    fn test_from_wrap_floats_float_fully_inside_paragraph() {
+        let floats = vec![WrapFloat {
+            y: pt(50.0),
+            height: pt(30.0), // Extends from y=50 to y=80
+            left_margin: pt(60.0),
+            right_margin: Abs::zero(),
+        }];
+
+        // Paragraph at y=0, height=200 (fully contains float)
+        let excl = ParExclusions::from_wrap_floats(pt(0.0), pt(200.0), &floats);
+
+        assert_eq!(excl.zones.len(), 1);
+        let zone = &excl.zones[0];
+        // Float is at 50-80, paragraph starts at 0
+        // Exclusion from 50 to 80 in paragraph coords
+        assert_eq!(zone.y_start, pt(50.0).to_raw().round() as i64);
+        assert_eq!(zone.y_end, pt(80.0).to_raw().round() as i64);
+    }
+
+    #[test]
+    fn test_from_wrap_floats_multiple_floats() {
+        let floats = vec![
+            WrapFloat {
+                y: pt(10.0),
+                height: pt(20.0), // 10-30
+                left_margin: pt(30.0),
+                right_margin: Abs::zero(),
+            },
+            WrapFloat {
+                y: pt(50.0),
+                height: pt(20.0), // 50-70
+                left_margin: Abs::zero(),
+                right_margin: pt(40.0),
+            },
+        ];
+
+        // Paragraph at y=0, height=100 (overlaps both floats)
+        let excl = ParExclusions::from_wrap_floats(pt(0.0), pt(100.0), &floats);
+
+        assert_eq!(excl.zones.len(), 2);
+        // Zones should be sorted by y_start
+        assert!(excl.zones[0].y_start <= excl.zones[1].y_start);
+    }
+
+    #[test]
+    fn test_from_wrap_floats_zones_sorted() {
+        // Create floats out of order
+        let floats = vec![
+            WrapFloat {
+                y: pt(80.0),
+                height: pt(20.0),
+                left_margin: pt(30.0),
+                right_margin: Abs::zero(),
+            },
+            WrapFloat {
+                y: pt(20.0),
+                height: pt(20.0),
+                left_margin: pt(30.0),
+                right_margin: Abs::zero(),
+            },
+            WrapFloat {
+                y: pt(50.0),
+                height: pt(20.0),
+                left_margin: pt(30.0),
+                right_margin: Abs::zero(),
+            },
+        ];
+
+        let excl = ParExclusions::from_wrap_floats(pt(0.0), pt(200.0), &floats);
+
+        assert_eq!(excl.zones.len(), 3);
+        // Verify sorted order
+        assert!(excl.zones[0].y_start <= excl.zones[1].y_start);
+        assert!(excl.zones[1].y_start <= excl.zones[2].y_start);
+    }
+
+    // ========================================
+    // ParExclusions::left_offset tests
+    // ========================================
+
+    #[test]
+    fn test_left_offset_no_exclusion() {
+        let excl = ParExclusions::default();
+        assert_eq!(excl.left_offset(pt(50.0)), Abs::zero());
+    }
+
+    #[test]
+    fn test_left_offset_during_exclusion() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(10.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: pt(20.0).to_raw().round() as i64,
+            }],
+        };
+
+        // During exclusion
+        assert_eq!(excl.left_offset(pt(25.0)), pt(30.0));
+        // Before exclusion
+        assert_eq!(excl.left_offset(pt(5.0)), Abs::zero());
+        // After exclusion
+        assert_eq!(excl.left_offset(pt(60.0)), Abs::zero());
+    }
+
+    // ========================================
+    // ParExclusions::has_exclusion_at tests
+    // ========================================
+
+    #[test]
+    fn test_has_exclusion_at() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(10.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        assert!(!excl.has_exclusion_at(pt(5.0))); // Before
+        assert!(excl.has_exclusion_at(pt(10.0))); // At start (inclusive)
+        assert!(excl.has_exclusion_at(pt(30.0))); // During
+        assert!(!excl.has_exclusion_at(pt(50.0))); // At end (exclusive)
+        assert!(!excl.has_exclusion_at(pt(60.0))); // After
+    }
+
+    // ========================================
+    // ParExclusions::next_boundary tests
+    // ========================================
+
+    #[test]
+    fn test_next_boundary_before_zone() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(20.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        // Query before zone: should return y_start
+        let boundary = excl.next_boundary(pt(10.0));
+        assert_eq!(boundary, Some(pt(20.0)));
+    }
+
+    #[test]
+    fn test_next_boundary_inside_zone() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(20.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        // Query inside zone: should return y_end
+        let boundary = excl.next_boundary(pt(30.0));
+        assert_eq!(boundary, Some(pt(50.0)));
+    }
+
+    #[test]
+    fn test_next_boundary_after_all_zones() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: pt(20.0).to_raw().round() as i64,
+                y_end: pt(50.0).to_raw().round() as i64,
+                left: pt(30.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        // Query after zone: no more boundaries
+        let boundary = excl.next_boundary(pt(60.0));
+        assert_eq!(boundary, None);
+    }
+
+    #[test]
+    fn test_next_boundary_multiple_zones() {
+        let excl = ParExclusions {
+            zones: vec![
+                ExclusionZone {
+                    y_start: pt(10.0).to_raw().round() as i64,
+                    y_end: pt(30.0).to_raw().round() as i64,
+                    left: pt(20.0).to_raw().round() as i64,
+                    right: 0,
+                },
+                ExclusionZone {
+                    y_start: pt(50.0).to_raw().round() as i64,
+                    y_end: pt(70.0).to_raw().round() as i64,
+                    left: pt(20.0).to_raw().round() as i64,
+                    right: 0,
+                },
+            ],
+        };
+
+        // Before first zone: get start of first
+        assert_eq!(excl.next_boundary(pt(5.0)), Some(pt(10.0)));
+        // Inside first zone: get end of first
+        assert_eq!(excl.next_boundary(pt(15.0)), Some(pt(30.0)));
+        // Between zones: get start of second
+        assert_eq!(excl.next_boundary(pt(40.0)), Some(pt(50.0)));
+        // Inside second zone: get end of second
+        assert_eq!(excl.next_boundary(pt(60.0)), Some(pt(70.0)));
+        // After all zones: none
+        assert_eq!(excl.next_boundary(pt(80.0)), None);
+    }
+
+    #[test]
+    fn test_next_boundary_empty_exclusions() {
+        let excl = ParExclusions::default();
+        assert_eq!(excl.next_boundary(pt(0.0)), None);
+    }
+
+    // ========================================
+    // WrapFloat::from_placed tests
+    // ========================================
+
+    #[test]
+    fn test_wrap_float_from_placed_start_aligned() {
+        let mut frame = Frame::soft(Size::new(pt(80.0), pt(100.0)));
+        frame.set_size(Size::new(pt(80.0), pt(100.0)));
+
+        let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Start, pt(10.0));
+
+        assert_eq!(wf.y, pt(50.0));
+        assert_eq!(wf.height, pt(100.0));
+        assert_eq!(wf.left_margin, pt(90.0)); // 80 + 10 clearance
+        assert_eq!(wf.right_margin, Abs::zero());
+    }
+
+    #[test]
+    fn test_wrap_float_from_placed_end_aligned() {
+        let mut frame = Frame::soft(Size::new(pt(80.0), pt(100.0)));
+        frame.set_size(Size::new(pt(80.0), pt(100.0)));
+
+        let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::End, pt(10.0));
+
+        assert_eq!(wf.y, pt(50.0));
+        assert_eq!(wf.height, pt(100.0));
+        assert_eq!(wf.left_margin, Abs::zero());
+        assert_eq!(wf.right_margin, pt(90.0)); // 80 + 10 clearance
+    }
+
+    #[test]
+    fn test_wrap_float_from_placed_center_aligned() {
+        let mut frame = Frame::soft(Size::new(pt(80.0), pt(100.0)));
+        frame.set_size(Size::new(pt(80.0), pt(100.0)));
+
+        let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Center, pt(10.0));
+
+        assert_eq!(wf.y, pt(50.0));
+        assert_eq!(wf.height, pt(100.0));
+        // Center: (80 + 10) / 2 = 45 each side
+        assert_eq!(wf.left_margin, pt(45.0));
+        assert_eq!(wf.right_margin, pt(45.0));
+    }
+
+    // ========================================
+    // Edge cases
+    // ========================================
+
+    #[test]
+    fn test_is_empty() {
+        assert!(ParExclusions::default().is_empty());
+        assert!(ParExclusions { zones: vec![] }.is_empty());
+
+        let non_empty = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: 0,
+                y_end: pt(100.0).to_raw().round() as i64,
+                left: pt(50.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+        assert!(!non_empty.is_empty());
+    }
+
+    #[test]
+    fn test_available_width_clamped_to_zero() {
+        // Exclusions larger than base width
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: 0,
+                y_end: pt(100.0).to_raw().round() as i64,
+                left: pt(150.0).to_raw().round() as i64,
+                right: pt(100.0).to_raw().round() as i64,
+            }],
+        };
+
+        let base = pt(200.0);
+        // 150 + 100 = 250 > 200, should clamp to zero
+        let width = excl.available_width(base, pt(50.0));
+        assert_eq!(width, Abs::zero());
+    }
+
+    #[test]
+    fn test_exclusion_zone_only_left() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: 0,
+                y_end: pt(100.0).to_raw().round() as i64,
+                left: pt(50.0).to_raw().round() as i64,
+                right: 0,
+            }],
+        };
+
+        let base = pt(200.0);
+        assert_eq!(excl.available_width(base, pt(50.0)), pt(150.0));
+        assert_eq!(excl.left_offset(pt(50.0)), pt(50.0));
+    }
+
+    #[test]
+    fn test_exclusion_zone_only_right() {
+        let excl = ParExclusions {
+            zones: vec![ExclusionZone {
+                y_start: 0,
+                y_end: pt(100.0).to_raw().round() as i64,
+                left: 0,
+                right: pt(50.0).to_raw().round() as i64,
+            }],
+        };
+
+        let base = pt(200.0);
+        assert_eq!(excl.available_width(base, pt(50.0)), pt(150.0));
+        assert_eq!(excl.left_offset(pt(50.0)), Abs::zero()); // No left offset
+    }
+}
