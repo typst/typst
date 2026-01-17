@@ -215,49 +215,45 @@ impl FootnoteGroup {
         numbering: Numbering,
         styles: StyleChain,
     ) -> Option<Content> {
-        match self.separator.get_cloned(styles) {
-            Smart::Custom(content) => content,
-            Smart::Auto => {
-                match numbering {
-                    // The most sensible default since a Func can be arbitrary
-                    // and we don't presume to guess.
-                    Numbering::Func(_) => None,
-                    Numbering::Pattern(pattern) => match pattern {
-                        // If a footnote marker's either end is normal text
-                        // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
-                        // to add a separator.
-                        NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
-                        NumberingPattern { pieces, .. } => match pieces.as_slice() {
-                            [first, ..] if !first.0.is_empty() => None,
-                            [.., last] => match last.1 {
-                                NumberingKind::LowerSimplifiedChinese
-                                | NumberingKind::UpperSimplifiedChinese
-                                | NumberingKind::LowerTraditionalChinese
-                                | NumberingKind::UpperTraditionalChinese
-                                | NumberingKind::HiraganaAiueo
-                                | NumberingKind::HiraganaIroha
-                                | NumberingKind::KatakanaAiueo
-                                | NumberingKind::KatakanaIroha => {
-                                    Some(TextElem::packed("、"))
-                                }
-                                NumberingKind::KoreanJamo
-                                | NumberingKind::KoreanSyllable => {
-                                    Some(TextElem::packed("·"))
-                                }
-                                NumberingKind::EasternArabic
-                                | NumberingKind::EasternArabicPersian => {
-                                    Some(TextElem::packed("،"))
-                                }
-                                NumberingKind::Symbol => Some(TextElem::packed(" ")),
-                                NumberingKind::CircledNumber
-                                | NumberingKind::DoubleCircledNumber => None,
-                                _ => Some(TextElem::packed(",")),
-                            },
-                            _ => None,
-                        },
+        if let Smart::Custom(sep) = self.separator.get_cloned(styles) {
+            return sep;
+        }
+
+        match numbering {
+            // The most sensible default since a Func can be arbitrary
+            // and we don't presume to guess.
+            Numbering::Func(_) => None,
+            Numbering::Pattern(pattern) => match pattern {
+                // If a footnote marker's either end is normal text
+                // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
+                // to add a separator.
+                NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
+                NumberingPattern { pieces, .. } => match pieces.as_slice() {
+                    [(prefix, ..), ..] if !prefix.is_empty() => None,
+                    [.., (.., kind)] => match kind {
+                        NumberingKind::LowerSimplifiedChinese
+                        | NumberingKind::UpperSimplifiedChinese
+                        | NumberingKind::LowerTraditionalChinese
+                        | NumberingKind::UpperTraditionalChinese
+                        | NumberingKind::HiraganaAiueo
+                        | NumberingKind::HiraganaIroha
+                        | NumberingKind::KatakanaAiueo
+                        | NumberingKind::KatakanaIroha => Some(TextElem::packed("、")),
+                        NumberingKind::KoreanJamo | NumberingKind::KoreanSyllable => {
+                            Some(TextElem::packed("·"))
+                        }
+                        NumberingKind::EasternArabic
+                        | NumberingKind::EasternArabicPersian => {
+                            Some(TextElem::packed("،"))
+                        }
+                        NumberingKind::Symbol => Some(TextElem::packed(" ")),
+                        NumberingKind::CircledNumber
+                        | NumberingKind::DoubleCircledNumber => None,
+                        _ => Some(TextElem::packed(",")),
                     },
-                }
-            }
+                    _ => None,
+                },
+            },
         }
     }
 }
@@ -290,7 +286,7 @@ cast! {
 ///
 /// My footnote listing
 /// #footnote[It's down here]
-/// has red text!
+/// has red Some(TextElem::packed
 /// ```
 ///
 /// _Note:_ Footnote entry properties must be uniform across each page run (a
