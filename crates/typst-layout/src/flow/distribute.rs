@@ -1,8 +1,8 @@
 use typst_library::foundations::Smart;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Ratio, Region, Regions, Rel,
-    Size,
+    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, ParExclusions, Point, Ratio, Region,
+    Regions, Rel, Size, WrapFloat,
 };
 use typst_library::text::TextElem;
 use typst_utils::Numeric;
@@ -21,6 +21,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
         items: vec![],
         sticky: None,
         stickable: None,
+        wrap_state: WrapState::default(),
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
@@ -65,12 +66,48 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// blocks are supposed to always be in the same page as the subsequent
     /// frame, but that is impossible in that case, which is thus pathological.
     stickable: Option<bool>,
+    /// State for tracking wrap-float exclusions that affect paragraph layout.
+    wrap_state: WrapState,
 }
 
 /// A snapshot of the distribution state.
 struct DistributionSnapshot<'a, 'b> {
     work: Work<'a, 'b>,
     items: usize,
+}
+
+/// State for tracking wrap-float exclusions during distribution.
+///
+/// Wrap-floats are positioned during distribution and create exclusion zones
+/// that affect paragraph layout. This struct tracks all active wrap-floats
+/// in the current region so that paragraphs can query for exclusions.
+#[derive(Debug, Default)]
+struct WrapState {
+    /// Active wrap-floats in region coordinates.
+    floats: Vec<WrapFloat>,
+}
+
+impl WrapState {
+    /// Add a wrap-float to the exclusion map.
+    fn add(&mut self, wf: WrapFloat) {
+        self.floats.push(wf);
+    }
+
+    /// Build exclusions for a paragraph at the given y-position.
+    ///
+    /// Returns `None` if there are no exclusions overlapping the paragraph,
+    /// which is an optimization to avoid unnecessary work in the common case.
+    fn exclusions_for(&self, par_y: Abs, par_height_estimate: Abs) -> Option<ParExclusions> {
+        if self.floats.is_empty() {
+            return None;
+        }
+        let excl = ParExclusions::from_wrap_floats(par_y, par_height_estimate, &self.floats);
+        if excl.is_empty() {
+            None
+        } else {
+            Some(excl)
+        }
+    }
 }
 
 /// A laid out item in a distribution.
@@ -313,13 +350,26 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// frame like a line. If a frame doesn't fit, remaining frames are saved
     /// to `par_spill` for processing in the next region.
     fn par(&mut self, par: &'b ParChild<'a>) -> FlowResult<()> {
-        // Measure the paragraph to get line metrics.
-        // TODO (Phase 3/4): Compute exclusions from WrapState and pass here
-        let measured = par.measure(self.composer.engine, None)?;
+        let current_y = self.current_y();
 
-        // Commit to get the actual frames.
-        // TODO (Phase 3/4): Pass the same exclusions as used in measure
-        let result = par.commit(self.composer.engine, &measured, None)?;
+        // First measure without exclusions to estimate paragraph height.
+        let initial_measured = par.measure(self.composer.engine, None)?;
+
+        // Compute exclusions from wrap-floats based on estimated position and height.
+        let exclusions =
+            self.wrap_state.exclusions_for(current_y, initial_measured.total_height);
+
+        // If we have exclusions, re-measure with them to get accurate line breaks.
+        // Otherwise, use the initial measurement.
+        let (measured, excl_ref) = if let Some(ref excl) = exclusions {
+            let remeasured = par.measure(self.composer.engine, Some(excl))?;
+            (remeasured, Some(excl))
+        } else {
+            (initial_measured, None)
+        };
+
+        // Commit with the same exclusions used in measure.
+        let result = par.commit(self.composer.engine, &measured, excl_ref)?;
 
         // Compute widow/orphan prevention needs, replicating collector's lines() logic.
         let costs = par.styles.get(TextElem::costs);
@@ -643,9 +693,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         self.composer
             .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
 
+        // Register the wrap-float in WrapState for exclusion computation.
+        // This allows subsequent paragraphs to query for exclusions.
+        let wf = WrapFloat::from_placed(&frame, y, placed.align_x, placed.clearance);
+        self.wrap_state.add(wf);
+
         // Push the wrap-float item. Note: wrap-floats don't consume vertical
-        // space - they're rendered but text flows past them (and will wrap
-        // around them in M2).
+        // space - they're rendered but text flows past them.
         self.flush_tags();
         self.items.push(Item::WrapFloat(frame, y, placed.align_x, placed.delta));
 
