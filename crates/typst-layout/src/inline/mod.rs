@@ -500,7 +500,7 @@ pub struct LineMetrics {
 }
 
 /// Information needed to reconstruct a line break.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BreakInfo {
     /// End byte offset of this line in the paragraph text.
     pub end: usize,
