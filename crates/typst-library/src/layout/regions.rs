@@ -200,3 +200,116 @@ pub struct WrapFloat {
     /// Width excluded from right (float width + clearance, or zero if left-aligned).
     pub right_margin: Abs,
 }
+
+impl ParExclusions {
+    /// Check if there are no exclusions.
+    pub fn is_empty(&self) -> bool {
+        self.zones.is_empty()
+    }
+
+    /// Create exclusions from wrap-float positions.
+    ///
+    /// Converts region-relative float coordinates to paragraph-relative
+    /// exclusion zones. Only includes floats that overlap the paragraph's
+    /// vertical extent.
+    ///
+    /// # Arguments
+    /// * `par_y` - Paragraph's y-position in region coordinates
+    /// * `par_height` - Estimated paragraph height (for overlap detection)
+    /// * `wrap_floats` - List of positioned wrap-floats in region coordinates
+    pub fn from_wrap_floats(
+        par_y: Abs,
+        par_height: Abs,
+        wrap_floats: &[WrapFloat],
+    ) -> Self {
+        let mut zones = Vec::with_capacity(wrap_floats.len());
+        let par_top = par_y.to_raw();
+        let par_bottom = (par_y + par_height).to_raw();
+
+        for wf in wrap_floats {
+            let wf_top = wf.y.to_raw();
+            let wf_bottom = (wf.y + wf.height).to_raw();
+
+            // Skip floats that don't overlap this paragraph
+            if wf_bottom <= par_top || wf_top >= par_bottom {
+                continue;
+            }
+
+            // Convert to paragraph-relative coordinates, clamped to paragraph bounds
+            let rel_start = (wf_top - par_top).max(0.0);
+            let rel_end = (wf_bottom - par_top).min(par_bottom - par_top);
+
+            zones.push(ExclusionZone {
+                y_start: rel_start as i64,
+                y_end: rel_end as i64,
+                left: wf.left_margin.to_raw() as i64,
+                right: wf.right_margin.to_raw() as i64,
+            });
+        }
+
+        // Sort by y_start for efficient lookup
+        zones.sort_by_key(|z| z.y_start);
+
+        Self { zones }
+    }
+
+    /// Get available width at a given y-offset within the paragraph.
+    ///
+    /// If multiple exclusions overlap at this y, takes the maximum from each side.
+    pub fn available_width(&self, base_width: Abs, y: Abs) -> Abs {
+        let y_raw = y.to_raw() as i64;
+        let mut left_excluded = 0i64;
+        let mut right_excluded = 0i64;
+
+        for zone in &self.zones {
+            // Early exit: zones are sorted, so if y < y_start, no more matches
+            if y_raw < zone.y_start {
+                break;
+            }
+            if y_raw < zone.y_end {
+                left_excluded = left_excluded.max(zone.left);
+                right_excluded = right_excluded.max(zone.right);
+            }
+        }
+
+        let total_excluded = Abs::raw(left_excluded as f64) + Abs::raw(right_excluded as f64);
+        (base_width - total_excluded).max(Abs::zero())
+    }
+
+    /// Get left offset at a given y-offset (for text positioning).
+    pub fn left_offset(&self, y: Abs) -> Abs {
+        let y_raw = y.to_raw() as i64;
+        let mut left = 0i64;
+
+        for zone in &self.zones {
+            if y_raw < zone.y_start {
+                break;
+            }
+            if y_raw < zone.y_end {
+                left = left.max(zone.left);
+            }
+        }
+
+        Abs::raw(left as f64)
+    }
+
+    /// Check if any exclusion is active at this y-offset.
+    pub fn has_exclusion_at(&self, y: Abs) -> bool {
+        let y_raw = y.to_raw() as i64;
+        self.zones.iter().any(|z| y_raw >= z.y_start && y_raw < z.y_end)
+    }
+
+    /// Get the next y-position where exclusions change (for line breaking).
+    ///
+    /// Returns the next y where an exclusion starts or ends, enabling the
+    /// line-breaking algorithm to skip to known boundary points.
+    pub fn next_boundary(&self, y: Abs) -> Option<Abs> {
+        let y_raw = y.to_raw() as i64;
+        self.zones
+            .iter()
+            .flat_map(|z| [z.y_start, z.y_end])
+            .filter(|&boundary| boundary > y_raw)
+            .min()
+            .map(|b| Abs::raw(b as f64))
+    }
+}
