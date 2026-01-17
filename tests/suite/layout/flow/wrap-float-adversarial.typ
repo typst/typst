@@ -28,19 +28,19 @@
 )
 #lorem(20)
 
---- wrap-float-long-paragraph-guardrail paged ---
+--- wrap-float-long-paragraph-guardrail paged large ---
 #set page(width: 260pt, height: 260pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 70pt, height: 90pt, fill: aqua))
 #lorem(220)
 
 --- wrap-float-overlap-zones paged ---
-#set page(width: 240pt, height: 260pt)
+#set page(width: 200pt, height: 200pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
-  rect(width: 50pt, height: 70pt, fill: aqua))
-#place(top + right, float: true, wrap: true, dy: 40pt, clearance: 8pt,
-  rect(width: 60pt, height: 70pt, fill: forest))
-#lorem(100)
+  rect(width: 40pt, height: 50pt, fill: aqua))
+#place(top + right, float: true, wrap: true, dy: 30pt, clearance: 8pt,
+  rect(width: 50pt, height: 50pt, fill: forest))
+#lorem(60)
 
 --- wrap-float-rtl paged ---
 #set page(width: 220pt, height: 220pt)
@@ -51,10 +51,11 @@
 
 --- wrap-float-parent-columns-offset paged ---
 #set page(width: 240pt, height: 240pt)
-#columns(2)
-#place(top + right, float: true, wrap: true, scope: "parent", dx: -6pt, dy: 6pt,
-  rect(width: 50pt, height: 60pt, fill: aqua))
-#lorem(80)
+#columns(2)[
+  #place(top + right, float: true, wrap: true, scope: "parent", dx: -6pt, dy: 6pt,
+    rect(width: 50pt, height: 60pt, fill: aqua))
+  #lorem(80)
+]
 
 --- wrap-float-inline-boxes paged ---
 #set page(width: 240pt, height: 240pt)
@@ -73,9 +74,9 @@
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 80pt, fill: aqua))
 #lorem(20)
-#code("""
+```rust
 fn main() {
     println!("hello");
 }
-""")
+```
 #lorem(20)

@@ -1,3 +1,4 @@
+use typst_library::foundations::Smart;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Ratio, Region, Regions, Rel,
@@ -84,6 +85,9 @@ enum Item<'a, 'b> {
     Frame(Frame, Axes<FixedAlignment>),
     /// A frame for an absolutely (not floatingly) placed child.
     Placed(Frame, &'b PlacedChild<'a>),
+    /// A frame for a wrap-float: an in-flow float that text will wrap around.
+    /// Stores: frame, y-position (region-relative), x-alignment, delta offsets.
+    WrapFloat(Frame, Abs, FixedAlignment, Axes<Rel<Abs>>),
 }
 
 impl Item<'_, '_> {
@@ -206,7 +210,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     return false;
                 }
                 // These are "peeked beyond" for spacing collapsing purposes.
-                Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) | Item::WrapFloat(..) => {}
                 // Any kind of fractional spacing destructs weak relative
                 // spacing.
                 Item::Fr(.., None) => return false,
@@ -236,7 +240,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 // These are "peeked beyond" for spacing collapsing purposes.
                 // Weak absolute spacing, in particular, will be trimmed once
                 // we push the fractional spacing.
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
                 // For weak + strong fr spacing, we keep both, same as for
                 // weak + strong rel spacing.
                 Item::Fr(.., None) => return true,
@@ -260,7 +264,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     self.items.remove(i);
                     break;
                 }
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -271,7 +275,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for item in self.items.iter().rev() {
             match *item {
                 Item::Abs(amount, 1..) => return amount,
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -578,19 +582,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes an absolutely or floatingly placed child.
     fn placed(&mut self, placed: &'b PlacedChild<'a>) -> FlowResult<()> {
         if placed.float && placed.wrap {
-            // Wrap-floats: floats that text should wrap around.
-            // For now (M1), route through the regular float path. M2 will
-            // implement in-flow positioning and exclusion tracking.
-            // TODO(wrap-floats): Handle wrap-floats as in-flow items with exclusions.
-            let weak_spacing = self.weak_spacing();
-            self.regions.size.y += weak_spacing;
-            self.composer.float(
-                placed,
-                &self.regions,
-                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
-                true,
-            )?;
-            self.regions.size.y -= weak_spacing;
+            // Wrap-floats: in-flow floats that text will wrap around.
+            // Unlike regular floats, wrap-floats are positioned during
+            // distribution and don't go through the composer's float handling.
+            self.wrap_float(placed)?;
         } else if placed.float {
             // If the element is floatingly placed, let the composer handle it.
             // It might require relayout because the area available for
@@ -614,6 +609,50 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.items.push(Item::Placed(frame, placed));
         }
         Ok(())
+    }
+
+    /// Processes a wrap-float: an in-flow float that text will wrap around.
+    ///
+    /// Unlike regular floats which go through the composer's insertion system,
+    /// wrap-floats are positioned during distribution based on their alignment.
+    /// They don't consume vertical space - text will eventually wrap around them.
+    fn wrap_float(&mut self, placed: &'b PlacedChild<'a>) -> FlowResult<()> {
+        // Layout the float content.
+        let frame = placed.layout(self.composer.engine, self.regions.base())?;
+
+        // Compute y-position based on vertical alignment.
+        let region_height = self.regions.full;
+        let float_height = frame.height();
+        let current_y = self.current_y();
+
+        let y = match placed.align_y {
+            // Auto: float appears near its source position in the flow.
+            Smart::Auto => current_y,
+            // Custom alignment: position at top/center/bottom of region.
+            Smart::Custom(align) => match align {
+                Some(FixedAlignment::Start) => Abs::zero(),
+                Some(FixedAlignment::End) => region_height - float_height,
+                Some(FixedAlignment::Center) => (region_height - float_height) / 2.0,
+                None => current_y, // Fallback to current position.
+            },
+        };
+
+        // Handle any footnotes in the float content.
+        self.composer
+            .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
+
+        // Push the wrap-float item. Note: wrap-floats don't consume vertical
+        // space - they're rendered but text flows past them (and will wrap
+        // around them in M2).
+        self.flush_tags();
+        self.items.push(Item::WrapFloat(frame, y, placed.align_x, placed.delta));
+
+        Ok(())
+    }
+
+    /// Get the current y-position in the flow (how far down we've placed content).
+    fn current_y(&self) -> Abs {
+        self.regions.full - self.regions.size.y
     }
 
     /// Processes a float flush.
@@ -680,7 +719,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     used.y += frame.height();
                     used.x.set_max(frame.width());
                 }
-                Item::Tag(_) | Item::Placed(..) => {}
+                Item::Tag(_) | Item::Placed(..) | Item::WrapFloat(..) => {}
             }
         }
 
@@ -758,6 +797,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
                     let pos = Point::new(x, y)
                         + placed.delta.zip_map(size, Rel::relative_to).to_point();
+
+                    output.push_frame(pos, frame);
+                }
+                Item::WrapFloat(frame, y, align_x, delta) => {
+                    // Wrap-float: x from alignment, y was pre-computed during distribution.
+                    let x = align_x.position(size.x - frame.width());
+                    let pos = Point::new(x, y)
+                        + delta.zip_map(size, Rel::relative_to).to_point();
 
                     output.push_frame(pos, frame);
                 }
