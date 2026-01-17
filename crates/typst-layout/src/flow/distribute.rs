@@ -314,10 +314,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// to `par_spill` for processing in the next region.
     fn par(&mut self, par: &'b ParChild<'a>) -> FlowResult<()> {
         // Measure the paragraph to get line metrics.
-        let measured = par.measure(self.composer.engine)?;
+        // TODO (Phase 3/4): Compute exclusions from WrapState and pass here
+        let measured = par.measure(self.composer.engine, None)?;
 
         // Commit to get the actual frames.
-        let result = par.commit(self.composer.engine, &measured)?;
+        // TODO (Phase 3/4): Pass the same exclusions as used in measure
+        let result = par.commit(self.composer.engine, &measured, None)?;
 
         // Compute widow/orphan prevention needs, replicating collector's lines() logic.
         let costs = par.styles.get(TextElem::costs);

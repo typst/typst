@@ -14,8 +14,8 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem,
-    Fr, Fragment, Frame, FrameParent, Inherit, PagebreakElem, PlaceElem, PlacementScope,
-    Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
+    Fr, Fragment, Frame, FrameParent, Inherit, PagebreakElem, ParExclusions, PlaceElem,
+    PlacementScope, Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
 };
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
@@ -421,9 +421,14 @@ impl<'a> ParChild<'a> {
     ///
     /// The locator is handled via `relayout()` to ensure stable locations
     /// across multiple measure calls.
+    ///
+    /// # Arguments
+    /// * `engine` - The layout engine
+    /// * `exclusions` - Optional exclusion zones for text wrapping around floats
     pub fn measure(
         &self,
         engine: &mut Engine,
+        exclusions: Option<&ParExclusions>,
     ) -> SourceResult<crate::inline::ParMeasureResult> {
         crate::inline::measure_par_with_exclusions(
             self.elem,
@@ -433,6 +438,7 @@ impl<'a> ParChild<'a> {
             self.base,
             self.expand,
             self.situation,
+            exclusions,
         )
     }
 
@@ -441,10 +447,16 @@ impl<'a> ParChild<'a> {
     /// Must be called with the result from a previous `measure()` call.
     /// Uses `relayout()` on the locator to produce identical locations
     /// as the measure phase.
+    ///
+    /// # Arguments
+    /// * `engine` - The layout engine
+    /// * `measured` - The result from a previous `measure()` call
+    /// * `exclusions` - Optional exclusion zones (should match those used in measure)
     pub fn commit(
         &self,
         engine: &mut Engine,
         measured: &crate::inline::ParMeasureResult,
+        exclusions: Option<&ParExclusions>,
     ) -> SourceResult<crate::inline::ParCommitResult> {
         crate::inline::commit_par(
             self.elem,
@@ -455,16 +467,17 @@ impl<'a> ParChild<'a> {
             self.expand,
             self.situation,
             measured,
+            exclusions,
         )
     }
 
     /// Convenience method: measure then immediately commit.
     ///
     /// Use this when deferred layout isn't needed (no wrap-floats).
-    /// Equivalent to calling `measure()` followed by `commit()`.
+    /// Equivalent to calling `measure()` followed by `commit()` with no exclusions.
     pub fn layout(&self, engine: &mut Engine) -> SourceResult<crate::inline::ParCommitResult> {
-        let measured = self.measure(engine)?;
-        self.commit(engine, &measured)
+        let measured = self.measure(engine, None)?;
+        self.commit(engine, &measured, None)
     }
 }
 

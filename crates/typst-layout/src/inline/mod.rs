@@ -19,7 +19,9 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Frame, Size};
+use typst_library::layout::{
+    Abs, AlignElem, Dir, FixedAlignment, Fragment, Frame, ParExclusions, Size,
+};
 use typst_library::model::{
     EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
     ParLine, ParLineMarker, TermsElem,
@@ -132,6 +134,11 @@ fn layout_par_impl(
 /// 3. Later commit to frames via commit_par() (using break_info)
 ///
 /// NOT memoized - the refinement loop needs fresh results each iteration.
+///
+/// # Arguments
+/// * `exclusions` - Optional exclusion zones for text wrapping around floats.
+///   When provided, the line breaker may use variable widths per line.
+///   Currently stored for future use in Phase 4 (variable-width Knuth-Plass).
 pub fn measure_par_with_exclusions(
     elem: &Packed<ParElem>,
     engine: &mut Engine,
@@ -140,7 +147,7 @@ pub fn measure_par_with_exclusions(
     region: Size,
     expand: bool,
     situation: ParSituation,
-    // exclusions: Option<&ParExclusions>,  // Uncomment in Phase 2
+    exclusions: Option<&ParExclusions>,
 ) -> SourceResult<ParMeasureResult> {
     let arenas = Arenas::default();
     let mut split_locator = locator.split();
@@ -170,6 +177,7 @@ pub fn measure_par_with_exclusions(
         expand,
         Some(situation),
         &base,
+        exclusions,
     )
 }
 
@@ -183,14 +191,17 @@ fn measure_par_inner<'a>(
     _expand: bool,
     par: Option<ParSituation>,
     base: &ConfigBase,
+    exclusions: Option<&ParExclusions>,
 ) -> SourceResult<ParMeasureResult> {
     let config = configuration(base, children, styles, par);
     let (text, segments, spans) = collect(children, engine, locator, &config, region)?;
     let p = prepare(engine, &config, &text, segments, spans)?;
 
-    // Line breaking
+    // Line breaking - use variable width version which handles exclusions
+    // (currently a stub that delegates to standard linebreak, will be
+    // implemented properly in Phase 4)
     let width = region.x - config.hanging_indent;
-    let lines = linebreak(engine, &p, width);
+    let lines = linebreak_variable_width(engine, &p, width, exclusions);
 
     // Extract metrics WITHOUT building frames
     let leading = styles.resolve(ParElem::leading);
@@ -231,6 +242,11 @@ fn measure_par_inner<'a>(
 ///
 /// Must be called with the SAME inputs as measure_par_with_exclusions().
 /// If inputs differ, line reconstruction may produce different results.
+///
+/// # Arguments
+/// * `exclusions` - Optional exclusion zones (should match those used in measure).
+///   Currently stored for future use in Phase 4 when lines may need different
+///   x-offsets based on exclusions.
 pub fn commit_par(
     elem: &Packed<ParElem>,
     engine: &mut Engine,
@@ -240,7 +256,7 @@ pub fn commit_par(
     expand: bool,
     situation: ParSituation,
     measured: &ParMeasureResult,
-    // exclusions: Option<&ParExclusions>,  // Uncomment in Phase 2
+    _exclusions: Option<&ParExclusions>,
 ) -> SourceResult<ParCommitResult> {
     let arenas = Arenas::default();
     let mut split_locator = locator.split();
@@ -269,6 +285,7 @@ pub fn commit_par(
     let lines = reconstruct_lines(engine, &p, &measured.break_info);
 
     // Create frames using existing finalize
+    // TODO (Phase 4): Use exclusions to apply x-offsets to lines
     let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator)?;
 
     Ok(ParCommitResult {
