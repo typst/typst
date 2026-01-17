@@ -1,3 +1,4 @@
+use typst_library::diag::warning;
 use typst_library::foundations::Smart;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -6,6 +7,10 @@ use typst_library::layout::{
 };
 use typst_library::text::TextElem;
 use typst_utils::Numeric;
+
+/// Maximum number of iterative refinement passes for wrap-float exclusions.
+/// Usually converges in 1-2 iterations; cap at 3 for pathological cases.
+const MAX_WRAP_ITER: usize = 3;
 
 use super::{
     Child, Composer, FlowResult, LineChild, MultiChild, MultiSpill, ParChild, ParSpill,
@@ -349,6 +354,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// This measures and commits the paragraph, then processes each resulting
     /// frame like a line. If a frame doesn't fit, remaining frames are saved
     /// to `par_spill` for processing in the next region.
+    ///
+    /// When wrap-floats are present, uses iterative refinement to handle the
+    /// circular dependency between paragraph height and exclusion zones:
+    /// 1. Measure without exclusions to get height estimate
+    /// 2. Compute exclusions based on that height
+    /// 3. Re-measure with exclusions, check if line breaks changed
+    /// 4. If changed, recompute exclusions and repeat (max 3 iterations)
     fn par(&mut self, par: &'b ParChild<'a>) -> FlowResult<()> {
         let current_y = self.current_y();
 
@@ -356,20 +368,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let initial_measured = par.measure(self.composer.engine, None)?;
 
         // Compute exclusions from wrap-floats based on estimated position and height.
-        let exclusions =
+        let initial_exclusions =
             self.wrap_state.exclusions_for(current_y, initial_measured.total_height);
 
-        // If we have exclusions, re-measure with them to get accurate line breaks.
-        // Otherwise, use the initial measurement.
-        let (measured, excl_ref) = if let Some(ref excl) = exclusions {
-            let remeasured = par.measure(self.composer.engine, Some(excl))?;
-            (remeasured, Some(excl))
+        // If we have exclusions, use iterative refinement to converge on stable
+        // line breaks. Otherwise, use the initial measurement directly.
+        let (measured, final_exclusions) = if let Some(excl) = initial_exclusions {
+            self.refine_paragraph_measure(par, current_y, excl, &initial_measured)?
         } else {
             (initial_measured, None)
         };
 
-        // Commit with the same exclusions used in measure.
-        let result = par.commit(self.composer.engine, &measured, excl_ref)?;
+        // Commit with the same exclusions used in the final measure.
+        let result = par.commit(self.composer.engine, &measured, final_exclusions.as_ref())?;
 
         // Compute widow/orphan prevention needs, replicating collector's lines() logic.
         let costs = par.styles.get(TextElem::costs);
@@ -430,6 +441,82 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             }
             Err(other) => Err(other),
         }
+    }
+
+    /// Iterative refinement for paragraphs affected by wrap-float exclusions.
+    ///
+    /// Handles the circular dependency where paragraph height depends on line
+    /// breaks, but line breaks depend on exclusion zones, which depend on where
+    /// the paragraph ends up (its y-position and height).
+    ///
+    /// The algorithm:
+    /// 1. Measure with initial exclusions
+    /// 2. If line breaks changed from previous iteration, recompute exclusions
+    ///    with the new height estimate and re-measure
+    /// 3. Repeat until convergence (same break_info) or max iterations reached
+    ///
+    /// Usually converges in 1-2 iterations. Caps at MAX_WRAP_ITER to handle
+    /// pathological cases where layout oscillates.
+    fn refine_paragraph_measure(
+        &mut self,
+        par: &'b ParChild<'a>,
+        par_y: Abs,
+        initial_exclusions: ParExclusions,
+        initial_measured: &crate::inline::ParMeasureResult,
+    ) -> FlowResult<(crate::inline::ParMeasureResult, Option<ParExclusions>)> {
+        let mut exclusions = initial_exclusions;
+        let mut prev_break_info = initial_measured.break_info.clone();
+
+        // Track seen break patterns to detect oscillation
+        let mut seen_patterns: Vec<Vec<crate::inline::BreakInfo>> = vec![prev_break_info.clone()];
+
+        for _iteration in 0..MAX_WRAP_ITER {
+            // Measure with current exclusions
+            let measured = par.measure(self.composer.engine, Some(&exclusions))?;
+
+            // Check for convergence: same line breaks as previous iteration
+            if measured.break_info == prev_break_info {
+                return Ok((measured, Some(exclusions)));
+            }
+
+            // Check for oscillation: have we seen this break pattern before?
+            if seen_patterns.iter().any(|p| *p == measured.break_info) {
+                // Oscillation detected - use current measurement and warn
+                self.composer.engine.sink.warn(warning!(
+                    par.elem.span(),
+                    "wrap layout oscillating; using current approximation"
+                ));
+                return Ok((measured, Some(exclusions)));
+            }
+
+            seen_patterns.push(measured.break_info.clone());
+            prev_break_info = measured.break_info.clone();
+
+            // Recompute exclusions with the new height estimate
+            let new_exclusions =
+                self.wrap_state.exclusions_for(par_y, measured.total_height);
+
+            match new_exclusions {
+                Some(excl) => {
+                    exclusions = excl;
+                }
+                None => {
+                    // No longer overlapping any wrap-floats - measure without exclusions
+                    let final_measured = par.measure(self.composer.engine, None)?;
+                    return Ok((final_measured, None));
+                }
+            }
+        }
+
+        // Max iterations reached without convergence - warn and use last measurement
+        self.composer.engine.sink.warn(warning!(
+            par.elem.span(),
+            "wrap layout did not converge after {} iterations",
+            MAX_WRAP_ITER
+        ));
+
+        let final_measured = par.measure(self.composer.engine, Some(&exclusions))?;
+        Ok((final_measured, Some(exclusions)))
     }
 
     /// Processes spillover from a paragraph that broke across regions.
