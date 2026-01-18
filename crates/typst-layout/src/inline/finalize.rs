@@ -71,7 +71,12 @@ fn finalize_with_exclusions(
         // Get the left x-offset for this line's y-position from exclusions.
         let left_x_offset = exclusions.left_offset(y);
 
-        let frame = commit(engine, p, line, width, full, locator, left_x_offset)?;
+        // Get the available width for this line, accounting for exclusions.
+        // This is crucial for justified text: justification stretches to fill
+        // the available width, so we must use the reduced width, not full width.
+        let line_width = exclusions.available_width(width, y);
+
+        let frame = commit(engine, p, line, line_width, full, locator, left_x_offset)?;
         y += frame.height();
         frames.push(frame);
     }
