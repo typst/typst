@@ -181,7 +181,6 @@ impl<'a> Collector<'a, '_, '_> {
             base: self.base,
             expand: self.expand,
             situation: self.par_situation,
-            spacing: Spacing::Rel(spacing.into()),
             leading,
             align,
         };
@@ -406,8 +405,6 @@ pub struct ParChild<'a> {
     pub expand: bool,
     /// Position in the flow (first paragraph vs consecutive).
     pub situation: ParSituation,
-    /// Spacing before and after the paragraph.
-    pub spacing: Spacing,
     /// Leading between lines.
     pub leading: Abs,
     /// Text alignment.
@@ -470,45 +467,6 @@ impl<'a> ParChild<'a> {
             measured,
             exclusions,
         )
-    }
-
-    /// Convenience method: measure then immediately commit.
-    ///
-    /// Use this when deferred layout isn't needed (no wrap-floats).
-    /// Equivalent to calling `measure()` followed by `commit()` with no exclusions.
-    pub fn layout(&self, engine: &mut Engine) -> SourceResult<crate::inline::ParCommitResult> {
-        let measured = self.measure(engine, None)?;
-        self.commit(engine, &measured, None)
-    }
-}
-
-/// Heights of lines at the edges of a paragraph, for widow/orphan prevention.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LineHeights {
-    /// Height of the first line.
-    pub front_1: Abs,
-    /// Height of the second line.
-    pub front_2: Abs,
-    /// Height of the second-to-last line.
-    pub back_2: Abs,
-    /// Height of the last line.
-    pub back_1: Abs,
-    /// Total number of lines.
-    pub len: usize,
-}
-
-impl LineHeights {
-    /// Create `LineHeights` from a slice of line heights.
-    pub fn from_heights(heights: &[Abs]) -> Self {
-        let len = heights.len();
-        let get = |i: usize| heights.get(i).copied().unwrap_or_default();
-        Self {
-            front_1: get(0),
-            front_2: get(1),
-            back_2: get(len.saturating_sub(2)),
-            back_1: get(len.saturating_sub(1)),
-            len,
-        }
     }
 }
 

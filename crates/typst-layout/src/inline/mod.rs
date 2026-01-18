@@ -9,16 +9,16 @@ mod prepare;
 mod shaping;
 
 pub use self::box_::layout_box;
-pub use self::line::{LineMetricsRaw, measure_line};
+pub use self::line::measure_line;
 pub use self::linebreak::linebreak_variable_width;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::Tracked;
 use typst_library::World;
 use typst_library::diag::SourceResult;
-use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
+use typst_library::introspection::{Locator, SplitLocator};
 use typst_library::layout::{
     Abs, AlignElem, Dir, FixedAlignment, Fragment, Frame, ParExclusions, Size,
 };
@@ -26,9 +26,9 @@ use typst_library::model::{
     EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
     ParLine, ParLineMarker, TermsElem,
 };
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::text::{Costs, Lang, TextElem};
-use typst_utils::{Numeric, Protected, SliceExt};
+use typst_utils::{Numeric, SliceExt};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
@@ -44,101 +44,17 @@ use self::shaping::{
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
 
-/// Layouts the paragraph.
-pub fn layout_par(
-    elem: &Packed<ParElem>,
-    engine: &mut Engine,
-    locator: Locator,
-    styles: StyleChain,
-    region: Size,
-    expand: bool,
-    situation: ParSituation,
-) -> SourceResult<Fragment> {
-    layout_par_impl(
-        elem,
-        engine.routines,
-        engine.world,
-        engine.introspector.into_raw(),
-        engine.traced,
-        TrackedMut::reborrow_mut(&mut engine.sink),
-        engine.route.track(),
-        locator.track(),
-        styles,
-        region,
-        expand,
-        situation,
-    )
-}
-
-/// The internal, memoized implementation of `layout_par`.
-#[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
-fn layout_par_impl(
-    elem: &Packed<ParElem>,
-    routines: &Routines,
-    world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
-    traced: Tracked<Traced>,
-    sink: TrackedMut<Sink>,
-    route: Tracked<Route>,
-    locator: Tracked<Locator>,
-    styles: StyleChain,
-    region: Size,
-    expand: bool,
-    situation: ParSituation,
-) -> SourceResult<Fragment> {
-    let introspector = Protected::from_raw(introspector);
-    let link = LocatorLink::new(locator);
-    let mut locator = Locator::link(&link).split();
-    let mut engine = Engine {
-        routines,
-        world,
-        introspector,
-        traced,
-        sink,
-        route: Route::extend(route),
-    };
-
-    let arenas = Arenas::default();
-    let children = (engine.routines.realize)(
-        RealizationKind::LayoutPar,
-        &mut engine,
-        &mut locator,
-        &arenas,
-        &elem.body,
-        styles,
-    )?;
-
-    layout_inline_impl(
-        &mut engine,
-        &children,
-        &mut locator,
-        styles,
-        region,
-        expand,
-        Some(situation),
-        &ConfigBase {
-            justify: elem.justify.get(styles),
-            linebreaks: elem.linebreaks.get(styles),
-            first_line_indent: elem.first_line_indent.get(styles),
-            hanging_indent: elem.hanging_indent.resolve(styles),
-        },
-    )
-}
-
 /// Measure a paragraph without creating frames.
 ///
-/// Returns line metrics and break positions that can be used to:
+/// Returns total height and break positions that can be used to:
 /// 1. Position the paragraph (using total_height)
-/// 2. Compute exclusion zones for wrap-floats (using line_metrics)
-/// 3. Later commit to frames via commit_par() (using break_info)
+/// 2. Later commit to frames via commit_par() (using break_info)
 ///
 /// NOT memoized - the refinement loop needs fresh results each iteration.
 ///
 /// # Arguments
 /// * `exclusions` - Optional exclusion zones for text wrapping around floats.
-///   When provided, the line breaker may use variable widths per line.
-///   Currently stored for future use in Phase 4 (variable-width Knuth-Plass).
+///   When provided, the line breaker uses variable widths per line.
 pub fn measure_par_with_exclusions(
     elem: &Packed<ParElem>,
     engine: &mut Engine,
@@ -206,7 +122,6 @@ fn measure_par_inner<'a>(
     // Extract metrics WITHOUT building frames
     let leading = styles.resolve(ParElem::leading);
     let mut total_height = Abs::zero();
-    let mut line_metrics = Vec::with_capacity(lines.len());
     let mut break_info = Vec::with_capacity(lines.len());
 
     for (i, ln) in lines.iter().enumerate() {
@@ -215,15 +130,7 @@ fn measure_par_inner<'a>(
         }
 
         let raw = measure_line(engine, ln);
-        let metrics = LineMetrics {
-            width: ln.width,
-            height: raw.height(),
-            ascent: raw.ascent,
-            descent: raw.descent,
-        };
-
-        total_height += metrics.height;
-        line_metrics.push(metrics);
+        total_height += raw.height();
 
         break_info.push(BreakInfo {
             end: ln.end,
@@ -232,7 +139,6 @@ fn measure_par_inner<'a>(
     }
 
     Ok(ParMeasureResult {
-        line_metrics,
         total_height,
         break_info,
     })
@@ -495,25 +401,10 @@ pub enum ParSituation {
 /// Result of measuring a paragraph without creating frames.
 #[derive(Debug, Clone)]
 pub struct ParMeasureResult {
-    /// Per-line metrics for exclusion zone calculations.
-    pub line_metrics: Vec<LineMetrics>,
     /// Total height including leading between lines.
     pub total_height: Abs,
     /// Break information for reconstructing lines during commit.
     pub break_info: Vec<BreakInfo>,
-}
-
-/// Metrics for a single line.
-#[derive(Debug, Clone, Copy)]
-pub struct LineMetrics {
-    /// Natural width of the line content.
-    pub width: Abs,
-    /// Total height (ascent + descent).
-    pub height: Abs,
-    /// Distance from top of line to baseline.
-    pub ascent: Abs,
-    /// Distance from baseline to bottom of line.
-    pub descent: Abs,
 }
 
 /// Information needed to reconstruct a line break.
