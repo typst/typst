@@ -4,12 +4,14 @@
 #set page(width: 200pt, height: 200pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 80pt, fill: aqua))
+// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(60)
 
 --- wrap-float-basic-left paged ---
 #set page(width: 200pt, height: 200pt)
 #place(top + left, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 80pt, fill: aqua))
+// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(60)
 
 --- wrap-float-bottom-band paged ---
@@ -24,12 +26,14 @@
   rect(width: 45pt, height: 45pt, fill: aqua))
 #place(top + left, float: true, wrap: true, dy: 60pt, clearance: 8pt,
   rect(width: 45pt, height: 45pt, fill: forest))
+// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(60)
 
 --- wrap-float-offset paged ---
 #set page(width: 200pt, height: 200pt)
 #place(top + right, float: true, wrap: true, dx: -6pt, dy: 6pt, clearance: 8pt,
   rect(width: 60pt, height: 70pt, fill: aqua))
+// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(60)
 
 --- wrap-float-mixed-font paged ---
@@ -37,6 +41,7 @@
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 80pt, fill: aqua))
 #text(size: 9pt)[
+  // Warning: 4-13 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
   #lorem(20)
 ]
 #text(size: 14pt)[

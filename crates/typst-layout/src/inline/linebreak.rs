@@ -9,7 +9,7 @@ use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
-use typst_library::layout::{Abs, Em};
+use typst_library::layout::{Abs, Em, ParExclusions};
 use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
@@ -152,29 +152,509 @@ pub fn linebreak<'a>(
 
 /// Line breaking with variable widths for wrap-float support.
 ///
-/// # Current Status (M2)
-/// This is a stub that delegates to standard linebreak(). The exclusions
-/// parameter is threaded through but not yet used.
+/// When exclusions are present, uses iterative refinement:
+/// 1. Estimate line heights from font metrics
+/// 2. Compute per-line widths based on exclusions
+/// 3. Run modified K-P with variable widths
+/// 4. Measure actual heights, recompute widths
+/// 5. Repeat until stable (max 3 iterations)
 ///
-/// # Phase 4 (Future)
-/// Will implement proper variable-width Knuth-Plass:
-/// - Query exclusions.available_width(base_width, y) per line
-/// - Iterative refinement with height estimates
-/// - Modified cost function for variable widths
-///
-/// # Arguments
-/// * `exclusions` - Optional exclusion zones for text wrapping around floats.
-///   When provided, lines may have different available widths based on their
-///   y-position within the paragraph. Currently ignored (Phase 4 will use this).
+/// For very long paragraphs (>5000 chars), uses divide-and-conquer:
+/// splits at natural boundaries to bound O(n²) cost.
 pub fn linebreak_variable_width<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
     base_width: Abs,
-    _exclusions: Option<&ParExclusions>,
+    exclusions: Option<&ParExclusions>,
 ) -> Vec<Line<'a>> {
-    // M2: Just delegate to standard linebreak
-    // TODO (Phase 4): Use exclusions to compute per-line widths
-    linebreak(engine, p, base_width)
+    // Fast path: no exclusions or empty exclusions
+    let Some(excl) = exclusions.filter(|e| !e.is_empty()) else {
+        return linebreak(engine, p, base_width);
+    };
+
+    // Use iterative refinement with variable widths
+    linebreak_with_exclusions(engine, p, base_width, excl)
+}
+
+/// Maximum chunk size for divide-and-conquer splitting.
+const MAX_CHUNK_SIZE: usize = 5000;
+
+/// Maximum iterations for height/width convergence.
+const MAX_ITERATIONS: usize = 3;
+
+/// Line breaking with exclusion zones using iterative refinement.
+///
+/// The algorithm:
+/// 1. Estimate initial line heights from font metrics
+/// 2. Compute per-line widths based on exclusions at estimated y-positions
+/// 3. Run K-P with these variable widths
+/// 4. Measure actual line heights
+/// 5. If heights changed significantly, recompute widths and repeat
+/// 6. Converges within 2-3 iterations typically
+#[typst_macros::time]
+fn linebreak_with_exclusions<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    base_width: Abs,
+    exclusions: &ParExclusions,
+) -> Vec<Line<'a>> {
+    let metrics = CostMetrics::compute(p);
+
+    // Estimate line height from font size (rough estimate for first iteration)
+    let estimated_height = p.config.font_size * 1.2;
+
+    let mut heights: Vec<Abs> = vec![];
+    let mut lines: Vec<Line<'a>> = vec![];
+
+    for _ in 0..MAX_ITERATIONS {
+        // Compute per-line widths based on current height estimates
+        let widths = compute_line_widths(&heights, estimated_height, exclusions, base_width);
+
+        // Check if all widths are the same as base (no exclusions active)
+        let all_base_width = widths.iter().all(|&w| (w - base_width).abs() < Abs::pt(0.1));
+        if all_base_width {
+            return linebreak(engine, p, base_width);
+        }
+
+        // Run variable-width K-P (with divide-and-conquer for long paragraphs)
+        lines = linebreak_variable(engine, p, &widths, &metrics);
+
+        // Measure actual line heights
+        let new_heights: Vec<Abs> = lines
+            .iter()
+            .map(|l| measure_line(engine, l).height())
+            .collect();
+
+        // Check convergence: same line count and similar heights
+        if new_heights.len() == heights.len() {
+            let max_diff = new_heights
+                .iter()
+                .zip(&heights)
+                .map(|(a, b)| (*a - *b).abs())
+                .fold(Abs::zero(), Abs::max);
+
+            if max_diff < Abs::pt(0.5) {
+                break;
+            }
+        }
+
+        heights = new_heights;
+    }
+
+    lines
+}
+
+/// Compute per-line widths based on y-positions and exclusions.
+fn compute_line_widths(
+    heights: &[Abs],
+    default_height: Abs,
+    exclusions: &ParExclusions,
+    base_width: Abs,
+) -> Vec<Abs> {
+    if heights.is_empty() {
+        // First iteration: estimate based on default line height
+        let max_lines = 100;
+        let mut widths = Vec::with_capacity(max_lines);
+        let mut y = Abs::zero();
+
+        for _ in 0..max_lines {
+            widths.push(exclusions.available_width(base_width, y));
+            y += default_height;
+        }
+
+        widths
+    } else {
+        // Use actual heights from previous iteration
+        let mut widths = Vec::with_capacity(heights.len() + 10);
+        let mut y = Abs::zero();
+
+        for &height in heights {
+            widths.push(exclusions.available_width(base_width, y));
+            y += height;
+        }
+
+        // Add buffer in case line count grows (use base_width, not infinity)
+        for _ in 0..10 {
+            widths.push(base_width);
+        }
+
+        widths
+    }
+}
+
+/// Variable-width line breaking with divide-and-conquer for long paragraphs.
+fn linebreak_variable<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    widths: &[Abs],
+    metrics: &CostMetrics,
+) -> Vec<Line<'a>> {
+    // For long paragraphs, use divide-and-conquer to bound O(n²) cost
+    if p.text.len() > MAX_CHUNK_SIZE {
+        return linebreak_variable_split(engine, p, widths, metrics);
+    }
+
+    // Use optimized K-P if enabled, otherwise simple greedy
+    match p.config.linebreaks {
+        Linebreaks::Simple => linebreak_simple_variable(engine, p, widths),
+        Linebreaks::Optimized => linebreak_optimized_variable(engine, p, widths, metrics),
+    }
+}
+
+/// Divide-and-conquer line breaking for long paragraphs.
+///
+/// Splits the paragraph at natural boundaries (sentence > clause > word)
+/// and solves each part optimally. This bounds the O(n²) cost while
+/// preserving quality within each chunk.
+fn linebreak_variable_split<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    widths: &[Abs],
+    metrics: &CostMetrics,
+) -> Vec<Line<'a>> {
+    // Find split points recursively
+    let splits = compute_splits(p.text.len(), MAX_CHUNK_SIZE);
+    let split_positions: Vec<usize> = splits
+        .iter()
+        .map(|&approx| find_split_point(&p.text, approx))
+        .collect();
+
+    if split_positions.is_empty() {
+        // No splits needed after all
+        return match p.config.linebreaks {
+            Linebreaks::Simple => linebreak_simple_variable(engine, p, widths),
+            Linebreaks::Optimized => linebreak_optimized_variable(engine, p, widths, metrics),
+        };
+    }
+
+    // Break with forced splits at the computed positions
+    linebreak_optimized_variable_with_splits(engine, p, widths, metrics, &split_positions)
+}
+
+/// Find a good split point near the target position.
+///
+/// Prefers natural boundaries in order: sentence (. ! ?) > clause (; :) > word
+fn find_split_point(text: &str, target: usize) -> usize {
+    // Search window: 20% of text length around the target
+    let window = text.len() / 10;
+    let start = target.saturating_sub(window);
+    let end = (target + window).min(text.len());
+
+    // Ensure we're at char boundaries
+    let start = text.floor_char_boundary(start);
+    let end = text.ceil_char_boundary(end);
+
+    let search_region = &text[start..end];
+
+    // Priority 1: Sentence boundary
+    for pattern in [". ", "! ", "? "] {
+        if let Some(pos) = search_region.rfind(pattern) {
+            return start + pos + pattern.len();
+        }
+    }
+
+    // Priority 2: Clause boundary
+    for pattern in ["; ", ": ", ", "] {
+        if let Some(pos) = search_region.rfind(pattern) {
+            return start + pos + pattern.len();
+        }
+    }
+
+    // Priority 3: Any word boundary
+    if let Some(pos) = search_region.rfind(' ') {
+        return start + pos + 1;
+    }
+
+    // Fallback: just split at target (ensure char boundary)
+    text.floor_char_boundary(target)
+}
+
+/// Recursively compute split points to divide text into chunks <= max_chunk.
+fn compute_splits(len: usize, max_chunk: usize) -> Vec<usize> {
+    if len <= max_chunk {
+        return vec![];
+    }
+
+    let mid = len / 2;
+    let mut splits = vec![mid];
+
+    // Recurse on each half
+    let left_splits = compute_splits(mid, max_chunk);
+    let right_splits: Vec<usize> = compute_splits(len - mid, max_chunk)
+        .into_iter()
+        .map(|x| x + mid)
+        .collect();
+
+    splits.extend(left_splits);
+    splits.extend(right_splits);
+    splits.sort();
+
+    splits
+}
+
+/// Simple greedy line breaking with variable widths.
+fn linebreak_simple_variable<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    widths: &[Abs],
+) -> Vec<Line<'a>> {
+    let mut lines = Vec::with_capacity(16);
+    let mut start = 0;
+    let mut last = None;
+    let mut line_index = 0;
+
+    let get_width = |idx: usize| -> Abs {
+        widths.get(idx).copied().unwrap_or_else(|| {
+            widths.last().copied().unwrap_or(Abs::inf())
+        })
+    };
+
+    breakpoints(p, |end, breakpoint| {
+        let width = get_width(line_index);
+        let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
+
+        if !width.fits(attempt.width) && let Some((last_attempt, last_end)) = last.take() {
+            lines.push(last_attempt);
+            line_index += 1;
+            start = last_end;
+            attempt = line(engine, p, start..end, breakpoint, lines.last());
+        }
+
+        if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
+            lines.push(attempt);
+            line_index += 1;
+            start = end;
+            last = None;
+        } else {
+            last = Some((attempt, end));
+        }
+    });
+
+    if let Some((line, _)) = last {
+        lines.push(line);
+    }
+
+    lines
+}
+
+/// Knuth-Plass with per-line width constraints.
+///
+/// Key differences from standard K-P:
+/// - Each Entry tracks its line index
+/// - Width constraint depends on line index
+/// - Skips approximate pass (uses INFINITY bound) since cumulative
+///   estimates don't work with variable widths
+/// - Pruning is disabled when widths vary significantly
+#[typst_macros::time]
+fn linebreak_optimized_variable<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    widths: &[Abs],
+    metrics: &CostMetrics,
+) -> Vec<Line<'a>> {
+    /// An entry in the dynamic programming table.
+    struct Entry<'a> {
+        pred: usize,
+        total: Cost,
+        line: Line<'a>,
+        end: usize,
+        line_index: usize,
+    }
+
+    let get_width = |idx: usize| -> Abs {
+        widths.get(idx).copied().unwrap_or_else(|| {
+            widths.last().copied().unwrap_or(Abs::inf())
+        })
+    };
+
+    // Check if widths vary enough to disable pruning
+    let widths_vary = widths.windows(2).any(|w| (w[0] - w[1]).abs() > Abs::pt(1.0));
+
+    // Dynamic programming table
+    let mut table = vec![Entry {
+        pred: 0,
+        total: 0.0,
+        line: Line::empty(),
+        end: 0,
+        line_index: 0,
+    }];
+
+    let mut active = 0;
+    let mut prev_end = 0;
+
+    breakpoints(p, |end, breakpoint| {
+        let mut best: Option<Entry> = None;
+
+        for (pred_index, pred) in table.iter().enumerate().skip(active) {
+            let start = pred.end;
+            let unbreakable = prev_end == start;
+
+            // Compute line index for this candidate
+            let this_line_index = if pred_index == 0 { 0 } else { pred.line_index + 1 };
+            let width = get_width(this_line_index);
+
+            // Build the line
+            let attempt = line(engine, p, start..end, breakpoint, Some(&pred.line));
+
+            // Determine cost
+            let (line_ratio, line_cost) = ratio_and_cost(
+                p,
+                metrics,
+                width,
+                &pred.line,
+                &attempt,
+                breakpoint,
+                unbreakable,
+            );
+
+            // Pruning: only when widths are uniform
+            if !widths_vary && line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
+            }
+
+            let total = pred.total + line_cost;
+
+            if best.as_ref().is_none_or(|best| best.total >= total) {
+                best = Some(Entry {
+                    pred: pred_index,
+                    total,
+                    line: attempt,
+                    end,
+                    line_index: this_line_index,
+                });
+            }
+        }
+
+        if breakpoint == Breakpoint::Mandatory {
+            active = table.len();
+        }
+
+        table.extend(best);
+        prev_end = end;
+    });
+
+    // Retrace the best path
+    let mut lines = Vec::with_capacity(16);
+    let mut idx = table.len() - 1;
+
+    while idx != 0 {
+        table.truncate(idx + 1);
+        let entry = table.pop().unwrap();
+        lines.push(entry.line);
+        idx = entry.pred;
+    }
+
+    lines.reverse();
+    lines
+}
+
+/// K-P with variable widths and forced split points.
+///
+/// Split points are treated as mandatory breaks, dividing the paragraph
+/// into independent chunks that are each optimized separately.
+fn linebreak_optimized_variable_with_splits<'a>(
+    engine: &Engine,
+    p: &'a Preparation<'a>,
+    widths: &[Abs],
+    metrics: &CostMetrics,
+    split_positions: &[usize],
+) -> Vec<Line<'a>> {
+    /// An entry in the dynamic programming table.
+    struct Entry<'a> {
+        pred: usize,
+        total: Cost,
+        line: Line<'a>,
+        end: usize,
+        line_index: usize,
+    }
+
+    let get_width = |idx: usize| -> Abs {
+        widths.get(idx).copied().unwrap_or_else(|| {
+            widths.last().copied().unwrap_or(Abs::inf())
+        })
+    };
+
+    let widths_vary = widths.windows(2).any(|w| (w[0] - w[1]).abs() > Abs::pt(1.0));
+
+    let mut table = vec![Entry {
+        pred: 0,
+        total: 0.0,
+        line: Line::empty(),
+        end: 0,
+        line_index: 0,
+    }];
+
+    let mut active = 0;
+    let mut prev_end = 0;
+
+    breakpoints(p, |end, breakpoint| {
+        // Check if this position is a forced split
+        let is_forced_split = split_positions.binary_search(&end).is_ok();
+        let effective_breakpoint = if is_forced_split {
+            Breakpoint::Mandatory
+        } else {
+            breakpoint
+        };
+
+        let mut best: Option<Entry> = None;
+
+        for (pred_index, pred) in table.iter().enumerate().skip(active) {
+            let start = pred.end;
+            let unbreakable = prev_end == start;
+
+            let this_line_index = if pred_index == 0 { 0 } else { pred.line_index + 1 };
+            let width = get_width(this_line_index);
+
+            let attempt = line(engine, p, start..end, effective_breakpoint, Some(&pred.line));
+
+            let (line_ratio, line_cost) = ratio_and_cost(
+                p,
+                metrics,
+                width,
+                &pred.line,
+                &attempt,
+                effective_breakpoint,
+                unbreakable,
+            );
+
+            if !widths_vary && line_ratio < metrics.min_ratio && active == pred_index {
+                active += 1;
+            }
+
+            let total = pred.total + line_cost;
+
+            if best.as_ref().is_none_or(|best| best.total >= total) {
+                best = Some(Entry {
+                    pred: pred_index,
+                    total,
+                    line: attempt,
+                    end,
+                    line_index: this_line_index,
+                });
+            }
+        }
+
+        // Forced splits and mandatory breaks clear the active set
+        if effective_breakpoint == Breakpoint::Mandatory {
+            active = table.len();
+        }
+
+        table.extend(best);
+        prev_end = end;
+    });
+
+    let mut lines = Vec::with_capacity(16);
+    let mut idx = table.len() - 1;
+
+    while idx != 0 {
+        table.truncate(idx + 1);
+        let entry = table.pop().unwrap();
+        lines.push(entry.line);
+        idx = entry.pred;
+    }
+
+    lines.reverse();
+    lines
 }
 
 /// Performs line breaking in simple first-fit style. This means that we build
