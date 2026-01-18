@@ -166,6 +166,26 @@ impl FontSearcher {
         if self.include_system_fonts {
             // System fonts have second priority.
             self.db.load_system_fonts();
+
+            // Add Adobe Fonts on Windows and macOS.
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            if let Some(data_dir) = dirs::data_dir() {
+                let adobe_base = data_dir.join("Adobe");
+
+                #[cfg(target_os = "macos")]
+                let dot = ".";
+                #[cfg(target_os = "windows")]
+                let dot = "";
+
+                let subdirs = [
+                    format!("CoreSync/plugins/livetype/{dot}r"),
+                    format!("{dot}User Owned Fonts"),
+                ];
+
+                for subdir in subdirs {
+                    self.load_adobe_fonts(&adobe_base.join(subdir));
+                }
+            }
         }
 
         for face in self.db.faces() {
@@ -200,6 +220,32 @@ impl FontSearcher {
         Fonts {
             book: LazyHash::new(std::mem::take(&mut self.book)),
             slots: std::mem::take(&mut self.fonts),
+        }
+    }
+
+    /// Load Adobe Fonts from a directory. Adobe fonts are stored without extensions and need to be loaded individually.
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    fn load_adobe_fonts(&mut self, path: &Path) {
+        if !path.exists() {
+            return;
+        }
+
+        let Ok(entries) = fs::read_dir(path) else {
+            return;
+        };
+
+        for entry in entries.flatten() {
+            let Ok(metadata) = entry.metadata() else {
+                continue;
+            };
+
+            // Adobe fonts are stored as files (directories are skipped)
+            if !metadata.is_file() {
+                continue;
+            }
+
+            let font_path = entry.path();
+            self.db.load_font_file(&font_path).ok();
         }
     }
 
