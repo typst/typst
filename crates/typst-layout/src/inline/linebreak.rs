@@ -182,6 +182,50 @@ const MAX_CHUNK_SIZE: usize = 5000;
 /// Maximum iterations for height/width convergence.
 const MAX_ITERATIONS: usize = 3;
 
+/// Estimate the typical line height for a paragraph using font metrics.
+///
+/// This provides a better initial estimate for the iterative variable-width
+/// line breaking algorithm than a simple `font_size * 1.2`. A good estimate
+/// reduces the number of iterations needed to converge.
+///
+/// The function scans through items looking for:
+/// 1. Text runs: uses actual font ascender/descender metrics
+/// 2. Inline frames: uses the frame height
+///
+/// Returns the maximum height found, or falls back to `font_size * 1.2`.
+fn estimate_line_height(p: &Preparation) -> Abs {
+    let mut max_height = Abs::zero();
+
+    for (_, item) in p.items.iter() {
+        let height = match item {
+            Item::Text(shaped) => {
+                // Get height from the first glyph's font metrics
+                shaped.glyphs.first().map(|g| {
+                    let metrics = g.font.metrics();
+                    // ascender is positive, descender is negative
+                    // line height = ascender - descender = ascender + |descender|
+                    let ascent = metrics.ascender.at(g.size);
+                    let descent = metrics.descender.at(g.size).abs();
+                    ascent + descent
+                })
+            }
+            Item::Frame(frame) => Some(frame.height()),
+            _ => None,
+        };
+
+        if let Some(h) = height {
+            max_height = max_height.max(h);
+        }
+    }
+
+    // Fall back to the original approximation if no useful data found
+    if max_height > Abs::zero() {
+        max_height
+    } else {
+        p.config.font_size * 1.2
+    }
+}
+
 /// Line breaking with exclusion zones using iterative refinement.
 ///
 /// The algorithm:
@@ -200,8 +244,8 @@ fn linebreak_with_exclusions<'a>(
 ) -> Vec<Line<'a>> {
     let metrics = CostMetrics::compute(p);
 
-    // Estimate line height from font size (rough estimate for first iteration)
-    let estimated_height = p.config.font_size * 1.2;
+    // Estimate line height from actual font metrics when available
+    let estimated_height = estimate_line_height(p);
 
     let mut heights: Vec<Abs> = vec![];
     let mut lines: Vec<Line<'a>> = vec![];
