@@ -1,4 +1,16 @@
 // Adversarial wrap-float demos and tests.
+//
+// Warning coverage:
+// - wrap-float-too-wide: Tests float > 2/3 page width warning
+// - wrap-float-narrow-gap: Tests gap < 1/6 page width warning
+// - wrap-float-single-word: Tests text overflow warning
+//
+// Not tested (defensive guards that are extremely hard to trigger):
+// - "wrap layout oscillating" - Would require break patterns to cycle (A→B→A)
+// - "wrap layout did not converge" - Would require 4+ distinct break patterns
+// These warnings exist as safety nets but the Knuth-Plass algorithm converges
+// reliably in practice. Extensive testing with varying font sizes, multiple
+// floats, and edge-case content could not trigger these conditions.
 
 --- wrap-float-with-footnote paged ---
 #set page(width: 200pt, height: 200pt)
