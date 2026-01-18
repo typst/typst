@@ -11,6 +11,8 @@ use super::*;
 ///   lines adjacent to left-aligned floats will be shifted right by the
 ///   appropriate amount.
 /// * `leading` - Space between lines (only used when exclusions are present).
+/// * `line_widths` - Optional pre-computed widths for each line (from line breaking).
+///   When provided, these are used for justification instead of recomputing from exclusions.
 #[typst_macros::time]
 pub fn finalize(
     engine: &mut Engine,
@@ -21,6 +23,7 @@ pub fn finalize(
     locator: &mut SplitLocator<'_>,
     exclusions: Option<&ParExclusions>,
     leading: Abs,
+    line_widths: &[Option<Abs>],
 ) -> SourceResult<Fragment> {
     // Determine the resulting width: Full width of the region if we should
     // expand or there's fractional spacing, fit-to-width otherwise.
@@ -38,7 +41,7 @@ pub fn finalize(
     // If we have exclusions, compute per-line x-offsets based on y-position.
     // Otherwise, use the simple fast path with no offsets.
     if let Some(excl) = exclusions {
-        finalize_with_exclusions(engine, p, lines, width, region.y, locator, excl, leading)
+        finalize_with_exclusions(engine, p, lines, width, region.y, locator, excl, leading, line_widths)
     } else {
         // Fast path: no exclusions, all lines at x=0
         lines
@@ -59,6 +62,7 @@ fn finalize_with_exclusions(
     locator: &mut SplitLocator<'_>,
     exclusions: &ParExclusions,
     leading: Abs,
+    line_widths: &[Option<Abs>],
 ) -> SourceResult<Fragment> {
     let mut y = Abs::zero();
     let mut frames = Vec::with_capacity(lines.len());
@@ -71,10 +75,14 @@ fn finalize_with_exclusions(
         // Get the left x-offset for this line's y-position from exclusions.
         let left_x_offset = exclusions.left_offset(y);
 
-        // Get the available width for this line, accounting for exclusions.
-        // This is crucial for justified text: justification stretches to fill
-        // the available width, so we must use the reduced width, not full width.
-        let line_width = exclusions.available_width(width, y);
+        // Use the stored width from line breaking if available.
+        // The line content (word count, break points) was chosen for this width,
+        // so justification must use the same width to avoid over-stretched spacing.
+        // If no stored width, fall back to computing from exclusions.
+        let line_width = line_widths
+            .get(i)
+            .and_then(|w| *w)
+            .unwrap_or_else(|| exclusions.available_width(width, y));
 
         let frame = commit(engine, p, line, line_width, full, locator, left_x_offset)?;
         y += frame.height();

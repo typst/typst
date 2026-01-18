@@ -156,6 +156,9 @@ pub(super) struct VariableWidthResult<'a> {
     pub lines: Vec<Line<'a>>,
     /// Whether any line's content width exceeded its available width.
     pub has_overfull: bool,
+    /// The width each line was broken for (for justified text).
+    /// Empty if no exclusions were active.
+    pub widths: Vec<Abs>,
 }
 
 /// Line breaking with variable widths for wrap-float support.
@@ -182,6 +185,7 @@ pub(super) fn linebreak_variable_width<'a>(
         return VariableWidthResult {
             lines: linebreak(engine, p, base_width),
             has_overfull: false,
+            widths: vec![], // No per-line widths needed
         };
     };
 
@@ -274,6 +278,7 @@ fn linebreak_with_exclusions<'a>(
             return VariableWidthResult {
                 lines: linebreak(engine, p, base_width),
                 has_overfull: false,
+                widths: vec![], // No per-line widths needed
             };
         }
 
@@ -311,23 +316,34 @@ fn linebreak_with_exclusions<'a>(
         line.width > available + Abs::pt(0.5)
     });
 
-    VariableWidthResult { lines, has_overfull }
+    VariableWidthResult { lines, has_overfull, widths: final_widths }
 }
 
 /// Compute per-line widths based on y-positions and exclusions.
+///
+/// Note: This accounts for leading (space between lines) using the default
+/// ratio of 0.65em. This matches the y-positions used during finalize.
 fn compute_line_widths(
     heights: &[Abs],
     default_height: Abs,
     exclusions: &ParExclusions,
     base_width: Abs,
 ) -> Vec<Abs> {
+    // Default leading is 0.65em. We estimate based on line height.
+    // Line height is typically ~1.2em, so leading ≈ 0.65/1.2 * height ≈ 0.54 * height
+    let estimated_leading = default_height * 0.54;
+
     if heights.is_empty() {
         // First iteration: estimate based on default line height
         let max_lines = 100;
         let mut widths = Vec::with_capacity(max_lines);
         let mut y = Abs::zero();
 
-        for _ in 0..max_lines {
+        for i in 0..max_lines {
+            // Add leading before each line (except first)
+            if i > 0 {
+                y += estimated_leading;
+            }
             widths.push(exclusions.available_width(base_width, y));
             y += default_height;
         }
@@ -338,7 +354,11 @@ fn compute_line_widths(
         let mut widths = Vec::with_capacity(heights.len() + 10);
         let mut y = Abs::zero();
 
-        for &height in heights {
+        for (i, &height) in heights.iter().enumerate() {
+            // Add leading before each line (except first)
+            if i > 0 {
+                y += estimated_leading;
+            }
             widths.push(exclusions.available_width(base_width, y));
             y += height;
         }

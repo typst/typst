@@ -955,6 +955,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             },
         };
 
+        // Check if the float would overflow the page. If so, finish the current
+        // region so the wrap-float is re-processed at the top of the next page.
+        if y + float_height > region_height && self.regions.may_progress() {
+            return Err(Stop::Finish(false));
+        }
+
         // Handle any footnotes in the float content.
         self.composer
             .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;

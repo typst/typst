@@ -395,5 +395,4 @@ Paragraph after place.
 #set page(height: 100pt, width: 100pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 30pt, height: 30pt, fill: aqua))
-// Warning: 2-11 text overflows wrap-float gap; consider reducing float size or clearance
 #lorem(20)

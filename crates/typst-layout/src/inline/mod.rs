@@ -134,6 +134,7 @@ fn measure_par_inner<'a>(
         break_info.push(BreakInfo {
             end: ln.end,
             breakpoint: ln.breakpoint,
+            width: result.widths.get(i).copied(),
         });
     }
 
@@ -192,7 +193,9 @@ pub fn commit_par(
 
     // Create frames, applying x-offsets from exclusions for left-aligned floats
     let leading = styles.resolve(ParElem::leading);
-    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator, exclusions, leading)?;
+    // Extract line widths from break_info for correct justification
+    let line_widths: Vec<Option<Abs>> = measured.break_info.iter().map(|b| b.width).collect();
+    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator, exclusions, leading, &line_widths)?;
 
     Ok(ParCommitResult {
         frames: fragment.into_frames(),
@@ -284,6 +287,7 @@ fn layout_inline_impl<'a>(
             .map(|ln| BreakInfo {
                 end: ln.end,
                 breakpoint: ln.breakpoint,
+                width: None,
             })
             .collect();
 
@@ -320,7 +324,8 @@ fn layout_inline_impl<'a>(
     // Turn the selected lines into frames.
     // No exclusions for regular inline layout (not wrap-floats).
     // Leading is not used when exclusions are None, so we pass zero.
-    finalize(engine, &p, &lines, region, expand, locator, None, Abs::zero())
+    // No per-line widths needed without exclusions.
+    finalize(engine, &p, &lines, region, expand, locator, None, Abs::zero(), &[])
 }
 
 /// Determine the inline layout's configuration.
@@ -418,6 +423,9 @@ pub struct BreakInfo {
     pub end: usize,
     /// The breakpoint type (normal, mandatory, or hyphen).
     pub breakpoint: Breakpoint,
+    /// The width this line was broken for (for justified text with exclusions).
+    /// None means use the region width.
+    pub width: Option<Abs>,
 }
 
 /// Result of committing a measured paragraph to frames.
