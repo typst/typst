@@ -51,10 +51,20 @@ Text with a footnote#footnote[This is the footnote content.] that wraps around t
 #lorem(60)
 
 --- wrap-float-rtl paged ---
+// RTL text with physical left alignment - float on visual left.
 #set page(width: 220pt, height: 220pt)
 #set text(dir: rtl)
 #place(top + left, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 80pt, fill: aqua))
+#lorem(60)
+
+--- wrap-float-rtl-start paged ---
+// RTL text with logical start alignment - float should appear on visual RIGHT
+// because "start" in RTL means the right side.
+#set page(width: 220pt, height: 220pt)
+#set text(dir: rtl)
+#place(top + start, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 80pt, fill: forest))
 #lorem(60)
 
 --- wrap-float-parent-columns-offset paged ---
