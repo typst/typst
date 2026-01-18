@@ -1,5 +1,13 @@
 // Adversarial wrap-float demos and tests.
 
+--- wrap-float-with-footnote paged ---
+#set page(width: 200pt, height: 200pt)
+#set footnote(numbering: "1")
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 60pt, fill: aqua))
+Text with a footnote#footnote[This is the footnote content.] that wraps around the float.
+#lorem(30)
+
 --- wrap-float-footnote-bottom paged ---
 #set page(width: 220pt, height: 220pt)
 #set footnote(numbering: "1")
