@@ -946,8 +946,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             Smart::Auto => current_y.max(existing_bottom),
             // Custom alignment: position at top/center/bottom of region.
             Smart::Custom(align) => match align {
-                // Top-aligned: stack below existing floats on the same side.
-                Some(FixedAlignment::Start) => existing_bottom,
+                // Top-aligned: place at top, but don't overlap existing content or floats.
+                // If content already exists on the page, float appears at current position.
+                Some(FixedAlignment::Start) => existing_bottom.max(current_y),
                 Some(FixedAlignment::End) => region_height - float_height,
                 Some(FixedAlignment::Center) => (region_height - float_height) / 2.0,
                 None => current_y.max(existing_bottom), // Fallback to current position.
