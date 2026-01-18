@@ -11,7 +11,7 @@ use super::*;
 /// In many cases, we can directly reuse these results when constructing a line.
 /// Only when a line break falls onto a text index that is not safe-to-break per
 /// rustybuzz, we have to reshape that portion.
-pub struct Preparation<'a> {
+pub(super) struct Preparation<'a> {
     /// The full text.
     pub text: &'a str,
     /// Configuration for inline layout.

@@ -10,8 +10,9 @@ mod shaping;
 
 pub use self::box_::layout_box;
 pub use self::line::measure_line;
-pub use self::linebreak::linebreak_variable_width;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
+
+use self::linebreak::linebreak_variable_width;
 
 use comemo::Tracked;
 use typst_library::World;

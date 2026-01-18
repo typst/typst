@@ -161,7 +161,7 @@ pub fn linebreak<'a>(
 ///
 /// For very long paragraphs (>5000 chars), uses divide-and-conquer:
 /// splits at natural boundaries to bound O(n²) cost.
-pub fn linebreak_variable_width<'a>(
+pub(super) fn linebreak_variable_width<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
     base_width: Abs,
