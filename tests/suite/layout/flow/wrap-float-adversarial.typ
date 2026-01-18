@@ -239,3 +239,93 @@ Second paragraph is below the float and should use full page width. #lorem(30)
   rect(width: 120pt, height: 60pt, fill: aqua))
 // Warning: 1-56 text overflows wrap-float gap; consider reducing float size or clearance
 Supercalifragilisticexpialidocious is a very long word.
+
+// === STRESS TESTS ===
+// These tests exercise the variable-width Knuth-Plass algorithm under
+// challenging conditions.
+
+--- wrap-float-many-floats paged large ---
+// Multiple wrap-floats (5+) with staggered vertical positions.
+// Tests the variable-width algorithm with multiple exclusion zones.
+#set page(width: 220pt, height: 400pt)
+#place(top + right, float: true, wrap: true, clearance: 6pt,
+  rect(width: 50pt, height: 40pt, fill: aqua))
+#place(top + right, float: true, wrap: true, dy: 50pt, clearance: 6pt,
+  rect(width: 40pt, height: 35pt, fill: teal))
+#place(top + right, float: true, wrap: true, dy: 100pt, clearance: 6pt,
+  rect(width: 55pt, height: 45pt, fill: eastern))
+#place(top + right, float: true, wrap: true, dy: 160pt, clearance: 6pt,
+  rect(width: 45pt, height: 40pt, fill: blue))
+#place(top + right, float: true, wrap: true, dy: 220pt, clearance: 6pt,
+  rect(width: 50pt, height: 50pt, fill: navy))
+#lorem(180)
+
+--- wrap-float-many-floats-alternating paged large ---
+// Floats alternating between left and right sides.
+// Tests exclusion zones on both sides of the text region.
+#set page(width: 240pt, height: 400pt)
+#place(top + right, float: true, wrap: true, clearance: 6pt,
+  rect(width: 45pt, height: 50pt, fill: aqua))
+#place(top + left, float: true, wrap: true, dy: 60pt, clearance: 6pt,
+  rect(width: 45pt, height: 50pt, fill: teal))
+#place(top + right, float: true, wrap: true, dy: 120pt, clearance: 6pt,
+  rect(width: 45pt, height: 50pt, fill: eastern))
+#place(top + left, float: true, wrap: true, dy: 180pt, clearance: 6pt,
+  rect(width: 45pt, height: 50pt, fill: blue))
+#place(top + right, float: true, wrap: true, dy: 240pt, clearance: 6pt,
+  rect(width: 45pt, height: 50pt, fill: navy))
+#lorem(200)
+
+--- wrap-float-iteration-stress paged ---
+// Mixed font sizes to exercise the iterative refinement loop.
+// Different text sizes can cause height estimates to change between iterations.
+#set page(width: 220pt, height: 260pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 70pt, height: 100pt, fill: aqua))
+#text(size: 8pt)[Small text to start. ]
+#text(size: 14pt)[Then larger text. ]
+#text(size: 8pt)[Back to small. ]
+#text(size: 12pt)[Medium size now. ]
+#text(size: 8pt)[Small again for variety. ]
+#text(size: 14pt)[Large once more. ]
+#lorem(60)
+
+--- wrap-float-convergence paged ---
+// Varying content that tests iteration convergence.
+// The break pattern should stabilize within MAX_WRAP_ITER iterations.
+#set page(width: 200pt, height: 280pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 65pt, height: 120pt, fill: aqua))
+Line one with some text content here.
+#text(size: 11pt)[Line two slightly bigger.]
+Line three returns to normal size.
+#text(size: 10pt)[Line four is medium sized text.]
+Line five normal again.
+#text(size: 12pt)[Line six is a bit larger than the rest.]
+Line seven continues normally.
+#text(size: 9pt)[Line eight is smaller.]
+#lorem(50)
+
+--- wrap-float-deep-nesting paged ---
+// Wrap-float with deeply nested content (boxes within boxes).
+// Tests that exclusion zones work correctly with complex inline structures.
+#set page(width: 280pt, height: 200pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 70pt, fill: aqua))
+Start of text. #box(fill: yellow.lighten(50%), inset: 2pt)[
+  Inner #box(fill: orange.lighten(50%), inset: 2pt)[
+    Deep #box(fill: red.lighten(50%), inset: 2pt)[nested] box
+  ] structure
+] continues here.
+#lorem(40)
+
+--- wrap-float-unicode-stress paged ---
+// Unicode text with varying character widths wrapping around a float.
+// Tests that variable-width line breaking handles unicode correctly.
+#set page(width: 220pt, height: 200pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 80pt, fill: aqua))
+The quick brown fox (狐狸) jumps over the lazy dog (犬).
+日本語テキストと English mixed together.
+Ελληνικά και العربية text combined.
+#lorem(20)
