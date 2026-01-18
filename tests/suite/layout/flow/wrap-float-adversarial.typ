@@ -185,3 +185,12 @@ As noted in prior research @netwok, the text wraps around the floating element.
 First paragraph wraps around the float. #lorem(10)
 
 Second paragraph is below the float and should use full page width. #lorem(30)
+
+// === WARNING TESTS ===
+
+--- wrap-float-too-wide paged ---
+// Float wider than 50% of region triggers warning and falls back to regular float.
+#set page(width: 200pt, height: 200pt)
+// Warning: 2-91 wrap-float too wide (120.0pt > 90.0pt limit); treating as regular float
+#place(top + right, float: true, wrap: true, rect(width: 120pt, height: 50pt, fill: aqua))
+#lorem(30)
