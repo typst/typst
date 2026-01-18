@@ -46,7 +46,17 @@
   #lorem(20)
 ]
 
+--- wrap-float-columns paged ---
+// Column-scoped wrap-float in 2-column layout - should only affect its own column.
+#set page(width: 240pt, height: 240pt)
+#columns(2)[
+  #place(top + right, float: true, wrap: true, scope: "column", clearance: 8pt,
+    rect(width: 40pt, height: 60pt, fill: aqua))
+  #lorem(80)
+]
+
 --- wrap-float-columns-parent paged ---
+// Parent-scoped wrap-float in 2-column layout - positioned relative to page.
 #set page(width: 240pt, height: 240pt)
 #columns(2)[
   #place(top + right, float: true, wrap: true, scope: "parent", clearance: 8pt,
