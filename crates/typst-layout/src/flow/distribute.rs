@@ -845,9 +845,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         Ok(())
     }
 
-    /// Maximum ratio of column width a wrap-float can occupy (50%).
+    /// Maximum ratio of column width a wrap-float can occupy (2/3).
     /// Floats wider than this leave too little room for text.
-    const MAX_WRAP_WIDTH_RATIO: f64 = 0.5;
+    const MAX_WRAP_WIDTH_RATIO: f64 = 2.0 / 3.0;
 
     /// Processes a wrap-float: an in-flow float that text will wrap around.
     ///
@@ -858,7 +858,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Layout the float content.
         let frame = placed.layout(self.composer.engine, self.regions.base())?;
 
-        // Validate width: if the float is too wide (>50% of column), there's not
+        // Validate width: if the float is too wide (>2/3 of column), there's not
         // enough room for text to wrap. Fall back to regular float behavior.
         let base_width = self.regions.base().x;
         let max_wrap_width = base_width * Self::MAX_WRAP_WIDTH_RATIO;
