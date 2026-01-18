@@ -93,6 +93,14 @@ fn main() {
 
 // === PAGINATION TESTS ===
 
+--- wrap-float-page-break paged ---
+// Text should wrap on page 1, flow normally on page 2 (no wrap-float exclusions).
+#set page(width: 200pt, height: 150pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 60pt, fill: aqua))
+// Warning: 2-12 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
+#lorem(100)
+
 --- wrap-float-page-break-limitation paged ---
 // KNOWN LIMITATION: When a paragraph with wrap exclusions spans a page break,
 // continuation may have incorrect indent. This documents expected behavior.
