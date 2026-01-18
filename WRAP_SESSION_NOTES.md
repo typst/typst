@@ -1,7 +1,7 @@
 # Wrap-Float Implementation Session Notes
 
 **Date:** 2026-01-18
-**Status:** Phase 5 complete
+**Status:** Phase 6 in progress (critical bug fixed)
 
 ## Key Architectural Insights
 
@@ -74,6 +74,37 @@ natural line content width and the available width for that line.
 
 ### typst-ouz: Phase 5 Epic (DONE)
 All exit criteria met.
+
+---
+
+## Phase 6 Progress
+
+### CRITICAL BUG FIX: Left-Aligned Wrap-Floats (2026-01-18)
+
+**Problem**: Left-aligned wrap-floats were completely broken. Text overlapped the float instead of being positioned to the right. The `left_offset()` method existed in `ParExclusions` but was never called from production code.
+
+**Discovery**: The TODO at `inline/mod.rs:194` said "Use exclusions to apply x-offsets to lines" - this was never implemented. The reference images had been committed with the bug, so tests passed against broken output.
+
+**Root Cause**: When committing paragraph lines to frames, x-offsets from exclusion zones were ignored. Right-aligned floats worked because text just needed to be narrower (starting at x=0). Left-aligned floats needed text shifted right, which wasn't happening.
+
+**Fix** (commit 6ed793921):
+- Added `left_x_offset` parameter to `commit()` in `line.rs`
+- Updated `finalize()` to compute per-line y-positions and query `exclusions.left_offset(y)`
+- Passed exclusions through from `commit_par()` to `finalize()`
+- Updated 4 reference images: `wrap-float-basic-left`, `wrap-float-different-heights`, `wrap-float-multiple`, `wrap-float-rtl`
+
+**Key Files Changed**:
+- `crates/typst-layout/src/inline/line.rs` - Added left_x_offset to commit()
+- `crates/typst-layout/src/inline/finalize.rs` - Computes per-line offsets from exclusions
+- `crates/typst-layout/src/inline/mod.rs` - Passes exclusions to finalize
+
+**Lesson**: Reference images can encode bugs. When tests pass but feature seems broken, visually inspect the reference images.
+
+### Remaining Phase 6 Work (Tracked in Beads)
+
+- **typst-p9f**: Add wrap-float stress tests (P2)
+- **typst-59r**: Add warning condition tests (P3)
+- **typst-0dv**: Add performance benchmarks (P3)
 
 ---
 
