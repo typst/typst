@@ -425,7 +425,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Process frames through par_spill mechanism.
         let spill = ParSpill {
+            par,
             frames: frames_with_needs.into_iter(),
+            placed_count: 0,
             align: par.align,
             leading,
             had_exclusions: final_exclusions.is_some(),
@@ -522,24 +524,69 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes spillover from a paragraph that broke across regions.
-    fn par_spill(&mut self, mut spill: ParSpill) -> FlowResult<()> {
-        // Warn if exclusion context changed between regions. This can cause
-        // visual inconsistencies since the line widths were computed for the
-        // previous region's wrap-float exclusions.
+    fn par_spill(&mut self, spill: ParSpill<'a, 'b>) -> FlowResult<()> {
+        // Check if exclusion context changed between regions.
         let current_region_has_exclusions = !self.wrap_state.floats.is_empty();
-        if spill.had_exclusions && !current_region_has_exclusions {
-            // Paragraph was computed with exclusions but this region has none.
-            // The continuation lines may appear incorrectly indented.
-            self.composer.engine.sink.warn(warning!(
-                spill.span,
-                "paragraph spans page break with changing wrap context; \
-                 text may appear incorrectly indented on continuation page"
-            ));
-        }
+        let exclusions_changed = spill.had_exclusions && !current_region_has_exclusions;
 
+        // If exclusions changed, re-measure the paragraph without exclusions
+        // and use the new frames instead of the cached ones.
+        let frames_with_needs: Vec<(Frame, Abs)> = if exclusions_changed {
+            // Re-measure and re-commit the paragraph without exclusions.
+            let measured = spill.par.measure(self.composer.engine, None)?;
+            let result = spill.par.commit(self.composer.engine, &measured, None)?;
+
+            // Compute widow/orphan prevention needs (same logic as in par()).
+            let costs = spill.par.styles.get(TextElem::costs);
+            let len = result.frames.len();
+            let prevent_orphans = costs.orphan() > Ratio::zero()
+                && len >= 2
+                && !result.frames.get(1).map_or(true, |f| f.is_empty());
+            let prevent_widows = costs.widow() > Ratio::zero()
+                && len >= 2
+                && !result
+                    .frames
+                    .get(len.saturating_sub(2))
+                    .map_or(true, |f| f.is_empty());
+            let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+
+            let height_at =
+                |i: usize| result.frames.get(i).map(Frame::height).unwrap_or_default();
+            let front_1 = height_at(0);
+            let front_2 = height_at(1);
+            let back_2 = height_at(len.saturating_sub(2));
+            let back_1 = height_at(len.saturating_sub(1));
+            let leading = spill.leading;
+
+            // Skip frames that were already placed and compute needs for remaining.
+            result
+                .frames
+                .into_iter()
+                .enumerate()
+                .skip(spill.placed_count)
+                .map(|(i, frame)| {
+                    let need = if prevent_all && i == 0 {
+                        front_1 + leading + front_2 + leading + back_1
+                    } else if prevent_orphans && i == 0 {
+                        front_1 + leading + front_2
+                    } else if prevent_widows && i >= 2 && i + 2 == len {
+                        back_2 + leading + back_1
+                    } else {
+                        frame.height()
+                    };
+                    (frame, need)
+                })
+                .collect()
+        } else {
+            // Use cached frames.
+            spill.frames.collect()
+        };
+
+        let mut frames_iter = frames_with_needs.into_iter();
+        let mut placed_in_this_region = 0;
         let mut first = true;
 
-        while let Some((frame, need)) = spill.frames.next() {
+        while let Some((frame, need)) = frames_iter.next() {
             // Add leading between lines (but not before first in this region).
             if !first {
                 self.rel(spill.leading.into(), 5);
@@ -551,12 +598,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
                 // Put this frame back by creating new spill with it prepended.
                 let remaining: Vec<(Frame, Abs)> =
-                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                    std::iter::once((frame, need)).chain(frames_iter).collect();
                 self.composer.work.par_spill = Some(ParSpill {
+                    par: spill.par,
                     frames: remaining.into_iter(),
+                    placed_count: spill.placed_count + placed_in_this_region,
                     align: spill.align,
                     leading: spill.leading,
-                    had_exclusions: spill.had_exclusions,
+                    // After re-measurement, exclusions are cleared.
+                    had_exclusions: !exclusions_changed && spill.had_exclusions,
                     span: spill.span,
                 });
                 return Err(Stop::Finish(false));
@@ -572,12 +622,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     .is_some_and(|region| region.y.fits(need))
             {
                 let remaining: Vec<(Frame, Abs)> =
-                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                    std::iter::once((frame, need)).chain(frames_iter).collect();
                 self.composer.work.par_spill = Some(ParSpill {
+                    par: spill.par,
                     frames: remaining.into_iter(),
+                    placed_count: spill.placed_count + placed_in_this_region,
                     align: spill.align,
                     leading: spill.leading,
-                    had_exclusions: spill.had_exclusions,
+                    had_exclusions: !exclusions_changed && spill.had_exclusions,
                     span: spill.span,
                 });
                 return Err(Stop::Finish(false));
@@ -588,16 +640,20 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // processed in the next region.
             if let Err(err) = self.frame(frame.clone(), spill.align, false, false) {
                 let remaining: Vec<(Frame, Abs)> =
-                    std::iter::once((frame, need)).chain(spill.frames).collect();
+                    std::iter::once((frame, need)).chain(frames_iter).collect();
                 self.composer.work.par_spill = Some(ParSpill {
+                    par: spill.par,
                     frames: remaining.into_iter(),
+                    placed_count: spill.placed_count + placed_in_this_region,
                     align: spill.align,
                     leading: spill.leading,
-                    had_exclusions: spill.had_exclusions,
+                    had_exclusions: !exclusions_changed && spill.had_exclusions,
                     span: spill.span,
                 });
                 return Err(err);
             }
+
+            placed_in_this_region += 1;
         }
 
         Ok(())

@@ -40,7 +40,6 @@ Text with a footnote#footnote[This is the footnote content.] that wraps around t
 #set page(width: 260pt, height: 260pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 70pt, height: 90pt, fill: aqua))
-// Warning: 2-12 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(220)
 
 --- wrap-float-overlap-zones paged ---
@@ -63,7 +62,6 @@ Text with a footnote#footnote[This is the footnote content.] that wraps around t
 #columns(2)[
   #place(top + right, float: true, wrap: true, scope: "parent", dx: -6pt, dy: 6pt,
     rect(width: 50pt, height: 60pt, fill: aqua))
-  // Warning: 4-13 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
   #lorem(80)
 ]
 
@@ -95,19 +93,18 @@ fn main() {
 
 --- wrap-float-page-break paged ---
 // Text should wrap on page 1, flow normally on page 2 (no wrap-float exclusions).
+// Paragraph is re-broken on page 2 with full width.
 #set page(width: 200pt, height: 150pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 60pt, height: 60pt, fill: aqua))
-// Warning: 2-12 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(100)
 
---- wrap-float-page-break-limitation paged ---
-// KNOWN LIMITATION: When a paragraph with wrap exclusions spans a page break,
-// continuation may have incorrect indent. This documents expected behavior.
+--- wrap-float-page-break-reflow paged ---
+// When a paragraph with wrap exclusions spans a page break, continuation is
+// re-broken with full width (no exclusions on page 2).
 #set page(width: 180pt, height: 140pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 50pt, height: 60pt, fill: aqua))
-// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(80)
 
 --- wrap-float-deferred-to-second-page paged ---

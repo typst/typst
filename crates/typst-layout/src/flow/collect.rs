@@ -474,17 +474,23 @@ impl<'a> ParChild<'a> {
 ///
 /// When a paragraph doesn't fully fit in a region, the remaining frames
 /// are stored here along with their pre-computed widow/orphan needs.
+/// Also stores a reference to the original paragraph for re-measurement
+/// when the wrap-float exclusion context changes between regions.
 #[derive(Debug, Clone)]
-pub struct ParSpill {
+pub struct ParSpill<'a, 'b> {
+    /// Reference to the original paragraph for re-measurement.
+    pub par: &'b ParChild<'a>,
     /// Remaining line frames with their widow/orphan need values.
     pub frames: std::vec::IntoIter<(Frame, Abs)>,
+    /// Number of frames that were placed before spill (for re-measurement).
+    pub placed_count: usize,
     /// Text alignment for the frames.
     pub align: Axes<FixedAlignment>,
     /// Leading between lines.
     pub leading: Abs,
     /// Whether the frames were computed with wrap-float exclusions.
     /// If true and the continuation region has different exclusions,
-    /// the line widths may be incorrect for that region.
+    /// we can re-measure using `par` instead of using the cached frames.
     pub had_exclusions: bool,
     /// Span of the original paragraph element, for diagnostics.
     pub span: Span,

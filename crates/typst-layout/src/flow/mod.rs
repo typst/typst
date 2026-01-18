@@ -298,7 +298,7 @@ struct Work<'a, 'b> {
     /// Leftovers from a breakable block.
     spill: Option<MultiSpill<'a, 'b>>,
     /// Leftovers from a paragraph that broke across regions.
-    par_spill: Option<ParSpill>,
+    par_spill: Option<ParSpill<'a, 'b>>,
     /// Queued floats that didn't fit in previous regions.
     floats: EcoVec<&'b PlacedChild<'a>>,
     /// Queued footnotes that didn't fit in previous regions.

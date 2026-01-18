@@ -395,5 +395,4 @@ Paragraph after place.
 #set page(height: 100pt, width: 100pt)
 #place(top + right, float: true, wrap: true, clearance: 8pt,
   rect(width: 30pt, height: 30pt, fill: aqua))
-// Warning: 2-11 paragraph spans page break with changing wrap context; text may appear incorrectly indented on continuation page
 #lorem(20)
