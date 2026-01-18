@@ -537,6 +537,10 @@ pub fn apply_shift<'a>(
 }
 
 /// Commit to a line and build its frame.
+///
+/// # Arguments
+/// * `left_x_offset` - Additional x-offset for this line (from wrap-float exclusions).
+///   For left-aligned floats, this shifts the line content to the right.
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
@@ -545,9 +549,10 @@ pub fn commit(
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
+    left_x_offset: Abs,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.config.hanging_indent;
-    let mut offset = Abs::zero();
+    let mut offset = left_x_offset;
 
     // We always build the line from left to right. In an LTR paragraph, we must
     // thus add the hanging indent to the offset. In an RTL paragraph, the

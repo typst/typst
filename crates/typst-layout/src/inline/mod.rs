@@ -151,8 +151,8 @@ fn measure_par_inner<'a>(
 ///
 /// # Arguments
 /// * `exclusions` - Optional exclusion zones (should match those used in measure).
-///   Currently stored for future use in Phase 4 when lines may need different
-///   x-offsets based on exclusions.
+///   When provided, lines adjacent to left-aligned wrap-floats will be shifted
+///   right by the appropriate amount.
 pub fn commit_par(
     elem: &Packed<ParElem>,
     engine: &mut Engine,
@@ -162,7 +162,7 @@ pub fn commit_par(
     expand: bool,
     situation: ParSituation,
     measured: &ParMeasureResult,
-    _exclusions: Option<&ParExclusions>,
+    exclusions: Option<&ParExclusions>,
 ) -> SourceResult<ParCommitResult> {
     let arenas = Arenas::default();
     let mut split_locator = locator.split();
@@ -190,9 +190,9 @@ pub fn commit_par(
     // Reconstruct lines from stored break info (NOT re-running linebreak)
     let lines = reconstruct_lines(engine, &p, &measured.break_info);
 
-    // Create frames using existing finalize
-    // TODO (Phase 4): Use exclusions to apply x-offsets to lines
-    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator)?;
+    // Create frames, applying x-offsets from exclusions for left-aligned floats
+    let leading = styles.resolve(ParElem::leading);
+    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator, exclusions, leading)?;
 
     Ok(ParCommitResult {
         frames: fragment.into_frames(),
@@ -318,7 +318,9 @@ fn layout_inline_impl<'a>(
     }
 
     // Turn the selected lines into frames.
-    finalize(engine, &p, &lines, region, expand, locator)
+    // No exclusions for regular inline layout (not wrap-floats).
+    // Leading is not used when exclusions are None, so we pass zero.
+    finalize(engine, &p, &lines, region, expand, locator, None, Abs::zero())
 }
 
 /// Determine the inline layout's configuration.
