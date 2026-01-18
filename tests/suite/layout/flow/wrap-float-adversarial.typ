@@ -115,6 +115,16 @@ fn main() {
   rect(width: 50pt, height: 50pt, fill: aqua))
 #lorem(40)
 
+--- wrap-float-appears-on-continuation-page paged ---
+// Paragraph starts on page 1 (no wrap-float), continues on page 2 (has wrap-float).
+// The continuation should be re-broken to wrap around the float on page 2.
+#set page(width: 180pt, height: 120pt)
+#lorem(30)
+#pagebreak()
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 50pt, height: 50pt, fill: aqua))
+#lorem(40)
+
 // === EDGE CASE TESTS ===
 
 --- wrap-float-very-short-paragraph paged ---

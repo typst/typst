@@ -525,16 +525,29 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes spillover from a paragraph that broke across regions.
     fn par_spill(&mut self, spill: ParSpill<'a, 'b>) -> FlowResult<()> {
-        // Check if exclusion context changed between regions.
+        // Check if exclusion context changed between regions (in either direction).
         let current_region_has_exclusions = !self.wrap_state.floats.is_empty();
-        let exclusions_changed = spill.had_exclusions && !current_region_has_exclusions;
+        let exclusions_changed = spill.had_exclusions != current_region_has_exclusions;
 
-        // If exclusions changed, re-measure the paragraph without exclusions
+        // Compute current exclusions if needed for re-measurement.
+        let current_exclusions = if current_region_has_exclusions {
+            // Estimate paragraph height for exclusion computation.
+            // Use a generous estimate since we're continuing a paragraph.
+            let height_estimate = self.regions.size.y;
+            self.wrap_state.exclusions_for(self.current_y(), height_estimate)
+        } else {
+            None
+        };
+
+        // If exclusions changed, re-measure the paragraph with current exclusions
         // and use the new frames instead of the cached ones.
         let frames_with_needs: Vec<(Frame, Abs)> = if exclusions_changed {
-            // Re-measure and re-commit the paragraph without exclusions.
-            let measured = spill.par.measure(self.composer.engine, None)?;
-            let result = spill.par.commit(self.composer.engine, &measured, None)?;
+            // Re-measure and re-commit the paragraph with current region's exclusions.
+            let measured =
+                spill.par.measure(self.composer.engine, current_exclusions.as_ref())?;
+            let result = spill
+                .par
+                .commit(self.composer.engine, &measured, current_exclusions.as_ref())?;
 
             // Compute widow/orphan prevention needs (same logic as in par()).
             let costs = spill.par.styles.get(TextElem::costs);
@@ -605,8 +618,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     placed_count: spill.placed_count + placed_in_this_region,
                     align: spill.align,
                     leading: spill.leading,
-                    // After re-measurement, exclusions are cleared.
-                    had_exclusions: !exclusions_changed && spill.had_exclusions,
+                    // Track whether current frames were computed with exclusions.
+                    had_exclusions: if exclusions_changed {
+                        current_region_has_exclusions
+                    } else {
+                        spill.had_exclusions
+                    },
                     span: spill.span,
                 });
                 return Err(Stop::Finish(false));
