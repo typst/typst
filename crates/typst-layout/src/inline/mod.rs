@@ -115,17 +115,15 @@ fn measure_par_inner<'a>(
     let p = prepare(engine, &config, &text, segments, spans)?;
 
     // Line breaking - use variable width version which handles exclusions
-    // (currently a stub that delegates to standard linebreak, will be
-    // implemented properly in Phase 4)
     let width = region.x - config.hanging_indent;
-    let lines = linebreak_variable_width(engine, &p, width, exclusions);
+    let result = linebreak_variable_width(engine, &p, width, exclusions);
 
     // Extract metrics WITHOUT building frames
     let leading = styles.resolve(ParElem::leading);
     let mut total_height = Abs::zero();
-    let mut break_info = Vec::with_capacity(lines.len());
+    let mut break_info = Vec::with_capacity(result.lines.len());
 
-    for (i, ln) in lines.iter().enumerate() {
+    for (i, ln) in result.lines.iter().enumerate() {
         if i > 0 {
             total_height += leading;
         }
@@ -142,6 +140,7 @@ fn measure_par_inner<'a>(
     Ok(ParMeasureResult {
         total_height,
         break_info,
+        has_overfull: result.has_overfull,
     })
 }
 
@@ -406,6 +405,8 @@ pub struct ParMeasureResult {
     pub total_height: Abs,
     /// Break information for reconstructing lines during commit.
     pub break_info: Vec<BreakInfo>,
+    /// Whether any line overflowed its available width (only set with exclusions).
+    pub has_overfull: bool,
 }
 
 /// Information needed to reconstruct a line break.

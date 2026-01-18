@@ -382,6 +382,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Commit with the same exclusions used in the final measure.
         let result = par.commit(self.composer.engine, &measured, final_exclusions.as_ref())?;
 
+        // Warn if text overflowed the wrap-float gap (e.g., a word too wide to fit).
+        if measured.has_overfull && final_exclusions.is_some() {
+            self.composer.engine.sink.warn(warning!(
+                par.elem.span(),
+                "text overflows wrap-float gap; consider reducing float size or clearance"
+            ));
+        }
+
         // Compute widow/orphan prevention needs, replicating collector's lines() logic.
         let costs = par.styles.get(TextElem::costs);
         let len = result.frames.len();
@@ -849,6 +857,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Floats wider than this leave too little room for text.
     const MAX_WRAP_WIDTH_RATIO: f64 = 2.0 / 3.0;
 
+    /// Minimum ratio of column width that must remain for text (1/6).
+    /// If the gap beside a wrap-float is smaller than this, warn the user.
+    const MIN_WRAP_GAP_RATIO: f64 = 1.0 / 6.0;
+
     /// Processes a wrap-float: an in-flow float that text will wrap around.
     ///
     /// Unlike regular floats which go through the composer's insertion system,
@@ -880,6 +892,20 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             )?;
             self.regions.size.y -= weak_spacing;
             return Ok(());
+        }
+
+        // Warn if the gap for text is too narrow. The exclusion includes clearance,
+        // so the actual gap = base_width - frame_width - clearance.
+        let exclusion_width = frame.width() + placed.clearance;
+        let gap = base_width - exclusion_width;
+        let min_gap = base_width * Self::MIN_WRAP_GAP_RATIO;
+        if gap < min_gap {
+            self.composer.engine.sink.warn(warning!(
+                placed.span(),
+                "wrap-float leaves too little room for text ({:.1}pt gap < {:.1}pt minimum)",
+                gap.to_pt(),
+                min_gap.to_pt()
+            ));
         }
 
         // Compute y-position based on vertical alignment.

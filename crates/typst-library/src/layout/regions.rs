@@ -261,7 +261,8 @@ impl WrapFloat {
         align_x: FixedAlignment,
         clearance: Abs,
     ) -> Self {
-        let width = frame.width() + clearance;
+        // Clamp clearance to zero to prevent negative margins
+        let width = frame.width() + clearance.max(Abs::zero());
         let (left_margin, right_margin) = match align_x {
             FixedAlignment::Start => (width, Abs::zero()),
             FixedAlignment::End => (Abs::zero(), width),

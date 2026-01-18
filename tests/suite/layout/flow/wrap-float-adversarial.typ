@@ -72,6 +72,7 @@ Text with a footnote#footnote[This is the footnote content.] that wraps around t
 #columns(2)[
   #place(top + right, float: true, wrap: true, scope: "parent", dx: -6pt, dy: 6pt,
     rect(width: 50pt, height: 60pt, fill: aqua))
+  // Warning: 4-13 text overflows wrap-float gap; consider reducing float size or clearance
   #lorem(80)
 ]
 
@@ -204,3 +205,37 @@ Second paragraph is below the float and should use full page width. #lorem(30)
 // Warning: 2-91 wrap-float too wide (130.0pt > 120.0pt limit); treating as regular float
 #place(top + right, float: true, wrap: true, rect(width: 130pt, height: 50pt, fill: aqua))
 #lorem(30)
+
+--- wrap-float-zero-height paged ---
+// Zero-height float creates a degenerate exclusion zone that doesn't affect text.
+// Should not crash or cause layout issues.
+#set page(width: 200pt, height: 180pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 60pt, height: 0pt, fill: aqua, stroke: 1pt))
+#lorem(30)
+
+--- wrap-float-negative-clearance paged ---
+// Negative clearance is clamped to zero - text should be adjacent to float.
+// This tests that negative values don't create invalid negative margins.
+#set page(width: 200pt, height: 180pt)
+#place(top + right, float: true, wrap: true, clearance: -10pt,
+  rect(width: 60pt, height: 60pt, fill: aqua, stroke: 1pt))
+#lorem(40)
+
+--- wrap-float-narrow-gap paged ---
+// Float + clearance leaves less than 1/6 of page width for text.
+// Warns that layout is problematic - user should adjust their design.
+#set page(width: 200pt, height: 180pt)
+// Warning: 2-108 wrap-float leaves too little room for text (10.0pt gap < 30.0pt minimum)
+#place(top + right, float: true, wrap: true, clearance: 70pt, rect(width: 100pt, height: 60pt, fill: aqua))
+// Warning: 2-11 text overflows wrap-float gap; consider reducing float size or clearance
+#lorem(30)
+
+--- wrap-float-single-word paged ---
+// Single long word that can't fit in the wrap-float gap.
+// Warns that text overflows the available space.
+#set page(width: 200pt, height: 180pt)
+#place(top + right, float: true, wrap: true, clearance: 8pt,
+  rect(width: 120pt, height: 60pt, fill: aqua))
+// Warning: 1-56 text overflows wrap-float gap; consider reducing float size or clearance
+Supercalifragilisticexpialidocious is a very long word.

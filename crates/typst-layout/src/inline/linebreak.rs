@@ -150,6 +150,14 @@ pub fn linebreak<'a>(
     }
 }
 
+/// Result of line breaking with exclusions, including overfull detection.
+pub(super) struct VariableWidthResult<'a> {
+    /// The broken lines.
+    pub lines: Vec<Line<'a>>,
+    /// Whether any line's content width exceeded its available width.
+    pub has_overfull: bool,
+}
+
 /// Line breaking with variable widths for wrap-float support.
 ///
 /// When exclusions are present, uses iterative refinement:
@@ -161,15 +169,20 @@ pub fn linebreak<'a>(
 ///
 /// For very long paragraphs (>5000 chars), uses divide-and-conquer:
 /// splits at natural boundaries to bound O(n²) cost.
+///
+/// Returns lines and whether any line overflowed its available width.
 pub(super) fn linebreak_variable_width<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
     base_width: Abs,
     exclusions: Option<&ParExclusions>,
-) -> Vec<Line<'a>> {
+) -> VariableWidthResult<'a> {
     // Fast path: no exclusions or empty exclusions
     let Some(excl) = exclusions.filter(|e| !e.is_empty()) else {
-        return linebreak(engine, p, base_width);
+        return VariableWidthResult {
+            lines: linebreak(engine, p, base_width),
+            has_overfull: false,
+        };
     };
 
     // Use iterative refinement with variable widths
@@ -241,7 +254,7 @@ fn linebreak_with_exclusions<'a>(
     p: &'a Preparation<'a>,
     base_width: Abs,
     exclusions: &ParExclusions,
-) -> Vec<Line<'a>> {
+) -> VariableWidthResult<'a> {
     let metrics = CostMetrics::compute(p);
 
     // Estimate line height from actual font metrics when available
@@ -249,6 +262,7 @@ fn linebreak_with_exclusions<'a>(
 
     let mut heights: Vec<Abs> = vec![];
     let mut lines: Vec<Line<'a>> = vec![];
+    let mut final_widths: Vec<Abs> = vec![];
 
     for _ in 0..MAX_ITERATIONS {
         // Compute per-line widths based on current height estimates
@@ -257,7 +271,10 @@ fn linebreak_with_exclusions<'a>(
         // Check if all widths are the same as base (no exclusions active)
         let all_base_width = widths.iter().all(|&w| (w - base_width).abs() < Abs::pt(0.1));
         if all_base_width {
-            return linebreak(engine, p, base_width);
+            return VariableWidthResult {
+                lines: linebreak(engine, p, base_width),
+                has_overfull: false,
+            };
         }
 
         // Run variable-width K-P (with divide-and-conquer for long paragraphs)
@@ -278,14 +295,23 @@ fn linebreak_with_exclusions<'a>(
                 .fold(Abs::zero(), Abs::max);
 
             if max_diff < Abs::pt(0.5) {
+                final_widths = widths;
                 break;
             }
         }
 
         heights = new_heights;
+        final_widths = widths;
     }
 
-    lines
+    // Check for overfull lines: content width > available width
+    // Use a small tolerance to avoid floating point issues
+    let has_overfull = lines.iter().enumerate().any(|(i, line)| {
+        let available = final_widths.get(i).copied().unwrap_or(base_width);
+        line.width > available + Abs::pt(0.5)
+    });
+
+    VariableWidthResult { lines, has_overfull }
 }
 
 /// Compute per-line widths based on y-positions and exclusions.

@@ -167,17 +167,32 @@ impl WrapFloat {
 ## User-Visible Warnings
 
 ### Warning Conditions
-1. Wrap-float too wide (> 2/3 of region width, i.e., 66.7%)
-2. Wrap layout did not converge (after 3 iterations)
-3. Wrap layout oscillating (detected via break pattern history)
+1. Wrap-float too wide (> 2/3 of region width, i.e., 66.7%) - falls back to regular float
+2. Wrap-float gap too narrow (< 1/6 of region width, i.e., ~16.7%) - warns but proceeds
+3. Text overflows wrap-float gap (content wider than available space) - warns at paragraph level
+4. Wrap layout did not converge (after 3 iterations)
+5. Wrap layout oscillating (detected via break pattern history)
 
 ### Implementation
 ```rust
-// Too wide
+// Too wide - falls back to regular float
 self.composer.engine.sink.warn(warning!(
-    wf.elem.span(),
-    "wrap-float is too wide ({:.1}pt > {:.1}pt max), treating as normal float",
-    frame.width().to_pt(), max_width.to_pt()
+    placed.span(),
+    "wrap-float too wide ({:.1}pt > {:.1}pt limit); treating as regular float",
+    frame.width().to_pt(), max_wrap_width.to_pt()
+));
+
+// Gap too narrow - warns about problematic layout
+self.composer.engine.sink.warn(warning!(
+    placed.span(),
+    "wrap-float leaves too little room for text ({:.1}pt gap < {:.1}pt minimum)",
+    gap.to_pt(), min_gap.to_pt()
+));
+
+// Text overflow - detected during line breaking
+self.composer.engine.sink.warn(warning!(
+    par.elem.span(),
+    "text overflows wrap-float gap; consider reducing float size or clearance"
 ));
 
 // Non-convergence
@@ -196,56 +211,18 @@ self.composer.engine.sink.warn(warning!(
 
 ## Edge Case Tests
 
-**File: `tests/suite/layout/place/wrap-float-edge.typ`**
+Edge case tests are in `tests/suite/layout/flow/wrap-float-adversarial.typ` alongside other
+wrap-float tests (following the existing test organization pattern).
 
-```typst
-// --- wrap-float-too-wide ---
-// Should fall back to normal float with warning
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 120pt, height: 50pt, fill: aqua))
-#lorem(30)
-
-// --- wrap-float-narrow-gap ---
-// Text forced below when gap too narrow
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 160pt, height: 50pt, fill: aqua))
-#lorem(30)
-
-// --- wrap-float-mixed-sizes ---
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 60pt, height: 80pt, fill: aqua))
-Normal text #text(size: 20pt)[BIG TEXT] normal #text(size: 8pt)[small] normal.
-#lorem(40)
-
-// --- wrap-float-empty-paragraph ---
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 60pt, height: 60pt, fill: aqua))
-
-#lorem(20)
-
-// --- wrap-float-single-word ---
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 150pt, height: 60pt, fill: aqua))
-Supercalifragilisticexpialidocious
-
-// --- wrap-float-zero-height ---
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true,
-  rect(width: 60pt, height: 0pt, fill: aqua))
-#lorem(30)
-
-// --- wrap-float-negative-clearance ---
-// Should be clamped to zero
-#set page(height: 200pt, width: 200pt)
-#place(top + right, float: true, wrap: true, clearance: -10pt,
-  rect(width: 60pt, height: 60pt, fill: aqua))
-#lorem(30)
-```
+Key edge case tests:
+- `wrap-float-too-wide` - Falls back to regular float with warning
+- `wrap-float-narrow-gap` - Warns when gap < 1/6 of width
+- `wrap-float-single-word` - Warns when text content overflows gap
+- `wrap-float-zero-height` - Degenerate exclusion zone, doesn't crash
+- `wrap-float-negative-clearance` - Negative values clamped to zero
+- `wrap-float-no-clearance` - Zero clearance, text adjacent to float
+- `wrap-float-empty-paragraph-adjacent` - Empty paragraph doesn't crash
+- `wrap-float-very-short-paragraph` - Single-line paragraph handling
 
 ## Exit Criteria
 
@@ -254,7 +231,7 @@ Supercalifragilisticexpialidocious
 - [x] Footnotes work correctly with wrap-floats (test: wrap-float-with-footnote)
 - [x] RTL/BiDi text wraps correctly (tests: wrap-float-rtl, wrap-float-rtl-start)
 - [x] Too-wide and non-convergence warnings are emitted
-- [ ] All edge case tests consolidated into dedicated test file
+- [x] Edge case tests added (wrap-float-zero-height, wrap-float-negative-clearance)
 
 ## Dependencies
 
