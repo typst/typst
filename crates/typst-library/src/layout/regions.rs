@@ -255,14 +255,18 @@ impl WrapFloat {
     /// - Start/Left aligned: exclude from left (text wraps on right)
     /// - End/Right aligned: exclude from right (text wraps on left)
     /// - Center aligned: exclude from both sides (experimental)
+    ///
+    /// The clearance is added both horizontally (to margins) and vertically
+    /// (to height) to ensure text has spacing on all sides of the float.
     pub fn from_placed(
         frame: &Frame,
         y: Abs,
         align_x: FixedAlignment,
         clearance: Abs,
     ) -> Self {
-        // Clamp clearance to zero to prevent negative margins
-        let width = frame.width() + clearance.max(Abs::zero());
+        // Clamp clearance to zero to prevent negative values
+        let clearance = clearance.max(Abs::zero());
+        let width = frame.width() + clearance;
         let (left_margin, right_margin) = match align_x {
             FixedAlignment::Start => (width, Abs::zero()),
             FixedAlignment::End => (Abs::zero(), width),
@@ -274,7 +278,8 @@ impl WrapFloat {
         };
         Self {
             y,
-            height: frame.height(),
+            // Include clearance in height so text below the float has vertical spacing
+            height: frame.height() + clearance,
             left_margin,
             right_margin,
         }

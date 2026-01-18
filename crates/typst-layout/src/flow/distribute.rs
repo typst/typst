@@ -113,6 +113,30 @@ impl WrapState {
             Some(excl)
         }
     }
+
+    /// Find the bottom of existing floats on the given side.
+    ///
+    /// Returns the y-coordinate where a new float can be placed without
+    /// overlapping existing floats on the same side (left or right).
+    /// Note: WrapFloat.height already includes clearance, so the returned
+    /// position accounts for proper spacing.
+    /// Returns zero if no floats exist on that side.
+    fn bottom_of_floats_on_side(&self, align_x: FixedAlignment) -> Abs {
+        let mut bottom = Abs::zero();
+        for wf in &self.floats {
+            // Check if this float is on the same side
+            let same_side = match align_x {
+                FixedAlignment::Start => wf.left_margin > Abs::zero(),
+                FixedAlignment::End => wf.right_margin > Abs::zero(),
+                FixedAlignment::Center => true, // Center floats conflict with both sides
+            };
+            if same_side {
+                // wf.height includes clearance, so this gives proper spacing
+                bottom = bottom.max(wf.y + wf.height);
+            }
+        }
+        bottom
+    }
 }
 
 /// A laid out item in a distribution.
@@ -909,19 +933,24 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Compute y-position based on vertical alignment.
+        // For top/bottom aligned floats, stack below/above existing floats on the same side.
         let region_height = self.regions.full;
         let float_height = frame.height();
         let current_y = self.current_y();
 
+        // Find the bottom of existing floats on the same side to avoid overlap.
+        let existing_bottom = self.wrap_state.bottom_of_floats_on_side(placed.align_x);
+
         let y = match placed.align_y {
             // Auto: float appears near its source position in the flow.
-            Smart::Auto => current_y,
+            Smart::Auto => current_y.max(existing_bottom),
             // Custom alignment: position at top/center/bottom of region.
             Smart::Custom(align) => match align {
-                Some(FixedAlignment::Start) => Abs::zero(),
+                // Top-aligned: stack below existing floats on the same side.
+                Some(FixedAlignment::Start) => existing_bottom,
                 Some(FixedAlignment::End) => region_height - float_height,
                 Some(FixedAlignment::Center) => (region_height - float_height) / 2.0,
-                None => current_y, // Fallback to current position.
+                None => current_y.max(existing_bottom), // Fallback to current position.
             },
         };
 
