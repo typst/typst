@@ -406,7 +406,7 @@ fn linebreak_variable_split<'a>(
     let splits = compute_splits(p.text.len(), MAX_CHUNK_SIZE);
     let split_positions: Vec<usize> = splits
         .iter()
-        .map(|&approx| find_split_point(&p.text, approx))
+        .map(|&approx| find_split_point(p.text, approx))
         .collect();
 
     if split_positions.is_empty() {
@@ -431,8 +431,8 @@ fn find_split_point(text: &str, target: usize) -> usize {
     let end = (target + window).min(text.len());
 
     // Ensure we're at char boundaries
-    let start = text.floor_char_boundary(start);
-    let end = text.ceil_char_boundary(end);
+    let start = floor_char_boundary(text, start);
+    let end = ceil_char_boundary(text, end);
 
     let search_region = &text[start..end];
 
@@ -456,7 +456,31 @@ fn find_split_point(text: &str, target: usize) -> usize {
     }
 
     // Fallback: just split at target (ensure char boundary)
-    text.floor_char_boundary(target)
+    floor_char_boundary(text, target)
+}
+
+/// Find the largest valid char boundary <= index (MSRV-compatible).
+fn floor_char_boundary(text: &str, index: usize) -> usize {
+    if index >= text.len() {
+        return text.len();
+    }
+    let mut i = index;
+    while i > 0 && !text.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
+}
+
+/// Find the smallest valid char boundary >= index (MSRV-compatible).
+fn ceil_char_boundary(text: &str, index: usize) -> usize {
+    if index >= text.len() {
+        return text.len();
+    }
+    let mut i = index;
+    while i < text.len() && !text.is_char_boundary(i) {
+        i += 1;
+    }
+    i
 }
 
 /// Recursively compute split points to divide text into chunks <= max_chunk.

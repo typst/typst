@@ -1,3 +1,6 @@
+// Allow map_or pattern due to MSRV (is_none_or requires Rust 1.91.0)
+#![allow(clippy::unnecessary_map_or)]
+
 use typst_library::diag::warning;
 use typst_library::foundations::Smart;
 use typst_library::introspection::Tag;
@@ -516,7 +519,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             }
 
             // Check for oscillation: have we seen this break pattern before?
-            if seen_patterns.iter().any(|p| *p == measured.break_info) {
+            if seen_patterns.contains(&measured.break_info) {
                 // Oscillation detected - use current measurement and warn
                 self.composer.engine.sink.warn(warning!(
                     par.elem.span(),

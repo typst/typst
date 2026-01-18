@@ -56,6 +56,7 @@ type Range = std::ops::Range<usize>;
 /// # Arguments
 /// * `exclusions` - Optional exclusion zones for text wrapping around floats.
 ///   When provided, the line breaker uses variable widths per line.
+#[allow(clippy::too_many_arguments)]
 pub fn measure_par_with_exclusions(
     elem: &Packed<ParElem>,
     engine: &mut Engine,
@@ -99,6 +100,7 @@ pub fn measure_par_with_exclusions(
 }
 
 /// Inner measurement implementation.
+#[allow(clippy::too_many_arguments)]
 fn measure_par_inner<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
@@ -154,6 +156,7 @@ fn measure_par_inner<'a>(
 /// * `exclusions` - Optional exclusion zones (should match those used in measure).
 ///   When provided, lines adjacent to left-aligned wrap-floats will be shifted
 ///   right by the appropriate amount.
+#[allow(clippy::too_many_arguments)]
 pub fn commit_par(
     elem: &Packed<ParElem>,
     engine: &mut Engine,

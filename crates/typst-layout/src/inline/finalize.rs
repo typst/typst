@@ -14,6 +14,7 @@ use super::*;
 /// * `line_widths` - Optional pre-computed widths for each line (from line breaking).
 ///   When provided, these are used for justification instead of recomputing from exclusions.
 #[typst_macros::time]
+#[allow(clippy::too_many_arguments)]
 pub fn finalize(
     engine: &mut Engine,
     p: &Preparation,
@@ -53,6 +54,7 @@ pub fn finalize(
 }
 
 /// Finalize with exclusion zones, computing per-line x-offsets.
+#[allow(clippy::too_many_arguments)]
 fn finalize_with_exclusions(
     engine: &mut Engine,
     p: &Preparation,

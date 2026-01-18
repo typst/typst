@@ -57,10 +57,11 @@ pub fn register_cite_group(group: Content) {
         let mut groups = groups.borrow_mut();
         // Deduplicate by location to handle multiple measure() calls during
         // iterative refinement for wrap-float exclusions.
-        if let Some(loc) = group.location() {
-            if groups.iter().any(|g| g.location() == Some(loc)) {
-                return; // Already registered
-            }
+        if group
+            .location()
+            .is_some_and(|loc| groups.iter().any(|g| g.location() == Some(loc)))
+        {
+            return; // Already registered
         }
         groups.push(group);
     });
@@ -628,10 +629,11 @@ impl Works {
 
         let mut result = introspector_groups;
         for group in registered {
-            if let Some(loc) = group.location() {
-                if !existing_locations.contains(&loc) {
-                    result.push(group);
-                }
+            if group
+                .location()
+                .is_some_and(|loc| !existing_locations.contains(&loc))
+            {
+                result.push(group);
             }
         }
 
