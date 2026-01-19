@@ -477,7 +477,7 @@ pub struct FontArgs {
     pub ignore_system_fonts: bool,
 
     /// Ensures fonts embedded into Typst won't be considered.
-    #[cfg(feature = "embed-fonts")]
+    #[cfg(feature = "embedded-fonts")]
     #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
     pub ignore_embedded_fonts: bool,
 }
