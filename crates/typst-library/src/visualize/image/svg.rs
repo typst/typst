@@ -387,7 +387,7 @@ impl<'a> ImageResolver<'a> {
         // Load image if file can be accessed.
         match self.world.file(href_file) {
             Ok(bytes) => {
-                let arc_data = Arc::new(bytes.to_vec());
+                let arc_data = Arc::new(bytes.into_vec());
                 let format = match determine_format_from_path(href_file.vpath()) {
                     Some(format) => Some(format),
                     None => ImageFormat::detect(&arc_data),

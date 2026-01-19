@@ -2,19 +2,16 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::WorldExt;
 use typst::diag::{
-    At, HintedStrResult, HintedString, Severity, SourceDiagnostic, SourceResult,
-    StrResult, Warned, bail,
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, Warned,
+    bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Lines, Span, VirtualRoot};
+use typst::syntax::Span;
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -30,9 +27,6 @@ use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
-
-type CodespanResult<T> = Result<T, CodespanError>;
-type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
 pub fn compile(
@@ -624,121 +618,17 @@ pub fn print_diagnostics(
     world: &SystemWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
-    diagnostic_format: DiagnosticFormat,
+    format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut config = term::Config { tab_width: 2, ..Default::default() };
-    if diagnostic_format == DiagnosticFormat::Short {
-        config.display_style = term::DisplayStyle::Short;
-    }
-
-    for diagnostic in warnings.iter().chain(errors) {
-        let diag = match diagnostic.severity {
-            Severity::Error => Diagnostic::error(),
-            Severity::Warning => Diagnostic::warning(),
-        }
-        .with_message(diagnostic.message.clone())
-        .with_notes(
-            diagnostic
-                .hints
-                .iter()
-                .filter(|s| s.span.is_detached())
-                .map(|s| (eco_format!("hint: {}", s.v)).into())
-                .collect(),
-        )
-        .with_labels(
-            label(world, diagnostic.span)
-                .into_iter()
-                .chain(diagnostic.hints.iter().filter_map(|hint| {
-                    let id = hint.span.id()?;
-                    let range = world.range(hint.span)?;
-                    Some(Label::secondary(id, range).with_message(&hint.v))
-                }))
-                .collect(),
-        );
-
-        term::emit(&mut terminal::out(), &config, world, &diag)?;
-
-        // Stacktrace-like helper diagnostics.
-        for point in &diagnostic.trace {
-            let message = point.v.to_string();
-            let help = Diagnostic::help()
-                .with_message(message)
-                .with_labels(label(world, point.span).into_iter().collect());
-
-            term::emit(&mut terminal::out(), &config, world, &help)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Create a label for a span.
-fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
-    Some(Label::primary(span.id()?, world.range(span)?))
-}
-
-impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
-    type FileId = FileId;
-    type Name = String;
-    type Source = Lines<String>;
-
-    fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        let vpath = id.vpath();
-        Ok(match id.root() {
-            VirtualRoot::Project => {
-                // Try to express the path relative to the working directory.
-                let rooted = vpath.realize(self.root());
-                pathdiff::diff_paths(rooted, self.workdir())
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| vpath.get_without_slash().into())
-            }
-            VirtualRoot::Package(package) => {
-                format!("{package}{}", vpath.get_with_slash())
-            }
-        })
-    }
-
-    fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {
-        Ok(self.lookup(id))
-    }
-
-    fn line_index(&'a self, id: FileId, given: usize) -> CodespanResult<usize> {
-        let source = self.lookup(id);
-        source
-            .byte_to_line(given)
-            .ok_or_else(|| CodespanError::IndexTooLarge {
-                given,
-                max: source.len_bytes(),
-            })
-    }
-
-    fn line_range(
-        &'a self,
-        id: FileId,
-        given: usize,
-    ) -> CodespanResult<std::ops::Range<usize>> {
-        let source = self.lookup(id);
-        source
-            .line_to_range(given)
-            .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
-    }
-
-    fn column_number(
-        &'a self,
-        id: FileId,
-        _: usize,
-        given: usize,
-    ) -> CodespanResult<usize> {
-        let source = self.lookup(id);
-        source.byte_to_column(given).ok_or_else(|| {
-            let max = source.len_bytes();
-            if given <= max {
-                CodespanError::InvalidCharBoundary { given }
-            } else {
-                CodespanError::IndexTooLarge { given, max }
-            }
-        })
-    }
+    typst_kit::diagnostics::emit(
+        &mut terminal::out(),
+        world,
+        errors.iter().chain(warnings),
+        match format {
+            DiagnosticFormat::Human => typst_kit::diagnostics::DiagnosticFormat::Human,
+            DiagnosticFormat::Short => typst_kit::diagnostics::DiagnosticFormat::Short,
+        },
+    )
 }
 
 impl From<PdfStandard> for typst_pdf::PdfStandard {
