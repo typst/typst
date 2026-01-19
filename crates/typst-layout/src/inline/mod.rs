@@ -188,7 +188,8 @@ pub fn commit_par(
     };
 
     let config = configuration(&base, &children, styles, Some(situation));
-    let (text, segments, spans) = collect(&children, engine, &mut split_locator, &config, region)?;
+    let (text, segments, spans) =
+        collect(&children, engine, &mut split_locator, &config, region)?;
     let p = prepare(engine, &config, &text, segments, spans)?;
 
     // Reconstruct lines from stored break info (NOT re-running linebreak)
@@ -197,12 +198,21 @@ pub fn commit_par(
     // Create frames, applying x-offsets from exclusions for left-aligned floats
     let leading = styles.resolve(ParElem::leading);
     // Extract line widths from break_info for correct justification
-    let line_widths: Vec<Option<Abs>> = measured.break_info.iter().map(|b| b.width).collect();
-    let fragment = finalize(engine, &p, &lines, region, expand, &mut split_locator, exclusions, leading, &line_widths)?;
+    let line_widths: Vec<Option<Abs>> =
+        measured.break_info.iter().map(|b| b.width).collect();
+    let fragment = finalize(
+        engine,
+        &p,
+        &lines,
+        region,
+        expand,
+        &mut split_locator,
+        exclusions,
+        leading,
+        &line_widths,
+    )?;
 
-    Ok(ParCommitResult {
-        frames: fragment.into_frames(),
-    })
+    Ok(ParCommitResult { frames: fragment.into_frames() })
 }
 
 /// Reconstruct Line objects from stored break information.

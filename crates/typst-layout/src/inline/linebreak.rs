@@ -236,11 +236,7 @@ fn estimate_line_height(p: &Preparation) -> Abs {
     }
 
     // Fall back to the original approximation if no useful data found
-    if max_height > Abs::zero() {
-        max_height
-    } else {
-        p.config.font_size * 1.2
-    }
+    if max_height > Abs::zero() { max_height } else { p.config.font_size * 1.2 }
 }
 
 /// Line breaking with exclusion zones using iterative refinement.
@@ -270,10 +266,12 @@ fn linebreak_with_exclusions<'a>(
 
     for _ in 0..MAX_ITERATIONS {
         // Compute per-line widths based on current height estimates
-        let widths = compute_line_widths(&heights, estimated_height, exclusions, base_width);
+        let widths =
+            compute_line_widths(&heights, estimated_height, exclusions, base_width);
 
         // Check if all widths are the same as base (no exclusions active)
-        let all_base_width = widths.iter().all(|&w| (w - base_width).abs() < Abs::pt(0.1));
+        let all_base_width =
+            widths.iter().all(|&w| (w - base_width).abs() < Abs::pt(0.1));
         if all_base_width {
             return VariableWidthResult {
                 lines: linebreak(engine, p, base_width),
@@ -286,10 +284,8 @@ fn linebreak_with_exclusions<'a>(
         lines = linebreak_variable(engine, p, &widths, &metrics);
 
         // Measure actual line heights
-        let new_heights: Vec<Abs> = lines
-            .iter()
-            .map(|l| measure_line(engine, l).height())
-            .collect();
+        let new_heights: Vec<Abs> =
+            lines.iter().map(|l| measure_line(engine, l).height()).collect();
 
         // Check convergence: same line count and similar heights
         if new_heights.len() == heights.len() {
@@ -413,7 +409,9 @@ fn linebreak_variable_split<'a>(
         // No splits needed after all
         return match p.config.linebreaks {
             Linebreaks::Simple => linebreak_simple_variable(engine, p, widths),
-            Linebreaks::Optimized => linebreak_optimized_variable(engine, p, widths, metrics),
+            Linebreaks::Optimized => {
+                linebreak_optimized_variable(engine, p, widths, metrics)
+            }
         };
     }
 
@@ -518,16 +516,19 @@ fn linebreak_simple_variable<'a>(
     let mut line_index = 0;
 
     let get_width = |idx: usize| -> Abs {
-        widths.get(idx).copied().unwrap_or_else(|| {
-            widths.last().copied().unwrap_or(Abs::inf())
-        })
+        widths
+            .get(idx)
+            .copied()
+            .unwrap_or_else(|| widths.last().copied().unwrap_or(Abs::inf()))
     };
 
     breakpoints(p, |end, breakpoint| {
         let width = get_width(line_index);
         let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
 
-        if !width.fits(attempt.width) && let Some((last_attempt, last_end)) = last.take() {
+        if !width.fits(attempt.width)
+            && let Some((last_attempt, last_end)) = last.take()
+        {
             lines.push(last_attempt);
             line_index += 1;
             start = last_end;
@@ -576,9 +577,10 @@ fn linebreak_optimized_variable<'a>(
     }
 
     let get_width = |idx: usize| -> Abs {
-        widths.get(idx).copied().unwrap_or_else(|| {
-            widths.last().copied().unwrap_or(Abs::inf())
-        })
+        widths
+            .get(idx)
+            .copied()
+            .unwrap_or_else(|| widths.last().copied().unwrap_or(Abs::inf()))
     };
 
     // Check if widths vary enough to disable pruning
@@ -683,9 +685,10 @@ fn linebreak_optimized_variable_with_splits<'a>(
     }
 
     let get_width = |idx: usize| -> Abs {
-        widths.get(idx).copied().unwrap_or_else(|| {
-            widths.last().copied().unwrap_or(Abs::inf())
-        })
+        widths
+            .get(idx)
+            .copied()
+            .unwrap_or_else(|| widths.last().copied().unwrap_or(Abs::inf()))
     };
 
     let widths_vary = widths.windows(2).any(|w| (w[0] - w[1]).abs() > Abs::pt(1.0));
@@ -704,11 +707,8 @@ fn linebreak_optimized_variable_with_splits<'a>(
     breakpoints(p, |end, breakpoint| {
         // Check if this position is a forced split
         let is_forced_split = split_positions.binary_search(&end).is_ok();
-        let effective_breakpoint = if is_forced_split {
-            Breakpoint::Mandatory
-        } else {
-            breakpoint
-        };
+        let effective_breakpoint =
+            if is_forced_split { Breakpoint::Mandatory } else { breakpoint };
 
         let mut best: Option<Entry> = None;
 
@@ -719,7 +719,8 @@ fn linebreak_optimized_variable_with_splits<'a>(
             let this_line_index = if pred_index == 0 { 0 } else { pred.line_index + 1 };
             let width = get_width(this_line_index);
 
-            let attempt = line(engine, p, start..end, effective_breakpoint, Some(&pred.line));
+            let attempt =
+                line(engine, p, start..end, effective_breakpoint, Some(&pred.line));
 
             let (line_ratio, line_cost) = ratio_and_cost(
                 p,

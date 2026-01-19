@@ -42,7 +42,17 @@ pub fn finalize(
     // If we have exclusions, compute per-line x-offsets based on y-position.
     // Otherwise, use the simple fast path with no offsets.
     if let Some(excl) = exclusions {
-        finalize_with_exclusions(engine, p, lines, width, region.y, locator, excl, leading, line_widths)
+        finalize_with_exclusions(
+            engine,
+            p,
+            lines,
+            width,
+            region.y,
+            locator,
+            excl,
+            leading,
+            line_widths,
+        )
     } else {
         // Fast path: no exclusions, all lines at x=0
         lines

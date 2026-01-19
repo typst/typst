@@ -58,7 +58,7 @@ use typst_timing::{TimingScope, timed};
 use typst_utils::Protected;
 
 use crate::foundations::{Target, TargetElem};
-use crate::model::{clear_cite_group_registry, DocumentInfo};
+use crate::model::{DocumentInfo, clear_cite_group_registry};
 
 /// Compile sources into a fully layouted document.
 ///

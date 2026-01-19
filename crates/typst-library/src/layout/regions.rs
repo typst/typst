@@ -733,10 +733,11 @@ mod exclusion_tests {
         let mut frame = Frame::soft(Size::new(pt(80.0), pt(100.0)));
         frame.set_size(Size::new(pt(80.0), pt(100.0)));
 
-        let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Start, pt(10.0));
+        let wf =
+            WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Start, pt(10.0));
 
         assert_eq!(wf.y, pt(50.0));
-        assert_eq!(wf.height, pt(100.0));
+        assert_eq!(wf.height, pt(110.0)); // 100 + 10 clearance for vertical spacing
         assert_eq!(wf.left_margin, pt(90.0)); // 80 + 10 clearance
         assert_eq!(wf.right_margin, Abs::zero());
     }
@@ -749,7 +750,7 @@ mod exclusion_tests {
         let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::End, pt(10.0));
 
         assert_eq!(wf.y, pt(50.0));
-        assert_eq!(wf.height, pt(100.0));
+        assert_eq!(wf.height, pt(110.0)); // 100 + 10 clearance for vertical spacing
         assert_eq!(wf.left_margin, Abs::zero());
         assert_eq!(wf.right_margin, pt(90.0)); // 80 + 10 clearance
     }
@@ -759,10 +760,11 @@ mod exclusion_tests {
         let mut frame = Frame::soft(Size::new(pt(80.0), pt(100.0)));
         frame.set_size(Size::new(pt(80.0), pt(100.0)));
 
-        let wf = WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Center, pt(10.0));
+        let wf =
+            WrapFloat::from_placed(&frame, pt(50.0), FixedAlignment::Center, pt(10.0));
 
         assert_eq!(wf.y, pt(50.0));
-        assert_eq!(wf.height, pt(100.0));
+        assert_eq!(wf.height, pt(110.0)); // 100 + 10 clearance for vertical spacing
         // Center: (80 + 10) / 2 = 45 each side
         assert_eq!(wf.left_margin, pt(45.0));
         assert_eq!(wf.right_margin, pt(45.0));
@@ -778,7 +780,12 @@ mod exclusion_tests {
         assert!(ParExclusions { zones: vec![] }.is_empty());
 
         let non_empty = ParExclusions {
-            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), pt(50.0), Abs::zero())],
+            zones: vec![ExclusionZone::new(
+                Abs::zero(),
+                pt(100.0),
+                pt(50.0),
+                Abs::zero(),
+            )],
         };
         assert!(!non_empty.is_empty());
     }
@@ -799,7 +806,12 @@ mod exclusion_tests {
     #[test]
     fn test_exclusion_zone_only_left() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), pt(50.0), Abs::zero())],
+            zones: vec![ExclusionZone::new(
+                Abs::zero(),
+                pt(100.0),
+                pt(50.0),
+                Abs::zero(),
+            )],
         };
 
         let base = pt(200.0);
@@ -810,7 +822,12 @@ mod exclusion_tests {
     #[test]
     fn test_exclusion_zone_only_right() {
         let excl = ParExclusions {
-            zones: vec![ExclusionZone::new(Abs::zero(), pt(100.0), Abs::zero(), pt(50.0))],
+            zones: vec![ExclusionZone::new(
+                Abs::zero(),
+                pt(100.0),
+                Abs::zero(),
+                pt(50.0),
+            )],
         };
 
         let base = pt(200.0);

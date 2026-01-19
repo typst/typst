@@ -622,17 +622,12 @@ impl Works {
         // then add registered groups whose locations aren't already present.
         // This ensures citations can find themselves while maintaining proper
         // disambiguation based on all known citations.
-        let existing_locations: std::collections::HashSet<_> = introspector_groups
-            .iter()
-            .filter_map(|g| g.location())
-            .collect();
+        let existing_locations: std::collections::HashSet<_> =
+            introspector_groups.iter().filter_map(|g| g.location()).collect();
 
         let mut result = introspector_groups;
         for group in registered {
-            if group
-                .location()
-                .is_some_and(|loc| !existing_locations.contains(&loc))
-            {
+            if group.location().is_some_and(|loc| !existing_locations.contains(&loc)) {
                 result.push(group);
             }
         }

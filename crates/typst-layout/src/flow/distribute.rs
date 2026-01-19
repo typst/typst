@@ -105,16 +105,17 @@ impl WrapState {
     ///
     /// Returns `None` if there are no exclusions overlapping the paragraph,
     /// which is an optimization to avoid unnecessary work in the common case.
-    fn exclusions_for(&self, par_y: Abs, par_height_estimate: Abs) -> Option<ParExclusions> {
+    fn exclusions_for(
+        &self,
+        par_y: Abs,
+        par_height_estimate: Abs,
+    ) -> Option<ParExclusions> {
         if self.floats.is_empty() {
             return None;
         }
-        let excl = ParExclusions::from_wrap_floats(par_y, par_height_estimate, &self.floats);
-        if excl.is_empty() {
-            None
-        } else {
-            Some(excl)
-        }
+        let excl =
+            ParExclusions::from_wrap_floats(par_y, par_height_estimate, &self.floats);
+        if excl.is_empty() { None } else { Some(excl) }
     }
 
     /// Find the bottom of existing floats on the given side.
@@ -279,7 +280,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     return false;
                 }
                 // These are "peeked beyond" for spacing collapsing purposes.
-                Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) | Item::WrapFloat(..) => {}
+                Item::Tag(_)
+                | Item::Abs(_, 0)
+                | Item::Placed(..)
+                | Item::WrapFloat(..) => {}
                 // Any kind of fractional spacing destructs weak relative
                 // spacing.
                 Item::Fr(.., None) => return false,
@@ -309,7 +313,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 // These are "peeked beyond" for spacing collapsing purposes.
                 // Weak absolute spacing, in particular, will be trimmed once
                 // we push the fractional spacing.
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {
+                }
                 // For weak + strong fr spacing, we keep both, same as for
                 // weak + strong rel spacing.
                 Item::Fr(.., None) => return true,
@@ -333,7 +338,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     self.items.remove(i);
                     break;
                 }
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {
+                }
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -344,7 +350,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for item in self.items.iter().rev() {
             match *item {
                 Item::Abs(amount, 1..) => return amount,
-                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {}
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) | Item::WrapFloat(..) => {
+                }
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
@@ -395,8 +402,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let initial_measured = par.measure(self.composer.engine, None)?;
 
         // Compute exclusions from wrap-floats based on estimated position and height.
-        let initial_exclusions =
-            self.wrap_state.exclusions_for(current_y, initial_measured.total_height);
+        let initial_exclusions = self
+            .wrap_state
+            .exclusions_for(current_y, initial_measured.total_height);
 
         // If we have exclusions, use iterative refinement to converge on stable
         // line breaks. Otherwise, use the initial measurement directly.
@@ -407,7 +415,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         };
 
         // Commit with the same exclusions used in the final measure.
-        let result = par.commit(self.composer.engine, &measured, final_exclusions.as_ref())?;
+        let result =
+            par.commit(self.composer.engine, &measured, final_exclusions.as_ref())?;
 
         // Warn if text overflowed the wrap-float gap (e.g., a word too wide to fit).
         if measured.has_overfull && final_exclusions.is_some() {
@@ -432,7 +441,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let prevent_all = len == 3 && prevent_orphans && prevent_widows;
 
         // Compute heights for widow/orphan logic.
-        let height_at = |i: usize| result.frames.get(i).map(Frame::height).unwrap_or_default();
+        let height_at =
+            |i: usize| result.frames.get(i).map(Frame::height).unwrap_or_default();
         let front_1 = height_at(0);
         let front_2 = height_at(1);
         let back_2 = height_at(len.saturating_sub(2));
@@ -507,7 +517,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut prev_break_info = initial_measured.break_info.clone();
 
         // Track seen break patterns to detect oscillation
-        let mut seen_patterns: Vec<Vec<crate::inline::BreakInfo>> = vec![prev_break_info.clone()];
+        let mut seen_patterns: Vec<Vec<crate::inline::BreakInfo>> =
+            vec![prev_break_info.clone()];
 
         for _iteration in 0..MAX_WRAP_ITER {
             // Measure with current exclusions
@@ -580,9 +591,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // Re-measure and re-commit the paragraph with current region's exclusions.
             let measured =
                 spill.par.measure(self.composer.engine, current_exclusions.as_ref())?;
-            let result = spill
-                .par
-                .commit(self.composer.engine, &measured, current_exclusions.as_ref())?;
+            let result = spill.par.commit(
+                self.composer.engine,
+                &measured,
+                current_exclusions.as_ref(),
+            )?;
 
             // Compute widow/orphan prevention needs (same logic as in par()).
             let costs = spill.par.styles.get(TextElem::costs);
@@ -667,11 +680,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // If the line's need doesn't fit here but does fit in next region,
             // save remaining frames and finish the region.
             if !self.regions.size.y.fits(need)
-                && self
-                    .regions
-                    .iter()
-                    .nth(1)
-                    .is_some_and(|region| region.y.fits(need))
+                && self.regions.iter().nth(1).is_some_and(|region| region.y.fits(need))
             {
                 let remaining: Vec<(Frame, Abs)> =
                     std::iter::once((frame, need)).chain(frames_iter).collect();
@@ -976,7 +985,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Push the wrap-float item. Note: wrap-floats don't consume vertical
         // space - they're rendered but text flows past them.
         self.flush_tags();
-        self.items.push(Item::WrapFloat(frame, y, placed.align_x, placed.delta));
+        self.items
+            .push(Item::WrapFloat(frame, y, placed.align_x, placed.delta));
 
         Ok(())
     }
