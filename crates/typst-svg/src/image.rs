@@ -10,30 +10,33 @@ use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::{SVGRenderer, State, SvgMatrix};
+use crate::write::{SvgElem, SvgTransform, SvgWrite};
+use crate::{SVGRenderer, State};
 
 impl SVGRenderer<'_> {
     /// Render an image element.
     pub(super) fn render_image(
         &mut self,
+        svg: &mut SvgElem,
         state: &State,
         image: &Image,
         size: &Axes<Abs>,
     ) {
         let url = convert_image_to_base64_url(image);
-        self.xml.start_element("image");
+        let mut svg = svg.elem("image");
         if !state.transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+            svg.attr("transform", SvgTransform(state.transform));
         }
-        self.xml.write_attribute("xlink:href", &url);
-        self.xml.write_attribute("width", &size.x.to_pt());
-        self.xml.write_attribute("height", &size.y.to_pt());
-        self.xml.write_attribute("preserveAspectRatio", "none");
+        svg.attr("xlink:href", url);
+        svg.attr("width", size.x.to_pt());
+        svg.attr("height", size.y.to_pt());
+        svg.attr("preserveAspectRatio", "none");
         if let Some(value) = convert_image_scaling(image.scaling()) {
-            self.xml
-                .write_attribute("style", &format_args!("image-rendering: {value}"))
+            svg.attr_with("style", |attr| {
+                attr.push_str("image-rendering: ");
+                attr.push_str(value);
+            });
         }
-        self.xml.end_element();
     }
 }
 

@@ -9,15 +9,17 @@ use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Bytes;
+use typst_kit::files::FileLoader;
 use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
+    FileId, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident,
+    is_newline,
 };
 use unscanny::Scanner;
 
 use crate::output::HashedRefs;
-use crate::world::{read, system_path};
+use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -585,8 +587,11 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::new(self.path);
-            let source = Source::new(FileId::new(None, vpath), text.into());
+            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
+            let source = Source::new(
+                RootedPath::new(VirtualRoot::Project, vpath).intern(),
+                text.into(),
+            );
 
             self.s.jump(start);
             self.line = self.test_start_line;
@@ -709,8 +714,8 @@ impl<'a> Parser<'a> {
                 return None;
             }
 
-            let vpath = VirtualPath::new(path);
-            file = Some(FileId::new(None, vpath));
+            let vpath = VirtualPath::new(path).unwrap();
+            file = Some(RootedPath::new(VirtualRoot::Project, vpath).intern());
 
             self.s.eat_if(' ');
         }
@@ -748,15 +753,7 @@ impl<'a> Parser<'a> {
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
     fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
-        let path = match system_path(file) {
-            Ok(path) => path,
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
-        };
-
-        let bytes = match read(&path) {
+        let bytes = match TestFiles.load(file) {
             Ok(data) => Bytes::new(data),
             Err(err) => {
                 self.error(err.to_string());
@@ -765,9 +762,9 @@ impl<'a> Parser<'a> {
         };
 
         let start = self.parse_line_col()?;
-        let lines = Lines::try_from(&bytes).expect(
+        let lines = bytes.lines().expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid UTF-8)",
+             that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;

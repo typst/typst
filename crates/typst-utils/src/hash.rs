@@ -7,10 +7,29 @@ use portable_atomic::AtomicU128;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 /// Calculate a 128-bit siphash of a value.
+///
+/// To make the hash stable between 64-bit and 32-bit architectures, usize is
+/// hashed as u64.
 pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
-    let mut state = SipHasher13::new();
+    struct StableHasher(SipHasher13);
+
+    impl Hasher for StableHasher {
+        fn finish(&self) -> u64 {
+            self.0.finish()
+        }
+
+        fn write(&mut self, bytes: &[u8]) {
+            self.0.write(bytes);
+        }
+
+        fn write_usize(&mut self, i: usize) {
+            self.0.write_u64(i as u64);
+        }
+    }
+
+    let mut state = StableHasher(SipHasher13::new());
     value.hash(&mut state);
-    state.finish128().as_u128()
+    state.0.finish128().as_u128()
 }
 
 /// A wrapper type with lazily-computed hash.
