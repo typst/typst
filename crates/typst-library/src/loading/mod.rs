@@ -27,7 +27,7 @@ use comemo::Tracked;
 use typst_syntax::{FileId, Spanned};
 
 use crate::World;
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, HintedString, SourceResult};
 use crate::foundations::{Bytes, OneOrMultiple, PathOrStr, Scope, Str, cast};
 
 /// Hook up all `data-loading` definitions.
@@ -87,17 +87,19 @@ impl Load for Spanned<&DataSource> {
             DataSource::Path(path) => {
                 let resolved =
                     path.resolve_if_some(self.span.id()).at(self.span)?.intern();
-                let data = world.file(resolved).at(self.span).map_err(|mut diags| {
-                    if let PathOrStr::Str(string) = &path
-                        && (string.as_str().starts_with("http://")
-                            || string.as_str().starts_with("https://"))
-                    {
-                        for diag in diags.make_mut() {
-                            diag.hint("network access is not supported");
+                let data = world
+                    .file(resolved)
+                    .map_err(|error| {
+                        let mut hinted = HintedString::from(error);
+                        if let PathOrStr::Str(string) = &path
+                            && (string.as_str().starts_with("http://")
+                                || string.as_str().starts_with("https://"))
+                        {
+                            hinted.hint("network access is not supported");
                         }
-                    }
-                    diags
-                })?;
+                        hinted
+                    })
+                    .at(self.span)?;
                 let source = Spanned::new(LoadSource::Path(resolved), self.span);
                 Ok(Loaded::new(source, data))
             }
