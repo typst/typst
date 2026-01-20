@@ -29,6 +29,9 @@ pub fn module() -> Module {
     scope.define_func::<sinh>();
     scope.define_func::<cosh>();
     scope.define_func::<tanh>();
+    scope.define_func::<asinh>();
+    scope.define_func::<acosh>();
+    scope.define_func::<atanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
     scope.define_func::<fact>();
