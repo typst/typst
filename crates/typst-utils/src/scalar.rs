@@ -43,6 +43,9 @@ impl Scalar {
 
     /// Raises a number to an integer power.
     pub fn powi(self, mut b: i32) -> Self {
+        // Ported from https://github.com/llvm/llvm-project/blob/0ee439b/compiler-rt/lib/builtins/powidf2.c
+        // Copyright: The LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        // See NOTICE for full attribution.
         let mut a = self.get();
         let recip = b < 0;
         let mut r = 1.0;
