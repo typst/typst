@@ -413,11 +413,11 @@
 
 --- calc-asinh paged ---
 #test(calc.asinh(0), 0.0)
-#test(calc.asinh(1), calc.log(1 + calc.sqrt(2)))
+#test(calc.asinh(1), calc.ln(1 + calc.sqrt(2)))
 
 --- calc-acosh paged ---
 #test(calc.acosh(1), 0.0)
-#test(calc.acosh(2), calc.log(2 + calc.sqrt(3)))
+#test(calc.acosh(2), calc.ln(2 + calc.sqrt(3)))
 
 --- calc-acosh-less-than-1 paged ---
 // Error: 13-16 value must be greater than or equal to 1
@@ -425,7 +425,7 @@
 
 --- calc-atanh paged ---
 #test(calc.atanh(0), 0.0)
-#test(calc.atanh(0.5), 0.5 * calc.log(3))
+#test(calc.atanh(0.5), 0.5 * calc.ln(3))
 
 --- calc-atanh-less-than-negative-1 paged ---
 // Error: 13-15 value must be between -1 and 1 (exclusive)
