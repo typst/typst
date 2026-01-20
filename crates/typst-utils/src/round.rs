@@ -46,14 +46,14 @@ pub fn round_with_precision(value: f64, precision: i16) -> f64 {
         return value * 0.0;
     }
     if precision > 0 {
-        let offset = 10_f64.powi(precision.into());
+        let offset = libm::exp10(precision.into());
         assert!((value * offset).is_finite(), "{value} * {offset} is not finite!");
         (value * offset).round() / offset
     } else {
         // Divide instead of multiplying by a negative exponent given that
         // `f64::MAX_10_EXP` is larger than `f64::MIN_10_EXP` in absolute value
         // (|308| > |-307|), allowing for the precision of -308 to be used.
-        let offset = 10_f64.powi((-precision).into());
+        let offset = libm::exp10(-f64::from(precision));
         (value / offset).round() * offset
     }
 }
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_round_with_precision_fuzzy_negative() {
-        let exp10 = |exponent: i16| 10_f64.powi(exponent.into());
+        let exp10 = |exponent: i16| libm::exp10(exponent.into());
         let max_digits = f64::MAX_10_EXP as i16;
         let max_up = max_digits + 1;
         let max_down = max_digits - 1;
