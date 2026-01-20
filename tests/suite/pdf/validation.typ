@@ -1,9 +1,9 @@
---- pdf-validation-tofu paged pdfstandard(ua-1) ---
+--- pdf-validation-tofu pdf pdfstandard(ua-1) ---
 // Error: 1-2 PDF/UA-1 error: the text `"ግ"` could not be displayed with font `"Libertinus Serif"`
 // Hint: 1-2 try using a different font
 ግ
 
---- pdf-validation-tofu-in-svg paged pdfstandard(ua-1) ---
+--- pdf-validation-tofu-in-svg pdf pdfstandard(ua-1) ---
 // A spanless error without a font name is kinda bad, but this used to be a
 // crash, so it's already an improvement.
 
