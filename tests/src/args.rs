@@ -1,5 +1,5 @@
+use std::cell::OnceCell;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU8, Ordering};
 
 use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
@@ -81,24 +81,26 @@ pub struct CliArguments {
 impl CliArguments {
     /// The stages which should be run depending on the `--stages` flag.
     pub fn stages(&self) -> TestStages {
-        static CACHED: AtomicU8 = AtomicU8::new(0xFF);
-
-        if CACHED.load(Ordering::Relaxed) == 0xFF {
-            let mut stages = TestStages::empty();
-            if self.stages.is_empty() {
-                stages = TestStages::all();
-            } else {
-                for &s in self.stages.iter() {
-                    stages |= s.into();
-                }
-
-                stages = stages.with_implied();
-            };
-
-            CACHED.store(stages.bits(), Ordering::Relaxed);
+        thread_local! {
+            static CACHED: OnceCell<TestStages> = const { OnceCell::new() };
         }
 
-        TestStages::from_bits(CACHED.load(Ordering::Relaxed)).unwrap()
+        CACHED.with(|cell| {
+            *cell.get_or_init(|| {
+                if self.stages.is_empty() {
+                    TestStages::all()
+                } else {
+                    let mut stages = TestStages::empty();
+                    for &s in self.stages.iter() {
+                        stages |= s.into();
+                    }
+
+                    // Must be in this order, otherwise any paged output target
+                    // would enable all others.
+                    stages.with_implied().with_required()
+                }
+            })
+        })
     }
 
     /// Whether the stage should be run depending on the `--stages` flag.

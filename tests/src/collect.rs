@@ -108,6 +108,14 @@ pub trait TestStage: Into<TestStages> + Display + Copy {}
 bitflags! {
     /// The stages a test in ran through. This combines both compilation targets
     /// and output formats.
+    ///
+    /// Here's a visual representation of the stage tree:
+    /// ```txt
+    ///        ╭─> render
+    /// paged ─┼─> pdf ───> pdftags
+    ///        ╰─> svg
+    /// html  ───> html
+    /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct TestStages: u8 {
         const PAGED = 1 << 0;
@@ -141,7 +149,7 @@ impl TestStages {
     /// All stages that require a pdf document.
     pub const PDF_STAGES: Self = union!(TestStages::PDF, TestStages::PDFTAGS);
 
-    /// The union the supplied stages and their implied stages.
+    /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
     pub fn with_implied(&self) -> TestStages {
@@ -155,6 +163,47 @@ impl TestStages {
                 TestStages::SVG => TestStages::empty(),
                 TestStages::HTML => TestStages::empty(),
                 _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their required stages.
+    ///
+    /// For example, the `pdf` output requires the `paged` target.
+    /// And the `pdftags` output requires both `pdf` and `paged`.
+    pub fn with_required(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::empty(),
+                TestStages::RENDER => TestStages::PAGED,
+                TestStages::PDF => TestStages::PAGED,
+                TestStages::PDFTAGS => TestStages::PAGED | TestStages::PDF,
+                TestStages::SVG => TestStages::PAGED,
+                TestStages::HTML => TestStages::empty(),
+                _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their sibling stages.
+    ///
+    /// See the tree in [`TestStages`].
+    pub fn with_siblings(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::PAGED | TestStages::HTML,
+                TestStages::HTML => TestStages::PAGED | TestStages::HTML,
+
+                TestStages::RENDER => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::PDF => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::SVG => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+
+                TestStages::PDFTAGS => TestStages::PDFTAGS,
+                _ => unreachable!("{flag}"),
             });
         }
         res
@@ -632,6 +681,7 @@ impl<'a> Parser<'a> {
 
             match attr_name {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
+                "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
                 "pdfstandard" => {
                     let Some(param) = attr_params.take() else {
