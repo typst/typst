@@ -337,10 +337,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
-    let link = LinkElem::new(dest.into(), num)
+    // Link to the footnote entry.
+    let link = LinkElem::new(dest.into(), num).pack();
+    let sup = SuperElem::new(link)
         .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
-    let sup = SuperElem::new(link).pack().spanned(span);
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
+        .spanned(span);
 
     // Indicates the presence of a default footnote rule to emit an error when
     // no footnote container is available.
@@ -434,16 +436,14 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let span = elem.span();
-    let (dest, num, body) = elem.realize(engine, styles)?;
-    let alt = num.plain_text();
-    let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
+    let (link, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let prefix =
-        SuperElem::new(link.styled(HtmlElem::role.set(Some("doc-backlink".into()))))
-            .pack()
-            .spanned(span);
+    let prefix = SuperElem::new(link)
+        .pack()
+        .styled(HtmlElem::role.set(Some("doc-backlink".into())))
+        .spanned(span);
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see

@@ -14,7 +14,7 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
+use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -289,13 +289,12 @@ pub struct FootnoteEntry {
 }
 
 impl Packed<FootnoteEntry> {
-    /// Returns the location which should be attached to the entry, the linking
-    /// destination, the resolved numbers, and the body content.
+    /// Returns the content of the backlink holding the number, and the entry body.
     pub fn realize(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Location, Content, Content)> {
+    ) -> SourceResult<(Content, Content)> {
         let span = self.span();
         let default = StyleChain::default();
         let numbering = self.note.numbering.get_ref(default);
@@ -308,9 +307,11 @@ impl Packed<FootnoteEntry> {
         };
 
         let num = counter.display_at(engine, dest, styles, numbering, span)?;
+        let alt = num.plain_text();
+        let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
 
-        Ok((dest, num, body))
+        Ok((link, body))
     }
 }
 
