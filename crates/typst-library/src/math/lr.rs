@@ -10,8 +10,11 @@ use crate::foundations::{
     NativeFuncData, NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
     func,
 };
-use crate::layout::{Length, Rel};
+use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;
+
+/// How much less high scaled delimiters can be than what they wrap.
+pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
 /// Scales delimiters.
 ///

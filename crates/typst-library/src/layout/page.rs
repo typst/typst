@@ -306,7 +306,8 @@ pub struct PageElem {
     #[ghost]
     pub header: Smart<Option<Content>>,
 
-    /// The amount the header is raised into the top margin.
+    /// The amount the header is raised into the top margin. Ratios are relative
+    /// to the height of the top margin.
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub header_ascent: Rel<Length>,
@@ -342,7 +343,48 @@ pub struct PageElem {
     #[ghost]
     pub footer: Smart<Option<Content>>,
 
-    /// The amount the footer is lowered into the bottom margin.
+    /// The amount the footer is lowered into the bottom margin. Ratios are
+    /// relative to the height of the bottom margin.
+    ///
+    /// ```preview
+    /// #set page(
+    ///   height: 126pt,
+    ///   width: 240pt,
+    ///   margin: (top: 0pt, x: 20pt, bottom: 50pt),
+    ///   numbering: (..nums) => box(
+    ///     outset: (x: 50%),
+    ///     fill: orange.lighten(50%),
+    ///   )[6 / 8],
+    ///   footer-descent: 47%,
+    ///   foreground: place(bottom, {
+    ///     let arrow(height) = math.stretch(
+    ///       text(1.4em, sym.arrow.t.b),
+    ///       size: height,
+    ///     )
+    ///     set text(
+    ///       1.2em,
+    ///       purple.darken(10%),
+    ///       bottom-edge: "bounds",
+    ///       top-edge: "bounds",
+    ///     )
+    ///     set par(leading: 0.5em)
+    ///     import grid: cell
+    ///     context grid(
+    ///       align: center + horizon,
+    ///       columns: (37%, 10%, 6%, 47%),
+    ///       cell(rowspan: 2, align: right)[bottom\ margin],
+    ///       cell(rowspan: 2, align: left, arrow(page.margin.bottom)),
+    ///       arrow(page.margin.bottom * page.footer-descent.ratio),
+    ///       cell(align: left)[footer descent],
+    ///     )
+    ///   }),
+    /// )
+    /// #block(width: 100%, height: 100%, fill: green.lighten(75%), {
+    ///   set par(justify: true)
+    ///   set text(luma(25%))
+    ///   place(bottom, lorem(42))
+    /// })
+    /// ```
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub footer_descent: Rel<Length>,

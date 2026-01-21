@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::ops::Range;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -10,12 +11,12 @@ use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, Lines, VirtualPath};
+use typst_syntax::{FileId, VirtualPath};
 
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
-use crate::world::{TestWorld, system_path};
+use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
@@ -36,7 +37,8 @@ pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<OutputHashes>]) {
             continue;
         }
 
-        let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+        let ref_path =
+            T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
         if hashed_refs.is_empty() {
             std::fs::remove_file(ref_path).ok();
         } else {
@@ -346,12 +348,13 @@ impl<'a> Runner<'a> {
     fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
-        let source_path = self.test.source.id().vpath();
+        let source_path = self.test.source.id().get().vpath();
         let old_ref_hash =
             if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
                 hashed_refs.get(&self.test.name)
             } else {
-                let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+                let ref_path =
+                    T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
                 let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
                 let hashed_refs = HashedRefs::from_str(&string)
                     .inspect_err(|e| {
@@ -396,7 +399,8 @@ impl<'a> Runner<'a> {
         if crate::ARGS.update {
             let mut hashes = self.hashes[T::INDEX].write();
             let hashed_refs = hashes.get_mut(source_path).unwrap();
-            let ref_path = T::OUTPUT.hashed_ref_path(source_path.as_rootless_path());
+            let ref_path =
+                T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
             if skippable {
                 hashed_refs.remove(&self.test.name);
                 log!(
@@ -533,7 +537,7 @@ impl<'a> Runner<'a> {
             return "(empty)".into();
         }
 
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
         lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
@@ -543,7 +547,7 @@ impl<'a> Runner<'a> {
 
         let mut preamble = String::new();
         if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+            preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
         }
 
         if range.start == range.end {
@@ -559,7 +563,7 @@ impl<'a> Runner<'a> {
 
     /// Display a position as a line:column pair.
     fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
 
         let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
@@ -567,14 +571,5 @@ impl<'a> Runner<'a> {
         };
 
         if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
-    }
-
-    #[track_caller]
-    fn lookup(&self, file: FileId) -> Lines<String> {
-        if self.test.source.id() == file {
-            self.test.source.lines().clone()
-        } else {
-            self.world.lookup(file)
-        }
     }
 }

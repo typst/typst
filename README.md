@@ -53,7 +53,7 @@ Let's dissect what's going on:
 
 - We insert a heading with the `= Heading` syntax. One equals sign creates a top
   level heading, two create a subheading and so on. Typst has more lightweight
-  markup like this, see the [syntax] reference for a full list.
+  markup like this; see the [syntax] reference for a full list.
 
 - [Mathematical equations][math] are enclosed in dollar signs. By adding extra
   spaces around the contents of an equation, we can put it into a separate block.
@@ -127,8 +127,8 @@ Typst's CLI is available from different sources:
 
 - Nix users can
   - use the `typst` package with `nix-shell -p typst`
-  - build and run a development version with
-    `nix run github:typst/typst -- --version`.
+  - build and run the [Typst flake](https://github.com/typst/typst-flake) with
+    `nix run github:typst/typst-flake -- --version`.
 
 - Docker users can run a prebuilt image with
   `docker run ghcr.io/typst/typst:latest --help`.
@@ -139,7 +139,7 @@ Once you have installed Typst, you can use it like this:
 # Creates `file.pdf` in working directory.
 typst compile file.typ
 
-# Creates PDF file at the desired path.
+# Creates a PDF file at the desired path.
 typst compile path/to/source.typ path/to/output.pdf
 ```
 

@@ -32,8 +32,8 @@ typst-svg = { path = "crates/typst-svg", version = "0.14.2" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.14.2" }
 typst-timing = { path = "crates/typst-timing", version = "0.14.2" }
 typst-utils = { path = "crates/typst-utils", version = "0.14.2" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "0bbb3f7" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fe6cad9" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "57a38ca" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "c4e80f3" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -53,7 +53,7 @@ comemo = "0.5.0"
 csv = "1"
 ctrlc = "3.4.1"
 dirs = "6"
-ecow = { version = "0.2", features = ["serde"] }
+ecow = { version = "0.2.6", features = ["serde"] }
 either = "1"
 env_proxy = "0.4"
 fastrand = "2.3"
@@ -76,6 +76,7 @@ icu_segmenter = { version = "1.4", features = ["serde"] }
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
+itoa = "1"
 kamadak-exif = "0.6"
 krilla = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
 krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "84c6332" }
@@ -107,6 +108,7 @@ resvg = { version = "0.45", default-features = false, features = ["raster-images
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.20"
+ryu = "1"
 same-file = "1"
 self-replace = "1.3.7"
 semver = "1"
@@ -143,10 +145,8 @@ utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = { version = "0.51.5", default-features = false, features = ["simd"] }
 web-sys = "0.3"
-xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
-yaml-front-matter = "0.1"
 zip = { version = "5", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]

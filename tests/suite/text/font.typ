@@ -163,6 +163,15 @@ The number 123.
 // but not:
 #text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑")
 
+--- text-colr-svg-glyphs-different-size paged ---
+#set text(size: 11pt)
+#text(font: "Noto Color Emoji", "🔗⛓‍💥🖥️🔑") \
+#text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑") \
+
+#set text(size: 22pt)
+#text(font: "Noto Color Emoji", "🔗⛓‍💥🖥️🔑") \
+#text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑") \
+
 --- text-font-covers-bad-1 paged ---
 // Error: 17-59 coverage regex may only use dot, letters, and character classes
 // Hint: 17-59 the regex is applied to each letter individually
