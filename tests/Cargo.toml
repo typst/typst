@@ -22,6 +22,7 @@ typst-html = { workspace = true }
 typst-library = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
+typst-kit = { workspace = true }
 typst-svg = { workspace = true }
 typst-utils = { workspace = true }
 bitflags = { workspace = true }

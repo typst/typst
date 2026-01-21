@@ -11,12 +11,12 @@ use typst::diag::{SourceDiagnostic, Warned};
 use typst::layout::PagedDocument;
 use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, Lines, VirtualPath};
+use typst_syntax::{FileId, VirtualPath};
 
 use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
 use crate::logger::TestResult;
 use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
-use crate::world::{TestWorld, system_path};
+use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, custom, output};
 
 type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
@@ -91,10 +91,8 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        // Only compile paged document when the paged target is specified or
-        // implied. If so, run tests for all paged outputs unless excluded by
-        // the `--stages` flag. The test attribute still control which
-        // reference outputs are saved and compared though.
+        // Only compile paged document when the paged target is explicitly
+        // specified or required by paged outputs.
         if ARGS.should_run(self.test.attrs.stages & TestStages::PAGED_STAGES) {
             let mut doc = self.compile::<PagedDocument>(TestTarget::Paged);
 
@@ -117,7 +115,7 @@ impl<'a> Runner<'a> {
             }
             if ARGS.should_run(self.test.attrs.stages & TestStages::PDF_STAGES) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
-                if ARGS.should_run(TestStages::PDFTAGS) {
+                if ARGS.should_run(self.test.attrs.stages & TestStages::PDFTAGS) {
                     self.run_file_test::<output::Pdftags>(pdf.as_ref());
                 }
             }
@@ -148,35 +146,41 @@ impl<'a> Runner<'a> {
 
     /// Handle notes that weren't handled before.
     fn handle_not_emitted(&mut self) {
-        let mut first = true;
         for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            let mut missing_stages = TestStages::empty();
-            let required_stages = ARGS.stages() & self.test.attrs.stages;
-
-            // If a test stage requiring the paged target has been specified,
-            // require the annotated diagnostics to be present in any paged
-            // stage. For example if `pdftags` is specified and an error is
-            // emitted in the pdf stage, that is ok.
-            if !(required_stages & TestStages::PAGED_STAGES).is_empty()
-                && (seen & TestStages::PAGED_STAGES).is_empty()
-            {
-                missing_stages |= TestStages::PAGED;
-            }
-            if !(required_stages & TestStages::HTML).is_empty()
-                && (seen & TestStages::HTML).is_empty()
-            {
-                missing_stages |= TestStages::HTML;
-            }
-
-            if missing_stages.is_empty() {
+            let possible = self.test.attrs.stages & ARGS.stages();
+            if seen.is_empty() && !possible.is_empty() {
+                log!(self, "not emitted");
+                let note_range = self.format_range(note.file, &note.range);
+                log!(
+                    self,
+                    "  {}: {note_range} {} ({})",
+                    note.kind,
+                    note.message,
+                    note.pos
+                );
                 continue;
             }
-            let note_range = self.format_range(note.file, &note.range);
-            if first {
-                log!(self, "not emitted [{missing_stages}]");
-                first = false;
+
+            // Figure out if the diagnostic is only emitted in a specific in a
+            // specific output/target that isn't hit by all possible branches of
+            // the stage tree.
+            // See the doc comment on `TestStages` for an overview.
+            let attr_stages = self.test.attrs.stages & ARGS.stages();
+            let full_branch_coverage =
+                attr_stages.iter().all(|s| s.with_required().intersects(seen));
+            if full_branch_coverage {
+                continue;
             }
-            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos,);
+
+            let siblings = seen.with_siblings() & self.test.attrs.stages & ARGS.stages();
+            log!(
+                self,
+                "only emitted in [{seen}] but expected in [{siblings}], \
+                 consider narrowing the test attributes",
+            );
+
+            let note_range = self.format_range(note.file, &note.range);
+            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos);
         }
     }
 
@@ -537,7 +541,7 @@ impl<'a> Runner<'a> {
             return "(empty)".into();
         }
 
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
         lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
@@ -547,7 +551,7 @@ impl<'a> Runner<'a> {
 
         let mut preamble = String::new();
         if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+            preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
         }
 
         if range.start == range.end {
@@ -563,7 +567,7 @@ impl<'a> Runner<'a> {
 
     /// Display a position as a line:column pair.
     fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.lookup(file);
+        let lines = self.world.lines(file).unwrap();
 
         let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
@@ -571,14 +575,5 @@ impl<'a> Runner<'a> {
         };
 
         if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
-    }
-
-    #[track_caller]
-    fn lookup(&self, file: FileId) -> Lines<String> {
-        if self.test.source.id() == file {
-            self.test.source.lines().clone()
-        } else {
-            self.world.lookup(file)
-        }
     }
 }

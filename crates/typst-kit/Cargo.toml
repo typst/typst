@@ -16,6 +16,7 @@ typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+codespan-reporting = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true, optional = true }
@@ -23,10 +24,15 @@ fastrand = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
+notify = { workspace = true, optional = true }
 once_cell = { workspace = true }
+parking_lot = { workspace = true }
+rustc-hash = { workspace = true }
+same-file = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tar = { workspace = true, optional = true }
+tiny_http = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
 
 # Explicitly depend on OpenSSL if applicable, so that we can add the
@@ -35,27 +41,45 @@ ureq = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 
 [features]
-default = ["fonts", "packages"]
+default = []
 
-# Add font loading utilities
-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
+# Enables loading of embedded fonts via `fonts::embedded`.
+embedded-fonts = ["dep:typst-assets", "typst-assets/fonts"]
 
-# Add generic downloading utilities
-downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
+# Enables font discovery at paths and from the system via `fonts::scan` and
+# `fonts::system`.
+scan-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 
-# Add package downloading utilities, implies `downloads`
-packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar", "dep:fastrand"]
+# Enables loading of files from standard locations via `files::SystemFiles`.
+system-files = ["system-packages"]
 
-# Embeds some fonts into the binary:
-# - For text: Libertinus Serif, New Computer Modern
-# - For math: New Computer Modern Math
-# - For code: Deja Vu Sans Mono
-#
-# Implies `fonts`
-embed-fonts = ["fonts", "dep:typst-assets", "typst-assets/fonts"]
+# Enables loading of packages from standard locations via
+# `packages::SystemPackages`.
+system-packages = ["dep:dirs", "universe-packages"]
 
-# Whether to vendor OpenSSL. Not applicable to Windows and macOS builds.
+# Enables loading of packages from Typst Universe via
+# `packages::UniversePackages`.
+universe-packages = ["dep:flate2", "dep:tar", "dep:fastrand"]
+
+# Enables emitting terminal-style diagnostics via `diagnostics::emit`.
+emit-diagnostics = ["dep:codespan-reporting"]
+
+# Enables network requests via `downloader::SystemDownloader`.
+system-downloader = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
+
+# Enables file system watching via `watcher::Watcher`.
+watcher = ["dep:notify", "dep:same-file"]
+
+# Enables live-reloading HTTP serving via `server::HttpServer`.
+server = ["dep:tiny_http"]
+
+# Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
+# Windows and macOS build.
 vendor-openssl = ["openssl/vendored"]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

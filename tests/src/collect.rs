@@ -9,16 +9,17 @@ use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Bytes;
+use typst_kit::files::FileLoader;
 use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    FileId, Lines, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue,
-    is_ident, is_newline,
+    FileId, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident,
+    is_newline,
 };
 use unscanny::Scanner;
 
 use crate::output::HashedRefs;
-use crate::world::{read, system_path};
+use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -107,6 +108,14 @@ pub trait TestStage: Into<TestStages> + Display + Copy {}
 bitflags! {
     /// The stages a test in ran through. This combines both compilation targets
     /// and output formats.
+    ///
+    /// Here's a visual representation of the stage tree:
+    /// ```txt
+    ///        ╭─> render
+    /// paged ─┼─> pdf ───> pdftags
+    ///        ╰─> svg
+    /// html  ───> html
+    /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct TestStages: u8 {
         const PAGED = 1 << 0;
@@ -140,7 +149,7 @@ impl TestStages {
     /// All stages that require a pdf document.
     pub const PDF_STAGES: Self = union!(TestStages::PDF, TestStages::PDFTAGS);
 
-    /// The union the supplied stages and their implied stages.
+    /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
     pub fn with_implied(&self) -> TestStages {
@@ -154,6 +163,47 @@ impl TestStages {
                 TestStages::SVG => TestStages::empty(),
                 TestStages::HTML => TestStages::empty(),
                 _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their required stages.
+    ///
+    /// For example, the `pdf` output requires the `paged` target.
+    /// And the `pdftags` output requires both `pdf` and `paged`.
+    pub fn with_required(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::empty(),
+                TestStages::RENDER => TestStages::PAGED,
+                TestStages::PDF => TestStages::PAGED,
+                TestStages::PDFTAGS => TestStages::PAGED | TestStages::PDF,
+                TestStages::SVG => TestStages::PAGED,
+                TestStages::HTML => TestStages::empty(),
+                _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their sibling stages.
+    ///
+    /// See the tree in [`TestStages`].
+    pub fn with_siblings(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::PAGED | TestStages::HTML,
+                TestStages::HTML => TestStages::PAGED | TestStages::HTML,
+
+                TestStages::RENDER => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::PDF => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::SVG => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+
+                TestStages::PDFTAGS => TestStages::PDFTAGS,
+                _ => unreachable!("{flag}"),
             });
         }
         res
@@ -631,6 +681,7 @@ impl<'a> Parser<'a> {
 
             match attr_name {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
+                "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
                 "pdfstandard" => {
                     let Some(param) = attr_params.take() else {
@@ -752,15 +803,7 @@ impl<'a> Parser<'a> {
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
     fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
-        let path = match system_path(file) {
-            Ok(path) => path,
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
-        };
-
-        let bytes = match read(&path) {
+        let bytes = match TestFiles.load(file) {
             Ok(data) => Bytes::new(data),
             Err(err) => {
                 self.error(err.to_string());
@@ -769,9 +812,9 @@ impl<'a> Parser<'a> {
         };
 
         let start = self.parse_line_col()?;
-        let lines = Lines::try_from(&bytes).expect(
+        let lines = bytes.lines().expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid UTF-8)",
+             that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;
