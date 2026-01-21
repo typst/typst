@@ -60,7 +60,6 @@ fastrand = "2.3"
 flate2 = "1"
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
-rustc-hash = "2.1"
 glidesort = "0.1.2"
 hayagriva = "0.9.1"
 hayro = { version = "0.4.0", default-features = false }
@@ -108,6 +107,7 @@ regex-syntax = "0.8"
 resvg = { version = "0.45", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
+rustc-hash = "2.1"
 rustybuzz = "0.20"
 ryu = "1"
 same-file = "1"
@@ -136,8 +136,8 @@ typed-arena = "2"
 unicode-bidi = "0.3.18"
 unicode-ident = "1.0"
 unicode-math-class = "0.1"
-unicode-script = "0.5"
 unicode-normalization = "0.1.24"
+unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
