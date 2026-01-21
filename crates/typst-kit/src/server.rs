@@ -1,6 +1,6 @@
 //! A minimal hot-reloading HTTP server.
 
-#![cfg(feature = "server")]
+#![cfg(feature = "http-server")]
 
 use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};

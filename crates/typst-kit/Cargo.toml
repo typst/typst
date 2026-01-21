@@ -71,7 +71,7 @@ system-downloader = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl
 watcher = ["dep:notify", "dep:same-file"]
 
 # Enables live-reloading HTTP serving via `server::HttpServer`.
-server = ["dep:tiny_http"]
+http-server = ["dep:tiny_http"]
 
 # Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
 # Windows and macOS build.
