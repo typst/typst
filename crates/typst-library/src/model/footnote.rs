@@ -15,7 +15,7 @@ use crate::introspection::{
 };
 use crate::layout::{Abs, Em, Length, Ratio};
 use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
-use crate::text::{LocalName, TextElem, TextSize};
+use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -289,7 +289,8 @@ pub struct FootnoteEntry {
 }
 
 impl Packed<FootnoteEntry> {
-    /// Returns the content of the backlink holding the number, and the entry body.
+    /// Returns the content of the superscript that holds the number and links
+    /// back to the footnote, and the entry body.
     pub fn realize(
         &self,
         engine: &mut Engine,
@@ -309,9 +310,10 @@ impl Packed<FootnoteEntry> {
         let num = counter.display_at(engine, dest, styles, numbering, span)?;
         let alt = num.plain_text();
         let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
+        let sup = SuperElem::new(link).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
 
-        Ok((link, body))
+        Ok((sup, body))
     }
 }
 

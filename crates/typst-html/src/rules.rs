@@ -435,15 +435,13 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let span = elem.span();
-    let (link, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let prefix = SuperElem::new(link)
-        .pack()
+    let prefix = sup
         .styled(HtmlElem::role.set(Some("doc-backlink".into())))
-        .spanned(span);
+        .spanned(elem.span());
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see
