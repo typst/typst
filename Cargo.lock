@@ -3144,6 +3144,7 @@ dependencies = [
  "fastrand",
  "flate2",
  "fontdb",
+ "infer",
  "native-tls",
  "notify",
  "once_cell",
