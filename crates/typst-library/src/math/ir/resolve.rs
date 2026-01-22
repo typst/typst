@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_syntax::{Span, is_newline};
@@ -313,17 +315,70 @@ fn resolve_attach<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let outer_attachments = &mut [const { None }; 6];
+    let outer_attachments = &mut [const { AttachmentList::End }; 6];
     let item = resolve_inner_attach(elem, outer_attachments, false, ctx, styles)?;
     ctx.push(item);
     Ok(())
+}
+
+/// This is a mutable stack-allocated linked list used for attachment merging.
+///
+/// Consider: `attach(attach(attach(a, t: 1), b: 2), t: 3, b: 4)`.
+/// We would like this to become `attach(attach(b, t: 1, b: 2), t: 3, b: 4)`.
+///
+/// However if we only consider attachments in adjacent levels, we won't merge
+/// `b:4` inward because `b:2` is already present (but we will merge `t:3` in).
+/// But at the next step `b:2` would merge inwards, leaving us with the sorry
+/// state of `attach(attach(attach(a, t: 1, b: 2), t: 3), b: 4)` with `t:3` and
+/// `b:4` separated, despite originally starting at the same level!
+///
+/// So for correct handling we need a proper list of attachments, for which I am
+/// using a stack-allocated linked list to avoid allocations and because it's
+/// relatively straightforward.
+///
+/// Unfortunately, this does require the complication of interior mutability,
+/// i.e. the `Cell` type. See the linked section of "Learning Rust With Entirely
+/// Too Many Linked Lists" for more explanation:
+/// https://rust-unofficial.github.io/too-many-lists/infinity-stack-allocated.html
+enum AttachmentList<'a> {
+    Node {
+        /// We use `Option<Content>` instead of just `Content` to allow for the
+        /// "unmerging" operation used by primes in tr position.
+        data: Cell<Option<Content>>,
+        outer: &'a AttachmentList<'a>,
+    },
+    End,
+}
+
+impl<'a> AttachmentList<'a> {
+    fn inner(content: Option<Content>, outer: &'a Self) -> Self {
+        fn merge_inward(list: &AttachmentList) -> Option<Content> {
+            match list {
+                AttachmentList::Node { data, outer } => data.replace(merge_inward(outer)),
+                AttachmentList::End => None,
+            }
+        }
+        let data = content.or_else(|| merge_inward(outer));
+        AttachmentList::Node { data: Cell::new(data), outer }
+    }
+
+    fn unmerge(mut self: &Self, content: Content) {
+        let mut data = Some(content);
+        while data.is_some()
+            && let AttachmentList::Node { data: outer_data, outer } = self
+        {
+            data = outer_data.replace(data);
+            self = outer;
+        }
+        assert!(data.is_none(), "only called if we previously merged inward");
+    }
 }
 
 /// Recursively resolve the base of an `AttachElem`, merging outer attachments
 /// inwards.
 fn resolve_inner_attach<'a, 'v, 'e>(
     elem: &'a Packed<AttachElem>,
-    outer_attachments: &mut [Option<Content>; 6],
+    outer_attachments: &[AttachmentList; 6],
     outer_t_inside_tr: bool,
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
@@ -336,23 +391,22 @@ fn resolve_inner_attach<'a, 'v, 'e>(
     let sub_style_chain = bumped_styles.chain(sub_style);
 
     // Get the merged attachments without resolving them to items yet.
-    let (primed, merged_tr, t_inside_tr);
-    let mut attachments = {
+    let (no_inner_tr, t_inside_tr);
+    let attachments = {
         let [o_t, o_b, o_tl, o_tr, o_bl, o_br] = outer_attachments;
 
-        let tl = elem.tl.get_cloned(sup_style_chain).or_else(|| o_tl.take());
+        let tl = AttachmentList::inner(elem.tl.get_cloned(sup_style_chain), o_tl);
         // We remember the status of t and tr for correct prime handling below.
         let elem_t = elem.t.get_cloned(sup_style_chain);
         let elem_tr = elem.tr.get_cloned(sup_style_chain);
-        merged_tr = elem_tr.is_none() && o_tr.is_some();
-        t_inside_tr = elem_tr.is_none() && (elem_t.is_some() || outer_t_inside_tr);
-        let t = elem_t.or_else(|| o_t.take());
-        let tr = elem_tr.or_else(|| o_tr.take());
-        primed = tr.as_ref().is_some_and(|tr| tr.is::<PrimesElem>());
+        no_inner_tr = elem_tr.is_none();
+        t_inside_tr = no_inner_tr && (elem_t.is_some() || outer_t_inside_tr);
+        let t = AttachmentList::inner(elem_t, o_t);
+        let tr = AttachmentList::inner(elem_tr, o_tr);
 
-        let b = elem.b.get_cloned(sub_style_chain).or_else(|| o_b.take());
-        let bl = elem.bl.get_cloned(sub_style_chain).or_else(|| o_bl.take());
-        let br = elem.br.get_cloned(sub_style_chain).or_else(|| o_br.take());
+        let b = AttachmentList::inner(elem.b.get_cloned(sub_style_chain), o_b);
+        let bl = AttachmentList::inner(elem.bl.get_cloned(sub_style_chain), o_bl);
+        let br = AttachmentList::inner(elem.br.get_cloned(sub_style_chain), o_br);
 
         [t, b, tl, tr, bl, br]
     };
@@ -364,28 +418,40 @@ fn resolve_inner_attach<'a, 'v, 'e>(
         base_elem = &equation.body;
     }
     let base = if let Some(base_elem) = base_elem.to_packed::<AttachElem>() {
-        resolve_inner_attach(base_elem, &mut attachments, t_inside_tr, ctx, styles)?
+        resolve_inner_attach(base_elem, &attachments, t_inside_tr, ctx, styles)?
     } else {
         ctx.resolve_into_item(base_elem, styles)?
     };
 
+    // We can now take our inner attachments back out of the list.
+    let [t, b, tl, tr, bl, br] = attachments.map(|a| match a {
+        AttachmentList::Node { data: content, outer: _ } => content.into_inner(),
+        AttachmentList::End => None,
+    });
+
     // If we're not actually attaching anything, just return the base.
-    if attachments.iter().all(|a| a.is_none()) {
+    if [&t, &b, &tl, &tr, &bl, &br].iter().all(|a| a.is_none()) {
         return Ok(base);
     }
 
     // Apply limits, potentially joining top-right primes with the top attachment.
     let limits = base.limits().active(styles);
-    let [t, b, tl, mut tr, bl, br] = attachments;
-    if !limits && primed && merged_tr && t_inside_tr && t.is_some() {
-        // If we brought a primed tr inward but we don't have limits, yield it
-        // back to the outer attachment to avoid inverting the order with the
-        // `tr + t` addition.
-        assert!(outer_attachments[3].is_none());
-        outer_attachments[3] = tr.take();
-    }
     let (t, tr) = match (t, tr) {
-        (Some(t), Some(tr)) if !limits && primed => (None, Some(tr + t)),
+        (Some(t), Some(tr)) if !limits => {
+            let primed = tr.is::<PrimesElem>();
+            if primed && no_inner_tr && t_inside_tr {
+                // If we brought a primed tr inward, yield it back to the outer
+                // attachment to avoid inverting the order with `tr + t`.
+                // And note that `t + tr` would just look bad.
+                outer_attachments[3].unmerge(tr);
+                (None, Some(t))
+            } else if primed {
+                // This makes `x'^2` look better than `x^'^2`.
+                (None, Some(tr + t))
+            } else {
+                (Some(t), Some(tr))
+            }
+        }
         (Some(t), None) if !limits => (None, Some(t)),
         (t, tr) => (t, tr),
     };
