@@ -1,6 +1,45 @@
 // Test alignment of block equations.
 // Test show rules on equations.
 
+--- math-equation-block-syntax paged ---
+// Block equations require whitespace on both sides.
+#assert($ x $.block)
+#assert($ x y z $.block)
+#assert($
+x
+$.block)
+#assert($
+x
+y
+$.block)
+
+// Just whitespace also works.
+#assert($ $.block)
+#assert($
+$.block)
+#assert($
+
+
+$.block)
+
+// If either side lacks ws, we have an inline equation.
+#assert(not $x$.block)
+#assert(not $x
+$.block)
+#assert(not $
+x$.block)
+
+// Even if the inside has lots of whitespace.
+#assert(not $x
+
+
+y$.block)
+
+// And inline comments _do_ interrupt the block status.
+#assert($ /**/ $.block)
+#assert(not $/**/ $.block)
+#assert(not $ /**/$.block)
+
 --- math-equation-numbering paged ---
 #set page(width: 150pt)
 #set math.equation(numbering: "(I)")

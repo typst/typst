@@ -153,8 +153,8 @@ Multiple trailing line breaks.
 
 --- math-linebreaking-empty paged ---
 // Verify empty rows are handled ok.
-$ $\
-Nothing: $ $, just empty.
+$$\
+Nothing: $$, just empty.
 
 --- math-pagebreaking paged ---
 // Test breaking of equations at page boundaries.

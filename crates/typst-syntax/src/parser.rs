@@ -223,8 +223,10 @@ fn equation(p: &mut Parser) {
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
 fn math(p: &mut Parser, stop_set: SyntaxSet) {
     let m = p.marker();
-    math_exprs(p, stop_set);
-    p.wrap(m, SyntaxKind::Math);
+    let count = math_exprs(p, stop_set);
+    if count != 0 {
+        p.wrap(m, SyntaxKind::Math);
+    }
 }
 
 /// Parses a sequence of math expressions. Returns the number of expressions
