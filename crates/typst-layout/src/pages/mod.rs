@@ -15,7 +15,7 @@ use typst_library::introspection::{
     DocumentPosition, Introspector, IntrospectorBuilder, Locator, ManualPageCounter,
     SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Position, Transform};
+use typst_library::layout::{FrameItem, Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_utils::Protected;
@@ -23,6 +23,7 @@ use typst_utils::Protected;
 use self::collect::{Item, collect};
 use self::finalize::finalize;
 use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
+use crate::{Page, PagedDocument};
 
 /// Layout content into a document.
 ///

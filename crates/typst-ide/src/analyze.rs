@@ -3,9 +3,9 @@ use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
 use typst::AsDocument;
 use typst::foundations::{Label, Styles, Value};
-use typst::layout::PagedDocument;
 use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{LinkedNode, SyntaxKind, ast};
+use typst_layout::PagedDocument;
 
 use crate::IdeWorld;
 

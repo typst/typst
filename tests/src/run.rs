@@ -4,8 +4,8 @@ use std::path::Path;
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::foundations::{Content, Repr};
-use typst::layout::PagedDocument;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 use typst_syntax::Spanned;
 
 use crate::collect::{

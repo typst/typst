@@ -8,11 +8,12 @@ use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime, Duration};
-use typst::layout::{Abs, PagedDocument, Point, Size};
+use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
+use typst_layout::PagedDocument;
 use unscanny::Scanner;
 
 use crate::{FONTS, LIBRARY, OutlineItem, Resolver, contributors};

@@ -7,10 +7,10 @@ use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
 use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Repr, Scope};
 use typst::introspection::Introspector;
-use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 
 use crate::args::{Input, QueryCommand, Target};
 use crate::compile::print_diagnostics;

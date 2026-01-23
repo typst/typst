@@ -12,11 +12,12 @@ use tiny_skia as sk;
 use typst::Document;
 use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem};
-use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
+use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
 use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 

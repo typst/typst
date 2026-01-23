@@ -3,9 +3,10 @@ use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
 use typst::foundations::{Context, Scope, StyleChain, Value};
 use typst::syntax::{Span, SyntaxMode};
-use typst::{World, engine::Sink, introspection::Introspector, layout::PagedDocument};
+use typst::{World, engine::Sink, introspection::Introspector};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 
 use crate::args::{EvalCommand, Target};
 use crate::compile::print_diagnostics;

@@ -3,8 +3,9 @@ use std::fmt::Write;
 use typst::World;
 use typst::foundations::Smart;
 use typst::introspection::{Location, Tag};
-use typst::layout::{Frame, FrameItem, PagedDocument};
+use typst::layout::{Frame, FrameItem};
 use typst::model::DocumentInfo;
+use typst_layout::PagedDocument;
 
 use crate::collect::Test;
 use crate::world::TestWorld;

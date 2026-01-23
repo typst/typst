@@ -21,9 +21,10 @@ use std::hash::{Hash, Hasher};
 use ecow::eco_format;
 use krilla::configure::Validator;
 use serde::{Deserialize, Serialize};
+use typst_layout::PagedDocument;
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
-use typst_library::layout::{PageRanges, PagedDocument};
+use typst_library::layout::PageRanges;
 
 /// Export a document into a PDF file.
 ///

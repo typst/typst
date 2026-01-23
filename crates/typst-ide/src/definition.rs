@@ -92,8 +92,8 @@ mod tests {
 
     use typst::WorldExt;
     use typst::foundations::{IntoValue, NativeElement};
-    use typst::layout::PagedDocument;
     use typst::syntax::Side;
+    use typst_layout::PagedDocument;
 
     use super::{Definition, definition};
     use crate::tests::{FilePos, TestWorld, WorldLike};

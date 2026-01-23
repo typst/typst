@@ -16,9 +16,9 @@ use typst_library::model::Destination;
 use std::hash::Hash;
 
 use ecow::EcoString;
+use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
-    Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;

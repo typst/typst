@@ -19,6 +19,7 @@ use ecow::EcoVec;
 use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
+use typst_layout::PagedDocument;
 use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, assert_internal, bail, error,
     panic_internal,
@@ -27,7 +28,7 @@ use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
-    PagedDocument, PlaceElem, RepeatElem,
+    PlaceElem, RepeatElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{

@@ -1540,7 +1540,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use typst::AsDocument;
-    use typst::layout::PagedDocument;
+    use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};

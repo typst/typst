@@ -13,8 +13,9 @@
 //!   order-independent and thus much better suited for further processing than
 //!   the raw markup.
 //! - **Layouting:**
-//!   Next, the content is [laid out] into a [`PagedDocument`] containing one
-//!   [frame] per page with items at fixed positions.
+//!   Next, the content is [laid out] into a
+//!   [`PagedDocument`](typst_layout::PagedDocument) containing one [frame] per
+//!   page with items at fixed positions.
 //! - **Exporting:**
 //!   These frames can finally be exported into an output format (currently PDF,
 //!   PNG, SVG, and HTML).
@@ -45,13 +46,13 @@ use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
-use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};

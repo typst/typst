@@ -12,6 +12,7 @@ typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-pdf = { workspace = true }
 typst-svg = { workspace = true }
+typst-layout = { workspace = true }
 typst-html = { workspace = true }
 typst-render = { workspace = true }
 typst-syntax = { workspace = true }

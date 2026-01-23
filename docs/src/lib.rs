@@ -21,10 +21,11 @@ use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NativeParamInfo, NoneValue, Repr,
     Scope, Smart, Type, Value,
 };
-use typst::layout::{Abs, Margin, PageElem, PagedDocument};
+use typst::layout::{Abs, Margin, PageElem};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Category, Feature, Library, LibraryExt};
+use typst_layout::PagedDocument;
 use unicode_math_class::MathClass;
 
 macro_rules! load {

@@ -12,14 +12,13 @@ use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
+use typst_layout::PagedDocument;
 use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Location, Tag};
-use typst_library::layout::{
-    Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
-};
+use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
 use typst_library::model::HeadingElem;
 use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};

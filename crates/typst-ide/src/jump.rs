@@ -1,11 +1,12 @@
 use ecow::EcoVec;
 use typst::introspection::{DocumentPosition, HtmlPosition};
-use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
+use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
 use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
+use typst_layout::PagedDocument;
 
 use crate::IdeWorld;
 
@@ -47,8 +48,9 @@ impl JumpFromDocument for HtmlDocument {}
 
 mod jump_from_document_sealed {
     use typst::introspection::{HtmlPosition, InnerHtmlPosition};
-    use typst::layout::{PagedDocument, Position};
+    use typst::layout::Position;
     use typst_html::{HtmlDocument, HtmlNode, HtmlSliceExt};
+    use typst_layout::PagedDocument;
 
     use super::{Jump, jump_from_click_in_frame};
     use crate::IdeWorld;
@@ -374,9 +376,10 @@ mod jump_in_document_sealed {
 
     use ecow::EcoVec;
     use typst::introspection::HtmlPosition;
-    use typst::layout::{PagedDocument, Position};
+    use typst::layout::Position;
     use typst::syntax::Span;
     use typst_html::HtmlDocument;
+    use typst_layout::PagedDocument;
 
     use super::{find_in_elem, find_in_frame};
 
@@ -485,9 +488,10 @@ mod tests {
 
     use ecow::eco_vec;
     use typst::introspection::HtmlPosition;
-    use typst::layout::{Abs, PagedDocument, Point, Position};
+    use typst::layout::{Abs, Point, Position};
     use typst::utils::NonZeroExt;
     use typst_html::HtmlDocument;
+    use typst_layout::PagedDocument;
 
     use super::{Jump, jump_from_click, jump_from_cursor};
     use crate::tests::{FilePos, TestWorld, WorldLike};

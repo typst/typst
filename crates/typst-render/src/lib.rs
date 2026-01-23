@@ -6,9 +6,9 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
+use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Size,
-    Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
 };
 use typst_library::visualize::{Color, Geometry, Paint};
 

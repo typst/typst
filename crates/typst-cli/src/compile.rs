@@ -10,9 +10,10 @@ use typst::diag::{
     bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Page, PageRanges, PagedDocument};
+use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_html::HtmlDocument;
+use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{

@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use typst::layout::PagedDocument;
 use typst_fuzz::FuzzWorld;
+use typst_layout::PagedDocument;
 use typst_pdf::PdfOptions;
 
 fuzz_target!(|text: &str| {

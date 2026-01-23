@@ -9,10 +9,11 @@ use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
+use typst_layout::PagedDocument;
 use typst_library::diag::{HintedStrResult, SourceDiagnostic, assert_internal};
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
-use typst_library::layout::{Inherit, PagedDocument};
+use typst_library::layout::Inherit;
 use typst_library::model::LinkMarker;
 
 pub use build::build;
