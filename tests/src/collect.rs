@@ -7,6 +7,7 @@ use std::sync::{Arc, LazyLock};
 use bitflags::{Flags, bitflags};
 use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
+use typst::foundations::Target;
 use typst_pdf::PdfStandard;
 use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
@@ -274,6 +275,15 @@ impl Display for TestTarget {
             TestTarget::Paged => "paged",
             TestTarget::Html => "html",
         })
+    }
+}
+
+impl From<Target> for TestTarget {
+    fn from(target: Target) -> Self {
+        match target {
+            Target::Paged => TestTarget::Paged,
+            Target::Html => TestTarget::Html,
+        }
     }
 }
 

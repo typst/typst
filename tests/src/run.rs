@@ -3,7 +3,7 @@ use std::path::Path;
 
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
-use typst::foundations::{Content, Repr};
+use typst::foundations::{Content, Output, Repr};
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_syntax::Spanned;
@@ -14,9 +14,7 @@ use crate::collect::{
 };
 use crate::logger::TestResult;
 use crate::notes::{Note, NoteKind, NoteStatus};
-use crate::output::{
-    FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
-};
+use crate::output::{FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType};
 use crate::report::{Old, ReportFile};
 use crate::world::TestWorld;
 use crate::{ARGS, STORE_PATH, custom, git, output};
@@ -401,15 +399,16 @@ impl<'a> Runner<'a> {
     /// produces a document. In practice it also re-evaluates the sources and
     /// thus generates duplicate diagnostics for the eval stage, so we filter
     /// those out.
-    fn compile<D: TestDocument>(
+    fn compile<D: Output>(
         &mut self,
         evaluated: Warned<SourceResult<Content>>,
     ) -> Option<D> {
         let Warned { output, warnings } = typst::compile::<D>(&self.world);
+        let target = TestTarget::from(D::target());
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
         for warning in warnings.iter() {
-            self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
+            self.check_diagnostic(NoteKind::Warning, warning, target);
         }
 
         match output {
@@ -421,7 +420,7 @@ impl<'a> Runner<'a> {
                 let errors = eval::deduplicate_with(errors, eval_errors);
 
                 for error in errors.iter() {
-                    self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+                    self.check_diagnostic(NoteKind::Error, error, target);
                 }
 
                 None

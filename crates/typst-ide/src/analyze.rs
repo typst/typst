@@ -1,8 +1,7 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
-use typst::AsDocument;
-use typst::foundations::{Label, Styles, Value};
+use typst::foundations::{AsOutput, Label, Styles, Value};
 use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{LinkedNode, SyntaxKind, ast};
 use typst_layout::PagedDocument;
@@ -99,10 +98,8 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 ///
 /// Note: When multiple labels in the document have the same identifier,
 /// this only returns the first one.
-pub fn analyze_labels(
-    document: impl AsDocument,
-) -> (Vec<(Label, Option<EcoString>)>, usize) {
-    let introspector = document.as_document().introspector();
+pub fn analyze_labels(output: impl AsOutput) -> (Vec<(Label, Option<EcoString>)>, usize) {
+    let introspector = output.as_output().introspector();
 
     let mut output = vec![];
     let mut seen_labels = FxHashSet::default();

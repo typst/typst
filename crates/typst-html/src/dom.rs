@@ -1,11 +1,14 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
 use ecow::{EcoString, EcoVec};
-use typst_library::diag::{HintedStrResult, StrResult, bail};
-use typst_library::foundations::{Dict, Repr, Str, StyleChain, cast};
+use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
+use typst_library::engine::Engine;
+use typst_library::foundations::{
+    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+};
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
-use typst_library::model::DocumentInfo;
+use typst_library::model::{Document, DocumentInfo};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
@@ -21,6 +24,30 @@ pub struct HtmlDocument {
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
     pub introspector: Introspector,
+}
+
+impl Document for HtmlDocument {
+    fn info(&self) -> &DocumentInfo {
+        &self.info
+    }
+}
+
+impl Output for HtmlDocument {
+    fn introspector(&self) -> &Introspector {
+        &self.introspector
+    }
+
+    fn target() -> Target {
+        Target::Html
+    }
+
+    fn create(
+        engine: &mut Engine,
+        content: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Self> {
+        crate::html_document(engine, content, styles)
+    }
 }
 
 /// A child of an HTML element.

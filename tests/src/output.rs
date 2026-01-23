@@ -9,7 +9,6 @@ use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::Document;
 use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
@@ -21,22 +20,9 @@ use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
-use crate::collect::{Test, TestOutput, TestTarget};
+use crate::collect::{Test, TestOutput};
 use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
-
-pub trait TestDocument: Document {
-    /// The target of the document.
-    const TARGET: TestTarget;
-}
-
-impl TestDocument for PagedDocument {
-    const TARGET: TestTarget = TestTarget::Paged;
-}
-
-impl TestDocument for HtmlDocument {
-    const TARGET: TestTarget = TestTarget::Html;
-}
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]

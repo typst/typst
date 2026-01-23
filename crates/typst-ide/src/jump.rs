@@ -1,10 +1,11 @@
 use ecow::EcoVec;
+use typst::WorldExt;
+use typst::foundations::AsOutput;
 use typst::introspection::{DocumentPosition, HtmlPosition};
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
-use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
 use typst_layout::PagedDocument;
 
@@ -208,11 +209,11 @@ mod jump_from_document_sealed {
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click_in_frame(
     world: &dyn IdeWorld,
-    document: impl AsDocument,
+    output: impl AsOutput,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
-    let document = document.as_document();
+    let output = output.as_output();
 
     // Try to find a link first.
     for (pos, item) in frame.items() {
@@ -224,7 +225,7 @@ pub fn jump_from_click_in_frame(
                 Destination::Position(pos) => return Some(Jump::Position(*pos)),
                 Destination::Location(loc) => {
                     if let DocumentPosition::Paged(pos) =
-                        document.introspector().position(*loc)
+                        output.introspector().position(*loc)
                     {
                         return Some(Jump::Position(pos));
                     }
@@ -251,7 +252,7 @@ pub fn jump_from_click_in_frame(
                 };
                 let pos = pos.transform_inf(inv_transform);
                 if let Some(span) =
-                    jump_from_click_in_frame(world, document, &group.frame, pos)
+                    jump_from_click_in_frame(world, output, &group.frame, pos)
                 {
                     return Some(span);
                 }

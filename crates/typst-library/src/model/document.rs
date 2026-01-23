@@ -93,6 +93,12 @@ cast! {
     v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
+/// A document resulting from compilation.
+pub trait Document {
+    /// Get the document's metadata.
+    fn info(&self) -> &DocumentInfo;
+}
+
 /// Details about the document.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct DocumentInfo {

@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
 use ecow::{EcoString, eco_format};
-use typst::AsDocument;
 use typst::engine::Sink;
-use typst::foundations::{Capturer, CastInfo, Func, ParamInfo, Repr, Value, repr};
+use typst::foundations::{
+    AsOutput, Capturer, CastInfo, Func, ParamInfo, Repr, Value, repr,
+};
 use typst::layout::Length;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{LinkedNode, Side, Source, SyntaxKind, ast};
@@ -22,7 +23,7 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 /// document is available.
 pub fn tooltip(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    output: Option<impl AsOutput>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -34,7 +35,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| document.and_then(|doc| label_tooltip(doc, &leaf)))
+        .or_else(|| output.and_then(|output| label_tooltip(output, &leaf)))
         .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
@@ -174,14 +175,14 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(document: impl AsDocument, leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip(output: impl AsOutput, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
         _ => return None,
     };
 
-    for (label, detail) in analyze_labels(document).0 {
+    for (label, detail) in analyze_labels(output).0 {
         if label.resolve().as_str() == target {
             return Some(Tooltip::Text(detail?));
         }

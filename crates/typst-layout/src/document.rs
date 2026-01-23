@@ -1,7 +1,9 @@
-use typst_library::foundations::{Content, Smart};
+use typst_library::diag::SourceResult;
+use typst_library::engine::Engine;
+use typst_library::foundations::{Content, Output, Smart, StyleChain, Target};
 use typst_library::introspection::Introspector;
 use typst_library::layout::Frame;
-use typst_library::model::{DocumentInfo, Numbering};
+use typst_library::model::{Document, DocumentInfo, Numbering};
 use typst_library::visualize::{Color, Paint};
 
 /// A finished document with metadata and page frames.
@@ -13,6 +15,30 @@ pub struct PagedDocument {
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
     pub introspector: Introspector,
+}
+
+impl Document for PagedDocument {
+    fn info(&self) -> &DocumentInfo {
+        &self.info
+    }
+}
+
+impl Output for PagedDocument {
+    fn introspector(&self) -> &Introspector {
+        &self.introspector
+    }
+
+    fn target() -> Target {
+        Target::Paged
+    }
+
+    fn create(
+        engine: &mut Engine,
+        content: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Self> {
+        crate::layout_document(engine, content, styles)
+    }
 }
 
 /// A finished page.
