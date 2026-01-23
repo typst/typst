@@ -177,7 +177,17 @@ struct StackEntry {
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
     let mut tree = TreeBuilder::new(document, options);
-    for page in document.pages.iter() {
+    for (i, page) in document.pages.iter().enumerate() {
+        // Only build tree for pages that will be exported.
+        // When page ranges are specified, skip pages not in the range to avoid
+        // tree traversal mismatches during PDF generation.
+        if options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
+        {
+            continue;
+        }
         visit_frame(&mut tree, &page.frame)?;
     }
 
