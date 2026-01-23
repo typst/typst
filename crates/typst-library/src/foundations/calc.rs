@@ -31,6 +31,7 @@ pub fn module() -> Module {
     scope.define_func::<tanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
+    scope.define_func::<erf>();
     scope.define_func::<fact>();
     scope.define_func::<perm>();
     scope.define_func::<binom>();
@@ -466,6 +467,19 @@ pub fn ln(
     }
 
     Ok(result)
+}
+
+/// Applies the error function to a number.
+///
+/// ```example
+/// #calc.erf(0.2)
+/// ```
+#[func(title = "Error function")]
+pub fn erf(
+    /// The number whose error function to calculate.
+    value: f64,
+) -> f64 {
+    libm::erf(value)
 }
 
 /// Calculates the factorial of a number.

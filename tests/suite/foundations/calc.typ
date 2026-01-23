@@ -183,6 +183,13 @@
 #test(calc.exp(2), calc.pow(calc.e, 2))
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
+--- calc-erf paged ---
+// Test the `erf` function.
+#test(calc.erf(0), 0)
+#test(calc.erf(1), 0.8427007929497149)
+#test(calc.erf(calc.inf), 1)
+#test(calc.erf(- 1), - calc.erf(1))
+
 --- calc-bit-logical paged ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
 #test(64.bit-not(), -65)
