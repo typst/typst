@@ -16,3 +16,10 @@
 // Hint: 7-21 in earlier Typst versions, backslashes indicated path separators on Windows
 // Hint: 7-21 this behavior is no longer supported as it is not portable
 #path("to\\file.txt")
+
+--- path-map paged ---
+// Test that path can be mapped over an array of strings
+#test(
+  ("image.png", "projection.jpg", "transform.tiff").map(path),
+  (path("/tests/suite/foundations/image.png"), path("/tests/suite/foundations/projection.jpg"), path("/tests/suite/foundations/transform.tiff"))
+)
