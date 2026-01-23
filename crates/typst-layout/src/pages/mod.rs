@@ -151,9 +151,12 @@ fn layout_document_common(
     // level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
-
     let arenas = Arenas::default();
+
     let mut info = DocumentInfo::default();
+    info.populate(styles);
+    info.populate_locale(styles);
+
     let mut children = (engine.routines.realize)(
         RealizationKind::LayoutDocument { info: &mut info },
         &mut engine,

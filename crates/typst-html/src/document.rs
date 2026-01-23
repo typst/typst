@@ -151,9 +151,12 @@ fn html_document_common(
     // document level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
-
     let arenas = Arenas::default();
+
     let mut info = DocumentInfo::default();
+    info.populate(styles);
+    info.populate_locale(styles);
+
     let children = (engine.routines.realize)(
         RealizationKind::HtmlDocument {
             info: &mut info,

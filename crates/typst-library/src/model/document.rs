@@ -3,8 +3,8 @@ use typst_syntax::VirtualPath;
 
 use crate::diag::{HintedStrResult, bail, error};
 use crate::foundations::{
-    Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, Smart,
-    StyleChain, Target, Value, cast, elem,
+    Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, ShowSet,
+    Smart, StyleChain, Styles, Target, Value, cast, elem,
 };
 use crate::introspection::Locatable;
 use crate::text::{Locale, TextElem};
@@ -123,7 +123,7 @@ use crate::text::{Locale, TextElem};
 ///   #context document.title
 /// ]
 /// ```
-#[elem(Locatable)]
+#[elem(Locatable, ShowSet)]
 pub struct DocumentElem {
     /// The path in the bundle at which the exported document will be placed.
     ///
@@ -227,6 +227,30 @@ pub const DOCUMENT_UNSUPPORTED_RULE: ShowFn<DocumentElem> = |elem, _, _| {
         hint: "or use a `set document(..)` rule to configure metadata";
     )
 };
+
+impl ShowSet for Packed<DocumentElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        // Here, we make explicit document properties contextually available.
+        // This is mostly relevant for bundle export as document elements are
+        // not directly supported in other targets.
+        //
+        // Making the properties available like this is inconsistent with normal
+        // elements, but consistent with `page` and necessary to make the
+        // `title` element work.
+        //
+        // Nonetheless, it's fairly hacky and the whole thing should probably be
+        // revisited at some point. Also see
+        // <https://github.com/typst/typst/issues/6721>.
+        let mut styles = Styles::new();
+        self.format.copy_into(&mut styles);
+        self.title.copy_into(&mut styles);
+        self.author.copy_into(&mut styles);
+        self.description.copy_into(&mut styles);
+        self.keywords.copy_into(&mut styles);
+        self.date.copy_into(&mut styles);
+        styles
+    }
+}
 
 /// Supported export formats for bundle documents.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

@@ -156,6 +156,107 @@ Hello
 // Hint: 1-6 try wrapping the content in a `document` instead
 world
 
+--- document-properties-in-bundle bundle ---
+// Ensures that the title element works correctly in bundle export.
+// See the comment in `impl ShowSet for Packed<DocumentElem>` for more details.
+#document(
+  "hi.html",
+  title: [Test title],
+  author: "Test Author",
+  description: [Test description],
+  keywords: ("a", "b"),
+)[
+  #title()
+  // Testing all properties separately because, in the current implementation,
+  // they are manually "forwarded".
+  #context {
+    test(document.format, auto)
+    test(document.title, [Test title])
+    test(document.author, ("Test Author",))
+    test(document.description, [Test description])
+    test(document.keywords, ("a", "b"))
+    test(document.date, auto)
+  }
+]
+
+--- document-properties-precedence bundle ---
+// Tests the precedence of different ways to specify document metadata. Each
+// subcase's filename specifies the expected metadata output (for HTML, in the
+// tab bar) and printed output (what `#title()` displays), in that order.
+
+// Just an arg of course works.
+#document("1-arg-arg.html", title: [Arg], title())
+
+// Just a set rule, too.
+#for ext in ("html", "pdf") {
+  set document(title: [Outer])
+  document("2-outer-outer." + ext, title())
+}
+
+// An explicit arg wins against a set rule, as usual.
+#{
+  set document(title: [Outer])
+  document("3-arg-arg.html", title: [Arg], title())
+}
+
+// An interior set rule is also supported. While that's not the usual behavior
+// of Typst, this is how document metadata is configured in single-document
+// export. Supporting it in bundles, too, makes it easier to compose bundle
+// export with documents that also work standalone, e.g. something like
+// `document("paper.pdf", include "paper.typ")`.
+#document("4-inner-inner.html", {
+  set document(title: [Inner])
+  title()
+})
+
+// An interior set rule wins against an exterior one. The outer set rule can be
+// viewed similarly to the global default in its effect, so given that we want
+// to support interior `set document` at all, the inner one should win here.
+// Otherwise, the inner one wouldn't win against the global default either,
+// which makes no sense.
+#{
+  set document(title: [Outer])
+  document("5-inner-inner.html", {
+    set document(title: [Inner])
+    title()
+  })
+}
+
+// An interior set rule wins even against an explicit argument. This is a
+// little odd, but letting `document(title: ..)` have precedence is also
+// problematic, for two reasons:
+//
+// - By the time we're compiling the document, we can't distinguish whether
+//   `[Arg]` is an inherent property, came from a set rule, or is just the
+//   global default because the document element is already materialized. So if
+//   we always used that materialized property, an inner `set document` wouldn't
+//   ever have a chance to work. We could accept that, but having the title work
+//   in something like `document("paper.pdf", include "paper.typ")` where the
+//   paper already has a document set rule is too useful to ignore.
+//
+// - Even if we could make `[Arg]` win here, it would in turn be somewhat odd if
+//   moving bundle-level explicit arguments to a bundle-level set rule would not
+//   work (because `[Inner]` would definitely win against `[Outer]` if we want
+//   to support inner set document rules at all; see the `5-inner-inner.html`
+//   case).
+//
+// With the chosen implementation, all of bundle-level set rules, explicit
+// document constructor arguments, and set document rules within the document
+// work cleanly if used in isolation. The only slighty quirky behavior is that
+// an inner `set document` wins against an explicit argument.
+#for ext in ("html", "pdf") {
+  set document(title: [Outer])
+  document("6-inner-inner." + ext, title: [Arg])[
+    #set document(title: [Inner])
+    #title()
+  ]
+}
+
+--- document-property-bad-in-bundle bundle ---
+// This does not work because it's a required argument and not a settable one.
+// Error: 39-43 function `document` does not contain field `path`
+#document("hi.html", context document.path)
+
 --- document-set-in-container paged ---
 #box[
   // Error: 4-32 document set rules are not allowed inside of containers
