@@ -241,6 +241,11 @@ impl VirtualPath {
         out
     }
 
+    /// Extracts the path with a leading slash.
+    pub fn into_with_slash(self) -> EcoString {
+        self.0.into_with_slash()
+    }
+
     /// Returns the path with a leading slash.
     pub fn get_with_slash(&self) -> &str {
         self.0.get_with_slash()
@@ -474,6 +479,10 @@ impl Segments {
 
     fn is_empty(&self) -> bool {
         self.0.len() == 1
+    }
+
+    fn into_with_slash(self) -> EcoString {
+        self.0
     }
 
     fn get_with_slash(&self) -> &str {
