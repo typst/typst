@@ -394,6 +394,14 @@ impl<'a> Route<'a> {
         self.id == Some(id) || self.outer.is_some_and(|outer| outer.contains(id))
     }
 
+    /// Get the current file ID from the route, if available.
+    ///
+    /// Returns the file ID from the current route segment, or traverses
+    /// the outer route segments to find the most recent file ID.
+    pub fn file_id(&self) -> Option<FileId> {
+        self.id.or_else(|| self.outer.and_then(|outer| outer.file_id()))
+    }
+
     /// Whether the route's depth is less than or equal to the given depth.
     pub fn within(&self, depth: usize) -> bool {
         // We only need atomicity and no synchronization of other operations, so

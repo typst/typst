@@ -2,6 +2,7 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualRoot};
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, error};
+use crate::engine::Engine;
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 
 /// A file system path.
@@ -146,6 +147,7 @@ impl RootedPath {
     /// ```
     #[func(constructor)]
     pub fn construct(
+        engine: &mut Engine,
         /// Converts a string or path to a path.
         ///
         /// If this is a [path string]($path/#path-strings):
@@ -157,7 +159,9 @@ impl RootedPath {
         /// If this is already a `path`, it is returned unchanged.
         path: Spanned<PathOrStr>,
     ) -> SourceResult<RootedPath> {
-        path.v.resolve_if_some(path.span.id()).at(path.span)
+        // Try to get file ID from span first, then fall back to engine route
+        let file_id = path.span.id().or_else(|| engine.route.file_id());
+        path.v.resolve_if_some(file_id).at(path.span)
     }
 }
 
