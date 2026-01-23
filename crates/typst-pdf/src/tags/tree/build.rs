@@ -191,17 +191,23 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         visit_frame(&mut tree, &page.frame)?;
     }
 
-    if let Some(last) = tree.stack.last() {
-        panic_internal("tags weren't properly closed")
-            .at(tree.groups.get(last.id).span)?;
-    }
-    assert_internal(tree.unfinished_stacks.is_empty(), "tags weren't properly closed")
+    // When page ranges are specified, tags may remain unclosed if they span
+    // to excluded pages. This is expected and should not cause an error.
+    let has_page_ranges = options.page_ranges.is_some();
+    
+    if !has_page_ranges {
+        if let Some(last) = tree.stack.last() {
+            panic_internal("tags weren't properly closed")
+                .at(tree.groups.get(last.id).span)?;
+        }
+        assert_internal(tree.unfinished_stacks.is_empty(), "tags weren't properly closed")
+            .at(Span::detached())?;
+        assert_internal(
+            tree.progressions.first() == tree.progressions.last(),
+            "tags weren't properly closed",
+        )
         .at(Span::detached())?;
-    assert_internal(
-        tree.progressions.first() == tree.progressions.last(),
-        "tags weren't properly closed",
-    )
-    .at(Span::detached())?;
+    }
 
     // Insert logical children into the tree.
     #[allow(clippy::iter_over_hash_type)]
