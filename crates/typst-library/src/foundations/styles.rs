@@ -1030,6 +1030,7 @@ impl NativeRuleMap {
     fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
         self.register(Target::Paged, f);
         self.register(Target::Html, f);
+        self.register(Target::Bundle, f);
     }
 
     /// Registers a rule for a target.

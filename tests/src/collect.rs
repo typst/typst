@@ -283,6 +283,7 @@ impl From<Target> for TestTarget {
         match target {
             Target::Paged => TestTarget::Paged,
             Target::Html => TestTarget::Html,
+            Target::Bundle => todo!(),
         }
     }
 }

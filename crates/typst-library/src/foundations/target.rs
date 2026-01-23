@@ -70,6 +70,8 @@ pub enum Target {
     Paged,
     /// The target that is used for HTML export.
     Html,
+    /// The target for _bundle_ export.
+    Bundle,
 }
 
 impl Target {

@@ -101,8 +101,10 @@ fn compile_impl<T: Output>(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<T> {
-    if T::target() == Target::Html {
-        warn_or_error_for_html(world, sink)?;
+    match T::target() {
+        Target::Paged => {}
+        Target::Html => warn_or_error_for_html(world, sink)?,
+        Target::Bundle => warn_or_error_for_bundle(world, sink)?,
     }
 
     let library = world.library();
@@ -262,6 +264,29 @@ fn warn_or_error_for_html(
             "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
             hint: "see {ISSUE} for more information";
+        );
+    }
+    Ok(())
+}
+
+/// Bundle export will warn or error depending on whether the feature flag is
+/// enabled.
+fn warn_or_error_for_bundle(
+    world: Tracked<dyn World + '_>,
+    sink: &mut Sink,
+) -> SourceResult<()> {
+    if world.library().features.is_enabled(Feature::Bundle) {
+        sink.warn(warning!(
+            Span::detached(),
+            "bundle export is experimental";
+            hint: "its behaviour may change at any time";
+            hint: "do not rely on this feature for production use cases";
+        ));
+    } else {
+        bail!(
+            Span::detached(),
+            "bundle export is only available when `--features bundle` is passed";
+            hint: "bundle export is experimental";
         );
     }
     Ok(())
