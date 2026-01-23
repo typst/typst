@@ -23,7 +23,7 @@ use typst_library::introspection::{
     Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
 };
 use typst_library::layout::{
-    AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
+    AlignElem, BlockElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
@@ -643,9 +643,16 @@ fn visit_styled<'a>(
         visit(s, PagebreakElem::shared_weak(), outer.chain(relevant))?;
     }
 
-    finish_interrupted(s, local)?;
+    // TODO: need to somehow ensure that the `AlignElem` styles don't interrupt
+    // the paragraph grouping. There's probably a better way to do this.
+    let is_inlinable_block = is_inlinable_block(content);
+    if !is_inlinable_block {
+        finish_interrupted(s, local)?;
+    }
     visit(s, content, outer.chain(local))?;
-    finish_interrupted(s, local)?;
+    if !is_inlinable_block {
+        finish_interrupted(s, local)?;
+    }
 
     // Generate a weak "boundary" pagebreak at the end. In comparison to a
     // normal weak pagebreak, the styles of this are ignored during layout, so
@@ -960,6 +967,7 @@ static PAR: GroupingRule = GroupingRule {
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
+            || is_inlinable_block(content)
             || match state.kind {
                 RealizationKind::HtmlDocument { is_phrasing, .. }
                 | RealizationKind::HtmlFragment { is_phrasing, .. } => {
@@ -1053,7 +1061,8 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 }
 
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
-/// spans the whole sink (with the exception of leading tags).
+/// spans the whole sink (with the exception of leading tags). Inlinable
+/// `BlockElem` are not considered inline content as they require flow layout.
 fn is_fully_inline(s: &State) -> bool {
     s.kind.is_fragment()
         && !s.saw_parbreak
@@ -1061,9 +1070,21 @@ fn is_fully_inline(s: &State) -> bool {
             [grouping] => {
                 std::ptr::eq(grouping.rule, &PAR)
                     && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
+                    && !s.sink[grouping.start..]
+                        .iter()
+                        .any(|(c, _)| is_inlinable_block(c))
             }
             _ => false,
         }
+}
+
+/// Whether the content is an inlinable `BlockElem`.
+fn is_inlinable_block(content: &Content) -> bool {
+    content
+        .to_packed::<BlockElem>()
+        // TODO: is this okay? Could there be a problem with user show rules
+        // being missed?
+        .is_some_and(|b| b.inlinable.as_option().is_some_and(|x| x))
 }
 
 /// Builds the `ParElem` from inline-level elements.
@@ -1074,6 +1095,27 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
 
     // Collect the children.
     let elems = grouped.get();
+
+    // TODO: need to somehow abort the paragraph grouping if there's only a
+    // single inlinable `BlockElem` (and its tags). Again, there's probably a
+    // better way to do this using the existing finish grouping stuff, but I
+    // don't understand the code here well enough.
+    // TODO: this check will trigger if there are multiple inlinable
+    // `BlockElem`s, not just one. I think the desired behavior is that
+    // multiple inlinable `BlockElem`s together should form a paragraph.
+    let has_inlinable_content = elems.iter().any(|(c, _)| {
+        let elem = c.elem();
+        !is_inlinable_block(c) && elem != TagElem::ELEM
+    });
+    if !has_inlinable_content {
+        let elements: Vec<_> = elems.to_vec();
+        let s = grouped.end();
+        for (content, styles) in elements {
+            s.sink.push((content, styles));
+        }
+        return Ok(());
+    }
+
     let span = select_span(elems);
     let (body, trunk) = repack(elems);
 

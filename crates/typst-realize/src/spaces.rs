@@ -2,7 +2,7 @@
 
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::TagElem;
-use typst_library::layout::HElem;
+use typst_library::layout::{BlockElem, HElem};
 use typst_library::routines::Pair;
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
@@ -84,6 +84,10 @@ pub(crate) fn collapse_state(content: &Content, styles: StyleChain) -> SpaceStat
             SpaceState::Invisible
         }
     } else if content.is::<LinebreakElem>() {
+        SpaceState::Destructive
+    } else if let Some(elem) = content.to_packed::<BlockElem>()
+        && elem.inlinable.get(styles)
+    {
         SpaceState::Destructive
     } else if content.is::<SpaceElem>() {
         SpaceState::Space

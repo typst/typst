@@ -298,7 +298,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes an unbreakable block.
     fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
         // Lay out the block.
-        let frame = single.layout(
+        let mut frame = single.layout(
             self.composer.engine,
             Region::new(self.regions.base(), self.regions.expand),
         )?;
@@ -318,6 +318,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
+        // TODO: add tags for inline blocks to the frame. Ordering needs to be
+        // preserved.
+        if let Some((_, tags)) = &single.inline {
+            for tag in tags {
+                frame.push(Point::zero(), FrameItem::Tag(tag.clone()));
+            }
+        }
+
         self.frame(frame, single.align, single.sticky, false)
     }
 
@@ -330,7 +338,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Lay out the block.
-        let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        let (mut frame, spill) = multi.layout(self.composer.engine, self.regions)?;
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -339,6 +347,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // the spill, the whole child should be put in the next region to
             // avoid any invisible orphans at the end of this region.
             return Err(Stop::Finish(false));
+        }
+
+        // TODO: add tags for inline blocks to the frame. Ordering needs to be
+        // preserved.
+        if let Some((_, tags)) = &multi.inline {
+            for tag in tags {
+                frame.push(Point::zero(), FrameItem::Tag(tag.clone()));
+            }
         }
 
         self.frame(frame, multi.align, multi.sticky, true)?;

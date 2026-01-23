@@ -3,7 +3,7 @@ use typst_utils::Numeric;
 
 use super::*;
 
-/// Turns the selected lines into frames.
+/// Turns the selected lines into frames or inline blocks.
 #[typst_macros::time]
 pub fn finalize(
     engine: &mut Engine,
@@ -12,7 +12,7 @@ pub fn finalize(
     region: Size,
     expand: bool,
     locator: &mut SplitLocator<'_>,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Vec<ParChild>> {
     // Determine the resulting width: Full width of the region if we should
     // expand or there's fractional spacing, fit-to-width otherwise.
     let width = if !region.x.is_finite()
@@ -26,10 +26,8 @@ pub fn finalize(
         region.x
     };
 
-    // Stack the lines into one frame per region.
     lines
         .iter()
         .map(|line| commit(engine, p, line, width, region.y, locator))
-        .collect::<SourceResult<_>>()
-        .map(Fragment::frames)
+        .collect()
 }

@@ -364,6 +364,10 @@ pub struct BlockElem {
     #[default(false)]
     pub sticky: bool,
 
+    // TODO: add documentation.
+    #[default(false)]
+    pub inlinable: bool,
+
     /// The contents of the block.
     #[positional]
     pub body: Option<BlockBody>,

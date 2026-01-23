@@ -8,7 +8,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Packed, Resolve, Smart, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag, TagElem,
 };
@@ -23,7 +23,7 @@ use typst_library::text::TextElem;
 use typst_utils::{Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
-use crate::inline::ParSituation;
+use crate::inline::{ParChild, ParSituation};
 use crate::modifiers::layout_and_modify;
 
 /// Collects all elements of the flow into prepared children. These are much
@@ -154,14 +154,15 @@ impl<'a> Collector<'a, '_, '_> {
         });
     }
 
-    /// Collect a paragraph into [`LineChild`]ren. This already performs line
-    /// layout since it is not dependent on the concrete regions.
+    /// Collect a paragraph into [`LineChild`]ren and inline blocks. This
+    /// already performs line layout since it is not dependent on the concrete
+    /// regions.
     fn par(
         &mut self,
         elem: &'a Packed<ParElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let lines = crate::inline::layout_par(
+        let children = crate::inline::layout_par(
             elem,
             self.engine,
             self.locator.next(&elem.span()),
@@ -169,20 +170,124 @@ impl<'a> Collector<'a, '_, '_> {
             self.base,
             self.expand,
             self.par_situation,
-        )?
-        .into_frames();
+        )?;
 
         let spacing = elem.spacing.resolve(styles);
         let leading = elem.leading.resolve(styles);
 
         self.output.push(Child::Rel(spacing.into(), 4));
 
-        self.lines(lines, leading, styles);
+        self.par_children(children, leading, styles);
 
         self.output.push(Child::Rel(spacing.into(), 4));
         self.par_situation = ParSituation::Consecutive;
 
         Ok(())
+    }
+
+    /// Collect paragraph children.
+    fn par_children(
+        &mut self,
+        children: Vec<ParChild>,
+        leading: Abs,
+        styles: StyleChain<'a>,
+    ) {
+        let align = styles.resolve(AlignElem::alignment);
+        let costs = styles.get(TextElem::costs);
+
+        // TODO: collect frames for widow/orphan prevention calculation. Should
+        // frames only (not blocks) participate in widow/orphan prevention?
+        // Regardless, the code here is a little weird.
+        let frames: Vec<_> = children
+            .iter()
+            .filter_map(|c| match c {
+                ParChild::Frame(f) => Some(f),
+                ParChild::Block { .. } => None,
+            })
+            .collect();
+
+        // Determine whether to prevent widow and orphans.
+        let len = frames.len();
+        let prevent_orphans =
+            costs.orphan() > Ratio::zero() && len >= 2 && !frames[1].is_empty();
+        let prevent_widows =
+            costs.widow() > Ratio::zero() && len >= 2 && !frames[len - 2].is_empty();
+        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
+
+        // Store the heights of lines at the edges because we'll potentially
+        // need these later when `frames` is already moved.
+        let height_at = |i: usize| frames.get(i).map(|f| f.height()).unwrap_or_default();
+        let front_1 = height_at(0);
+        let front_2 = height_at(1);
+        let back_2 = height_at(len.saturating_sub(2));
+        let back_1 = height_at(len.saturating_sub(1));
+
+        let mut frame_idx = 0;
+        for (i, child) in children.into_iter().enumerate() {
+            if i > 0 {
+                self.output.push(Child::Rel(leading.into(), 5));
+            }
+
+            match child {
+                ParChild::Frame(frame) => {
+                    // To prevent widows and orphans, we require enough space for
+                    // - all lines if it's just three
+                    // - the first two lines if we're at the first line
+                    // - the last two lines if we're at the second to last line
+                    let need = if prevent_all && frame_idx == 0 {
+                        front_1 + leading + front_2 + leading + back_1
+                    } else if prevent_orphans && frame_idx == 0 {
+                        front_1 + leading + front_2
+                    } else if prevent_widows && frame_idx >= 2 && frame_idx + 2 == len {
+                        back_2 + leading + back_1
+                    } else {
+                        frame.height()
+                    };
+
+                    self.output.push(Child::Line(self.boxed(LineChild {
+                        frame,
+                        align,
+                        need,
+                    })));
+                    frame_idx += 1;
+                }
+                ParChild::Block { elem, styles, width, tags } => {
+                    // Bump-allocate the owned data to give it lifetime 'a.
+                    let elem: &'a Packed<BlockElem> = self.bump.alloc(elem);
+                    let styles: &'a Styles = self.bump.alloc(styles);
+                    let styles = StyleChain::new(styles);
+
+                    let breakable = elem.breakable.get(styles);
+                    let align = styles.resolve(AlignElem::alignment);
+                    let locator = self.locator.next(&elem.span());
+
+                    if breakable {
+                        self.output.push(Child::Multi(self.boxed(MultiChild {
+                            align,
+                            sticky: false,
+                            alone: false,
+                            inline: Some((width, tags)),
+                            elem,
+                            styles,
+                            locator,
+                            cell: CachedCell::new(),
+                        })));
+                    } else {
+                        self.output.push(Child::Single(self.boxed(SingleChild {
+                            align,
+                            sticky: false,
+                            alone: false,
+                            fr: None,
+                            inline: Some((width, tags)),
+                            elem,
+                            styles,
+                            locator,
+                            cell: CachedCell::new(),
+                        })));
+                    }
+                }
+            }
+        }
     }
 
     /// Collect laid-out lines.
@@ -258,6 +363,7 @@ impl<'a> Collector<'a, '_, '_> {
                 sticky,
                 alone,
                 fr,
+                inline: None,
                 elem,
                 styles,
                 locator,
@@ -268,6 +374,7 @@ impl<'a> Collector<'a, '_, '_> {
                 align,
                 sticky,
                 alone,
+                inline: None,
                 elem,
                 styles,
                 locator,
@@ -381,6 +488,9 @@ pub struct SingleChild<'a> {
     pub sticky: bool,
     pub alone: bool,
     pub fr: Option<Fr>,
+    /// If this is an inline block, stores the line width it is constrained to
+    /// and its associated tags.
+    pub inline: Option<(Abs, Vec<Tag>)>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
@@ -393,6 +503,10 @@ impl SingleChild<'_> {
         self.cell.get_or_init(region, |mut region| {
             // Vertical expansion is only kept if this block is the only child.
             region.expand.y &= self.alone;
+            // For inline blocks, use the line width as the width constraint.
+            if let Some((line_width, _)) = self.inline {
+                region.size.x = line_width;
+            }
             layout_single_impl(
                 engine.routines,
                 engine.world,
@@ -447,6 +561,9 @@ pub struct MultiChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
     alone: bool,
+    /// If this is an inline block, stores the line width it is constrained to
+    /// and its associated tags.
+    pub inline: Option<(Abs, Vec<Tag>)>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
@@ -493,6 +610,10 @@ impl<'a> MultiChild<'a> {
         self.cell.get_or_init(regions, |mut regions| {
             // Vertical expansion is only kept if this block is the only child.
             regions.expand.y &= self.alone;
+            // For inline blocks, use the line width as the width constraint.
+            if let Some((line_width, _)) = self.inline {
+                regions.size.x = line_width;
+            }
             layout_multi_impl(
                 engine.routines,
                 engine.world,
