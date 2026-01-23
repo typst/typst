@@ -1264,7 +1264,6 @@ b424ca7875cbeb25a2efc045172f85c4 math-vec-linebreaks-trailing
 d7ce3f34312f1f70a2047c1c4201ed01 math-vec-wide
 ecf555a6daf4a1d6f26c17dff6c41b8c measure-citation-deeply-nested
 16d4a6e424dcfc9e46f844252136ac5b measure-citation-in-flow
-ef38d87fb25915444a2940b424b89504 measure-counter-multiple-times
 d68afde4dda5695fbf241975279acc95 measure-counter-width
 9c4f734af378058ad8210a93b2a9d631 newline-continuation-code
 bac99e86f7dddaa30b4ebfc19b5a1475 newline-continuation-markup
