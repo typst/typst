@@ -62,6 +62,66 @@ pub struct Runner<'a> {
     seen: Vec<TestStages>,
     result: TestResult,
     not_annotated: String,
+    unexpected_empty: UnexpectedEmpty,
+    unexpected_non_empty: UnexpectedNonEmpty,
+}
+
+/// The test unexpectedly produced non-empty content or output.
+///
+/// The variants are ordered by relevance from low to high.
+enum UnexpectedNonEmpty {
+    None,
+    Eval(Content),
+    Output(TestStages),
+}
+
+impl UnexpectedNonEmpty {
+    fn eval(&mut self, content: Content) {
+        match self {
+            Self::None | Self::Eval(_) => {
+                *self = Self::Eval(content);
+            }
+            Self::Output(_) => (),
+        }
+    }
+
+    fn output(&mut self, output: TestOutput) {
+        match self {
+            Self::None | Self::Eval(_) => {
+                *self = Self::Output(output.into());
+            }
+            Self::Output(stages) => {
+                *stages |= output.into();
+            }
+        }
+    }
+}
+
+/// The test unexpectedly produced empty content or output.
+///
+/// The variants are ordered by relevance from low to high.
+enum UnexpectedEmpty {
+    None,
+    Output(TestStages),
+    Eval,
+}
+
+impl UnexpectedEmpty {
+    fn eval(&mut self) {
+        *self = Self::Eval;
+    }
+
+    fn output(&mut self, output: TestOutput) {
+        match self {
+            Self::None => {
+                *self = Self::Output(output.into());
+            }
+            Self::Output(stages) => {
+                *stages |= output.into();
+            }
+            Self::Eval => (),
+        }
+    }
 }
 
 impl<'a> Runner<'a> {
@@ -78,6 +138,8 @@ impl<'a> Runner<'a> {
                 mismatched_output: false,
             },
             not_annotated: String::new(),
+            unexpected_empty: UnexpectedEmpty::None,
+            unexpected_non_empty: UnexpectedNonEmpty::None,
         }
     }
 
@@ -91,20 +153,10 @@ impl<'a> Runner<'a> {
         if let Some(content) = &content {
             if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
                 if !output::is_empty_content(content) {
-                    log!(
-                        self,
-                        "eval test produced non-empty content: {}",
-                        content.repr()
-                    );
-                    log!(self, "  hint: consider making this a `paged|html empty` test");
+                    self.unexpected_non_empty.eval(content.clone());
                 }
             } else if output::is_empty_content(content) {
-                log!(
-                    self,
-                    "[{}] test produced empty content",
-                    self.test.attrs.implied_stages()
-                );
-                log!(self, "  hint: consider making this an `eval` test");
+                self.unexpected_empty.eval();
             }
         }
 
@@ -149,10 +201,50 @@ impl<'a> Runner<'a> {
             self.run_file_test::<output::Html>(doc.as_ref());
         }
 
+        self.handle_empty();
+
         self.handle_not_emitted();
         self.handle_not_annotated();
 
         self.result
+    }
+
+    fn handle_empty(&mut self) {
+        match &self.unexpected_non_empty {
+            UnexpectedNonEmpty::None => (),
+            UnexpectedNonEmpty::Eval(content) => {
+                log!(self, "[eval] test produced non-empty content: {}", content.repr());
+                log!(self, "  hint: consider making this a `paged|html empty` test");
+            }
+            UnexpectedNonEmpty::Output(stages) => {
+                log!(
+                    self,
+                    "[{}] test produced non-empty output for [{stages}]",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider removing the `empty` attribute");
+            }
+        }
+
+        match self.unexpected_empty {
+            UnexpectedEmpty::None => (),
+            UnexpectedEmpty::Eval => {
+                log!(
+                    self,
+                    "[{}] test produced empty content",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider making this an `eval` test");
+            }
+            UnexpectedEmpty::Output(stages) => {
+                log!(
+                    self,
+                    "[{}] test produced empty output for [{stages}]",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider adding the `empty` attribute");
+            }
+        }
     }
 
     /// Handle errors that weren't annotated.
@@ -441,7 +533,7 @@ impl<'a> Runner<'a> {
     ) -> Result<Option<()>, ()> {
         let Some((doc, live)) = output else {
             if !self.test.should_error() {
-                log!(self, "missing output [{}] {}", T::OUTPUT, self.test.name);
+                log!(self, "missing output [{}]", T::OUTPUT);
                 return Err(());
             }
             return Ok(None);
@@ -449,14 +541,12 @@ impl<'a> Runner<'a> {
 
         if self.test.attrs.empty {
             if !T::is_empty(doc, live) {
-                log!(self, "expected empty output [{}] {}", T::OUTPUT, self.test.name);
-                log!(self, "  hint: consider removing the `empty` attribute");
+                self.unexpected_non_empty.output(T::OUTPUT);
                 return Err(());
             }
             return Ok(None);
         } else if T::is_empty(doc, live) {
-            log!(self, "expected non-empty output [{}] {}", T::OUTPUT, self.test.name);
-            log!(self, "  hint: consider adding the `empty` attribute");
+            self.unexpected_empty.output(T::OUTPUT);
             return Err(());
         }
 

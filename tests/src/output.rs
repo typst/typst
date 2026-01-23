@@ -332,7 +332,18 @@ impl OutputType for Html {
     const OUTPUT: TestOutput = TestOutput::Html;
 
     fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
-        live.is_empty()
+        // HACK: This is somewhat volatile, since it needs to be updated,
+        // whenever the default HTML output changes.
+        const EMPTY_HTML_DOC: &str = r#"<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body></body>
+</html>
+"#;
+        live == EMPTY_HTML_DOC
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
