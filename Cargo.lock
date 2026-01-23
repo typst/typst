@@ -3016,6 +3016,7 @@ dependencies = [
  "tempfile",
  "toml",
  "typst",
+ "typst-bundle",
  "typst-dev-assets",
  "typst-eval",
  "typst-html",

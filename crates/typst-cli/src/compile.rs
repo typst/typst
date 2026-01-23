@@ -12,6 +12,7 @@ use typst::diag::{
 use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;
 use typst::syntax::Span;
+use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
@@ -22,12 +23,12 @@ use crate::args::{
 };
 use crate::deps::write_deps;
 use crate::timings::Timer;
-#[cfg(feature = "http-server")]
-use typst_kit::server::HttpServer;
-
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
+
+#[cfg(feature = "http-server")]
+use typst_kit::server::{HttpBody, HttpServer};
 
 /// Execute a compilation command.
 pub fn compile(
@@ -131,6 +132,7 @@ impl CompileConfig {
                     OutputFormat::Png => "png",
                     OutputFormat::Svg => "svg",
                     OutputFormat::Html => "html",
+                    OutputFormat::Bundle => "",
                 },
             ))
         });
@@ -176,17 +178,17 @@ impl CompileConfig {
         )?;
 
         #[cfg(feature = "http-server")]
-        let server = match watch {
-            Some(command)
-                if output_format == OutputFormat::Html && !command.server.no_serve =>
-            {
-                Some(HttpServer::new(
-                    &eco_format!("{input}"),
-                    command.server.port,
-                    !command.server.no_reload,
-                )?)
-            }
-            _ => None,
+        let server = if let Some(command) = watch
+            && !command.server.no_serve
+            && matches!(output_format, OutputFormat::Html | OutputFormat::Bundle)
+        {
+            Some(HttpServer::new(
+                &eco_format!("{input}"),
+                command.server.port,
+                !command.server.no_reload,
+            )?)
+        } else {
+            None
         };
 
         let mut deps = args.deps.clone();
@@ -305,6 +307,11 @@ fn compile_and_export(
     config: &mut CompileConfig,
 ) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
+        OutputFormat::Pdf | OutputFormat::Png | OutputFormat::Svg => {
+            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
+            let result = output.and_then(|document| export_paged(&document, config));
+            Warned { output: result, warnings }
+        }
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
             let result = output.and_then(|document| export_html(&document, config));
@@ -313,9 +320,9 @@ fn compile_and_export(
                 warnings,
             }
         }
-        _ => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_paged(&document, config));
+        OutputFormat::Bundle => {
+            let Warned { output, warnings } = typst::compile::<Bundle>(world);
+            let result = output.and_then(|bundle| export_bundle(bundle, config));
             Warned { output: result, warnings }
         }
     }
@@ -351,12 +358,24 @@ fn export_paged(
         OutputFormat::Svg => {
             export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
         }
-        OutputFormat::Html => unreachable!(),
+        OutputFormat::Html | OutputFormat::Bundle => unreachable!(),
     }
 }
 
 /// Export to a PDF.
 fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+    let options = pdf_options(config);
+    let buffer = typst_pdf::pdf(document, &options)?;
+    config
+        .output
+        .write(&buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
+        .at(Span::detached())?;
+    Ok(())
+}
+
+/// Creates options for PDF export.
+fn pdf_options(config: &CompileConfig) -> PdfOptions<'static> {
     // If the timestamp is provided through the CLI, use UTC suffix,
     // else, use the current local time and timezone.
     let timestamp = match config.creation_timestamp {
@@ -372,20 +391,79 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         }
     };
 
-    let options = PdfOptions {
+    PdfOptions {
         ident: Smart::Auto,
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
         tagged: config.tagged,
+    }
+}
+
+/// Export to a bundle, a collection of files in a directory.
+fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Output>> {
+    let options = BundleOptions {
+        pixel_per_pt: config.ppi / 72.0,
+        pdf: pdf_options(config),
     };
-    let buffer = typst_pdf::pdf(document, &options)?;
-    config
-        .output
-        .write(&buffer)
-        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
-        .at(Span::detached())?;
-    Ok(())
+
+    let fs = typst_bundle::export(&bundle, &options)?;
+    let root = match &config.output {
+        Output::Path(path) => path,
+        Output::Stdout => {
+            bail!(Span::detached(), "cannot write bundle to standard output")
+        }
+    };
+
+    let outputs = write_virtual_fs(root, &fs).at(Span::detached())?;
+
+    #[cfg(feature = "http-server")]
+    if let Some(server) = &config.server {
+        server.set_router(move |route| {
+            let path = typst::syntax::VirtualPath::new(route).ok()?;
+            let with_index = path.join("index.html").unwrap();
+            for path in [path, with_index] {
+                let Some(data) = fs.get(&path) else { continue };
+                let body = if matches!(
+                    bundle.files.get(&path),
+                    Some(typst_bundle::BundleFile::Document(
+                        typst_bundle::BundleDocument::Html(_)
+                    ))
+                ) && let Ok(string) = data.as_str()
+                {
+                    HttpBody::Html(string.to_owned())
+                } else {
+                    HttpBody::Raw(data.clone())
+                };
+                return Some(body);
+            }
+
+            None
+        });
+    }
+
+    Ok(outputs)
+}
+
+/// Writes a bundle's files to disk.
+fn write_virtual_fs(root: &Path, fs: &VirtualFs) -> StrResult<Vec<Output>> {
+    std::fs::create_dir_all(root)
+        .map_err(|err| eco_format!("failed to create output directory ({err})"))?;
+
+    fs.par_iter()
+        .map(|(path, data)| {
+            let realized = path.realize(root);
+
+            if let Some(parent) = realized.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| eco_format!("failed to create directory ({err})"))?;
+            }
+
+            std::fs::write(&realized, data)
+                .map_err(|err| eco_format!("failed to write file ({err})"))?;
+            Ok(Output::Path(realized))
+        })
+        .collect()
 }
 
 /// Convert [`chrono::DateTime`] to [`Datetime`]

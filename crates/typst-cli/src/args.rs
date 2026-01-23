@@ -592,13 +592,14 @@ impl Write for OpenOutput<'_> {
     }
 }
 
-/// Which format to use for the generated output file.
+/// Which format to use for the generated output.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum OutputFormat {
     Pdf,
     Png,
     Svg,
     Html,
+    Bundle,
 }
 
 impl OutputFormat {
