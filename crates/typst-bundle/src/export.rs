@@ -3,7 +3,7 @@ use ecow::EcoString;
 use indexmap::IndexMap;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
-use typst_html::HtmlDocument;
+use typst_html::HtmlElement;
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
 use typst_library::foundations::Bytes;
@@ -61,11 +61,13 @@ fn export_document(
             PagedFormat::Png => export_png(doc, Scalar::new(options.pixel_per_pt as _)),
             PagedFormat::Svg => export_svg(doc, &extras.anchors, link_resolver),
         },
-        BundleDocument::Html(doc) => export_html(doc, link_resolver),
+        BundleDocument::Html(doc) => export_html(doc.root(), link_resolver),
     }
 }
 
 /// Exports a PDF document.
+#[comemo::memoize]
+#[typst_macros::time(name = "export pdf")]
 fn export_pdf(
     doc: &PagedDocument,
     options: &PdfOptions,
@@ -76,6 +78,8 @@ fn export_pdf(
 }
 
 /// Exports a PNG document.
+#[comemo::memoize]
+#[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> {
     typst_render::render(&doc.pages()[0], pixel_per_pt.get() as f32)
         .encode_png()
@@ -85,6 +89,8 @@ fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> 
 }
 
 /// Exports an SVG document.
+#[comemo::memoize]
+#[typst_macros::time(name = "export svg")]
 fn export_svg(
     doc: &PagedDocument,
     anchors: &[(Location, EcoString)],
@@ -108,9 +114,17 @@ fn export_svg(
 }
 
 /// Exports an HTML document.
+///
+/// This function takes the root element rather than the document because it
+/// doesn't need the metadata or introspector and this way, it can be memoized.
+/// Bringing the HTML introspector across the memoization boundary is a little
+/// trickier than the paged one because the HTML document is mutated after being
+/// built (for linking), which means it's not 100% derived from the document.
+#[comemo::memoize]
+#[typst_macros::time(name = "export html")]
 fn export_html(
-    doc: &HtmlDocument,
+    root: &HtmlElement,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Bytes> {
-    typst_html::html_in_bundle(doc, link_resolver).map(Bytes::from_string)
+    typst_html::html_in_bundle(root, link_resolver).map(Bytes::from_string)
 }

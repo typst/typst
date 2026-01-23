@@ -15,23 +15,26 @@ use crate::{
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
     let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
     let w = Writer::new(link_resolver.track(), true);
-    html_impl(w, document)
+    html_impl(w, document.root())
 }
 
 /// Encodes an HTML root element into a string as part of a bundle.
+///
+/// See `export_html` in `typst-bundle` for more details on why this takes the
+/// root element instead of the document.
 pub fn html_in_bundle(
-    document: &HtmlDocument,
+    root: &HtmlElement,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<String> {
     let w = Writer::new(link_resolver, true);
-    html_impl(w, document)
+    html_impl(w, root)
 }
 
 /// The shared implementation of [`html`] and [`html_in_bundle`].
-fn html_impl(mut w: Writer, document: &HtmlDocument) -> SourceResult<String> {
+fn html_impl(mut w: Writer, root: &HtmlElement) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
-    write_element(&mut w, document.root())?;
+    write_element(&mut w, root)?;
     if w.pretty {
         w.buf.push('\n');
     }
