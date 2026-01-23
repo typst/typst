@@ -1,18 +1,34 @@
 use std::fmt::Write;
 
+use comemo::{Track, Tracked};
 use ecow::{EcoString, eco_format};
 use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::foundations::Repr;
+use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlIntrospector, HtmlNode, HtmlTag, attr,
-    charsets, tag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, tag,
 };
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer::new(document.introspector(), true);
+    let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
+    let w = Writer::new(link_resolver.track(), true);
+    html_impl(w, document)
+}
+
+/// Encodes an HTML root element into a string as part of a bundle.
+pub fn html_in_bundle(
+    document: &HtmlDocument,
+    link_resolver: Tracked<LateLinkResolver>,
+) -> SourceResult<String> {
+    let w = Writer::new(link_resolver, true);
+    html_impl(w, document)
+}
+
+/// The shared implementation of [`html`] and [`html_in_bundle`].
+fn html_impl(mut w: Writer, document: &HtmlDocument) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, document.root())?;
@@ -28,16 +44,22 @@ struct Writer<'a> {
     buf: String,
     /// The current indentation level
     level: usize,
-    /// The document's introspector.
-    introspector: &'a HtmlIntrospector,
+    /// Used to resolve links between the document and contained frames as well
+    /// as cross-document links in bundle export.
+    link_resolver: Tracked<'a, LateLinkResolver<'a>>,
     /// Whether pretty printing is enabled.
     pretty: bool,
 }
 
 impl<'a> Writer<'a> {
     /// Creates a new writer.
-    fn new(introspector: &'a HtmlIntrospector, pretty: bool) -> Self {
-        Self { buf: String::new(), level: 0, introspector, pretty }
+    fn new(link_resolver: Tracked<'a, LateLinkResolver<'a>>, pretty: bool) -> Self {
+        Self {
+            buf: String::new(),
+            level: 0,
+            link_resolver,
+            pretty,
+        }
     }
 }
 
@@ -338,12 +360,12 @@ fn unencodable(c: char) -> EcoString {
 
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
-    let svg = typst_svg::svg_html_frame(
+    let svg = typst_svg::svg_in_html(
         &frame.inner,
         frame.text_size,
         frame.id.as_deref(),
         &frame.anchors,
-        w.introspector,
+        w.link_resolver,
     );
     w.buf.push_str(&svg);
 }

@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_html::HtmlIntrospector;
 use typst_layout::PagedIntrospector;
 use typst_library::diag::StrResult;
@@ -13,7 +13,7 @@ use typst_library::introspection::{
     DocumentPosition, ElementIntrospector, ElementIntrospectorBuilder, Introspector,
     Location,
 };
-use typst_library::model::{AssetElem, DocumentElem, Numbering};
+use typst_library::model::{AssetElem, DocumentElem, LinkElem, Numbering};
 use typst_syntax::VirtualPath;
 
 use crate::{BundleDocument, Item};
@@ -42,6 +42,28 @@ impl BundleIntrospector {
             builder.discover_item(item);
         }
         builder.finish()
+    }
+
+    /// Computes all locations that are referenced by intra-doc links of any
+    /// kind and returns them organized by the document they are in.
+    pub fn link_targets(&self) -> FxHashMap<&VirtualPath, FxHashSet<Location>> {
+        let mut map: FxHashMap<&VirtualPath, FxHashSet<Location>> = FxHashMap::default();
+        for target in LinkElem::find_destinations(self).chain(
+            self.children
+                .iter()
+                .flat_map(|(_, child, _)| child.frame_link_targets())
+                .copied(),
+        ) {
+            let Some(path) = self.path(target) else { continue };
+            map.entry(path).or_default().insert(target);
+        }
+        map
+    }
+
+    /// Enriches an existing introspector with HTML link anchors, which were
+    /// assigned to the DOM in a post-processing step.
+    pub fn set_anchors(&mut self, anchors: FxHashMap<Location, EcoString>) {
+        self.anchors = anchors;
     }
 
     /// Retrieves the child introspector for the given location.
@@ -142,6 +164,17 @@ impl Debug for BundleIntrospector {
 enum ChildIntrospector {
     Paged(Arc<PagedIntrospector>),
     Html(Arc<HtmlIntrospector>),
+}
+
+impl ChildIntrospector {
+    /// Returns the locations that the underlying document links to via
+    /// `FrameItem::Link`.
+    pub fn frame_link_targets(&self) -> &FxHashSet<Location> {
+        match self {
+            Self::Paged(introspector) => introspector.frame_link_targets(),
+            Self::Html(introspector) => introspector.frame_link_targets(),
+        }
+    }
 }
 
 impl Deref for ChildIntrospector {

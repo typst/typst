@@ -1,26 +1,23 @@
 use std::num::NonZeroUsize;
 
-use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format};
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
+use comemo::Track;
+use ecow::{EcoVec, eco_format};
+use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
-use typst_library::introspection::{
-    Counter, History, Introspect, Introspector, Location, QueryIntrospection,
-};
+use typst_library::introspection::{Counter, QueryIntrospection};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem, LinkTarget,
-    ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Destination, DirectLinkElem, EarlyLinkResolver, EmphElem, EnumElem, FigureCaption,
+    FigureElem, FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem,
+    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -166,23 +163,22 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let span = elem.span();
-    let dest = elem.dest.resolve(engine, span)?;
+    let dest = elem.dest.resolve_early(engine, span)?;
 
     let href = match dest {
         Destination::Url(url) => Some(url.clone().into_inner()),
-        Destination::Location(location) => {
-            let id = engine
-                .introspect(LinkAnchorIntrospection(location, span))
-                .ok_or("failed to determine link anchor")
-                .at(span)?;
-            Some(eco_format!("#{id}"))
-        }
         Destination::Position(_) => {
             engine
                 .sink
                 .warn(warning!(span, "positional link was ignored during HTML export"));
             None
         }
+        Destination::Location(location) => Some(
+            EarlyLinkResolver::new(elem.location().unwrap(), span)
+                .resolve(engine, location)
+                .at(span)?
+                .into_uri(),
+        ),
     };
 
     Ok(HtmlElem::new(tag::a)
@@ -190,38 +186,6 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .with_body(Some(elem.body.clone()))
         .pack())
 };
-
-/// Resolves the anchor to reach the linked-to element with the given location.
-#[derive(Debug, Clone, PartialEq, Hash)]
-struct LinkAnchorIntrospection(Location, Span);
-
-impl Introspect for LinkAnchorIntrospection {
-    type Output = Option<EcoString>;
-
-    fn introspect(
-        &self,
-        _: &mut Engine,
-        introspector: Tracked<dyn Introspector + '_>,
-    ) -> Self::Output {
-        introspector.anchor(self.0).cloned()
-    }
-
-    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
-        let introspector = history.final_introspector();
-        let what = match introspector.query_first(&Selector::Location(self.0)) {
-            Some(content) => content.elem().name(),
-            None => "element",
-        };
-        warning!(
-            self.1,
-            "HTML element ID assigned to the destination {what} did not stabilize",
-        )
-        .with_hint(history.hint("IDs", |id| match id {
-            Some(id) => id.clone(),
-            None => "(no ID)".into(),
-        }))
-    }
-}
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     Ok(LinkElem::new(

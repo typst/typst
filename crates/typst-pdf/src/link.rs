@@ -5,7 +5,7 @@ use krilla::geom as kg;
 use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
 use typst_library::introspection::PagedPosition;
 use typst_library::layout::{Abs, Point, Size};
-use typst_library::model::Destination;
+use typst_library::model::{Destination, ResolvedLink};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
@@ -44,11 +44,22 @@ pub(crate) fn handle_link(
             Target::Destination(krilla::destination::Destination::Xyz(dest))
         }
         Destination::Location(loc) => {
-            if let Some(nd) = gc.loc_to_names.get(loc) {
+            if let Some(resolver) = gc.link_resolver
+                && let Some(kind @ ResolvedLink::Cross { .. }) = resolver.resolve(*loc)
+            {
+                // Cross-links could potentially also be emitted as Go-To Remote
+                // actions (for PDFs) or Launch actions for other files.
+                // However, this is not yet supported in krilla. Viewer support
+                // is not great either way: Link actions are good for browsers
+                // while the others work better in Acrobat.
+                Target::Action(Action::Link(LinkAction::new(kind.into_uri().into())))
+            } else if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
                 Target::Destination(krilla::destination::Destination::Named(nd.clone()))
             } else {
+                // TODO: Consider erroring or at least warning if the location
+                // cannot be resolved.
                 let pos = gc
                     .document
                     .introspector()

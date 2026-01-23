@@ -3,6 +3,7 @@
 #[path = "export.rs"]
 mod export_;
 mod introspect;
+mod link;
 
 use crate::introspect::BundleIntrospector;
 
@@ -12,7 +13,7 @@ use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{EcoVec, eco_format};
+use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_html::HtmlDocument;
@@ -106,6 +107,12 @@ impl Document for BundleDocument {
 pub struct PagedExtras {
     /// The format to export in.
     pub format: PagedFormat,
+    /// Named anchors that should be exported, so that cross-document links can
+    /// jump to a precise location.
+    ///
+    /// Not all export targets support this (e.g. PNG), in which case it can
+    /// simply be ignored.
+    pub anchors: Vec<(Location, EcoString)>,
 }
 
 /// Produces a bundle from content.
@@ -171,13 +178,15 @@ fn bundle_impl(
 
     let children = collect(&children, &mut locator)?;
 
-    let items = engine
+    let mut items = engine
         .parallelize(children, |engine, child| -> SourceResult<_> {
             Ok(match child {
                 Child::Tag(tag) => Item::Tag(tag.clone()),
-                Child::Asset(asset) => {
-                    Item::Asset(asset.path.clone().into_inner(), asset.data.0.clone())
-                }
+                Child::Asset(asset) => Item::Asset(
+                    asset.path.clone().into_inner(),
+                    asset.data.0.clone(),
+                    asset.location().unwrap(),
+                ),
                 Child::Document(document, styles, locator) => Item::Document(
                     document.path.clone().into_inner(),
                     compile_document(engine, document, styles, locator)?,
@@ -187,13 +196,16 @@ fn bundle_impl(
         })
         .collect_combined_result::<Vec<_>>()?;
 
-    let introspector = BundleIntrospector::new(&items);
+    let mut introspector = BundleIntrospector::new(&items);
+    let targets = introspector.link_targets();
+    let anchors = crate::link::create_link_anchors(&mut items, &targets);
+    introspector.set_anchors(anchors);
 
     let mut files = IndexMap::default();
     for item in items {
         match item {
             Item::Tag(_) => {}
-            Item::Asset(path, bytes) => {
+            Item::Asset(path, bytes, _) => {
                 files.insert(path, BundleFile::Asset(bytes));
             }
             Item::Document(path, doc, _) => {
@@ -218,7 +230,7 @@ enum Child<'a> {
 /// The processed version of a [`Child`].
 enum Item {
     Tag(Tag),
-    Asset(VirtualPath, Bytes),
+    Asset(VirtualPath, Bytes, Location),
     Document(VirtualPath, BundleDocument, Location),
 }
 
@@ -309,7 +321,10 @@ fn compile_document<'a>(
                 );
             }
 
-            BundleDocument::Paged(Box::new(doc), PagedExtras { format })
+            BundleDocument::Paged(
+                Box::new(doc),
+                PagedExtras { format, anchors: Vec::new() },
+            )
         }
         DocumentFormat::Html => {
             if !engine.world.library().features.is_enabled(Feature::Html) {

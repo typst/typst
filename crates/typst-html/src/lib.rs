@@ -16,8 +16,9 @@ mod typed;
 
 pub use self::document::{html_document, html_document_for_bundle};
 pub use self::dom::*;
-pub use self::encode::html;
+pub use self::encode::{html, html_in_bundle};
 pub use self::introspect::HtmlIntrospector;
+pub use self::link::create_link_anchors;
 pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;

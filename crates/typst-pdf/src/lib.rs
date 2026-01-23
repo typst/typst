@@ -18,20 +18,39 @@ pub use self::metadata::{Timestamp, Timezone};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use ecow::eco_format;
+use comemo::Tracked;
+use ecow::{EcoString, eco_format};
 use krilla::configure::Validator;
 use serde::{Deserialize, Serialize};
 use typst_layout::PagedDocument;
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
+use typst_library::introspection::Location;
 use typst_library::layout::PageRanges;
+use typst_library::model::LateLinkResolver;
 
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options)
+    convert::convert(document, options, &[], None)
+}
+
+/// Export a document into a PDF file as part of a bundle.
+///
+/// Takes additional `anchor` locations that will be serialized as named
+/// destinations. This enables other documents in the bundle to link into the
+/// resulting PDF. Also takes a `link_resolver` for resolving cross-document
+/// links.
+#[typst_macros::time(name = "pdf in bundle")]
+pub fn pdf_in_bundle(
+    document: &PagedDocument,
+    options: &PdfOptions,
+    anchors: &[(Location, EcoString)],
+    link_resolver: Tracked<LateLinkResolver>,
+) -> SourceResult<Vec<u8>> {
+    convert::convert(document, options, anchors, Some(link_resolver))
 }
 
 /// Settings for PDF export.
