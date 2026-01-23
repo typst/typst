@@ -587,7 +587,7 @@ fn visit_styled<'a>(
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate(&local)
+                info.populate(StyleChain::new(&local));
             } else {
                 bail!(
                     style.span(),
@@ -597,7 +597,7 @@ fn visit_styled<'a>(
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate_locale(&local)
+                info.populate_locale(StyleChain::new(&local));
             }
         } else if elem == PageElem::ELEM {
             match s.kind {

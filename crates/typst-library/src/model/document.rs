@@ -3,8 +3,8 @@ use ecow::EcoString;
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
-    Value, cast, elem,
+    Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Value,
+    cast, elem,
 };
 use crate::text::{Locale, TextElem};
 
@@ -124,44 +124,42 @@ impl DocumentInfo {
     /// Populate this document info with details from the given styles.
     ///
     /// Document set rules are a bit special, so we need to do this manually.
-    pub fn populate(&mut self, styles: &Styles) {
-        let chain = StyleChain::new(styles);
+    pub fn populate(&mut self, styles: StyleChain) {
         if styles.has(DocumentElem::title) {
-            self.title = chain
+            self.title = styles
                 .get_ref(DocumentElem::title)
                 .as_ref()
                 .map(|content| content.plain_text());
         }
         if styles.has(DocumentElem::author) {
-            self.author = chain.get_cloned(DocumentElem::author).0;
+            self.author = styles.get_cloned(DocumentElem::author).0;
         }
         if styles.has(DocumentElem::description) {
-            self.description = chain
+            self.description = styles
                 .get_ref(DocumentElem::description)
                 .as_ref()
                 .map(|content| content.plain_text());
         }
         if styles.has(DocumentElem::keywords) {
-            self.keywords = chain.get_cloned(DocumentElem::keywords).0;
+            self.keywords = styles.get_cloned(DocumentElem::keywords).0;
         }
         if styles.has(DocumentElem::date) {
-            self.date = chain.get(DocumentElem::date);
+            self.date = styles.get(DocumentElem::date);
         }
     }
 
     /// Populate this document info with locale details from the given styles.
-    pub fn populate_locale(&mut self, styles: &Styles) {
+    pub fn populate_locale(&mut self, styles: StyleChain) {
         if self.locale.is_custom() {
             return;
         }
 
-        let chain = StyleChain::new(styles);
         let mut locale: Option<Locale> = None;
         if styles.has(TextElem::lang) {
-            locale.get_or_insert_default().lang = chain.get(TextElem::lang);
+            locale.get_or_insert_default().lang = styles.get(TextElem::lang);
         }
         if styles.has(TextElem::region) {
-            locale.get_or_insert_default().region = chain.get(TextElem::region);
+            locale.get_or_insert_default().region = styles.get(TextElem::region);
         }
         self.locale = Smart::from(locale);
     }

@@ -110,15 +110,6 @@ impl Styles {
         self
     }
 
-    /// Whether there is a style for the given field of the given element.
-    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
-        let elem = E::ELEM;
-        self.0
-            .iter()
-            .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == I)
-    }
-
     /// Determines the styles used for content that it at the root, outside of
     /// the user-controlled content (e.g. page marginals and footnotes). This
     /// applies to both paged and HTML export.
@@ -639,6 +630,14 @@ impl<'a> StyleChain<'a> {
         E::Type: Resolve,
     {
         self.get_cloned(field).resolve(self)
+    }
+
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
+        self.entries()
+            .filter_map(|style| style.property())
+            .any(|property| property.is_of(elem) && property.id == I)
     }
 
     /// Retrieves a reference to a field, also taking into account the
