@@ -1415,7 +1415,7 @@ b20717344d3216d3464852f84d36af8c raw-highlight-py
 b1ed49e96d2e03347c1bf4d0935e3c02 raw-highlight-rust
 40f778f94dba573b76bf3b36c75f3680 raw-highlight-typ
 722c7a2667aad20c619602eb1b1e9db4 raw-highlight-typc
-c1117e79944c54efc8929643a454f00f raw-highlight-typm
+fb90f93cde8b6cc30b34ba9ab28ec6d9 raw-highlight-typm
 e47531905840c384275967b0b3542c2d raw-highlight-typm-idents
 29ebe7afd0fb0f0b9aeebfb1b0ad6c31 raw-inline-multiline
 eecf0ee312fbbb0bea6bbb67a5362dfb raw-line
