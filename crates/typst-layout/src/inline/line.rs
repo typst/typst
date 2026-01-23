@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::{Packed, Resolve, StyleChain, Styles};
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{Abs, BlockElem, Dir, Em, Fr, Frame, FrameItem, Point, Size};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
@@ -13,6 +13,24 @@ use super::*;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::Adjustability;
 use crate::modifiers::layout_and_modify;
+
+/// The result of committing a line.
+///
+/// Either a laid-out frame or an inline block that needs to be laid out later
+/// during flow layout.
+#[derive(Clone)]
+pub enum ParChild {
+    Frame(Frame),
+    Block {
+        // TODO: this is cloned.
+        elem: Packed<BlockElem>,
+        // TODO: this is owned.
+        styles: Styles,
+        width: Abs,
+        // TODO: tag ordering needs to be preserved relative to the block item.
+        tags: Vec<Tag>,
+    },
+}
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -478,8 +496,8 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
-/// Commit to a line and build its frame.
-#[allow(clippy::too_many_arguments)]
+/// Commit to a line and build its frame, or return an inline block for flow
+/// layout later.
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -487,7 +505,39 @@ pub fn commit(
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
-) -> SourceResult<Frame> {
+) -> SourceResult<ParChild> {
+    if line.items.iter().any(|item| matches!(item, Item::Block(_, _))) {
+        // There will only ever be a single Block and possibly Tag(s).
+
+        let mut block_elem = None;
+        let mut block_styles = None;
+        let mut tags = Vec::new();
+
+        // TODO: this cloning and style converting is kind of ugly, but we need
+        // someway to store owned stuff inside the created `ParChild`.
+        for item in line.items.iter() {
+            match item {
+                Item::Block(elem, styles) => {
+                    block_elem = Some((*elem).clone());
+                    block_styles = Some(styles.to_map());
+                }
+                // TODO: tag ordering needs to be preserved in final frame
+                // layout (relative to the block item).
+                Item::Tag(tag) => {
+                    tags.push((*tag).clone());
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        return Ok(ParChild::Block {
+            elem: block_elem.unwrap(),
+            styles: block_styles.unwrap(),
+            width,
+            tags,
+        });
+    }
+
     let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
 
@@ -600,6 +650,7 @@ pub fn commit(
                 frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
+            Item::Block(_, _) => unreachable!(),
         }
     }
 
@@ -628,7 +679,7 @@ pub fn commit(
         output.push_frame(Point::new(x, y), frame);
     }
 
-    Ok(output)
+    Ok(ParChild::Frame(output))
 }
 
 /// Adds a paragraph line marker to a paragraph line's output frame if

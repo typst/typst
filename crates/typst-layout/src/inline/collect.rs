@@ -1,8 +1,9 @@
 use typst_library::diag::warning;
 use typst_library::foundations::{Packed, Resolve};
-use typst_library::introspection::{SplitLocator, Tag, TagElem};
+use typst_library::introspection::{Locator, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
-    Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
+    Abs, BlockElem, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing,
+    Spacing,
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
@@ -19,6 +20,7 @@ use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 // full text.
 const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
+const BLOCK_REPLACE: &str = "\u{FFFC}\n";
 
 // Unicode BiDi control characters.
 const LTR_EMBEDDING: &str = "\u{202A}";
@@ -43,6 +45,8 @@ pub enum Item<'a> {
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
+    /// A paragraph-level block.
+    Block(&'a Packed<BlockElem>, StyleChain<'a>),
 }
 
 impl<'a> Item<'a> {
@@ -76,6 +80,7 @@ impl<'a> Item<'a> {
             Self::Frame(_) => OBJ_REPLACE,
             Self::Tag(_) => "",
             Self::Skip(s) => s,
+            Self::Block(_, _) => BLOCK_REPLACE,
         }
     }
 
@@ -92,6 +97,7 @@ impl<'a> Item<'a> {
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
+            Self::Block(_, _) => Abs::zero(),
         }
     }
 }
@@ -231,6 +237,10 @@ pub fn collect<'a>(
                 apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
+        } else if let Some(elem) = child.to_packed::<BlockElem>()
+            && elem.inlinable.get(styles)
+        {
+            collector.push_item(Item::Block(elem, styles));
         } else if let Some(elem) = child.to_packed::<TagElem>() {
             collector.push_item(Item::Tag(&elem.tag));
         } else {
