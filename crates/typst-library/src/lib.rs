@@ -286,6 +286,7 @@ pub enum Category {
     Html,
     Svg,
     Png,
+    Bundle,
 }
 
 impl Category {
@@ -305,6 +306,7 @@ impl Category {
             Self::Html => "html",
             Self::Svg => "svg",
             Self::Png => "png",
+            Self::Bundle => "bundle",
         }
     }
 }

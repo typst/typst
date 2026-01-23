@@ -182,6 +182,7 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, Category::Html),
         category_page(resolver, Category::Png),
         category_page(resolver, Category::Svg),
+        category_page(resolver, Category::Bundle),
     ];
     page
 }
@@ -410,8 +411,9 @@ fn category_docs(category: Category) -> &'static str {
         Category::Visualize => load!("reference/library/visualize.md"),
         Category::Pdf => load!("reference/export/pdf.md"),
         Category::Html => load!("reference/export/html.md"),
-        Category::Svg => load!("reference/export/svg.md"),
         Category::Png => load!("reference/export/png.md"),
+        Category::Svg => load!("reference/export/svg.md"),
+        Category::Bundle => load!("reference/export/bundle.md"),
     }
 }
 
