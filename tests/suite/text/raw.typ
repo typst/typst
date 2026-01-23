@@ -203,17 +203,24 @@ for i in range(10):
 ` or otherwise e.g. `print(j)`, are colored properly.
 
 --- raw-highlight-typ paged ---
+// Highlighting for Typst markup
+#set page(width: auto)
 ```typ
-= Chapter 1
+#set heading(numbering: "1.")
+= Chapter 1 <chap:1>
 #lorem(100)
 
 #let hi = "Hello World"
 #show heading: emph
+/ Chap: @chap:1[Chapter #hi]
+- *Chap:* ch--ap
++ _*Chap:*_ ch~ap
+1. _Chap:_ ch---ap
 ```
 
 --- raw-highlight-typc paged ---
+// Highlighting for Typst code
 #set page(width: auto)
-
 ```typ
 #set hello()
 #set hello()
@@ -241,33 +248,46 @@ for i in range(10):
 ```
 
 --- raw-highlight-typm paged ---
+// Highlighting for Typst math
 #set page(width: auto)
 ```typm
 1 + 2/3
-a^b
+sum_(i=1)^n i = (n(n+1))/2
+binom(n, k) = n!/(k!(n - k)!)
+2 / √(2pi) = sqrt(2) / √pi
+3 * (1 - 2) <= #(3 * (1 + 2))
+((a+b))/((c)^(d')_(e')_(f)'/(g)'/(h)!)
+[\(a+b\)]/{\(c\)^[d']_{e'}_[|f|]'/[g]'/[\|h\|]!}
+f_zeta(x), f_zeta(x)/1, f_zeta (x)
+pi.alt + pi^arrow.l.long.double - π = ???
+"string" - + * ::= & \
+|=> & [|define(x-y_z: #1, x::= y; xyz; 0)|]
+std.text(op("Red"), fill: red)
+#std.text(math.op("Red"), fill: red)
+```
+
+--- raw-highlight-typm-idents paged ---
+// Highlighting identifiers, field accesses and function calls in math
+#set page(width: auto)
+```typm
 hello
+hello-world
 hello()
 box[]
 hello.world
 hello.world()
+hello-world()
+hello_world()
 hello.my.world()
-f_zeta(x), f_zeta(x)/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
+emph (hello.my().world())
 #hello
 #hello()
 #hello.world
 #hello.world()
 #box[]
-```
-
---- raw-highlight-typm-extra paged ---
-// Math highlighting for strings, alignments, shorthands, and named args.
-#set page(width: auto)
-```typm
-"string" - + * ::= & \
-|=> & [|define(x: #y, x::= y)|]
 ```
 
 --- raw-highlight-rust paged ---
