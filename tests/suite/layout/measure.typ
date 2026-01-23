@@ -92,6 +92,18 @@
 }
 #context test(query(metadata).first().value, 42pt)
 
+--- measure-counter-bundle bundle ---
+// Ensure that introspector-assisted location assignment works in bundle export.
+// This tests how document introspectors are combined into a bundle
+// introspector.
+#document("main.pdf", context {
+  let c = counter("c")
+  let it = context c.get().first() * h(1pt)
+  c.update(42) + it
+  metadata(measure(it).width)
+})
+#context test(query(metadata).first().value, 42pt)
+
 --- measure-counter-multiple-times paged empty ---
 // When the thing we measure appears multiple times, we measure as if it was
 // the first one.

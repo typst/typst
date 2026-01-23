@@ -4,14 +4,14 @@ mod collect;
 mod finalize;
 mod run;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
-    Introspector, Locator, ManualPageCounter, SplitLocator, TagElem,
+    Introspector, Locator, LocatorLink, ManualPageCounter, SplitLocator, TagElem,
 };
 use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
@@ -60,8 +60,84 @@ fn layout_document_impl(
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
+    layout_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::root(),
+        styles,
+    )
+}
+
+/// Layout content into a document, as part of a bundle compilation process.
+#[typst_macros::time(name = "layout document")]
+pub fn layout_document_for_bundle(
+    engine: &mut Engine,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
+    layout_document_for_bundle_impl(
+        engine.routines,
+        engine.world,
+        engine.introspector.into_raw(),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        locator.track(),
+        styles,
+    )
+}
+
+/// The internal implementation of `layout_document_for_bundle`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn layout_document_for_bundle_impl(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
+    let link = LocatorLink::new(locator);
+    layout_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::link(&link),
+        styles,
+    )
+}
+
+/// The shared, unmemoized implementation of `layout_document` and
+/// `layout_document_for_bundle`.
+#[allow(clippy::too_many_arguments)]
+fn layout_document_common(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
     let introspector = Protected::from_raw(introspector);
-    let mut locator = Locator::root().split();
+    let mut locator = locator.split();
     let mut engine = Engine {
         routines,
         world,

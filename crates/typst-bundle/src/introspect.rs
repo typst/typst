@@ -1,48 +1,90 @@
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
+use rustc_hash::FxHashMap;
+use typst_html::HtmlIntrospector;
+use typst_layout::PagedIntrospector;
 use typst_library::diag::StrResult;
 use typst_library::foundations::{Content, Label, Selector};
-use typst_library::introspection::{DocumentPosition, Introspector, Location};
+use typst_library::introspection::{
+    DocumentPosition, ElementIntrospector, ElementIntrospectorBuilder, Introspector,
+    Location,
+};
 use typst_library::model::Numbering;
+use typst_syntax::VirtualPath;
+
+use crate::{BundleDocument, Item};
 
 /// An introspector implementation for bundles.
 #[derive(Clone)]
-pub struct BundleIntrospector {}
+pub struct BundleIntrospector {
+    /// The paths of and introspectors for all bundle documents. Does not
+    /// include assets.
+    children: Vec<(VirtualPath, ChildIntrospector, Location)>,
+    /// The underlying target-agnostic introspector used for most queries.
+    /// The positions are off-by-one indices into `children`.
+    elements: ElementIntrospector<Option<NonZeroUsize>>,
+    /// Maps from element locations to assigned link anchors. This is used to
+    /// support intra-doc links. Link anchors are local to the relevant
+    /// document.
+    anchors: FxHashMap<Location, EcoString>,
+}
 
-#[expect(unused)]
+impl BundleIntrospector {
+    /// Creates an introspector for a bundle.
+    #[typst_macros::time(name = "introspect bundle")]
+    pub(crate) fn new(items: &[Item]) -> BundleIntrospector {
+        let mut builder = BundleIntrospectorBuilder::default();
+        for item in items {
+            builder.discover_item(item);
+        }
+        builder.finish()
+    }
+
+    /// Retrieves the child introspector for the given location.
+    ///
+    /// Returns `None` if the location is not within a document.
+    fn child(&self, location: Location) -> Option<&ChildIntrospector> {
+        let pos = *self.elements.position(location)?;
+        let index = pos?.get() - 1;
+        Some(&self.children[index].1)
+    }
+}
+
 impl Introspector for BundleIntrospector {
     fn query(&self, selector: &Selector) -> EcoVec<Content> {
-        todo!()
+        self.elements.query(selector)
     }
 
     fn query_first(&self, selector: &Selector) -> Option<Content> {
-        todo!()
+        self.elements.query_first(selector)
     }
 
     fn query_unique(&self, selector: &Selector) -> StrResult<Content> {
-        todo!()
+        self.elements.query_unique(selector)
     }
 
     fn query_label(&self, label: Label) -> StrResult<&Content> {
-        todo!()
+        self.elements.query_label(label)
     }
 
     fn query_labelled(&self) -> EcoVec<Content> {
-        todo!()
+        self.elements.query_labelled()
     }
 
     fn query_count_before(&self, selector: &Selector, end: Location) -> usize {
-        todo!()
+        self.elements.query_count_before(selector, end)
     }
 
     fn label_count(&self, label: Label) -> usize {
-        todo!()
+        self.elements.label_count(label)
     }
 
     fn locator(&self, key: u128, base: Location) -> Option<Location> {
-        todo!()
+        self.elements.locator(key, base)
     }
 
     fn pages(&self) -> Option<NonZeroUsize> {
@@ -50,28 +92,96 @@ impl Introspector for BundleIntrospector {
     }
 
     fn page(&self, location: Location) -> Option<NonZeroUsize> {
-        todo!()
+        self.child(location)?.page(location)
     }
 
     fn position(&self, location: Location) -> Option<DocumentPosition> {
-        todo!()
+        self.child(location)?.position(location)
     }
 
     fn page_numbering(&self, location: Location) -> Option<&Numbering> {
-        todo!()
+        self.child(location)?.page_numbering(location)
     }
 
     fn page_supplement(&self, location: Location) -> Option<&Content> {
-        todo!()
+        self.child(location)?.page_supplement(location)
     }
 
     fn anchor(&self, location: Location) -> Option<&EcoString> {
-        todo!()
+        self.anchors.get(&location)
     }
 }
 
 impl Debug for BundleIntrospector {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("BundleIntrospector(..)")
+    }
+}
+
+/// An introspector for a bundle document.
+#[derive(Clone)]
+enum ChildIntrospector {
+    Paged(Arc<PagedIntrospector>),
+    Html(Arc<HtmlIntrospector>),
+}
+
+impl Deref for ChildIntrospector {
+    type Target = dyn Introspector;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Paged(introspector) => introspector.as_ref(),
+            Self::Html(introspector) => introspector.as_ref(),
+        }
+    }
+}
+
+/// An introspector implementation for HTML documents.
+#[derive(Default)]
+struct BundleIntrospectorBuilder {
+    subdocuments: Vec<(VirtualPath, ChildIntrospector, Location)>,
+    elements: ElementIntrospectorBuilder<Option<NonZeroUsize>>,
+}
+
+impl BundleIntrospectorBuilder {
+    /// Returns the resulting introspector.
+    fn finish(self) -> BundleIntrospector {
+        BundleIntrospector {
+            children: self.subdocuments,
+            elements: self.elements.finalize(),
+            anchors: FxHashMap::default(),
+        }
+    }
+
+    /// Discovers introspectibles in a bundle item.
+    fn discover_item(&mut self, item: &Item) {
+        match item {
+            Item::Tag(tag) => self.elements.discover_tag(tag, None),
+            Item::Asset(..) => {}
+            Item::Document(path, doc, loc) => self.discover_document(path, doc, *loc),
+        }
+    }
+
+    /// Discovers introspectibles in a bundle document.
+    fn discover_document(
+        &mut self,
+        path: &VirtualPath,
+        doc: &BundleDocument,
+        loc: Location,
+    ) {
+        let pos = NonZeroUsize::new(1 + self.subdocuments.len());
+        let subintrospector = match doc {
+            BundleDocument::Paged(doc, _) => {
+                self.elements
+                    .discover_elements(doc.introspector().elements(), |_| pos);
+                ChildIntrospector::Paged(doc.introspector().clone())
+            }
+            BundleDocument::Html(doc) => {
+                self.elements
+                    .discover_elements(doc.introspector().elements(), |_| pos);
+                ChildIntrospector::Html(doc.introspector().clone())
+            }
+        };
+        self.subdocuments.push((path.clone(), subintrospector, loc));
     }
 }

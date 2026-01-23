@@ -201,6 +201,61 @@
   ([Frog], [GiraffeCat], [Iguana])
 )
 
+--- query-bundle-logical-order bundle ---
+#let m(s) = [#metadata(s) <hi>]
+
+#metadata(1)
+#document("hi.html")[
+  #metadata("a")
+  HTML
+]
+#metadata(2)
+#asset("data.json", "data")
+#metadata(3)
+#document("hi.pdf")[
+  #metadata("b")
+  PDF
+]
+#metadata(4)
+
+// Test logical order across documents.
+#context {
+  test(query(metadata).map(v => v.value), (1, "a", 2, 3, "b", 4))
+}
+
+// Test querying documents and assets.
+#context {
+  test(query(document).map(v => v.path), ("/hi.html", "/hi.pdf"))
+  test(query(asset).map(v => v.path), ("/data.json",))
+  test(
+    query(selector.or(document, asset)).map(v => v.path),
+    ("/hi.html", "/data.json", "/hi.pdf"),
+  )
+  test(
+    query(selector(document).after(metadata.where(value: 3))).map(v => v.path),
+    ("/hi.pdf",),
+  )
+}
+
+--- query-bundle-logical-order-around-html bundle ---
+#metadata(1)
+#document("hi.html")[
+  // Test tags around the HTML root element.
+  #metadata("a")
+  #html.html[
+    #metadata("b")
+    #html.body[Hello World!]
+    #metadata("c")
+  ]
+  #metadata("d")
+]
+#metadata(2)
+
+#context test(
+  query(metadata).map(v => v.value),
+  (1, "a", "b", "c", "d", 2)
+)
+
 --- issue-3726-query-show-set paged ---
 // Test that show rules apply to queried elements, i.e. that the content
 // returned from `query` isn't yet marked as prepared.

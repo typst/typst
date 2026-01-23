@@ -1,10 +1,10 @@
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Styles};
-use typst_library::introspection::{Introspector, Locator};
+use typst_library::introspection::{Introspector, Locator, LocatorLink};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
@@ -49,8 +49,92 @@ fn html_document_impl(
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
+    let mut document = html_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::root(),
+        styles,
+    )?;
+
+    // Assigns HTML fragment IDs to linked-to elements.
+    let targets = document.introspector().link_targets();
+    let anchors = crate::link::create_link_anchors(&mut document, &targets);
+    document.introspector_mut().set_anchors(anchors);
+
+    Ok(document)
+}
+
+/// Produce an HTML document from content, as part of a bundle compilation
+/// process.
+#[typst_macros::time(name = "html document")]
+pub fn html_document_for_bundle(
+    engine: &mut Engine,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
+    html_document_for_bundle_impl(
+        engine.routines,
+        engine.world,
+        engine.introspector.into_raw(),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        locator.track(),
+        styles,
+    )
+}
+
+/// The internal implementation of `html_document_for_bundle`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn html_document_for_bundle_impl(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
+    let link = LocatorLink::new(locator);
+    html_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::link(&link),
+        styles,
+    )
+}
+
+/// The shared, unmemoized implementation of `html_document` and
+/// `html_document_for_bundle`.
+#[allow(clippy::too_many_arguments)]
+fn html_document_common(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
     let introspector = Protected::from_raw(introspector);
-    let mut locator = Locator::root().split();
+    let mut locator = locator.split();
     let mut engine = Engine {
         routines,
         world,
@@ -98,12 +182,7 @@ fn html_document_impl(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    let mut document = HtmlDocument::new(output, info);
-    let targets = document.introspector().link_targets();
-    let anchors = crate::link::create_link_anchors(&mut document, &targets);
-    document.introspector_mut().set_anchors(anchors);
-
-    Ok(document)
+    Ok(HtmlDocument::new(output, info))
 }
 
 /// The introspectible output of HTML compilation.

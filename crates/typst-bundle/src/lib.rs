@@ -8,18 +8,32 @@ use crate::introspect::BundleIntrospector;
 
 pub use self::export_::{BundleOptions, VirtualFs, export};
 
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
+use comemo::{Tracked, TrackedMut};
+use ecow::{EcoVec, eco_format};
 use indexmap::IndexMap;
-use rustc_hash::FxBuildHasher;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
-use typst_library::diag::SourceResult;
-use typst_library::engine::Engine;
-use typst_library::foundations::{Bytes, Content, Output, StyleChain, Target};
-use typst_library::introspection::Introspector;
-use typst_library::model::{Document, DocumentInfo, PagedFormat};
+use typst_library::diag::{
+    At, CollectCombinedResult, SourceDiagnostic, SourceResult, bail, error,
+};
+use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::foundations::{
+    Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
+};
+use typst_library::introspection::{
+    Introspector, Location, Locator, SplitLocator, Tag, TagElem,
+};
+use typst_library::model::{
+    AssetElem, Document, DocumentElem, DocumentFormat, DocumentInfo, PagedFormat,
+};
+use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::{Feature, World};
 use typst_syntax::VirtualPath;
+use typst_utils::Protected;
 
 /// A collection of files resulting from compilation.
 ///
@@ -49,13 +63,12 @@ impl Output for Bundle {
         Target::Bundle
     }
 
-    #[expect(unused)]
     fn create(
         engine: &mut Engine,
         content: &Content,
         styles: StyleChain,
     ) -> SourceResult<Self> {
-        todo!()
+        bundle(engine, content, styles)
     }
 }
 
@@ -93,4 +106,228 @@ impl Document for BundleDocument {
 pub struct PagedExtras {
     /// The format to export in.
     pub format: PagedFormat,
+}
+
+/// Produces a bundle from content.
+///
+/// This first performs root-level bundle realization and then compiles the
+/// individual documents (in parallel).
+#[typst_macros::time]
+pub fn bundle(
+    engine: &mut Engine,
+    content: &Content,
+    styles: StyleChain,
+) -> SourceResult<Bundle> {
+    bundle_impl(
+        engine.routines,
+        engine.world,
+        engine.introspector.into_raw(),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        styles,
+    )
+}
+
+/// The internal implementation of `bundle`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn bundle_impl(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    styles: StyleChain,
+) -> SourceResult<Bundle> {
+    let introspector = Protected::from_raw(introspector);
+    let mut locator = Locator::root().split();
+    let mut engine = Engine {
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route: Route::extend(route).unnested(),
+    };
+
+    // Mark the external styles as "outside" so that they are valid at the page
+    // level.
+    let styles = styles.to_map().outside();
+    let styles = StyleChain::new(&styles);
+
+    let arenas = Arenas::default();
+    let children = (engine.routines.realize)(
+        RealizationKind::Bundle,
+        &mut engine,
+        &mut locator,
+        &arenas,
+        content,
+        styles,
+    )?;
+
+    let children = collect(&children, &mut locator)?;
+
+    let items = engine
+        .parallelize(children, |engine, child| -> SourceResult<_> {
+            Ok(match child {
+                Child::Tag(tag) => Item::Tag(tag.clone()),
+                Child::Asset(asset) => {
+                    Item::Asset(asset.path.clone().into_inner(), asset.data.0.clone())
+                }
+                Child::Document(document, styles, locator) => Item::Document(
+                    document.path.clone().into_inner(),
+                    compile_document(engine, document, styles, locator)?,
+                    document.location().unwrap(),
+                ),
+            })
+        })
+        .collect_combined_result::<Vec<_>>()?;
+
+    let introspector = BundleIntrospector::new(&items);
+
+    let mut files = IndexMap::default();
+    for item in items {
+        match item {
+            Item::Tag(_) => {}
+            Item::Asset(path, bytes) => {
+                files.insert(path, BundleFile::Asset(bytes));
+            }
+            Item::Document(path, doc, _) => {
+                files.insert(path, BundleFile::Document(doc));
+            }
+        }
+    }
+
+    Ok(Bundle {
+        files: Arc::new(files),
+        introspector: Arc::new(introspector),
+    })
+}
+
+/// Something that can result from bundle realization.
+enum Child<'a> {
+    Tag(&'a Tag),
+    Asset(&'a Packed<AssetElem>),
+    Document(&'a Packed<DocumentElem>, StyleChain<'a>, Locator<'a>),
+}
+
+/// The processed version of a [`Child`].
+enum Item {
+    Tag(Tag),
+    Asset(VirtualPath, Bytes),
+    Document(VirtualPath, BundleDocument, Location),
+}
+
+/// Collects all documents and assets in the bundle.
+fn collect<'a>(
+    children: &'a [Pair<'a>],
+    locator: &mut SplitLocator<'a>,
+) -> SourceResult<Vec<Child<'a>>> {
+    let mut items = Vec::new();
+    let mut errors = EcoVec::new();
+    let mut seen = FxHashMap::default();
+
+    for (elem, styles) in children {
+        let path = if let Some(elem) = elem.to_packed::<TagElem>() {
+            items.push(Child::Tag(&elem.tag));
+            continue;
+        } else if let Some(elem) = elem.to_packed::<AssetElem>() {
+            items.push(Child::Asset(elem));
+            elem.path.as_ref()
+        } else if let Some(elem) = elem.to_packed::<DocumentElem>() {
+            items.push(Child::Document(elem, *styles, locator.next(&elem.span())));
+            elem.path.as_ref()
+        } else {
+            errors.push(error!(
+                elem.span(), "{} is not allowed at the top-level in bundle export",
+                elem.func().name();
+                hint: "try wrapping the content in a `document` instead";
+            ));
+            continue;
+        };
+
+        match seen.entry(path) {
+            Entry::Vacant(entry) => {
+                entry.insert(elem.span());
+            }
+            Entry::Occupied(entry) => {
+                errors.push(
+                    SourceDiagnostic::error(
+                        elem.span(),
+                        eco_format!(
+                            "path `{}` occurs multiple times in the bundle",
+                            path.get_without_slash()
+                        ),
+                    )
+                    .with_hint(eco_format!(
+                        "{} paths must be unique in the bundle",
+                        elem.func().name(),
+                    ))
+                    .with_spanned_hint("path is already in use here", *entry.get()),
+                );
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(items)
+}
+
+/// Compiles a single document.
+fn compile_document<'a>(
+    engine: &mut Engine,
+    document: &'a Packed<DocumentElem>,
+    styles: StyleChain<'a>,
+    locator: Locator<'a>,
+) -> SourceResult<BundleDocument> {
+    let format = document.determine_format(styles).at(document.span())?;
+    let target = TargetElem::target.set(format.target()).wrap();
+    let styles = styles.chain(&target);
+    Ok(match format {
+        DocumentFormat::Paged(format) => {
+            let doc = typst_layout::layout_document_for_bundle(
+                engine,
+                &document.body,
+                locator,
+                styles,
+            )?;
+
+            let num_pages = doc.pages().len();
+            if num_pages != 1 && matches!(format, PagedFormat::Png | PagedFormat::Svg) {
+                bail!(
+                    document.span(),
+                    "expected document to have a single page";
+                    hint: "the document resulted in {num_pages} pages";
+                    hint: "documents exported to an image format only support a single page";
+                );
+            }
+
+            BundleDocument::Paged(Box::new(doc), PagedExtras { format })
+        }
+        DocumentFormat::Html => {
+            if !engine.world.library().features.is_enabled(Feature::Html) {
+                bail!(
+                    document.span(),
+                    "html export is only available when the `html` feature is enabled";
+                    hint: "html export is under active development and incomplete";
+                    hint: "to enable both bundle and html export, pass `--features bundle,html`";
+                );
+            }
+
+            let doc = typst_html::html_document_for_bundle(
+                engine,
+                &document.body,
+                locator,
+                styles,
+            )?;
+            BundleDocument::Html(Box::new(doc))
+        }
+    })
 }

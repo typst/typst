@@ -423,6 +423,23 @@ impl<P> ElementIntrospectorBuilder<P> {
         }
     }
 
+    /// Discovers elements from another already built introspector.
+    pub fn discover_elements<Q>(
+        &mut self,
+        elements: &ElementIntrospector<Q>,
+        map_position: impl Fn(&Q) -> P,
+    ) {
+        self.sink.reserve(elements.elems.len());
+        for (elem, q) in elements.elems.iter() {
+            let loc = elem.location().unwrap();
+            if self.seen.insert(loc) {
+                let position = map_position(q);
+                self.sink.push((elem.clone(), position));
+            }
+        }
+        self.keys.extend(&elements.keys);
+    }
+
     /// Future content until a matching `end_insertion` will ordering-wise be
     /// treated as belonging to the `parent` passed to `end_insertion`.
     pub fn start_insertion(&mut self) {
@@ -504,12 +521,30 @@ where
         self.0.get(key).map_or(&[], |vec| vec.as_slice())
     }
 
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a [V])> + use<'a, K, V> {
+        self.0.iter().map(|(k, v)| (k, v.as_slice()))
+    }
+
     fn insert(&mut self, key: K, value: V) {
         self.0.entry(key).or_default().push(value);
     }
 
+    fn insert_iter(&mut self, key: K, values: impl IntoIterator<Item = V>) {
+        self.0.entry(key).or_default().extend(values);
+    }
+
     fn take(&mut self, key: &K) -> Option<impl Iterator<Item = V> + use<K, V>> {
         self.0.remove(key).map(|vec| vec.into_iter())
+    }
+
+    fn extend(&mut self, other: &Self)
+    where
+        K: Clone,
+        V: Clone,
+    {
+        for (key, locs) in other.iter() {
+            self.insert_iter(key.clone(), locs.iter().cloned());
+        }
     }
 }
 

@@ -14,7 +14,7 @@ mod rules;
 mod tag;
 mod typed;
 
-pub use self::document::html_document;
+pub use self::document::{html_document, html_document_for_bundle};
 pub use self::dom::*;
 pub use self::encode::html;
 pub use self::introspect::HtmlIntrospector;

@@ -108,6 +108,9 @@ routines! {
 
 /// Defines what kind of realization we are performing.
 pub enum RealizationKind<'a> {
+    /// The realization for bundles. The content is realized into documents and
+    /// assets.
+    Bundle,
     /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
     LayoutDocument { info: &'a mut DocumentInfo },
