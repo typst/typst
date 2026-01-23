@@ -22,8 +22,8 @@ What's up?
 Hello
 #set document(title: [Hello])
 
---- document-constructor eval ---
-// Error: 2-12 can only be used in set rules
+--- document-constructor-incomplete eval ---
+// Error: 2-12 missing argument: path
 #document()
 
 --- document-set-in-container paged ---
