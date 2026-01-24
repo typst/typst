@@ -394,12 +394,9 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = PdfMarkerTag::Label(
-        SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt)),
-    );
+    // Link to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = PdfMarkerTag::Label(SuperElem::new(link).pack().spanned(elem.span()));
     Ok(HElem::hole().clone() + sup)
 };
 

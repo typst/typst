@@ -14,7 +14,7 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
+use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -135,17 +135,22 @@ impl FootnoteElem {
 }
 
 impl Packed<FootnoteElem> {
-    /// Returns the linking location and the resolved numbers.
+    /// Returns the content holding the number and linking to the
+    /// footnote entry.
     pub fn realize(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Destination, Content)> {
-        let loc = self.declaration_location(engine).at(self.span())?;
+    ) -> SourceResult<Content> {
+        let span = self.span();
+        let loc = self.declaration_location(engine).at(span)?;
         let numbering = self.numbering.get_ref(styles);
         let counter = Counter::of(FootnoteElem::ELEM);
-        let num = counter.display_at(engine, loc, styles, numbering, self.span())?;
-        Ok((Destination::Location(loc.variant(1)), num))
+        let num = counter.display_at(engine, loc, styles, numbering, span)?;
+        let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+        return Ok(DirectLinkElem::new(loc.variant(1), num, Some(alt))
+            .pack()
+            .spanned(span));
     }
 
     /// Returns the location of the definition of this footnote.
