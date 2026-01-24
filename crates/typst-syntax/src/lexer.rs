@@ -100,12 +100,12 @@ impl Lexer<'_> {
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
-                let kind = self.error("unexpected end of block comment");
+                let error = self.error("unexpected end of block comment");
                 self.hint(
                     "consider escaping the `*` with a backslash or \
                      opening the block comment with `/*`",
                 );
-                kind
+                error
             }
             Some('`') if self.mode != SyntaxMode::Math => return self.raw(),
             Some(c) => match self.mode {
@@ -792,7 +792,12 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            c => self.error(eco_format!("the character `{c}` is not valid in code")),
+            c => {
+                let error =
+                    self.error(eco_format!("the character `{c}` is not valid in code"));
+                self.hint(eco_format!("try removing the `{c}`"));
+                error
+            }
         }
     }
 
@@ -904,9 +909,9 @@ impl Lexer<'_> {
             (Ok(()), Ok(Some(()))) => SyntaxKind::Numeric,
             // Invalid numbers :(
             (Err(number_err), Err(suffix_err)) => {
-                let err = self.error(number_err);
+                let error = self.error(number_err);
                 self.hint(suffix_err);
-                err
+                error
             }
             (Ok(()), Err(msg)) | (Err(msg), Ok(_)) => self.error(msg),
         }
