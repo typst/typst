@@ -135,7 +135,7 @@ impl FootnoteElem {
 }
 
 impl Packed<FootnoteElem> {
-    /// Returns the content holding the number and linking to the
+    /// Returns the content that holds the number and links to the
     /// footnote entry.
     pub fn realize(
         &self,
@@ -148,9 +148,9 @@ impl Packed<FootnoteElem> {
         let counter = Counter::of(FootnoteElem::ELEM);
         let num = counter.display_at(engine, loc, styles, numbering, span)?;
         let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-        return Ok(DirectLinkElem::new(loc.variant(1), num, Some(alt))
+        Ok(DirectLinkElem::new(loc.variant(1), num, Some(alt))
             .pack()
-            .spanned(span));
+            .spanned(span))
     }
 
     /// Returns the location of the definition of this footnote.

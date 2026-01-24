@@ -336,7 +336,7 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    // Link to the footnote entry.
+    // The footnote number that links to the footnote entry.
     let link = elem.realize(engine, styles)?;
     let sup = SuperElem::new(link)
         .pack()
