@@ -792,12 +792,42 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            c => {
-                let error =
-                    self.error(eco_format!("the character `{c}` is not valid in code"));
-                self.hint(eco_format!("try removing the `{c}`"));
+            // Everything else is an error, but we try to give good hints for
+            // commonly confusing operators.
+            '&' if self.s.eat_if('&') => {
+                let error = self.error("`&&` is not valid in code");
+                self.hint("in Typst, `and` is used for logical AND");
                 error
             }
+            '|' if self.s.eat_if('|') => {
+                let error = self.error("`||` is not valid in code");
+                self.hint("in Typst, `or` is used for logical OR");
+                error
+            }
+            '!' => {
+                let error = self.error("the character `!` is not valid in code");
+                self.hint("in Typst, `not` is used for negation");
+                self.hint("or did you mean to write `!=` for not-equal?");
+                error
+            }
+            '~' if self.s.eat_if('=') => {
+                let error = self.error("`~=` is not valid in code");
+                self.hint("in Typst, `!=` is used for not-equal");
+                error
+            }
+            '~' => {
+                let error = self.error("the character `~` is not valid in code");
+                self.hint("in Typst, `not` is used for negation");
+                error
+            }
+            '#' => {
+                let error = self.error("the character `#` is not valid in code");
+                self.hint("you are already in code mode");
+                self.hint("try removing the `#`");
+                error
+            }
+            // This is our default hint for invalid characters.
+            c => self.error(eco_format!("the character `{c}` is not valid in code")),
         }
     }
 
