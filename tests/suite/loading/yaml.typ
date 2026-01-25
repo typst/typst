@@ -25,6 +25,43 @@
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
 
+--- yaml-decode-merge-keys eval ---
+// This example is copied from https://docs.rs/serde_yaml/0.9.34+deprecated/serde_yaml/enum.Value.html#method.apply_merge.
+#let config = bytes(
+  ```yaml
+  tasks:
+    build: &webpack_shared
+      command: webpack
+      args: build
+      inputs:
+        - 'src/**/*'
+    start:
+      <<: *webpack_shared
+      args: start
+  ```.text,
+)
+#let value = yaml(config, merge-keys: true)
+#assert.eq(value.tasks.start.command, "webpack")
+#assert.eq(value.tasks.start.args, "start")
+
+// This example is copied from https://docs.rs/serde_yaml/0.9.34+deprecated/serde_yaml/enum.Value.html#method.apply_merge.
+#let config = bytes(
+  ```yaml
+  tasks:
+    build: &webpack_shared
+      command: webpack
+      args: build
+      inputs:
+        - 'src/**/*'
+    start:
+      <<: *webpack_shared
+      args: start
+  ```.text,
+)
+#let value = yaml(config, merge-keys: true)
+#assert.eq(value.tasks.start.command, "webpack")
+#assert.eq(value.tasks.start.args, "start")
+
 --- yaml-decode-number eval ---
 #import "edge-case.typ": large-integer, representable-integer
 

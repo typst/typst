@@ -73,11 +73,31 @@ pub fn yaml(
     engine: &mut Engine,
     /// A path to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
+    /// Whether to perform merging of `<<`` keys into the surrounding mapping
+    /// according to the [YAML specification](https://yaml.org/type/merge.html).
+    ///
+    /// ```example
+    /// TODO: I haven't come up with a visually-appealing practical example yet…
+    ///       Suggestions are welcome!
+    /// ```
+    #[named]
+    #[default(true)]
+    merge_keys: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    serde_yaml::from_slice(loaded.data.as_slice())
-        .map_err(format_yaml_error)
-        .within(&loaded)
+    if merge_keys {
+        // Use two steps to preprocess the YAML.
+        serde_yaml::from_slice::<serde_yaml::Value>(loaded.data.as_slice())
+            .and_then(|mut value| {
+                value.apply_merge()?;
+                Ok(value)
+            })
+            .and_then(serde_yaml::from_value)
+    } else {
+        serde_yaml::from_slice(loaded.data.as_slice())
+    }
+    .map_err(format_yaml_error)
+    .within(&loaded)
 }
 
 #[scope]
@@ -93,7 +113,8 @@ impl yaml {
         /// YAML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        yaml(engine, data.map(Readable::into_source))
+        // Typst 0.14 did not merge keys, so it's false here.
+        yaml(engine, data.map(Readable::into_source), false)
     }
 
     /// Encode structured data into a YAML string.
