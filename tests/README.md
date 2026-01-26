@@ -112,7 +112,7 @@ There are, broadly speaking, three kinds of tests:
   to ensure certain properties hold when executing the Typst code. Generic
   scripting tests that don't depend on the target should use the `eval`
   attribute, if possible. If they rely on the evaluated content being compiled,
-  for example due to test code in show-rules, they should `paged|html empty`.
+  for example due to test code in show-rules, they should use `paged|html empty`.
 
 - Tests that ensure the code emits particular diagnostic messages: Those have
   inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
