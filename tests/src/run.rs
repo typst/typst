@@ -254,7 +254,7 @@ impl<'a> Runner<'a> {
     /// Handle notes that weren't handled before.
     fn handle_not_emitted(&mut self) {
         for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            let possible = self.test.attrs.implied_stages() & ARGS.stages();
+            let possible = self.test.attrs.implied_stages() & ARGS.required_stages();
             if seen.is_empty() && !possible.is_empty() {
                 log!(self, "not emitted");
                 let note_range = self.format_range(note.file, &note.range);
@@ -272,15 +272,16 @@ impl<'a> Runner<'a> {
             // specific output/target that isn't hit by all possible branches of
             // the stage tree.
             // See the doc comment on `TestStages` for an overview.
-            let attr_stages = self.test.attrs.implied_stages() & ARGS.stages();
+            let attr_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
             let full_branch_coverage =
                 attr_stages.iter().all(|s| s.with_required().intersects(seen));
             if full_branch_coverage {
                 continue;
             }
 
-            let siblings =
-                seen.with_siblings() & self.test.attrs.implied_stages() & ARGS.stages();
+            let siblings = seen.with_siblings()
+                & self.test.attrs.implied_stages()
+                & ARGS.required_stages();
             log!(
                 self,
                 "only emitted in [{seen}] but expected in [{siblings}], \

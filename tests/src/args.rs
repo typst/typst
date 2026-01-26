@@ -80,7 +80,7 @@ pub struct CliArguments {
 
 impl CliArguments {
     /// The stages which should be run depending on the `--stages` flag.
-    pub fn stages(&self) -> TestStages {
+    fn stages(&self) -> TestStages {
         thread_local! {
             static CACHED: OnceCell<TestStages> = const { OnceCell::new() };
         }
@@ -94,13 +94,22 @@ impl CliArguments {
                     for &s in self.stages.iter() {
                         stages |= s.into();
                     }
-
-                    // Must be in this order, otherwise any paged output target
-                    // would enable all others.
-                    stages.with_implied().with_required()
+                    stages
                 }
             })
         })
+    }
+
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages().with_implied()
+    }
+
+    /// [Self::implied_stages] and the ones that are required.
+    pub fn required_stages(&self) -> TestStages {
+        // Must be in this order, otherwise any paged output target
+        // would enable all others.
+        self.stages().with_implied().with_required()
     }
 }
 

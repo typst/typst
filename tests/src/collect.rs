@@ -51,7 +51,8 @@ impl Test {
     /// [implied](TestStages::with_implied).
     pub fn should_check(&self, output: TestOutput) -> bool {
         // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
-        ARGS.stages().intersects(self.attrs.implied_stages() & output.into())
+        ARGS.required_stages()
+            .intersects(self.attrs.implied_stages() & output.into())
             && output != TestOutput::Pdf
             && output != TestOutput::Svg
     }
@@ -60,7 +61,7 @@ impl Test {
     /// [required](TestStages::with_required) by another stage mus be run, even
     /// if they aren't explicitly specified.
     pub fn should_run(&self, stage: impl TestStage) -> bool {
-        ARGS.stages()
+        ARGS.required_stages()
             .intersects(self.attrs.implied_stages().with_required() & stage.into())
     }
 }
@@ -675,7 +676,7 @@ impl<'a> Parser<'a> {
 
             let text = self.s.from(start);
 
-            if !ARGS.stages().intersects(attrs.implied_stages())
+            if !ARGS.implied_stages().intersects(attrs.implied_stages())
                 || !selected(&name, self.path.canonicalize().unwrap())
             {
                 self.collector.skipped += 1;
