@@ -18,6 +18,7 @@ typst-syntax = { workspace = true }
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
+typst-eval = { workspace = true }
 typst-html = { workspace = true }
 typst-library = { workspace = true }
 typst-pdf = { workspace = true }

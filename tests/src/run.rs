@@ -149,13 +149,12 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        let content = self.eval();
-        if let Some(content) = &content {
+        if let Some(content) = self.eval() {
             if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
-                if !output::is_empty_content(content) {
+                if !output::is_empty_content(&content) {
                     self.unexpected_non_empty.eval(content.clone());
                 }
-            } else if output::is_empty_content(content) {
+            } else if output::is_empty_content(&content) {
                 self.unexpected_empty.eval();
             }
         }
@@ -163,10 +162,7 @@ impl<'a> Runner<'a> {
         // Only compile paged document when the paged target is explicitly
         // specified or required by paged outputs.
         if self.test.should_run(TestTarget::Paged) {
-            let mut doc = content
-                .clone()
-                .and_then(|content| self.realize::<PagedDocument>(content));
-
+            let mut doc = self.compile::<PagedDocument>();
             let errors = custom::check(self.test, &self.world, doc.as_ref());
             if !errors.is_empty() {
                 log!(self, "custom check failed");
@@ -197,7 +193,7 @@ impl<'a> Runner<'a> {
 
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
-            let doc = content.and_then(|content| self.realize::<HtmlDocument>(content));
+            let doc = self.compile::<HtmlDocument>();
             self.run_file_test::<output::Html>(doc.as_ref());
         }
 
@@ -298,7 +294,7 @@ impl<'a> Runner<'a> {
 
     /// Evaluate document content, this is the target agnostic part of compilation.
     fn eval(&mut self) -> Option<Content> {
-        let Warned { output, warnings } = typst::eval(&self.world);
+        let Warned { output, warnings } = eval::eval(&self.world);
         for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning, TestEval);
         }
@@ -313,8 +309,8 @@ impl<'a> Runner<'a> {
     }
 
     /// Compile a document with the specified target.
-    fn realize<D: TestDocument>(&mut self, content: Content) -> Option<D> {
-        let Warned { output, warnings } = typst::realize::<D>(&self.world, content);
+    fn compile<D: TestDocument>(&mut self) -> Option<D> {
+        let Warned { output, warnings } = typst::compile::<D>(&self.world);
         for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
         }
@@ -695,5 +691,58 @@ impl<'a> Runner<'a> {
         };
 
         if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
+    }
+}
+
+/// A bunch of copy pasted code from the `typst` crate, so we don't have to
+/// change the public API.
+mod eval {
+    use comemo::{Track, Tracked};
+    use ecow::EcoVec;
+    use rustc_hash::FxHashSet;
+    use typst::diag::{SourceDiagnostic, SourceResult, Warned};
+    use typst::engine::{Route, Sink, Traced};
+    use typst::foundations::Content;
+    use typst::{ROUTINES, World};
+
+    pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
+        let mut sink = Sink::new();
+        let output = eval_impl(world.track(), Traced::default().track(), &mut sink)
+            .map_err(deduplicate);
+
+        Warned { output, warnings: sink.warnings() }
+    }
+
+    fn eval_impl(
+        world: Tracked<dyn World + '_>,
+        traced: Tracked<Traced>,
+        sink: &mut Sink,
+    ) -> SourceResult<Content> {
+        // Fetch the main source file once.
+        let main = world.main();
+        let main = world.source(main).expect("valid main file");
+
+        // First evaluate the main source file into a module.
+        let content = typst_eval::eval(
+            &ROUTINES,
+            world,
+            traced,
+            sink.track_mut(),
+            Route::default().track(),
+            &main,
+        )?
+        .content();
+
+        Ok(content)
+    }
+
+    /// Deduplicate diagnostics.
+    fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
+        let mut unique = FxHashSet::default();
+        diags.retain(|diag| {
+            let hash = typst_utils::hash128(&(&diag.span, &diag.message));
+            unique.insert(hash)
+        });
+        diags
     }
 }
