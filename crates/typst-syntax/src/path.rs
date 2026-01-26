@@ -319,8 +319,8 @@ impl VirtualPath {
         Ok(Self(segments))
     }
 
-    /// Tries to express this path as a relative path from the given base path.
-    pub fn relative_from(&self, base: &Self) -> Option<EcoString> {
+    /// Expresses this path as a relative path from the given base path.
+    pub fn relative_from(&self, base: &Self) -> EcoString {
         // Adapted from rustc's `path_relative_from` function (MIT).
         // Copyright 2012-2015 The Rust Project Developers.
         // See NOTICE for full attribution.
@@ -345,8 +345,7 @@ impl VirtualPath {
                 }
             }
         }
-
-        Some(buf.join("/").into())
+        buf.join("/").into()
     }
 }
 
@@ -719,14 +718,14 @@ mod tests {
     #[test]
     fn test_relative_from() {
         let p1 = path("src/text/main.typ");
-        assert_eq!(p1.relative_from(&path("/src/text")), Some("main.typ".into()));
-        assert_eq!(p1.relative_from(&path("/src/data")), Some("../text/main.typ".into()));
-        assert_eq!(p1.relative_from(&path("src/")), Some("text/main.typ".into()));
-        assert_eq!(p1.relative_from(&path("/")), Some("src/text/main.typ".into()));
+        assert_eq!(p1.relative_from(&path("/src/text")), "main.typ");
+        assert_eq!(p1.relative_from(&path("/src/data")), "../text/main.typ");
+        assert_eq!(p1.relative_from(&path("src/")), "text/main.typ");
+        assert_eq!(p1.relative_from(&path("/")), "src/text/main.typ");
 
         let p2 = path("src");
-        assert_eq!(p2.relative_from(&path("src")), Some("".into()));
-        assert_eq!(p2.relative_from(&path("src/data")), Some("..".into()));
+        assert_eq!(p2.relative_from(&path("src")), "");
+        assert_eq!(p2.relative_from(&path("src/data")), "..");
     }
 
     #[test]

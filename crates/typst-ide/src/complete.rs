@@ -1207,7 +1207,7 @@ impl<'a> CompletionContext<'a> {
             .files()
             .iter()
             .filter(|&&id| id != current_id && filter(id))
-            .filter_map(|id| id.vpath().relative_from(&current_dir))
+            .map(|id| id.vpath().relative_from(&current_dir))
             .collect();
 
         paths.sort();
