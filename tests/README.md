@@ -102,7 +102,7 @@ attributes are currently defined:
   PDF tag tree.
 - `large`: Permits a reference image size exceeding 20 KiB. Should be used
   sparingly.
-- `empty`: Indicates that a test shouldn't produce any non-trivial output, if it
+- `empty`: Indicates that a test shouldn't produce any non-trivial output. If it
   does anyway, it will fail.
 
 There are, broadly speaking, three kinds of tests:
