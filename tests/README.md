@@ -60,7 +60,7 @@ and SVGs. To make them go faster while developing, you can pass the `--stages`
 flag to only run certain targets/outputs. The available stages are the following
 ones:
 
-- `eval`: Evaluate the source code, this is (document-) target agnostic.
+- `eval`: Evaluate the source code. This is (document-) target agnostic.
 - `paged`: Compile the paged target and produce `render`, `pdf`, and `svg`
   outputs.
   - `render`: Produce `render` (`png`) output.
