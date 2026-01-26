@@ -90,13 +90,7 @@ pub fn yaml(
         .within(&loaded)?;
 
     if merge_keys {
-        // I don't think it's worth the complexity…
-        value = serde_yaml::to_value(value)
-            .and_then(|mut value| {
-                value.apply_merge()?;
-                Ok(value)
-            })
-            .and_then(serde_yaml::from_value)
+        apply_yaml_merge(&mut value)
             .map_err(format_yaml_error)
             .within(&loaded)?;
     }
@@ -145,4 +139,69 @@ pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
         })
         .unwrap_or_default();
     LoadError::new(pos, "failed to parse YAML", error)
+}
+
+/// Performs merging of << keys into the surrounding mapping.
+/// A copy of [`serde_yaml::Value::apply_merge`] to [`Value`].
+fn apply_yaml_merge(value: &mut Value) -> Result<(), serde_yaml::Error> {
+    use serde::de::Error;
+
+    match value {
+        Value::Dict(dict) => {
+            match dict.take("<<") {
+                Ok(Value::Dict(merge)) => {
+                    for (k, v) in merge {
+                        if !dict.contains(k.as_str()) {
+                            dict.insert(k, v);
+                        }
+                    }
+                }
+                Ok(Value::Array(array)) => {
+                    for value in array {
+                        match value {
+                            Value::Dict(merge) => {
+                                for (k, v) in merge {
+                                    if !dict.contains(k.as_str()) {
+                                        dict.insert(k, v);
+                                    }
+                                }
+                            }
+                            Value::Array(_) => {
+                                return Err(serde_yaml::Error::custom(
+                                    "expected a mapping for merging, but found sequence",
+                                ));
+                            }
+                            _unexpected => {
+                                return Err(serde_yaml::Error::custom(
+                                    "expected a mapping for merging, but found scalar",
+                                ));
+                            }
+                        }
+                    }
+                }
+                Err(_) => {}
+                Ok(_unexpected) => {
+                    return Err(serde_yaml::Error::custom(
+                        "expected a mapping or list of mappings for merging, but found scalar",
+                    ));
+                }
+            }
+
+            let keys: Vec<Str> = dict.iter().map(|(k, _)| k.clone()).collect();
+            for key in keys {
+                let value = dict.at_mut(&key).expect("key just collected from dict");
+                apply_yaml_merge(value)?;
+            }
+        }
+        Value::Array(array) => {
+            let len = array.len();
+            for i in 0..len {
+                let value =
+                    array.at_mut(i as i64).expect("index just collected from array");
+                apply_yaml_merge(value)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
