@@ -4,7 +4,6 @@ mod collect;
 mod finalize;
 mod run;
 
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use comemo::{Tracked, TrackedMut};
@@ -14,10 +13,9 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
-    DocumentPosition, Introspector, IntrospectorBuilder, Locator, ManualPageCounter,
-    PagedPosition, SplitLocator, TagElem,
+    Introspector, Locator, ManualPageCounter, SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Point, Transform};
+use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_utils::Protected;
@@ -25,7 +23,7 @@ use typst_utils::Protected;
 use self::collect::{Item, collect};
 use self::finalize::finalize;
 use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
-use crate::{Page, PagedDocument};
+use crate::{Page, PagedDocument, PagedIntrospector};
 
 /// Layout content into a document.
 ///
@@ -57,7 +55,7 @@ pub fn layout_document(
 fn layout_document_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -92,7 +90,7 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
-    let introspector = introspect_pages(&pages);
+    let introspector = PagedIntrospector::new(&pages);
 
     Ok(PagedDocument { pages, info, introspector: Arc::new(introspector) })
 }
@@ -164,29 +162,4 @@ fn layout_pages<'a>(
     }
 
     Ok(pages)
-}
-
-/// Introspects pages.
-#[typst_macros::time(name = "introspect pages")]
-fn introspect_pages(pages: &[Page]) -> Introspector {
-    let mut builder = IntrospectorBuilder::new();
-    builder.pages = pages.len();
-    builder.page_numberings.reserve(pages.len());
-    builder.page_supplements.reserve(pages.len());
-
-    // Discover all elements.
-    let mut elems = Vec::new();
-    for (i, page) in pages.iter().enumerate() {
-        let nr = NonZeroUsize::new(1 + i).unwrap();
-        builder.page_numberings.push(page.numbering.clone());
-        builder.page_supplements.push(page.supplement.clone());
-        builder.discover_in_frame(
-            &mut elems,
-            &page.frame,
-            Transform::identity(),
-            &mut |point| DocumentPosition::Paged(PagedPosition { page: nr, point }),
-        );
-    }
-
-    builder.finalize(elems)
 }

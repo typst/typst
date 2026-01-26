@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
-use typst::foundations::{Context, Scope, StyleChain, Value};
+use typst::foundations::{Context, Output, Scope, StyleChain, Value};
 use typst::syntax::{Span, SyntaxMode};
 use typst::{World, engine::Sink, introspection::Introspector};
 use typst_eval::eval_string;
@@ -25,20 +25,20 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     // Compile the main file and get the introspector.
     let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|output| output.map(|document| document.introspector)),
+            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|output| output.map(|document| document.introspector)),
+            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
     };
 
     match output {
         // Retrieve and print evaluation results.
-        Ok(introspector) => {
+        Ok(document) => {
             let mut sink = Sink::new();
             let eval_result = evaluate_expression(
                 command.expression.clone(),
                 &mut sink,
                 &world,
-                &introspector,
+                document.introspector(),
             );
             let errors = match &eval_result {
                 Err(errors) => errors.as_slice(),
@@ -82,7 +82,7 @@ fn evaluate_expression(
     expression: String,
     sink: &mut Sink,
     world: &dyn World,
-    introspector: &Introspector,
+    introspector: &dyn Introspector,
 ) -> SourceResult<Value> {
     eval_string(
         &typst::ROUTINES,

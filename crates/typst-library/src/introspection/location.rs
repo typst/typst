@@ -4,11 +4,14 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::Span;
+use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
 use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
-use crate::introspection::{History, Introspect, Introspector, PagedPosition};
+use crate::introspection::{
+    DocumentPosition, History, Introspect, Introspector, PagedPosition,
+};
 use crate::layout::Abs;
 use crate::model::Numbering;
 
@@ -175,9 +178,13 @@ impl Introspect for PositionIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.position(self.0).as_paged_or_default()
+        match introspector.position(self.0) {
+            Some(DocumentPosition::Paged(pos)) => pos,
+            // Maybe error here instead?
+            Some(DocumentPosition::Html(_)) | None => PagedPosition::ORIGIN,
+        }
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -210,9 +217,10 @@ impl Introspect for PageIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.page(self.0)
+        // Maybe error here instead of calling `unwrap_or`?
+        introspector.page(self.0).unwrap_or(NonZeroUsize::ONE)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -237,7 +245,7 @@ impl Introspect for PageNumberingIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.page_numbering(self.0).cloned()
     }
@@ -266,9 +274,11 @@ impl Introspect for PageSupplementIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.page_supplement(self.0)
+        // Maybe returns `None` here instead of empty content if no supplement
+        // was specified?
+        introspector.page_supplement(self.0).cloned().unwrap_or_default()
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {

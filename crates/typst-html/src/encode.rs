@@ -3,11 +3,11 @@ use std::fmt::Write;
 use ecow::{EcoString, eco_format};
 use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::foundations::Repr;
-use typst_library::introspection::Introspector;
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, tag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlIntrospector, HtmlNode, HtmlTag, attr,
+    charsets, tag,
 };
 
 /// Encodes an HTML document into a string.
@@ -29,14 +29,14 @@ struct Writer<'a> {
     /// The current indentation level
     level: usize,
     /// The document's introspector.
-    introspector: &'a Introspector,
+    introspector: &'a HtmlIntrospector,
     /// Whether pretty printing is enabled.
     pretty: bool,
 }
 
 impl<'a> Writer<'a> {
     /// Creates a new writer.
-    fn new(introspector: &'a Introspector, pretty: bool) -> Self {
+    fn new(introspector: &'a HtmlIntrospector, pretty: bool) -> Self {
         Self { buf: String::new(), level: 0, introspector, pretty }
     }
 }

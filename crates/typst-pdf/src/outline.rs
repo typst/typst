@@ -1,6 +1,10 @@
+use std::num::NonZeroUsize;
+
 use krilla::outline::{Outline as KrillaOutline, OutlineNode as KrillaOutlineNode};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
+use typst_library::introspection::{Introspector, PagedPosition};
 use typst_library::model::{HeadingElem, OutlineNode};
+use typst_utils::NonZeroExt;
 
 use crate::convert::GlobalContext;
 
@@ -20,7 +24,10 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
 
             let visible = gc.options.page_ranges.as_ref().is_none_or(|ranges| {
                 !ranges.includes_page(
-                    gc.document.introspector.page(elem.location().unwrap()),
+                    gc.document
+                        .introspector
+                        .page(elem.location().unwrap())
+                        .unwrap_or(NonZeroUsize::ONE),
                 )
             });
 
@@ -51,7 +58,11 @@ fn convert_node(
     gc: &GlobalContext,
 ) -> Option<KrillaOutlineNode> {
     let loc = node.entry.location().unwrap();
-    let pos = gc.document.introspector.position(loc);
+    let pos = gc
+        .document
+        .introspector
+        .position(loc)
+        .unwrap_or(PagedPosition::ORIGIN);
 
     // Prepend the numbers to the title if they exist.
     let text = node.entry.body.plain_text();

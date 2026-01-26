@@ -8,6 +8,7 @@ mod document;
 mod dom;
 mod encode;
 mod fragment;
+mod introspect;
 mod link;
 mod rules;
 mod tag;
@@ -16,6 +17,7 @@ mod typed;
 pub use self::document::html_document;
 pub use self::dom::*;
 pub use self::encode::html;
+pub use self::introspect::HtmlIntrospector;
 pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;

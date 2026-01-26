@@ -14,7 +14,7 @@ use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::{attr, charsets, css};
+use crate::{HtmlIntrospector, attr, charsets, css};
 
 /// An HTML document.
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ pub struct HtmlDocument {
     /// Details about the document.
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
-    pub introspector: Arc<Introspector>,
+    pub introspector: Arc<HtmlIntrospector>,
 }
 
 impl Document for HtmlDocument {
@@ -34,8 +34,8 @@ impl Document for HtmlDocument {
 }
 
 impl Output for HtmlDocument {
-    fn introspector(&self) -> &Introspector {
-        &self.introspector
+    fn introspector(&self) -> &dyn Introspector {
+        self.introspector.as_ref()
     }
 
     fn target() -> Target {

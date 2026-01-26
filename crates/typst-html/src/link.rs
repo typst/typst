@@ -17,7 +17,7 @@ use crate::{HtmlElement, HtmlNode, attr, tag};
 /// nodes at all. See the [`LinkElem`] documentation for more details.
 pub fn create_link_anchors(
     root: &mut HtmlElement,
-    introspector: &Introspector,
+    introspector: &dyn Introspector,
     targets: &FxHashSet<Location>,
 ) -> FxHashMap<Location, EcoString> {
     if targets.is_empty() {
@@ -121,7 +121,7 @@ fn traverse_frame(
             FrameItem::Tag(Tag::Start(elem, _)) => {
                 let loc = elem.location().unwrap();
                 if targets.contains(&loc)
-                    && let DocumentPosition::Html(position) =
+                    && let Some(DocumentPosition::Html(position)) =
                         identificator.introspector.position(loc)
                     && let Some(InnerHtmlPosition::Frame(point)) = position.details()
                 {
@@ -183,14 +183,14 @@ impl Work {
 
 /// Creates unique IDs for elements.
 struct Identificator<'a> {
-    introspector: &'a Introspector,
+    introspector: &'a dyn Introspector,
     loc_counter: usize,
     label_counter: FxHashMap<Label, usize>,
 }
 
 impl<'a> Identificator<'a> {
     /// Creates a new identificator.
-    fn new(introspector: &'a Introspector) -> Self {
+    fn new(introspector: &'a dyn Introspector) -> Self {
         Self {
             introspector,
             loc_counter: 0,
@@ -242,7 +242,7 @@ fn can_use_label_as_id(label: &str) -> bool {
 /// Disambiguates `text` with the suffix `-{counter}`, while ensuring that this
 /// does not result in a collision with an existing label.
 fn disambiguate(
-    introspector: &Introspector,
+    introspector: &dyn Introspector,
     text: &str,
     counter: &mut usize,
 ) -> EcoString {

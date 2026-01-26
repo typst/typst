@@ -5,8 +5,10 @@ use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
 use typst::engine::Sink;
-use typst::foundations::{Content, Context, IntoValue, LocatableSelector, Repr, Scope};
-use typst::introspection::Introspector;
+use typst::foundations::{
+    Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
+};
+use typst::introspection::{EmptyIntrospector, Introspector};
 use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
@@ -28,9 +30,9 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
 
     let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|output| output.map(|document| document.introspector)),
+            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|output| output.map(|document| document.introspector)),
+            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
     };
 
     // Add deprecation warning.
@@ -38,8 +40,8 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
 
     match output {
         // Retrieve and print query results.
-        Ok(introspector) => {
-            let data = retrieve(&world, command, &introspector)?;
+        Ok(document) => {
+            let data = retrieve(&world, command, document.introspector())?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
@@ -66,14 +68,14 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
 fn retrieve(
     world: &dyn World,
     command: &QueryCommand,
-    introspector: &Introspector,
+    introspector: &dyn Introspector,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
         &typst::ROUTINES,
         world.track(),
         // TODO: propagate warnings
         Sink::new().track_mut(),
-        Introspector::default().track(),
+        EmptyIntrospector.track(),
         Context::none().track(),
         &command.selector,
         Span::detached(),

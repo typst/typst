@@ -3,7 +3,7 @@ use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
 use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
-use typst_library::introspection::DocumentPosition;
+use typst_library::introspection::PagedPosition;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 use typst_syntax::Span;
@@ -38,9 +38,7 @@ pub(crate) fn handle_link(
             Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
         Destination::Position(p) => {
-            let Some(dest) =
-                pos_to_xyz(&gc.page_index_converter, DocumentPosition::Paged(*p))
-            else {
+            let Some(dest) = pos_to_xyz(&gc.page_index_converter, *p) else {
                 return Ok(());
             };
             Target::Destination(krilla::destination::Destination::Xyz(dest))
@@ -51,7 +49,11 @@ pub(crate) fn handle_link(
                 // not point to an excluded page.
                 Target::Destination(krilla::destination::Destination::Named(nd.clone()))
             } else {
-                let pos = gc.document.introspector.position(*loc);
+                let pos = gc
+                    .document
+                    .introspector
+                    .position(*loc)
+                    .unwrap_or(PagedPosition::ORIGIN);
                 let Some(dest) = pos_to_xyz(&gc.page_index_converter, pos) else {
                     return Ok(());
                 };
@@ -184,9 +186,8 @@ fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
 ///   to it, the text will not be visible since it is right above.
 pub(crate) fn pos_to_xyz(
     pic: &PageIndexConverter,
-    pos: DocumentPosition,
+    pos: PagedPosition,
 ) -> Option<XyzDestination> {
-    let pos = pos.as_paged()?;
     let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
     let adjusted =
         Point::new(pos.point.x, (pos.point.y - Abs::pt(10.0)).max(Abs::zero()));

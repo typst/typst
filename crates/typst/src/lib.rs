@@ -52,7 +52,9 @@ use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
     NativeRuleMap, Output, StyleChain, Styles, Target, TargetElem, Value,
 };
-use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
+use typst_library::introspection::{
+    EmptyIntrospector, ITER_NAMES, Introspector, MAX_ITERS,
+};
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};
@@ -107,7 +109,7 @@ fn compile_impl<T: Output>(
     let base = StyleChain::new(&library.styles);
     let target = TargetElem::target.set(T::target()).wrap();
     let styles = base.chain(&target);
-    let empty_introspector = Introspector::default();
+    let empty_introspector = EmptyIntrospector;
 
     // Fetch the main source file once.
     let main = world.main();
@@ -157,7 +159,8 @@ fn compile_impl<T: Output>(
         }
 
         if history.is_full() {
-            let mut introspectors = [&empty_introspector; MAX_ITERS + 1];
+            let mut introspectors =
+                [&empty_introspector as &dyn Introspector; MAX_ITERS + 1];
             for i in 1..MAX_ITERS {
                 introspectors[i] = history[i - 1].introspector();
             }

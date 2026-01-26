@@ -201,7 +201,7 @@ impl Introspect for LinkAnchorIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.anchor(self.0).cloned()
     }

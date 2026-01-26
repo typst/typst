@@ -319,7 +319,7 @@ impl Introspect for MeasureIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.locator(self.key, self.base)
     }

@@ -17,7 +17,7 @@ use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
 use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::{Location, Tag};
+use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
 use typst_library::model::HeadingElem;
 use typst_library::text::Font;
@@ -710,7 +710,10 @@ fn collect_named_destinations(
 
     for (loc, label) in matches {
         // Only add named destination if page belonging to the position is exported.
-        let pos = typst_document.introspector.position(loc);
+        let pos = typst_document
+            .introspector
+            .position(loc)
+            .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
             let named = NamedDestination::new(label.resolve().to_string(), dest);
             document.register_named_destination(named.clone());

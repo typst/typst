@@ -1,48 +1,160 @@
 use std::collections::BTreeSet;
-use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
+use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
-use typst_utils::NonZeroExt;
 
 use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::{DocumentPosition, Location, PagedPosition, Tag};
-use crate::layout::{Frame, FrameItem, Point, Transform};
-use crate::model::{Destination, LinkElem, Numbering};
+use crate::introspection::{DocumentPosition, Location, Tag};
+use crate::model::Numbering;
 
-/// Can be queried for elements and their positions.
-#[derive(Default, Clone)]
-pub struct Introspector {
-    /// The number of pages in the document.
-    pages: usize,
-    /// The page numberings, indexed by page number minus 1.
-    page_numberings: Vec<Option<Numbering>>,
-    /// The page supplements, indexed by page number minus 1.
-    page_supplements: Vec<Content>,
+/// Serves inquiries for pieces of information from the compilation output.
+///
+/// See [`Introspect`](crate::introspection::Introspect) for general information
+/// about introspection.
+///
+/// This trait is implemented by [target-specific](crate::foundations::Target)
+/// introspectors. These must implement all methods to provide a unified
+/// interface to the Typst standard library, but may return `None` or error in
+/// some methods, depending on the specifics of the target. The HTML target, for
+/// instance, will return `None` for [`page`](Self::page) requests.
+#[comemo::track]
+pub trait Introspector: Send + Sync {
+    /// Queries for all matching elements.
+    fn query(&self, selector: &Selector) -> EcoVec<Content>;
 
+    /// Queries for the first element that matches the selector.
+    fn query_first(&self, selector: &Selector) -> Option<Content>;
+
+    /// Queries for the first element that matches the selector.
+    fn query_unique(&self, selector: &Selector) -> StrResult<Content>;
+
+    /// Queries for a unique element with the label.
+    fn query_label(&self, label: Label) -> StrResult<&Content>;
+
+    /// Queries for all elements with a label.
+    fn query_labelled(&self) -> EcoVec<Content>;
+
+    /// An optimized version of `query(selector.before(end, true).len()` used by
+    /// counters and state.
+    fn query_count_before(&self, selector: &Selector, end: Location) -> usize;
+
+    /// Checks how many times a label exists.
+    fn label_count(&self, label: Label) -> usize;
+
+    /// Tries to find a location for an element with the given `key` hash
+    /// that is closest after the `base`.
+    ///
+    /// This is used for introspector-assisted location assignment during
+    /// measurement. See the "Dealing with Measurement" section of the
+    /// [`Locator`](crate::introspection::Locator) docs for more details.
+    fn locator(&self, key: u128, base: Location) -> Option<Location>;
+
+    /// Returns the total number pages in the document.
+    fn pages(&self) -> Option<NonZeroUsize>;
+
+    /// Returns the page number for the given location.
+    fn page(&self, location: Location) -> Option<NonZeroUsize>;
+
+    /// Returns the position for the given location.
+    fn position(&self, location: Location) -> Option<DocumentPosition>;
+
+    /// Returns the page numbering for the given location, if any.
+    fn page_numbering(&self, location: Location) -> Option<&Numbering>;
+
+    /// Returns the page supplement for the given location, if any.
+    fn page_supplement(&self, location: Location) -> Option<&Content>;
+
+    /// Retrieves the anchor to link to for this location in HTML export.
+    fn anchor(&self, location: Location) -> Option<&EcoString>;
+}
+
+/// An introspector that returns empty results for all inquiries.
+pub struct EmptyIntrospector;
+
+impl EmptyIntrospector {
+    pub fn track(&self) -> Tracked<'_, dyn Introspector + '_> {
+        (self as &dyn Introspector).track()
+    }
+}
+
+impl Introspector for EmptyIntrospector {
+    fn query(&self, _: &Selector) -> EcoVec<Content> {
+        EcoVec::new()
+    }
+
+    fn query_first(&self, _: &Selector) -> Option<Content> {
+        None
+    }
+
+    fn query_unique(&self, _: &Selector) -> StrResult<Content> {
+        bail!("selector does not match any element");
+    }
+
+    fn query_label(&self, label: Label) -> StrResult<&Content> {
+        bail!("label `{}` does not exist in the document", label.repr());
+    }
+
+    fn query_labelled(&self) -> EcoVec<Content> {
+        EcoVec::new()
+    }
+
+    fn query_count_before(&self, _: &Selector, _: Location) -> usize {
+        0
+    }
+
+    fn label_count(&self, _: Label) -> usize {
+        0
+    }
+
+    fn locator(&self, _: u128, _: Location) -> Option<Location> {
+        None
+    }
+
+    fn pages(&self) -> Option<NonZeroUsize> {
+        None
+    }
+
+    fn page(&self, _: Location) -> Option<NonZeroUsize> {
+        None
+    }
+
+    fn position(&self, _: Location) -> Option<DocumentPosition> {
+        None
+    }
+
+    fn page_numbering(&self, _: Location) -> Option<&Numbering> {
+        None
+    }
+
+    fn page_supplement(&self, _: Location) -> Option<&Content> {
+        None
+    }
+
+    fn anchor(&self, _: Location) -> Option<&EcoString> {
+        None
+    }
+}
+
+/// An underlying target-agnostic introspector used for most queries.
+///
+/// The parameter `P` represents a position type for the relevant target.
+#[derive(Clone)]
+pub struct ElementIntrospector<P> {
     /// All introspectable elements.
-    elems: Vec<Pair>,
+    elems: Vec<(Content, P)>,
     /// Lists all elements with a specific hash key. This is used for
     /// introspector-assisted location assignment during measurement.
     keys: MultiMap<u128, Location>,
-
     /// Accelerates lookup of elements by location.
     locations: FxHashMap<Location, usize>,
     /// Accelerates lookup of elements by label.
     labels: MultiMap<Label, usize>,
-
-    /// Locations that are linked to via `FrameItem::Link`.
-    frame_link_targets: FxHashSet<Location>,
-    /// Maps from element locations to assigned link anchors. This used to
-    /// support intra-doc links in HTML export. In paged export, is is simply
-    /// left empty and [`Self::anchors`] is not used.
-    anchors: FxHashMap<Location, EcoString>,
-
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
     /// subqueries. Example: Individual counter queries with `before` that
@@ -50,75 +162,8 @@ pub struct Introspector {
     queries: QueryCache,
 }
 
-/// A pair of content and its position.
-type Pair = (Content, DocumentPosition);
-
-impl Introspector {
-    /// Iterates over all locatable elements.
-    pub fn all(&self) -> impl Iterator<Item = &Content> + '_ {
-        self.elems.iter().map(|(c, _)| c)
-    }
-
-    /// Checks how many times a label exists.
-    pub fn label_count(&self, label: Label) -> usize {
-        self.labels.get(&label).len()
-    }
-
-    /// Computes all locations that are referenced by intra-doc links of any
-    /// kind.
-    pub fn link_targets(&self) -> FxHashSet<Location> {
-        LinkElem::find_destinations(self)
-            .chain(self.frame_link_targets.iter().copied())
-            .collect()
-    }
-
-    /// Enriches an existing introspector with HTML anchors, which were assigned
-    /// to the DOM in a post-processing step.
-    pub fn set_anchors(&mut self, anchors: FxHashMap<Location, EcoString>) {
-        self.anchors = anchors;
-    }
-
-    /// Retrieves the element with the given index.
-    #[track_caller]
-    fn get_by_idx(&self, idx: usize) -> &Content {
-        &self.elems[idx].0
-    }
-
-    /// Retrieves the position of the element with the given index.
-    #[track_caller]
-    fn get_pos_by_idx(&self, idx: usize) -> DocumentPosition {
-        self.elems[idx].1.clone()
-    }
-
-    /// Retrieves an element by its location.
-    fn get_by_loc(&self, location: &Location) -> Option<&Content> {
-        self.locations.get(location).map(|&idx| self.get_by_idx(idx))
-    }
-
-    /// Retrieves the position of the element with the given index.
-    fn get_pos_by_loc(&self, location: &Location) -> Option<DocumentPosition> {
-        self.locations.get(location).map(|&idx| self.get_pos_by_idx(idx))
-    }
-
-    /// Performs a binary search for `elem` among the `list`.
-    fn binary_search(&self, list: &[Content], elem: &Content) -> Result<usize, usize> {
-        list.binary_search_by_key(&self.elem_index(elem), |elem| self.elem_index(elem))
-    }
-
-    /// Gets the index of this element.
-    fn elem_index(&self, elem: &Content) -> usize {
-        self.loc_index(&elem.location().unwrap())
-    }
-
-    /// Gets the index of the element with this location among all.
-    fn loc_index(&self, location: &Location) -> usize {
-        self.locations.get(location).copied().unwrap_or(usize::MAX)
-    }
-}
-
-#[comemo::track]
-impl Introspector {
-    /// Query for all matching elements.
+impl<P> ElementIntrospector<P> {
+    /// Queries for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Content> {
         let hash = typst_utils::hash128(selector);
         if let Some(output) = self.queries.get(hash) {
@@ -207,7 +252,7 @@ impl Introspector {
         output
     }
 
-    /// Query for the first element that matches the selector.
+    /// Queries for the first element that matches the selector.
     pub fn query_first(&self, selector: &Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => self.get_by_loc(location).cloned(),
@@ -220,7 +265,7 @@ impl Introspector {
         }
     }
 
-    /// Query for the first element that matches the selector.
+    /// Queries for the first element that matches the selector.
     pub fn query_unique(&self, selector: &Selector) -> StrResult<Content> {
         match selector {
             Selector::Location(location) => self
@@ -241,7 +286,7 @@ impl Introspector {
         }
     }
 
-    /// Query for a unique element with the label.
+    /// Queries for a unique element with the label.
     pub fn query_label(&self, label: Label) -> StrResult<&Content> {
         match *self.labels.get(&label) {
             [idx] => Ok(self.get_by_idx(idx)),
@@ -250,8 +295,13 @@ impl Introspector {
         }
     }
 
-    /// This is an optimized version of
-    /// `query(selector.before(end, true).len()` used by counters and state.
+    /// Queries for all elements with a label.
+    pub fn query_labelled(&self) -> EcoVec<Content> {
+        self.all().filter(|c| c.label().is_some()).cloned().collect()
+    }
+
+    /// An optimized version of `query(selector.before(end, true).len()` used by
+    /// counters and state.
     pub fn query_count_before(&self, selector: &Selector, end: Location) -> usize {
         // See `query()` for details.
         let list = self.query(selector);
@@ -265,50 +315,13 @@ impl Introspector {
         }
     }
 
-    /// The total number pages.
-    pub fn pages(&self) -> NonZeroUsize {
-        NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)
+    /// Checks how many times a label exists.
+    pub fn label_count(&self, label: Label) -> usize {
+        self.labels.get(&label).len()
     }
 
-    /// Find the page number for the given location.
-    pub fn page(&self, location: Location) -> NonZeroUsize {
-        match self.position(location) {
-            DocumentPosition::Paged(position) => position.page,
-            _ => NonZeroUsize::ONE,
-        }
-    }
-
-    /// Find the position for the given location.
-    pub fn position(&self, location: Location) -> DocumentPosition {
-        self.get_pos_by_loc(&location)
-            .unwrap_or(DocumentPosition::Paged(PagedPosition::ORIGIN))
-    }
-
-    /// Gets the page numbering for the given location, if any.
-    pub fn page_numbering(&self, location: Location) -> Option<&Numbering> {
-        let page = self.page(location);
-        self.page_numberings
-            .get(page.get() - 1)
-            .and_then(|slot| slot.as_ref())
-    }
-
-    /// Gets the page supplement for the given location, if any.
-    pub fn page_supplement(&self, location: Location) -> Content {
-        let page = self.page(location);
-        self.page_supplements.get(page.get() - 1).cloned().unwrap_or_default()
-    }
-
-    /// Retrieves the anchor to link to for this location in HTML export.
-    pub fn anchor(&self, location: Location) -> Option<&EcoString> {
-        self.anchors.get(&location)
-    }
-
-    /// Try to find a location for an element with the given `key` hash
+    /// Tries to find a location for an element with the given `key` hash
     /// that is closest after the `base`.
-    ///
-    /// This is used for introspector-assisted location assignment during
-    /// measurement. See the "Dealing with Measurement" section of the
-    /// [`Locator`](crate::introspection::Locator) docs for more details.
     pub fn locator(&self, key: u128, base: Location) -> Option<Location> {
         let base = self.loc_index(&base);
         self.keys
@@ -317,11 +330,165 @@ impl Introspector {
             .copied()
             .min_by_key(|loc| self.loc_index(loc).wrapping_sub(base))
     }
+
+    /// Returns the target-specific position of the element at the given
+    /// location.
+    pub fn position(&self, location: Location) -> Option<&P> {
+        self.locations.get(&location).map(|&idx| self.get_pos_by_idx(idx))
+    }
+
+    /// Iterates over all locatable elements.
+    pub fn all(&self) -> impl Iterator<Item = &Content> + '_ {
+        self.elems.iter().map(|(c, _)| c)
+    }
+
+    /// Retrieves the element with the given index.
+    #[track_caller]
+    pub fn get_by_idx(&self, idx: usize) -> &Content {
+        &self.elems[idx].0
+    }
+
+    /// Retrieves the position of the element with the given index.
+    #[track_caller]
+    pub fn get_pos_by_idx(&self, idx: usize) -> &P {
+        &self.elems[idx].1
+    }
+
+    /// Retrieves an element by its location.
+    pub fn get_by_loc(&self, location: &Location) -> Option<&Content> {
+        self.locations.get(location).map(|&idx| self.get_by_idx(idx))
+    }
+
+    /// Performs a binary search for `elem` among the `list`.
+    pub fn binary_search(
+        &self,
+        list: &[Content],
+        elem: &Content,
+    ) -> Result<usize, usize> {
+        list.binary_search_by_key(&self.elem_index(elem), |elem| self.elem_index(elem))
+    }
+
+    /// Gets the index of this element.
+    pub fn elem_index(&self, elem: &Content) -> usize {
+        self.loc_index(&elem.location().unwrap())
+    }
+
+    /// Gets the index of the element with this location among all.
+    pub fn loc_index(&self, location: &Location) -> usize {
+        self.locations.get(location).copied().unwrap_or(usize::MAX)
+    }
 }
 
-impl Debug for Introspector {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("Introspector(..)")
+/// Constructs the [`ElementIntrospector`].
+pub struct ElementIntrospectorBuilder<P> {
+    stack: Vec<Vec<(Content, P)>>,
+    sink: Vec<(Content, P)>,
+    seen: FxHashSet<Location>,
+    insertions: MultiMap<Location, Vec<(Content, P)>>,
+    keys: MultiMap<u128, Location>,
+    locations: FxHashMap<Location, usize>,
+    labels: MultiMap<Label, usize>,
+}
+
+impl<P> ElementIntrospectorBuilder<P> {
+    /// Creates an empty builder.
+    pub fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            sink: Vec::new(),
+            seen: FxHashSet::default(),
+            insertions: MultiMap::default(),
+            keys: MultiMap::default(),
+            locations: FxHashMap::default(),
+            labels: MultiMap::default(),
+        }
+    }
+
+    /// Discovers an introspectible in a tag.
+    pub fn discover_tag(&mut self, tag: &Tag, position: P) {
+        match tag {
+            Tag::Start(elem, flags) => {
+                if flags.introspectable {
+                    let loc = elem.location().unwrap();
+                    if self.seen.insert(loc) {
+                        self.sink.push((elem.clone(), position));
+                    }
+                }
+            }
+            Tag::End(loc, key, flags) => {
+                if flags.introspectable {
+                    self.keys.insert(*key, *loc);
+                }
+            }
+        }
+    }
+
+    /// Future content until a matching `end_insertion` will ordering-wise be
+    /// treated as belonging to the `parent` passed to `end_insertion`.
+    pub fn start_insertion(&mut self) {
+        self.stack.push(std::mem::take(&mut self.sink));
+    }
+
+    /// Closes an insertion group started by a matching `start_insertion`.
+    #[track_caller]
+    pub fn end_insertion(&mut self, parent: Location) {
+        let elems = std::mem::replace(
+            &mut self.sink,
+            self.stack.pop().expect("insertion to have been started"),
+        );
+        self.insertions.insert(parent, elems);
+    }
+
+    /// Builds a complete introspector with all acceleration structures from a
+    /// list of top-level pairs.
+    pub fn finalize(mut self) -> ElementIntrospector<P> {
+        self.locations.reserve(self.seen.len());
+
+        // Save all pairs and their descendants in the correct order.
+        let mut elems = Vec::with_capacity(self.seen.len());
+        for pair in std::mem::take(&mut self.sink) {
+            self.visit(&mut elems, pair);
+        }
+
+        ElementIntrospector {
+            elems,
+            keys: self.keys,
+            locations: self.locations,
+            labels: self.labels,
+            queries: QueryCache::default(),
+        }
+    }
+
+    /// Saves a pair and all its descendants into `elems` and populates the
+    /// acceleration structures.
+    fn visit(&mut self, elems: &mut Vec<(Content, P)>, pair: (Content, P)) {
+        let elem = &pair.0;
+        let loc = elem.location().unwrap();
+        let idx = elems.len();
+
+        // Populate the location acceleration map.
+        self.locations.insert(loc, idx);
+
+        // Populate the label acceleration map.
+        if let Some(label) = elem.label() {
+            self.labels.insert(label, idx);
+        }
+
+        // Save the element.
+        elems.push(pair);
+
+        // Process potential descendants.
+        if let Some(insertions) = self.insertions.take(&loc) {
+            for pair in insertions.flatten() {
+                self.visit(elems, pair);
+            }
+        }
+    }
+}
+
+impl<P> Default for ElementIntrospectorBuilder<P> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -369,142 +536,5 @@ impl QueryCache {
 impl Clone for QueryCache {
     fn clone(&self) -> Self {
         Self(RwLock::new(self.0.read().unwrap().clone()))
-    }
-}
-
-/// Builds the introspector.
-#[derive(Default)]
-pub struct IntrospectorBuilder {
-    pub pages: usize,
-    pub page_numberings: Vec<Option<Numbering>>,
-    pub page_supplements: Vec<Content>,
-    frame_link_targets: FxHashSet<Location>,
-    seen: FxHashSet<Location>,
-    insertions: MultiMap<Location, Vec<Pair>>,
-    keys: MultiMap<u128, Location>,
-    locations: FxHashMap<Location, usize>,
-    labels: MultiMap<Label, usize>,
-}
-
-impl IntrospectorBuilder {
-    /// Create an empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Processes the tags in the frame.
-    pub fn discover_in_frame<F>(
-        &mut self,
-        sink: &mut Vec<Pair>,
-        frame: &Frame,
-        ts: Transform,
-        to_pos: &mut F,
-    ) where
-        F: FnMut(Point) -> DocumentPosition,
-    {
-        for (pos, item) in frame.items() {
-            match item {
-                FrameItem::Group(group) => {
-                    let ts = ts
-                        .pre_concat(Transform::translate(pos.x, pos.y))
-                        .pre_concat(group.transform);
-
-                    if let Some(parent) = group.parent {
-                        let mut nested = vec![];
-                        self.discover_in_frame(&mut nested, &group.frame, ts, to_pos);
-                        self.register_insertion(parent.location, nested);
-                    } else {
-                        self.discover_in_frame(sink, &group.frame, ts, to_pos);
-                    }
-                }
-                FrameItem::Link(Destination::Location(loc), _) => {
-                    self.frame_link_targets.insert(*loc);
-                }
-                FrameItem::Tag(tag) => {
-                    self.discover_in_tag(sink, tag, to_pos(pos.transform(ts)));
-                }
-                _ => {}
-            }
-        }
-    }
-
-    /// Handle a tag.
-    pub fn discover_in_tag(
-        &mut self,
-        sink: &mut Vec<Pair>,
-        tag: &Tag,
-        position: DocumentPosition,
-    ) {
-        match tag {
-            Tag::Start(elem, flags) => {
-                if flags.introspectable {
-                    let loc = elem.location().unwrap();
-                    if self.seen.insert(loc) {
-                        sink.push((elem.clone(), position));
-                    }
-                }
-            }
-            Tag::End(loc, key, flags) => {
-                if flags.introspectable {
-                    self.keys.insert(*key, *loc);
-                }
-            }
-        }
-    }
-
-    /// Saves nested pairs as logically belonging to the `parent`.
-    pub fn register_insertion(&mut self, parent: Location, nested: Vec<Pair>) {
-        self.insertions.insert(parent, nested);
-    }
-
-    /// Build a complete introspector with all acceleration structures from a
-    /// list of top-level pairs.
-    pub fn finalize(mut self, root: Vec<Pair>) -> Introspector {
-        self.locations.reserve(self.seen.len());
-
-        // Save all pairs and their descendants in the correct order.
-        let mut elems = Vec::with_capacity(self.seen.len());
-        for pair in root {
-            self.visit(&mut elems, pair);
-        }
-
-        Introspector {
-            pages: self.pages,
-            page_numberings: self.page_numberings,
-            page_supplements: self.page_supplements,
-            elems,
-            keys: self.keys,
-            locations: self.locations,
-            labels: self.labels,
-            frame_link_targets: self.frame_link_targets,
-            anchors: FxHashMap::default(),
-            queries: QueryCache::default(),
-        }
-    }
-
-    /// Saves a pair and all its descendants into `elems` and populates the
-    /// acceleration structures.
-    fn visit(&mut self, elems: &mut Vec<Pair>, pair: Pair) {
-        let elem = &pair.0;
-        let loc = elem.location().unwrap();
-        let idx = elems.len();
-
-        // Populate the location acceleration map.
-        self.locations.insert(loc, idx);
-
-        // Populate the label acceleration map.
-        if let Some(label) = elem.label() {
-            self.labels.insert(label, idx);
-        }
-
-        // Save the element.
-        elems.push(pair);
-
-        // Process potential descendants.
-        if let Some(insertions) = self.insertions.take(&loc) {
-            for pair in insertions.flatten() {
-                self.visit(elems, pair);
-            }
-        }
     }
 }

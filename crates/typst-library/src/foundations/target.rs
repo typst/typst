@@ -26,7 +26,7 @@ pub trait Output: Any {
         Self: Sized;
 
     /// Get the output's introspector.
-    fn introspector(&self) -> &Introspector;
+    fn introspector(&self) -> &dyn Introspector;
 }
 
 /// A trait for accepting an arbitrary kind of output as n argument.

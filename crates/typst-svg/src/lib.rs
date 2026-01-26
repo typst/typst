@@ -66,7 +66,7 @@ pub fn svg_html_frame(
     text_size: Abs,
     id: Option<&str>,
     anchors: &[(Point, EcoString)],
-    introspector: &Introspector,
+    introspector: &dyn Introspector,
 ) -> String {
     let mut renderer = SVGRenderer::with_options(Some(introspector));
     let mut xml = XmlWriter::new(xmlwriter::Options {
@@ -134,7 +134,7 @@ pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
 /// Renders one or multiple frames to an SVG file.
 struct SVGRenderer<'a> {
     /// The document's introspector, if we're writing an HTML frame.
-    introspector: Option<&'a Introspector>,
+    introspector: Option<&'a dyn Introspector>,
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
@@ -216,7 +216,7 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Create a new SVG renderer with the given configuration.
-    fn with_options(introspector: Option<&'a Introspector>) -> Self {
+    fn with_options(introspector: Option<&'a dyn Introspector>) -> Self {
         SVGRenderer {
             introspector,
             glyphs: Deduplicator::new('g'),

@@ -9,15 +9,17 @@ use typst_library::layout::Frame;
 use typst_library::model::{Document, DocumentInfo, Numbering};
 use typst_library::visualize::{Color, Paint};
 
+use crate::PagedIntrospector;
+
 /// A finished document with metadata and page frames.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct PagedDocument {
     /// The document's finished pages.
     pub pages: EcoVec<Page>,
     /// Details about the document.
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
-    pub introspector: Arc<Introspector>,
+    pub introspector: Arc<PagedIntrospector>,
 }
 
 impl Document for PagedDocument {
@@ -27,8 +29,8 @@ impl Document for PagedDocument {
 }
 
 impl Output for PagedDocument {
-    fn introspector(&self) -> &Introspector {
-        &self.introspector
+    fn introspector(&self) -> &dyn Introspector {
+        self.introspector.as_ref()
     }
 
     fn target() -> Target {

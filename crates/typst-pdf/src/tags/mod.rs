@@ -268,8 +268,12 @@ fn update_bbox(
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroUsize;
+    use std::sync::Arc;
 
+    use ecow::EcoVec;
+    use typst_layout::{PagedDocument, PagedIntrospector};
     use typst_library::layout::PageRanges;
+    use typst_library::model::DocumentInfo;
     use typst_utils::NonZeroExt;
 
     use crate::tags;
@@ -280,7 +284,12 @@ mod tests {
             page_ranges: Some(PageRanges::new(vec![Some(NonZeroUsize::ONE)..=None])),
             ..Default::default()
         };
-        let res = tags::init(&typst_layout::PagedDocument::default(), &options);
+        let document = PagedDocument {
+            pages: EcoVec::new(),
+            info: DocumentInfo::default(),
+            introspector: Arc::new(PagedIntrospector::new(&[])),
+        };
+        let res = tags::init(&document, &options);
 
         assert_eq!(
             res.err().unwrap().first().unwrap().message,

@@ -105,7 +105,7 @@ pub fn analyze_labels(output: impl AsOutput) -> (Vec<(Label, Option<EcoString>)>
     let mut seen_labels = FxHashSet::default();
 
     // Labels in the document.
-    for elem in introspector.all() {
+    for elem in introspector.query_labelled() {
         let Some(label) = elem.label() else { continue };
         if !seen_labels.insert(label) {
             continue;
@@ -117,7 +117,7 @@ pub fn analyze_labels(output: impl AsOutput) -> (Vec<(Label, Option<EcoString>)>
                 Some(Some(caption)) => Some(caption.pack_ref()),
                 _ => None,
             })
-            .unwrap_or(elem)
+            .unwrap_or(&elem)
             .get_by_name("body")
             .ok()
             .and_then(|field| match field {
@@ -125,7 +125,7 @@ pub fn analyze_labels(output: impl AsOutput) -> (Vec<(Label, Option<EcoString>)>
                 _ => None,
             })
             .as_ref()
-            .unwrap_or(elem)
+            .unwrap_or(&elem)
             .plain_text();
         output.push((label, Some(details)));
     }

@@ -768,14 +768,18 @@ impl Introspect for CounterAtIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(counter, loc, _) = self;
         let sequence = sequence(counter, engine, introspector)?;
         let offset = introspector.query_count_before(&counter.select(), *loc);
         let (mut state, page) = sequence[offset].clone();
         if counter.is_page() {
-            let delta = introspector.page(*loc).get().saturating_sub(page.get());
+            let delta = introspector
+                .page(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
@@ -797,7 +801,7 @@ impl Introspect for CounterBothIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(counter, loc, _) = self;
         let sequence = sequence(counter, engine, introspector)?;
@@ -805,9 +809,17 @@ impl Introspect for CounterBothIntrospection {
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if counter.is_page() {
-            let at_delta = introspector.page(*loc).get().saturating_sub(at_page.get());
+            let at_delta = introspector
+                .page(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(at_page.get());
             at_state.step(NonZeroUsize::ONE, at_delta as u64);
-            let final_delta = introspector.pages().get().saturating_sub(final_page.get());
+            let final_delta = introspector
+                .pages()
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(final_page.get());
             final_state.step(NonZeroUsize::ONE, final_delta as u64);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
@@ -828,13 +840,17 @@ impl Introspect for CounterFinalIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(counter, _) = self;
         let sequence = sequence(counter, engine, introspector)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if counter.is_page() {
-            let delta = introspector.pages().get().saturating_sub(page.get());
+            let delta = introspector
+                .pages()
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
@@ -853,7 +869,7 @@ impl Introspect for CounterFinalIntrospection {
 fn sequence(
     counter: &Counter,
     engine: &mut Engine,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
 ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
     sequence_impl(
         counter,
@@ -872,7 +888,7 @@ fn sequence_impl(
     counter: &Counter,
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -893,7 +909,9 @@ fn sequence_impl(
     for elem in introspector.query(&counter.select()) {
         if counter.is_page() {
             let prev = page;
-            page = introspector.page(elem.location().unwrap());
+            page = introspector
+                .page(elem.location().unwrap())
+                .unwrap_or(NonZeroUsize::ONE);
 
             let delta = page.get() - prev.get();
             if delta > 0 {

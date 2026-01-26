@@ -162,7 +162,7 @@ impl LinkElem {
 
     /// Finds all linked-to locations referenced in an introspector.
     pub fn find_destinations(
-        introspector: &Introspector,
+        introspector: &dyn Introspector,
     ) -> impl Iterator<Item = Location> {
         introspector
             .query(&Self::ELEM.select())
@@ -211,7 +211,7 @@ impl LinkTarget {
     /// Resolves the destination without an engine.
     pub fn resolve_with_introspector(
         &self,
-        introspector: &Introspector,
+        introspector: &dyn Introspector,
     ) -> StrResult<Destination> {
         Ok(match self {
             LinkTarget::Dest(dest) => dest.clone(),

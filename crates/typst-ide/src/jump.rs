@@ -223,7 +223,7 @@ pub fn jump_from_click_in_frame(
                 Destination::Url(url) => return Some(Jump::Url(url.clone())),
                 Destination::Position(pos) => return Some(Jump::Position(*pos)),
                 Destination::Location(loc) => {
-                    if let DocumentPosition::Paged(pos) =
+                    if let Some(DocumentPosition::Paged(pos)) =
                         output.introspector().position(*loc)
                     {
                         return Some(Jump::Position(pos));

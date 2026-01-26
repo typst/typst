@@ -6,10 +6,7 @@ use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Styles};
-use typst_library::introspection::{
-    DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Locator,
-};
-use typst_library::layout::Transform;
+use typst_library::introspection::{Introspector, Locator};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
@@ -17,7 +14,7 @@ use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, HtmlSliceExt, attr, tag};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlIntrospector, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -47,7 +44,7 @@ pub fn html_document(
 fn html_document_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -103,7 +100,7 @@ fn html_document_impl(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    let mut introspector = introspect_html(&tags_and_root);
+    let mut introspector = HtmlIntrospector::new(&tags_and_root);
     let HtmlNode::Element(mut root) = tags_and_root.remove(root_index) else {
         panic!("expected HTML element")
     };
@@ -115,73 +112,6 @@ fn html_document_impl(
     ));
 
     Ok(HtmlDocument { info, root, introspector: Arc::new(introspector) })
-}
-
-/// Introspects HTML nodes.
-#[typst_macros::time(name = "introspect html")]
-fn introspect_html(output: &[HtmlNode]) -> Introspector {
-    fn discover(
-        builder: &mut IntrospectorBuilder,
-        sink: &mut Vec<(Content, DocumentPosition)>,
-        nodes: &[HtmlNode],
-        current_position: &mut EcoVec<usize>,
-    ) {
-        for (node, dom_index) in nodes.iter_with_dom_indices() {
-            match node {
-                HtmlNode::Tag(tag) => {
-                    current_position.push(dom_index);
-                    builder.discover_in_tag(
-                        sink,
-                        tag,
-                        DocumentPosition::Html(HtmlPosition::new(
-                            current_position.clone(),
-                        )),
-                    );
-                    current_position.pop();
-                }
-                HtmlNode::Text(_, _) => {}
-                HtmlNode::Element(elem) => {
-                    let is_root = elem.tag == tag::html;
-                    if !is_root {
-                        current_position.push(dom_index);
-                    }
-
-                    if let Some(parent) = elem.parent {
-                        let mut nested = vec![];
-                        discover(builder, &mut nested, &elem.children, current_position);
-                        builder.register_insertion(parent, nested);
-                    } else {
-                        discover(builder, sink, &elem.children, current_position);
-                    }
-
-                    if !is_root {
-                        current_position.pop();
-                    }
-                }
-                HtmlNode::Frame(frame) => {
-                    current_position.push(dom_index);
-                    builder.discover_in_frame(
-                        sink,
-                        &frame.inner,
-                        Transform::identity(),
-                        &mut |point| {
-                            DocumentPosition::Html(
-                                HtmlPosition::new(current_position.clone())
-                                    .in_frame(point),
-                            )
-                        },
-                    );
-                    current_position.pop();
-                }
-            }
-        }
-    }
-
-    let mut elems = Vec::new();
-    let mut builder = IntrospectorBuilder::new();
-    let mut current_position = EcoVec::new();
-    discover(&mut builder, &mut elems, output, &mut current_position);
-    builder.finalize(elems)
 }
 
 /// Wrap the user generated HTML in <html>, <body> or both if needed.
