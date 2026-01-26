@@ -473,8 +473,9 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
     };
 
     if let ExampleView::Single(Some([x, y, w, h])) = args.view {
-        document.pages[0].frame.translate(Point::new(-x, -y));
-        *document.pages[0].frame.size_mut() = Size::new(w, h);
+        let frame = &mut document.pages.make_mut()[0].frame;
+        frame.translate(Point::new(-x, -y));
+        *frame.size_mut() = Size::new(w, h);
     }
 
     if let ExampleView::Single(_) = args.view {

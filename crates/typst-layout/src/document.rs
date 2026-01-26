@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use ecow::EcoVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Output, Smart, StyleChain, Target};
@@ -10,11 +13,11 @@ use typst_library::visualize::{Color, Paint};
 #[derive(Debug, Default, Clone)]
 pub struct PagedDocument {
     /// The document's finished pages.
-    pub pages: Vec<Page>,
+    pub pages: EcoVec<Page>,
     /// Details about the document.
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+    pub introspector: Arc<Introspector>,
 }
 
 impl Document for PagedDocument {

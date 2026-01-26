@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
@@ -109,7 +111,7 @@ fn html_document_impl(
     };
     crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
 
-    Ok(HtmlDocument { info, root, introspector })
+    Ok(HtmlDocument { info, root, introspector: Arc::new(introspector) })
 }
 
 /// Introspects HTML nodes.

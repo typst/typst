@@ -5,8 +5,10 @@ mod finalize;
 mod run;
 
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use comemo::{Tracked, TrackedMut};
+use ecow::EcoVec;
 use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
@@ -92,7 +94,7 @@ fn layout_document_impl(
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
     let introspector = introspect_pages(&pages);
 
-    Ok(PagedDocument { pages, info, introspector })
+    Ok(PagedDocument { pages, info, introspector: Arc::new(introspector) })
 }
 
 /// Layouts the document's pages.
@@ -101,7 +103,7 @@ fn layout_pages<'a>(
     children: &'a mut [Pair<'a>],
     locator: &mut SplitLocator<'a>,
     styles: StyleChain<'a>,
-) -> SourceResult<Vec<Page>> {
+) -> SourceResult<EcoVec<Page>> {
     // Slice up the children into logical parts.
     let items = collect(children, locator, styles);
 
@@ -118,7 +120,7 @@ fn layout_pages<'a>(
         },
     );
 
-    let mut pages = vec![];
+    let mut pages = EcoVec::new();
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
 
@@ -155,7 +157,7 @@ fn layout_pages<'a>(
 
     // Add the remaining tags to the very end of the last page.
     if !tags.is_empty() {
-        let last = pages.last_mut().unwrap();
+        let last = pages.make_mut().last_mut().unwrap();
         let pos = Point::with_y(last.frame.height());
         last.frame
             .push_multiple(tags.into_iter().map(|tag| (pos, FrameItem::Tag(tag))));

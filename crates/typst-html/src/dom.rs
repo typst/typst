@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Display, Formatter};
+use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
@@ -23,7 +24,7 @@ pub struct HtmlDocument {
     /// Details about the document.
     pub info: DocumentInfo,
     /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+    pub introspector: Arc<Introspector>,
 }
 
 impl Document for HtmlDocument {
