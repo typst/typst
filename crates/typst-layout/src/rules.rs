@@ -396,8 +396,8 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     // The footnote number that links to the footnote entry.
     let link = elem.realize(engine, styles)?;
-    let sup = PdfMarkerTag::Label(SuperElem::new(link).pack().spanned(elem.span()));
-    Ok(HElem::hole().clone() + sup)
+    let sup = SuperElem::new(link).pack().spanned(elem.span());
+    Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {

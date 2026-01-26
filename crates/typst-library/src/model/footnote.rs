@@ -148,9 +148,8 @@ impl Packed<FootnoteElem> {
         let counter = Counter::of(FootnoteElem::ELEM);
         let num = counter.display_at(engine, loc, styles, numbering, span)?;
         let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-        Ok(DirectLinkElem::new(loc.variant(1), num, Some(alt))
-            .pack()
-            .spanned(span))
+        let dest = loc.variant(1);
+        Ok(DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span))
     }
 
     /// Returns the location of the definition of this footnote.
