@@ -17,6 +17,7 @@ readme = "README.md"
 
 [workspace.dependencies]
 typst = { path = "crates/typst", version = "0.14.2" }
+typst-bundle = { path = "crates/typst-bundle", version = "0.14.2" }
 typst-cli = { path = "crates/typst-cli", version = "0.14.2" }
 typst-eval = { path = "crates/typst-eval", version = "0.14.2" }
 typst-html = { path = "crates/typst-html", version = "0.14.2" }
@@ -73,7 +74,7 @@ icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
-indexmap = { version = "2", features = ["serde"] }
+indexmap = { version = "2", features = ["serde", "rayon"] }
 infer = { version = "0.19.0", default-features = false }
 itoa = "1"
 kamadak-exif = "0.6"
