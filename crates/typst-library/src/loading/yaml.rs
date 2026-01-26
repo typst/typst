@@ -85,19 +85,22 @@ pub fn yaml(
     merge_keys: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
+    let mut value = serde_yaml::from_slice::<Value>(loaded.data.as_slice())
+        .map_err(format_yaml_error)
+        .within(&loaded)?;
+
     if merge_keys {
-        // Use two steps to preprocess the YAML.
-        serde_yaml::from_slice::<serde_yaml::Value>(loaded.data.as_slice())
+        // I don't think it's worth the complexity…
+        value = serde_yaml::to_value(value)
             .and_then(|mut value| {
                 value.apply_merge()?;
                 Ok(value)
             })
             .and_then(serde_yaml::from_value)
-    } else {
-        serde_yaml::from_slice(loaded.data.as_slice())
+            .map_err(format_yaml_error)
+            .within(&loaded)?;
     }
-    .map_err(format_yaml_error)
-    .within(&loaded)
+    Ok(value)
 }
 
 #[scope]
