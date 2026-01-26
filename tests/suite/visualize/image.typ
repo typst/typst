@@ -362,7 +362,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   format: "rgba8",
 )
 
---- issue-measure-image paged ---
+--- issue-measure-image paged empty ---
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
   let size = measure(image("/assets/images/tiger.jpg"))

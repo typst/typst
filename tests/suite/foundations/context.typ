@@ -1,6 +1,6 @@
 // Test context expressions.
 
---- context-body-atomic-in-markup paged ---
+--- context-body-atomic-in-markup eval ---
 // Test that context body is parsed as atomic expression.
 #let c = [#context "hello".]
 #test(c.children.first().func(), (context none).func())
@@ -11,7 +11,7 @@
 // Error: 2-25 cannot be constructed manually
 #(context none).func()()
 
---- context-in-show-rule paged ---
+--- context-in-show-rule paged empty ---
 // Test that show rule establishes context.
 #set heading(numbering: "1.")
 #show heading: it => test(
@@ -37,7 +37,7 @@
 // Error: 11-12 variables from outside the context expression are read-only and cannot be modified
 #context (i = 1)
 
---- context-delayed-warning paged ---
+--- context-delayed-warning paged empty ---
 // Ensure that the warning that triggers in the first layout iteration is not
 // surfaced since it goes away in the second one. Just like errors in show
 // rules.

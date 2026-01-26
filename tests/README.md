@@ -60,6 +60,7 @@ and SVGs. To make them go faster while developing, you can pass the `--stages`
 flag to only run certain targets/outputs. The available stages are the following
 ones:
 
+- `eval`: Evaluate the source code. This is (document-) target agnostic.
 - `paged`: Compile the paged target and produce `render`, `pdf`, and `svg`
   outputs.
   - `render`: Produce `render` (`png`) output.
@@ -68,7 +69,16 @@ ones:
   - `svg` Produce `svg` output.
 - `html`: Compile the `html` target and produce `html` output.
 
-You can specify multiple pages, separated by commas:
+Here's a visual representation of the stage tree:
+
+```txt
+                 ╭─> render
+      ╭─> paged ─┼─> pdf ───> pdftags
+eval ─┤          ╰─> svg
+      ╰─> html  ───> html
+```
+
+You can specify multiple stages, separated by commas:
 ```bash
 cargo testit --stages html,pdftags
 ```
@@ -82,21 +92,27 @@ specified. For instance, `--- my-test html ---` adds the `html` target to
 `my-test`, instructing the test runner to test HTML output. The following
 attributes are currently defined:
 
-- `paged`: Tests paged output against a reference image.
+- `eval`: Runs scripting tests that don't generate any output.
+- `paged`: Tests paged output: `render`, `pdf`, `svg`
 - `html`: Tests HTML output against a reference HTML file.
+- `pdf`: Tests the PDF output specifically. The `pdf` stage is currently the
+  only fallible output, due to tagged PDF.
 - `pdftags`: Tests the output of the PDF tag tree.
 - `pdfstandard({standard})`: Sets the PDF standard used for testing PDFs and the
   PDF tag tree.
 - `large`: Permits a reference image size exceeding 20 KiB. Should be used
   sparingly.
+- `empty`: Indicates that a test shouldn't produce any non-trivial output. If it
+  does anyway, it will fail.
 
 There are, broadly speaking, three kinds of tests:
 
 - Tests that just ensure that the code runs successfully: Those typically make
   use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
   to ensure certain properties hold when executing the Typst code. Generic
-  scripting tests that don't depend on the target should use `paged` as the test
-  target.
+  scripting tests that don't depend on the target should use the `eval`
+  attribute, if possible. If they rely on the evaluated content being compiled,
+  for example due to test code in show-rules, they should use `paged|html empty`.
 
 - Tests that ensure the code emits particular diagnostic messages: Those have
   inline annotations like `// Error: 2-7 thing was wrong`. An annotation can

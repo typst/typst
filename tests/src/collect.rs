@@ -40,6 +40,32 @@ pub struct Test {
     pub notes: Vec<Note>,
 }
 
+impl Test {
+    /// Whether this test is expected to emit an error.
+    pub fn should_error(&self) -> bool {
+        self.notes.iter().any(|n| n.kind == NoteKind::Error)
+    }
+
+    /// Whether this test output should be compared and saved, this is true for
+    /// stages that are explicitly specified and those that are
+    /// [implied](TestStages::with_implied).
+    pub fn should_check(&self, output: TestOutput) -> bool {
+        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
+        ARGS.required_stages()
+            .intersects(self.attrs.implied_stages() & output.into())
+            && output != TestOutput::Pdf
+            && output != TestOutput::Svg
+    }
+
+    /// Whether this test stage should be run, test stages that are
+    /// [required](TestStages::with_required) by another stage mus be run, even
+    /// if they aren't explicitly specified.
+    pub fn should_run(&self, stage: impl TestStage) -> bool {
+        ARGS.required_stages()
+            .intersects(self.attrs.implied_stages().with_required() & stage.into())
+    }
+}
+
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path
@@ -79,6 +105,7 @@ bitflags! {
     #[derive(Copy, Clone)]
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
+        const EMPTY = 1 << 1;
     }
 }
 
@@ -86,20 +113,23 @@ bitflags! {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
+    pub empty: bool,
     pub pdf_standard: Option<PdfStandard>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
-    pub stages: TestStages,
+    stages: TestStages,
 }
 
 impl Attrs {
-    /// Whether the reference output should be compared and saved.
-    pub fn should_check_ref(&self, output: TestOutput) -> bool {
-        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
-        ARGS.should_run(self.stages & output.into())
-            && output != TestOutput::Pdf
-            && output != TestOutput::Svg
+    /// The stages, the way they were parsed.
+    pub fn parsed_stages(&self) -> TestStages {
+        self.stages
+    }
+
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages.with_implied()
     }
 }
 
@@ -111,44 +141,24 @@ bitflags! {
     ///
     /// Here's a visual representation of the stage tree:
     /// ```txt
-    ///        ╭─> render
-    /// paged ─┼─> pdf ───> pdftags
-    ///        ╰─> svg
-    /// html  ───> html
+    ///                  ╭─> render
+    ///       ╭─> paged ─┼─> pdf ───> pdftags
+    /// eval ─┤          ╰─> svg
+    ///       ╰─> html  ───> html
     /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct TestStages: u8 {
-        const PAGED = 1 << 0;
-        const RENDER = 1 << 1;
-        const PDF = 1 << 2;
-        const PDFTAGS = 1 << 3;
-        const SVG = 1 << 4;
-        const HTML = 1 << 5;
+        const EVAL = 1 << 0;
+        const PAGED = 1 << 1;
+        const RENDER = 1 << 2;
+        const PDF = 1 << 3;
+        const PDFTAGS = 1 << 4;
+        const SVG = 1 << 5;
+        const HTML = 1 << 6;
     }
 }
 
-macro_rules! union {
-    ($union:expr) => {
-        $union
-    };
-    ($a:expr, $b:expr $(,$flag:expr)*$(,)?) => {
-        union!($a.union($b) $(,$flag)*)
-    };
-}
-
 impl TestStages {
-    /// All stages that require the paged target.
-    pub const PAGED_STAGES: Self = union!(
-        TestStages::PAGED,
-        TestStages::RENDER,
-        TestStages::PDF,
-        TestStages::PDFTAGS,
-        TestStages::SVG,
-    );
-
-    /// All stages that require a pdf document.
-    pub const PDF_STAGES: Self = union!(TestStages::PDF, TestStages::PDFTAGS);
-
     /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
@@ -156,6 +166,7 @@ impl TestStages {
         let mut res = *self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
+                TestStages::EVAL => TestStages::empty(),
                 TestStages::PAGED => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
                 TestStages::RENDER => TestStages::empty(),
                 TestStages::PDF => TestStages::empty(),
@@ -176,12 +187,13 @@ impl TestStages {
         let mut res = *self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
-                TestStages::PAGED => TestStages::empty(),
-                TestStages::RENDER => TestStages::PAGED,
-                TestStages::PDF => TestStages::PAGED,
-                TestStages::PDFTAGS => TestStages::PAGED | TestStages::PDF,
-                TestStages::SVG => TestStages::PAGED,
-                TestStages::HTML => TestStages::empty(),
+                TestStages::EVAL => TestStages::empty(),
+                TestStages::PAGED => TestStages::EVAL,
+                TestStages::RENDER => TestStages::EVAL | TestStages::PAGED,
+                TestStages::PDF => TestStages::EVAL | TestStages::PAGED,
+                TestStages::PDFTAGS => TestStages::EVAL | TestStages::PAGED | TestStages::PDF,
+                TestStages::SVG => TestStages::EVAL | TestStages::PAGED,
+                TestStages::HTML => TestStages::EVAL,
                 _ => unreachable!(),
             });
         }
@@ -217,6 +229,7 @@ impl Display for TestStages {
                 f.write_str(", ")?;
             }
             bitflags::bitflags_match!(flag, {
+                TestStages::EVAL => Display::fmt(&TestEval, f),
                 TestStages::PAGED => Display::fmt(&TestTarget::Paged, f),
                 TestStages::RENDER => Display::fmt(&TestOutput::Render, f),
                 TestStages::PDF => Display::fmt(&TestOutput::Pdf, f),
@@ -227,6 +240,23 @@ impl Display for TestStages {
             })?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct TestEval;
+
+impl TestStage for TestEval {}
+
+impl From<TestEval> for TestStages {
+    fn from(_: TestEval) -> Self {
+        TestStages::EVAL
+    }
+}
+
+impl Display for TestEval {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("eval")
     }
 }
 
@@ -243,6 +273,18 @@ impl TestStage for TestTarget {}
 impl From<TestTarget> for TestStages {
     fn from(value: TestTarget) -> Self {
         TestStages::from_bits(value as u8).unwrap()
+    }
+}
+
+impl FromStr for TestTarget {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "paged" => Ok(Self::Paged),
+            "html" => Ok(Self::Html),
+            _ => Err(()),
+        }
     }
 }
 
@@ -499,7 +541,7 @@ impl Collector {
             return;
         };
 
-        if !attrs.stages.contains(output.into()) {
+        if !attrs.implied_stages().contains(output.into()) || attrs.empty {
             self.errors.push(TestParseError::new(
                 FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
@@ -553,7 +595,7 @@ impl Collector {
                 continue;
             };
 
-            if !attrs.stages.contains(output.into()) {
+            if !attrs.implied_stages().contains(output.into()) || attrs.empty {
                 self.errors.push(TestParseError::new(
                     FilePos::new(path, line),
                     TestParseErrorKind::DanglingHash(name.clone()),
@@ -634,7 +676,7 @@ impl<'a> Parser<'a> {
 
             let text = self.s.from(start);
 
-            if !ARGS.should_run(attrs.stages)
+            if !ARGS.implied_stages().intersects(attrs.implied_stages())
                 || !selected(&name, self.path.canonicalize().unwrap())
             {
                 self.collector.skipped += 1;
@@ -685,6 +727,7 @@ impl<'a> Parser<'a> {
             }
 
             match attr_name {
+                "eval" => self.set_attr(attr_name, &mut stages, TestStages::EVAL),
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
                 "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
@@ -701,6 +744,7 @@ impl<'a> Parser<'a> {
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
+                "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),
 
                 found => {
                     self.error(format!(
@@ -721,10 +765,22 @@ impl<'a> Parser<'a> {
             self.error("tests must specify at least one target or output");
         }
 
+        if stages.contains(TestStages::EVAL) {
+            let others = stages.difference(TestStages::EVAL);
+            if !others.is_empty() {
+                self.error(format!(
+                    "`eval` must be the only test stage, consider removing [{others}]"
+                ));
+            } else if flags.contains(AttrFlags::EMPTY) {
+                self.error("specifying `empty` on an `eval` test is redundant");
+            }
+        }
+
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
+            empty: flags.contains(AttrFlags::EMPTY),
             pdf_standard,
-            stages: stages.with_implied(),
+            stages,
         }
     }
 

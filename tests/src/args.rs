@@ -80,7 +80,7 @@ pub struct CliArguments {
 
 impl CliArguments {
     /// The stages which should be run depending on the `--stages` flag.
-    pub fn stages(&self) -> TestStages {
+    fn stages(&self) -> TestStages {
         thread_local! {
             static CACHED: OnceCell<TestStages> = const { OnceCell::new() };
         }
@@ -94,18 +94,22 @@ impl CliArguments {
                     for &s in self.stages.iter() {
                         stages |= s.into();
                     }
-
-                    // Must be in this order, otherwise any paged output target
-                    // would enable all others.
-                    stages.with_implied().with_required()
+                    stages
                 }
             })
         })
     }
 
-    /// Whether the stage should be run depending on the `--stages` flag.
-    pub fn should_run(&self, stage: TestStages) -> bool {
-        self.stages().intersects(stage)
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages().with_implied()
+    }
+
+    /// [Self::implied_stages] and the ones that are required.
+    pub fn required_stages(&self) -> TestStages {
+        // Must be in this order, otherwise any paged output target
+        // would enable all others.
+        self.stages().with_implied().with_required()
     }
 }
 
@@ -121,6 +125,7 @@ pub enum Command {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum TestStage {
+    Eval,
     Paged,
     Render,
     Pdf,
@@ -132,6 +137,7 @@ pub enum TestStage {
 impl From<TestStage> for TestStages {
     fn from(value: TestStage) -> Self {
         match value {
+            TestStage::Eval => TestStages::EVAL,
             TestStage::Paged => TestStages::PAGED,
             TestStage::Render => TestStages::RENDER,
             TestStage::Pdf => TestStages::PDF,

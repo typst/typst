@@ -52,7 +52,7 @@
 // Error: 8-15 expected array, bytes, or version, found string
 #array("hello")
 
---- spread-into-array paged ---
+--- spread-into-array eval ---
 // Test spreading into array and dictionary.
 #{
   let l = (1, 2, 3)
@@ -65,12 +65,12 @@
 // Error: 9-17 cannot spread dictionary into array
 #(1, 2, ..(a: 1))
 
---- array-len paged ---
+--- array-len eval ---
 // Test the `len` method.
 #test(().len(), 0)
 #test(("A", "B", "C").len(), 3)
 
---- array-at-lvalue paged ---
+--- array-at-lvalue eval ---
 // Test lvalue and rvalue access.
 #{
   let array = (1, 2)
@@ -78,7 +78,7 @@
   test(array, (1, 8))
 }
 
---- array-first-and-at-lvalue paged ---
+--- array-first-and-at-lvalue eval ---
 // Test different lvalue method.
 #{
   let array = (1, 2, 3)
@@ -104,12 +104,12 @@
   array.at(3) = 5
 }
 
---- array-at-with-default paged ---
+--- array-at-with-default eval ---
 // Test default value.
 #test((1, 2, 3).at(2, default: 5), 3)
 #test((1, 2, 3).at(3, default: 5), 5)
 
---- array-remove-with-default paged ---
+--- array-remove-with-default eval ---
 // Test remove with default value.
 
 #{
@@ -122,7 +122,7 @@
   test(array.remove(3, default: 5), 5)
 }
 
---- array-range paged ---
+--- array-range eval ---
 // Test the `range` function.
 #test(range(4), (0, 1, 2, 3))
 #test(range(1, 4), (1, 2, 3))
@@ -162,7 +162,7 @@
 #let array = (1, 2, 3)
 #(array.yolo() = 4)
 
---- array-negative-indices paged ---
+--- array-negative-indices eval ---
 // Test negative indices.
 #{
   let array = (1, 2, 3, 4)
@@ -173,7 +173,7 @@
   test(array.at(-4), 1)
 }
 
---- array-first-and-last paged ---
+--- array-first-and-last eval ---
 // The `first` and `last` methods.
 #test((1,).first(), 1)
 #test((2,).last(), 2)
@@ -192,7 +192,7 @@
 // Error: 2-11 array is empty
 #().last()
 
---- array-push-and-pop paged ---
+--- array-push-and-pop eval ---
 // Test the `push` and `pop` methods.
 #{
   let tasks = (a: (1, 2, 3), b: (4, 5, 6))
@@ -202,7 +202,7 @@
   test(tasks.at("b"), (4, 5, 6, 7))
 }
 
---- array-insert-and-remove paged ---
+--- array-insert-and-remove eval ---
 // Test the `insert` and `remove` methods.
 #{
   let array = (0, 1, 2, 4, 5)
@@ -217,7 +217,7 @@
 #let numbers = ()
 #numbers.insert()
 
---- array-slice paged ---
+--- array-slice eval ---
 // Test the `slice` method.
 #test((1, 2, 3, 4).slice(2), (3, 4))
 #test(range(10).slice(2, 6), (2, 3, 4, 5))
@@ -246,13 +246,13 @@
 // Error: 2-24 array index out of bounds (index: -4, len: 3)
 #(1, 2, 3).slice(0, -4)
 
---- array-position paged ---
+--- array-position eval ---
 // Test the `position` method.
 #test(("Hi", "❤️", "Love").position(s => s == "❤️"), 1)
 #test(("Bye", "💘", "Apart").position(s => s == "❤️"), none)
 #test(("A", "B", "CDEF", "G").position(v => v.len() > 2), 2)
 
---- array-filter paged ---
+--- array-filter eval ---
 // Test the `filter` method.
 #test(().filter(calc.even), ())
 #test((1, 2, 3, 4).filter(calc.even), (2, 4))
@@ -263,7 +263,7 @@
 // Error: 21-26 cannot subtract integer from string
 #("a",).filter(x => x - 2)
 
---- array-map paged ---
+--- array-map eval ---
 // Test the `map` method.
 #test(().map(x => x * 2), ())
 #test((2, 3).map(x => x * 2), (4, 6))
@@ -273,7 +273,7 @@
 // Error: 18-23 cannot subtract integer from string
 #("a",).map(x => x - 2)
 
---- array-fold paged ---
+--- array-fold eval ---
 // Test the `fold` method.
 #test(().fold("hi", grid), "hi")
 #test((1, 2, 3, 4).fold(0, (s, x) => s + x), 10)
@@ -282,7 +282,7 @@
 // Error: 20-22 unexpected argument
 #(1, 2, 3).fold(0, () => none)
 
---- array-sum paged ---
+--- array-sum eval ---
 // Test the `sum` method.
 #test(().sum(default: 0), 0)
 #test(().sum(default: []), [])
@@ -292,7 +292,7 @@
 // Error: 2-10 cannot calculate sum of empty array with no default
 #().sum()
 
---- array-product paged ---
+--- array-product eval ---
 // Test the `product` method.
 #test(().product(default: 0), 0)
 #test(().product(default: []), [])
@@ -303,18 +303,18 @@
 // Error: 2-14 cannot calculate product of empty array with no default
 #().product()
 
---- array-rev paged ---
+--- array-rev eval ---
 // Test the `rev` method.
 #test(range(3).rev(), (2, 1, 0))
 
---- array-join paged ---
+--- array-join eval ---
 // Test the `join` method.
 #test(().join(), none)
 #test((1,).join(), 1)
 #test(("a", "b", "c").join(), "abc")
 #test("(" + ("a", "b", "c").join(", ") + ")", "(a, b, c)")
 
---- array-join-default paged ---
+--- array-join-default eval ---
 #test(().join(default: "EMPTY", ", "), "EMPTY")
 #test(("hello",).join(default: "EMPTY", ", "), "hello")
 #test(("hello", "world").join(default: "EMPTY", ", "), "hello, world")
@@ -331,14 +331,14 @@
 // Test joining content.
 #([One], [Two], [Three]).join([, ], last: [ and ]).
 
---- array-intersperse paged ---
+--- array-intersperse eval ---
 // Test the `intersperse` method
 #test(().intersperse("a"), ())
 #test((1,).intersperse("a"), (1,))
 #test((1, 2).intersperse("a"), (1, "a", 2))
 #test((1, 2, "b").intersperse("a"), (1, "a", 2, "a", "b"))
 
---- array-chunks paged ---
+--- array-chunks eval ---
 // Test the `chunks` method.
 #test(().chunks(10), ())
 #test((1, 2, 3).chunks(10), ((1, 2, 3),))
@@ -358,7 +358,7 @@
 // Error: 19-21 number must be positive
 #(1, 2, 3).chunks(-5)
 
---- array-windows paged ---
+--- array-windows eval ---
 // Test the `windows` method.
 #test(().windows(5), ())
 #test((1, 2, 3).windows(5), ())
@@ -373,7 +373,7 @@
 // Error: 20-22 number must be positive
 #(1, 2, 3).windows(-5)
 
---- array-sorted paged ---
+--- array-sorted eval ---
 // Test the `sorted` method.
 #test(().sorted(), ())
 #test(().sorted(key: x => x), ())
@@ -395,7 +395,7 @@
 // Error: 12-18 unexpected argument
 #().sorted(x => x)
 
---- array-zip paged ---
+--- array-zip eval ---
 // Test the `zip` method.
 #test(().zip(()), ())
 #test((1,).zip(()), ())
@@ -420,7 +420,7 @@
 // Error: 24-36 array has different length (4) from first array (2)
 #(1, 2).zip((1, 2, 3), (1, 2, 3, 4), exact: true)
 
---- array-enumerate paged ---
+--- array-enumerate eval ---
 // Test the `enumerate` method.
 #test(().enumerate(), ())
 #test(().enumerate(start: 5), ())
@@ -429,7 +429,7 @@
 #test(("a", "b", "c").enumerate(start: 42), ((42, "a"), (43, "b"), (44, "c")))
 #test(("a", "b", "c").enumerate(start: -7), ((-7, "a"), (-6, "b"), (-5, "c")))
 
---- array-dedup paged ---
+--- array-dedup eval ---
 // Test the `dedup` method.
 #test(().dedup(), ())
 #test((1,).dedup(), (1,))
@@ -438,14 +438,14 @@
 #test(("Jane", "John", "Eric").dedup(), ("Jane", "John", "Eric"))
 #test(("Jane", "John", "Eric", "John").dedup(), ("Jane", "John", "Eric"))
 
---- array-dedup-key paged ---
+--- array-dedup-key eval ---
 // Test the `dedup` method with the `key` argument.
 #test((1, 2, 3, 4, 5, 6).dedup(key: x => calc.rem(x, 2)), (1, 2))
 #test((1, 2, 3, 4, 5, 6).dedup(key: x => calc.rem(x, 3)), (1, 2, 3))
 #test(("Hello", "World", "Hi", "There").dedup(key: x => x.len()), ("Hello", "Hi"))
 #test(("Hello", "World", "Hi", "There").dedup(key: x => x.at(0)), ("Hello", "World", "There"))
 
---- array-to-dict paged ---
+--- array-to-dict eval ---
 // Test the `to-dict` method.
 #test(().to-dict(), (:))
 #test((("a", 1), ("b", 2), ("c", 3)).to-dict(), (a: 1, b: 2, c: 3))
@@ -533,7 +533,7 @@
   array.at(1)
 }
 
---- issue-3154-array-at-out-of-bounds-default paged ---
+--- issue-3154-array-at-out-of-bounds-default eval ---
 #{
   let array = (1,)
   test(array.at(1, default: 0), 0)
@@ -561,7 +561,7 @@
 // Error: 3-4 unclosed delimiter
 #{(}
 
---- array-reduce paged ---
+--- array-reduce eval ---
 // Test the `reduce` method.
 #test(().reduce(grid), none)
 #test((1, 2, 3, 4).reduce((s, x) => s + x), 10)

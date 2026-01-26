@@ -49,13 +49,13 @@ _Visible_
 // Test that incomplete label is text.
 1 < 2 is #if 1 < 2 [not] a label.
 
---- label-text-styled-and-sequence paged ---
+--- label-text-styled-and-sequence eval ---
 // Test label on text, styled, and sequence.
 #test([Hello<hi>].label, <hi>)
 #test([#[A *B* C]<hi>].label, <hi>)
 #test([#text(red)[Hello]<hi>].label, <hi>)
 
---- label-string-conversion paged ---
+--- label-string-conversion eval ---
 // Test getting the name of a label.
 #test(str(<hey>), "hey")
 #test(str(label("hey")), "hey")
@@ -84,7 +84,7 @@ _Visible_
 // Error: 1-3 label `<a>` does not exist in the document
 @a
 
---- label-unattached-warn paged ---
+--- label-unattached-warn paged empty ---
 #set heading(numbering: "1.")
 // Warning: 1-4 label `<a>` is not attached to anything
 <a>

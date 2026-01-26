@@ -34,7 +34,7 @@ _Shopping list_
    - C
 - D
 
---- list-indent-trivia-nesting paged ---
+--- list-indent-trivia-nesting eval ---
 // Test indent nesting behavior with odd trivia (comments and spaces). The
 // comments should _not_ affect the nesting. Only the final column matters.
 
@@ -77,7 +77,7 @@ _Shopping list_
 
 #test(indented, manual)
 
---- list-indent-bracket-nesting paged ---
+--- list-indent-bracket-nesting eval ---
 // Test list indent nesting behavior when directly at a starting bracket.
 
 #let indented = {

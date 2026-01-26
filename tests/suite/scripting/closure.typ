@@ -8,14 +8,14 @@
 // Should output `x => y`.
 #x => y
 
---- closure-without-captures paged ---
+--- closure-without-captures eval ---
 // Basic closure without captures.
 #{
   let adder = (x, y) => x + y
   test(adder(2, 3), 5)
 }
 
---- closure-as-arg paged ---
+--- closure-as-arg eval ---
 // Pass closure as argument and return closure.
 // Also uses shorthand syntax for a single argument.
 #{
@@ -26,7 +26,7 @@
   test(h(2), 5)
 }
 
---- closure-capture-from-popped-stack-frame paged ---
+--- closure-capture-from-popped-stack-frame eval ---
 // Capture environment.
 #{
   let mark = "!"
@@ -44,7 +44,7 @@
   test(greet("Typst"), "Hi, Typst!")
 }
 
---- closure-shadows-outer-var paged ---
+--- closure-shadows-outer-var eval ---
 // Redefined variable.
 #{
   let x = 1
@@ -55,7 +55,7 @@
   test(f(), 3)
 }
 
---- closure-shadows-outer-var-import paged ---
+--- closure-shadows-outer-var-import eval ---
 // Import bindings.
 #{
   let b = "module.typ"
@@ -66,7 +66,7 @@
   test(f(), 1)
 }
 
---- closure-shadows-outer-var-for-loop paged ---
+--- closure-shadows-outer-var-for-loop eval ---
 // For loop bindings.
 #{
   let v = (1, 2, 3)
@@ -78,7 +78,7 @@
   test(f(), 6)
 }
 
---- closure-let-basic paged ---
+--- closure-let-basic eval ---
 // Let + closure bindings.
 #{
   let g = "hi"
@@ -89,7 +89,7 @@
   test(f(), "bye")
 }
 
---- closure-let-args paged ---
+--- closure-let-args eval ---
 // Parameter bindings.
 #{
   let x = 5

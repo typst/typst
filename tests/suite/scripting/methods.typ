@@ -1,10 +1,10 @@
 // Test method calls.
 
---- method-whitespace paged ---
+--- method-whitespace eval ---
 // Test whitespace around dot.
 #test( "Hi there" . split() , ("Hi", "there"))
 
---- method-mutating paged ---
+--- method-mutating eval ---
 // Test mutating indexed value.
 #{
   let matrix = (((1,), (2,)), ((3,), (4,)))
@@ -12,7 +12,7 @@
   test(matrix, (((1,), (2,)), ((3, 5), (4,))))
 }
 
---- method-multiline paged ---
+--- method-multiline eval ---
 // Test multiline chain in code block.
 #{
   let rewritten = "Hello. This is a sentence. And one more."

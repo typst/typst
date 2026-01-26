@@ -1,4 +1,4 @@
---- int-base-alternative paged ---
+--- int-base-alternative eval ---
 // Test numbers with alternative bases.
 #test(0x10, 16)
 #test(0b1101, 13)
@@ -12,7 +12,7 @@
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
 
---- int-constructor paged ---
+--- int-constructor eval ---
 // Test conversion to numbers.
 #test(int(false), 0)
 #test(int(true), 1)
@@ -92,7 +92,7 @@
 // Error: 6-39 number too large
 #int(decimal("-9223372036854775809.5"))
 
---- int-signum paged ---
+--- int-signum eval ---
 // Test int `signum()`
 #test(int(0).signum(), 0)
 #test(int(1.0).signum(), 1)
@@ -100,7 +100,7 @@
 #test(int(10.0).signum(), 1)
 #test(int(-10.0).signum(), -1)
 
---- int-from-and-to-bytes paged ---
+--- int-from-and-to-bytes eval ---
 // Test `int.from-bytes` and `int.to-bytes`.
 #test(int.from-bytes(bytes(())), 0)
 #test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: true), 1)
@@ -118,7 +118,7 @@
 // Error: 2-34 too many bytes to convert to a 64 bit number
 #int.from-bytes(bytes((0,) * 16))
 
---- int-repr paged ---
+--- int-repr eval ---
 // Test the `repr` function with integers.
 #test(repr(12), "12")
 #test(repr(1234567890), "1234567890")
@@ -130,7 +130,7 @@
 #test(repr(-0987654321), "-987654321")
 #test(repr(4 - 8), "-4")
 
---- int-parse-large-literals paged ---
+--- int-parse-large-literals eval ---
 #import "../loading/edge-case.typ": large-integer, representable-integer
 
 #for (name, source) in representable-integer {
@@ -176,7 +176,7 @@
 #(-0987654321) \
 #(4 - 8)
 
---- issue-int-constructor paged ---
+--- issue-int-constructor eval ---
 // Test that integer -> integer conversion doesn't do a roundtrip through float.
 #let x = 9223372036854775800
 #test(type(x), int)
