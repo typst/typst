@@ -76,23 +76,62 @@ pub fn yaml(
     /// Whether to perform merging of `<<`` keys into the surrounding mapping
     /// according to the [YAML specification](https://yaml.org/type/merge.html).
     ///
+    /// Merged keys cannot be determined until the whole YAML is loaded. If you
+    /// don't need this feature, you can disable it for better performance.
+    ///
     /// ```example
-    /// TODO: I haven't come up with a visually-appealing practical example yet…
-    ///       Suggestions are welcome!
+    /// #let source = bytes(
+    ///   ```yaml
+    ///   presets:
+    ///     - &left { x: 0, y: 0 }
+    ///     - &center { x: 1, y: 0 }
+    ///     - &small { r: 2 }
+    ///     - &large { r: 10 }
+    ///
+    ///   merge-one:
+    ///     <<: *left
+    ///     r: 2
+    ///     fill: red
+    ///
+    ///   merge-multiple:
+    ///     <<: [ *center, *small ]
+    ///     fill: yellow
+    ///
+    ///   override:
+    ///     <<: [ *small, *left, *large ]
+    ///     x: 2
+    ///     fill: green
+    ///   ```.text,
+    /// )
+    ///
+    /// #let (presets, ..data) = yaml(source)
+    /// #set page(height: auto, width: auto)
+    /// #grid(
+    ///   columns: data.len(),
+    ///   gutter: 1em,
+    ///   ..data
+    ///     .values()
+    ///     .map(((x, y, r, fill)) => grid.cell(
+    ///       x: x,
+    ///       y: y,
+    ///       circle(
+    ///         fill: eval(fill),
+    ///         radius: r * 1em,
+    ///       ),
+    ///     )),
+    /// )
     /// ```
     #[named]
     #[default(true)]
     merge_keys: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    let mut value = serde_yaml::from_slice::<Value>(loaded.data.as_slice())
+    let mut value = serde_yaml::from_slice(loaded.data.as_slice())
         .map_err(format_yaml_error)
         .within(&loaded)?;
 
     if merge_keys {
-        apply_yaml_merge(&mut value)
-            .map_err(format_yaml_error)
-            .within(&loaded)?;
+        apply_yaml_merge(&mut value).within(&loaded)?;
     }
     Ok(value)
 }
@@ -141,67 +180,58 @@ pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
     LoadError::new(pos, "failed to parse YAML", error)
 }
 
-/// Performs merging of << keys into the surrounding mapping.
-/// A copy of [`serde_yaml::Value::apply_merge`] to [`Value`].
-fn apply_yaml_merge(value: &mut Value) -> Result<(), serde_yaml::Error> {
-    use serde::de::Error;
+/// Performs merging of `<<` keys into the surrounding mapping.
+/// A copy of [`serde_yaml::Value::apply_merge`] to [`Value`]. (Apache-2.0 license)
+fn apply_yaml_merge(value: &mut Value) -> Result<(), LoadError> {
+    let yaml_error = |error: &str| {
+        // Even serde_yaml can't report positions of these errors, so we give up.
+        Err(LoadError::new(ReportPos::default(), "failed to parse YAML", error))
+    };
 
-    match value {
-        Value::Dict(dict) => {
-            match dict.take("<<") {
-                Ok(Value::Dict(merge)) => {
-                    for (k, v) in merge {
-                        if !dict.contains(k.as_str()) {
-                            dict.insert(k, v);
+    let mut stack = Vec::new();
+    stack.push(value);
+    while let Some(node) = stack.pop() {
+        match node {
+            Value::Dict(dict) => {
+                match dict.take("<<") {
+                    Ok(Value::Dict(merge)) => {
+                        for (k, v) in merge {
+                            dict.entry(k).or_insert(v);
                         }
                     }
-                }
-                Ok(Value::Array(array)) => {
-                    for value in array {
-                        match value {
-                            Value::Dict(merge) => {
-                                for (k, v) in merge {
-                                    if !dict.contains(k.as_str()) {
-                                        dict.insert(k, v);
+                    Ok(Value::Array(array)) => {
+                        for value in array {
+                            match value {
+                                Value::Dict(merge) => {
+                                    for (k, v) in merge {
+                                        dict.entry(k).or_insert(v);
                                     }
                                 }
-                            }
-                            Value::Array(_) => {
-                                return Err(serde_yaml::Error::custom(
-                                    "expected a mapping for merging, but found sequence",
-                                ));
-                            }
-                            _unexpected => {
-                                return Err(serde_yaml::Error::custom(
-                                    "expected a mapping for merging, but found scalar",
-                                ));
+                                Value::Array(_) => {
+                                    return yaml_error(
+                                        "expected a mapping for merging, but found sequence",
+                                    );
+                                }
+                                _unexpected => {
+                                    return yaml_error(
+                                        "expected a mapping for merging, but found scalar",
+                                    );
+                                }
                             }
                         }
                     }
+                    Err(_) => {}
+                    Ok(_unexpected) => {
+                        return yaml_error(
+                            "expected a mapping or list of mappings for merging, but found scalar",
+                        );
+                    }
                 }
-                Err(_) => {}
-                Ok(_unexpected) => {
-                    return Err(serde_yaml::Error::custom(
-                        "expected a mapping or list of mappings for merging, but found scalar",
-                    ));
-                }
+                stack.extend(dict.values_mut());
             }
-
-            let keys: Vec<Str> = dict.iter().map(|(k, _)| k.clone()).collect();
-            for key in keys {
-                let value = dict.at_mut(&key).expect("key just collected from dict");
-                apply_yaml_merge(value)?;
-            }
+            Value::Array(array) => stack.extend(array.iter_mut()),
+            _ => {}
         }
-        Value::Array(array) => {
-            let len = array.len();
-            for i in 0..len {
-                let value =
-                    array.at_mut(i as i64).expect("index just collected from array");
-                apply_yaml_merge(value)?;
-            }
-        }
-        _ => {}
     }
     Ok(())
 }
