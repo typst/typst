@@ -2,73 +2,38 @@ use std::collections::VecDeque;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_library::foundations::{Label, NativeElement};
+use typst_library::foundations::Label;
 use typst_library::introspection::{
     DocumentPosition, InnerHtmlPosition, Introspector, Location, Tag,
 };
 use typst_library::layout::{Frame, FrameItem, Point};
-use typst_library::model::{Destination, LinkElem};
 use typst_utils::PicoStr;
 
 use crate::{HtmlElement, HtmlNode, attr, tag};
-
-/// Searches for links within a frame.
-///
-/// If all links are created via `LinkElem` in the future, this can be removed
-/// in favor of the query in `identify_link_targets`. For the time being, some
-/// links are created without existence of a `LinkElem`, so this is
-/// unfortunately necessary.
-pub fn introspect_frame_links(frame: &Frame, targets: &mut FxHashSet<Location>) {
-    for (_, item) in frame.items() {
-        match item {
-            FrameItem::Link(Destination::Location(loc), _) => {
-                targets.insert(*loc);
-            }
-            FrameItem::Group(group) => introspect_frame_links(&group.frame, targets),
-            _ => {}
-        }
-    }
-}
 
 /// Attaches IDs to nodes produced by link targets to make them linkable.
 ///
 /// May produce `<span>`s for link targets that turned into text nodes or no
 /// nodes at all. See the [`LinkElem`] documentation for more details.
-pub fn identify_link_targets(
+pub fn create_link_anchors(
     root: &mut HtmlElement,
-    introspector: &mut Introspector,
-    mut targets: FxHashSet<Location>,
-) {
-    // Query for all links with an intra-doc (i.e. `Location`) destination to
-    // know what needs IDs.
-    targets.extend(
-        introspector
-            .query(&LinkElem::ELEM.select())
-            .iter()
-            .map(|elem| elem.to_packed::<LinkElem>().unwrap())
-            .filter_map(|elem| match elem.dest.resolve_with_introspector(introspector) {
-                Ok(Destination::Location(loc)) => Some(loc),
-                _ => None,
-            }),
-    );
-
+    introspector: &Introspector,
+    targets: &FxHashSet<Location>,
+) -> FxHashMap<Location, EcoString> {
     if targets.is_empty() {
         // Nothing to do.
-        return;
+        return FxHashMap::default();
     }
 
     // Assign IDs to all link targets.
     let mut work = Work::new();
     traverse(
         &mut work,
-        &targets,
+        targets,
         &mut Identificator::new(introspector),
         &mut root.children,
     );
-
-    // Add the mapping from locations to IDs to the introspector to make it
-    // available to links in the next iteration.
-    introspector.set_html_ids(work.ids);
+    work.ids
 }
 
 /// Traverses a list of nodes.
@@ -134,7 +99,7 @@ fn traverse(
                     targets,
                     identificator,
                     &frame.inner,
-                    &mut frame.link_points,
+                    &mut frame.anchors,
                 );
             }
         }
@@ -149,7 +114,7 @@ fn traverse_frame(
     targets: &FxHashSet<Location>,
     identificator: &mut Identificator<'_>,
     frame: &Frame,
-    link_points: &mut EcoVec<(Point, EcoString)>,
+    anchors: &mut EcoVec<(Point, EcoString)>,
 ) {
     for (_, item) in frame.items() {
         match item {
@@ -162,11 +127,11 @@ fn traverse_frame(
                 {
                     let id = identificator.identify(elem.label());
                     work.ids.insert(loc, id.clone());
-                    link_points.push((*point, id));
+                    anchors.push((*point, id));
                 }
             }
             FrameItem::Group(group) => {
-                traverse_frame(work, targets, identificator, &group.frame, link_points);
+                traverse_frame(work, targets, identificator, &group.frame, anchors);
             }
             _ => {}
         }

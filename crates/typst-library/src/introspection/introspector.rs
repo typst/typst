@@ -13,7 +13,7 @@ use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{DocumentPosition, Location, PagedPosition, Tag};
 use crate::layout::{Frame, FrameItem, Point, Transform};
-use crate::model::Numbering;
+use crate::model::{Destination, LinkElem, Numbering};
 
 /// Can be queried for elements and their positions.
 #[derive(Default, Clone)]
@@ -36,10 +36,12 @@ pub struct Introspector {
     /// Accelerates lookup of elements by label.
     labels: MultiMap<Label, usize>,
 
-    /// Maps from element locations to assigned HTML IDs. This used to support
-    /// intra-doc links in HTML export. In paged export, is is simply left
-    /// empty and [`Self::html_id`] is not used.
-    html_ids: FxHashMap<Location, EcoString>,
+    /// Locations that are linked to via `FrameItem::Link`.
+    frame_link_targets: FxHashSet<Location>,
+    /// Maps from element locations to assigned link anchors. This used to
+    /// support intra-doc links in HTML export. In paged export, is is simply
+    /// left empty and [`Self::anchors`] is not used.
+    anchors: FxHashMap<Location, EcoString>,
 
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
@@ -62,10 +64,18 @@ impl Introspector {
         self.labels.get(&label).len()
     }
 
-    /// Enriches an existing introspector with HTML IDs, which were assigned
+    /// Computes all locations that are referenced by intra-doc links of any
+    /// kind.
+    pub fn link_targets(&self) -> FxHashSet<Location> {
+        LinkElem::find_destinations(self)
+            .chain(self.frame_link_targets.iter().copied())
+            .collect()
+    }
+
+    /// Enriches an existing introspector with HTML anchors, which were assigned
     /// to the DOM in a post-processing step.
-    pub fn set_html_ids(&mut self, html_ids: FxHashMap<Location, EcoString>) {
-        self.html_ids = html_ids;
+    pub fn set_anchors(&mut self, anchors: FxHashMap<Location, EcoString>) {
+        self.anchors = anchors;
     }
 
     /// Retrieves the element with the given index.
@@ -288,9 +298,9 @@ impl Introspector {
         self.page_supplements.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
-    /// Retrieves the ID to link to for this location in HTML export.
-    pub fn html_id(&self, location: Location) -> Option<&EcoString> {
-        self.html_ids.get(&location)
+    /// Retrieves the anchor to link to for this location in HTML export.
+    pub fn anchor(&self, location: Location) -> Option<&EcoString> {
+        self.anchors.get(&location)
     }
 
     /// Try to find a location for an element with the given `key` hash
@@ -368,7 +378,7 @@ pub struct IntrospectorBuilder {
     pub pages: usize,
     pub page_numberings: Vec<Option<Numbering>>,
     pub page_supplements: Vec<Content>,
-    pub html_ids: FxHashMap<Location, EcoString>,
+    frame_link_targets: FxHashSet<Location>,
     seen: FxHashSet<Location>,
     insertions: MultiMap<Location, Vec<Pair>>,
     keys: MultiMap<u128, Location>,
@@ -406,6 +416,9 @@ impl IntrospectorBuilder {
                     } else {
                         self.discover_in_frame(sink, &group.frame, ts, to_pos);
                     }
+                }
+                FrameItem::Link(Destination::Location(loc), _) => {
+                    self.frame_link_targets.insert(*loc);
                 }
                 FrameItem::Tag(tag) => {
                     self.discover_in_tag(sink, tag, to_pos(pos.transform(ts)));
@@ -459,11 +472,12 @@ impl IntrospectorBuilder {
             pages: self.pages,
             page_numberings: self.page_numberings,
             page_supplements: self.page_supplements,
-            html_ids: self.html_ids,
             elems,
             keys: self.keys,
             locations: self.locations,
             labels: self.labels,
+            frame_link_targets: self.frame_link_targets,
+            anchors: FxHashMap::default(),
             queries: QueryCache::default(),
         }
     }

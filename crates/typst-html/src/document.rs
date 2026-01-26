@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
-use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Styles};
 use typst_library::introspection::{
-    DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Location, Locator,
+    DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Locator,
 };
 use typst_library::layout::Transform;
 use typst_library::model::DocumentInfo;
@@ -104,26 +103,26 @@ fn html_document_impl(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    let mut link_targets = FxHashSet::default();
-    let mut introspector = introspect_html(&tags_and_root, &mut link_targets);
+    let mut introspector = introspect_html(&tags_and_root);
     let HtmlNode::Element(mut root) = tags_and_root.remove(root_index) else {
         panic!("expected HTML element")
     };
-    crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
+
+    introspector.set_anchors(crate::link::create_link_anchors(
+        &mut root,
+        &introspector,
+        &introspector.link_targets(),
+    ));
 
     Ok(HtmlDocument { info, root, introspector: Arc::new(introspector) })
 }
 
 /// Introspects HTML nodes.
 #[typst_macros::time(name = "introspect html")]
-fn introspect_html(
-    output: &[HtmlNode],
-    link_targets: &mut FxHashSet<Location>,
-) -> Introspector {
+fn introspect_html(output: &[HtmlNode]) -> Introspector {
     fn discover(
         builder: &mut IntrospectorBuilder,
         sink: &mut Vec<(Content, DocumentPosition)>,
-        link_targets: &mut FxHashSet<Location>,
         nodes: &[HtmlNode],
         current_position: &mut EcoVec<usize>,
     ) {
@@ -149,22 +148,10 @@ fn introspect_html(
 
                     if let Some(parent) = elem.parent {
                         let mut nested = vec![];
-                        discover(
-                            builder,
-                            &mut nested,
-                            link_targets,
-                            &elem.children,
-                            current_position,
-                        );
+                        discover(builder, &mut nested, &elem.children, current_position);
                         builder.register_insertion(parent, nested);
                     } else {
-                        discover(
-                            builder,
-                            sink,
-                            link_targets,
-                            &elem.children,
-                            current_position,
-                        );
+                        discover(builder, sink, &elem.children, current_position);
                     }
 
                     if !is_root {
@@ -173,7 +160,6 @@ fn introspect_html(
                 }
                 HtmlNode::Frame(frame) => {
                     current_position.push(dom_index);
-
                     builder.discover_in_frame(
                         sink,
                         &frame.inner,
@@ -185,8 +171,6 @@ fn introspect_html(
                             )
                         },
                     );
-
-                    crate::link::introspect_frame_links(&frame.inner, link_targets);
                     current_position.pop();
                 }
             }
@@ -196,7 +180,7 @@ fn introspect_html(
     let mut elems = Vec::new();
     let mut builder = IntrospectorBuilder::new();
     let mut current_position = EcoVec::new();
-    discover(&mut builder, &mut elems, link_targets, output, &mut current_position);
+    discover(&mut builder, &mut elems, output, &mut current_position);
     builder.finalize(elems)
 }
 

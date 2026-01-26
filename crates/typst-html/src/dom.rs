@@ -444,7 +444,7 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// IDs to assign to destination jump points within the SVG.
-    pub link_points: EcoVec<(Point, EcoString)>,
+    pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
     pub span: Span,
 }
@@ -456,7 +456,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            link_points: EcoVec::new(),
+            anchors: EcoVec::new(),
             span,
         }
     }

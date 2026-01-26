@@ -65,7 +65,7 @@ pub fn svg_html_frame(
     frame: &Frame,
     text_size: Abs,
     id: Option<&str>,
-    link_points: &[(Point, EcoString)],
+    anchors: &[(Point, EcoString)],
     introspector: &Introspector,
 ) -> String {
     let mut renderer = SVGRenderer::with_options(Some(introspector));
@@ -90,8 +90,8 @@ pub fn svg_html_frame(
     let state = State::new(frame.size());
     renderer.render_frame(&mut svg, &state, frame);
 
-    for (pos, id) in link_points {
-        renderer.render_link_point(&mut svg, *pos, id);
+    for (pos, id) in anchors {
+        renderer.render_anchor(&mut svg, *pos, id);
     }
 
     renderer.finalize(svg);
@@ -321,7 +321,7 @@ impl<'a> SVGRenderer<'a> {
                 // TODO: Location links on the same page could also be supported
                 // outside of HTML.
                 if let Some(introspector) = self.introspector
-                    && let Some(id) = introspector.html_id(*loc)
+                    && let Some(id) = introspector.anchor(*loc)
                 {
                     a.attr("href", SvgIdRef(id));
                     a.attr("xlink:href", SvgIdRef(id));
@@ -344,7 +344,7 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Renders a linkable point that can be used to link into an HTML frame.
-    fn render_link_point(&mut self, svg: &mut SvgElem, pos: Point, id: &str) {
+    fn render_anchor(&mut self, svg: &mut SvgElem, pos: Point, id: &str) {
         svg.elem("g")
             .attr("id", id)
             .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));

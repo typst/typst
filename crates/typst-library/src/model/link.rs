@@ -7,8 +7,8 @@ use typst_syntax::Span;
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Construct, Content, Label, Packed, Repr, Selector, ShowSet, Smart, StyleChain,
-    Styles, cast, elem,
+    Args, Construct, Content, Label, NativeElement, Packed, Repr, Selector, ShowSet,
+    Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, PagedPosition,
@@ -158,6 +158,20 @@ impl LinkElem {
     pub fn from_url(url: Url) -> Self {
         let body = body_from_url(&url);
         Self::new(LinkTarget::Dest(Destination::Url(url)), body)
+    }
+
+    /// Finds all linked-to locations referenced in an introspector.
+    pub fn find_destinations(
+        introspector: &Introspector,
+    ) -> impl Iterator<Item = Location> {
+        introspector
+            .query(&Self::ELEM.select())
+            .into_iter()
+            .map(|elem| elem.into_packed::<Self>().unwrap())
+            .filter_map(|elem| match elem.dest.resolve_with_introspector(introspector) {
+                Ok(Destination::Location(loc)) => Some(loc),
+                _ => None,
+            })
     }
 }
 

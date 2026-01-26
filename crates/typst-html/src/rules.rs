@@ -172,7 +172,7 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         Destination::Url(url) => Some(url.clone().into_inner()),
         Destination::Location(location) => {
             let id = engine
-                .introspect(HtmlIdIntrospection(location, span))
+                .introspect(LinkAnchorIntrospection(location, span))
                 .ok_or("failed to determine link anchor")
                 .at(span)?;
             Some(eco_format!("#{id}"))
@@ -191,12 +191,11 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .pack())
 };
 
-/// Resolves the DOM element ID assigned to the linked-to element with the given
-/// location.
+/// Resolves the anchor to reach the linked-to element with the given location.
 #[derive(Debug, Clone, PartialEq, Hash)]
-struct HtmlIdIntrospection(Location, Span);
+struct LinkAnchorIntrospection(Location, Span);
 
-impl Introspect for HtmlIdIntrospection {
+impl Introspect for LinkAnchorIntrospection {
     type Output = Option<EcoString>;
 
     fn introspect(
@@ -204,7 +203,7 @@ impl Introspect for HtmlIdIntrospection {
         _: &mut Engine,
         introspector: Tracked<Introspector>,
     ) -> Self::Output {
-        introspector.html_id(self.0).cloned()
+        introspector.anchor(self.0).cloned()
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {

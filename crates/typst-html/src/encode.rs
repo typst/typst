@@ -342,7 +342,7 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
         &frame.inner,
         frame.text_size,
         frame.id.as_deref(),
-        &frame.link_points,
+        &frame.anchors,
         w.introspector,
     );
     w.buf.push_str(&svg);
