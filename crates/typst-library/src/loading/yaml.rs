@@ -79,7 +79,7 @@ pub fn yaml(
     /// Merged keys cannot be determined until the whole YAML is loaded. If you
     /// don't need this feature, you can disable it for better performance.
     ///
-    /// ```example
+    /// ````example
     /// #let source = bytes(
     ///   ```yaml
     ///   presets:
@@ -120,7 +120,7 @@ pub fn yaml(
     ///       ),
     ///     )),
     /// )
-    /// ```
+    /// ````
     #[named]
     #[default(true)]
     merge_keys: bool,
