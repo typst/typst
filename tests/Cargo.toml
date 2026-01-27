@@ -49,7 +49,6 @@ time = { workspace = true }
 tiny-skia = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
-xmlwriter = { workspace = true }
 
 [lints]
 workspace = true

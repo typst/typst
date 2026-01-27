@@ -16,7 +16,7 @@
 mod diff;
 mod html;
 
-pub use self::diff::{DiffKind, File, FileReport, Old, image_diff, text_diff};
+pub use self::diff::{DiffKind, File, Old, ReportFile, image_diff, text_diff};
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -28,9 +28,10 @@ use rustc_hash::FxBuildHasher;
 use crate::output::{HASH_OUTPUTS, HashedRefs};
 use crate::{ARGS, STORE_PATH, git};
 
+/// A test report for a single test.
 pub struct TestReport {
     pub name: EcoString,
-    pub files: Vec<FileReport>,
+    pub files: Vec<ReportFile>,
 }
 
 impl TestReport {

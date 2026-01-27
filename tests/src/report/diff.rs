@@ -9,14 +9,15 @@ use smallvec::SmallVec;
 use crate::collect::TestOutput;
 use crate::output::HashedRef;
 
-pub struct FileReport {
+/// The diffs generated for a specific [`TestOutput`].
+pub struct ReportFile {
     pub output: TestOutput,
     pub left: Option<File>,
     pub right: Option<File>,
     pub diffs: SmallVec<[DiffKind; 2]>,
 }
 
-impl FileReport {
+impl ReportFile {
     pub fn new(
         output: TestOutput,
         old: Option<File>,
@@ -32,11 +33,14 @@ impl FileReport {
     }
 }
 
+/// A file path and its size.
 pub struct File {
     pub path: EcoString,
+    /// The size of the file if it exists.
     pub size: Option<usize>,
 }
 
+/// A text or image diff.
 pub enum DiffKind {
     Text(FileDiff<Lines>),
     Image(FileDiff<Image>),
@@ -49,8 +53,16 @@ impl DiffKind {
             DiffKind::Image(diff) => diff.left().and_then(|old| old.missing()),
         }
     }
+
+    pub fn kind_str(&self) -> &'static str {
+        match self {
+            DiffKind::Text(_) => "text",
+            DiffKind::Image(_) => "image",
+        }
+    }
 }
 
+/// A generic file diff.
 pub enum FileDiff<T> {
     /// There is a diff.
     Diff(Old<T>, Result<T, ()>),
@@ -74,6 +86,8 @@ impl<T> FileDiff<T> {
     }
 }
 
+/// Old reference data for a hashed reference. Contains either the data, if the
+/// file is present, or the hash if it is missing.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Old<T> {
     /// The expected reference data.

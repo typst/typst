@@ -20,7 +20,7 @@ use crate::logger::TestResult;
 use crate::output::{
     FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
 };
-use crate::report::{FileReport, Old};
+use crate::report::{Old, ReportFile};
 use crate::world::{TestFiles, TestWorld};
 use crate::{ARGS, STORE_PATH, custom, git, output};
 
@@ -182,14 +182,14 @@ impl<'a> Runner<'a> {
             if self.test.should_run(TestOutput::Render) {
                 self.run_file_test::<output::Render>(doc.as_ref());
             }
+            if self.test.should_run(TestOutput::Svg) {
+                self.run_hash_test::<output::Svg>(doc.as_ref());
+            }
             if self.test.should_run(TestOutput::Pdf) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
                 if self.test.should_run(TestOutput::Pdftags) {
                     self.run_file_test::<output::Pdftags>(pdf.as_ref());
                 }
-            }
-            if self.test.should_run(TestOutput::Svg) {
-                self.run_hash_test::<output::Svg>(doc.as_ref());
             }
         }
 
@@ -785,7 +785,7 @@ impl<'a> Runner<'a> {
 fn make_report<T: OutputType>(
     a: Option<(impl AsRef<Path>, Old<impl AsRef<[u8]>>)>,
     b: Option<(impl AsRef<Path>, impl AsRef<[u8]>)>,
-) -> FileReport {
+) -> ReportFile {
     let a = (a.as_ref())
         .map(|(path, data)| (path.as_ref(), data.as_ref().map(|d| d.as_ref())));
     let b = b.as_ref().map(|(path, data)| (path.as_ref(), data.as_ref()));

@@ -307,7 +307,7 @@ pub enum TestOutput {
 
 impl TestOutput {
     pub const ALL: [Self; 5] =
-        [Self::Render, Self::Pdf, Self::Pdftags, Self::Svg, Self::Html];
+        [Self::Render, Self::Svg, Self::Pdf, Self::Pdftags, Self::Html];
 
     fn from_sub_dir(dir: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|o| o.sub_dir() == dir)

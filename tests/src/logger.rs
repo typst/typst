@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use ecow::EcoString;
 
 use crate::collect::Test;
-use crate::report::{FileReport, TestReport};
+use crate::report::{ReportFile, TestReport};
 use crate::{ARGS, report};
 
 #[derive(Copy, Clone)]
@@ -37,7 +37,7 @@ pub struct TestResult {
 }
 
 impl TestResult {
-    pub fn add_report(&mut self, name: EcoString, file_report: FileReport) {
+    pub fn add_report(&mut self, name: EcoString, file_report: ReportFile) {
         let report = self.report.get_or_insert_with(|| TestReport::new(name));
         report.files.push(file_report);
     }
@@ -148,6 +148,7 @@ impl<'a> Logger<'a> {
 
         if self.mismatched_output {
             eprintln!("  pass the --update flag to update the reference output");
+            eprintln!("  for a rich diff, view tests/store/report.html");
         }
 
         let mut prompt_regen = false;

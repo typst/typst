@@ -3390,7 +3390,6 @@ dependencies = [
  "typst-utils",
  "unscanny",
  "walkdir",
- "xmlwriter",
 ]
 
 [[package]]

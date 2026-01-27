@@ -21,7 +21,7 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput, TestTarget};
-use crate::report::{DiffKind, File, FileReport, Old};
+use crate::report::{DiffKind, File, Old, ReportFile};
 use crate::{pdftags, report};
 
 pub trait TestDocument: Document {
@@ -157,7 +157,7 @@ pub trait OutputType: Sized {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport;
+    ) -> ReportFile;
 }
 
 /// An output type that produces file references.
@@ -217,7 +217,7 @@ impl OutputType for Render {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport {
+    ) -> ReportFile {
         let diffs = [image_diff(a, b, "png")];
         file_report(Self::OUTPUT, a, b, diffs)
     }
@@ -272,7 +272,7 @@ impl OutputType for Pdf {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport {
+    ) -> ReportFile {
         // TODO: PDF plain text diffs.
         let mut svg_buf_a = String::new();
         let mut svg_buf_b = String::new();
@@ -364,7 +364,7 @@ impl OutputType for Pdftags {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport {
+    ) -> ReportFile {
         let diffs = [text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
@@ -407,7 +407,7 @@ impl OutputType for Svg {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport {
+    ) -> ReportFile {
         let diffs = [image_diff(a, b, "svg+xml"), text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
@@ -455,7 +455,8 @@ impl OutputType for Html {
     fn make_report(
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
-    ) -> FileReport {
+    ) -> ReportFile {
+        // TODO: HTML preview in iframe.
         let diffs = [text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
@@ -492,7 +493,7 @@ fn file_report(
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
     diffs: impl IntoIterator<Item = DiffKind>,
-) -> FileReport {
+) -> ReportFile {
     let old = a.map(|(path, old)| File {
         path: eco_format!("{}", path.display()),
         size: old.data().map(|d| d.len()),
@@ -501,7 +502,7 @@ fn file_report(
         path: eco_format!("{}", path.display()),
         size: Some(bytes.len()),
     });
-    FileReport::new(output, old, new, diffs)
+    ReportFile::new(output, old, new, diffs)
 }
 
 /// Draw all frames into one image with padding in between.
