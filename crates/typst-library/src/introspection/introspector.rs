@@ -294,18 +294,18 @@ impl Introspector {
     }
 
     /// Try to find a location for an element with the given `key` hash
-    /// that is closest after the `anchor`.
+    /// that is closest after the `base`.
     ///
     /// This is used for introspector-assisted location assignment during
     /// measurement. See the "Dealing with Measurement" section of the
     /// [`Locator`](crate::introspection::Locator) docs for more details.
-    pub fn locator(&self, key: u128, anchor: Location) -> Option<Location> {
-        let anchor = self.loc_index(&anchor);
+    pub fn locator(&self, key: u128, base: Location) -> Option<Location> {
+        let base = self.loc_index(&base);
         self.keys
             .get(&key)
             .iter()
             .copied()
-            .min_by_key(|loc| self.loc_index(loc).wrapping_sub(anchor))
+            .min_by_key(|loc| self.loc_index(loc).wrapping_sub(base))
     }
 }
 
