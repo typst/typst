@@ -21,6 +21,8 @@
 --- parser-depth-exceeded-unbalanced-arrow paged ---
 // https://issues.oss-fuzz.com/issues/42538221
 // Error: 7-20 the character `#` is not valid in code
+// Hint: 7-20 you are already in code mode
+// Hint: 7-20 try removing the `#`
 // Error: 7-20 unclosed delimiter
 // Error: 7-20 unexpected arrow
 // Error: 7-20 maximum parsing depth exceeded
