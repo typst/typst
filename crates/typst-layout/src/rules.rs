@@ -18,9 +18,9 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
-    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker, ListElem,
+    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
@@ -407,12 +407,8 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
             // TODO: Use `Iterator::intersperse` when stabilized.
             sups.push(sep.clone());
         }
-        let (dest, num) = note.realize(engine, styles)?;
-        let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-        let sup = SuperElem::new(num)
-            .pack()
-            .spanned(note.span())
-            .linked(dest, Some(alt));
+        let link = note.realize(engine, styles)?;
+        let sup = SuperElem::new(link).pack().spanned(elem.span());
         sups.push(sup);
     }
     if styles.resolve(TextElem::dir) == Dir::RTL {
@@ -426,10 +422,11 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let number_gap = Em::new(0.05);
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
+    let prefix = PdfMarkerTag::Label(sup);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        PdfMarkerTag::Label(prefix),
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))

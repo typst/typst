@@ -1,6 +1,6 @@
 // Test recursive function calls.
 
---- recursion-named paged ---
+--- recursion-named eval ---
 // Test with named function.
 #let fib(n) = {
   if n <= 2 {
@@ -18,19 +18,19 @@
 #let f = (n) => f(n - 1)
 #f(10)
 
---- recursion-named-returns-itself paged ---
+--- recursion-named-returns-itself eval ---
 // Test capturing with named function.
 #let f = 10
 #let f() = f
 #test(type(f()), function)
 
---- recursion-unnamed-does-not-return-itself paged ---
+--- recursion-unnamed-does-not-return-itself eval ---
 // Test capturing with unnamed function.
 #let f = 10
 #let f = () => f
 #test(type(f()), int)
 
---- recursion-shadowing paged ---
+--- recursion-shadowing eval ---
 // Test redefinition.
 #let f(x) = "hello"
 #let f(x) = if x != none { f(none) } else { "world" }

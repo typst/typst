@@ -351,16 +351,16 @@ const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
             sups.push(sep.clone());
         }
         let span = note.span();
-        let (dest, num) = note.realize(engine, styles)?;
-        let sup = SuperElem::new(num).pack().spanned(span);
-        // Link to the footnote entry.
-        let link = LinkElem::new(dest.into(), sup)
+        let link = note.realize(engine, styles)?;
+        let sup = SuperElem::new(link)
             .pack()
-            .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+            .styled(HtmlElem::role.set(Some("doc-noteref".into())))
+            .spanned(span);
+
         // Indicates the presence of a default footnote rule to emit an error
         // when no footnote container is available.
         let marker = FootnoteMarker::new().pack().spanned(span);
-        sups.push(link + marker);
+        sups.push(sup + marker);
     }
     if styles.resolve(TextElem::dir) == Dir::RTL {
         sups.reverse();
@@ -453,18 +453,20 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
+    let prefix = sup
+        .styled(HtmlElem::role.set(Some("doc-backlink".into())))
+        .spanned(elem.span());
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see
     // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
     // appropriately modelled as ARIA endnotes. This is also in line with how
     // Pandoc handles footnotes.
-    Ok(backlink + body)
+    Ok(prefix + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {

@@ -3,12 +3,12 @@
 #let f(a: 10) = a() + 1
 #f(a: _ => 5)
 
---- params-sink-named paged ---
+--- params-sink-named eval ---
 // ... but this was.
 #let f(..x) = {}
 #f(arg: 1)
 
---- params-sink-unnamed paged ---
+--- params-sink-unnamed eval ---
 // unnamed spread
 #let f(.., a) = a
 #test(f(1, 2, 3), 3)
@@ -25,7 +25,7 @@
 // Error: 13-16 only one argument sink is allowed
 #let f(..a, ..b) = none
 
---- params-sink-at-start paged ---
+--- params-sink-at-start eval ---
 // Spread at beginning.
 #{
   let f(..a, b) = (a, b)
@@ -34,7 +34,7 @@
   test(repr(f(1, 2, 3, 4, 5)), "(arguments(1, 2, 3, 4), 5)")
 }
 
---- params-sink-in-middle paged ---
+--- params-sink-in-middle eval ---
 // Spread in the middle.
 #{
   let f(a, ..b, c) = (a, b, c)
@@ -42,7 +42,7 @@
   test(repr(f(1, 2, 3, 4, 5)), "(1, arguments(2, 3, 4), 5)")
 }
 
---- params-sink-unnamed-empty paged ---
+--- params-sink-unnamed-empty eval ---
 // Unnamed sink should just ignore any extra arguments.
 #{
   let f(a, b: 5, ..) = (a, b)
@@ -60,7 +60,7 @@
   f(1, 2)
 }
 
---- issue-1029-parameter-destructuring paged ---
+--- issue-1029-parameter-destructuring eval ---
 // Test that underscore works in parameter patterns.
 #test((1, 2, 3).zip((1, 2, 3)).map(((_, x)) => x), (1, 2, 3))
 

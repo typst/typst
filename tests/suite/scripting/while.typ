@@ -19,7 +19,7 @@
   dont-care
 }
 
---- while-loop-expr paged ---
+--- while-loop-expr eval ---
 // Value of while loops.
 
 #test(while false {}, none)

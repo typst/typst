@@ -481,9 +481,18 @@ impl Lang {
 
     /// The default direction for the language.
     pub fn dir(self) -> Dir {
-        match self.as_str() {
-            "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
-            | "yi" => Dir::RTL,
+        match self {
+            Lang::ARABIC
+            | Lang::DIVEHI
+            | Lang::PERSIAN
+            | Lang::HEBREW
+            | Lang::KASHMIRI
+            | Lang::PUNJABI
+            | Lang::PASHTO
+            | Lang::SINDHI
+            | Lang::UYGHUR
+            | Lang::URDU
+            | Lang::YIDDISH => Dir::RTL,
             _ => Dir::LTR,
         }
     }

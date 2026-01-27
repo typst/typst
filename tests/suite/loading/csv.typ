@@ -9,7 +9,7 @@
 #let data-from-path = csv(path("/assets/data/zoo.csv"))
 #test(data-from-path, data)
 
---- csv-row-type-dict paged ---
+--- csv-row-type-dict eval ---
 // Test reading CSV data with dictionary rows enabled.
 #let data = csv("/assets/data/zoo.csv", row-type: dictionary)
 #test(data.len(), 3)
@@ -34,7 +34,7 @@
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
 
---- csv-decode-deprecated paged ---
+--- csv-decode-deprecated eval ---
 // Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
 // Hint: 14-20 it will be removed in Typst 0.15.0
 #let _ = csv.decode

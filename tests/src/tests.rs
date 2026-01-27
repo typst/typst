@@ -10,6 +10,7 @@ mod run;
 mod world;
 
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -19,8 +20,9 @@ use rayon::iter::{ParallelBridge, ParallelIterator};
 use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command};
-use crate::collect::Test;
+use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
+use crate::output::HashedRefs;
 
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
@@ -61,8 +63,8 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for ext in ["render", "html", "pdf", "pdftags", "svg"] {
-        std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
+    for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
+        std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 
     // Set up the thread pool.
@@ -75,7 +77,7 @@ fn setup() {
 }
 
 fn test() {
-    let (tests, skipped) = match crate::collect::collect() {
+    let (hashes, tests, skipped) = match crate::collect::collect() {
         Ok(output) => output,
         Err(errors) => {
             eprintln!("failed to collect tests");
@@ -100,8 +102,7 @@ fn test() {
 
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
-    let hashes: [_; 2] = std::array::from_fn(|_| RwLock::new(FxHashMap::default()));
-
+    let hashes = hashes.map(RwLock::new);
     let runner = |test: &Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
@@ -159,13 +160,33 @@ fn clean() {
 
 fn undangle() {
     match crate::collect::collect() {
-        Ok(_) => eprintln!("no danging reference output"),
+        Ok(_) => eprintln!("no dangling reference output"),
         Err(errors) => {
-            for error in errors {
-                if error.message == "dangling reference output" {
-                    std::fs::remove_file(&error.pos.path).unwrap();
-                    eprintln!("✅ deleted {}", error.pos.path.display());
+            let mut dangling_hashes = FxHashMap::<&Path, Vec<&str>>::default();
+            for error in errors.iter() {
+                match &error.kind {
+                    TestParseErrorKind::DanglingFile => {
+                        std::fs::remove_file(&error.pos.path).unwrap();
+                        eprintln!("✅ deleted {}", error.pos.path.display());
+                    }
+                    TestParseErrorKind::DanglingHash(name) => {
+                        eprintln!("✅ removed hash {name} {}", error.pos);
+                        let names = dangling_hashes.entry(&error.pos.path).or_default();
+                        names.push(name);
+                    }
+                    TestParseErrorKind::Other(_) => (),
                 }
+            }
+
+            // Remove dangling hashes from file.
+            #[allow(clippy::iter_over_hash_type)]
+            for (path, names) in dangling_hashes {
+                let text = std::fs::read_to_string(path).unwrap();
+                let mut hashed_refs = HashedRefs::from_str(&text).unwrap();
+                for name in names.iter() {
+                    hashed_refs.remove(name);
+                }
+                std::fs::write(path, hashed_refs.to_string()).unwrap();
             }
         }
     }

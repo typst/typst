@@ -1,8 +1,8 @@
---- content-at-default paged ---
+--- content-at-default eval ---
 // Test .at() default values for content.
 #test(auto, [a].at("doesn't exist", default: auto))
 
---- content-field-syntax paged ---
+--- content-field-syntax paged empty ---
 // Test fields on elements.
 #show list: it => {
   test(it.children.len(), 3)
@@ -17,7 +17,7 @@
 #show heading: it => it.fun
 = A
 
---- content-fields paged ---
+--- content-fields eval ---
 // Test content fields method.
 #test([a].fields(), (text: "a"))
 #test([a *b*].fields(),  (children: ([a], [ ], strong[b])))

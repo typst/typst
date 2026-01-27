@@ -5,22 +5,36 @@ use ecow::EcoString;
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
+use typst::Document;
 use typst::diag::{At, SourceResult, StrResult, bail};
+use typst::foundations::{Content, SequenceElem};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
+use typst::model::ParbreakElem;
+use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
-use crate::collect::{Test, TestOutput};
+use crate::collect::{Test, TestOutput, TestTarget};
 use crate::pdftags;
+
+pub trait TestDocument: Document {
+    /// The target of the document.
+    const TARGET: TestTarget;
+}
+
+impl TestDocument for PagedDocument {
+    const TARGET: TestTarget = TestTarget::Paged;
+}
+
+impl TestDocument for HtmlDocument {
+    const TARGET: TestTarget = TestTarget::Html;
+}
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
 pub struct HashedRefs {
-    /// Whether a reference hash has been added/removed/updated and the hash
-    /// file on disk should be updated.
-    pub changed: bool,
     refs: IndexMap<EcoString, HashedRef, FxBuildHasher>,
 }
 
@@ -37,22 +51,17 @@ impl HashedRefs {
 
     /// Remove a reference hash.
     pub fn remove(&mut self, name: &str) {
-        self.changed = true;
         self.refs.shift_remove(name);
     }
 
     /// Update a reference hash.
     pub fn update(&mut self, name: EcoString, hashed_ref: HashedRef) {
-        self.changed = true;
         self.refs.insert(name, hashed_ref);
     }
 
     /// Sort the reference hashes lexicographically.
     pub fn sort(&mut self) {
-        if !self.refs.keys().is_sorted() {
-            self.changed = true;
-            self.refs.sort_keys();
-        }
+        self.refs.sort_keys();
     }
 
     /// The names of all tests in this map.
@@ -90,7 +99,7 @@ impl FromStr for HashedRefs {
                 Ok((name.into(), hash))
             })
             .collect::<StrResult<IndexMap<_, _, _>>>()?;
-        Ok(HashedRefs { changed: false, refs })
+        Ok(HashedRefs { refs })
     }
 }
 
@@ -129,21 +138,22 @@ pub trait OutputType: Sized {
     const OUTPUT: TestOutput;
 
     /// Whether the test output is trivial and needs no reference output.
-    fn is_skippable(_doc: &Self::Doc, _live: &Self::Live) -> Result<bool, ()> {
-        Ok(false)
-    }
+    fn is_empty(doc: &Self::Doc, live: &Self::Live) -> bool;
 
     /// Produces the live output.
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live>;
 
     /// Converts the live output to bytes that can be saved to disk.
     fn save_live(doc: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]>;
+
+    /// Produce a hash from the live output.
+    fn make_hash(live: &Self::Live) -> HashedRef;
 }
 
 /// An output type that produces file references.
 pub trait FileOutputType: OutputType {
     /// Produces the reference output from the live output.
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]>;
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
     fn matches(old: &[u8], new: &Self::Live) -> bool;
@@ -151,11 +161,8 @@ pub trait FileOutputType: OutputType {
 
 /// An output type that produces hashed references.
 pub trait HashOutputType: OutputType {
-    /// The index into the [`crate::run::HASHES`] array.
+    /// The index into the shared `hashes` array.
     const INDEX: usize;
-
-    /// Produces the reference output from the live output.
-    fn make_hash(live: &Self::Live) -> HashedRef;
 }
 
 pub struct Render;
@@ -166,7 +173,7 @@ impl OutputType for Render {
 
     const OUTPUT: TestOutput = TestOutput::Render;
 
-    fn is_skippable(doc: &Self::Doc, _: &Self::Live) -> Result<bool, ()> {
+    fn is_empty(doc: &Self::Doc, _: &Self::Live) -> bool {
         is_empty_paged_document(doc)
     }
 
@@ -186,10 +193,14 @@ impl OutputType for Render {
         }
         pixmap_live.encode_png().unwrap()
     }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live.data()))
+    }
 }
 
 impl FileOutputType for Render {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         let opts = oxipng::Options::max_compression();
         let data = live.encode_png().unwrap();
         oxipng::optimize_from_memory(&data, &opts).unwrap()
@@ -209,6 +220,10 @@ impl OutputType for Pdf {
 
     const OUTPUT: TestOutput = TestOutput::Pdf;
 
+    fn is_empty(doc: &Self::Doc, _: &Self::Live) -> bool {
+        is_empty_paged_document(doc)
+    }
+
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
@@ -225,14 +240,14 @@ impl OutputType for Pdf {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
-}
-
-impl HashOutputType for Pdf {
-    const INDEX: usize = 0;
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+}
+
+impl HashOutputType for Pdf {
+    const INDEX: usize = 0;
 }
 
 fn generate_pdf(
@@ -252,8 +267,8 @@ impl OutputType for Pdftags {
 
     const OUTPUT: TestOutput = TestOutput::Pdftags;
 
-    fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
-        Ok(live.is_empty())
+    fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
+        live.is_empty()
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
@@ -263,10 +278,14 @@ impl OutputType for Pdftags {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
+    }
 }
 
 impl FileOutputType for Pdftags {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
@@ -283,8 +302,8 @@ impl OutputType for Svg {
 
     const OUTPUT: TestOutput = TestOutput::Svg;
 
-    fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
-        Ok(live.is_empty())
+    fn is_empty(doc: &Self::Doc, _: &Self::Live) -> bool {
+        is_empty_paged_document(doc)
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
@@ -294,14 +313,14 @@ impl OutputType for Svg {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
-}
-
-impl HashOutputType for Svg {
-    const INDEX: usize = 1;
 
     fn make_hash(live: &Self::Live) -> HashedRef {
         HashedRef(typst_utils::hash128(live))
     }
+}
+
+impl HashOutputType for Svg {
+    const INDEX: usize = 1;
 }
 
 pub struct Html;
@@ -312,8 +331,19 @@ impl OutputType for Html {
 
     const OUTPUT: TestOutput = TestOutput::Html;
 
-    fn is_skippable(_: &Self::Doc, live: &Self::Live) -> Result<bool, ()> {
-        Ok(live.is_empty())
+    fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
+        // HACK: This is somewhat volatile, since it needs to be updated,
+        // whenever the default HTML output changes.
+        const EMPTY_HTML_DOC: &str = r#"<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body></body>
+</html>
+"#;
+        live == EMPTY_HTML_DOC
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
@@ -323,35 +353,19 @@ impl OutputType for Html {
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
+    }
 }
 
 impl FileOutputType for Html {
-    fn make_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         live
     }
 
     fn matches(old: &[u8], new: &Self::Live) -> bool {
         old == new.as_bytes()
-    }
-}
-
-/// Whether rendering of this document can be skipped.
-fn is_empty_paged_document(doc: &PagedDocument) -> Result<bool, ()> {
-    fn skippable_frame(frame: &Frame) -> bool {
-        frame.items().all(|(_, item)| match item {
-            FrameItem::Group(group) => skippable_frame(&group.frame),
-            FrameItem::Tag(_) => true,
-            _ => false,
-        })
-    }
-
-    match doc.pages.as_slice() {
-        [] => Err(()),
-        [page] => Ok(page.frame.width().approx_eq(Abs::pt(120.0))
-            && page.frame.height().approx_eq(Abs::pt(20.0))
-            && page.fill.is_auto()
-            && skippable_frame(&page.frame)),
-        _ => Ok(false),
     }
 }
 
@@ -421,4 +435,36 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         tx.to_pt() as f32,
         ty.to_pt() as f32,
     )
+}
+
+/// Whether this content can be considered empty.
+pub fn is_empty_content(content: &Content) -> bool {
+    if let Some(sequence) = content.to_packed::<SequenceElem>() {
+        sequence.children.iter().all(is_empty_content)
+    } else {
+        content.is::<SpaceElem>() || content.is::<ParbreakElem>()
+    }
+}
+
+/// Whether rendering of this document can be skipped, because the only item it
+/// contains are tags.
+pub fn is_empty_paged_document(doc: &PagedDocument) -> bool {
+    fn is_empty_frame(frame: &Frame) -> bool {
+        frame.items().all(|(_, item)| match item {
+            FrameItem::Group(group) => is_empty_frame(&group.frame),
+            FrameItem::Tag(_) => true,
+            _ => false,
+        })
+    }
+
+    match doc.pages.as_slice() {
+        [] => true,
+        [page] => {
+            page.frame.width().approx_eq(Abs::pt(120.0))
+                && page.frame.height().approx_eq(Abs::pt(20.0))
+                && page.fill.is_auto()
+                && is_empty_frame(&page.frame)
+        }
+        _ => false,
+    }
 }

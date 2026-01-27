@@ -4,7 +4,7 @@
 #set document(title: [Hello])
 What's up?
 
---- document-set-author-date paged ---
+--- document-set-author-date paged empty ---
 #set document(author: ("A", "B"), date: datetime.today())
 
 --- document-date-bad paged ---
@@ -32,7 +32,7 @@ Hello
   #set document(title: [Hello])
 ]
 
---- issue-4065-document-context paged ---
+--- issue-4065-document-context paged empty ---
 // Test that we can set document properties based on context.
 #show: body => context {
   let all = query(heading)
@@ -44,7 +44,7 @@ Hello
 #show heading: none
 = Top level
 
---- issue-4769-document-context-conditional paged ---
+--- issue-4769-document-context-conditional paged empty ---
 // Test that document set rule can be conditional on document information
 // itself.
 #set document(author: "Normal", title: "Alternative")

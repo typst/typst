@@ -9,6 +9,7 @@ use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::StrResult;
+use typst_kit::packages::FsPackages;
 
 use crate::CliArguments;
 use crate::args::{Feature, InfoCommand};
@@ -349,12 +350,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
                 .typst_package_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_path),
+                .or_else(|| FsPackages::system_data().map(|fs| fs.path().into())),
             package_cache_path: env
                 .typst_package_cache_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_cache_path),
+                .or_else(|| FsPackages::system_cache().map(|fs| fs.path().into())),
         },
         env,
     };

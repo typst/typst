@@ -4,14 +4,13 @@
       /K:
         - Tag: Link
           /K:
-            - Annotation: page=0 subtype=Link
-              /Contents: "Footnote 1"
             - Tag: Span
               /BaselineShift:   3.500
               /LineHeight:   6.000
               /K:
                 - Content: page=0 mcid=0
-                  /Lang: "en"
+            - Annotation: page=0 subtype=Link
+              /Contents: "Footnote 1"
     - Tag: Note
       /Id: "Note 1"
       /K:
@@ -19,14 +18,13 @@
           /K:
             - Tag: Link
               /K:
-                - Annotation: page=0 subtype=Link
-                  /Contents: "1"
                 - Tag: Span
                   /BaselineShift:   2.975
                   /LineHeight:   5.100
                   /K:
                     - Content: page=0 mcid=2
-                      /Lang: "en"
+                - Annotation: page=0 subtype=Link
+                  /Contents: "1"
         - Content: page=0 mcid=3
 - Tag: P
   /K:
@@ -34,11 +32,10 @@
       /K:
         - Tag: Link
           /K:
-            - Annotation: page=0 subtype=Link
-              /Contents: "Footnote 1"
             - Tag: Span
               /BaselineShift:   3.500
               /LineHeight:   6.000
               /K:
                 - Content: page=0 mcid=1
-                  /Lang: "en"
+            - Annotation: page=0 subtype=Link
+              /Contents: "Footnote 1"

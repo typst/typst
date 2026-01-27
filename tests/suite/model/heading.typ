@@ -35,7 +35,7 @@ multiline.
 = This
   is not.
 
---- heading-trailing-whitespace paged ---
+--- heading-trailing-whitespace eval ---
 // Whether headings contain trailing whitespace with or without comments/labels.
 // Labels are special cased to immediately end headings in the parser, but also
 // #strike[have unique whitespace behavior] Now their behavior is consistent!
@@ -64,7 +64,7 @@ multiline.
 // #strike[The first space attaches, but not the second] Now neither attaches!
 #test(join(head(join[h]))[ ][ ], [= h  /**/  <g>])
 
---- heading-leading-whitespace paged ---
+--- heading-leading-whitespace eval ---
 // Test that leading whitespace and comments don't matter.
 #test[= h][=        h]
 #test[= h][=   /**/  /**/   h]
