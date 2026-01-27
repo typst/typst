@@ -141,8 +141,8 @@ macro_rules! attr_methods {
 /// Convenience methods.
 impl HtmlElem<'_> {
     elem_methods! {
-        fn h1();
         fn h2();
+        fn h3();
         fn div();
         fn fieldset();
         fn label();
@@ -169,7 +169,7 @@ impl HtmlElem<'_> {
     }
 
     attr_methods! {
-        fn id(&str);
+        fn id(impl Display);
         fn name(impl Display);
         fn class(impl Display);
         fn style(impl Display);
@@ -202,6 +202,23 @@ impl HtmlElem<'_> {
         self.opt_attr("open", open.then_some("open"));
         self
     }
+
+    fn aria_role(&mut self, role: &str) -> &mut Self {
+        self.attr("aria-role", role);
+        self
+    }
+
+    /// The corresponding tab of a `aria-role="tabpanel"`.
+    fn aria_labelledby(&mut self, tab_id: impl Display) -> &mut Self {
+        self.attr("aria-labelledby", tab_id);
+        self
+    }
+
+    /// Set for `aria-role="tab"` when the tab is selected.
+    fn aria_selected(&mut self, selected: bool) -> &mut Self {
+        self.attr("aria-selected", selected);
+        self
+    }
 }
 
 impl Drop for HtmlElem<'_> {
@@ -213,21 +230,30 @@ impl Drop for HtmlElem<'_> {
 pub fn generate(reports: &[TestReport]) -> String {
     let mut html = Html::new();
 
-    html.elem("html").attr("lang", "en").with(|root| {
-        root.elem("head").with(|head| {
-            head.elem("meta").attr("charset", "utf-8");
-            head.elem("title").text("Typst test report");
-            head.elem("style").text(REPORT_STYLE);
+    html.elem("html")
+        .attr("xmlns", "http://www.w3.org/1999/xhtml")
+        .attr("lang", "en")
+        .with(|root| {
+            root.elem("head").with(|head| {
+                head.elem("meta").attr("charset", "utf-8");
+                head.elem("title").text("Typst test report");
+                head.elem("style").text(REPORT_STYLE);
+            });
+
+            root.elem("body").with(|body| {
+                test_reports(body, reports);
+
+                body.elem("script").text(REPORT_SCRIPT);
+            });
         });
 
-        root.elem("body").with(|body| {
-            write_reports(body, reports);
-
-            body.elem("script").text(REPORT_SCRIPT);
-        });
-    });
-
-    html.finish()
+    let mut doc = html.finish();
+    doc.insert_str(
+        0,
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n\
+        \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+    );
+    doc
 }
 
 fn svg_icon(parent: &mut HtmlElem, icon: SvgIcon) {
@@ -251,7 +277,7 @@ fn svg_icon(parent: &mut HtmlElem, icon: SvgIcon) {
         });
 }
 
-fn write_reports(body: &mut HtmlElem, reports: &[TestReport]) {
+fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
     body.div().class("container").with(|div| {
         div.div().class("sidebar-container").with(|div| {
             div.div().class("sidebar").with(|div| {
@@ -305,46 +331,36 @@ fn write_reports(body: &mut HtmlElem, reports: &[TestReport]) {
         div.div().class("diff-container").with(|div| {
             div.h2().class("diff-container-header").text("Changes");
 
-            let mut num_image_diffs = 0;
-            for test_report in reports.iter() {
-                for (i, file_report) in test_report.files.iter().enumerate() {
-                    let file_diff_id = (i == 0).then_some(&test_report.name);
-                    for diff in file_report.diffs.iter() {
-                        let close_by_default = match diff {
-                            DiffKind::Text(diff) => is_large_text_diff(diff),
-                            DiffKind::Image(_) => false,
-                        };
+            for (test_idx, test_report) in reports.iter().enumerate() {
+                let close_by_default = (test_report.files.first())
+                    .and_then(|file_report| file_report.diffs.first())
+                    .is_some_and(|diff| match diff {
+                        DiffKind::Text(diff) => is_large_text_diff(diff),
+                        DiffKind::Image(_) => false,
+                    });
 
-                        div.div()
-                            // TODO: Allow filtering diffs based on:
-                            // - image/text diff
-                            // - output type
-                            .class(display!("file-diff file-diff-{}", file_report.output))
-                            .opt_attr("id", file_diff_id)
-                            .with(|div| {
-                                div.details().open(!close_by_default).with(|details| {
-                                    details.summary().class("diff-summary").with(
-                                        |summary| diff_header(summary, file_report),
-                                    );
-
-                                    match diff {
-                                        DiffKind::Text(diff) => {
-                                            text_diff(details, diff);
-                                        }
-                                        DiffKind::Image(diff) => {
-                                            image_diff(
-                                                details,
-                                                file_report.output,
-                                                diff,
-                                                num_image_diffs,
-                                            );
-                                            num_image_diffs += 1;
-                                        }
-                                    }
-                                });
+                div.div().id(&test_report.name).class("test-report").with(|div| {
+                    div.details().open(true).with(|details| {
+                        details
+                            .summary()
+                            .open(!close_by_default)
+                            .class("test-report-summary")
+                            .with(|summary| {
+                                test_report_header(summary, &test_report, test_idx);
                             });
-                    }
-                }
+
+                        for (file_idx, file_report) in
+                            test_report.files.iter().enumerate()
+                        {
+                            file_report_tabpanel(
+                                details,
+                                file_report,
+                                test_idx,
+                                file_idx,
+                            );
+                        }
+                    });
+                });
             }
 
             if reports.is_empty() {
@@ -354,6 +370,53 @@ fn write_reports(body: &mut HtmlElem, reports: &[TestReport]) {
             div.div().class("diff-scroll-padding");
         });
     })
+}
+
+fn test_report_header(summary: &mut HtmlElem, test_report: &TestReport, test_idx: usize) {
+    summary.h3().with(|h3| {
+        // Allow pressing the name of the test to scroll to the top of the diff.
+        h3.a().href(display!("#{}", test_report.name)).text(&test_report.name);
+    });
+
+    summary.div().class("flex-spacer");
+
+    let tab_text_button = |parent: &mut HtmlElem, output: TestOutput, checked| {
+        parent.label().class("text-toggle-button").with(|label| {
+            let name = "report-file-tab";
+
+            let mut text = output.to_string();
+            text.make_ascii_uppercase();
+            label.text(&text);
+
+            let title = match output {
+                TestOutput::Render => "View PNG",
+                TestOutput::Pdf => "View PDF",
+                TestOutput::Pdftags => "View PDF tags",
+                TestOutput::Svg => "View SVG",
+                TestOutput::Html => "View HTML",
+            };
+            label
+                .input()
+                .id(display!("{name}-{test_idx}-{output}"))
+                .type_("radio")
+                .aria_role("tab")
+                .class(name)
+                .name(display!("{name}-{test_idx}"))
+                .title(title)
+                .value(output)
+                .checked(checked)
+                .aria_selected(checked);
+        });
+    };
+    summary
+        .fieldset()
+        .aria_role("tablist")
+        .class("text-tab-group report-file-tab-group")
+        .with(|fieldset| {
+            for (file_idx, file_report) in test_report.files.iter().enumerate() {
+                tab_text_button(fieldset, file_report.output, file_idx == 0);
+            }
+        });
 }
 
 fn is_large_text_diff(diff: &FileDiff<Lines>) -> bool {
@@ -376,20 +439,82 @@ fn is_large_text_diff(diff: &FileDiff<Lines>) -> bool {
         || is_large(diff.right().and_then(|r| r.as_ref().ok()))
 }
 
-fn diff_header(summary: &mut HtmlElem, file_report: &FileReport) {
-    summary.h1().class("diff-header").with(|h1| {
-        h1.div().class("diff-header-split").with(|div| {
-            file_header(div, &file_report.left);
+fn file_report_tabpanel(
+    parent: &mut HtmlElem,
+    file_report: &FileReport,
+    test_idx: usize,
+    file_idx: usize,
+) {
+    parent
+        .div()
+        .aria_role("tabpanel")
+        .aria_labelledby(display!("report-file-tab-{test_idx}-{}", file_report.output))
+        .opt_attr("style", (file_idx != 0).then_some("display: none"))
+        .class("file-report")
+        .with(|div| {
+            file_report_header(div, file_report, test_idx, file_idx);
+
+            for (diff_idx, diff) in file_report.diffs.iter().enumerate() {
+                file_diff_tabpanel(div, file_report, diff, test_idx, file_idx, diff_idx);
+            }
         });
-        h1.div().class("diff-header-split").with(|div| {
-            file_header(div, &file_report.right);
-        });
-    });
-    summary.div().class("diff-spacer");
 }
 
-fn file_header(div: &mut HtmlElem, file: &Option<File>) {
-    div.a()
+fn file_report_header(
+    parent: &mut HtmlElem,
+    file_report: &FileReport,
+    test_idx: usize,
+    file_idx: usize,
+) {
+    let n = test_idx * TestOutput::ALL.len() + file_idx;
+    let tab_icon_button = |parent: &mut HtmlElem, diff: &DiffKind, checked| {
+        parent.label().class("text-toggle-button").with(|label| {
+            let name = "file-diff-tab";
+
+            label.text(&diff.kind_str().to_uppercase());
+
+            let value = diff.kind_str();
+            let title = match diff {
+                DiffKind::Image(_) => "View image diff",
+                DiffKind::Text(_) => "View text diff",
+            };
+
+            label
+                .input()
+                .id(display!("{name}-{n}-{value}"))
+                .type_("radio")
+                .aria_role("tab")
+                .class(name)
+                .name(display!("{name}-{n}"))
+                .title(title)
+                .value(value)
+                .checked(checked)
+                .aria_selected(checked);
+        });
+    };
+
+    parent.div().class("file-report-header").with(|div| {
+        file_link(div, file_report.left.as_ref(), "old");
+        file_link(div, file_report.right.as_ref(), "new");
+
+        if file_report.diffs.len() > 1 {
+            div.div().class("flex-spacer");
+
+            div.fieldset()
+                .aria_role("tablist")
+                .class("text-tab-group file-diff-tab-group")
+                .with(|fieldset| {
+                    for (diff_idx, diff) in file_report.diffs.iter().enumerate() {
+                        tab_icon_button(fieldset, diff, diff_idx == 0);
+                    }
+                });
+        }
+    });
+}
+
+fn file_link(parent: &mut HtmlElem, file: Option<&File>, title: &str) {
+    parent
+        .a()
         .href(typst_utils::display(|f| {
             if let Some(file) = file {
                 write!(f, "../../{}", file.path)?;
@@ -401,8 +526,29 @@ fn file_header(div: &mut HtmlElem, file: &Option<File>) {
                 Some(size) => FileSize(size).fmt(f),
                 None => f.write_str("missing"),
             });
-            format!("{} ({})", file.path, size)
+            format!("{title} ({})", size)
         }));
+}
+
+fn file_diff_tabpanel(
+    parent: &mut HtmlElem,
+    file_report: &FileReport,
+    diff: &DiffKind,
+    test_idx: usize,
+    file_idx: usize,
+    diff_idx: usize,
+) {
+    let n = test_idx * TestOutput::ALL.len() + file_idx;
+    parent
+        .div()
+        .aria_role("tabpanel")
+        .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.kind_str()))
+        .opt_attr("style", (diff_idx != 0).then_some("display: none"))
+        .class("file-diff")
+        .with(|div| match diff {
+            DiffKind::Text(diff) => text_diff(div, diff),
+            DiffKind::Image(diff) => image_diff(div, file_report.output, diff, n),
+        });
 }
 
 fn text_diff(parent: &mut HtmlElem, diff: &FileDiff<Lines>) {
@@ -525,6 +671,18 @@ fn image_diff(
         value: f32,
         step: f32,
     }
+    impl std::ops::Mul<SliderOpts> for f32 {
+        type Output = SliderOpts;
+
+        fn mul(self, rhs: SliderOpts) -> Self::Output {
+            SliderOpts {
+                min: self * rhs.min,
+                max: self * rhs.max,
+                value: self * rhs.value,
+                step: self * rhs.step,
+            }
+        }
+    }
     impl Default for SliderOpts {
         fn default() -> Self {
             Self { min: 0.0, max: 1.0, value: 0.5, step: 0.01 }
@@ -589,42 +747,45 @@ fn image_diff(
             div.fieldset().class("control-group").with(|fieldset| {
                 icon_button(fieldset, "image-zoom-minus", "Zoom out", icons::MINUS);
                 icon_button(fieldset, "image-zoom-plus", "Zoom in", icons::PLUS);
+
+                // HACK: Scale factor of HTML pt `1/72 inch` to px `1/96 inch`.
+                // Since PNG images are rendered with 1 px/pt and PDFs converted
+                // to SVGs don't currently specify a unit thus default to px.
+                let factor = if output == TestOutput::Svg { 72.0 / 96.0 } else { 1.0 };
                 slider(
                     fieldset,
                     "image-zoom",
                     "Zoom",
                     None,
-                    SliderOpts { min: 0.5, max: 8.0, value: 2.0, step: 0.05 },
+                    factor * SliderOpts { min: 0.5, max: 8.0, value: 2.0, step: 0.05 },
                 );
             });
         });
 
-        div.div().class("image-diff-area").with(|div| {
-            div.div().class("image-diff-wrapper").with(|div| {
-                let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
-                    parent.img().src(data_url).with(|img| {
-                        // PDFs converted to SVGs don't have a white background
-                        // by default, which makes them hard to read.
-                        if output == TestOutput::Pdf {
-                            img.style("background: #fff");
-                        }
-                    });
-                };
+        div.div().class("image-diff-wrapper").with(|div| {
+            let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
+                parent.img().src(data_url).with(|img| {
+                    // PDFs converted to SVGs don't have a white background
+                    // by default, which makes them hard to read.
+                    if output == TestOutput::Pdf {
+                        img.style("background: #fff");
+                    }
+                });
+            };
 
-                div.div().class("image-split side-by-side").with(|div| {
-                    let data_url = (diff.left())
-                        .and_then(|old| old.data())
-                        .map(|img| img.data_url.as_str())
-                        .unwrap_or("");
-                    image(div, data_url);
-                });
-                div.div().class("image-split side-by-side").with(|div| {
-                    let data_url = (diff.right())
-                        .and_then(|res| res.as_ref().ok())
-                        .map(|img| img.data_url.as_str())
-                        .unwrap_or("");
-                    image(div, data_url);
-                });
+            div.div().class("image-split side-by-side").with(|div| {
+                let data_url = (diff.left())
+                    .and_then(|old| old.data())
+                    .map(|img| img.data_url.as_str())
+                    .unwrap_or("");
+                image(div, data_url);
+            });
+            div.div().class("image-split side-by-side").with(|div| {
+                let data_url = (diff.right())
+                    .and_then(|res| res.as_ref().ok())
+                    .map(|img| img.data_url.as_str())
+                    .unwrap_or("");
+                image(div, data_url);
             });
         });
 

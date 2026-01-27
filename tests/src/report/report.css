@@ -2,6 +2,8 @@
   --radius-panel: 6px;
   --radius-control: 5px;
 
+  --size-xxxxxxsmall: 1px;
+  --size-xxxxxsmall: 2px;
   --size-xxxxsmall: 4px;
   --size-xxxsmall: 8px;
   --size-xxsmall: 12px;
@@ -152,10 +154,10 @@ h2.diff-container-header {
 }
 
 .diff-scroll-padding {
-  height: 80vh;
+  height: 95vh;
 }
 
-.file-diff {
+.test-report {
   position: relative;
   margin: var(--size-xxxsmall);
   scroll-margin-top: var(--size-xxxsmall);
@@ -165,7 +167,7 @@ h2.diff-container-header {
   overflow: clip;
 }
 
-summary.diff-summary {
+summary.test-report-summary {
   position: sticky;
   top: 0;
   height: var(--size-large);
@@ -173,19 +175,17 @@ summary.diff-summary {
 
   display: flex;
   flex-direction: row;
-  justify-content: center;
   align-items: center;
-  text-align: center;
 
-  z-index: 100;
+  z-index: 200;
 }
 
-summary.diff-summary:focus {
+summary.test-report-summary:focus {
   outline-offset: -3px;
   border-radius: var(--radius-panel);
 }
 
-summary.diff-summary::before {
+summary.test-report-summary::before {
   width: var(--size-large);
   height: var(--size-large);
   content: "\2039";
@@ -199,44 +199,33 @@ summary.diff-summary::before {
   transform: rotate(-180deg);
 }
 
-details[open] summary.diff-summary:before {
+details[open] summary.test-report-summary:before {
   transform: rotate(-90deg);
 }
 
-.diff-spacer {
-  width: var(--size-large);
-  height: var(--size-large);
+.flex-spacer {
+  flex-grow: 1;
 }
 
-.diff-header {
+.file-report-header {
+  position: sticky;
+  top: var(--size-large);
+
   flex: 1;
   height: var(--size-large);
-  font-size: var(--font-size-body);
   margin: 0;
+  padding-left: var(--size-large);
+  font-size: var(--font-size-body);
+  background-color: var(--layer-2);
+  border-top: var(--border-toolbar-button);
+  border-bottom: var(--border-toolbar-button);
 
   display: flex;
   flex-direction: row;
-  justify-content: center;
   align-items: center;
-}
+  gap: var(--size-xxxsmall);
 
-.diff-header-split {
-  flex: 1;
-  height: var(--size-large);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.diff-header-split:nth-child(1) {
-  border-right: var(--border-toolbar-button);
-}
-/* box-sizing: border-box doesn't seem to have any effect on flex layout leading
-*  to a 1px misalignement between the border inside the header and the table
-*  body. So just add an invisible border to the right header as well. */
-.diff-header-split:nth-child(2) {
-  border-left: 1px solid transparent;
+  z-index: 200;
 }
 
 /* ========== Text diff ========== */
@@ -336,147 +325,11 @@ tr {
 }
 
 /* ========== Image diff ========== */
+
 .image-diff {
-  width: 100%;
-}
-
-.image-controls {
-  width: 100%;
-  background-color: var(--layer-2);
-  border-top: var(--border-toolbar-button);
-
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: var(--size-xxxsmall);
-}
-
-.image-mode-controls {
-  width: 100%;
-  background-color: var(--layer-2);
-
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: var(--size-xxxsmall);
-}
-
-fieldset.control-group {
-  height: var(--size-medium);
-  margin: var(--size-xxxsmall) 0;
-  padding: 0;
-  border: var(--border-toolbar-button);
-  border-radius: var(--radius-control);
-  background-color: var(--layer-1);
-
-  display: inline-flex;
-
-  > *:not(:last-child) {
-    border-right: var(--border-toolbar-button);
-  }
-}
-
-fieldset.control-group:disabled {
-  background-color: var(--action-secondary-disabled);
-  color: var(--text-disabled);
-}
-
-label.slider {
-  display: inline-flex;
-  align-items: center;
-
-  svg {
-    width: var(--size-xsmall);
-    height: var(--size-xsmall);
-    padding: var(--size-xxxsmall);
-    margin: 0;
-  }
-
-  input {
-    margin: var(--size-xxxsmall);
-  }
-}
-
-label.icon-toggle-button {
-  padding: 0;
-  margin: 0;
   position: relative;
-
-  input {
-    appearance: none;
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    margin: 0;
-  }
-
-  svg {
-    width: var(--size-xsmall);
-    height: var(--size-xsmall);
-    padding: var(--size-xxxsmall);
-    margin: 0;
-  }
-}
-
-label.icon-toggle-button:has(input:hover:not(:disabled)) {
-  background-color: var(--action-secondary-hover);
-}
-
-label.icon-toggle-button:has(input:active:not(:disabled)) {
-  background-color: var(--action-secondary-active);
-}
-
-label.icon-toggle-button:has(input:checked) {
-  color: var(--action-primary-selected);
-}
-
-*:disabled label.icon-toggle-button {
-  background-color: var(--action-secondary-disabled);
-  color: var(--text-disabled);
-}
-
-*:disabled label.icon-toggle-button:has(input:checked) {
-  color: var(--action-primary-disabled);
-}
-
-button.icon-button {
-  width: var(--size-medium);
-  height: var(--size-medium);
-  padding: 0;
-  margin: 0;
-  border: none;
-  background-color: unset;
-
-  svg {
-    width: var(--size-xsmall);
-    height: var(--size-xsmall);
-    padding: var(--size-xxxsmall);
-    margin: 0;
-  }
-}
-
-button.icon-button:hover {
-  background-color: var(--action-secondary-hover);
-}
-
-button.icon-button:active {
-  background-color: var(--action-secondary-active);
-}
-
-*:disabled button.icon-button {
-  background-color: var(--action-secondary-disabled);
-  color: var(--text-disabled);
-}
-
-*:disabled button.icon-button:has(input:checked) {
-  color: var(--action-primary-disabled);
-}
-
-.image-diff-area {
   height: 400px;
+  width: 100%;
   min-height: 100px;
   max-height: 100vh;
   resize: vertical;
@@ -486,6 +339,34 @@ button.icon-button:active {
   flex-direction: row;
   justify-content: center;
   align-items: center;
+}
+
+.image-controls {
+  position: absolute;
+  top: 0;
+  width: 100%;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: var(--size-xxxsmall);
+
+  z-index: 100;
+}
+
+.image-mode-controls {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: var(--size-xxxsmall);
+
+  z-index: 100;
 }
 
 .image-diff-wrapper {
@@ -532,6 +413,7 @@ img {
 
 .image-diff:has(input.image-view-mode[value="blend"]:checked) {
   img {
+    /* Ideally we would just do pure additive mixing */
     mix-blend-mode: screen;
   }
 }
@@ -578,4 +460,179 @@ img {
   img {
     image-rendering: smooth;
   }
+}
+
+/* ========== Control group ========== */
+
+fieldset.control-group {
+  height: var(--size-medium);
+  margin: var(--size-xxxsmall) 0;
+  padding: 0;
+  border: var(--border-toolbar-button);
+  border-radius: var(--radius-control);
+  background-color: var(--layer-1);
+
+  display: inline-flex;
+
+  > *:not(:last-child) {
+    border-right: var(--border-toolbar-button);
+  }
+}
+
+fieldset.control-group:disabled {
+  background-color: var(--action-secondary-disabled);
+  color: var(--text-disabled);
+}
+
+/* ========== Slider ========== */
+
+label.slider {
+  display: inline-flex;
+  align-items: center;
+
+  svg {
+    width: var(--size-xsmall);
+    height: var(--size-xsmall);
+    padding: var(--size-xxxsmall);
+    margin: 0;
+  }
+
+  input {
+    margin: var(--size-xxxsmall);
+  }
+}
+
+/* ========== Icon Toggle Button ========== */
+
+label.icon-toggle-button {
+  padding: 0;
+  margin: 0;
+  position: relative;
+
+  input {
+    appearance: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  svg {
+    width: var(--size-xsmall);
+    height: var(--size-xsmall);
+    padding: var(--size-xxxsmall);
+    margin: 0;
+  }
+}
+
+label.icon-toggle-button:has(input:hover:not(:disabled)) {
+  background-color: var(--action-secondary-hover);
+}
+
+label.icon-toggle-button:has(input:active:not(:disabled)) {
+  background-color: var(--action-secondary-active);
+}
+
+label.icon-toggle-button:has(input:checked) {
+  color: var(--action-primary-selected);
+}
+
+*:disabled label.icon-toggle-button {
+  background-color: var(--action-secondary-disabled);
+  color: var(--text-disabled);
+}
+
+*:disabled label.icon-toggle-button:has(input:checked) {
+  color: var(--action-primary-disabled);
+}
+
+/* ========== Icon Button ========== */
+
+button.icon-button {
+  width: var(--size-medium);
+  height: var(--size-medium);
+  padding: 0;
+  margin: 0;
+  border: none;
+  background-color: unset;
+
+  svg {
+    width: var(--size-xsmall);
+    height: var(--size-xsmall);
+    padding: var(--size-xxxsmall);
+    margin: 0;
+  }
+}
+
+button.icon-button:hover {
+  background-color: var(--action-secondary-hover);
+}
+
+button.icon-button:active {
+  background-color: var(--action-secondary-active);
+}
+
+*:disabled button.icon-button {
+  background-color: var(--action-secondary-disabled);
+  color: var(--text-disabled);
+}
+
+*:disabled button.icon-button:has(input:checked) {
+  color: var(--action-primary-disabled);
+}
+
+/* ========== Text Tab Group ========== */
+
+fieldset.text-tab-group {
+  height: var(--size-medium);
+  padding: 0;
+  border: none;
+
+  display: inline-flex;
+}
+
+/* ========== Text Toggle Button ========== */
+
+label.text-toggle-button {
+  height: var(--size-medium);
+  margin: 0;
+  padding: 0 var(--size-xxxsmall);
+  position: relative;
+  font-size: 1.02em;
+  letter-spacing: var(--size-xxxxxxsmall);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  input {
+    appearance: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+label.text-toggle-button:has(input:hover:not(:disabled)) {
+  color: var(--action-primary-hover);
+}
+
+label.text-toggle-button:has(input:active:not(:disabled)) {
+  color: var(--action-primary-active);
+}
+
+label.text-toggle-button:has(input:checked) {
+  color: var(--action-primary-selected);
+  text-decoration: underline;
+}
+
+*:disabled label.text-toggle-button {
+  color: var(--text-disabled);
+}
+
+*:disabled label.text-toggle-button:has(input:checked) {
+  color: var(--action-primary-disabled);
 }

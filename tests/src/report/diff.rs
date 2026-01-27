@@ -49,6 +49,13 @@ impl DiffKind {
             DiffKind::Image(diff) => diff.left().and_then(|old| old.missing()),
         }
     }
+
+    pub fn kind_str(&self) -> &'static str {
+        match self {
+            DiffKind::Text(_) => "text",
+            DiffKind::Image(_) => "image",
+        }
+    }
 }
 
 pub enum FileDiff<T> {

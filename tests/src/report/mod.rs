@@ -5,7 +5,7 @@
 //! is able to generate text and image diffs that are combined into a static
 //! self-contained HTML report.
 //!
-//! The report is stored in `tests/store/report.html` alongside an optional
+//! The report is stored in `tests/store/report.xhtml` alongside an optional
 //! `missing.txt` file. If the `missing.txt` file is present, there is at least
 //! one old live output from the [`HashedRefs`] missing, meaning the
 //! corresponding diff can't be generated. The `cargo regen` alias can be used
@@ -39,7 +39,7 @@ impl TestReport {
 }
 
 pub fn write(mut reports: Vec<TestReport>) {
-    let report_path = Path::new(STORE_PATH).join("report.html");
+    let report_path = Path::new(STORE_PATH).join("report.xhtml");
     let missing_path = Path::new(STORE_PATH).join("missing.txt");
 
     reports.sort_by(|a, b| a.name.cmp(&b.name));
