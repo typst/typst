@@ -3,9 +3,11 @@
 mod args;
 mod collect;
 mod custom;
+mod git;
 mod logger;
 mod output;
 mod pdftags;
+mod report;
 mod run;
 mod world;
 
@@ -22,7 +24,7 @@ use rustc_hash::FxHashMap;
 use crate::args::{CliArguments, Command};
 use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
-use crate::output::HashedRefs;
+use crate::output::{HASH_OUTPUTS, HashedRefs};
 
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
@@ -77,7 +79,7 @@ fn setup() {
 }
 
 fn test() {
-    let (hashes, tests, skipped) = match crate::collect::collect() {
+    let (mut hashes, tests, skipped) = match crate::collect::collect() {
         Ok(output) => output,
         Err(errors) => {
             eprintln!("failed to collect tests");
@@ -87,6 +89,23 @@ fn test() {
             std::process::exit(1);
         }
     };
+
+    if let Some(rev) = &ARGS.base_revision {
+        if let Err(err) = git::resolve_commit(rev) {
+            eprintln!("❌ failed to resolve base-revision: {err}");
+            std::process::exit(1);
+        }
+
+        // Read the reference hashes at the specified git base revision instead.
+        hashes = HASH_OUTPUTS.map(|output| {
+            git::read_file(rev, &output.hash_refs_path())
+                .and_then(|data| {
+                    let string = std::str::from_utf8(&data).ok()?;
+                    HashedRefs::from_str(string).ok()
+                })
+                .unwrap_or_default()
+        });
+    }
 
     let selected = tests.len();
     if ARGS.list {
@@ -145,8 +164,10 @@ fn test() {
         sender.send(()).unwrap();
     });
 
-    run::update_hash_refs::<output::Pdf>(&hashes);
-    run::update_hash_refs::<output::Svg>(&hashes);
+    if ARGS.update {
+        run::update_hash_refs::<output::Pdf>(&hashes);
+        run::update_hash_refs::<output::Svg>(&hashes);
+    }
 
     let passed = logger.into_inner().finish();
     if !passed {
@@ -213,6 +234,7 @@ fn run_parser_test(
         errors: String::new(),
         infos: String::new(),
         mismatched_output: false,
+        report: None,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));

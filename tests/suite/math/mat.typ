@@ -8,7 +8,7 @@ $mat() dot
  mat(1, 2) dot
  mat(1, 2;) \
  mat(1; 2) dot
- mat(1, 2; 3, 4) dot
+ mat(1, 3; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
 --- math-mat-sparse paged ---

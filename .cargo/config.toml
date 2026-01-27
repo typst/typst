@@ -1,2 +1,3 @@
 [alias]
 testit = "test --workspace --test tests --"
+regen = "run --package=regen --"
