@@ -156,7 +156,7 @@ starts a paragraph, also with indent.
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
 
---- par-first-line-indent-folding paged ---
+--- par-first-line-indent-folding paged empty ---
 #let check(expected) = context assert.eq(par.first-line-indent, expected)
 
 // To be intuitive, values from context should never contain `auto`.
