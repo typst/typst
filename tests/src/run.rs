@@ -210,7 +210,10 @@ impl<'a> Runner<'a> {
             UnexpectedNonEmpty::None => (),
             UnexpectedNonEmpty::Eval(content) => {
                 log!(self, "[eval] test produced non-empty content: {}", content.repr());
-                log!(self, "  hint: consider making this a `paged|html empty` test");
+                log!(
+                    self,
+                    "  hint: consider making this a `paged empty` or `html empty` test"
+                );
             }
             UnexpectedNonEmpty::Output(stages) => {
                 log!(
