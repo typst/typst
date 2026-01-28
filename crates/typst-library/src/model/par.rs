@@ -413,10 +413,6 @@ pub struct ParElem {
     /// Even the first one.
     /// ```
     #[fold]
-    #[default(FirstLineIndent {
-        amount: Smart::Custom(Default::default()),
-        all: Smart::Custom(Default::default()),
-    })]
     pub first_line_indent: FirstLineIndent,
 
     /// The indent that all but the first line of a paragraph should have.
@@ -635,24 +631,24 @@ pub enum Linebreaks {
 
 /// Configuration for first line indent.
 ///
-/// Fields set to `{auto}` are inherited.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+/// Fields set to `None` are inherited.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct FirstLineIndent {
     /// The amount of indent.
-    pub amount: Smart<Length>,
+    amount: Option<Length>,
     /// Whether to indent all paragraphs, not just consecutive ones.
-    pub all: Smart<bool>,
+    all: Option<bool>,
 }
 
 cast! {
     FirstLineIndent,
     self => Value::Dict(self.into()),
-    amount: Length => Self { amount: Smart::Custom(amount), ..Default::default() },
+    amount: Length => Self { amount: Some(amount), all: Default::default() },
     mut dict: Dict => {
-        // Get a value by key, accepting either Auto or something convertible to type T.
-        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Smart<T>> {
-            Ok(dict.take(key).ok().map(Smart::<T>::from_value)
-                .transpose()?.unwrap_or(Smart::Auto))
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
         }
 
         let amount = take(&mut dict, "amount")?;
@@ -665,8 +661,29 @@ cast! {
 impl From<FirstLineIndent> for Dict {
     fn from(indent: FirstLineIndent) -> Self {
         dict! {
-            "amount" => indent.amount,
-            "all" => indent.all,
+            "amount" => indent.amount(),
+            "all" => indent.all(),
+        }
+    }
+}
+
+impl FirstLineIndent {
+    /// Amount of indent, with default resolved.
+    pub fn amount(&self) -> Length {
+        self.amount.unwrap_or_default()
+    }
+
+    /// Whether to indent all paragraphs, not just consecutive ones, with default resolved.
+    pub fn all(&self) -> bool {
+        self.all.unwrap_or_default()
+    }
+}
+
+impl Default for FirstLineIndent {
+    fn default() -> Self {
+        Self {
+            amount: Some(Default::default()),
+            all: Some(Default::default()),
         }
     }
 }
@@ -677,32 +694,6 @@ impl Fold for FirstLineIndent {
             amount: self.amount.or(outer.amount),
             all: self.all.or(outer.all),
         }
-    }
-}
-
-///  A fully specified configuration for first line indent.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
-pub struct FixedFirstLineIndent {
-    /// The amount of indent.
-    pub amount: Length,
-    /// Whether to indent all paragraphs, not just consecutive ones.
-    pub all: bool,
-}
-
-impl FirstLineIndent {
-    /// Unpack the configuration, filling missing fields from the `default`.
-    pub fn unwrap_or(self, default: FixedFirstLineIndent) -> FixedFirstLineIndent {
-        FixedFirstLineIndent {
-            amount: self.amount.unwrap_or(default.amount),
-            all: self.all.unwrap_or(default.all),
-        }
-    }
-
-    /// Unpack the configuration, filling missing fields with the default values.
-    pub fn unwrap_or_default(self) -> FixedFirstLineIndent {
-        // we want to do this; the Clippy lint is not type-aware
-        // #[allow(clippy::unwrap_or_default)]
-        self.unwrap_or(FixedFirstLineIndent::default())
     }
 }
 

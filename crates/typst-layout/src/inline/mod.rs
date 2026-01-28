@@ -19,8 +19,8 @@ use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, FixedFirstLineIndent, JustificationLimits, Linebreaks,
-    ListElem, ParElem, ParLine, ParLineMarker, TermsElem,
+    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
+    ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::text::{Costs, Lang, TextElem};
@@ -195,8 +195,8 @@ fn configuration(
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
         first_line_indent: {
-            let FixedFirstLineIndent { amount, all } =
-                base.first_line_indent.unwrap_or_default();
+            let amount = base.first_line_indent.amount();
+            let all = base.first_line_indent.all();
             if !amount.is_zero()
                 && match situation {
                     // First-line indent for the first paragraph after a list

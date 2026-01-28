@@ -159,7 +159,7 @@ starts a paragraph, also with indent.
 --- par-first-line-indent-folding paged empty ---
 #let check(expected) = context assert.eq(par.first-line-indent, expected)
 
-// To be intuitive, values from context should never contain `auto`.
+// To be intuitive, values from context should never contain `none`.
 #check((amount: 0pt, all: false))
 
 #set par(first-line-indent: 2em)
@@ -168,19 +168,25 @@ starts a paragraph, also with indent.
 #set par(first-line-indent: (all: true))
 #check((amount: 2em, all: true))
 
-/// The following three ways should be the same.
+/// The following two ways should be the same.
 #set par(first-line-indent: 7em)
 #check((amount: 7em, all: true))
 #set par(first-line-indent: (amount: 1em))
 #check((amount: 1em, all: true))
-#set par(first-line-indent: (amount: 8em, all: auto))
-#check((amount: 8em, all: true))
 
 #set par(first-line-indent: (all: false))
-#check((amount: 8em, all: false))
+#check((amount: 1em, all: false))
 
-#set par(first-line-indent: (amount: 2em, all: true))
-#check((amount: 2em, all: true))
+#set par(first-line-indent: (amount: 8em, all: true))
+#check((amount: 8em, all: true))
+
+--- par-first-line-indent-forbid-all-none eval ---
+// Error: 29-53 expected boolean, found none
+#set par(first-line-indent: (amount: 2em, all: none))
+
+--- par-first-line-indent-forbid-amount-none eval ---
+// Error: 29-54 expected length, found none
+#set par(first-line-indent: (amount: none, all: true))
 
 --- par-first-line-indent-all paged ---
 #set par(
