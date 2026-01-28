@@ -155,6 +155,10 @@ impl Stroke {
         /// )
         /// ```
         ///
+        /// ```example:"Inspect a predefined pattern"
+        /// #stroke(dash: "loosely-dashed").dash
+        /// ```
+        ///
         /// ```preview:"Predefined patterns"
         ///
         /// #set page(width: auto, height: auto)
