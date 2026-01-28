@@ -175,7 +175,7 @@ impl Stroke {
         /// #let display(dash) = {
         ///   set par(spacing: 0.3em)
         ///
-        ///   show "loosely": set text(eastern)
+        ///   show "loosely": set text(eastern.darken(17%))
         ///   show "densely": set text(purple)
         ///
         ///   let derived = dash.starts-with("loosely-") or dash.starts-with("densely-")
