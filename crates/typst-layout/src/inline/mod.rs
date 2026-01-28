@@ -246,7 +246,7 @@ fn configuration(
 /// inline layout that isn't a semantic paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ParSituation {
-    /// The paragraph is the first thing in the flow.
+    /// The paragraph is the first thing in the page or column.
     First,
     /// The paragraph follows another paragraph.
     Consecutive,
