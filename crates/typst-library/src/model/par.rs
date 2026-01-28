@@ -631,7 +631,7 @@ pub enum Linebreaks {
 
 /// Configuration for first line indent.
 ///
-/// Fields set to `None` are inherited.
+/// Here `None` means unspecified and fields set to it are inherited.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct FirstLineIndent {
     /// The amount of indent.
@@ -673,7 +673,8 @@ impl FirstLineIndent {
         self.amount.unwrap_or_default()
     }
 
-    /// Whether to indent all paragraphs, not just consecutive ones, with default resolved.
+    /// Whether to indent all paragraphs, not just consecutive ones, with
+    /// default resolved.
     pub fn all(&self) -> bool {
         self.all.unwrap_or_default()
     }
