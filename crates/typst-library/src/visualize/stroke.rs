@@ -160,7 +160,6 @@ impl Stroke {
         /// ```
         ///
         /// ```preview:"Predefined patterns"
-        ///
         /// #set page(width: auto, height: auto)
         ///
         /// #let patterns = (
