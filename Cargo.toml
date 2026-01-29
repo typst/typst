@@ -81,6 +81,7 @@ krilla = { git = "https://github.com/LaurenzV/krilla", rev = "f22a936", default-
 krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "f22a936" }
 kurbo = "0.12"
 libfuzzer-sys = "0.4"
+libm = "0.2.11"
 lipsum = "0.9"
 memchr = "2"
 native-tls = "0.2"
