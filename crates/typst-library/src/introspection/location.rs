@@ -8,8 +8,8 @@ use typst_syntax::Span;
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
 use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
-use crate::introspection::{History, Introspect, Introspector};
-use crate::layout::{Abs, Position};
+use crate::introspection::{History, Introspect, Introspector, PagedPosition};
+use crate::layout::Abs;
 use crate::model::Numbering;
 
 /// Makes an element available in the introspector.
@@ -106,7 +106,7 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     #[func]
-    pub fn position(self, engine: &mut Engine, span: Span) -> Position {
+    pub fn position(self, engine: &mut Engine, span: Span) -> PagedPosition {
         engine.introspect(PositionIntrospection(self, span))
     }
 
@@ -170,7 +170,7 @@ impl From<Location> for LocationKey {
 pub struct PositionIntrospection(pub Location, pub Span);
 
 impl Introspect for PositionIntrospection {
-    type Output = Position;
+    type Output = PagedPosition;
 
     fn introspect(
         &self,

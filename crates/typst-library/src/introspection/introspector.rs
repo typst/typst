@@ -11,8 +11,8 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::{Location, Tag};
-use crate::layout::{Frame, FrameItem, Point, Position, Transform};
+use crate::introspection::{DocumentPosition, Location, PagedPosition, Tag};
+use crate::layout::{Frame, FrameItem, Point, Transform};
 use crate::model::Numbering;
 
 /// Can be queried for elements and their positions.
@@ -271,10 +271,7 @@ impl Introspector {
     /// Find the position for the given location.
     pub fn position(&self, location: Location) -> DocumentPosition {
         self.get_pos_by_loc(&location)
-            .unwrap_or(DocumentPosition::Paged(Position {
-                page: NonZeroUsize::ONE,
-                point: Point::zero(),
-            }))
+            .unwrap_or(DocumentPosition::Paged(PagedPosition::ORIGIN))
     }
 
     /// Gets the page numbering for the given location, if any.
@@ -495,130 +492,5 @@ impl IntrospectorBuilder {
                 self.visit(elems, pair);
             }
         }
-    }
-}
-
-/// A position in an HTML tree.
-#[derive(Clone, Debug, Hash)]
-pub struct HtmlPosition {
-    /// Indices that can be used to traverse the tree from the root.
-    element: EcoVec<usize>,
-    /// The precise position inside of the specified element.
-    inner: Option<InnerHtmlPosition>,
-}
-
-impl HtmlPosition {
-    /// A position in an HTML document pointing to a specific node as a whole.
-    ///
-    /// The items of the vector corresponds to indices that can be used to
-    /// traverse the DOM tree from the root to reach the node. In practice, this
-    /// means that the first item of the vector will often be `1` for the
-    /// `<body>` tag (`0` being the `<head>` tag in a typical HTML document).
-    ///
-    /// Consecutive text nodes in Typst's HTML representation are grouped for
-    /// the purpose of this indexing as the segmentation is not observable in
-    /// the resulting DOM.
-    pub fn new(element: EcoVec<usize>) -> Self {
-        Self { element, inner: None }
-    }
-
-    /// Specifies a character offset inside of the node, to build a position
-    /// pointing to a specific point in text.
-    ///
-    /// This only makes sense if the node is a text node, not an element or a
-    /// frame.
-    ///
-    /// The offset is expressed in codepoints, not in bytes, to be
-    /// encoding-independent.
-    pub fn at_char(self, offset: usize) -> Self {
-        Self {
-            element: self.element,
-            inner: Some(InnerHtmlPosition::Character(offset)),
-        }
-    }
-
-    /// Specifies a point in a frame, to build a more precise position.
-    ///
-    /// This only makes sense if the node is a frame.
-    pub fn in_frame(self, point: Point) -> Self {
-        Self {
-            element: self.element,
-            inner: Some(InnerHtmlPosition::Frame(point)),
-        }
-    }
-
-    /// Extra-information for a more precise location inside of the node
-    /// designated by [`HtmlPosition::element`].
-    pub fn details(&self) -> Option<&InnerHtmlPosition> {
-        self.inner.as_ref()
-    }
-
-    /// Indices for traversing an HTML tree to reach the node corresponding to
-    /// this position.
-    ///
-    /// See [`HtmlPosition::new`] for more details.
-    pub fn element(&self) -> impl Iterator<Item = &usize> {
-        self.element.iter()
-    }
-}
-
-/// A precise position inside of an HTML node.
-#[derive(Clone, Debug, Hash)]
-pub enum InnerHtmlPosition {
-    /// If the node is a frame, the coordinates of the position.
-    Frame(Point),
-    /// If the node is a text node, the index of the codepoint at the position.
-    Character(usize),
-}
-
-/// Physical position in a document, be it paged or HTML.
-///
-/// Only one variant should be used for all positions in a same document. This
-/// type exists to make it possible to write functions that are generic over the
-/// document target.
-#[derive(Clone, Debug, Hash)]
-pub enum DocumentPosition {
-    /// If the document is paged, the position is expressed as coordinates
-    /// inside of a page.
-    Paged(Position),
-    /// If the document is an HTML document, the position points to a specific
-    /// node in the DOM tree.
-    Html(HtmlPosition),
-}
-
-impl DocumentPosition {
-    /// Returns the paged [`Position`] if this is one.
-    pub fn as_paged(self) -> Option<Position> {
-        match self {
-            DocumentPosition::Paged(position) => Some(position),
-            _ => None,
-        }
-    }
-
-    /// Returns the paged [`Position`] or a position at page 1, point `(0, 0)`
-    /// if this is not a paged position.
-    pub fn as_paged_or_default(self) -> Position {
-        self.as_paged()
-            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
-    }
-
-    /// Returns the [`HtmlPosition`] if available.
-    pub fn as_html(self) -> Option<HtmlPosition> {
-        match self {
-            DocumentPosition::Html(position) => Some(position),
-            _ => None,
-        }
-    }
-}
-
-impl From<Position> for DocumentPosition {
-    fn from(value: Position) -> Self {
-        Self::Paged(value)
-    }
-}
-
-impl From<HtmlPosition> for DocumentPosition {
-    fn from(value: HtmlPosition) -> Self {
-        Self::Html(value)
     }
 }

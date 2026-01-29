@@ -15,9 +15,9 @@ use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     DocumentPosition, Introspector, IntrospectorBuilder, Locator, ManualPageCounter,
-    SplitLocator, TagElem,
+    PagedPosition, SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Point, Position, Transform};
+use typst_library::layout::{FrameItem, Point, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_utils::Protected;
@@ -184,7 +184,7 @@ fn introspect_pages(pages: &[Page]) -> Introspector {
             &mut elems,
             &page.frame,
             Transform::identity(),
-            &mut |point| DocumentPosition::Paged(Position { page: nr, point }),
+            &mut |point| DocumentPosition::Paged(PagedPosition { page: nr, point }),
         );
     }
 

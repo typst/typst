@@ -1,8 +1,8 @@
 use ecow::EcoVec;
 use typst::WorldExt;
 use typst::foundations::AsOutput;
-use typst::introspection::{DocumentPosition, HtmlPosition};
-use typst::layout::{Frame, FrameItem, Point, Position, Size};
+use typst::introspection::{DocumentPosition, HtmlPosition, PagedPosition};
+use typst::layout::{Frame, FrameItem, Point, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
@@ -19,7 +19,7 @@ pub enum Jump {
     /// Jump to an external URL.
     Url(Url),
     /// Jump to a point on a page.
-    Position(Position),
+    Position(PagedPosition),
 }
 
 impl Jump {
@@ -48,8 +48,7 @@ impl JumpFromDocument for PagedDocument {}
 impl JumpFromDocument for HtmlDocument {}
 
 mod jump_from_document_sealed {
-    use typst::introspection::{HtmlPosition, InnerHtmlPosition};
-    use typst::layout::Position;
+    use typst::introspection::{HtmlPosition, InnerHtmlPosition, PagedPosition};
     use typst_html::{HtmlDocument, HtmlNode, HtmlSliceExt};
     use typst_layout::PagedDocument;
 
@@ -68,7 +67,7 @@ mod jump_from_document_sealed {
     }
 
     impl JumpFromDocument for PagedDocument {
-        type Position = Position;
+        type Position = PagedPosition;
 
         fn resolve_position(
             &self,
@@ -376,8 +375,7 @@ mod jump_in_document_sealed {
     use std::num::NonZeroUsize;
 
     use ecow::EcoVec;
-    use typst::introspection::HtmlPosition;
-    use typst::layout::Position;
+    use typst::introspection::{HtmlPosition, PagedPosition};
     use typst::syntax::Span;
     use typst_html::HtmlDocument;
     use typst_layout::PagedDocument;
@@ -392,14 +390,14 @@ mod jump_in_document_sealed {
     }
 
     impl JumpInDocument for PagedDocument {
-        type Position = Position;
+        type Position = PagedPosition;
 
         fn find_span(&self, span: Span) -> Vec<Self::Position> {
             self.pages
                 .iter()
                 .enumerate()
                 .filter_map(|(i, page)| {
-                    find_in_frame(&page.frame, span).map(|point| Position {
+                    find_in_frame(&page.frame, span).map(|point| PagedPosition {
                         page: NonZeroUsize::new(i + 1).unwrap(),
                         point,
                     })
@@ -488,8 +486,8 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use ecow::eco_vec;
-    use typst::introspection::HtmlPosition;
-    use typst::layout::{Abs, Point, Position};
+    use typst::introspection::{HtmlPosition, PagedPosition};
+    use typst::layout::{Abs, Point};
     use typst::utils::NonZeroExt;
     use typst_html::HtmlDocument;
     use typst_layout::PagedDocument;
@@ -505,8 +503,8 @@ mod tests {
         Some(Jump::File(TestWorld::main_id(), cursor))
     }
 
-    fn pos(page: usize, x: f64, y: f64) -> Option<Position> {
-        Some(Position {
+    fn pos(page: usize, x: f64, y: f64) -> Option<PagedPosition> {
+        Some(PagedPosition {
             page: NonZeroUsize::new(page).unwrap(),
             point: point(x, y),
         })
@@ -539,7 +537,7 @@ mod tests {
         let jump = jump_from_click(
             world,
             &doc,
-            &Position { page: NonZeroUsize::ONE, point: click },
+            &PagedPosition { page: NonZeroUsize::ONE, point: click },
         );
         assert_jump_eq(jump, expected);
     }
@@ -558,7 +556,11 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_cursor(world: impl WorldLike, pos: impl FilePos, expected: Option<Position>) {
+    fn test_cursor(
+        world: impl WorldLike,
+        pos: impl FilePos,
+        expected: Option<PagedPosition>,
+    ) {
         let world = world.acquire();
         let world = world.borrow();
         let doc: PagedDocument = typst::compile(world).output.unwrap();

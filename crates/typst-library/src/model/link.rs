@@ -11,10 +11,10 @@ use crate::foundations::{
     Styles, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, Introspector, Locatable, Location, QueryFirstIntrospection,
-    QueryLabelIntrospection, Tagged,
+    Counter, CounterKey, Introspector, Locatable, Location, PagedPosition,
+    QueryFirstIntrospection, QueryLabelIntrospection, Tagged,
 };
-use crate::layout::{PageElem, Position};
+use crate::layout::PageElem;
 use crate::model::{NumberingPattern, Refable};
 use crate::text::{LocalName, TextElem};
 
@@ -231,7 +231,7 @@ pub enum Destination {
     /// A link to a URL.
     Url(Url),
     /// A link to a point on a page.
-    Position(Position),
+    Position(PagedPosition),
     /// An unresolved link to a location in the document.
     Location(Location),
 }
@@ -313,7 +313,7 @@ cast! {
         Self::Location(v) => v.into_value(),
     },
     v: Url => Self::Url(v),
-    v: Position => Self::Position(v),
+    v: PagedPosition => Self::Position(v),
     v: Location => Self::Location(v),
 }
 
