@@ -90,13 +90,17 @@ $ (a mid(class("unary", |)) b) $
 // Error: 5-6 unclosed delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
 // Hint: 5-6 try adding a closing delimiter: `)`
+// Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\(`
 $ 1/(2 (x) $
 // Error: 5-6 unclosed delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
 // Hint: 5-6 try adding a closing delimiter: `]`
+// Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\[`
 $ 1_[2 y [x] [] $
 // Error: 5-6 unclosed delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
+// Hint: 5-6 try adding a closing delimiter: `⟩`
+// Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\⟨`
 $ 1/⟨2 y ⟨x⟩ (2(3)⟩ $
 
 --- math-lr-missing-operator-sides eval ---
