@@ -35,7 +35,7 @@ pub use self::args::parse_sys_input_pair;
 pub use self::defer::defer;
 pub use self::fmt::{debug, display};
 pub use self::hash::{HashLock, LazyHash, ManuallyHash, hash128};
-pub use self::math::default_math_class;
+pub use self::math::{default_math_class, matching_delim};
 pub use self::numeric::{NonZeroExt, Numeric, NumericLength};
 pub use self::version_::{TypstVersion, display_commit, version};
 
