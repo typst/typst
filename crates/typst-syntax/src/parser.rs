@@ -3,7 +3,7 @@ use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::defer;
+use typst_utils::{defer, matching_delim};
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
@@ -458,16 +458,15 @@ fn math_delimited(p: &mut Parser, prec: u8) {
         // If we had no closing delimiter, just produce a math sequence.
         if prec > 0 {
             // Unless we were to the right of an operator, then we error.
-            let common_closing = match p[m].leaf_text().as_str() {
-                "(" => Some(')'),
-                "[" => Some(']'),
-                "{" => Some('}'),
-                _ => None,
-            };
             p[m].convert_to_error("unclosed delimiter");
             p[m].hint("delimiters must be correctly matched when used for grouping");
-            if let Some(c) = common_closing {
-                p[m].hint(eco_format!("try adding a closing delimiter: `{c}`"));
+            let open = p[m].leaf_text().as_str().chars().next().unwrap();
+            if let Some(close) = matching_delim(open) {
+                p[m].hint(eco_format!("try adding a closing delimiter: `{close}`"));
+                p[m].hint(eco_format!(
+                    "or escape the delimiter with a backslash \
+                     to display it verbatim: `\\{open}`"
+                ));
             }
         }
         p.wrap(m, SyntaxKind::Math);
