@@ -4,6 +4,7 @@ use std::cmp;
 use std::cmp::Ordering;
 
 use az::SaturatingAs;
+use libm;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{round_int_with_precision, round_with_precision};
 
@@ -415,7 +416,7 @@ pub fn asinh(
     /// The number whose inverse hyperbolic sine to calculate.
     value: f64,
 ) -> f64 {
-    value.asinh()
+    libm::asinh(value)
 }
 
 /// Calculates the inverse hyperbolic cosine of a number.
@@ -433,7 +434,7 @@ pub fn acosh(
     if val < 1.0 {
         bail!(value.span, "value must be greater than or equal to 1");
     }
-    Ok(val.acosh())
+    Ok(libm::acosh(val))
 }
 
 /// Calculates the inverse hyperbolic tangent of a number.
@@ -451,7 +452,7 @@ pub fn atanh(
     if val <= -1.0 || val >= 1.0 {
         bail!(value.span, "value must be between -1 and 1 (exclusive)");
     }
-    Ok(val.atanh())
+    Ok(libm::atanh(val))
 }
 
 /// Calculates the logarithm of a number.
