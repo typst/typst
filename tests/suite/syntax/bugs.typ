@@ -13,11 +13,13 @@
   // Hint: 3-5 in Typst, `and` is used for logical AND
   &&
   // Error: 3-4 the character `&` is not valid in code
+  // Hint: 3-4 try removing the `&`
   &
   // Error: 3-5 `||` is not valid in code
   // Hint: 3-5 in Typst, `or` is used for logical OR
   ||
   // Error: 3-4 the character `|` is not valid in code
+  // Hint: 3-4 try removing the `|`
   |
   // Error: 3-4 the character `!` is not valid in code
   // Hint: 3-4 in Typst, `not` is used for negation
@@ -35,6 +37,15 @@
   // Hint: 3-5 in Typst, `!=` is used for not-equal
   ~=
 }
+
+--- syntax-bugs-bad-boolean-after-hash paged ---
+// We give different hints than above directly after a hash
+// Error: 2-3 the character `!` is not valid in code
+// Hint: 2-3 try removing the `!`
+#!
+// Error: 2-3 the character `&` is not valid in code
+// Hint: 2-3 try removing the `&`
+#&&
 
 --- issue-4571-panic-when-compiling-invalid-file paged ---
 // Test that trying to parse the following does not result in a panic.

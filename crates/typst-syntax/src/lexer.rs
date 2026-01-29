@@ -794,40 +794,49 @@ impl Lexer<'_> {
 
             // Everything else is an error, but we try to give good hints for
             // commonly confusing operators.
-            '&' if self.s.eat_if('&') => {
-                let error = self.error("`&&` is not valid in code");
-                self.hint("in Typst, `and` is used for logical AND");
-                error
+            c => {
+                // Don't give hints like `!` -> `!=` immediately after a hash.
+                let no_hash = self.s.scout(-2) != Some('#');
+                match c {
+                    '&' if no_hash && self.s.eat_if('&') => {
+                        let error = self.error("`&&` is not valid in code");
+                        self.hint("in Typst, `and` is used for logical AND");
+                        error
+                    }
+                    '|' if no_hash && self.s.eat_if('|') => {
+                        let error = self.error("`||` is not valid in code");
+                        self.hint("in Typst, `or` is used for logical OR");
+                        error
+                    }
+                    '!' if no_hash => {
+                        let error = self.error("the character `!` is not valid in code");
+                        self.hint("in Typst, `not` is used for negation");
+                        self.hint("or did you mean to write `!=` for not-equal?");
+                        error
+                    }
+                    '~' if no_hash && self.s.eat_if('=') => {
+                        let error = self.error("`~=` is not valid in code");
+                        self.hint("in Typst, `!=` is used for not-equal");
+                        error
+                    }
+                    '~' if no_hash => {
+                        let error = self.error("the character `~` is not valid in code");
+                        self.hint("in Typst, `not` is used for negation");
+                        error
+                    }
+                    // Our default hint for invalid characters.
+                    c => {
+                        let error = self.error(eco_format!(
+                            "the character `{c}` is not valid in code"
+                        ));
+                        if c == '#' {
+                            self.hint("you are already in code mode");
+                        }
+                        self.hint(eco_format!("try removing the `{c}`"));
+                        error
+                    }
+                }
             }
-            '|' if self.s.eat_if('|') => {
-                let error = self.error("`||` is not valid in code");
-                self.hint("in Typst, `or` is used for logical OR");
-                error
-            }
-            '!' => {
-                let error = self.error("the character `!` is not valid in code");
-                self.hint("in Typst, `not` is used for negation");
-                self.hint("or did you mean to write `!=` for not-equal?");
-                error
-            }
-            '~' if self.s.eat_if('=') => {
-                let error = self.error("`~=` is not valid in code");
-                self.hint("in Typst, `!=` is used for not-equal");
-                error
-            }
-            '~' => {
-                let error = self.error("the character `~` is not valid in code");
-                self.hint("in Typst, `not` is used for negation");
-                error
-            }
-            '#' => {
-                let error = self.error("the character `#` is not valid in code");
-                self.hint("you are already in code mode");
-                self.hint("try removing the `#`");
-                error
-            }
-            // This is our default hint for invalid characters.
-            c => self.error(eco_format!("the character `{c}` is not valid in code")),
         }
     }
 
