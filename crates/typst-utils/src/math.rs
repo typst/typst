@@ -43,3 +43,22 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         c => unicode_math_class::class(c),
     }
 }
+
+/// The matching delimiter for a character, does not include fences.
+pub fn matching_delim(c: char) -> Option<char> {
+    match c {
+        // Optimize ASCII.
+        '(' => Some(')'),
+        ')' => Some('('),
+        '[' => Some(']'),
+        ']' => Some('['),
+        '{' => Some('}'),
+        '}' => Some('{'),
+        // Other unicode blocks (paren technically also fits here)
+        c => match default_math_class(c) {
+            Some(MathClass::Opening) => char::from_u32(c as u32 + 1),
+            Some(MathClass::Closing) => char::from_u32(c as u32 - 1),
+            _ => None,
+        },
+    }
+}
