@@ -33,19 +33,12 @@ pub fn collect() -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseErr
 
 /// A single test.
 pub struct Test {
-    pub pos: FilePos,
     pub name: EcoString,
     pub attrs: Attrs,
-    pub source: Source,
-    pub notes: Vec<Note>,
+    pub body: TestBody,
 }
 
 impl Test {
-    /// Whether this test is expected to emit an error.
-    pub fn should_error(&self) -> bool {
-        self.notes.iter().any(|n| n.kind == NoteKind::Error)
-    }
-
     /// Whether this test output should be compared and saved, this is true for
     /// stages that are explicitly specified and those that are
     /// [implied](TestStages::with_implied).
@@ -67,10 +60,27 @@ impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path
         if std::io::stdout().is_terminal() {
-            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.body.pos)
         } else {
-            write!(f, "{} ({})", self.name, self.pos)
+            write!(f, "{} ({})", self.name, self.body.pos)
         }
+    }
+}
+
+/// The body of a test.
+pub struct TestBody {
+    /// The start of the body.
+    pub pos: FilePos,
+    /// The source of the body, excluding annotation comments.
+    pub source: Source,
+    /// The annotation comments for this test.
+    pub notes: Vec<Note>,
+}
+
+impl TestBody {
+    /// Whether there are any annotated errors.
+    pub fn has_error(&self) -> bool {
+        self.notes.iter().any(|n| n.kind == NoteKind::Error)
     }
 }
 
@@ -637,7 +647,6 @@ impl<'a> Parser<'a> {
         while !self.s.done() {
             let mut name = EcoString::new();
             let mut attrs = Attrs::default();
-            let mut notes = vec![];
             if self.s.eat_if("---") {
                 self.s.eat_while(' ');
                 name = self.s.eat_until(char::is_whitespace).into();
@@ -678,8 +687,6 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            let text = self.s.from(start);
-
             if !ARGS.implied_stages().intersects(attrs.implied_stages())
                 || !selected(&name, self.path.canonicalize().unwrap())
             {
@@ -687,28 +694,25 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::virtualize(Path::new(""), &self.path).unwrap();
-            let source = Source::new(
-                RootedPath::new(VirtualRoot::Project, vpath).intern(),
-                text.into(),
-            );
+            let body = self.s.from(start);
+            let body = self.parse_body(pos, body);
 
-            self.s.jump(start);
-            self.line = self.test_start_line;
+            self.collector.tests.push(Test { name, attrs, body });
+        }
+    }
 
-            while !self.s.done() && !self.s.at("---") {
-                self.s.eat_while(' ');
-                if self.s.eat_if("// ") {
-                    notes.extend(self.parse_note(&source));
-                }
-
-                self.s.eat_until(is_newline);
-                if self.s.eat_newline() {
-                    self.line += 1;
-                }
+    /// Skips the preamble of a test file.
+    fn skip_preamble(&mut self) {
+        let mut errored = false;
+        while !self.s.done() && !self.s.at("---") {
+            let line = self.s.eat_until(is_newline).trim();
+            if !errored && !line.is_empty() && !line.starts_with("//") {
+                self.error("test preamble may only contain comments and blank lines");
+                errored = true;
             }
-
-            self.collector.tests.push(Test { pos, name, source, notes, attrs });
+            if self.s.eat_newline() {
+                self.line += 1;
+            }
         }
     }
 
@@ -796,19 +800,33 @@ impl<'a> Parser<'a> {
         flags.insert(flag);
     }
 
-    /// Skips the preamble of a test.
-    fn skip_preamble(&mut self) {
-        let mut errored = false;
+    /// Parse the body of a test.
+    fn parse_body(&mut self, pos: FilePos, body: &str) -> TestBody {
+        let vpath = VirtualPath::virtualize(Path::new(""), &self.path).unwrap();
+        let source = Source::new(
+            RootedPath::new(VirtualRoot::Project, vpath).intern(),
+            body.to_string(),
+        );
+
+        let end = self.s.cursor();
+        self.s.jump(end - body.len());
+        self.line = self.test_start_line;
+
+        let mut notes = vec![];
         while !self.s.done() && !self.s.at("---") {
-            let line = self.s.eat_until(is_newline).trim();
-            if !errored && !line.is_empty() && !line.starts_with("//") {
-                self.error("test preamble may only contain comments and blank lines");
-                errored = true;
+            self.s.eat_while(' ');
+            if self.s.eat_if("// ") {
+                notes.extend(self.parse_note(&source));
             }
+
+            self.s.eat_until(is_newline);
             if self.s.eat_newline() {
                 self.line += 1;
             }
         }
+        assert_eq!(end, self.s.cursor());
+
+        TestBody { pos, source, notes }
     }
 
     /// Parses an annotation in a test.

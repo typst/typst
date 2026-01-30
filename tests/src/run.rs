@@ -126,7 +126,7 @@ impl UnexpectedEmpty {
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
-        let world = TestWorld::new(test.source.clone());
+        let world = TestWorld::new(test.body.source.clone());
         Self {
             hashes,
             test,
@@ -146,7 +146,7 @@ impl<'a> Runner<'a> {
     /// Run the test.
     fn run(mut self) -> TestResult {
         if ARGS.syntax {
-            log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
+            log!(into: self.result.infos, "tree: {:#?}", self.test.body.source.root());
         }
 
         if let Some(content) = self.eval() {
@@ -256,7 +256,7 @@ impl<'a> Runner<'a> {
 
     /// Handle notes that weren't handled before.
     fn handle_not_emitted(&mut self) {
-        for note in self.test.notes.iter() {
+        for note in self.test.body.notes.iter() {
             let possible = self.test.attrs.implied_stages() & ARGS.required_stages();
             if note.seen.is_empty() && !possible.is_empty() {
                 log!(self, "not emitted");
@@ -599,7 +599,7 @@ impl<'a> Runner<'a> {
         output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
     ) -> Result<Option<()>, ()> {
         let Some((doc, live, _)) = output else {
-            if !self.test.should_error() {
+            if !self.test.body.has_error() {
                 log!(self, "missing output [{}]", T::OUTPUT);
                 return Err(());
             }
@@ -688,8 +688,8 @@ impl<'a> Runner<'a> {
         });
 
         // Try to find perfect match.
-        let file = file.unwrap_or(self.test.source.id());
-        if let Some(note) = self.test.notes.iter_mut().find(|note| {
+        let file = file.unwrap_or(self.test.body.source.id());
+        if let Some(note) = self.test.body.notes.iter_mut().find(|note| {
             !note.seen.contains(stage.into())
                 && note.kind == kind
                 && note.range == range
@@ -702,7 +702,7 @@ impl<'a> Runner<'a> {
 
         // Try to find closely matching annotation. If the note has the same
         // range or message, it's most likely the one we're interested in.
-        let Some(note_idx) = self.test.notes.iter_mut().position(|note| {
+        let Some(note_idx) = self.test.body.notes.iter_mut().position(|note| {
             let close_match = !note.seen.contains(stage.into())
                 && note.kind == kind
                 && (note.range == range || note.message == message);
@@ -718,7 +718,7 @@ impl<'a> Runner<'a> {
             return;
         };
         // We use indexing to avoid holding a mutable reference to the note.
-        let note = &self.test.notes[note_idx];
+        let note = &self.test.body.notes[note_idx];
 
         // Range is wrong.
         if range != note.range || file != note.file {
@@ -756,7 +756,7 @@ impl<'a> Runner<'a> {
         let Some(range) = range else { return "No range".into() };
 
         let mut preamble = String::new();
-        if file != self.test.source.id() {
+        if file != self.test.body.source.id() {
             preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
         }
 

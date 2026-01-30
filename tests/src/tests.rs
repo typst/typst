@@ -237,7 +237,7 @@ fn run_parser_test(
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
-    let tree = format!("{:#?}\n", test.source.root());
+    let tree = format!("{:#?}\n", test.body.source.root());
     std::fs::write(syntax_file, &tree).unwrap();
 
     let Some(ref_path) = ref_path else { return result };

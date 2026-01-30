@@ -111,8 +111,8 @@ impl Logger {
         self.print(move |out| {
             if !errors.is_empty() {
                 if ARGS.use_github_annotations {
-                    let file = test.pos.path.display();
-                    let line = test.pos.line;
+                    let file = test.body.pos.path.display();
+                    let line = test.body.pos.line;
                     write!(out, "::error file={file},line={line}::{test}")?;
                     for line in errors.lines() {
                         write!(out, "%0A  {line}")?;
