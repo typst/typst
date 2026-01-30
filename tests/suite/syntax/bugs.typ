@@ -31,7 +31,7 @@
   // Error: 5-6 unexpected equals sign
   ! =
   // Error: 3-4 the character `~` is not valid in code
-  // Hint: 3-4 in Typst, `not` is used for negation
+  // Hint: 3-4 try removing the `~`
   ~
   // Error: 3-5 `~=` is not valid in code
   // Hint: 3-5 in Typst, `!=` is used for not-equal

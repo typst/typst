@@ -819,11 +819,6 @@ impl Lexer<'_> {
                         self.hint("in Typst, `!=` is used for not-equal");
                         error
                     }
-                    '~' if no_hash => {
-                        let error = self.error("the character `~` is not valid in code");
-                        self.hint("in Typst, `not` is used for negation");
-                        error
-                    }
                     // Our default hint for invalid characters.
                     c => {
                         let error = self.error(eco_format!(
