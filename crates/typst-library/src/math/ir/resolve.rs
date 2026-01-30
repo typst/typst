@@ -20,7 +20,7 @@ use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spaci
 use crate::math::*;
 use crate::routines::{Arenas, RealizationKind};
 use crate::text::{
-    BottomEdge, BottomEdgeMetric, LinebreakElem, SpaceElem, TextElem, TopEdge,
+    BottomEdge, BottomEdgeMetric, LinebreakElem, Overhang, SpaceElem, TextElem, TopEdge,
     TopEdgeMetric, is_default_ignorable,
 };
 use crate::visualize::FixedStroke;
@@ -30,7 +30,7 @@ static TEXT_BASE_LOCAL_STYLES: LazyLock<[LazyHash<Style>; 3]> = LazyLock::new(||
     [
         TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
         TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-        TextElem::overhang.set(false),
+        TextElem::overhang.set(Overhang::DISABLED),
     ]
     .map(|p| p.wrap())
 });

@@ -501,11 +501,14 @@ pub fn commit(
     // Handle hanging punctuation to the left.
     if let Some(text) = line.items.leading_text()
         && let Some(glyph) = text.glyphs.first()
-        && !text.dir.is_positive()
-        && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let factor = text
+            .styles
+            .get_ref(TextElem::overhang)
+            .left_factor(glyph.c, || default_overhang(glyph.c));
+
+        let amount = factor * glyph.x_advance.at(glyph.size);
         offset -= amount;
         remaining += amount;
     }
@@ -513,11 +516,14 @@ pub fn commit(
     // Handle hanging punctuation to the right.
     if let Some(text) = line.items.trailing_text()
         && let Some(glyph) = text.glyphs.last()
-        && text.dir.is_positive()
-        && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let factor = text
+            .styles
+            .get_ref(TextElem::overhang)
+            .right_factor(glyph.c, || default_overhang(glyph.c));
+
+        let amount = factor * glyph.x_advance.at(glyph.size);
         remaining += amount;
     }
 
@@ -668,11 +674,11 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// How much a character should hang into the end margin.
+/// How much a character should hang into the margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(c: char) -> f64 {
+fn default_overhang(c: char) -> f64 {
     match c {
         // Dashes.
         '–' | '—' => 0.2,
