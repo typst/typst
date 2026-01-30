@@ -13,10 +13,11 @@ use typst_html::HtmlDocument;
 use typst_syntax::FileId;
 
 use crate::collect::{
-    FileSize, NoteKind, Test, TestEval, TestOutput, TestOutputKind, TestStage,
-    TestStages, TestTarget,
+    FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
+    TestTarget,
 };
 use crate::logger::TestResult;
+use crate::notes::NoteKind;
 use crate::output::{
     FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
 };

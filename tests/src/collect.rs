@@ -1,25 +1,20 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::IsTerminal;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
 
 use bitflags::{Flags, bitflags};
-use ecow::{EcoString, eco_format};
+use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst::foundations::Bytes;
-use typst_kit::files::FileLoader;
 use typst_pdf::PdfStandard;
-use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    FileId, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident,
-    is_newline,
+    RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident, is_newline,
 };
 use unscanny::Scanner;
 
+use crate::notes::{Note, NoteKind, parse_note, parse_note_start};
 use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
-use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -410,48 +405,6 @@ impl Display for FileSize {
     }
 }
 
-/// An annotation like `// Error: 2-6 message` in a test.
-pub struct Note {
-    pub pos: FilePos,
-    pub kind: NoteKind,
-    /// The file [`Self::range`] belongs to.
-    pub file: FileId,
-    pub range: Option<Range<usize>>,
-    pub message: String,
-    pub seen: TestStages,
-}
-
-/// A kind of annotation in a test.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum NoteKind {
-    Error,
-    Warning,
-    Hint,
-}
-
-impl FromStr for NoteKind {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "Error" => Self::Error,
-            "Warning" => Self::Warning,
-            "Hint" => Self::Hint,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl Display for NoteKind {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Error => "Error",
-            Self::Warning => "Warning",
-            Self::Hint => "Hint",
-        })
-    }
-}
-
 /// Collects all tests from all files.
 struct Collector {
     hashes: [HashedRefs; 2],
@@ -808,195 +761,24 @@ impl<'a> Parser<'a> {
             body.to_string(),
         );
 
-        let end = self.s.cursor();
-        self.s.jump(end - body.len());
-        self.line = self.test_start_line;
-
         let mut notes = vec![];
-        while !self.s.done() && !self.s.at("---") {
-            let line = self.s.eat_until(is_newline);
+        for (i, line) in body.lines().enumerate() {
             let mut line_scanner = Scanner::new(line);
 
-            if let Some(kind) = Self::parse_note_start(&mut line_scanner) {
-                let pos = FilePos { path: self.path.clone(), line: self.line };
-                let line_idx = self.line - self.test_start_line;
-                match Self::parse_note(pos, line_idx, &mut line_scanner, kind, &source) {
+            if let Some(kind) = parse_note_start(&mut line_scanner) {
+                let line = self.test_start_line + i;
+                let pos = FilePos { path: self.path.clone(), line };
+                match parse_note(pos, i, &mut line_scanner, kind, &source) {
                     Ok(note) => notes.push(note),
-                    Err(message) => self.error(message),
+                    Err(message) => self
+                        .collector
+                        .errors
+                        .push(TestParseError::new(message, &self.path, line)),
                 }
             }
-
-            if self.s.eat_newline() {
-                self.line += 1;
-            }
         }
-        assert_eq!(end, self.s.cursor());
 
         TestBody { pos, source, notes }
-    }
-
-    /// Parse the start of a note into a kind.
-    fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
-        s.eat_while(' ');
-        if s.eat_if("// ")
-            && let head = s.eat_while(is_id_continue)
-            && s.eat_if(':')
-            && let Ok(kind) = head.parse::<NoteKind>()
-        {
-            s.eat_if(' ');
-            Some(kind)
-        } else {
-            None
-        }
-    }
-
-    /// Parses an annotation in a test, continuing from `parse_note_start`.
-    fn parse_note(
-        pos: FilePos,
-        line_idx: usize,
-        s: &mut Scanner,
-        kind: NoteKind,
-        source: &Source,
-    ) -> Result<Note, String> {
-        let mut file = None;
-        if s.eat_if('"') {
-            let path = s.eat_until(|c| is_newline(c) || c == '"');
-            if !s.eat_if('"') {
-                return Err("expected closing quote after file path".to_string());
-            }
-
-            file = Some(TestFiles::rooted_path(path).intern());
-
-            s.eat_if(' ');
-        }
-
-        let mut range = None;
-        if s.at('-') || s.at(char::is_numeric) {
-            if let Some(file) = file {
-                range = Self::parse_range_external(s, file)?;
-            } else {
-                range = Self::parse_range_internal(s, line_idx, source);
-            }
-
-            if range.is_none() {
-                return Err("range is malformed".to_string());
-            }
-        }
-
-        let message = s
-            .after()
-            .trim()
-            .replace("VERSION", &eco_format!("{}", PackageVersion::compiler()))
-            .replace("\\n", "\n");
-
-        Ok(Note {
-            pos,
-            kind,
-            file: file.unwrap_or(source.id()),
-            range,
-            message,
-            seen: TestStages::empty(),
-        })
-    }
-
-    /// Parse a range in an external file, optionally abbreviated as just a position
-    /// if the range is empty.
-    fn parse_range_external(
-        s: &mut Scanner,
-        file: FileId,
-    ) -> Result<Option<Range<usize>>, String> {
-        let bytes = match TestFiles.load(file) {
-            Ok(data) => Bytes::new(data),
-            Err(err) => return Err(err.to_string()),
-        };
-
-        let Some(start) = Self::parse_line_col(s)? else { return Ok(None) };
-        let lines = bytes.lines().expect(
-            "errors shouldn't be annotated for files \
-             that aren't human readable (not valid UTF-8)",
-        );
-        let range = if s.eat_if('-') {
-            let (line, col) = start;
-            let start = lines.line_column_to_byte(line, col);
-            let Some((line, col)) = Self::parse_line_col(s)? else { return Ok(None) };
-            let end = lines.line_column_to_byte(line, col);
-            Option::zip(start, end).map(|(a, b)| a..b)
-        } else {
-            let (line, col) = start;
-            lines.line_column_to_byte(line, col).map(|i| i..i)
-        };
-        if range.is_none() {
-            return Err("range is out of bounds".to_string());
-        }
-        Ok(range)
-    }
-
-    /// Parses absolute `line:column` indices in an external file.
-    fn parse_line_col(s: &mut Scanner) -> Result<Option<(usize, usize)>, String> {
-        let Some(line) = Self::parse_number(s) else { return Ok(None) };
-        if !s.eat_if(':') {
-            return Err("positions in external files always require both `<line>:<col>`"
-                .to_string());
-        }
-        let Some(col) = Self::parse_number(s) else { return Ok(None) }; // TODO: This is incorrect.
-        if line < 0 || col < 0 {
-            return Err("line and column numbers must be positive".to_string());
-        }
-
-        Ok(Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1))))
-    }
-
-    /// Parse a range, optionally abbreviated as just a position if the range
-    /// is empty.
-    fn parse_range_internal(
-        s: &mut Scanner,
-        line_idx: usize,
-        source: &Source,
-    ) -> Option<Range<usize>> {
-        let start = Self::parse_position(s, line_idx, source)?;
-        let end = if s.eat_if('-') {
-            Self::parse_position(s, line_idx, source)?
-        } else {
-            start
-        };
-        Some(start..end)
-    }
-
-    /// Parses a relative `(line:)?column` position.
-    fn parse_position(
-        s: &mut Scanner,
-        line_idx: usize,
-        source: &Source,
-    ) -> Option<usize> {
-        let first = Self::parse_number(s)?;
-        let (line_delta, column) =
-            if s.eat_if(':') { (first, Self::parse_number(s)?) } else { (1, first) };
-
-        let text = source.text();
-        let comments = text
-            .lines()
-            .skip(line_idx + 1)
-            .take_while(|line| line.trim().starts_with("//"))
-            .count();
-
-        let line_idx = (line_idx + comments).checked_add_signed(line_delta)?;
-        let column_idx = if column < 0 {
-            // Negative column index is from the back.
-            let range = source.lines().line_to_range(line_idx)?;
-            text[range].chars().count().saturating_add_signed(column)
-        } else {
-            usize::try_from(column).ok()?.checked_sub(1)?
-        };
-
-        source.lines().line_column_to_byte(line_idx, column_idx)
-    }
-
-    /// Parse a number.
-    fn parse_number(s: &mut Scanner) -> Option<isize> {
-        let start = s.cursor();
-        s.eat_if('-');
-        s.eat_while(char::is_numeric);
-        s.from(start).parse().ok()
     }
 
     /// Stores a test parsing error.

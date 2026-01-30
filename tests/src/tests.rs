@@ -5,6 +5,7 @@ mod collect;
 mod custom;
 mod git;
 mod logger;
+mod notes;
 mod output;
 mod pdftags;
 mod report;
