@@ -3,7 +3,7 @@ use std::io::IsTerminal;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
@@ -74,17 +74,14 @@ impl Display for Test {
     }
 }
 
-/// A position in a file.
+/// A position in a file. This allows us to print errors that point to specific
+/// line numbers and create a clickable link in editors like VSCode.
 #[derive(Clone)]
 pub struct FilePos {
-    pub path: PathBuf,
+    pub path: Arc<PathBuf>,
+    /// Line numbers are 1-indexed, so if this is zero we treat it as pointing
+    /// to the file as a whole.
     pub line: usize,
-}
-
-impl FilePos {
-    fn new(path: impl Into<PathBuf>, line: usize) -> Self {
-        Self { path: path.into(), line }
-    }
 }
 
 impl Display for FilePos {
@@ -532,28 +529,29 @@ impl Collector {
 
         let Some((pos, attrs)) = self.seen.get(name) else {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
             return;
         };
 
         if !attrs.implied_stages().contains(output.into()) || attrs.empty {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
         }
 
         let len = path.metadata().unwrap().len() as usize;
         if !attrs.large && len > crate::REF_LIMIT {
-            self.errors.push(TestParseError::new(
-                pos.clone(),
-                format!(
-                    "reference output size exceeds {}, but the test is not marked as `large`",
-                    FileSize(crate::REF_LIMIT),
-                ),
-            ));
+            let message = format!(
+                "reference output size exceeds {}, but the test is not marked as `large`",
+                FileSize(crate::REF_LIMIT),
+            );
+            self.errors
+                .push(TestParseError { pos: pos.clone(), kind: message.into() });
         }
     }
 
@@ -567,8 +565,9 @@ impl Collector {
 
         if output.hash_refs_path() != path {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
             return None;
         }
@@ -577,8 +576,9 @@ impl Collector {
         let hashed_refs = HashedRefs::from_str(&string)
             .inspect_err(|err| {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, 0),
                     format!("error parsing reference hash file: {err}"),
+                    path,
+                    0,
                 ));
             })
             .ok()?;
@@ -586,16 +586,18 @@ impl Collector {
         for (name, line) in hashed_refs.names().zip(1..) {
             let Some((_, attrs)) = self.seen.get(name) else {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, line),
                     TestParseErrorKind::DanglingHash(name.clone()),
+                    path,
+                    line,
                 ));
                 continue;
             };
 
             if !attrs.implied_stages().contains(output.into()) || attrs.empty {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, line),
                     TestParseErrorKind::DanglingHash(name.clone()),
+                    path,
+                    line,
                 ));
                 continue;
             }
@@ -608,7 +610,7 @@ impl Collector {
 /// Parses a single test file.
 struct Parser<'a> {
     collector: &'a mut Collector,
-    path: &'a Path,
+    path: Arc<PathBuf>,
     s: Scanner<'a>,
     test_start_line: usize,
     line: usize,
@@ -619,8 +621,9 @@ impl<'a> Parser<'a> {
     fn new(collector: &'a mut Collector, path: &'a Path, source: &'a str) -> Self {
         Self {
             collector,
-            path,
+            path: Arc::new(path.to_owned()),
             s: Scanner::new(source),
+            // Lines in files are 1-indexed.
             test_start_line: 1,
             line: 1,
         }
@@ -661,7 +664,10 @@ impl<'a> Parser<'a> {
             let start = self.s.cursor();
             self.test_start_line = self.line;
 
-            let pos = FilePos::new(self.path, self.test_start_line);
+            let pos = FilePos {
+                path: self.path.clone(),
+                line: self.test_start_line,
+            };
             self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
 
             while !self.s.done() && !self.s.at("---") {
@@ -680,7 +686,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
+            let vpath = VirtualPath::virtualize(Path::new(""), &self.path).unwrap();
             let source = Source::new(
                 RootedPath::new(VirtualRoot::Project, vpath).intern(),
                 text.into(),
@@ -849,7 +855,7 @@ impl<'a> Parser<'a> {
             .replace("\\n", "\n");
 
         Some(Note {
-            pos: FilePos::new(self.path, self.line),
+            pos: FilePos { path: self.path.clone(), line: self.line },
             kind,
             file: file.unwrap_or(source.id()),
             range,
@@ -951,7 +957,7 @@ impl<'a> Parser<'a> {
     fn error(&mut self, message: impl Into<String>) {
         self.collector
             .errors
-            .push(TestParseError::new(FilePos::new(self.path, self.line), message));
+            .push(TestParseError::new(message, &self.path, self.line));
     }
 }
 
@@ -989,8 +995,11 @@ pub struct TestParseError {
 }
 
 impl TestParseError {
-    pub fn new(pos: FilePos, kind: impl Into<TestParseErrorKind>) -> Self {
-        Self { pos, kind: kind.into() }
+    pub fn new(kind: impl Into<TestParseErrorKind>, path: &Path, line: usize) -> Self {
+        Self {
+            pos: FilePos { path: Arc::new(path.to_owned()), line },
+            kind: kind.into(),
+        }
     }
 }
 

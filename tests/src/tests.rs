@@ -186,7 +186,7 @@ fn undangle() {
             for error in errors.iter() {
                 match &error.kind {
                     TestParseErrorKind::DanglingFile => {
-                        std::fs::remove_file(&error.pos.path).unwrap();
+                        std::fs::remove_file(&*error.pos.path).unwrap();
                         eprintln!("✅ deleted {}", error.pos.path.display());
                     }
                     TestParseErrorKind::DanglingHash(name) => {
