@@ -188,11 +188,27 @@ A#"  "B#"   C"
   ```.text,
 )
 
+--- html-style-str html ---
+#html.style("body { --name: \"Typst\"; }")
+
+--- html-style-content html ---
+// Warning: 1:12-3:2 passing content inside raw HTML elements is deprecated, use a string instead
+#html.style[
+  body { --name: "Typst"; }
+]
+
+--- html-untyped-style-content html ---
+#html.elem("style")[
+  body { --name: "Typst"; }
+]
+
 --- html-raw-text-contains-elem html ---
+// Warning: 14-32 passing content inside raw HTML elements is deprecated, use a string instead
 // Error: 14-32 HTML raw text element cannot have non-text children
 #html.script(html.strong[Hello])
 
 --- html-raw-text-contains-frame html ---
+// Warning: 14-31 passing content inside raw HTML elements is deprecated, use a string instead
 // Error: 14-31 HTML raw text element cannot have non-text children
 #html.script(html.frame[Hello])
 
@@ -214,6 +230,7 @@ A#"  "B#"   C"
 \u{fdd0}
 
 --- html-raw-text-non-char html ---
+// Warning: 13-33 passing content inside raw HTML elements is deprecated, use a string instead
 // Error: 24-32 the character `"\u{fdd0}"` cannot be encoded in HTML
 #html.script[const x = \u{fdd0}]
 

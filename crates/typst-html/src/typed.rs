@@ -11,7 +11,9 @@ use bumpalo::Bump;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::html as data;
-use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
+use typst_library::diag::{
+    At, DeprecationSink, Hint, HintedStrResult, SourceResult, bail,
+};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
@@ -19,8 +21,10 @@ use typst_library::foundations::{
     PositiveF64, Reflect, Scope, Str, Type, Value,
 };
 use typst_library::layout::{Axes, Axis, Dir, Length};
+use typst_library::text::TextElem;
 use typst_library::visualize::Color;
 use typst_macros::cast;
+use typst_syntax::Spanned;
 
 use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, css, tag};
 
@@ -46,8 +50,8 @@ fn create_func_data(
 ) -> NativeFuncData {
     NativeFuncData {
         function: NativeFuncPtr(bump.alloc(
-            move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
-                construct(element, args)
+            move |engine: &mut Engine, _: Tracked<Context>, args: &mut Args| {
+                construct(engine, element, args)
             },
         )),
         name: element.name,
@@ -83,23 +87,41 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
     }
     let tag = HtmlTag::constant(element.name);
     if !tag::is_void(tag) {
-        params.push(ParamInfo {
-            name: "body",
-            docs: "The contents of the HTML element.",
-            input: CastInfo::Type(Type::of::<Content>()),
-            default: None,
-            positional: true,
-            named: false,
-            variadic: false,
-            required: false,
-            settable: false,
+        params.push(if tag::is_raw(tag) {
+            ParamInfo {
+                name: "content",
+                docs: "The text content of the HTML element.",
+                input: CastInfo::Type(Type::of::<Str>()),
+                default: None,
+                positional: true,
+                named: false,
+                variadic: false,
+                required: false,
+                settable: false,
+            }
+        } else {
+            ParamInfo {
+                name: "body",
+                docs: "The contents of the HTML element.",
+                input: CastInfo::Type(Type::of::<Content>()),
+                default: None,
+                positional: true,
+                named: false,
+                variadic: false,
+                required: false,
+                settable: false,
+            }
         });
     }
     params
 }
 
 /// The native constructor function shared by all HTML elements.
-fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<Value> {
+fn construct(
+    engine: &mut Engine,
+    element: &'static data::ElemInfo,
+    args: &mut Args,
+) -> SourceResult<Value> {
     let mut attrs = HtmlAttrs::default();
     let mut errors = eco_vec![];
 
@@ -130,7 +152,27 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
     }
 
     if !tag::is_void(tag) {
-        let body = args.eat::<Content>()?;
+        let body = if tag::is_raw(tag) {
+            match args.eat::<Spanned<Value>>()? {
+                Some(Spanned { v, span }) if Str::castable(&v) => {
+                    let str = Str::from_value(v).at(span)?;
+                    Some(Content::new(TextElem::new(str.into())))
+                }
+                Some(Spanned { v, span }) => {
+                    let content = Content::from_value(v).at(span)?;
+                    let sink = (engine, span);
+                    sink.emit(
+                        "passing content inside raw HTML elements is deprecated, use a string instead",
+                        None,
+                    );
+                    Some(content)
+                }
+                None => None,
+            }
+        } else {
+            args.eat::<Content>()?
+        };
+
         elem.body.set(body);
     }
 
