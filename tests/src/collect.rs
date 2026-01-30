@@ -814,12 +814,18 @@ impl<'a> Parser<'a> {
 
         let mut notes = vec![];
         while !self.s.done() && !self.s.at("---") {
-            self.s.eat_while(' ');
-            if self.s.eat_if("// ") {
-                notes.extend(self.parse_note(&source));
+            let line = self.s.eat_until(is_newline);
+            let mut line_scanner = Scanner::new(line);
+
+            if let Some(kind) = Self::parse_note_start(&mut line_scanner) {
+                let pos = FilePos { path: self.path.clone(), line: self.line };
+                let line_idx = self.line - self.test_start_line;
+                match Self::parse_note(pos, line_idx, &mut line_scanner, kind, &source) {
+                    Ok(note) => notes.push(note),
+                    Err(message) => self.error(message),
+                }
             }
 
-            self.s.eat_until(is_newline);
             if self.s.eat_newline() {
                 self.line += 1;
             }
@@ -829,52 +835,62 @@ impl<'a> Parser<'a> {
         TestBody { pos, source, notes }
     }
 
-    /// Parses an annotation in a test.
-    fn parse_note(&mut self, source: &Source) -> Option<Note> {
-        let head = self.s.eat_while(is_id_continue);
-        if !self.s.eat_if(':') {
-            return None;
+    /// Parse the start of a note into a kind.
+    fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
+        s.eat_while(' ');
+        if s.eat_if("// ")
+            && let head = s.eat_while(is_id_continue)
+            && s.eat_if(':')
+            && let Ok(kind) = head.parse::<NoteKind>()
+        {
+            s.eat_if(' ');
+            Some(kind)
+        } else {
+            None
         }
+    }
 
-        let kind: NoteKind = head.parse().ok()?;
-        self.s.eat_if(' ');
-
+    /// Parses an annotation in a test, continuing from `parse_note_start`.
+    fn parse_note(
+        pos: FilePos,
+        line_idx: usize,
+        s: &mut Scanner,
+        kind: NoteKind,
+        source: &Source,
+    ) -> Result<Note, String> {
         let mut file = None;
-        if self.s.eat_if('"') {
-            let path = self.s.eat_until(|c| is_newline(c) || c == '"');
-            if !self.s.eat_if('"') {
-                self.error("expected closing quote after file path");
-                return None;
+        if s.eat_if('"') {
+            let path = s.eat_until(|c| is_newline(c) || c == '"');
+            if !s.eat_if('"') {
+                return Err("expected closing quote after file path".to_string());
             }
 
             file = Some(TestFiles::rooted_path(path).intern());
 
-            self.s.eat_if(' ');
+            s.eat_if(' ');
         }
 
         let mut range = None;
-        if self.s.at('-') || self.s.at(char::is_numeric) {
+        if s.at('-') || s.at(char::is_numeric) {
             if let Some(file) = file {
-                range = self.parse_range_external(file);
+                range = Self::parse_range_external(s, file)?;
             } else {
-                range = self.parse_range(source);
+                range = Self::parse_range_internal(s, line_idx, source);
             }
 
             if range.is_none() {
-                self.error("range is malformed");
-                return None;
+                return Err("range is malformed".to_string());
             }
         }
 
-        let message = self
-            .s
-            .eat_until(is_newline)
+        let message = s
+            .after()
             .trim()
             .replace("VERSION", &eco_format!("{}", PackageVersion::compiler()))
             .replace("\\n", "\n");
 
-        Some(Note {
-            pos: FilePos { path: self.path.clone(), line: self.line },
+        Ok(Note {
+            pos,
             kind,
             file: file.unwrap_or(source.id()),
             range,
@@ -885,24 +901,24 @@ impl<'a> Parser<'a> {
 
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
-    fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
+    fn parse_range_external(
+        s: &mut Scanner,
+        file: FileId,
+    ) -> Result<Option<Range<usize>>, String> {
         let bytes = match TestFiles.load(file) {
             Ok(data) => Bytes::new(data),
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
+            Err(err) => return Err(err.to_string()),
         };
 
-        let start = self.parse_line_col()?;
+        let Some(start) = Self::parse_line_col(s)? else { return Ok(None) };
         let lines = bytes.lines().expect(
             "errors shouldn't be annotated for files \
              that aren't human readable (not valid UTF-8)",
         );
-        let range = if self.s.eat_if('-') {
+        let range = if s.eat_if('-') {
             let (line, col) = start;
             let start = lines.line_column_to_byte(line, col);
-            let (line, col) = self.parse_line_col()?;
+            let Some((line, col)) = Self::parse_line_col(s)? else { return Ok(None) };
             let end = lines.line_column_to_byte(line, col);
             Option::zip(start, end).map(|(a, b)| a..b)
         } else {
@@ -910,50 +926,60 @@ impl<'a> Parser<'a> {
             lines.line_column_to_byte(line, col).map(|i| i..i)
         };
         if range.is_none() {
-            self.error("range is out of bounds");
+            return Err("range is out of bounds".to_string());
         }
-        range
+        Ok(range)
     }
 
     /// Parses absolute `line:column` indices in an external file.
-    fn parse_line_col(&mut self) -> Option<(usize, usize)> {
-        let line = self.parse_number()?;
-        if !self.s.eat_if(':') {
-            self.error("positions in external files always require both `<line>:<col>`");
-            return None;
+    fn parse_line_col(s: &mut Scanner) -> Result<Option<(usize, usize)>, String> {
+        let Some(line) = Self::parse_number(s) else { return Ok(None) };
+        if !s.eat_if(':') {
+            return Err("positions in external files always require both `<line>:<col>`"
+                .to_string());
         }
-        let col = self.parse_number()?;
+        let Some(col) = Self::parse_number(s) else { return Ok(None) }; // TODO: This is incorrect.
         if line < 0 || col < 0 {
-            self.error("line and column numbers must be positive");
-            return None;
+            return Err("line and column numbers must be positive".to_string());
         }
 
-        Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1)))
+        Ok(Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1))))
     }
 
     /// Parse a range, optionally abbreviated as just a position if the range
     /// is empty.
-    fn parse_range(&mut self, source: &Source) -> Option<Range<usize>> {
-        let start = self.parse_position(source)?;
-        let end = if self.s.eat_if('-') { self.parse_position(source)? } else { start };
+    fn parse_range_internal(
+        s: &mut Scanner,
+        line_idx: usize,
+        source: &Source,
+    ) -> Option<Range<usize>> {
+        let start = Self::parse_position(s, line_idx, source)?;
+        let end = if s.eat_if('-') {
+            Self::parse_position(s, line_idx, source)?
+        } else {
+            start
+        };
         Some(start..end)
     }
 
     /// Parses a relative `(line:)?column` position.
-    fn parse_position(&mut self, source: &Source) -> Option<usize> {
-        let first = self.parse_number()?;
+    fn parse_position(
+        s: &mut Scanner,
+        line_idx: usize,
+        source: &Source,
+    ) -> Option<usize> {
+        let first = Self::parse_number(s)?;
         let (line_delta, column) =
-            if self.s.eat_if(':') { (first, self.parse_number()?) } else { (1, first) };
+            if s.eat_if(':') { (first, Self::parse_number(s)?) } else { (1, first) };
 
         let text = source.text();
-        let line_idx_in_test = self.line - self.test_start_line;
         let comments = text
             .lines()
-            .skip(line_idx_in_test + 1)
+            .skip(line_idx + 1)
             .take_while(|line| line.trim().starts_with("//"))
             .count();
 
-        let line_idx = (line_idx_in_test + comments).checked_add_signed(line_delta)?;
+        let line_idx = (line_idx + comments).checked_add_signed(line_delta)?;
         let column_idx = if column < 0 {
             // Negative column index is from the back.
             let range = source.lines().line_to_range(line_idx)?;
@@ -966,11 +992,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a number.
-    fn parse_number(&mut self) -> Option<isize> {
-        let start = self.s.cursor();
-        self.s.eat_if('-');
-        self.s.eat_while(char::is_numeric);
-        self.s.from(start).parse().ok()
+    fn parse_number(s: &mut Scanner) -> Option<isize> {
+        let start = s.cursor();
+        s.eat_if('-');
+        s.eat_while(char::is_numeric);
+        s.from(start).parse().ok()
     }
 
     /// Stores a test parsing error.
