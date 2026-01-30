@@ -119,10 +119,13 @@ impl HtmlElem {
         }
     }
 
-    /// Checks whether the given element is "phrasing content" in HTML.
+    /// Checks whether the given element is "phrasing content" in HTML for
+    /// paragraph grouping purposes. Excludes metadata content since those
+    /// elements should not be wrapped in paragraphs.
     fn is_phrasing(elem: &Content) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
+        elem.to_packed::<HtmlElem>().is_some_and(|elem| {
+            tag::is_phrasing_content(elem.tag) && !tag::is_metadata_content(elem.tag)
+        })
     }
 }
 
