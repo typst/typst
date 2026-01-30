@@ -192,7 +192,8 @@ A#"  "B#"   C"
 #html.style("body { --name: \"Typst\"; }")
 
 --- html-style-content html ---
-// Warning: 1:12-3:2 passing content inside raw HTML elements is deprecated, use a string instead
+// Warning: 1:12-3:2 passing content inside `html.style` is deprecated
+// Hint: 1:12-3:2 use a string instead: `html.style("...")`
 #html.style[
   body { --name: "Typst"; }
 ]
@@ -203,12 +204,14 @@ A#"  "B#"   C"
 ]
 
 --- html-raw-text-contains-elem html ---
-// Warning: 14-32 passing content inside raw HTML elements is deprecated, use a string instead
+// Warning: 14-32 passing content inside `html.script` is deprecated
+// Hint: 14-32 use a string instead: `html.script("...")`
 // Error: 14-32 HTML raw text element cannot have non-text children
 #html.script(html.strong[Hello])
 
 --- html-raw-text-contains-frame html ---
-// Warning: 14-31 passing content inside raw HTML elements is deprecated, use a string instead
+// Warning: 14-31 passing content inside `html.script` is deprecated
+// Hint: 14-31 use a string instead: `html.script("...")`
 // Error: 14-31 HTML raw text element cannot have non-text children
 #html.script(html.frame[Hello])
 
@@ -230,7 +233,8 @@ A#"  "B#"   C"
 \u{fdd0}
 
 --- html-raw-text-non-char html ---
-// Warning: 13-33 passing content inside raw HTML elements is deprecated, use a string instead
+// Warning: 13-33 passing content inside `html.script` is deprecated
+// Hint: 13-33 use a string instead: `html.script("...")`
 // Error: 24-32 the character `"\u{fdd0}"` cannot be encoded in HTML
 #html.script[const x = \u{fdd0}]
 

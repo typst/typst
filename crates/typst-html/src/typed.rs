@@ -11,9 +11,7 @@ use bumpalo::Bump;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::html as data;
-use typst_library::diag::{
-    At, DeprecationSink, Hint, HintedStrResult, SourceResult, bail,
-};
+use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
@@ -160,11 +158,12 @@ fn construct(
                 }
                 Some(Spanned { v, span }) => {
                     let content = Content::from_value(v).at(span)?;
-                    let sink = (engine, span);
-                    sink.emit(
-                        "passing content inside raw HTML elements is deprecated, use a string instead",
-                        None,
-                    );
+                    let tag_name = tag.resolve();
+                    engine.sink.warn(warning!(
+                        span,
+                        "passing content inside `html.{}` is deprecated", tag_name;
+                        hint: "use a string instead: `html.{}(\"...\")`", tag_name;
+                    ));
                     Some(content)
                 }
                 None => None,
