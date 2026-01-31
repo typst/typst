@@ -13,6 +13,9 @@ use crate::math::{EquationElem, MathSize, Mathy};
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
+///
+/// If you want to add accents (hats, tildes, arrows, etc.) instead of scripts
+/// or corner attachments, use the [`accent`]($math.accent) function instead.
 #[elem(Mathy)]
 pub struct AttachElem {
     /// The base to which things are attached.
