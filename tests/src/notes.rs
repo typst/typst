@@ -3,21 +3,21 @@
 //! Note that as of Feb 2025, there are only around 1400 annotations total in
 //! the test suite, so optimizations here should be for developer comfort, not
 //! size/speed.
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Display, Formatter, Write};
 use std::ops::Range;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use typst::diag::{StrResult, bail};
-use typst::foundations::Bytes;
-use typst_kit::files::FileLoader;
+use ecow::EcoString;
+use regex::{Captures, Regex};
+use typst::{World, WorldExt as _};
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{
-    FileId, Lines, RootedPath, Source, VirtualPath, VirtualRoot
-};
+use typst_syntax::{Lines, RootedPath, Source, Span, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
 
 use crate::collect::{FilePos, TestParseError, TestStages};
-use crate::world::TestFiles;
+use crate::world::{TestBase, TestFiles, TestWorld};
 
 /// The body of a test.
 pub struct TestBody {
@@ -34,17 +34,93 @@ impl TestBody {
     pub fn has_error(&self) -> bool {
         self.notes.iter().any(|n| n.kind == NoteKind::Error)
     }
+
+    /// Search for a matching note to mark as seen, or update the notes vector
+    /// by changing a close match or appending a new emitted note.
+    pub fn mark_seen_or_update(
+        &mut self,
+        Note { status, seen, kind, range, message }: Note,
+    ) {
+        let mut best = None;
+        let mut range_message_lines_cols = [false; 4];
+        for (i, note) in self.notes.iter_mut().enumerate() {
+            // Only consider notes that haven't been seen yet.
+            if note.seen.contains(seen) {
+                continue;
+            }
+            let same_range = note.range == range;
+            let same_message = note.message == message;
+
+            // If kind differs, we skip unless both range and message match.
+            if note.kind != kind {
+                if same_range
+                    && same_message
+                    && let NoteStatus::Annotated { pos } = &note.status
+                {
+                    best = Some((i, pos.clone()));
+                    break;
+                } else {
+                    continue;
+                }
+            } else if same_range && same_message {
+                // A perfect match! Mark as seen and return.
+                note.seen |= seen;
+                return;
+            } else if let NoteStatus::Annotated { pos } = &note.status
+                && note.seen.is_empty()
+            {
+                // Order the other possible matches by comparing the range, then
+                // message, then single lines, then columns. If none match exactly,
+                // treat as not emitted.
+                let same_r_m_l_c = [
+                    same_range,
+                    same_message,
+                    note.range.single_line() == range.single_line(),
+                    note.range.columns() == range.columns(),
+                ];
+                if same_r_m_l_c > range_message_lines_cols {
+                    best = Some((i, pos.clone()));
+                    range_message_lines_cols = same_r_m_l_c;
+                }
+            }
+        }
+        match best {
+            Some((i, pos)) => {
+                let note = &mut self.notes[i];
+                note.seen |= seen;
+                // We replace the notes kind/range/message (which should cause
+                // it to match exactly in future stages), but keep the old
+                // values to report the difference.
+                let annotated = Box::new((
+                    std::mem::replace(&mut note.kind, kind),
+                    std::mem::replace(&mut note.range, range),
+                    std::mem::replace(&mut note.message, message),
+                ));
+                note.status = NoteStatus::Updated { pos, annotated };
+            }
+            None => self.notes.push(Note { status, seen, kind, range, message }),
+        }
+    }
 }
 
 /// An annotation like `// Error: 2-6 message` in a test.
 pub struct Note {
-    pub pos: FilePos,
-    pub kind: NoteKind,
-    /// The file [`Self::range`] belongs to.
-    pub file: FileId,
-    pub range: Option<Range<usize>>,
-    pub message: String,
+    pub status: NoteStatus,
     pub seen: TestStages,
+    pub kind: NoteKind,
+    pub range: NoteRange,
+    pub message: String,
+}
+
+/// The status of an annotated diagnostic.
+pub enum NoteStatus {
+    /// An annotated note that has only seen perfect matches.
+    Annotated { pos: FilePos },
+    /// An annotated note that saw a close match and has been updated. Retains
+    /// its orginal kind, range, and message.
+    Updated { pos: FilePos, annotated: Box<(NoteKind, NoteRange, String)> },
+    /// An emitted note that was not annotated.
+    Emitted,
 }
 
 /// A kind of annotation in a test.
@@ -62,6 +138,171 @@ impl Display for NoteKind {
             Self::Warning => "Warning",
             Self::Hint => "Hint",
         })
+    }
+}
+
+impl Note {
+    /// Build a new emitted note from a span and world.
+    pub fn emitted(
+        kind: NoteKind,
+        stage: TestStages,
+        message: &EcoString,
+        span: Span,
+        world: &TestWorld,
+    ) -> Self {
+        let range = if let Some(id) = span.id()
+            && let Some(range) = world.range(span)
+        {
+            let source = world.source(id).unwrap();
+            let lines = source.lines();
+            NoteRange::Some {
+                start: LineCol::from_index(range.start, lines).unwrap(),
+                end: LineCol::from_index(range.end, lines).unwrap(),
+                source,
+                is_external: id != world.main(),
+                range,
+            }
+        } else {
+            assert!(span.is_detached());
+            NoteRange::None
+        };
+
+        let mut message: String = message.into();
+        if message.contains('\\') {
+            // HACK: Replace backslashes in path sepators with slashes for cross
+            // platform reproducible error messages.
+            static RE: LazyLock<Regex> =
+                LazyLock::new(|| Regex::new("\\((.*) (at|in) (.+)\\)").unwrap());
+            message = RE
+                .replace(&message, |caps: &Captures| {
+                    let path = caps[3].replace('\\', "/");
+                    format!("({} {} {})", &caps[1], &caps[2], path)
+                })
+                .into();
+        }
+
+        Self {
+            status: NoteStatus::Emitted,
+            seen: stage,
+            kind,
+            range,
+            message,
+        }
+    }
+}
+
+/// The range of an annotated diagnostic as indices into a source file and as
+/// lines/columns for display.
+///
+/// We use an explicit enum instead of Option so we can implement Display.
+#[derive(Debug, Clone)]
+pub enum NoteRange {
+    None,
+    Some {
+        source: Source,
+        is_external: bool,
+        range: Range<usize>,
+        start: LineCol,
+        end: LineCol,
+    },
+}
+
+impl NoteRange {
+    /// The annotated text of this range for display when logging.
+    pub fn text(&self) -> String {
+        match self {
+            Self::None => "<detached-span>".to_string(),
+            Self::Some { source, range, .. } => {
+                if range.is_empty() {
+                    "<empty>".to_string()
+                } else {
+                    source.text()[range.clone()].replace("\n", "\\n").replace("\r", "\\r")
+                }
+            }
+        }
+    }
+
+    /// Displayable strings for a difference between two ranges.
+    pub fn diff(&self, other: &Self) -> Option<(String, String)> {
+        if self == other {
+            None
+        } else if let Some(l1) = self.single_line()
+            && let Some(l2) = other.single_line()
+            && l1 == l2
+        {
+            // If annotating the same line, just print the columns.
+            Some((format!("{self}"), format!("{other}")))
+        } else {
+            Some((format!("{self:#}"), format!("{other:#}")))
+        }
+    }
+
+    /// Whether this range spans only a single line in the internal source file.
+    fn single_line(&self) -> Option<usize> {
+        match self {
+            NoteRange::None => None,
+            NoteRange::Some { is_external: true, .. } => None,
+            NoteRange::Some { start, end, .. } => {
+                (start.line == end.line).then_some(start.line)
+            }
+        }
+    }
+
+    /// The start and end columns for this range (even if multiline).
+    fn columns(&self) -> Option<(usize, usize)> {
+        match self {
+            NoteRange::None => None,
+            NoteRange::Some { start, end, .. } => Some((start.col, end.col)),
+        }
+    }
+}
+
+impl Display for NoteRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // This respects padding and prints more info if formatted with the
+        // alternate flag `#` (e.g. format!("{:#}", range)).
+        match self {
+            Self::None if f.alternate() => f.pad("<no-range>"),
+            Self::None => f.pad(""),
+            Self::Some { source, range: _, start, end, is_external } => {
+                let mut buffer = String::new();
+                if *is_external {
+                    let path = TestFiles.resolve(source.id());
+                    write!(buffer, "\"{}\" ", path.display())?;
+                }
+                let must_print_column = f.alternate() || *is_external;
+                if start == end {
+                    if must_print_column {
+                        write!(buffer, "{start}")?;
+                    } else {
+                        write!(buffer, "{}", start.col + 1)?;
+                    }
+                } else if start.line == end.line && !must_print_column {
+                    write!(buffer, "{}-{}", start.col + 1, end.col + 1)?;
+                } else {
+                    write!(buffer, "{start}-{end}")?;
+                }
+                f.pad(&buffer)
+            }
+        }
+    }
+}
+
+// Note that we should only ever compare ranges from the same test.
+impl PartialEq for NoteRange {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::None, Self::None) => true,
+            (
+                Self::Some { is_external: false, range: r1, .. },
+                Self::Some { is_external: false, range: r2, .. },
+            ) => r1 == r2,
+            (
+                Self::Some { source: s1, range: r1, .. },
+                Self::Some { source: s2, range: r2, .. },
+            ) => s1.id() == s2.id() && r1 == r2,
+            _ => false,
+        }
     }
 }
 
@@ -84,6 +325,17 @@ impl LineCol {
             bail!("column {} is out-of-range for line {}", self.col + 1, self.line + 1);
         };
         Ok(index)
+    }
+
+    fn from_index(index: usize, lines: &Lines<String>) -> Option<Self> {
+        let (line, col) = lines.byte_to_line_column(index)?;
+        Some(Self { line, col })
+    }
+}
+
+impl Display for LineCol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.col + 1)
     }
 }
 
@@ -118,7 +370,7 @@ pub fn parse_test_body(
     for (i, annotated_line, kind, mut s) in note_lines {
         let line = pos.line + i;
         let note_pos = FilePos { path: pos.path.clone(), line };
-        match parse_note(note_pos, annotated_line, &mut s, kind, &source) {
+        match parse_note(note_pos, annotated_line, &mut s, kind, source.clone()) {
             Ok(note) => notes.push(note),
             Err(message) => errors.push(TestParseError::new(message, &pos.path, line)),
         }
@@ -143,16 +395,16 @@ fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
 }
 
 /// Parses an annotation in a test, continuing from `parse_note_start`.
-fn parse_note(
+pub fn parse_note(
     pos: FilePos,
     annotated_line: usize,
     s: &mut Scanner,
     kind: NoteKind,
-    source: &Source,
+    source: Source,
 ) -> StrResult<Note> {
     expect_space_after(s, "annotation kind")?;
 
-    let (file, range) = parse_note_range(s, annotated_line, source)?;
+    let range = parse_note_range(s, annotated_line, source)?;
 
     let message = s
         .after()
@@ -161,12 +413,11 @@ fn parse_note(
         .replace("\\n", "\n");
 
     Ok(Note {
-        pos,
+        status: NoteStatus::Annotated { pos },
+        seen: TestStages::empty(),
         kind,
-        file: file.unwrap_or(source.id()),
         range,
         message,
-        seen: TestStages::empty(),
     })
 }
 
@@ -180,35 +431,30 @@ fn expect_space_after(s: &mut Scanner, thing: &str) -> StrResult<()> {
 fn parse_note_range(
     s: &mut Scanner,
     annotated_line: usize,
-    source: &Source,
-) -> StrResult<(Option<FileId>, Option<Range<usize>>)> {
-    let external_lines;
-    let (file, lines) = if s.eat_if('"') {
+    mut source: Source,
+) -> StrResult<NoteRange> {
+    let is_external = s.eat_if('"');
+    if is_external {
         let path = s.eat_until('"');
         if !s.eat_if('"') {
             bail!("expected a closing quote after file path");
         }
         expect_space_after(s, "file path")?;
         let file = TestFiles::rooted_path(path).intern();
-        let data = TestFiles.load(file).map_err(|err| err.to_string())?;
-        let Ok(lines) = Bytes::new(data).lines() else {
+        let Ok(external_source) = TestBase::global().files.source(file) else {
             bail!("errors should only be annotated on valid UTF-8 files");
         };
-        external_lines = lines;
-        (Some(file), &external_lines)
-    } else {
-        (None, source.lines())
-    };
+        source = external_source;
+    }
 
     if !s.at(char::is_numeric) {
-        Ok((file, None))
+        Ok(NoteRange::None)
     } else {
-        let (start, end) = parse_start_end(s, annotated_line, file.is_some())?;
-        let start = start.to_index(lines)?;
-        let end = end.to_index(lines)?;
-
+        let lines = source.lines();
+        let (start, end) = parse_start_end(s, annotated_line, is_external)?;
+        let range = start.to_index(lines)?..end.to_index(lines)?;
         expect_space_after(s, "range")?;
-        Ok((file, Some(start..end)))
+        Ok(NoteRange::Some { source, is_external, range, start, end })
     }
 }
 

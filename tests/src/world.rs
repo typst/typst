@@ -18,7 +18,7 @@ use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
 use typst_kit::files::{FileLoader, FileStore};
 use typst_syntax::package::PackageSpec;
-use typst_syntax::{Lines, RootedPath, VirtualPath, VirtualRoot};
+use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
 
 /// A world that provides access to the tests environment.
@@ -34,10 +34,7 @@ impl TestWorld {
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
     pub fn new(source: Source) -> Self {
-        Self {
-            main: source,
-            base: singleton!(TestBase, TestBase::default()),
-        }
+        Self { main: source, base: TestBase::global() }
     }
 }
 
@@ -79,38 +76,29 @@ impl World for TestWorld {
     }
 }
 
-impl TestWorld {
-    /// Retrieves line metadata for a file.
-    pub fn lines(&self, id: FileId) -> FileResult<Lines<String>> {
-        Ok(if id == self.main.id() {
-            self.main.lines().clone()
-        } else {
-            self.base.files.file(id)?.lines()?
-        })
-    }
-}
-
 /// Shared foundation of all test worlds.
-struct TestBase {
+pub(crate) struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
-    files: FileStore<TestFiles>,
+    pub files: FileStore<TestFiles>,
 }
 
-impl Default for TestBase {
-    fn default() -> Self {
-        let fonts: Vec<_> = typst_assets::fonts()
-            .chain(typst_dev_assets::fonts())
-            .flat_map(|data| Font::iter(Bytes::new(data)))
-            .collect();
+impl TestBase {
+    pub fn global() -> &'static Self {
+        singleton!(TestBase, {
+            let fonts: Vec<_> = typst_assets::fonts()
+                .chain(typst_dev_assets::fonts())
+                .flat_map(|data| Font::iter(Bytes::new(data)))
+                .collect();
 
-        Self {
-            library: LazyHash::new(library()),
-            book: LazyHash::new(FontBook::from_fonts(&fonts)),
-            fonts,
-            files: FileStore::new(TestFiles),
-        }
+            TestBase {
+                library: LazyHash::new(library()),
+                book: LazyHash::new(FontBook::from_fonts(&fonts)),
+                fonts,
+                files: FileStore::new(TestFiles),
+            }
+        })
     }
 }
 
