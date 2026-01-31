@@ -822,8 +822,7 @@ impl<'a> Parser<'a> {
                 return None;
             }
 
-            let vpath = VirtualPath::new(path).unwrap();
-            file = Some(RootedPath::new(VirtualRoot::Project, vpath).intern());
+            file = Some(TestFiles::rooted_path(path).intern());
 
             self.s.eat_if(' ');
         }

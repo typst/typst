@@ -17,7 +17,9 @@ use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
 use typst_kit::files::{FileLoader, FileStore};
-use typst_syntax::{Lines, VirtualRoot};
+use typst_syntax::package::PackageSpec;
+use typst_syntax::{Lines, RootedPath, VirtualPath, VirtualRoot};
+use unscanny::Scanner;
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -122,10 +124,31 @@ impl TestFiles {
         let root = match id.root() {
             VirtualRoot::Project => PathBuf::new(),
             VirtualRoot::Package(spec) => {
+                assert_eq!(spec.namespace, "test");
                 format!("tests/packages/{}-{}", spec.name, spec.version).into()
             }
         };
         id.vpath().realize(&root)
+    }
+
+    /// Get the rooted path for a loaded file.
+    pub fn rooted_path(path: &str) -> RootedPath {
+        let mut s = Scanner::new(path);
+        let root = if s.eat_if("tests/packages/") {
+            let name = s.eat_until('-');
+            s.expect('-');
+            let version = s.eat_until('/');
+            s.expect('/');
+            VirtualRoot::Package(PackageSpec {
+                namespace: "test".into(),
+                name: name.into(),
+                version: version.parse().unwrap(),
+            })
+        } else {
+            VirtualRoot::Project
+        };
+        let vpath = VirtualPath::new(s.after()).unwrap();
+        RootedPath::new(root, vpath)
     }
 }
 

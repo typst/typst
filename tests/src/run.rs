@@ -718,7 +718,7 @@ impl<'a> Runner<'a> {
         self.seen[i] |= stage.into();
 
         // Range is wrong.
-        if range != note.range {
+        if range != note.range || file != note.file {
             let note_range = self.format_range(note.file, &note.range);
             let note_text = self.text_for_range(note.file, &note.range);
             let diag_range = self.format_range(file, &range);
