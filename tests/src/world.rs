@@ -18,7 +18,7 @@ use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
 use typst_kit::files::{FileLoader, FileStore};
 use typst_syntax::package::PackageSpec;
-use typst_syntax::{Lines, RootedPath, VirtualPath, VirtualRoot};
+use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
 
 /// A world that provides access to the tests environment.
@@ -76,17 +76,6 @@ impl World for TestWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
-    }
-}
-
-impl TestWorld {
-    /// Retrieves line metadata for a file.
-    pub fn lines(&self, id: FileId) -> FileResult<Lines<String>> {
-        Ok(if id == self.main.id() {
-            self.main.lines().clone()
-        } else {
-            self.base.files.file(id)?.lines()?
-        })
     }
 }
 

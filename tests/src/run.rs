@@ -1,28 +1,24 @@
 use std::fmt::Write;
-use std::ops::Range;
 use std::path::Path;
-use std::sync::LazyLock;
 
 use parking_lot::RwLock;
-use regex::{Captures, Regex};
-use typst::WorldExt;
 use typst::diag::{SourceDiagnostic, Warned};
 use typst::foundations::{Content, Repr};
 use typst::layout::PagedDocument;
 use typst_html::HtmlDocument;
-use typst_syntax::FileId;
+use typst_syntax::Spanned;
 
 use crate::collect::{
     FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
     TestTarget,
 };
 use crate::logger::TestResult;
-use crate::notes::NoteKind;
+use crate::notes::{Note, NoteKind, NoteStatus};
 use crate::output::{
     FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
 };
 use crate::report::{Old, ReportFile};
-use crate::world::{TestFiles, TestWorld};
+use crate::world::TestWorld;
 use crate::{ARGS, STORE_PATH, custom, git, output};
 
 /// Runs a single test.
@@ -61,7 +57,6 @@ pub struct Runner<'a> {
     test: &'a mut Test,
     world: TestWorld,
     result: TestResult,
-    not_annotated: String,
     unexpected_empty: UnexpectedEmpty,
     unexpected_non_empty: UnexpectedNonEmpty,
 }
@@ -138,7 +133,6 @@ impl<'a> Runner<'a> {
                 mismatched_output: false,
                 report: None,
             },
-            not_annotated: String::new(),
             unexpected_empty: UnexpectedEmpty::None,
             unexpected_non_empty: UnexpectedNonEmpty::None,
         }
@@ -199,9 +193,7 @@ impl<'a> Runner<'a> {
         }
 
         self.handle_empty();
-
-        self.handle_not_emitted();
-        self.handle_not_annotated();
+        self.handle_annotations();
 
         self.result
     }
@@ -247,54 +239,90 @@ impl<'a> Runner<'a> {
         }
     }
 
-    /// Handle errors that weren't annotated.
-    fn handle_not_annotated(&mut self) {
-        if !self.not_annotated.is_empty() {
-            log!(self, "not annotated");
-            self.result.errors.push_str(&self.not_annotated);
+    /// Handle error/warning annotation issues.
+    fn handle_annotations(&mut self) {
+        let mut inconsistent_stages = false;
+        let mut consistent_set = TestStages::all();
+
+        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+            if seen.is_empty() {
+                let NoteStatus::Annotated { pos } = &status else { unreachable!() };
+                if !ARGS.update {
+                    log!(self, "not emitted");
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
+                continue;
+            }
+
+            // Even if a diagnostic is emitted and annotated, it may only have
+            // been emitted in a subset of the ran stages. This may be an error,
+            // but only if that subset isn't "covered" by each ran stage.
+            // For example, if we have a `paged html` test that sees an error
+            // only in `eval`, this is fine because `eval` is covered by both
+            // `paged` and `html`. But we do not support errors occuring in
+            // only one of `paged` or `html` when both are given.
+            let ran_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
+            // Whether the seen stages are implied by all ran stages.
+            let fully_covered =
+                ran_stages.iter().all(|s| s.with_required().intersects(*seen));
+            if !fully_covered {
+                consistent_set &= *seen;
+                inconsistent_stages = true;
+                let siblings = ran_stages & seen.with_siblings();
+                log!(self, "only emitted in [{seen}] but expected in [{siblings}]");
+            }
+
+            // Log errors with the annotated vs. emitted diagnostics.
+            match &status {
+                NoteStatus::Emitted => {
+                    log!(self, "not annotated");
+                    // The `#` ensures the range includes line numbers.
+                    log!(self, "  {kind}: {range:#} {message}");
+                }
+                NoteStatus::Annotated { pos } | NoteStatus::Updated { pos, .. }
+                    if !fully_covered =>
+                {
+                    // Just print the annotation if not fully covered.
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
+                NoteStatus::Annotated { .. } => {} // Annotated and emitted!
+                NoteStatus::Updated { pos, annotated } => {
+                    let (anot_kind, anot_range, anot_message) = &**annotated;
+                    // Kind is wrong.
+                    if anot_kind != kind {
+                        log!(self, "mismatched error kind ({pos}):");
+                        log!(self, "  annotated | `{anot_kind}`");
+                        log!(self, "  emitted   | `{kind}`");
+                    }
+                    // Range is wrong.
+                    if let Some((anot_r, emit_r)) = anot_range.diff(range) {
+                        log!(self, "mismatched range ({pos}):");
+                        if anot_message == message {
+                            log!(self, "  message   | {anot_kind}: {anot_message}");
+                        }
+                        let pad = 10.max(anot_r.len()).max(emit_r.len());
+                        let anot_text = anot_range.text();
+                        log!(self, "  annotated | {anot_r:<pad$} | {}", anot_text);
+                        log!(self, "  emitted   | {emit_r:<pad$} | {}", range.text());
+                    }
+                    // Message is wrong.
+                    if anot_message != message {
+                        log!(self, "mismatched message ({pos}):");
+                        log!(self, "  annotated | {anot_message}");
+                        log!(self, "  emitted   | {message}");
+                    }
+                }
+            }
         }
-    }
 
-    /// Handle notes that weren't handled before.
-    fn handle_not_emitted(&mut self) {
-        for note in self.test.body.notes.iter() {
-            let possible = self.test.attrs.implied_stages() & ARGS.required_stages();
-            if note.seen.is_empty() && !possible.is_empty() {
-                log!(self, "not emitted");
-                let note_range = self.format_range(note.file, &note.range);
-                log!(
-                    self,
-                    "  {}: {note_range} {} ({})",
-                    note.kind,
-                    note.message,
-                    note.pos,
-                );
-                continue;
+        if inconsistent_stages {
+            log!(self, "errors/warnings were emitted differently across multiple stages");
+            if consistent_set.is_empty() {
+                log!(self, "consider moving to multiple tests with different stages");
+            } else {
+                // This will probably be Eval if anything.
+                log!(self, "consider changing the test to only {consistent_set}");
             }
-
-            // Figure out if the diagnostic is only emitted in a specific in a
-            // specific output/target that isn't hit by all possible branches of
-            // the stage tree.
-            // See the doc comment on `TestStages` for an overview.
-            let attr_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
-            let full_branch_coverage =
-                attr_stages.iter().all(|s| s.with_required().intersects(note.seen));
-            if full_branch_coverage {
-                continue;
-            }
-
-            let siblings = note.seen.with_siblings()
-                & self.test.attrs.implied_stages()
-                & ARGS.required_stages();
-            log!(
-                self,
-                "only emitted in [{}] but expected in [{siblings}], \
-                 consider narrowing the test attributes",
-                note.seen
-            );
-
-            let note_range = self.format_range(note.file, &note.range);
-            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos);
         }
     }
 
@@ -648,140 +676,29 @@ impl<'a> Runner<'a> {
         if diag.message == "html export is under active development and incomplete" {
             return;
         }
+        let stage = stage.into();
 
-        let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range, &diag.message, stage);
+        let emitted_diag =
+            Note::emitted(kind, stage, &diag.message, diag.span, &self.world);
+        self.test.body.mark_seen_or_update(emitted_diag);
 
         // Check hints.
-        for hint in &diag.hints {
+        for Spanned { v: hint, span } in &diag.hints {
             // HACK: This hint only gets emitted in debug builds, so filter it
             // out to make the test suite also pass for release builds.
-            if hint.v == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
+            if hint == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
                 continue;
             }
 
-            let span = hint.span.or(diag.span);
-            let range = self.world.range(span);
-            self.validate_note(NoteKind::Hint, span.id(), range, &hint.v, stage);
+            let emitted_hint = Note::emitted(
+                NoteKind::Hint,
+                stage,
+                hint,
+                span.or(diag.span),
+                &self.world,
+            );
+            self.test.body.mark_seen_or_update(emitted_hint);
         }
-    }
-
-    /// Try to find a matching note for the given `kind`, `range`, and
-    /// `message`.
-    ///
-    /// - If found, marks it as seen and returns it.
-    /// - If none was found, emits a "Not annotated" error and returns nothing.
-    fn validate_note(
-        &mut self,
-        kind: NoteKind,
-        file: Option<FileId>,
-        range: Option<Range<usize>>,
-        message: &str,
-        stage: impl TestStage,
-    ) {
-        // HACK: Replace backslashes path sepators with slashes for cross
-        // platform reproducible error messages.
-        static RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new("\\((.*) (at|in) (.+)\\)").unwrap());
-        let message = RE.replace(message, |caps: &Captures| {
-            let path = caps[3].replace('\\', "/");
-            format!("({} {} {})", &caps[1], &caps[2], path)
-        });
-
-        // Try to find perfect match.
-        let file = file.unwrap_or(self.test.body.source.id());
-        if let Some(note) = self.test.body.notes.iter_mut().find(|note| {
-            !note.seen.contains(stage.into())
-                && note.kind == kind
-                && note.range == range
-                && note.message == message
-                && note.file == file
-        }) {
-            note.seen |= stage.into();
-            return;
-        }
-
-        // Try to find closely matching annotation. If the note has the same
-        // range or message, it's most likely the one we're interested in.
-        let Some(note_idx) = self.test.body.notes.iter_mut().position(|note| {
-            let close_match = !note.seen.contains(stage.into())
-                && note.kind == kind
-                && (note.range == range || note.message == message);
-            if close_match {
-                // Mark the annotation as visited during this stage.
-                note.seen |= stage.into();
-            }
-            close_match
-        }) else {
-            // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(file, &range);
-            log!(into: self.not_annotated, "  {kind} [{stage}]: {diag_range} {}", message);
-            return;
-        };
-        // We use indexing to avoid holding a mutable reference to the note.
-        let note = &self.test.body.notes[note_idx];
-
-        // Range is wrong.
-        if range != note.range || file != note.file {
-            let note_range = self.format_range(note.file, &note.range);
-            let note_text = self.text_for_range(note.file, &note.range);
-            let diag_range = self.format_range(file, &range);
-            let diag_text = self.text_for_range(file, &range);
-            log!(self, "mismatched range [{stage}] ({}):", note.pos);
-            log!(self, "  message   | {}", note.message);
-            log!(self, "  annotated | {note_range:<9} | {note_text}");
-            log!(self, "  emitted   | {diag_range:<9} | {diag_text}");
-        }
-
-        // Message is wrong.
-        if message != note.message {
-            log!(self, "mismatched message [{stage}] ({}):", note.pos);
-            log!(self, "  annotated | {}", note.message);
-            log!(self, "  emitted   | {message}");
-        }
-    }
-
-    /// Display the text for a range.
-    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No text".into() };
-        if range.is_empty() {
-            return "(empty)".into();
-        }
-
-        let lines = self.world.lines(file).unwrap();
-        lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
-    }
-
-    /// Display a byte range as a line:column range.
-    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No range".into() };
-
-        let mut preamble = String::new();
-        if file != self.test.body.source.id() {
-            preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
-        }
-
-        if range.start == range.end {
-            format!("{preamble}{}", self.format_pos(file, range.start))
-        } else {
-            format!(
-                "{preamble}{}-{}",
-                self.format_pos(file, range.start),
-                self.format_pos(file, range.end)
-            )
-        }
-    }
-
-    /// Display a position as a line:column pair.
-    fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.world.lines(file).unwrap();
-
-        let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
-        let Some((line, col)) = res else {
-            return "oob".into();
-        };
-
-        if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
     }
 }
 
