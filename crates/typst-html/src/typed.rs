@@ -11,7 +11,7 @@ use bumpalo::Bump;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::html as data;
-use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail, warning};
+use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
@@ -48,8 +48,8 @@ fn create_func_data(
 ) -> NativeFuncData {
     NativeFuncData {
         function: NativeFuncPtr(bump.alloc(
-            move |engine: &mut Engine, _: Tracked<Context>, args: &mut Args| {
-                construct(engine, element, args)
+            move |_: &mut Engine, _: Tracked<Context>, args: &mut Args| {
+                construct(element, args)
             },
         )),
         name: element.name,
@@ -87,7 +87,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
     if !tag::is_void(tag) {
         params.push(if tag::is_raw(tag) {
             ParamInfo {
-                name: "content",
+                name: "body",
                 docs: "The text content of the HTML element.",
                 input: CastInfo::Type(Type::of::<Str>()),
                 default: None,
@@ -115,11 +115,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
 }
 
 /// The native constructor function shared by all HTML elements.
-fn construct(
-    engine: &mut Engine,
-    element: &'static data::ElemInfo,
-    args: &mut Args,
-) -> SourceResult<Value> {
+fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<Value> {
     let mut attrs = HtmlAttrs::default();
     let mut errors = eco_vec![];
 
@@ -151,23 +147,10 @@ fn construct(
 
     if !tag::is_void(tag) {
         let body = if tag::is_raw(tag) {
-            match args.eat::<Spanned<Value>>()? {
-                Some(Spanned { v, span }) if Str::castable(&v) => {
-                    let str = Str::from_value(v).at(span)?;
-                    Some(Content::new(TextElem::new(str.into())))
-                }
-                Some(Spanned { v, span }) => {
-                    let content = Content::from_value(v).at(span)?;
-                    let tag_name = tag.resolve();
-                    engine.sink.warn(warning!(
-                        span,
-                        "passing content inside `html.{}` is deprecated", tag_name;
-                        hint: "use a string instead: `html.{}(\"...\")`", tag_name;
-                    ));
-                    Some(content)
-                }
-                None => None,
-            }
+            let str = args.eat::<Spanned<Str>>()?;
+            str.map(|Spanned { v, span }| {
+                Content::new(TextElem::new(v.into())).spanned(span)
+            })
         } else {
             args.eat::<Content>()?
         };
