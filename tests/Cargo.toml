@@ -35,6 +35,7 @@ hayro = { workspace = true }
 hayro-svg = { workspace = true }
 hayro-syntax = { workspace = true }
 indexmap = { workspace = true }
+open = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }
 roxmltree = { workspace = true }

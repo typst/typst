@@ -153,6 +153,13 @@ impl<'a> Logger<'a> {
         let mut prompt_regen = false;
         if ARGS.gen_report() {
             prompt_regen = report::write(reports).unwrap_or(false);
+
+            if ARGS.open_report {
+                let res = open::that("tests/store/report.html");
+                if let Err(err) = res {
+                    eprintln!("failed to open `tests/store/report.html`: {err}");
+                }
+            }
         }
 
         if self.failed == 0 {

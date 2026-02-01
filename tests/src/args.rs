@@ -56,6 +56,9 @@ pub struct CliArguments {
     /// Don't generate a HTML test report.
     #[arg(long)]
     no_report: bool,
+    /// Don't generate a HTML test report.
+    #[arg(long)]
+    pub open_report: bool,
     /// The git base revision against which the tests will be run.
     ///
     /// If none is specified, it's compared against the current working tree.

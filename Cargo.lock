@@ -3364,6 +3364,7 @@ dependencies = [
  "hayro-svg",
  "hayro-syntax",
  "indexmap",
+ "open",
  "oxipng",
  "parking_lot",
  "rayon",
