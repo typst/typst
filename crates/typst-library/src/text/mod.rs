@@ -48,8 +48,8 @@ use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    Args, Array, Cast, Construct, Content, Dict, Fold, Func, IntoValue, NativeElement,
+    Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Alignment, Axis, Dir, Em, Length, Ratio, Rel};
@@ -357,6 +357,7 @@ pub struct TextElem {
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
+    #[default(Overhang::ENABLED_END)]
     #[ghost]
     pub overhang: Overhang,
 
@@ -730,7 +731,6 @@ pub struct TextElem {
     /// ```example:"Give an array of strings"
     /// // Enable the `frac` feature manually.
     /// #set text(features: ("frac",))
-    /// hlsearch
     /// 1/2
     /// ```
     ///
@@ -1052,168 +1052,54 @@ cast! {
     v: Length => Self(v),
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Protrusion {
-    Builtin,
-    Disabled,
-    Custom(Ratio),
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct RestProtrusion {
-    pub left: bool,
-    pub right: bool,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Overhang {
-    pub protrusions: Vec<(char, (Protrusion, Protrusion))>,
-    pub rest: RestProtrusion,
+/// Whether certain glyphs can hang over into the margin.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Overhang {
+    /// Use built-in algorithm for specified sides.
+    Side { left: bool, right: bool },
+    /// Use built-in algorithm for start or end side.
+    Direction { is_start: bool },
+    /// User-defined function to determine overhang by character.
+    Function(Func),
 }
 
 impl Overhang {
-    pub const DISABLED: Overhang = Overhang {
-        protrusions: Vec::new(),
-        rest: RestProtrusion { left: false, right: false },
-    };
-    pub const ENABLED_RIGHT: Overhang = Overhang {
-        protrusions: Vec::new(),
-        rest: RestProtrusion { left: false, right: true },
-    };
-
-    pub fn left_factor(&self, char: char, built_in: impl FnOnce() -> f64) -> f64 {
-        self.factor(false, char, built_in)
-    }
-
-    pub fn right_factor(&self, char: char, built_in: impl FnOnce() -> f64) -> f64 {
-        self.factor(true, char, built_in)
-    }
-
-    fn factor(&self, is_right: bool, char: char, built_in: impl FnOnce() -> f64) -> f64 {
-        let protrusion = self
-            .protrusions
-            .iter()
-            .find_map(|(glyph, (l, r))| {
-                if *glyph == char { Some(if is_right { r } else { l }) } else { None }
-            })
-            .copied();
-
-        match protrusion {
-            Some(Protrusion::Builtin) => built_in(),
-            Some(Protrusion::Custom(ratio)) => ratio.get(),
-            None if (is_right && self.rest.right) || (!is_right && self.rest.left) => {
-                built_in()
-            }
-            Some(Protrusion::Disabled) | None => 0.0,
-        }
-    }
-}
-
-impl Default for Overhang {
-    fn default() -> Self {
-        Overhang::ENABLED_RIGHT
-    }
-}
-
-cast! {
-    Protrusion,
-    self => match self {
-        Self::Builtin => true.into_value(),
-        Self::Disabled => false.into_value(),
-        Self::Custom(value) => value.into_value(),
-    },
-    v: bool => if v { Self::Builtin } else { Self::Disabled },
-    v: Ratio => Self::Custom(v),
-}
-
-cast! {
-    RestProtrusion,
-    self => if self.left && self.right {
-        true.into_value()
-    } else if self.left {
-        Alignment::LEFT.into_value()
-    } else if self.right {
-        Alignment::RIGHT.into_value()
-    } else {
-        false.into_value()
-    },
-    v: Alignment => match v {
-        Alignment::LEFT => RestProtrusion {
-            left: true,
-            right: false,
-        },
-        Alignment::RIGHT => RestProtrusion {
-            left: false,
-            right: true
-        },
-        _ => bail!("expected either `true`, `left`, `right` or `false`"),
-    },
-    v: bool => if v {
-        RestProtrusion {
-            left: true,
-            right: true,
-        }
-    } else {
-        RestProtrusion {
-            left: false,
-            right: false,
-        }
-    }
+    pub const DISABLED: Overhang = Overhang::Side { left: false, right: false };
+    pub const ENABLED_END: Overhang = Overhang::Direction { is_start: false };
 }
 
 cast! {
     Overhang,
-    self => if self.protrusions.is_empty() {
-        self.rest.into_value()
-    } else {
-        self
-            .protrusions
-            .into_iter()
-            .map(|(char, (l, r))| {
-                (char.into(), vec![l.into_value(), r.into_value()].into_value())
-            })
-            .chain(std::iter::once(("rest".into(), self.rest.into_value())))
-            .collect::<Dict>()
-            .into_value()
-    },
-    v: bool => Overhang {
-        protrusions: Vec::new(),
-        rest: RestProtrusion::from_value(v.into_value())?
-    },
-    v: Alignment => Overhang {
-        protrusions: Vec::new(),
-        rest: RestProtrusion::from_value(v.into_value())?
-    },
-    mut dict: Dict => {
-        let rest = dict
-            .take("rest")
-            .ok()
-            .map(RestProtrusion::from_value)
-            .transpose()?
-            .unwrap_or(RestProtrusion { left: false, right: false });
-
-        let protrusions = dict.iter().try_fold(Vec::with_capacity(dict.len()), |mut protrusions, (k, v)| {
-            let mut chars = k.chars();
-            let (Some(c), None) = (chars.next(), chars.next()) else {
-                bail!("key should contain only one character")
-            };
-
-            let v = Array::from_value(v.clone())?;
-
-            if v.len() != 2 {
-                bail!("invalid protrusion values, expected array of two items")
+    self => match self {
+        Overhang::Side { left, right } => {
+            if left && right {
+                true.into_value()
+            } else if left {
+                Alignment::LEFT.into_value()
+            } else if right {
+                Alignment::RIGHT.into_value()
+            } else {
+                false.into_value()
             }
-
-            let l = Protrusion::from_value(v.as_slice()[0].clone())?;
-            let r = Protrusion::from_value(v.as_slice()[1].clone())?;
-
-            protrusions.push((c, (l, r)));
-
-            HintedStrResult::Ok(protrusions)
-        })?;
-
-        Overhang { protrusions, rest }
+        },
+        Overhang::Direction { is_start } => {
+            if is_start {
+                Alignment::START.into_value()
+            } else {
+                Alignment::END.into_value()
+            }
+        },
+        Overhang::Function(func) => func.into_value(),
     },
+    v: bool => Overhang::Side { left: v, right: v },
+    v: Alignment => match v {
+        Alignment::LEFT => Overhang::Side { left: true, right: false },
+        Alignment::RIGHT => Overhang::Side { left: false, right: true },
+        Alignment::START => Overhang::Direction { is_start: true },
+        Alignment::END => Overhang::Direction { is_start: false },
+        _ => bail!("expected `left`, `right`, `start` or `end`"),
+    },
+    v: Func => Overhang::Function(v),
 }
 
 /// Specifies the top edge of text.

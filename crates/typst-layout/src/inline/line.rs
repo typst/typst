@@ -1,12 +1,14 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
-
+use typst_library::diag::At;
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::{Context, IntoValue, Resolve};
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{
+    Abs, Alignment, Dir, Em, Fr, Frame, FrameItem, Point, Ratio,
+};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, variant};
+use typst_library::text::{Lang, Overhang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -503,10 +505,13 @@ pub fn commit(
         && let Some(glyph) = text.glyphs.first()
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let factor = text
-            .styles
-            .get_ref(TextElem::overhang)
-            .left_factor(glyph.c, || default_overhang(glyph.c));
+        let factor = overhang(
+            engine,
+            text.styles.get_ref(TextElem::overhang),
+            text.dir,
+            false,
+            glyph.c,
+        )?;
 
         let amount = factor * glyph.x_advance.at(glyph.size);
         offset -= amount;
@@ -518,10 +523,13 @@ pub fn commit(
         && let Some(glyph) = text.glyphs.last()
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let factor = text
-            .styles
-            .get_ref(TextElem::overhang)
-            .right_factor(glyph.c, || default_overhang(glyph.c));
+        let factor = overhang(
+            engine,
+            text.styles.get_ref(TextElem::overhang),
+            text.dir,
+            true,
+            glyph.c,
+        )?;
 
         let amount = factor * glyph.x_advance.at(glyph.size);
         remaining += amount;
@@ -678,20 +686,58 @@ fn add_par_line_marker(
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn default_overhang(c: char) -> f64 {
-    match c {
-        // Dashes.
-        '–' | '—' => 0.2,
-        '-' | '\u{ad}' => 0.55,
+fn overhang(
+    engine: &mut Engine,
+    overhang: &Overhang,
+    dir: Dir,
+    is_right: bool,
+    c: char,
+) -> SourceResult<f64> {
+    fn default_overhang(c: char) -> f64 {
+        match c {
+            // Dashes.
+            '–' | '—' => 0.2,
+            '-' | '\u{ad}' => 0.55,
 
-        // Punctuation.
-        '.' | ',' => 0.8,
-        ':' | ';' => 0.3,
+            // Punctuation.
+            '.' | ',' => 0.8,
+            ':' | ';' => 0.3,
 
-        // Arabic
-        '\u{60C}' | '\u{6D4}' => 0.4,
+            // Arabic
+            '\u{60C}' | '\u{6D4}' => 0.4,
 
-        _ => 0.0,
+            _ => 0.0,
+        }
+    }
+
+    match *overhang {
+        Overhang::Side { left, right } => {
+            if (is_right && right) || (!is_right && left) {
+                Ok(default_overhang(c))
+            } else {
+                Ok(0.0)
+            }
+        }
+        Overhang::Direction { is_start } => {
+            let is_line_start = dir.is_positive() != is_right;
+            if is_line_start == is_start { Ok(default_overhang(c)) } else { Ok(0.0) }
+        }
+        Overhang::Function(ref overhang) => {
+            let side = if is_right { Alignment::RIGHT } else { Alignment::LEFT };
+
+            let factor = overhang
+                .call(
+                    engine,
+                    Context::none().track(),
+                    [c.into_value(), side.into_value()],
+                )?
+                .cast::<Smart<Ratio>>()
+                .at(overhang.span())?
+                .map(Ratio::get)
+                .unwrap_or_else(|| default_overhang(c));
+
+            Ok(factor)
+        }
     }
 }
 
