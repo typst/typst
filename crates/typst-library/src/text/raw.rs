@@ -2,6 +2,15 @@ use std::cell::LazyCell;
 use std::ops::Range;
 use std::sync::{Arc, LazyLock};
 
+use comemo::Tracked;
+use ecow::{EcoString, EcoVec};
+use syntect::highlighting::{self as synt};
+use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use typst_library::text::Overhang;
+use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
+use typst_utils::ManuallyHash;
+use unicode_segmentation::UnicodeSegmentation;
+
 use super::Lang;
 use crate::World;
 use crate::diag::{
@@ -19,14 +28,6 @@ use crate::model::{Figurable, ParElem};
 use crate::routines::Routines;
 use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
-use comemo::Tracked;
-use ecow::{EcoString, EcoVec};
-use syntect::highlighting::{self as synt};
-use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_library::text::Overhang;
-use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
-use typst_utils::ManuallyHash;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Raw text with optional syntax highlighting.
 ///
