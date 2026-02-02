@@ -25,6 +25,7 @@ impl SuiteError {
 }
 
 /// The result of running a single test.
+#[derive(Default)]
 pub struct TestResult {
     /// The error log for this test. If empty, the test passed.
     pub errors: String,
