@@ -66,10 +66,7 @@ And then he said: #linebreak(justify: true)
 )
 #set text(
   size: 9pt,
-  overhang: (char, side) =>
-    protrusion-table
-      .at(char, default: (0%, auto))
-      .at(if side == left { 0 } else if side == right { 1 })
+  overhang: (map: protrusion-table, default: right),
 )
 #set par(justify: true, linebreaks: "simple")
 “A well-proportioned overhang can make a paragraph look much more
