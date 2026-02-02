@@ -230,12 +230,7 @@ fn run_parser_test(
     live_path: &Path,
     ref_path: &Option<PathBuf>,
 ) -> TestResult {
-    let mut result = TestResult {
-        errors: String::new(),
-        infos: String::new(),
-        mismatched_output: false,
-        report: None,
-    };
+    let mut result = TestResult::default();
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
     let tree = format!("{:#?}\n", test.body.source.root());

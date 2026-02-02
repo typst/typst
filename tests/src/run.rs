@@ -127,12 +127,7 @@ impl<'a> Runner<'a> {
             hashes,
             test,
             world,
-            result: TestResult {
-                errors: String::new(),
-                infos: String::new(),
-                mismatched_output: false,
-                report: None,
-            },
+            result: TestResult::default(),
             unexpected_empty: UnexpectedEmpty::None,
             unexpected_non_empty: UnexpectedNonEmpty::None,
         }
