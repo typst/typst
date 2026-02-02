@@ -1,14 +1,11 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
-use typst_library::diag::At;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Context, IntoValue, Resolve};
+use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{
-    Abs, Alignment, Dir, Em, Fr, Frame, FrameItem, Point, Ratio,
-};
+use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point, Rel};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, Overhang, TextElem, variant};
+use typst_library::text::{BuiltInOverhang, Lang, Overhang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -500,38 +497,28 @@ pub fn commit(
         offset += p.config.hanging_indent;
     }
 
-    // Handle hanging punctuation to the left.
-    if let Some(text) = line.items.leading_text()
-        && let Some(glyph) = text.glyphs.first()
-        && (line.items.len() > 1 || text.glyphs.len() > 1)
-    {
-        let factor = overhang(
-            engine,
+    // Handle left margin kerning.
+    if let Some((text, glyph)) = line_side_glyph(line, false) {
+        let amount = margin_kerning(
             text.styles.get_ref(TextElem::overhang),
             text.dir,
             false,
-            glyph.c,
-        )?;
+            glyph,
+        );
 
-        let amount = factor * glyph.x_advance.at(glyph.size);
         offset -= amount;
         remaining += amount;
     }
 
-    // Handle hanging punctuation to the right.
-    if let Some(text) = line.items.trailing_text()
-        && let Some(glyph) = text.glyphs.last()
-        && (line.items.len() > 1 || text.glyphs.len() > 1)
-    {
-        let factor = overhang(
-            engine,
+    // Handle right margin kerning.
+    if let Some((text, glyph)) = line_side_glyph(line, true) {
+        let amount = margin_kerning(
             text.styles.get_ref(TextElem::overhang),
             text.dir,
             true,
-            glyph.c,
-        )?;
+            glyph,
+        );
 
-        let amount = factor * glyph.x_advance.at(glyph.size);
         remaining += amount;
     }
 
@@ -682,17 +669,39 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
+/// Get the glyph and corresponding text at the start or end of the line
+/// for margin kerning calculation.
+pub(crate) fn line_side_glyph<'a>(
+    line: &'a Line,
+    is_right_side: bool,
+) -> Option<(&'a ShapedText<'a>, &'a ShapedGlyph)> {
+    let text = if is_right_side {
+        line.items.trailing_text()?
+    } else {
+        line.items.leading_text()?
+    };
+
+    let glyph = if is_right_side { text.glyphs.last()? } else { text.glyphs.first()? };
+
+    if !(line.items.len() > 1 || text.glyphs.len() > 1) {
+        return None;
+    }
+
+    Some((text, glyph))
+}
+
 /// How much a character should hang into the margin.
 ///
 /// For more discussion, see:
-/// <https://recoveringphysicist.com/21/>
-fn overhang(
-    engine: &mut Engine,
+///
+/// - <https://recoveringphysicist.com/21/>
+/// - [Hàn Thế Thành's dissertation](https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
+pub(crate) fn margin_kerning(
     overhang: &Overhang,
     dir: Dir,
-    is_right: bool,
-    c: char,
-) -> SourceResult<f64> {
+    is_right_margin: bool,
+    glyph: &ShapedGlyph,
+) -> Abs {
     fn default_overhang(c: char) -> f64 {
         match c {
             // Dashes.
@@ -710,35 +719,38 @@ fn overhang(
         }
     }
 
-    match *overhang {
-        Overhang::Side { left, right } => {
-            if (is_right && right) || (!is_right && left) {
-                Ok(default_overhang(c))
+    let protrusion = overhang
+        .table
+        .0
+        .iter()
+        .find_map(|(c, (left, right))| {
+            if glyph.c == *c {
+                Some(if is_right_margin { *right } else { *left })
             } else {
-                Ok(0.0)
+                None
             }
-        }
-        Overhang::Direction { is_start } => {
-            let is_line_start = dir.is_positive() != is_right;
-            if is_line_start == is_start { Ok(default_overhang(c)) } else { Ok(0.0) }
-        }
-        Overhang::Function(ref overhang) => {
-            let side = if is_right { Alignment::RIGHT } else { Alignment::LEFT };
+        })
+        .unwrap_or_else(|| {
+            let factor = match overhang.default {
+                BuiltInOverhang::Side { left, right } => {
+                    if (is_right_margin && right) || (!is_right_margin && left) {
+                        default_overhang(glyph.c)
+                    } else {
+                        0.0
+                    }
+                }
+                BuiltInOverhang::Direction { start } => {
+                    let is_line_start = dir.is_positive() != is_right_margin;
+                    if is_line_start == start { default_overhang(glyph.c) } else { 0.0 }
+                }
+            };
+            Smart::Custom(Rel::one() * factor)
+        })
+        .unwrap_or_else(|| Rel::one() * default_overhang(glyph.c));
 
-            let factor = overhang
-                .call(
-                    engine,
-                    Context::none().track(),
-                    [c.into_value(), side.into_value()],
-                )?
-                .cast::<Smart<Ratio>>()
-                .at(overhang.span())?
-                .map(Ratio::get)
-                .unwrap_or_else(|| default_overhang(c));
-
-            Ok(factor)
-        }
-    }
+    protrusion
+        .map(|length| length.at(glyph.size))
+        .relative_to(glyph.x_advance.at(glyph.size))
 }
 
 /// A collection of owned or borrowed inline items.

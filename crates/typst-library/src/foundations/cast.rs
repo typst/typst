@@ -189,6 +189,12 @@ impl IntoValue for (&Str, &Value) {
     }
 }
 
+impl<T: IntoValue> IntoValue for (T, T) {
+    fn into_value(self) -> Value {
+        Value::Array(array![self.0.into_value(), self.1.into_value()])
+    }
+}
+
 impl<T: IntoValue + Clone> IntoValue for Cow<'_, T> {
     fn into_value(self) -> Value {
         self.into_owned().into_value()
