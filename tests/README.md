@@ -8,7 +8,7 @@ Top level directory structure:
            following `--- {name} {attr}+ ---`.
 - `ref`: References which the output is compared with to determine whether a
          test passed or failed.
-- `store`: Store for PNG, PDF, and SVG output files produced by the tests.
+- `store`: Store for live output files produced by the tests.
 
 ## Running the tests
 Running all tests (including unit tests):
@@ -83,6 +83,48 @@ You can specify multiple stages, separated by commas:
 cargo testit --stages html,pdftags
 ```
 
+### Test report
+When there are failing tests, by default, a self-contained HTML test report is
+generated and written to `tests/store/report.html`. This can be disabled using
+the `--no-report` flag, and to automatically open it, the `--open-report` flag
+can be passed.
+
+## Testing strategies
+There are currently two approaches to testing output in the test suite.
+
+### File references
+File references store the expected output directly inside the `ref` directory
+and are committed to this repository. Newly produced output is compared to the
+expected reference in order to determine if a test fails or passes.
+
+### Hashed references
+Hashed references only store a hash of the expected output inside a
+`ref/{format}/hashes.txt` file, which is committed to this repository. This is
+mainly done to prevent repository bloat; each hash takes up only 32 bytes of
+storage space, no matter how large the output file. When a test is run, its
+output is hashed using the same stable hash function and compared to the
+reference hash.
+
+This would be pretty unhelpful on its own, since a mismatched hash doesn't tell
+what exactly changed about the output, only that *something* changed. In order
+to make the output file corresponding to a reference hash available, the live
+output of hashed reference tests is stored inside the `store/by-hash` directory,
+qualified with its hash: `{hash}_{name}.{extension}`. For convenience, the test
+runner creates symlinks from `store/{format}/` to the files in `store/by-hash`.
+This allows manual inspection of the newly generated live output just like
+normal file references.
+
+Since the `store` directory is not committed to the repository, old live output
+could be absent, for example, after running `cargo testit clean` or when
+checking out the repository on another machine. When tests fail, and missing old
+live output is detected, the test wrapper will ask if it should generate it.
+This is done by checking out the git revision in which the reference hash was
+committed and rerunning the test suite. It can also be done manually by running
+`cargo testit regen`.
+
+To wrap things up, a [test report](#test-report) is generated that includes text
+and image diffs of failing tests.
+
 ## Writing tests
 The syntax for an individual test is `--- {name} {attr}+ ---` followed by some
 Typst code that should be tested. The name must be globally unique in the test
@@ -149,7 +191,7 @@ If you have the choice between writing a test using assertions or using
 reference images, prefer assertions. This makes the test easier to understand
 in isolation and prevents bloat due to images.
 
-## Updating reference images
+## Updating references
 If you created a new test or fixed a bug in an existing test, you may need to
 update the reference output used for comparison. For this, you can use the
 `--update` flag:
