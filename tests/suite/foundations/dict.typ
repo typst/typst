@@ -68,6 +68,7 @@
   let y = (b: 2)
   let z = (3,4)
   // Error: 4-7 cannot spread dictionary into array
+  // Hint: 4-7 use `(:..spread)` syntax to spread multiple dictionaries together
   (..x,..y)
 }
 
