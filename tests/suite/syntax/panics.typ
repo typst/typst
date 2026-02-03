@@ -3,9 +3,9 @@
 --- issue-4571-panic-when-compiling-invalid-file paged ---
 // Test that trying to parse the following does not result in a panic.
 
-// Error: 1:9-10 unclosed delimiter
+// Error: 1:9-1:10 unclosed delimiter
 // Error: 1:22 expected pattern
-// Error: 1:23-24 unexpected star
+// Error: 1:23-1:24 unexpected star
 // Error: 2:1-2:2 the character `#` is not valid in code
 // Hint: 2:1-2:2 you are already in code mode
 // Hint: 2:1-2:2 try removing the `#`

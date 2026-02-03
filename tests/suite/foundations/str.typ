@@ -370,5 +370,5 @@
 #test("ax̂e".rev(), "ex̂a")
 
 --- string-unclosed paged ---
-// Error: 2-2:1 unclosed string
+// Error: 1:2-2:1 unclosed string
 #"hello\"
