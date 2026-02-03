@@ -250,8 +250,7 @@ impl Eval for ast::Array<'_> {
                             let ast::ArrayItem::Spread(spd) = it else {
                                 return false;
                             };
-                            spd
-                                .expr()
+                            spd.expr()
                                 .eval(vm)
                                 .is_ok_and(|val| val.ty() == Type::of::<Dict>())
                         }) {
