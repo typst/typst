@@ -61,6 +61,26 @@
   test((..(a: 1), b: 2), (a: 1, b: 2))
 }
 
+--- spread-multiple-dicts-diagnostic paged ---
+
+#{
+  let x = (a: 1)
+  let y = (b: 2)
+  let z = (3,4)
+  // Error: 4-7 cannot spread dictionary into array
+  (..x,..y)
+}
+
+--- spread-multiple-dicts-diagnostic paged ---
+
+#{
+  let x = (a: 1)
+  let y = (b: 2)
+  let z = (3,4)
+  // Error: 4-7 cannot spread dictionary into array
+  (..x,..y)
+}
+
 --- spread-array-into-dict eval ---
 // Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
