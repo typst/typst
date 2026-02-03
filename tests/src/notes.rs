@@ -1,20 +1,40 @@
-//! Error and warning annotations in tests.
+//! Test sources and error/warning annotations in tests.
 //!
 //! Note that as of Feb 2025, there are only around 1400 annotations total in
 //! the test suite, so optimizations here should be for developer comfort, not
 //! size/speed.
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
+use std::path::Path;
 
 use typst::diag::{StrResult, bail};
 use typst::foundations::Bytes;
 use typst_kit::files::FileLoader;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{FileId, Lines, Source};
+use typst_syntax::{
+    FileId, Lines, RootedPath, Source, VirtualPath, VirtualRoot
+};
 use unscanny::Scanner;
 
-use crate::collect::{FilePos, TestStages};
+use crate::collect::{FilePos, TestParseError, TestStages};
 use crate::world::TestFiles;
+
+/// The body of a test.
+pub struct TestBody {
+    /// The start of the body.
+    pub pos: FilePos,
+    /// The source of the body, excluding annotation comments.
+    pub source: Source,
+    /// The annotation comments for this test.
+    pub notes: Vec<Note>,
+}
+
+impl TestBody {
+    /// Whether there are any annotated errors.
+    pub fn has_error(&self) -> bool {
+        self.notes.iter().any(|n| n.kind == NoteKind::Error)
+    }
+}
 
 /// An annotation like `// Error: 2-6 message` in a test.
 pub struct Note {
@@ -68,8 +88,48 @@ impl LineCol {
     }
 }
 
+/// Parse the body of a test.
+pub fn parse_test_body(
+    pos: FilePos,
+    full_body: &str,
+    errors: &mut Vec<TestParseError>,
+) -> TestBody {
+    // First parse the source string, adding note lines to a separate vec.
+    let mut body = String::with_capacity(full_body.len());
+    let mut annotated_line = 0;
+    let mut note_lines: Vec<(usize, usize, NoteKind, Scanner)> = vec![];
+    for (i, line) in full_body.lines().enumerate() {
+        let mut s = Scanner::new(line);
+        if let Some(kind) = parse_note_start(&mut s) {
+            // Notes annotate the next non-note line.
+            note_lines.push((i, annotated_line, kind, s));
+        } else {
+            body.push_str(line);
+            body.push('\n');
+            annotated_line += 1;
+        }
+    }
+
+    // Then create a source file for the test body.
+    let vpath = VirtualPath::virtualize(Path::new(""), &pos.path).unwrap();
+    let source = Source::new(RootedPath::new(VirtualRoot::Project, vpath).intern(), body);
+
+    // Finish by actually parsing the note lines now that we have the body.
+    let mut notes = Vec::with_capacity(note_lines.len());
+    for (i, annotated_line, kind, mut s) in note_lines {
+        let line = pos.line + i;
+        let note_pos = FilePos { path: pos.path.clone(), line };
+        match parse_note(note_pos, annotated_line, &mut s, kind, &source) {
+            Ok(note) => notes.push(note),
+            Err(message) => errors.push(TestParseError::new(message, &pos.path, line)),
+        }
+    }
+
+    TestBody { pos, source, notes }
+}
+
 /// Parse the start of a note into a kind.
-pub fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
+fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
     s.eat_while(' ');
     for (pattern, kind) in [
         ("// Error:", NoteKind::Error),
@@ -84,23 +144,14 @@ pub fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
 }
 
 /// Parses an annotation in a test, continuing from `parse_note_start`.
-pub fn parse_note(
+fn parse_note(
     pos: FilePos,
-    line_idx: usize,
+    annotated_line: usize,
     s: &mut Scanner,
     kind: NoteKind,
     source: &Source,
 ) -> StrResult<Note> {
     expect_space_after(s, "annotation kind")?;
-
-    let next_line = line_idx + 1;
-    let comments = source
-        .text()
-        .lines()
-        .skip(next_line)
-        .take_while(|line| line.trim().starts_with("//"))
-        .count();
-    let annotated_line = next_line + comments;
 
     let (file, range) = parse_note_range(s, annotated_line, source)?;
 

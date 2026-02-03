@@ -8,12 +8,10 @@ use bitflags::{Flags, bitflags};
 use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_pdf::PdfStandard;
-use typst_syntax::{
-    RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident, is_newline,
-};
+use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
-use crate::notes::{Note, NoteKind, parse_note, parse_note_start};
+use crate::notes::{TestBody, parse_test_body};
 use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
@@ -59,23 +57,6 @@ impl Display for Test {
         } else {
             write!(f, "{} ({})", self.name, self.body.pos)
         }
-    }
-}
-
-/// The body of a test.
-pub struct TestBody {
-    /// The start of the body.
-    pub pos: FilePos,
-    /// The source of the body, excluding annotation comments.
-    pub source: Source,
-    /// The annotation comments for this test.
-    pub notes: Vec<Note>,
-}
-
-impl TestBody {
-    /// Whether there are any annotated errors.
-    pub fn has_error(&self) -> bool {
-        self.notes.iter().any(|n| n.kind == NoteKind::Error)
     }
 }
 
@@ -648,7 +629,7 @@ impl<'a> Parser<'a> {
             }
 
             let body = self.s.from(start);
-            let body = self.parse_body(pos, body);
+            let body = parse_test_body(pos, body, &mut self.collector.errors);
 
             self.collector.tests.push(Test { name, attrs, body });
         }
@@ -751,34 +732,6 @@ impl<'a> Parser<'a> {
             self.error(format!("duplicate attribute `{attr}`"));
         }
         flags.insert(flag);
-    }
-
-    /// Parse the body of a test.
-    fn parse_body(&mut self, pos: FilePos, body: &str) -> TestBody {
-        let vpath = VirtualPath::virtualize(Path::new(""), &self.path).unwrap();
-        let source = Source::new(
-            RootedPath::new(VirtualRoot::Project, vpath).intern(),
-            body.to_string(),
-        );
-
-        let mut notes = vec![];
-        for (i, line) in body.lines().enumerate() {
-            let mut line_scanner = Scanner::new(line);
-
-            if let Some(kind) = parse_note_start(&mut line_scanner) {
-                let line = self.test_start_line + i;
-                let pos = FilePos { path: self.path.clone(), line };
-                match parse_note(pos, i, &mut line_scanner, kind, &source) {
-                    Ok(note) => notes.push(note),
-                    Err(message) => self
-                        .collector
-                        .errors
-                        .push(TestParseError::new(message, &self.path, line)),
-                }
-            }
-        }
-
-        TestBody { pos, source, notes }
     }
 
     /// Stores a test parsing error.
