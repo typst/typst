@@ -5,12 +5,12 @@
 //! size/speed.
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
-use std::str::FromStr;
 
+use typst::diag::{StrResult, bail};
 use typst::foundations::Bytes;
 use typst_kit::files::FileLoader;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{FileId, Source, is_id_continue, is_newline};
+use typst_syntax::{FileId, Lines, Source};
 use unscanny::Scanner;
 
 use crate::collect::{FilePos, TestStages};
@@ -35,19 +35,6 @@ pub enum NoteKind {
     Hint,
 }
 
-impl FromStr for NoteKind {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "Error" => Self::Error,
-            "Warning" => Self::Warning,
-            "Hint" => Self::Hint,
-            _ => return Err(()),
-        })
-    }
-}
-
 impl Display for NoteKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
@@ -58,19 +45,42 @@ impl Display for NoteKind {
     }
 }
 
+/// Line and column indices for a range. Stored with 0-indexing, but displayed
+/// with 1-indexing.
+///
+/// Note that columns are char-indices, not bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LineCol {
+    pub line: usize,
+    pub col: usize,
+}
+
+impl LineCol {
+    fn to_index(self, lines: &Lines<String>) -> StrResult<usize> {
+        if lines.line_to_range(self.line).is_none() {
+            bail!("line {} is out-of-range", self.line + 1);
+        }
+        if let Some(index) = lines.line_column_to_byte(self.line, self.col) {
+            Ok(index)
+        } else {
+            bail!("column {} is out-of-range for line {}", self.col + 1, self.line + 1);
+        }
+    }
+}
+
 /// Parse the start of a note into a kind.
 pub fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
     s.eat_while(' ');
-    if s.eat_if("// ")
-        && let head = s.eat_while(is_id_continue)
-        && s.eat_if(':')
-        && let Ok(kind) = head.parse::<NoteKind>()
-    {
-        s.eat_if(' ');
-        Some(kind)
-    } else {
-        None
+    for (pattern, kind) in [
+        ("// Error:", NoteKind::Error),
+        ("// Warning:", NoteKind::Warning),
+        ("// Hint:", NoteKind::Hint),
+    ] {
+        if s.eat_if(pattern) {
+            return Some(kind);
+        }
     }
+    None
 }
 
 /// Parses an annotation in a test, continuing from `parse_note_start`.
@@ -80,31 +90,19 @@ pub fn parse_note(
     s: &mut Scanner,
     kind: NoteKind,
     source: &Source,
-) -> Result<Note, String> {
-    let mut file = None;
-    if s.eat_if('"') {
-        let path = s.eat_until(|c| is_newline(c) || c == '"');
-        if !s.eat_if('"') {
-            return Err("expected closing quote after file path".to_string());
-        }
+) -> StrResult<Note> {
+    expect_space_after(s, "annotation kind")?;
 
-        file = Some(TestFiles::rooted_path(path).intern());
+    let next_line = line_idx + 1;
+    let comments = source
+        .text()
+        .lines()
+        .skip(next_line)
+        .take_while(|line| line.trim().starts_with("//"))
+        .count();
+    let annotated_line = next_line + comments;
 
-        s.eat_if(' ');
-    }
-
-    let mut range = None;
-    if s.at('-') || s.at(char::is_numeric) {
-        if let Some(file) = file {
-            range = parse_range_external(s, file)?;
-        } else {
-            range = parse_range_internal(s, line_idx, source);
-        }
-
-        if range.is_none() {
-            return Err("range is malformed".to_string());
-        }
-    }
+    let (file, range) = parse_note_range(s, annotated_line, source)?;
 
     let message = s
         .after()
@@ -122,95 +120,146 @@ pub fn parse_note(
     })
 }
 
-/// Parse a range in an external file, optionally abbreviated as just a position
-/// if the range is empty.
-fn parse_range_external(
-    s: &mut Scanner,
-    file: FileId,
-) -> Result<Option<Range<usize>>, String> {
-    let bytes = match TestFiles.load(file) {
-        Ok(data) => Bytes::new(data),
-        Err(err) => return Err(err.to_string()),
-    };
-
-    let Some(start) = parse_line_col(s)? else { return Ok(None) };
-    let lines = bytes.lines().expect(
-        "errors shouldn't be annotated for files \
-             that aren't human readable (not valid UTF-8)",
-    );
-    let range = if s.eat_if('-') {
-        let (line, col) = start;
-        let start = lines.line_column_to_byte(line, col);
-        let Some((line, col)) = parse_line_col(s)? else { return Ok(None) };
-        let end = lines.line_column_to_byte(line, col);
-        Option::zip(start, end).map(|(a, b)| a..b)
-    } else {
-        let (line, col) = start;
-        lines.line_column_to_byte(line, col).map(|i| i..i)
-    };
-    if range.is_none() {
-        return Err("range is out of bounds".to_string());
-    }
-    Ok(range)
+/// Eat a space or return an error that a space was expected.
+fn expect_space_after(s: &mut Scanner, thing: &str) -> StrResult<()> {
+    if s.eat_if(' ') { Ok(()) } else { bail!("expected a space after {thing}") }
 }
 
-/// Parses absolute `line:column` indices in an external file.
-fn parse_line_col(s: &mut Scanner) -> Result<Option<(usize, usize)>, String> {
-    let Some(line) = parse_number(s) else { return Ok(None) };
-    if !s.eat_if(':') {
-        return Err(
-            "positions in external files always require both `<line>:<col>`".to_string()
+/// Parse the range of an annotation, either internal to this test or external
+/// at the given path.
+fn parse_note_range(
+    s: &mut Scanner,
+    annotated_line: usize,
+    source: &Source,
+) -> StrResult<(Option<FileId>, Option<Range<usize>>)> {
+    let external_lines;
+    let (file, lines) = if s.eat_if('"') {
+        let path = s.eat_until('"');
+        if !s.eat_if('"') {
+            bail!("expected a closing quote after file path");
+        }
+        expect_space_after(s, "file path")?;
+        let file = TestFiles::rooted_path(path).intern();
+        let data = TestFiles.load(file).map_err(|err| err.to_string())?;
+        let Ok(lines) = Bytes::new(data).lines() else {
+            bail!("errors should only be annotated on valid UTF-8 files");
+        };
+        external_lines = lines;
+        (Some(file), &external_lines)
+    } else {
+        (None, source.lines())
+    };
+
+    if !s.at(char::is_numeric) {
+        Ok((file, None))
+    } else {
+        let (start, end) = parse_line_col_range(s, annotated_line, file.is_some())?;
+        let start = start.to_index(lines)?;
+        let end = end.to_index(lines)?;
+
+        expect_space_after(s, "range")?;
+        Ok((file, Some(start..end)))
+    }
+}
+
+/// Parse the human-readable line-column range being annotated.
+///
+/// This can be any of:
+/// - No range (handled by caller)
+/// - A full line/column range: `<line>:<col>-<line>:<col>`
+/// - A column range on a single line: `<col>-<col>`
+/// - A line/column position: `<line>:<col>`
+/// - A column position: `<col>`
+///
+/// Note that columns are character indices, not byte indices.
+///
+/// For an internal file, the line is an offset from the the next non-annotation
+/// line in the test body. For an external annotation, both line and column are
+/// required.
+///
+/// For example, in:
+/// ```typ
+/// --- example-annotation-test eval ---
+/// // Error: 1-2 First
+/// // Error: 2:1-3:2 Second
+/// A
+/// // Error: 2 Third
+/// B
+/// C
+/// // Error: "tests/README.md" 1:5 Fourth
+/// ```
+/// - `First` annotates "A"
+/// - `Second` annotates "B\nC"
+/// - `Third` annotates the position immediately after B
+/// - `Fourth` annotates the position after the fifth character in the README
+fn parse_line_col_range(
+    s: &mut Scanner,
+    annotated_line: usize,
+    is_external: bool,
+) -> StrResult<(LineCol, LineCol)> {
+    let mut had_colon = false;
+    let line_base = if is_external { 0 } else { annotated_line };
+
+    let start = {
+        let position = parse_position_number(s)?;
+        if s.eat_if(':') {
+            let col = parse_position_number(s)?;
+            had_colon = true;
+            LineCol { line: position + line_base, col }
+        } else if !is_external {
+            LineCol { line: line_base, col: position }
+        } else {
+            bail!("positions in external files require line and column: `<line>:<col>`");
+        }
+    };
+
+    let end = if !s.eat_if('-') {
+        start // Just a position, reuse start as the end.
+    } else {
+        let position = parse_position_number(s)?;
+        if had_colon && s.eat_if(':') {
+            let col = parse_position_number(s)?;
+            LineCol { line: position + line_base, col }
+        } else if !had_colon && !s.at(':') {
+            LineCol { line: start.line, col: position }
+        } else if is_external {
+            bail!("expected either `<line>:<col>` or `<line>:<col>-<line>:<col>`");
+        } else {
+            bail!(
+                "expected a single position or a range of `<line>:<col>-<line>:<col>` \
+                 or `<col>-<col>`"
+            );
+        }
+    };
+
+    if start.line > end.line {
+        bail!(
+            "start-line is greater than end-line: {} > {}",
+            start.line + 1,
+            end.line + 1,
+        );
+    } else if start.line == end.line && start.col > end.col {
+        bail!(
+            "start-column is greater than end-column: {} > {}",
+            start.col + 1,
+            end.col + 1,
         );
     }
-    let Some(col) = parse_number(s) else { return Ok(None) }; // TODO: This is incorrect.
-    if line < 0 || col < 0 {
-        return Err("line and column numbers must be positive".to_string());
-    }
 
-    Ok(Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1))))
+    Ok((start, end))
 }
 
-/// Parse a range, optionally abbreviated as just a position if the range
-/// is empty.
-fn parse_range_internal(
-    s: &mut Scanner,
-    line_idx: usize,
-    source: &Source,
-) -> Option<Range<usize>> {
-    let start = parse_position(s, line_idx, source)?;
-    let end = if s.eat_if('-') { parse_position(s, line_idx, source)? } else { start };
-    Some(start..end)
-}
-
-/// Parses a relative `(line:)?column` position.
-fn parse_position(s: &mut Scanner, line_idx: usize, source: &Source) -> Option<usize> {
-    let first = parse_number(s)?;
-    let (line_delta, column) =
-        if s.eat_if(':') { (first, parse_number(s)?) } else { (1, first) };
-
-    let text = source.text();
-    let comments = text
-        .lines()
-        .skip(line_idx + 1)
-        .take_while(|line| line.trim().starts_with("//"))
-        .count();
-
-    let line_idx = (line_idx + comments).checked_add_signed(line_delta)?;
-    let column_idx = if column < 0 {
-        // Negative column index is from the back.
-        let range = source.lines().line_to_range(line_idx)?;
-        text[range].chars().count().saturating_add_signed(column)
+/// Parse a number for a line or column position.
+fn parse_position_number(s: &mut Scanner) -> StrResult<usize> {
+    let text = s.eat_while(char::is_numeric);
+    if text.is_empty() {
+        bail!("expected a range position number")
     } else {
-        usize::try_from(column).ok()?.checked_sub(1)?
-    };
-
-    source.lines().line_column_to_byte(line_idx, column_idx)
-}
-
-/// Parse a number.
-fn parse_number(s: &mut Scanner) -> Option<isize> {
-    let start = s.cursor();
-    s.eat_if('-');
-    s.eat_while(char::is_numeric);
-    s.from(start).parse().ok()
+        let n: usize = text.parse().unwrap();
+        if n == 0 {
+            bail!("0 is not a valid position number, use 1 instead")
+        } else {
+            Ok(n - 1)
+        }
+    }
 }
