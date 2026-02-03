@@ -3,7 +3,7 @@ use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Value, ops,
+    NativeElement, Selector, Str, Type, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -224,15 +224,42 @@ impl Eval for ast::Array<'_> {
     type Output = Array;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let items = self.items();
+        let mut items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
-        for item in items {
+
+        let mut all_items_are_variable_spreads = true;
+        while let Some(item) = items.next() {
             match item {
-                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Pos(expr) => {
+                    all_items_are_variable_spreads = false;
+                    vec.push(expr.eval(vm)?)
+                }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Array(array) => vec.extend(array.into_iter()),
+                    Value::Array(array) => {
+                        all_items_are_variable_spreads = false;
+                        vec.extend(array.into_iter())
+                    }
+                    v if all_items_are_variable_spreads
+                        && v.ty() == Type::of::<Dict>() =>
+                    {
+                        // Lookahead to see whether remaining items
+                        // are spreads of dicts
+                        if items.all(|it| {
+                            let ast::ArrayItem::Spread(spd) = it else {
+                                return false;
+                            };
+                            spd
+                                .expr()
+                                .eval(vm)
+                                .is_ok_and(|val| val.ty() == Type::of::<Dict>())
+                        }) {
+                            bail!(spread.span(), "cannot spread {} into array", v.ty(); hint: "use `(:..spread)` syntax to spread multiple dictionaries together")
+                        } else {
+                            bail!(spread.span(), "cannot spread {} into array", v.ty())
+                        }
+                    }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
