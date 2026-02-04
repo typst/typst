@@ -130,9 +130,9 @@ pub struct PackageInfo {
     /// package is useful.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disciplines: Vec<EcoString>,
-    /// The minimum required compiler version for the package.
+    /// The compiler version(s) for the package.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub compiler: Option<VersionBound>,
+    pub compiler: Option<CompilerVersion>,
     /// An array of globs specifying files that should not be part of the
     /// published bundle.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -140,6 +140,26 @@ pub struct PackageInfo {
     /// All parsed but unknown fields, this can be used for validation.
     #[serde(flatten, skip_serializing)]
     pub unknown_fields: UnknownFields,
+}
+
+/// The `package.compiler` key in the manifest.
+///
+/// This may be represented as a version directly, or as a table of two
+/// versions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CompilerVersion {
+    /// The minimum required version of the compiler for a package.
+    Minimum(VersionBound),
+
+    /// A compound version bound containing the minimum required and preferred version.
+    Compatibility {
+        /// The minimum required version of the compiler for a package.
+        minimum: VersionBound,
+
+        /// The preferred version of the compiler for a package.
+        preferred: PreferredCompilerVersion,
+    },
 }
 
 impl PackageManifest {
@@ -169,7 +189,29 @@ impl PackageManifest {
             ));
         }
 
-        if let Some(required) = self.package.compiler {
+        if let Some(compiler_version) = self.package.compiler.as_ref() {
+            let required = match compiler_version {
+                CompilerVersion::Minimum(minimum) => minimum,
+                CompilerVersion::Compatibility { minimum, preferred } => {
+                    // NOTE: We don't use PackageVersion here because we don't
+                    // know which patch version best represents the preferred
+                    // bound and want to avoid confusing diagnostics.
+                    if !(minimum.major < preferred.major
+                        || (minimum.major == preferred.major
+                            && minimum
+                                .minor
+                                .is_some_and(|minimum| minimum <= preferred.minor)))
+                    {
+                        return Err(eco_format!(
+                            "package requires Typst {minimum} or newer, but \
+                             prefers Typst {preferred}, which is lower"
+                        ));
+                    }
+
+                    minimum
+                }
+            };
+
             let current = PackageVersion::compiler();
             if !current.matches_ge(&required) {
                 return Err(eco_format!(
@@ -217,6 +259,16 @@ impl PackageInfo {
             license: None,
             repository: None,
             unknown_fields: BTreeMap::new(),
+        }
+    }
+}
+
+impl CompilerVersion {
+    /// The minimum required compiler version.
+    pub fn minimum(&self) -> VersionBound {
+        match self {
+            CompilerVersion::Minimum(minimum)
+            | CompilerVersion::Compatibility { minimum, .. } => *minimum,
         }
     }
 }
@@ -482,11 +534,11 @@ impl<'de> Deserialize<'de> for PackageVersion {
 /// A version bound for compatibility specification.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct VersionBound {
-    /// The bounds's major version.
+    /// The bound's major version.
     pub major: u32,
-    /// The bounds's minor version.
+    /// The bound's minor version.
     pub minor: Option<u32>,
-    /// The bounds's patch version. Can only be present if minor is too.
+    /// The bound's patch version. Can only be present if minor is too.
     pub patch: Option<u32>,
 }
 
@@ -549,6 +601,95 @@ impl<'de> Deserialize<'de> for VersionBound {
     }
 }
 
+/// A version bound for compatibility specification.
+///
+/// This always refers to the latest supported patch version because
+/// patch versions.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct PreferredCompilerVersion {
+    /// The bound's major version.
+    pub major: u32,
+    /// The bound's minor version.
+    pub minor: u32,
+}
+
+impl PreferredCompilerVersion {
+    /// Creates a preferred version for the current compiler version.
+    pub fn current() -> Self {
+        let compiler = typst_utils::version();
+        Self { major: compiler.major(), minor: compiler.minor() }
+    }
+}
+
+impl PreferredCompilerVersion {
+    /// Whether this version should support string interpolation.
+    pub fn string_interpolation(&self) -> bool {
+        *self >= Self { major: 0, minor: 15 }
+    }
+}
+
+impl Default for PreferredCompilerVersion {
+    fn default() -> Self {
+        Self::current()
+    }
+}
+
+impl FromStr for PreferredCompilerVersion {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split('.');
+        let mut next = |kind| {
+            if let Some(part) = parts.next() {
+                part.parse::<u32>().map(Some).map_err(|_| {
+                    eco_format!("`{part}` is not a valid {kind} version bound")
+                })
+            } else {
+                Ok(None)
+            }
+        };
+
+        let major = next("major")?.ok_or_else(|| {
+            eco_format!("preferred version bound is missing major version")
+        })?;
+        let minor = next("minor")?.ok_or_else(|| {
+            eco_format!("preferred version bound is missing a minor version")
+        })?;
+        if let Some(rest) = parts.next() {
+            Err(eco_format!(
+                "preferred version bound has unexpected third component: `{rest}`"
+            ))?;
+        }
+
+        Ok(Self { major, minor })
+    }
+}
+
+impl Debug for PreferredCompilerVersion {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Display for PreferredCompilerVersion {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
+}
+
+impl Serialize for PreferredCompilerVersion {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for PreferredCompilerVersion {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let string = EcoString::deserialize(d)?;
+        string.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -589,6 +730,73 @@ mod tests {
                     PackageVersion { major: 0, minor: 1, patch: 0 },
                     "src/lib.typ"
                 ),
+                template: None,
+                tool: ToolInfo { sections: BTreeMap::new() },
+                unknown_fields: BTreeMap::new(),
+            })
+        );
+    }
+
+    #[test]
+    fn compiler_inline_version() {
+        assert_eq!(
+            toml::from_str::<PackageManifest>(
+                r#"
+                [package]
+                name = "package"
+                version = "0.1.0"
+                entrypoint = "src/lib.typ"
+                compiler = "0.14.0"
+            "#
+            ),
+            Ok(PackageManifest {
+                package: PackageInfo {
+                    compiler: Some(CompilerVersion::Minimum(VersionBound {
+                        major: 0,
+                        minor: Some(14),
+                        patch: Some(0),
+                    })),
+                    ..PackageInfo::new(
+                        "package",
+                        PackageVersion { major: 0, minor: 1, patch: 0 },
+                        "src/lib.typ"
+                    )
+                },
+                template: None,
+                tool: ToolInfo { sections: BTreeMap::new() },
+                unknown_fields: BTreeMap::new(),
+            })
+        );
+    }
+
+    #[test]
+    fn compiler_compatibility_vesion() {
+        assert_eq!(
+            toml::from_str::<PackageManifest>(
+                r#"
+                [package]
+                name = "package"
+                version = "0.1.0"
+                entrypoint = "src/lib.typ"
+                compiler = { minimum = "0.14.0", preferred = "0.13" }
+            "#
+            ),
+            Ok(PackageManifest {
+                package: PackageInfo {
+                    compiler: Some(CompilerVersion::Compatibility {
+                        minimum: VersionBound {
+                            major: 0,
+                            minor: Some(14),
+                            patch: Some(0),
+                        },
+                        preferred: PreferredCompilerVersion { major: 0, minor: 13 },
+                    }),
+                    ..PackageInfo::new(
+                        "package",
+                        PackageVersion { major: 0, minor: 1, patch: 0 },
+                        "src/lib.typ"
+                    )
+                },
                 template: None,
                 tool: ToolInfo { sections: BTreeMap::new() },
                 unknown_fields: BTreeMap::new(),
