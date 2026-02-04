@@ -9,7 +9,7 @@ use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Target;
 use typst::{Feature, Features};
-use typst_syntax::{is_id_continue, is_ident, is_newline};
+use typst_syntax::{PreferredCompilerVersion, is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
 use crate::notes::{TestBody, parse_test_body};
@@ -104,6 +104,7 @@ pub struct Attrs {
     /// to increase it. This can for example happen due to cross-platform
     /// differences in float and SIMD handling.
     pub tolerance: Option<u8>,
+    pub compat: PreferredCompilerVersion,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
@@ -694,6 +695,8 @@ impl<'a> Parser<'a> {
         let mut flags = AttrFlags::empty();
         let mut features = None;
         let mut tolerance = None;
+        let mut compat = None;
+
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -720,6 +723,16 @@ impl<'a> Parser<'a> {
                     match param.parse::<u8>() {
                         Ok(value) => tolerance = Some(value),
                         _ => self.error("expected integer for `tolerance`"),
+                    }
+                }
+                "compat" => {
+                    let Some(param) = attr_params.take() else {
+                        self.error("expected parameter for `compat`");
+                        continue;
+                    };
+                    match param.parse::<PreferredCompilerVersion>() {
+                        Ok(value) => compat = Some(value),
+                        _ => self.error("expected integer for `compat`"),
                     }
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
@@ -775,6 +788,7 @@ impl<'a> Parser<'a> {
             features,
             stages,
             tolerance,
+            compat: compat.unwrap_or_default(),
         }
     }
 
