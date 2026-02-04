@@ -130,9 +130,9 @@ pub struct PackageInfo {
     /// package is useful.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disciplines: Vec<EcoString>,
-    /// The minimum required compiler version for the package.
+    /// The compiler version(s) for the package.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub compiler: Option<VersionBound>,
+    pub compiler: Option<CompilerVersion>,
     /// An array of globs specifying files that should not be part of the
     /// published bundle.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -140,6 +140,25 @@ pub struct PackageInfo {
     /// All parsed but unknown fields, this can be used for validation.
     #[serde(flatten, skip_serializing)]
     pub unknown_fields: UnknownFields,
+}
+
+/// The `[package.compiler]` key in the manifest.
+///
+/// The `unknown_fields` contains fields which were found but not expected.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CompilerVersion {
+    /// The minimum required version of the compiler for a package.
+    Minimum(VersionBound),
+
+    /// A compound version bound containing the minimum required and preferred version.
+    Compatibility {
+        /// The minimum required version of the compiler for a package.
+        minimum: VersionBound,
+
+        /// The preferred version of the compiler for a package.
+        preferred: VersionBound,
+    },
 }
 
 impl PackageManifest {
@@ -169,7 +188,9 @@ impl PackageManifest {
             ));
         }
 
-        if let Some(required) = self.package.compiler {
+        if let Some(required) =
+            self.package.compiler.as_ref().map(CompilerVersion::minimum)
+        {
             let current = PackageVersion::compiler();
             if !current.matches_ge(&required) {
                 return Err(eco_format!(
@@ -217,6 +238,16 @@ impl PackageInfo {
             license: None,
             repository: None,
             unknown_fields: BTreeMap::new(),
+        }
+    }
+}
+
+impl CompilerVersion {
+    /// The minimum required compiler version.
+    pub fn minimum(&self) -> VersionBound {
+        match self {
+            CompilerVersion::Minimum(minimum)
+            | CompilerVersion::Compatibility { minimum, .. } => *minimum,
         }
     }
 }
