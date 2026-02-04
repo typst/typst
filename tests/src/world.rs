@@ -8,7 +8,7 @@ use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
     Array, Bytes, Content, Context, Datetime, Duration, IntoValue, NativeElement,
-    NoneValue, Packed, Repr, Smart, StyleChain, Value, elem, func,
+    NoneValue, Packed, Repr, Smart, StyleChain, Value, Version, elem, func,
 };
 use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
@@ -21,7 +21,7 @@ use typst::{Features, Library, LibraryExt, World};
 use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
 use typst_layout::layout_fragment;
-use typst_syntax::package::PackageSpec;
+use typst_syntax::package::{PackageSpec, PreferredCompilerVersion};
 use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
 
@@ -30,6 +30,7 @@ use unscanny::Scanner;
 pub struct TestWorld {
     main: Source,
     base: &'static TestBase,
+    prefered_version: PreferredCompilerVersion,
 }
 
 impl TestWorld {
@@ -37,10 +38,11 @@ impl TestWorld {
     ///
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: Source, prefered_version: PreferredCompilerVersion) -> Self {
         Self {
             main: source,
             base: singleton!(TestBase, TestBase::default()),
+            prefered_version,
         }
     }
 }
@@ -71,6 +73,17 @@ impl World for TestWorld {
             Ok(Bytes::from_string(self.main.clone()))
         } else {
             self.base.files.file(id)
+        }
+    }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        if root == self.main.id().root() {
+            Ok(self.prefered_version)
+        } else {
+            self.base.files.preferred_version(root)
         }
     }
 
@@ -174,6 +187,8 @@ fn library() -> Library {
     let mut lib = Library::builder().with_features(Features::all()).build();
 
     // Hook up helpers into the global scope.
+    lib.global.scope_mut().define_func::<compiler_preferred_version>();
+    lib.global.scope_mut().define_func::<compiler_current_version>();
     lib.global.scope_mut().define_func::<test>();
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
@@ -196,6 +211,24 @@ fn library() -> Library {
     lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
 
     lib
+}
+
+#[func]
+fn compiler_preferred_version(engine: &mut Engine) -> StrResult<Version> {
+    let preferred = engine.route.preferred_version();
+    let mut version = Version::new();
+    version.push(preferred.major);
+    version.push(preferred.minor);
+    Ok(version)
+}
+
+#[func]
+fn compiler_current_version() -> StrResult<Version> {
+    let preferred = PreferredCompilerVersion::current();
+    let mut version = Version::new();
+    version.push(preferred.major);
+    version.push(preferred.minor);
+    Ok(version)
 }
 
 #[func]

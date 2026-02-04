@@ -31,7 +31,7 @@ use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
 use typst_library::{Library, World};
-use typst_syntax::{Source, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
 use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
@@ -51,6 +51,8 @@ pub fn eval(
         panic!("Tried to cyclicly evaluate {:?}", id.vpath());
     }
 
+    let preferred_version = world.preferred_version(id.root()).at(Span::detached())?;
+
     // Prepare the engine.
     let introspector = EmptyIntrospector;
     let engine = Engine {
@@ -59,7 +61,7 @@ pub fn eval(
         introspector: Protected::new(introspector.track()),
         traced,
         sink,
-        route: Route::extend(route).with_id(id),
+        route: Route::extend(route).with_id(id, preferred_version),
     };
 
     // Prepare VM.
