@@ -23,6 +23,7 @@ pub use self::lexer::{
 };
 pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
+pub use self::package::PreferredCompilerVersion;
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::{
     FileId, PathError, RootedPath, VirtualPath, VirtualRoot, VirtualizeError,
