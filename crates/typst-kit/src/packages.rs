@@ -124,10 +124,7 @@ impl SystemPackages {
     }
 
     /// Tries to determine the latest version of a package.
-    pub fn latest_version(
-        &self,
-        spec: &VersionlessPackageSpec,
-    ) -> StrResult<PackageVersion> {
+    pub fn latest_version(&self, spec: &VersionlessPackageSpec) -> StrResult<PackageVersion> {
         if spec.namespace == UniversePackages::NAMESPACE {
             self.universe.latest_version(spec)
         } else {
@@ -196,10 +193,7 @@ impl FsPackages {
 
     /// Tries to determine the latest version of a particular package in the
     /// directory tree.
-    pub fn latest_version(
-        &self,
-        spec: &VersionlessPackageSpec,
-    ) -> Option<PackageVersion> {
+    pub fn latest_version(&self, spec: &VersionlessPackageSpec) -> Option<PackageVersion> {
         // For other namespaces, search locally. We only search in the data
         // directory and not the cache directory, because the latter is not
         // intended for storage of local packages.
@@ -382,10 +376,7 @@ impl UniversePackages {
     /// Attempts to determine the latest version of a package.
     ///
     /// Will invoke the downloader with the key `"package index"`.
-    pub fn latest_version(
-        &self,
-        spec: &VersionlessPackageSpec,
-    ) -> StrResult<PackageVersion> {
+    pub fn latest_version(&self, spec: &VersionlessPackageSpec) -> StrResult<PackageVersion> {
         /// Minimal information required about a package to determine its latest
         /// version.
         #[derive(Deserialize)]
