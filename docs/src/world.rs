@@ -13,7 +13,7 @@ use typst::foundations::{
 use typst::introspection::{EmptyIntrospector, MetadataElem};
 use typst::model::{Destination, EarlyLinkResolver, LinkElem, ResolvedLink};
 use typst::routines::SpanMode;
-use typst::syntax::package::{PackageSpec, PackageVersion};
+use typst::syntax::package::{PackageSpec, PackageVersion, PreferredCompilerVersion};
 use typst::syntax::{
     FileId, RangeMapper, RootedPath, Source, Spanned, SyntaxMode, VirtualPath,
     VirtualRoot,
@@ -105,6 +105,13 @@ impl World for DocWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         self.files.file(id)
+    }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        self.files.preferred_version(root)
     }
 
     fn font(&self, index: usize) -> Option<Font> {
