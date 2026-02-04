@@ -25,6 +25,7 @@ pub use self::lines::Lines;
 pub use self::node::{
     Diagnosis, LinkedChildren, LinkedNode, Side, SyntaxDiagnostic, SyntaxNode,
 };
+pub use self::package::PreferredCompilerVersion;
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::{
     FileId, PathError, RealizeError, RootedPath, VirtualPath, VirtualRoot,

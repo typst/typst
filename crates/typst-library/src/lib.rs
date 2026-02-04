@@ -31,7 +31,9 @@ use std::ops::{Deref, Range};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
+use typst_syntax::{
+    DiagSpan, DiagSpanKind, FileId, PreferredCompilerVersion, Source, VirtualRoot,
+};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
@@ -82,6 +84,12 @@ pub trait World: Send + Sync {
     /// an existing [`Source`] through [`Bytes::from_string`].
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
+    /// Try to return the preferred compiler version for the given root.
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion>;
+
     /// Try to access the font with the given index in the font book.
     ///
     /// Note that the index is not guaranteed to be in bounds of the font book
@@ -121,6 +129,13 @@ macro_rules! world_impl {
 
             fn file(&self, id: FileId) -> FileResult<Bytes> {
                 self.deref().file(id)
+            }
+
+            fn preferred_version(
+                &self,
+                root: &VirtualRoot,
+            ) -> FileResult<PreferredCompilerVersion> {
+                self.deref().preferred_version(root)
             }
 
             fn font(&self, index: usize) -> Option<Font> {

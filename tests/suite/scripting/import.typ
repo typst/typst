@@ -435,6 +435,22 @@ This is never reached.
 #import "@test/adder:0.1.0": add
 #test(add(2, 8), 10)
 
+--- import-from-package-no-compat eval ---
+// Test import with no compatibility. If none is given the current one is used.
+#import "@test/compat-none:0.1.0": preferred
+#test(preferred, compiler-current-version())
+
+--- import-from-package-implicit-compat eval ---
+// Test import with implicit compatibility. If only a minimum is given the
+// minimum is used as preferred too.
+#import "@test/compat-minimum:0.1.0": preferred
+#test(preferred, version(0, 14))
+
+--- import-from-package-explicit-compat eval ---
+// Test import with explicit compatibility.
+#import "@test/compat-preferred:0.1.0": preferred
+#test(preferred, version(0, 15))
+
 --- import-from-package-required-compiler-version eval ---
 // Test too high required compiler version.
 // Error: 9-29 package requires Typst 1.0.0 or newer (current version is VERSION)

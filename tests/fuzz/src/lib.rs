@@ -1,9 +1,10 @@
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration};
-use typst::syntax::{FileId, Source};
+use typst::syntax::{FileId, PreferredCompilerVersion, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Features, Library, LibraryExt, World};
+use typst_syntax::VirtualRoot;
 
 pub struct FuzzWorld {
     library: LazyHash<Library>,
@@ -59,6 +60,13 @@ impl World for FuzzWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         Err(FileError::NotFound(id.vpath().get_without_slash().into()))
+    }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::current())
     }
 
     fn font(&self, _: usize) -> Option<Font> {
