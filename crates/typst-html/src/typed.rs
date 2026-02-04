@@ -85,30 +85,25 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
     }
     let tag = HtmlTag::constant(element.name);
     if !tag::is_void(tag) {
-        params.push(if tag::is_raw(tag) {
-            ParamInfo {
-                name: "body",
-                docs: "The text content of the HTML element.",
-                input: CastInfo::Type(Type::of::<Str>()),
-                default: None,
-                positional: true,
-                named: false,
-                variadic: false,
-                required: false,
-                settable: false,
-            }
-        } else {
-            ParamInfo {
-                name: "body",
-                docs: "The contents of the HTML element.",
-                input: CastInfo::Type(Type::of::<Content>()),
-                default: None,
-                positional: true,
-                named: false,
-                variadic: false,
-                required: false,
-                settable: false,
-            }
+        let raw = tag::is_raw(tag);
+        params.push(ParamInfo {
+            name: "body",
+            docs: if raw {
+                "The text content of the HTML element."
+            } else {
+                "The contents of the HTML element."
+            },
+            input: CastInfo::Type(if raw {
+                Type::of::<Str>()
+            } else {
+                Type::of::<Content>()
+            }),
+            default: None,
+            positional: true,
+            named: false,
+            variadic: false,
+            required: false,
+            settable: false,
         });
     }
     params
@@ -148,9 +143,7 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
     if !tag::is_void(tag) {
         let body = if tag::is_raw(tag) {
             let str = args.eat::<Spanned<Str>>()?;
-            str.map(|Spanned { v, span }| {
-                Content::new(TextElem::new(v.into())).spanned(span)
-            })
+            str.map(|Spanned { v, span }| TextElem::packed(v).spanned(span))
         } else {
             args.eat::<Content>()?
         };

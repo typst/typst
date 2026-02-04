@@ -206,6 +206,10 @@ A#"  "B#"   C"
 // Error: 14-32 expected string, found content
 #html.script(html.strong[Hello])
 
+--- html-raw-text-contains-frame html ---
+// Error: 22-39 HTML raw text element cannot have non-text children
+#html.elem("script", html.frame[Hello])
+
 --- html-raw-text-contains-closing-tag html ---
 // Error: 2-32 HTML raw text element cannot contain its own closing tag
 // Hint: 2-32 the sequence `</SCRiPT` appears in the raw text
