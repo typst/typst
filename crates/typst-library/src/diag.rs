@@ -707,6 +707,8 @@ pub enum PackageError {
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
     MalformedArchive(Option<EcoString>),
+    /// The package manifest was malformed.
+    MalformedManifest(Option<EcoString>),
     /// Another error.
     Other(Option<EcoString>),
 }
@@ -736,6 +738,10 @@ impl Display for PackageError {
             Self::MalformedArchive(None) => {
                 f.pad("failed to decompress package (archive malformed)")
             }
+            Self::MalformedManifest(Some(err)) => {
+                write!(f, "failed to read package manifest ({err})")
+            }
+            Self::MalformedManifest(None) => f.pad("failed to read package manifest"),
             Self::Other(Some(err)) => write!(f, "failed to load package ({err})"),
             Self::Other(None) => f.pad("failed to load package"),
         }

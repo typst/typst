@@ -6,7 +6,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
-use typst_syntax::{FileId, Span};
+use typst_syntax::{FileId, PreferredCompilerVersion, Span};
 use typst_utils::{LazyHash, Protected};
 
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
@@ -31,7 +31,8 @@ pub struct Engine<'a> {
     /// A pure sink for warnings, delayed errors, and spans under inspection.
     pub sink: TrackedMut<'a, Sink>,
     /// The route the engine took during compilation. This is used to detect
-    /// cyclic imports and excessive nesting.
+    /// cyclic imports and excessive nesting. This is also used to access the
+    /// preferred compiler version for the root in which the engine is used.
     pub route: Route<'a>,
 }
 
@@ -266,6 +267,9 @@ pub struct Route<'a> {
     /// This is set if this route segment was inserted through the start of a
     /// module evaluation.
     id: Option<FileId>,
+    /// The preferred compiler version at this point in the route. This should
+    /// for all route segments for which the file id is the same.
+    preferred_version: PreferredCompilerVersion,
     /// This is set whenever we enter a function, nested layout, or are applying
     /// a show rule. The length of this segment plus the lengths of all `outer`
     /// route segments make up the length of the route. If the length of the
@@ -285,6 +289,7 @@ impl<'a> Route<'a> {
     pub fn root() -> Self {
         Self {
             id: None,
+            preferred_version: PreferredCompilerVersion::current(),
             outer: None,
             len: 0,
             upper: AtomicUsize::new(0),
@@ -296,14 +301,20 @@ impl<'a> Route<'a> {
         Route {
             outer: Some(outer),
             id: None,
+            preferred_version: outer.preferred_version(),
             len: 1,
             upper: AtomicUsize::new(usize::MAX),
         }
     }
 
-    /// Attach a file id to the route segment.
-    pub fn with_id(self, id: FileId) -> Self {
-        Self { id: Some(id), ..self }
+    /// Attach a file id and associated preferred compiler version to the route
+    /// segment.
+    pub fn with_id(
+        self,
+        id: FileId,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
+        Self { id: Some(id), preferred_version, ..self }
     }
 
     /// Set the length of the route segment to zero.
@@ -426,6 +437,11 @@ impl<'a> Route<'a> {
             None => true,
         }
     }
+
+    /// Returns the preferred compiler version within this route segment.
+    pub fn preferred_version(&self) -> PreferredCompilerVersion {
+        self.preferred_version
+    }
 }
 
 impl Default for Route<'_> {
@@ -439,6 +455,7 @@ impl Clone for Route<'_> {
         Self {
             outer: self.outer,
             id: self.id,
+            preferred_version: self.preferred_version,
             len: self.len,
             upper: AtomicUsize::new(self.upper.load(Ordering::Relaxed)),
         }
