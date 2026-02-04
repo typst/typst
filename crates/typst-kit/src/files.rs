@@ -6,11 +6,15 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::str::Utf8Error;
 
+use ecow::eco_format;
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use typst_library::diag::{FileError, FileResult};
 use typst_library::foundations::Bytes;
-use typst_syntax::{FileId, Source, VirtualPath};
+use typst_syntax::package::{CompilerVersion, PackageManifest};
+use typst_syntax::{
+    FileId, PreferredCompilerVersion, RootedPath, Source, VirtualPath, VirtualRoot,
+};
 
 #[cfg(feature = "system-files")]
 use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
@@ -27,14 +31,15 @@ use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
 /// If you need more control, you can skip this and implement custom logic that
 /// directly handles the [`World::source`](typst_library::World::source) and
 /// [`World::file`](typst_library::World::file) requests. A language server is
-/// an example of an integration that might want to go even deeper,  to create,
+/// an example of an integration that might want to go even deeper, to create,
 /// manage, and edit source files by itself. If you go the manual route, ensure
 /// that those methods are cheap on repeated calls (either through caching or by
 /// virtue of always being cheap).
 #[derive(Default)]
 pub struct FileStore<L> {
     loader: L,
-    slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    root_slots: Mutex<FxHashMap<VirtualRoot, RootSlot>>,
+    file_slots: Mutex<FxHashMap<FileId, FileSlot>>,
 }
 
 impl<L> FileStore<L>
@@ -43,7 +48,11 @@ where
 {
     /// Creates a new file store that loads file data via the provided `loader`.
     pub fn new(loader: L) -> Self {
-        Self { loader, slots: Mutex::new(FxHashMap::default()) }
+        Self {
+            loader,
+            root_slots: Mutex::new(FxHashMap::default()),
+            file_slots: Mutex::new(FxHashMap::default()),
+        }
     }
 
     /// Returns a reference to the underlying loader.
@@ -66,7 +75,7 @@ where
     /// Can directly be used to implement
     /// [`World::source`](typst_library::World::source).
     pub fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id, |slot| slot.source(&self.loader, id))
+        self.file_slot(id, |slot| slot.source(&self.loader, id))
     }
 
     /// Retrieves the given file id as a raw file.
@@ -74,7 +83,19 @@ where
     /// Can directly be used to implement
     /// [`World::file`](typst_library::World::file).
     pub fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, |slot| slot.file(&self.loader, id))
+        self.file_slot(id, |slot| slot.file(&self.loader, id))
+    }
+
+    /// Retrieves the preferred compiler version for files within the given
+    /// root.
+    ///
+    /// Can directly be used to implement
+    /// [`World::source`](typst_library::World::preferred_version).
+    pub fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        self.root_slot(root, |slot| slot.load(&self.loader, root))
     }
 
     /// Returns all files that were referenced since the last
@@ -89,17 +110,28 @@ where
     /// the fact.
     pub fn dependencies(&mut self) -> (&L, impl Iterator<Item = FileId> + '_) {
         let iter = self
-            .slots
+            .file_slots
             .get_mut()
             .iter()
             .filter(|(_, slot)| slot.accessed())
-            .map(|(&id, _)| id);
+            .map(|(&id, _)| id)
+            .chain(
+                self.root_slots
+                    .get_mut()
+                    .iter()
+                    .filter(|(_, slot)| slot.accessed())
+                    .map(|(root, _)| {
+                        root.join("typst.toml")
+                            .expect("`/typst.toml` is always valid within any root")
+                            .intern()
+                    }),
+            );
         (&self.loader, iter)
     }
 
     /// Resets the store.
     ///
-    /// This marks all loaded file as stale. On subsequent accesses, they will
+    /// This marks all loaded files as stale. On subsequent accesses, they will
     /// be loaded once more through the underlying loader. Moreover, calls to
     /// [`dependencies()`](Self::dependencies) will not yield files accessed
     /// before the call to `reset()`.
@@ -109,20 +141,81 @@ where
     /// performance.
     pub fn reset(&mut self) {
         #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
-        for slot in self.slots.get_mut().values_mut() {
+        for slot in self.root_slots.get_mut().values_mut() {
+            slot.reset();
+        }
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        for slot in self.file_slots.get_mut().values_mut() {
             slot.reset();
         }
     }
 
-    /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> FileResult<T>
+    /// Access the canonical root slot for the given root.
+    fn root_slot<F, T>(&self, root: &VirtualRoot, f: F) -> FileResult<T>
+    where
+        F: FnOnce(&mut RootSlot) -> FileResult<T>,
+    {
+        let mut map = self.root_slots.lock();
+        f(map.entry(root.clone()).or_default())
+    }
+
+    /// Access the canonical file slot for the given file id.
+    fn file_slot<F, T>(&self, id: FileId, f: F) -> FileResult<T>
     where
         F: FnOnce(&mut FileSlot) -> FileResult<T>,
     {
-        let mut map = self.slots.lock();
+        let mut map = self.file_slots.lock();
         f(map.entry(id).or_default())
     }
 }
+
+/// Holds the state for a root's preferred version.
+enum RootSlot {
+    /// Nothing has been loaded so far.
+    ///
+    /// Transitions to
+    /// - loaded if a preferred version is requested and the data could be
+    ///   loaded.
+    Empty,
+    /// The slot has been requested as a `load()`.
+    Loaded(FileResult<PreferredCompilerVersion>),
+}
+
+impl RootSlot {
+    /// Whether the slot has been accessed in any way since the last reset.
+    fn accessed(&self) -> bool {
+        !matches!(self, Self::Empty)
+    }
+
+    /// Resets the slot to its empty state.
+    fn reset(&mut self) {
+        *self = Self::Empty;
+    }
+
+    /// Retrieves the preferred version for this slot.
+    fn load(
+        &mut self,
+        loader: &impl FileLoader,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        match self {
+            RootSlot::Empty => {}
+            RootSlot::Loaded(preferred_version) => return preferred_version.clone(),
+        }
+
+        let preferred_version = loader.preferred_version(root);
+        *self = Self::Loaded(preferred_version.clone());
+        preferred_version
+    }
+}
+
+impl Default for RootSlot {
+    fn default() -> Self {
+        Self::Empty
+    }
+}
+
+/// Provides data for files, backing a [`FileStore`].
 
 /// Holds the state for a file.
 enum FileSlot {
@@ -132,7 +225,7 @@ enum FileSlot {
     ///
     /// Transitions to
     /// - loaded when a file is requested
-    /// - to parsed if a source is requested and the data could be loaded
+    /// - parsed if a source is requested and the data could be loaded
     ///   (otherwise to loaded).
     Empty(Stale<Source>),
     /// The slot has been requested as a `file()` but not as a `source()` (at
@@ -262,6 +355,52 @@ pub trait FileLoader {
     /// [`id.vpath()`](typst_syntax::RootedPath::vpath) in the project /
     /// package.
     fn load(&self, id: FileId) -> FileResult<Bytes>;
+
+    /// Retrieve the preferred version for a workspace root.
+    ///
+    /// This should return the current compiler version, i.e.
+    /// `PreferredCompilerVersion::compiler()`, when no preferred version is configured,
+    /// such as for regular project roots. For packages this should return the
+    /// `package.compiler.preferred` field in the `typst.toml` manifest or the
+    /// compiler version.
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(match root {
+            VirtualRoot::Project => PreferredCompilerVersion::default(),
+            VirtualRoot::Package(_) => {
+                let id = FileId::new(RootedPath::new(
+                    root.clone(),
+                    VirtualPath::new("typst.toml")
+                        .map_err(|e| FileError::Other(Some(eco_format!("{e:?}"))))?,
+                ));
+
+                let manifest = self.load(id)?;
+                let manifest = manifest
+                    .as_str()
+                    .map_err(|e| FileError::Other(Some(eco_format!("{e:?}"))))?;
+
+                let manifest: PackageManifest = toml::from_str(manifest)
+                    .map_err(|e| FileError::Other(Some(eco_format!("{e:?}"))))?;
+
+                match manifest.package.compiler {
+                    Some(CompilerVersion::Minimum(_)) | None => {
+                        PreferredCompilerVersion::default()
+                    }
+                    Some(CompilerVersion::Compatibility { preferred, .. }) => {
+                        if preferred.major != 0 {
+                            return Err(FileError::Other(Some(
+                                "major versions other than 0 are not supported for `compiler.preferred`".into()
+                            )));
+                        }
+
+                        preferred
+                    }
+                }
+            }
+        })
+    }
 }
 
 /// Serves project files from a directory and package files from standard
@@ -421,6 +560,13 @@ mod tests {
                 "e.bin" if self.0 > 3 => Bytes::from_string(E_TEXT),
                 path => return Err(FileError::NotFound(path.into())),
             })
+        }
+
+        fn preferred_version(
+            &self,
+            _root: &VirtualRoot,
+        ) -> FileResult<PreferredCompilerVersion> {
+            Ok(PreferredCompilerVersion::default())
         }
     }
 

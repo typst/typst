@@ -21,7 +21,7 @@ use typst::{Features, Library, LibraryExt, World};
 use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
 use typst_layout::layout_fragment;
-use typst_syntax::package::PackageSpec;
+use typst_syntax::package::{PackageSpec, PreferredCompilerVersion};
 use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
 
@@ -72,6 +72,13 @@ impl World for TestWorld {
         } else {
             self.base.files.file(id)
         }
+    }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
     }
 
     fn font(&self, index: usize) -> Option<Font> {

@@ -16,7 +16,9 @@ use typst::layout::{
     Transform,
 };
 use typst::loading::{DataSource, LoadSource, Loaded};
-use typst::syntax::{FileId, RangeMapper, Source, Span, Spanned};
+use typst::syntax::{
+    FileId, PreferredCompilerVersion, RangeMapper, Source, Span, Spanned, VirtualRoot,
+};
 use typst::text::{Font, FontBook, RawContent, RawElem};
 use typst::visualize::{
     Curve, ImageElem, ImageFormat, PixelEncoding, PixelFormat, RasterFormat,
@@ -286,6 +288,13 @@ impl World for ExampleWorld {
         }
 
         Err(FileError::NotFound(id.vpath().get_without_slash().into()))
+    }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
     }
 
     fn font(&self, index: usize) -> Option<Font> {
