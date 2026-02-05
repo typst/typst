@@ -184,6 +184,34 @@ macro_rules! node {
 }
 
 node! {
+    /// A line comment: `// ...`.
+    struct LineComment
+}
+
+impl<'a> LineComment<'a> {
+    /// The contents of the line comment.
+    pub fn text(&self) -> &'a str {
+        let text = self.0.text();
+        text.strip_prefix("//").unwrap_or(text)
+    }
+}
+
+node! {
+    /// A block comment: `/* ... */`.
+    struct BlockComment
+}
+
+impl<'a> BlockComment<'a> {
+    /// The contents of the block comment.
+    pub fn text(&self) -> &'a str {
+        let text = self.0.text();
+        text.strip_prefix("/*")
+            .and_then(|text| text.strip_suffix("*/"))
+            .unwrap_or(text)
+    }
+}
+
+node! {
     /// The syntactical root capable of representing a full parsed document.
     struct Markup
 }

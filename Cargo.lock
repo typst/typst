@@ -3185,6 +3185,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "either",
  "flate2",
  "fontdb",
  "glidesort",

@@ -761,6 +761,16 @@ impl LinkedNode<'_> {
         if prev.kind().is_trivia() { prev.prev_sibling() } else { Some(prev) }
     }
 
+    /// Get the first previous sibling node, including potential trivia.
+    pub fn prev_sibling_with_trivia(&self) -> Option<Self> {
+        let parent = self.parent.as_ref()?;
+        let children = parent.node.children().as_slice();
+        let (index, node) = children[..self.index].iter().enumerate().next_back()?;
+        let offset = self.offset - node.len();
+        let parent = Some(parent.clone());
+        Some(Self { node, parent, index, offset })
+    }
+
     /// Get the next non-trivia sibling node.
     pub fn next_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
@@ -769,6 +779,16 @@ impl LinkedNode<'_> {
         let offset = self.offset + self.node.len();
         let next = Self { node, parent: self.parent.clone(), index, offset };
         if next.kind().is_trivia() { next.next_sibling() } else { Some(next) }
+    }
+
+    /// Get the next sibling node, including potential trivia.
+    pub fn next_sibling_with_trivia(&self) -> Option<Self> {
+        let parent = self.parent.as_ref()?;
+        let children = parent.node.children();
+        let (index, node) = children.enumerate().nth(self.index + 1)?;
+        let offset = self.offset + self.len();
+        let parent = Some(parent.clone());
+        Some(Self { node, parent, index, offset })
     }
 
     /// Get the kind of this node's parent.
