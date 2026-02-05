@@ -4,8 +4,8 @@ Typst's HTML export is currently under active development. The feature is still
 very incomplete and only available for experimentation behind a feature flag. Do
 not use this feature for production use cases. In the CLI, you can experiment
 with HTML export by passing `--features html` or setting the `TYPST_FEATURES`
-environment variables to `html`. In the web app, HTML export is not available at
-this time. Visit the [tracking issue](https://github.com/typst/typst/issues/5512)
+environment variables to `html`. Visit the
+[tracking issue](https://github.com/typst/typst/issues/5512)
 to follow progress on HTML export and learn more about planned features.
 </div>
 
