@@ -260,7 +260,7 @@ impl Eval for ast::Array<'_> {
                                 .eval(vm)
                                 .is_ok_and(|val| val.ty() == Type::of::<Dict>())
                         }) {
-                            bail!(spread.span(), "cannot spread {} into array", v.ty(); hint: "use `(:..spread)` syntax to spread multiple dictionaries together")
+                            bail!(spread.span(), "cannot spread {} into array", v.ty(); hint: "open container with `(:` to create a dictionary")
                         } else {
                             bail!(spread.span(), "cannot spread {} into array", v.ty())
                         }
