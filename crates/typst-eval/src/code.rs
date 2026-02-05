@@ -3,7 +3,7 @@ use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Type, Value, ops,
+    NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -249,7 +249,7 @@ impl Eval for ast::Array<'_> {
                         items_seen_are_spread_dicts = false;
                         vec.extend(array.into_iter())
                     }
-                    v if items_seen_are_spread_dicts && v.ty() == Type::of::<Dict>() => {
+                    v @ Value::Dict(_) if items_seen_are_spread_dicts => {
                         // Lookahead to see whether remaining items
                         // are spreads of dicts
                         if items.all(|it| {
@@ -258,7 +258,7 @@ impl Eval for ast::Array<'_> {
                             };
                             spd.expr()
                                 .eval(vm)
-                                .is_ok_and(|val| val.ty() == Type::of::<Dict>())
+                                .is_ok_and(|spd| matches!(spd, Value::Dict(_)))
                         }) {
                             bail!(spread.span(), "cannot spread {} into array", v.ty(); hint: "open container with `(:` to create a dictionary")
                         } else {
