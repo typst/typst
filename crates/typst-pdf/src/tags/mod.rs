@@ -3,10 +3,11 @@ use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
-use typst_library::diag::SourceResult;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::layout::{FrameParent, PagedDocument, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
@@ -25,6 +26,10 @@ mod util;
 
 pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags> {
     let tree = if options.tagged {
+        if options.page_ranges.is_some() {
+            bail!(Span::detached(), "cannot enable tagged PDF and export a page range");
+        }
+
         tree::build(document, options)?
     } else {
         Tree::empty(document, options)
@@ -256,5 +261,29 @@ fn update_bbox(
         && gc.options.standards.config.validator() == Validator::UA1
     {
         bbox.expand_frame(fc, compute_bbox);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroUsize;
+
+    use typst_library::layout::PageRanges;
+    use typst_utils::NonZeroExt;
+
+    use crate::tags;
+
+    #[test]
+    fn tagged_and_page_range() {
+        let options = crate::PdfOptions {
+            page_ranges: Some(PageRanges::new(vec![Some(NonZeroUsize::ONE)..=None])),
+            ..Default::default()
+        };
+        let res = tags::init(&typst_library::layout::PagedDocument::default(), &options);
+
+        assert_eq!(
+            res.err().unwrap().first().unwrap().message,
+            "cannot enable tagged PDF and export a page range"
+        );
     }
 }
