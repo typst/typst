@@ -354,13 +354,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
                 push_group(tree, elem, GroupKind::List(id, numbering, None))
             }
             PdfMarkerTagKind::BibEntry => {
-                push_group(tree, elem, GroupKind::BibEntry(None))
+                push_located(tree, elem, GroupKind::BibEntry(None))
             }
             PdfMarkerTagKind::ListItemLabel => {
-                push_group(tree, elem, GroupKind::ListItemLabel(None))
+                push_located(tree, elem, GroupKind::ListItemLabel(None))
             }
             PdfMarkerTagKind::ListItemBody => {
-                push_group(tree, elem, GroupKind::ListItemBody(None))
+                push_located(tree, elem, GroupKind::ListItemBody(None))
             }
             PdfMarkerTagKind::TermsItemLabel => {
                 push_group(tree, elem, GroupKind::TermsItemLabel(None))

@@ -64,3 +64,15 @@ macro_rules! assign_impl {
         }
     };
 }
+
+/// Turn a format string into a struct implementing [`Display`], using
+/// [`crate::display`].
+#[macro_export]
+macro_rules! display {
+    ($($arg:tt)*) => {
+        ::typst_utils::display(|f| write!(f, $($arg)*))
+    };
+    (move $($arg:tt)*) => {
+        ::typst_utils::display(move |f| write!(f, $($arg)*))
+    };
+}

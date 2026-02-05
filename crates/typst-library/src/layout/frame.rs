@@ -275,6 +275,12 @@ impl Frame {
         }
     }
 
+    /// Remove an item from a frame.
+    #[track_caller]
+    pub fn remove(&mut self, index: usize) -> (Point, FrameItem) {
+        Arc::make_mut(&mut self.items).remove(index)
+    }
+
     /// Adjust the frame's size, translate the original content by an offset
     /// computed according to the given alignments, and return the amount of
     /// offset.
@@ -476,6 +482,16 @@ pub enum FrameItem {
     Link(Destination, Size),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
+}
+
+impl FrameItem {
+    /// Returns the tag if self if [`FrameItem::Tag`].
+    pub fn as_tag(&self) -> Option<&Tag> {
+        match self {
+            Self::Tag(v) => Some(v),
+            _ => None,
+        }
+    }
 }
 
 impl Debug for FrameItem {

@@ -731,7 +731,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell")]
+#[elem(name = "cell", title = "Table Cell", Tagged)]
 pub struct TableCell {
     /// The cell's body.
     #[required]

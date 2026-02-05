@@ -13,7 +13,7 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
     Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
-use crate::introspection::Tagged;
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
@@ -765,7 +765,7 @@ pub struct GridVLine {
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the [`table.cell`] element to learn more about
 /// this.
-#[elem(name = "cell", title = "Grid Cell")]
+#[elem(name = "cell", title = "Grid Cell", Tagged)]
 pub struct GridCell {
     /// The cell's body.
     #[required]

@@ -22,3 +22,9 @@
     b
   ]
 )
+
+--- layout-tags-list-marker-issue-7789 pdftags ---
+#set list(marker: [a] + layout(layout_info => box(height: 100em)))
+
+- A
+  - A

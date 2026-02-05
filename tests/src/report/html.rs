@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
+use typst_utils::display;
 
 use crate::collect::{FileSize, TestOutput};
 use crate::report::diff::{FileDiff, Image, Line, LineKind, Lines, TextSpan};
@@ -12,12 +13,6 @@ use crate::report::{DiffKind, ReportFile, TestReport};
 
 static REPORT_STYLE: &str = include_str!("report.css");
 static REPORT_SCRIPT: &str = include_str!("report.js");
-
-macro_rules! display {
-    ($($arg:tt)*) => {
-        ::typst_utils::display(move |f| write!(f, $($arg)*))
-    }
-}
 
 /// A HTML writer.
 struct Html {

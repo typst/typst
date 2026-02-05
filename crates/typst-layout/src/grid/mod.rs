@@ -5,15 +5,16 @@ mod rowspans;
 
 pub use self::layouter::GridLayouter;
 
-use typst_library::diag::SourceResult;
+use typst_library::diag::{At, SourceResult, assert_internal};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, StyleChain};
-use typst_library::introspection::{Location, Locator, SplitLocator, Tag, TagFlags};
+use typst_library::foundations::{NativeElement, Packed, StyleChain};
+use typst_library::introspection::{Locatable, Locator, Tag, Tagged};
 use typst_library::layout::grid::resolve::Cell;
 use typst_library::layout::{
-    Fragment, FrameItem, FrameParent, GridCell, GridElem, Inherit, Point, Regions,
+    Fragment, FrameItem, FrameParent, GridCell, GridElem, Inherit, Regions,
 };
 use typst_library::model::{TableCell, TableElem};
+use typst_utils::display;
 
 use self::layouter::RowPiece;
 use self::lines::{
@@ -35,64 +36,64 @@ pub fn layout_cell(
     regions: Regions,
     is_repeated: bool,
 ) -> SourceResult<Fragment> {
-    // HACK: manually generate tags for table and grid cells. Ideally table and
-    // grid cells could just be marked as locatable, but the tags are somehow
-    // considered significant for layouting. This hack together with a check in
-    // the grid layouter makes the test suite pass.
-    let mut locator = locator.split();
-    let mut tags = None;
-    if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
-        let mut table_cell = table_cell.clone();
-        table_cell.is_repeated.set(is_repeated);
-        tags = Some(generate_tags(table_cell, &mut locator, engine));
+    let body = if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
+        table_cell.clone().unpack().with_is_repeated(is_repeated).pack()
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
-        let mut grid_cell = grid_cell.clone();
-        grid_cell.is_repeated.set(is_repeated);
-        tags = Some(generate_tags(grid_cell, &mut locator, engine));
-    }
+        grid_cell.clone().unpack().with_is_repeated(is_repeated).pack()
+    } else {
+        cell.body.clone()
+    };
 
-    let locator = locator.next(&cell.body.span());
-    let fragment = crate::layout_fragment(engine, &cell.body, locator, styles, regions)?;
+    let fragment = crate::layout_fragment(engine, &body, locator, styles, regions)?;
 
-    // Manually insert tags.
+    // The cell is only laid-out into one region, no further action is needed.
     let mut frames = fragment.into_frames();
-    if let Some((elem, loc, key)) = tags
-        && let Some((first, remainder)) = frames.split_first_mut()
-    {
-        let flags = TagFlags { introspectable: true, tagged: true };
-        if remainder.is_empty() {
-            first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
-            first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
-        } else {
-            // If there is more than one frame, set the logical parent of all
-            // frames to the cell, which converts them to group frames. Then
-            // prepend the start and end tags containing no content. The first
-            // frame is also a logical child to guarantee correct ordering
-            // in the introspector, since logical children are currently
-            // inserted immediately after the start tag of the parent element
-            // preceding any content within the parent element's tags.
-            for frame in frames.iter_mut() {
-                frame.set_parent(FrameParent::new(loc, Inherit::Yes));
-            }
-            frames.first_mut().unwrap().prepend_multiple([
-                (Point::zero(), FrameItem::Tag(Tag::Start(elem, flags))),
-                (Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags))),
-            ]);
-        }
+    if frames.len() == 1 {
+        return Ok(Fragment::frames(frames));
     }
+
+    let first_non_empty = frames.iter().position(|f| !f.is_empty());
+    let last_non_empty = frames.iter().rposition(|f| !f.is_empty());
+    let Some((first_idx, last_idx)) = first_non_empty.zip(last_non_empty) else {
+        return Ok(Fragment::frames(frames));
+    };
+
+    // All elements directly passed into grid layout should be `Locatable`,
+    // `Tagged`, or empty content. Empty content will always produce empty
+    // frames, which is handled above. So this element *should* be `Locatable`
+    // or `Tagged` and will generate introspection tags to ensure the logical
+    // parenting mechanism can be used to associate parts of the laid-out
+    // element with the first frame.
+    // Currently the only ones directly used are: `GridCell`, `TableCell`,
+    // `ListItemLabel`, `ListItemBody`.
+    assert_internal(
+        body.can::<dyn Locatable>() || body.can::<dyn Tagged>(),
+        display!("cell body is not locatable or tagged: {body:?}"),
+    )
+    .at(body.span())?;
+
+    // Extract the start and end tag of the element.
+    let start_tag = frames[first_idx].remove(0);
+    assert!(matches!(start_tag.1, FrameItem::Tag(Tag::Start(..))));
+
+    let last = &mut frames[last_idx];
+    let end_tag = last.remove(last.items().len() - 1);
+    assert!(matches!(end_tag.1, FrameItem::Tag(Tag::End(..))));
+
+    let loc = end_tag.1.as_tag().unwrap().location();
+
+    // Set the logical parent of all frames to the cell, which converts them
+    // to group frames. Then prepend the start and end tags containing no
+    // content. The first frame is also a logical child to guarantee correct
+    // ordering in the introspector, since logical children are currently
+    // inserted immediately after the start tag of the parent element
+    // preceding any content within the parent element's tags.
+    for frame in frames[first_idx..=last_idx].iter_mut() {
+        frame.set_parent(FrameParent::new(loc, Inherit::Yes));
+    }
+    frames[0].prepend_multiple([start_tag, end_tag]);
 
     Ok(Fragment::frames(frames))
-}
-
-fn generate_tags<T: NativeElement>(
-    mut cell: Packed<T>,
-    locator: &mut SplitLocator,
-    engine: &mut Engine,
-) -> (Content, Location, u128) {
-    let key = typst_utils::hash128(&cell);
-    let loc = locator.next_location(engine, key, cell.span());
-    cell.set_location(loc);
-    (cell.pack(), loc, key)
 }
 
 /// Layout the grid.

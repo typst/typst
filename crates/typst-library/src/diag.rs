@@ -925,13 +925,13 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
 /// Asserts a condition, generating an internal compiler error with the provided
 /// message on failure.
 #[track_caller]
-pub fn assert_internal(cond: bool, msg: &str) -> HintedStrResult<()> {
+pub fn assert_internal(cond: bool, msg: impl Display) -> HintedStrResult<()> {
     if !cond { Err(internal_error(msg)) } else { Ok(()) }
 }
 
 /// Generates an internal compiler error with the provided message.
 #[track_caller]
-pub fn panic_internal(msg: &str) -> HintedStrResult<()> {
+pub fn panic_internal(msg: impl Display) -> HintedStrResult<()> {
     Err(internal_error(msg))
 }
 
@@ -939,12 +939,12 @@ pub fn panic_internal(msg: &str) -> HintedStrResult<()> {
 /// compiler error instead of panicking.
 pub trait ExpectInternal<T> {
     /// Extracts the value, producing an internal error if `self` is `None`.
-    fn expect_internal(self, msg: &str) -> HintedStrResult<T>;
+    fn expect_internal(self, msg: impl Display) -> HintedStrResult<T>;
 }
 
 impl<T> ExpectInternal<T> for Option<T> {
     #[track_caller]
-    fn expect_internal(self, msg: &str) -> HintedStrResult<T> {
+    fn expect_internal(self, msg: impl Display) -> HintedStrResult<T> {
         match self {
             Some(val) => Ok(val),
             None => Err(internal_error(msg)),
@@ -955,7 +955,7 @@ impl<T> ExpectInternal<T> for Option<T> {
 /// The shared internal implementation of [`assert_internal`] and
 /// [`expect_internal`].
 #[track_caller]
-fn internal_error(msg: &str) -> HintedString {
+fn internal_error(msg: impl Display) -> HintedString {
     let loc = std::panic::Location::caller();
     let mut error = error!(
         "internal error: {msg} (occurred at {loc})";
