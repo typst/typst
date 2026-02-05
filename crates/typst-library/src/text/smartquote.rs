@@ -139,7 +139,7 @@ impl SmartQuoter {
         // If the most recently opened quotation is of this kind and the
         // previous char does not indicate a nested quotation, close it.
         if opened == Some(double)
-            && !before.is_whitespace()
+            && (!before.is_whitespace() || before == '\u{202F}') // \u{202F} (NNBSP) is used in spacing for quotations
             && !is_newline(before)
             && !is_opening_bracket(before)
         {
