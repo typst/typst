@@ -180,7 +180,7 @@ cast! {
 }
 
 /// The width of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FontStretch(pub(super) u16);
@@ -264,6 +264,12 @@ impl FontStretch {
 impl Default for FontStretch {
     fn default() -> Self {
         Self::NORMAL
+    }
+}
+
+impl Debug for FontStretch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
