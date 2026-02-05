@@ -15,7 +15,7 @@ use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
-    FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NoneValue, ParamInfo,
+    FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NativeParamInfo, NoneValue,
     PositiveF64, Reflect, Scope, Str, Type, Value,
 };
 use typst_library::layout::{Axes, Axis, Dir, Length};
@@ -68,10 +68,10 @@ fn create_func_data(
 }
 
 /// Creates parameter signature metadata for an element.
-fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
+fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
     let mut params = vec![];
     for attr in element.attributes() {
-        params.push(ParamInfo {
+        params.push(NativeParamInfo {
             name: attr.name,
             docs: attr.docs,
             input: AttrType::convert(attr.ty).input(),
@@ -86,7 +86,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
     let tag = HtmlTag::constant(element.name);
     if !tag::is_void(tag) {
         let raw = tag::is_raw(tag);
-        params.push(ParamInfo {
+        params.push(NativeParamInfo {
             name: "body",
             docs: if raw {
                 "The text content of the HTML element."
