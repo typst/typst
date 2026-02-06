@@ -9,6 +9,7 @@ use krilla::paint::{
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
+use typst_library::visualize::ColorSpace::LinearRgb;
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RatioOrAngle,
     RelativeTo, Tiling, WeightedColor,
@@ -284,18 +285,55 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                if gradient.space().hue_index().is_some()
-                    || gradient.space() == ColorSpace::Oklab
+                if second.offset.unwrap() > first.offset.unwrap()
+                    && (gradient.space().hue_index().is_some()
+                        || gradient.space() == ColorSpace::Oklab)
                 {
-                    for i in 0..=32 {
-                        let t = i as f64 / 32.0;
-                        let real_t = Ratio::new(
-                            first.offset.unwrap().get() * (1.0 - t)
-                                + second.offset.unwrap().get() * t,
-                        );
-
-                        let c = gradient.sample(RatioOrAngle::Ratio(real_t));
-                        add_single(&c, real_t);
+                    let t0 = first.offset.unwrap().get();
+                    let dt = second.offset.unwrap().get() - t0;
+                    let mut prev_color = first.color;
+                    let mut next_stop = second.offset.unwrap();
+                    let mut next_color = second.color;
+                    let mut n: u64 = 1; // number of subdivisions
+                    let mut i: u64 = 1; // next stop at this subdivision
+                    loop {
+                        // linear interpolation error at midpoint
+                        let euclidean_error = {
+                            let mid = Ratio::new(t0 + dt * (i as f64 - 0.5) / n as f64);
+                            let exact = gradient
+                                .sample(RatioOrAngle::Ratio(mid))
+                                .to_linear_rgb()
+                                .premultiply();
+                            let approx = Color::mix_iter(
+                                [
+                                    WeightedColor::new(prev_color, 0.5),
+                                    WeightedColor::new(next_color, 0.5),
+                                ],
+                                LinearRgb,
+                            )
+                            .unwrap()
+                            .to_linear_rgb()
+                            .premultiply();
+                            let d = (exact.color - approx.color).into_components();
+                            (d.0 * d.0 + d.1 * d.1 + d.2 * d.2).sqrt()
+                        };
+                        if euclidean_error > 0.01 {
+                            n *= 2; // subdivide again
+                            i = 2 * i - 1;
+                        } else if i >= n {
+                            break; // second stop reached
+                        } else {
+                            // insert interpolated stop
+                            add_single(&next_color, next_stop);
+                            prev_color = next_color;
+                            // next subdivision (largest possible)
+                            let shift = i.trailing_zeros();
+                            n >>= shift;
+                            i >>= shift;
+                            i += 1;
+                        }
+                        next_stop = Ratio::new(t0 + dt * i as f64 / n as f64);
+                        next_color = gradient.sample(RatioOrAngle::Ratio(next_stop));
                     }
                 }
 
