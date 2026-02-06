@@ -12,7 +12,8 @@ use typst_library::layout::{
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, LineNumberingScope, Numbering,
+    ParLineMarker,
 };
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
@@ -360,12 +361,23 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Search for footnotes.
         let mut notes = vec![];
+        let mut note_groups = vec![];
         for tag in &self.work.tags {
             let Tag::Start(elem, _) = tag else { continue };
-            let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
-            notes.push((Abs::zero(), note.clone()));
+            if let Some(note) = elem.to_packed::<FootnoteElem>() {
+                notes.push((Abs::zero(), note.clone()));
+            }
+            if let Some(group) = elem.to_packed::<FootnoteGroup>() {
+                note_groups.push((Abs::zero(), group.clone()));
+            }
         }
         find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
+        find_in_frame_impl::<FootnoteGroup>(&mut note_groups, frame, Abs::zero());
+        for (group_abs, group) in &note_groups {
+            for child in &group.children {
+                notes.push((*group_abs, child.clone()));
+            }
+        }
         if notes.is_empty() {
             return Ok(());
         }
