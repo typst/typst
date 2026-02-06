@@ -697,10 +697,6 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
-        ValidationError::InconsistentSeparationFallback(_) => error!(
-            Span::detached(),
-            "{prefix} inconsistent separation fallback color space";
-        ),
     }
 }
 
