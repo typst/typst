@@ -259,12 +259,17 @@ const imageDiffs = []
 /**
  * @typedef ImageDiffState
  * @type {object}
- * @property imageSplits {HTMLDivElement[]}
+ * @property dirty {bool} Whether the canvas should be (re-)drawn.
+ * @property visible {bool} Whether the canvas is visible.
+ * @property imageCanvas {HTMLCanvasElement}
  * @property images {HTMLImageElement[]}
  * @property imageModes {HTMLInputElement[]}
+ * @property imageAntialiasing {HTMLInputElement}
  * @property imageZoom {HTMLInputElement}
- * @property imageAlignXControl {HTMLInputElement[]}
- * @property imageBlendControl {HTMLFieldSetElement}
+ * @property imageAlignXControl {HTMLElement}
+ * @property imageAlignY {HTMLInputElement[]}
+ * @property imageAlignX {HTMLInputElement[]}
+ * @property imageBlendControl {HTMLElement}
  * @property imageBlend {HTMLInputElement}
  */
 
@@ -274,61 +279,96 @@ const imageDiffs = []
 
 for (const imageDiff of document.getElementsByClassName("image-diff")) {
   const imageWrapper = imageDiff.querySelector(".image-diff-wrapper")
-  const imageSplits = imageWrapper.querySelectorAll(".image-split")
-  const images = imageWrapper.querySelectorAll("img")
+  const imageCanvas = imageWrapper.querySelector(".image-canvas")
+  const images = imageCanvas.querySelectorAll("img")
 
   const imageModes = imageDiff.querySelectorAll("input.image-view-mode")
+  const imageAntialiasing = imageDiff.querySelector("input.image-antialiasing")
   const imageZoom = imageDiff.querySelector("input.image-zoom")
   const imageZoomPlus = imageDiff.querySelector("button.image-zoom-plus")
   const imageZoomMinus = imageDiff.querySelector("button.image-zoom-minus")
   const imageAlignXControl = imageDiff.querySelector(".image-align-x-control")
+  const imageAlignX = imageAlignXControl.querySelectorAll(".image-align-x")
+  const imageAlignYControl = imageDiff.querySelector(".image-align-y-control")
+  const imageAlignY = imageAlignYControl.querySelectorAll(".image-align-y")
   const imageBlendControl = imageDiff.querySelector(".image-blend-control")
   const imageBlend = imageDiff.querySelector("input.image-blend")
 
   /** @type {ImageDiffState} */
   const state = {
-    imageSplits,
+    dirty: true,
+    visible: false,
+    imageCanvas,
     images,
     imageModes,
+    imageAntialiasing,
     imageZoom,
     imageAlignXControl,
+    imageAlignX,
+    imageAlignY,
     imageBlendControl,
     imageBlend,
   }
-  imageDiffs.push(state)
-
-  imageZoom.addEventListener("change", () => setImageZoom(state))
-  imageZoom.addEventListener("input", () => setImageZoom(state))
-  setImageZoom(state)
-
-  imageZoomMinus.addEventListener("click", () => {
-    imageZoom.stepDown()
-    setImageZoom(state)
-  })
-  imageZoomPlus.addEventListener("click", () => {
-    imageZoom.stepUp()
-    setImageZoom(state)
-  })
-
-  imageBlend.addEventListener("change", () => setImageBlend(state))
-  imageBlend.addEventListener("input", () => setImageBlend(state))
+  imageDiffs.push(state);
 
   for (const imageMode of imageModes) {
     imageMode.addEventListener("change", (e) => {
-      imageModeChanged(state, e.target.value)
-    })
+      imageModeChanged(state, e.target.value);
+    });
   }
 
-  const mode = currentImageMode(state);
-  imageModeChanged(state, mode)
+  imageAntialiasing.addEventListener("change", () => imageDiffChanged(state));
+
+  imageZoom.addEventListener("change", () => imageDiffChanged(state));
+  imageZoom.addEventListener("input", () => imageDiffChanged(state));
+
+  imageZoomMinus.addEventListener("click", () => {
+    imageZoom.stepDown()
+    imageDiffChanged(state)
+  });
+  imageZoomPlus.addEventListener("click", () => {
+    imageZoom.stepUp()
+    imageDiffChanged(state)
+  });
+
+  for (const align of imageAlignX) {
+    align.addEventListener("change", () => imageDiffChanged(state));
+  }
+  for (const align of imageAlignY) {
+    align.addEventListener("change", () => imageDiffChanged(state));
+  }
+
+  imageBlend.addEventListener("change", () => imageDiffChanged(state));
+  imageBlend.addEventListener("input", () => imageDiffChanged(state));
+
+  // Initially enable/disable the image controls.
+  disableImageControls(state, currentImageMode(state));
+
+  // Issue a lazy canvas redaw if the images become visible on screen.
+  onViewportIntersectionChanged(imageWrapper, (visible) => {
+    state.visible = visible;
+    redrawImageDiff(state);
+  });
+}
+
+/**
+ * @param element {HTMLElement}
+ * @param callback {(visible: bool) => void}
+ */
+function onViewportIntersectionChanged(element, callback) {
+  var observer = new IntersectionObserver((entries, _observer) => {
+    for (const entry of entries) {
+      callback(entry.intersectionRatio > 0);
+    }
+  });
+
+  observer.observe(element);
 }
 
 let imageModes = ["side-by-side", "blend", "difference"]
 for (const mode of imageModes) {
   document.getElementById(`global-image-view-mode-${mode}`)
-    .addEventListener("click", () => {
-      changeGlobalImageMode(mode)
-    })
+    .addEventListener("click", () => changeGlobalImageMode(mode));
 }
 
 /**
@@ -341,7 +381,7 @@ function changeGlobalImageMode(mode) {
         imageMode.checked = true;
       }
     }
-    imageModeChanged(state, mode)
+    imageModeChanged(state, mode);
   }
 }
 
@@ -350,6 +390,15 @@ function changeGlobalImageMode(mode) {
  * @param mode {ImageViewMode}
  */
 function imageModeChanged(state, mode) {
+  disableImageControls(state, mode);
+  imageDiffChanged(state);
+}
+
+/**
+ * @param state {ImageDiffState}
+ * @param mode {ImageViewMode}
+ */
+function disableImageControls(state, mode) {
   switch (mode) {
     case "side-by-side": {
       state.imageAlignXControl.disabled = true;
@@ -363,33 +412,166 @@ function imageModeChanged(state, mode) {
     }
     case "difference": {
       state.imageAlignXControl.disabled = false;
-      state.imageBlendControl.disabled = true;
+      state.imageBlendControl.disabled = false;
+      break;
+    }
+    default: throw `unknown mode ${mode}`
+  }
+}
+
+/**
+ * @typedef ImageParams
+ * @type {object}
+ * @property x {number}
+ * @property y {number}
+ * @property w {number}
+ * @property h {number}
+ * @property opacity {number}
+ */
+
+/**
+ * @param state {ImageDiffState}
+ */
+function imageDiffChanged(state) {
+  state.dirty = true;
+  redrawImageDiff(state);
+}
+
+/**
+ * @param state {ImageDiffState}
+ */
+function redrawImageDiff(state) {
+  // In large test reports drawing only the image diffs that are on screen is
+  // necessary to create a somewhat usable experience. It also dramatically
+  // reduces loading time.
+  if (!state.dirty || !state.visible) return;
+
+  state.dirty = false;
+
+  const scale = state.imageZoom.value
+  const antialiased = state.imageAntialiasing.checked;
+  const mode = currentImageMode(state)
+  const alignX = currentImageAlignX(state);
+  const alignY = currentImageAlignY(state);
+  const blend = state.imageBlend.value
+
+  const a = {
+    x: 0,
+    y: 0,
+    w: scale * state.images[0].naturalWidth,
+    h: scale * state.images[0].naturalHeight,
+    opacity: 1,
+  };
+  const b = {
+    x: 0,
+    y: 0,
+    w: scale * state.images[1].naturalWidth,
+    h: scale * state.images[1].naturalHeight,
+    opacity: 1,
+  };
+
+  const maxWidth = Math.max(a.w, b.w);
+  const maxHeight = Math.max(a.h, b.h);
+
+  const sideBySideGap = 1;
+
+  let canvasSize = { w: maxWidth, h: maxHeight };
+  let compositeMode;
+  switch (mode) {
+    case "side-by-side": {
+      compositeMode = "source-over";
+
+      const maxWidth = Math.max(a.w, b.w);
+      canvasSize = { w: 2 * maxWidth + sideBySideGap, h: Math.max(a.h, b.h) };
+
+      // Center align images
+      a.x = maxWidth - a.w;
+      b.x = maxWidth + sideBySideGap;
+
+      a.y = verticalAlignImage(a, canvasSize, alignY);
+      b.y = verticalAlignImage(b, canvasSize, alignY);
+
+      break;
+    }
+    case "blend": {
+      // Additive mixing.
+      compositeMode = "lighter";
+
+      // Blend images.
+      a.opacity = 1 - blend;
+      b.opacity = blend;
+
+      a.x = horizontalAlignImage(a, canvasSize, alignX);
+      b.x = horizontalAlignImage(b, canvasSize, alignX);
+      a.y = verticalAlignImage(a, canvasSize, alignY);
+      b.y = verticalAlignImage(b, canvasSize, alignY);
+
+      break;
+    }
+    case "difference": {
+      compositeMode = "difference";
+
+      // Fade out one of the images.
+      if (blend < 0.4) {
+        b.opacity = (blend / 0.4);
+      } else if (blend > 0.6) {
+        a.opacity = 1 - ((blend - 0.6) / 0.4);
+      }
+
+      a.x = horizontalAlignImage(a, canvasSize, alignX);
+      b.x = horizontalAlignImage(b, canvasSize, alignX);
+      a.y = verticalAlignImage(a, canvasSize, alignY);
+      b.y = verticalAlignImage(b, canvasSize, alignY);
+
       break;
     }
     default: throw `unknown mode ${mode}`
   }
 
-  setImageBlend(state)
+  state.imageCanvas.width = canvasSize.w;
+  state.imageCanvas.height = canvasSize.h;
+
+  const ctx = state.imageCanvas.getContext("2d")
+  ctx.clearRect(0, 0, state.imageCanvas.width, state.imageCanvas.height);
+
+  ctx.imageSmoothingEnabled = antialiased;
+  ctx.globalCompositeOperation = compositeMode;
+
+  ctx.globalAlpha = a.opacity;
+  ctx.drawImage(state.images[0], a.x, a.y, a.w, a.h);
+
+  ctx.globalAlpha = b.opacity;
+  ctx.drawImage(state.images[1], b.x, b.y, b.w, b.h);
 }
 
 /**
- * @param state {ImageDiffState}
+ * @param img {ImageParams}
+ * @param size {{w: number, h: number}}
+ * @param align: {"left" | "center" | "right"}
+ * @returns number
  */
-function setImageZoom(state) {
-  const scale = state.imageZoom.value
-  for (const image of state.imageSplits) {
-    image.style.transform = `scale(${scale})`
+function horizontalAlignImage(img, size, align) {
+  switch (align) {
+    case "left": return 0;
+    case "center": return 0.5 * (size.w - img.w);
+    case "right": return size.w - img.w;
+    default: throw `unknown horizontal alignment ${align}`
   }
 }
 
 /**
- * @param state {ImageDiffState}
+ * @param img {ImageParams}
+ * @param size {{w: number, h: number}}
+ * @param align: { "top" | "center" | "bottom" }
+ * @returns number
  */
-function setImageBlend(state) {
-  const mode = currentImageMode(state)
-  const blend = state.imageBlend.value
-  state.images[0].style.opacity = (mode == "blend") ? (1 - blend) : 1
-  state.images[1].style.opacity = (mode == "blend") ? blend : 1
+function verticalAlignImage(img, size, align) {
+  switch (align) {
+    case "top": return 0;
+    case "center": return 0.5 * (size.h - img.h);
+    case "bottom": return size.h - img.h;
+    default: throw `unknown vertical alignment ${align}`
+  }
 }
 
 /**
@@ -399,6 +581,28 @@ function currentImageMode(state) {
   for (const imageMode of state.imageModes) {
     if (imageMode.checked) {
       return imageMode.value
+    }
+  }
+}
+
+/**
+ * @param state {ImageDiffState}
+ */
+function currentImageAlignX(state) {
+  for (const align of state.imageAlignX) {
+    if (align.checked) {
+      return align.value
+    }
+  }
+}
+
+/**
+ * @param state {ImageDiffState}
+ */
+function currentImageAlignY(state) {
+  for (const align of state.imageAlignY) {
+    if (align.checked) {
+      return align.value
     }
   }
 }

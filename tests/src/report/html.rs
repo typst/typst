@@ -288,6 +288,8 @@ impl HtmlElem<'_> {
         fn button();
         fn a();
 
+        fn canvas();
+
         fn ul();
         fn li();
 
@@ -313,7 +315,6 @@ impl HtmlElem<'_> {
         fn id(impl Display);
         fn name(impl Display);
         fn class(impl Display);
-        fn style(impl Display);
         fn title(&str);
         fn placeholder(&str);
 
@@ -1090,7 +1091,7 @@ fn image_diff(
             div.fieldset().class("control-group").with(|fieldset| {
                 checkbox_icon_button(
                     fieldset,
-                    "antialiasing",
+                    "image-antialiasing",
                     "Antialiasing",
                     icons::ANTIALIASING,
                     true,
@@ -1117,58 +1118,53 @@ fn image_diff(
 
         div.div().class("image-diff-wrapper").with(|div| {
             let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
-                parent.img().src(data_url).with(|img| {
-                    // PDFs converted to SVGs don't have a white background
-                    // by default, which makes them hard to read.
-                    if output == TestOutput::Pdf {
-                        img.style("background: #fff");
-                    }
-                });
+                parent.img().src(data_url);
             };
 
-            div.div().class("image-split").with(|div| {
+            div.canvas().class("image-canvas").with(|canvas| {
                 let data_url = (diff.left())
                     .and_then(|old| old.data())
                     .map(|img| img.data_url.as_str())
                     .unwrap_or("");
-                image(div, data_url);
-            });
-            div.div().class("image-split").with(|div| {
+                image(canvas, data_url);
+
                 let data_url = (diff.right())
                     .and_then(|res| res.as_ref().ok())
                     .map(|img| img.data_url.as_str())
                     .unwrap_or("");
-                image(div, data_url);
+                image(canvas, data_url);
             });
         });
 
         div.div().class("image-mode-controls").with(|div| {
-            div.fieldset().class("control-group").with(|fieldset| {
-                radio_icon_button(
-                    fieldset,
-                    "image-align-y",
-                    "top",
-                    "Vertical-align top",
-                    icons::ALIGN_TOP,
-                    true,
-                );
-                radio_icon_button(
-                    fieldset,
-                    "image-align-y",
-                    "center",
-                    "Vertical-align center",
-                    icons::ALIGN_HORIZON,
-                    false,
-                );
-                radio_icon_button(
-                    fieldset,
-                    "image-align-y",
-                    "bottom",
-                    "Vertical-align bottom",
-                    icons::ALIGN_BOTTOM,
-                    false,
-                );
-            });
+            div.fieldset().class("control-group image-align-y-control").with(
+                |fieldset| {
+                    radio_icon_button(
+                        fieldset,
+                        "image-align-y",
+                        "top",
+                        "Vertical-align top",
+                        icons::ALIGN_TOP,
+                        true,
+                    );
+                    radio_icon_button(
+                        fieldset,
+                        "image-align-y",
+                        "center",
+                        "Vertical-align center",
+                        icons::ALIGN_HORIZON,
+                        false,
+                    );
+                    radio_icon_button(
+                        fieldset,
+                        "image-align-y",
+                        "bottom",
+                        "Vertical-align bottom",
+                        icons::ALIGN_BOTTOM,
+                        false,
+                    );
+                },
+            );
 
             div.fieldset().class("control-group image-align-x-control").with(
                 |fieldset| {

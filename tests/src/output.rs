@@ -321,7 +321,16 @@ fn pdf_to_svg(bytes: &[u8]) -> String {
         warning_sink: Arc::new(|_| {}),
     };
 
-    hayro_svg::convert(&pdf.pages()[0], &interpreter_settings)
+    let mut svg = hayro_svg::convert(&pdf.pages()[0], &interpreter_settings);
+
+    // Insert a white background, since PDFs don't set a background by default.
+    let pos = svg.find(">").expect("end of opening `<svg>` tag");
+    svg.insert_str(
+        pos + 1,
+        r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#,
+    );
+
+    svg
 }
 
 impl HashOutputType for Pdf {
