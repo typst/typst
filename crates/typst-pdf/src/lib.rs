@@ -12,6 +12,7 @@ mod shape;
 mod tags;
 mod text;
 mod util;
+mod video;
 
 pub use self::metadata::{Timestamp, Timezone};
 

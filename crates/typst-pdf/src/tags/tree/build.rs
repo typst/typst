@@ -251,6 +251,7 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
             FrameItem::Text(_) => (),
             FrameItem::Shape(..) => (),
             FrameItem::Image(..) => (),
+            FrameItem::Video(..) => (),
             FrameItem::Link(..) => (),
         }
     }

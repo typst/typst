@@ -261,6 +261,10 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Image(image, size, _) => {
                     self.render_image(svg, &state, image, size)
                 }
+                FrameItem::Video(video, size, _) => {
+                    // Render poster image as fallback.
+                    self.render_image(svg, &state, video.poster(), size)
+                }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
             };

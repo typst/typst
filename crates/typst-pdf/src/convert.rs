@@ -36,6 +36,7 @@ use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
 use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::video::handle_video;
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -134,6 +135,11 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         let link_annotations = fc.link_annotations.into_values().flatten();
         tags::add_link_annotations(gc, &mut page, link_annotations);
+
+        // Add video screen annotations to the page.
+        for annotation in fc.video_annotations {
+            page.add_annotation(annotation);
+        }
     }
 
     Ok(())
@@ -191,6 +197,8 @@ pub(crate) struct FrameContext {
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
     link_annotations: IndexMap<GroupId, SmallVec<[LinkAnnotation; 1]>, FxBuildHasher>,
+    /// Video screen annotations to add to the page.
+    pub(crate) video_annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl FrameContext {
@@ -199,6 +207,7 @@ impl FrameContext {
             page_idx,
             states: vec![State::new(size)],
             link_annotations: IndexMap::default(),
+            video_annotations: Vec::new(),
         }
     }
 
@@ -232,6 +241,13 @@ impl FrameContext {
     ) {
         let annotations = self.link_annotations.entry(id).or_default();
         annotations.push(annotation);
+    }
+
+    pub(crate) fn push_video_annotation(
+        &mut self,
+        annotation: krilla::annotation::Annotation,
+    ) {
+        self.video_annotations.push(annotation);
     }
 }
 
@@ -310,6 +326,9 @@ pub(crate) fn handle_frame(
             FrameItem::Shape(s, span) => handle_shape(fc, s, surface, gc, *span)?,
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
+            }
+            FrameItem::Video(video, size, span) => {
+                handle_video(gc, fc, video, *size, surface, *span)?
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
@@ -678,6 +697,11 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        _ => error!(
+            Span::detached(),
+            "{prefix} validation error";
+            hint: "please report this as a bug";
+        ),
     }
 }
 

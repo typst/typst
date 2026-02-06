@@ -12,7 +12,7 @@ use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
-use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
+use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape, Video};
 
 /// A finished layout with items at fixed positions.
 #[derive(Default, Clone, Hash)]
@@ -472,6 +472,8 @@ pub enum FrameItem {
     Shape(Shape, Span),
     /// An image and its size.
     Image(Image, Size, Span),
+    /// An embedded video and its size.
+    Video(Video, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
     /// An introspectable element that produced something within this frame.
@@ -485,6 +487,7 @@ impl Debug for FrameItem {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
+            Self::Video(video, _, _) => write!(f, "{video:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
             Self::Tag(tag) => write!(f, "{tag:?}"),
         }

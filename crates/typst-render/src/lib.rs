@@ -164,6 +164,15 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             FrameItem::Image(image, size, _) => {
                 image::render_image(canvas, state.pre_translate(*pos), image, *size);
             }
+            FrameItem::Video(video, size, _) => {
+                // Render the poster image as fallback.
+                image::render_image(
+                    canvas,
+                    state.pre_translate(*pos),
+                    video.poster(),
+                    *size,
+                );
+            }
             FrameItem::Link(_, _) => {}
             FrameItem::Tag(_) => {}
         }

@@ -31,7 +31,7 @@ use typst_library::text::{
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
-    SquareElem, Stroke,
+    SquareElem, Stroke, VideoElem,
 };
 use typst_utils::{Get, Numeric};
 
@@ -93,6 +93,7 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // Visualize.
     rules.register(Paged, IMAGE_RULE);
+    rules.register(Paged, VIDEO_RULE);
     rules.register(Paged, LINE_RULE);
     rules.register(Paged, RECT_RULE);
     rules.register(Paged, SQUARE_RULE);
@@ -771,6 +772,13 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
+        .with_width(elem.width.get(styles))
+        .with_height(elem.height.get(styles))
+        .pack())
+};
+
+const VIDEO_RULE: ShowFn<VideoElem> = |elem, _, styles| {
+    Ok(BlockElem::single_layouter(elem.clone(), crate::video::layout_video)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
         .pack())

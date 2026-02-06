@@ -14,6 +14,7 @@ mod rules;
 mod shapes;
 mod stack;
 mod transforms;
+mod video;
 
 pub use self::flow::{layout_fragment, layout_frame};
 pub use self::pages::layout_document;
