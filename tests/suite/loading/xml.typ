@@ -1,4 +1,4 @@
---- xml paged ---
+--- xml eval ---
 // Test reading XML data.
 #let data = xml("/assets/data/hello.xml")
 #test(data, ((
@@ -23,11 +23,15 @@
   ),
 ),))
 
+// Test reading through path type.
+#let data-from-path = xml(path("/assets/data/hello.xml"))
+#test(data-from-path, data)
+
 --- xml-invalid paged ---
 // Error: "/assets/data/bad.xml" 3:0 failed to parse XML (found closing tag 'data' instead of 'hello')
 #xml("/assets/data/bad.xml")
 
---- xml-decode-deprecated paged ---
+--- xml-decode-deprecated eval ---
 // Warning: 14-20 `xml.decode` is deprecated, directly pass bytes to `xml` instead
 // Hint: 14-20 it will be removed in Typst 0.15.0
 #let _ = xml.decode

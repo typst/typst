@@ -82,7 +82,7 @@ impl Duration {
     /// The duration expressed in seconds.
     ///
     /// This function returns the total duration represented in seconds as a
-    /// floating-point number rather than the second component of the duration.
+    /// floating-point number, rather than the seconds component of the duration.
     #[func]
     pub fn seconds(&self) -> f64 {
         self.0.as_seconds_f64()
@@ -91,7 +91,7 @@ impl Duration {
     /// The duration expressed in minutes.
     ///
     /// This function returns the total duration represented in minutes as a
-    /// floating-point number rather than the second component of the duration.
+    /// floating-point number, rather than the minutes component of the duration.
     #[func]
     pub fn minutes(&self) -> f64 {
         self.seconds() / 60.0
@@ -100,7 +100,7 @@ impl Duration {
     /// The duration expressed in hours.
     ///
     /// This function returns the total duration represented in hours as a
-    /// floating-point number rather than the second component of the duration.
+    /// floating-point number, rather than the hours component of the duration.
     #[func]
     pub fn hours(&self) -> f64 {
         self.seconds() / 3_600.0
@@ -109,7 +109,7 @@ impl Duration {
     /// The duration expressed in days.
     ///
     /// This function returns the total duration represented in days as a
-    /// floating-point number rather than the second component of the duration.
+    /// floating-point number, rather than the days component of the duration.
     #[func]
     pub fn days(&self) -> f64 {
         self.seconds() / 86_400.0
@@ -118,7 +118,7 @@ impl Duration {
     /// The duration expressed in weeks.
     ///
     /// This function returns the total duration represented in weeks as a
-    /// floating-point number rather than the second component of the duration.
+    /// floating-point number, rather than the weeks component of the duration.
     #[func]
     pub fn weeks(&self) -> f64 {
         self.seconds() / 604_800.0

@@ -42,7 +42,7 @@ AA (8)
 
 --- show-text-regex-word-boundary paged ---
 // Test caseless match and word boundaries.
-#show regex("(?i)\bworld\b"): [🌍]
+#show regex("(?i)\\bworld\\b"): [🌍]
 
 Treeworld, the World of worlds, is a world.
 
@@ -62,7 +62,7 @@ Treeworld, the World of worlds, is a world.
 --- show-text-regex-character-class paged ---
 // This is a fun one.
 #set par(justify: true)
-#show regex("\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
+#show regex("\\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
 #lorem(5)
 
 --- show-text-regex-case-insensitive paged ---
@@ -211,6 +211,22 @@ $a^2 + b^2 = c^2$ is Pythagoras' theorem.
 a \ #h(0pt, weak: true)
 b \ #h(0pt, weak: true)
 $x$ c $y$
+
+--- show-text-styled-space paged ---
+// Differently styled spaces between text are not matched by regex rules.
+// This is solely due to grouping rules, not space collapsing.
+#show " ": "B"
+#show "X": "B"
+A C \
+A#text(red)[ ]C \
+A#text(red)[X]C
+
+--- show-text-where-text-is-space paged ---
+// Spaces in `text` match even if differently styled, unlike the previous test.
+#show text.where(text: " "): [B]
+A#text(" ")C \
+A#text([ ])C \ // Space elements don't magically become `text`
+A#text(" ", red)C
 
 --- issue-5014-show-text-tags paged ---
 #{

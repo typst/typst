@@ -206,7 +206,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             bail!(
                 group.span,
                 "{validator} error: ambiguous logical parent";
-                hint: "please report this as a bug"
+                hint: "please report this as a bug";
             );
         }
 
@@ -462,8 +462,10 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
                 error!(
                     heading.span(),
                     "{validator} error: heading title could not be determined";
-                    hint: "this seems to be caused by a context expression within the heading";
-                    hint: "consider wrapping the entire heading in a context expression instead"
+                    hint: "this seems to be caused by a context expression within the \
+                           heading";
+                    hint: "consider wrapping the entire heading in a context expression \
+                           instead";
                 )
             } else {
                 error!(heading.span(), "{validator} error: heading title is empty")
@@ -651,14 +653,14 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                     "{validator} error: invalid document structure, \
                      this element's PDF tag would be split up";
                     hint: "this is probably caused by paragraph grouping";
-                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`"
+                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`";
                 );
             } else {
                 bail!(
                     non_breakable_span,
                     "invalid document structure, \
                      this element's PDF tag would be split up";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
         }

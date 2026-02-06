@@ -183,7 +183,7 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         bail!(
             element.span,
             "HTML raw text element cannot contain its own closing tag";
-            hint: "the sequence `{closing}` appears in the raw text",
+            hint: "the sequence `{closing}` appears in the raw text";
         )
     }
 
@@ -310,7 +310,7 @@ fn allows_pretty_inside(tag: HtmlTag) -> bool {
 /// In contrast to `allows_pretty_inside`, which is purely spec-driven, this is
 /// more subjective and depends on preference.
 fn wants_pretty_around(tag: HtmlTag) -> bool {
-    allows_pretty_inside(tag) || tag::is_metadata(tag) || tag == tag::pre
+    allows_pretty_inside(tag) || tag::is_metadata_content(tag) || tag == tag::pre
 }
 
 /// Escape a character.

@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -10,9 +11,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
 use typst_utils::ArcExt;
 
-use crate::diag::{Hint, HintedStrResult, StrResult};
+use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
-    Array, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
+    Array, Context, Func, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -264,6 +266,64 @@ impl Dict {
         self.0
             .iter()
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
+            .collect()
+    }
+
+    /// Produces a new dictionary with only the pairs from the original one for
+    /// which the given function returns `{true}`.
+    ///
+    /// ```example:"Basic usage"
+    /// #{
+    ///   (a: 0, b: 1, c: 2)
+    ///     .filter(v => v > 0)
+    /// }
+    /// ```
+    ///
+    /// ```example:"Filtering based on the key instead of the value"
+    /// #{
+    ///   (a: 0, b: 1, c: 2)
+    ///     .pairs()
+    ///     .filter(((k, v)) => k != "a")
+    ///     .to-dict()
+    /// }
+    /// ```
+    #[func]
+    pub fn filter(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        /// The function to apply to each value. Must return a boolean.
+        test: Func,
+    ) -> SourceResult<Dict> {
+        let mut run_test = |v: &Value| {
+            test.call(engine, context, [v.clone()])?
+                .cast::<bool>()
+                .at(test.span())
+        };
+        self.into_iter()
+            .filter_map(|(k, v)| run_test(&v).map(|b| b.then_some((k, v))).transpose())
+            .collect()
+    }
+
+    /// Produces a new dictionary where the keys are the same, but the values
+    /// are transformed with the given function.
+    ///
+    /// ```example
+    /// #(a: 0, b: 1, c: 2).map(v => v + 1)
+    /// ```
+    #[func]
+    pub fn map(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        /// The function to apply to each value.
+        mapper: Func,
+    ) -> SourceResult<Dict> {
+        self.into_iter()
+            .map(|(k, v)| {
+                let mapped_value = mapper.call(engine, context, [v])?;
+                Ok((k, mapped_value))
+            })
             .collect()
     }
 }

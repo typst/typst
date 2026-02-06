@@ -1,6 +1,6 @@
 // Test return out of functions.
 
---- return-with-value paged ---
+--- return-with-value eval ---
 // Test return with value.
 #let f(x) = {
   return x + 1
@@ -8,7 +8,7 @@
 
 #test(f(1), 2)
 
---- return-join paged ---
+--- return-join eval ---
 // Test return with joining.
 
 #let f(x) = {
@@ -51,7 +51,7 @@
   return
 }
 
---- return-in-first-arg paged ---
+--- return-in-first-arg eval ---
 // Test that the expression is evaluated to the end.
 #let sum(..args) = {
   let s = 0
@@ -68,7 +68,7 @@
 
 #test(f(), 6)
 
---- return-in-content-block paged ---
+--- return-in-content-block eval ---
 // Test value return from content.
 #let x = 3
 #let f() = [
@@ -86,7 +86,7 @@
   #return a + b Hello World
 ]
 
---- return-discard-content paged ---
+--- return-discard-content eval ---
 // Test that discarding joined content is a warning.
 #let f() = {
   [Hello, World!]
@@ -97,7 +97,7 @@
 
 #test(f(), "nope")
 
---- return-discard-content-nested paged ---
+--- return-discard-content-nested eval ---
 #let f() = {
   [Hello, World!]
   {
@@ -109,7 +109,7 @@
 
 #test(f(), "nope")
 
---- return-discard-state paged ---
+--- return-discard-state eval ---
 // Test that discarding a joined content with state is special warning
 
 #let f() = {
@@ -123,7 +123,7 @@
 
 #test(f(), [ Hello ])
 
---- return-discard-loop paged ---
+--- return-discard-loop eval ---
 // Test that return from within a control flow construct is not a warning.
 #let f1() = {
   state("hello").update("world")
@@ -143,7 +143,7 @@
 #test(f1(), "nope1")
 #test(f2(), "nope2")
 
---- return-no-discard paged ---
+--- return-no-discard eval ---
 // Test that returning the joined content is not a warning.
 #let f() = {
   state("hello").update("world")
@@ -152,7 +152,7 @@
 
 #test(f(), state("hello").update("world"))
 
---- return-discard-not-content paged ---
+--- return-discard-not-content eval ---
 // Test that non-content joined value is not a warning.
 #let f() = {
   (33,)
@@ -161,7 +161,7 @@
 
 #test(f(), (66, ))
 
---- return-discard-markup paged ---
+--- return-discard-markup eval ---
 // Test that discarding markup is not a warning.
 #let f() = [
   hello

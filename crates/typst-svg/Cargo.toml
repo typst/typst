@@ -25,9 +25,11 @@ flate2 = { workspace = true }
 hayro = { workspace = true }
 hayro-svg = { workspace = true }
 image = { workspace = true }
+indexmap = { workspace = true }
+itoa = { workspace = true }
 rustc-hash = { workspace = true }
+ryu = { workspace = true }
 ttf-parser = { workspace = true }
-xmlparser = { workspace = true }
 xmlwriter = { workspace = true }
 
 [lints]

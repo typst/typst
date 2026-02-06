@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::io::IsTerminal;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -8,15 +9,17 @@ use bitflags::{Flags, bitflags};
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Bytes;
+use typst_kit::files::FileLoader;
 use typst_pdf::PdfStandard;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
+    FileId, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident,
+    is_newline,
 };
 use unscanny::Scanner;
 
-use crate::output::HashedRefs;
-use crate::world::{read, system_path};
+use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
+use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -24,7 +27,7 @@ use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 /// Returns:
 /// - the tests and the number of skipped tests in the success case.
 /// - parsing errors in the failure case.
-pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
+pub fn collect() -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
     Collector::new().collect()
 }
 
@@ -37,10 +40,37 @@ pub struct Test {
     pub notes: Vec<Note>,
 }
 
+impl Test {
+    /// Whether this test is expected to emit an error.
+    pub fn should_error(&self) -> bool {
+        self.notes.iter().any(|n| n.kind == NoteKind::Error)
+    }
+
+    /// Whether this test output should be compared and saved, this is true for
+    /// stages that are explicitly specified and those that are
+    /// [implied](TestStages::with_implied).
+    pub fn should_check(&self, output: TestOutput) -> bool {
+        ARGS.required_stages()
+            .intersects(self.attrs.implied_stages() & output.into())
+    }
+
+    /// Whether this test stage should be run, test stages that are
+    /// [required](TestStages::with_required) by another stage mus be run, even
+    /// if they aren't explicitly specified.
+    pub fn should_run(&self, stage: impl TestStage) -> bool {
+        ARGS.required_stages()
+            .intersects(self.attrs.implied_stages().with_required() & stage.into())
+    }
+}
+
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path
-        write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+        if std::io::stdout().is_terminal() {
+            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+        } else {
+            write!(f, "{} ({})", self.name, self.pos)
+        }
     }
 }
 
@@ -72,6 +102,7 @@ bitflags! {
     #[derive(Copy, Clone)]
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
+        const EMPTY = 1 << 1;
     }
 }
 
@@ -79,20 +110,23 @@ bitflags! {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
+    pub empty: bool,
     pub pdf_standard: Option<PdfStandard>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
-    pub stages: TestStages,
+    stages: TestStages,
 }
 
 impl Attrs {
-    /// Whether the reference output should be compared and saved.
-    pub fn should_check_ref(&self, output: TestOutput) -> bool {
-        // TODO: Enable PDF and SVG once we have a diffing tool for hashed references.
-        ARGS.should_run(self.stages & output.into())
-            && output != TestOutput::Pdf
-            && output != TestOutput::Svg
+    /// The stages, the way they were parsed.
+    pub fn parsed_stages(&self) -> TestStages {
+        self.stages
+    }
+
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages.with_implied()
     }
 }
 
@@ -101,46 +135,35 @@ pub trait TestStage: Into<TestStages> + Display + Copy {}
 bitflags! {
     /// The stages a test in ran through. This combines both compilation targets
     /// and output formats.
+    ///
+    /// Here's a visual representation of the stage tree:
+    /// ```txt
+    ///                  ╭─> render
+    ///       ╭─> paged ─┼─> pdf ───> pdftags
+    /// eval ─┤          ╰─> svg
+    ///       ╰─> html  ───> html
+    /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct TestStages: u8 {
-        const PAGED = 1 << 0;
-        const RENDER = 1 << 1;
-        const PDF = 1 << 2;
-        const PDFTAGS = 1 << 3;
-        const SVG = 1 << 4;
-        const HTML = 1 << 5;
+        const EVAL = 1 << 0;
+        const PAGED = 1 << 1;
+        const RENDER = 1 << 2;
+        const PDF = 1 << 3;
+        const PDFTAGS = 1 << 4;
+        const SVG = 1 << 5;
+        const HTML = 1 << 6;
     }
 }
 
-macro_rules! union {
-    ($union:expr) => {
-        $union
-    };
-    ($a:expr, $b:expr $(,$flag:expr)*$(,)?) => {
-        union!($a.union($b) $(,$flag)*)
-    };
-}
-
 impl TestStages {
-    /// All stages that require the paged target.
-    pub const PAGED_STAGES: Self = union!(
-        TestStages::PAGED,
-        TestStages::RENDER,
-        TestStages::PDF,
-        TestStages::PDFTAGS,
-        TestStages::SVG,
-    );
-
-    /// All stages that require a pdf document.
-    pub const PDF_STAGES: Self = union!(TestStages::PDF, TestStages::PDFTAGS);
-
-    /// The union the supplied stages and their implied stages.
+    /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
     pub fn with_implied(&self) -> TestStages {
         let mut res = *self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
+                TestStages::EVAL => TestStages::empty(),
                 TestStages::PAGED => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
                 TestStages::RENDER => TestStages::empty(),
                 TestStages::PDF => TestStages::empty(),
@@ -148,6 +171,48 @@ impl TestStages {
                 TestStages::SVG => TestStages::empty(),
                 TestStages::HTML => TestStages::empty(),
                 _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their required stages.
+    ///
+    /// For example, the `pdf` output requires the `paged` target.
+    /// And the `pdftags` output requires both `pdf` and `paged`.
+    pub fn with_required(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::EVAL => TestStages::empty(),
+                TestStages::PAGED => TestStages::EVAL,
+                TestStages::RENDER => TestStages::EVAL | TestStages::PAGED,
+                TestStages::PDF => TestStages::EVAL | TestStages::PAGED,
+                TestStages::PDFTAGS => TestStages::EVAL | TestStages::PAGED | TestStages::PDF,
+                TestStages::SVG => TestStages::EVAL | TestStages::PAGED,
+                TestStages::HTML => TestStages::EVAL,
+                _ => unreachable!(),
+            });
+        }
+        res
+    }
+
+    /// The union of the supplied stages and their sibling stages.
+    ///
+    /// See the tree in [`TestStages`].
+    pub fn with_siblings(&self) -> TestStages {
+        let mut res = *self;
+        for flag in self.iter() {
+            res |= bitflags::bitflags_match!(flag, {
+                TestStages::PAGED => TestStages::PAGED | TestStages::HTML,
+                TestStages::HTML => TestStages::PAGED | TestStages::HTML,
+
+                TestStages::RENDER => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::PDF => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+                TestStages::SVG => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
+
+                TestStages::PDFTAGS => TestStages::PDFTAGS,
+                _ => unreachable!("{flag}"),
             });
         }
         res
@@ -161,6 +226,7 @@ impl Display for TestStages {
                 f.write_str(", ")?;
             }
             bitflags::bitflags_match!(flag, {
+                TestStages::EVAL => Display::fmt(&TestEval, f),
                 TestStages::PAGED => Display::fmt(&TestTarget::Paged, f),
                 TestStages::RENDER => Display::fmt(&TestOutput::Render, f),
                 TestStages::PDF => Display::fmt(&TestOutput::Pdf, f),
@@ -171,6 +237,23 @@ impl Display for TestStages {
             })?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct TestEval;
+
+impl TestStage for TestEval {}
+
+impl From<TestEval> for TestStages {
+    fn from(_: TestEval) -> Self {
+        TestStages::EVAL
+    }
+}
+
+impl Display for TestEval {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("eval")
     }
 }
 
@@ -190,6 +273,18 @@ impl From<TestTarget> for TestStages {
     }
 }
 
+impl FromStr for TestTarget {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "paged" => Ok(Self::Paged),
+            "html" => Ok(Self::Html),
+            _ => Err(()),
+        }
+    }
+}
+
 impl Display for TestTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
@@ -200,7 +295,7 @@ impl Display for TestTarget {
 }
 
 /// A test output format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum TestOutput {
     Render = TestStages::RENDER.bits(),
@@ -212,7 +307,7 @@ pub enum TestOutput {
 
 impl TestOutput {
     pub const ALL: [Self; 5] =
-        [Self::Render, Self::Pdf, Self::Pdftags, Self::Svg, Self::Html];
+        [Self::Render, Self::Svg, Self::Pdf, Self::Pdftags, Self::Html];
 
     fn from_sub_dir(dir: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|o| o.sub_dir() == dir)
@@ -229,7 +324,7 @@ impl TestOutput {
         }
     }
 
-    /// The file extension used for live outputs and file references.
+    /// The file extension used for live output and file references.
     pub const fn extension(&self) -> &'static str {
         match self {
             Self::Render => "png",
@@ -240,7 +335,14 @@ impl TestOutput {
         }
     }
 
-    /// The path at which the live output will be stored for inspection.
+    /// The path at which the live output will be stored.
+    pub fn hash_path(&self, hash: HashedRef, name: &str) -> PathBuf {
+        let ext = self.extension();
+        PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
+    }
+
+    /// The path at which a symlink to the [`Self::hash_path`] will be created
+    /// for inspection.
     pub fn live_path(&self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.extension();
@@ -255,21 +357,19 @@ impl TestOutput {
     }
 
     /// The path at which hashed references will be saved.
-    pub fn hashed_ref_path(self, source_path: &Path) -> PathBuf {
-        let sub_dir = self.sub_dir();
-        let sub_path = source_path.strip_prefix(SUITE_PATH).unwrap();
-        let trimmed_path = sub_path.to_str().unwrap().strip_suffix(".typ");
-        let file_name = trimmed_path.unwrap().replace("/", "-");
-        PathBuf::from(format!("{REF_PATH}/{sub_dir}/{file_name}.txt"))
+    pub fn hash_refs_path(self) -> PathBuf {
+        let dir = self.sub_dir();
+        PathBuf::from(format!("{REF_PATH}/{dir}/hashes.txt"))
     }
 
     /// The output kind.
-    fn kind(&self) -> TestOutputKind {
+    pub fn kind(&self) -> TestOutputKind {
         match self {
             TestOutput::Render | TestOutput::Pdftags | TestOutput::Html => {
                 TestOutputKind::File
             }
-            TestOutput::Pdf | TestOutput::Svg => TestOutputKind::Hash,
+            TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),
+            TestOutput::Svg => TestOutputKind::Hash(output::Svg::INDEX),
         }
     }
 }
@@ -289,8 +389,8 @@ impl Display for TestOutput {
 }
 
 /// Whether the output format produces hashed or file references.
-enum TestOutputKind {
-    Hash,
+pub enum TestOutputKind {
+    Hash(usize),
     File,
 }
 
@@ -346,6 +446,7 @@ impl Display for NoteKind {
 
 /// Collects all tests from all files.
 struct Collector {
+    hashes: [HashedRefs; 2],
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
     seen: FxHashMap<EcoString, (FilePos, Attrs)>,
@@ -356,6 +457,7 @@ impl Collector {
     /// Creates a new test collector.
     fn new() -> Self {
         Self {
+            hashes: std::array::from_fn(|_| HashedRefs::default()),
             tests: vec![],
             errors: vec![],
             seen: FxHashMap::default(),
@@ -364,12 +466,14 @@ impl Collector {
     }
 
     /// Collects tests from all files.
-    fn collect(mut self) -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
+    fn collect(
+        mut self,
+    ) -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
         self.walk_files();
         self.walk_references();
 
         if self.errors.is_empty() {
-            Ok((self.tests, self.skipped))
+            Ok((self.hashes, self.tests, self.skipped))
         } else {
             Err(self.errors)
         }
@@ -377,7 +481,7 @@ impl Collector {
 
     /// Walks through all test files and collects the tests.
     fn walk_files(&mut self) {
-        for entry in walkdir::WalkDir::new(crate::SUITE_PATH).sort_by_file_name() {
+        for entry in walkdir::WalkDir::new(SUITE_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
             if path.extension().is_none_or(|ext| ext != "typ") {
@@ -396,25 +500,27 @@ impl Collector {
     /// Walks through all reference outputs and ensures that a matching test
     /// exists.
     fn walk_references(&mut self) {
-        for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
+        for entry in walkdir::WalkDir::new(REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
-            if !entry.file_type().is_file() {
+            if entry.file_type().is_dir() {
                 continue;
             }
 
             let path = entry.path();
-            let sub_path = path.strip_prefix(crate::REF_PATH).unwrap();
-            let sub_dir = sub_path.components().next().unwrap();
-            let Some(output) =
-                TestOutput::from_sub_dir(sub_dir.as_os_str().to_str().unwrap())
-            else {
-                continue;
-            };
+            let output = (path.strip_prefix(REF_PATH).ok())
+                .and_then(|sub_path| sub_path.components().next())
+                .and_then(|sub_dir| sub_dir.as_os_str().to_str())
+                .and_then(TestOutput::from_sub_dir);
+            let Some(output) = output else { continue };
 
             match output.kind() {
                 TestOutputKind::File => self.check_dangling_file_references(path, output),
-                TestOutputKind::Hash => {
-                    self.check_dangling_hashed_references(path, output)
+                TestOutputKind::Hash(idx) => {
+                    if let Some(hashed_refs) =
+                        self.check_dangling_hashed_references(path, output)
+                    {
+                        self.hashes[idx] = hashed_refs;
+                    }
                 }
             }
         }
@@ -425,83 +531,77 @@ impl Collector {
         let name = &*stem;
 
         let Some((pos, attrs)) = self.seen.get(name) else {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling reference output".into(),
-            });
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
             return;
         };
 
-        if !attrs.stages.contains(output.into()) {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling reference output".into(),
-            });
+        if !attrs.implied_stages().contains(output.into()) || attrs.empty {
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
         }
 
         let len = path.metadata().unwrap().len() as usize;
         if !attrs.large && len > crate::REF_LIMIT {
-            self.errors.push(TestParseError {
-                pos: pos.clone(),
-                message: format!(
+            self.errors.push(TestParseError::new(
+                pos.clone(),
+                format!(
                     "reference output size exceeds {}, but the test is not marked as `large`",
                     FileSize(crate::REF_LIMIT),
                 ),
-            });
+            ));
         }
     }
 
-    fn check_dangling_hashed_references(&mut self, path: &Path, output: TestOutput) {
-        let string = std::fs::read_to_string(path).unwrap_or_default();
-        let Ok(hashed_refs) = HashedRefs::from_str(&string) else { return };
-        if hashed_refs.is_empty() {
-            self.errors.push(TestParseError {
-                pos: FilePos::new(path, 0),
-                message: "dangling empty reference hash file".into(),
-            });
+    fn check_dangling_hashed_references(
+        &mut self,
+        path: &Path,
+        output: TestOutput,
+    ) -> Option<HashedRefs> {
+        let path = path.to_str().unwrap().replace('\\', "/");
+        let path = Path::new(&path);
+
+        if output.hash_refs_path() != path {
+            self.errors.push(TestParseError::new(
+                FilePos::new(path, 0),
+                TestParseErrorKind::DanglingFile,
+            ));
+            return None;
         }
 
-        let mut right_file = 0;
-        let mut wrong_file = Vec::new();
-        for (line, name) in hashed_refs.names().enumerate() {
-            let Some((pos, attrs)) = self.seen.get(name) else {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, line),
-                    message: format!("dangling reference hash ({name})"),
-                });
+        let string = std::fs::read_to_string(path).unwrap_or_default();
+        let hashed_refs = HashedRefs::from_str(&string)
+            .inspect_err(|err| {
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, 0),
+                    format!("error parsing reference hash file: {err}"),
+                ));
+            })
+            .ok()?;
+
+        for (name, line) in hashed_refs.names().zip(1..) {
+            let Some((_, attrs)) = self.seen.get(name) else {
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, line),
+                    TestParseErrorKind::DanglingHash(name.clone()),
+                ));
                 continue;
             };
 
-            if !attrs.stages.contains(output.into()) {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, line),
-                    message: format!("dangling reference hash ({name})"),
-                });
+            if !attrs.implied_stages().contains(output.into()) || attrs.empty {
+                self.errors.push(TestParseError::new(
+                    FilePos::new(path, line),
+                    TestParseErrorKind::DanglingHash(name.clone()),
+                ));
                 continue;
             }
-
-            if output.hashed_ref_path(&pos.path) == path {
-                right_file += 1;
-            } else {
-                wrong_file.push((line, name));
-            }
         }
 
-        if !wrong_file.is_empty() {
-            if right_file == 0 {
-                self.errors.push(TestParseError {
-                    pos: FilePos::new(path, 0),
-                    message: "dangling reference hash file".into(),
-                });
-            } else {
-                for (line, name) in wrong_file {
-                    self.errors.push(TestParseError {
-                        pos: FilePos::new(path, line),
-                        message: format!("dangling reference hash ({name})"),
-                    });
-                }
-            }
-        }
+        Some(hashed_refs)
     }
 }
 
@@ -573,15 +673,18 @@ impl<'a> Parser<'a> {
 
             let text = self.s.from(start);
 
-            if !ARGS.should_run(attrs.stages)
+            if !ARGS.implied_stages().intersects(attrs.implied_stages())
                 || !selected(&name, self.path.canonicalize().unwrap())
             {
                 self.collector.skipped += 1;
                 continue;
             }
 
-            let vpath = VirtualPath::new(self.path);
-            let source = Source::new(FileId::new(None, vpath), text.into());
+            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
+            let source = Source::new(
+                RootedPath::new(VirtualRoot::Project, vpath).intern(),
+                text.into(),
+            );
 
             self.s.jump(start);
             self.line = self.test_start_line;
@@ -621,7 +724,9 @@ impl<'a> Parser<'a> {
             }
 
             match attr_name {
+                "eval" => self.set_attr(attr_name, &mut stages, TestStages::EVAL),
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
+                "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
                 "pdfstandard" => {
                     let Some(param) = attr_params.take() else {
@@ -636,6 +741,7 @@ impl<'a> Parser<'a> {
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
+                "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),
 
                 found => {
                     self.error(format!(
@@ -656,10 +762,22 @@ impl<'a> Parser<'a> {
             self.error("tests must specify at least one target or output");
         }
 
+        if stages.contains(TestStages::EVAL) {
+            let others = stages.difference(TestStages::EVAL);
+            if !others.is_empty() {
+                self.error(format!(
+                    "`eval` must be the only test stage, consider removing [{others}]"
+                ));
+            } else if flags.contains(AttrFlags::EMPTY) {
+                self.error("specifying `empty` on an `eval` test is redundant");
+            }
+        }
+
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
+            empty: flags.contains(AttrFlags::EMPTY),
             pdf_standard,
-            stages: stages.with_implied(),
+            stages,
         }
     }
 
@@ -704,8 +822,8 @@ impl<'a> Parser<'a> {
                 return None;
             }
 
-            let vpath = VirtualPath::new(path);
-            file = Some(FileId::new(None, vpath));
+            let vpath = VirtualPath::new(path).unwrap();
+            file = Some(RootedPath::new(VirtualRoot::Project, vpath).intern());
 
             self.s.eat_if(' ');
         }
@@ -743,15 +861,7 @@ impl<'a> Parser<'a> {
     /// Parse a range in an external file, optionally abbreviated as just a position
     /// if the range is empty.
     fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
-        let path = match system_path(file) {
-            Ok(path) => path,
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
-        };
-
-        let bytes = match read(&path) {
+        let bytes = match TestFiles.load(file) {
             Ok(data) => Bytes::new(data),
             Err(err) => {
                 self.error(err.to_string());
@@ -760,9 +870,9 @@ impl<'a> Parser<'a> {
         };
 
         let start = self.parse_line_col()?;
-        let lines = Lines::try_from(&bytes).expect(
+        let lines = bytes.lines().expect(
             "errors shouldn't be annotated for files \
-            that aren't human readable (not valid utf-8)",
+             that aren't human readable (not valid UTF-8)",
         );
         let range = if self.s.eat_if('-') {
             let (line, col) = start;
@@ -840,10 +950,9 @@ impl<'a> Parser<'a> {
 
     /// Stores a test parsing error.
     fn error(&mut self, message: impl Into<String>) {
-        self.collector.errors.push(TestParseError {
-            pos: FilePos::new(self.path, self.line),
-            message: message.into(),
-        });
+        self.collector
+            .errors
+            .push(TestParseError::new(FilePos::new(self.path, self.line), message));
     }
 }
 
@@ -877,12 +986,43 @@ fn selected(name: &str, abs: PathBuf) -> bool {
 /// An error in a test file.
 pub struct TestParseError {
     pub pos: FilePos,
-    pub message: String,
+    pub kind: TestParseErrorKind,
+}
+
+impl TestParseError {
+    pub fn new(pos: FilePos, kind: impl Into<TestParseErrorKind>) -> Self {
+        Self { pos, kind: kind.into() }
+    }
 }
 
 impl Display for TestParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} ({})", self.message, self.pos)
+        write!(f, "{} ({})", self.kind, self.pos)
+    }
+}
+
+/// The kind of error that occurred when collecting tests.
+pub enum TestParseErrorKind {
+    DanglingFile,
+    DanglingHash(EcoString),
+    Other(String),
+}
+
+impl<S: Into<String>> From<S> for TestParseErrorKind {
+    fn from(v: S) -> Self {
+        Self::Other(v.into())
+    }
+}
+
+impl Display for TestParseErrorKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            TestParseErrorKind::DanglingFile => f.write_str("dangling reference file"),
+            TestParseErrorKind::DanglingHash(name) => {
+                write!(f, "dangling reference hash ({name})")
+            }
+            TestParseErrorKind::Other(message) => f.write_str(message),
+        }
     }
 }
 

@@ -8,23 +8,70 @@ use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
 use crate::foundations::Bytes;
-use crate::layout::{Abs, Frame, FrameItem, Point, Size};
-use crate::text::{Font, Glyph};
+use crate::layout::{Abs, Frame, FrameItem, Point, Rect, Size};
+use crate::text::Font;
 use crate::visualize::{
-    ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, SvgImage,
+    ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, Shape, SvgImage,
 };
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
-pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
+pub fn should_outline(font: &Font, glyph_id: GlyphId) -> bool {
     let ttf = font.ttf();
-    let glyph_id = GlyphId(glyph.id);
     (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
         && !ttf
             .glyph_raster_image(glyph_id, u16::MAX)
             .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
         && !ttf.is_color_glyph(glyph_id)
         && ttf.glyph_svg_image(glyph_id).is_none()
+}
+
+/// A frame that can draw a glyph.
+#[derive(Clone)]
+pub struct GlyphFrame {
+    pub upem: Abs,
+    pub item: GlyphFrameItem,
+}
+
+impl GlyphFrame {
+    /// The font unit square.
+    pub fn size(&self) -> Size {
+        Size::splat(self.upem)
+    }
+}
+
+impl From<GlyphFrame> for Frame {
+    fn from(g: GlyphFrame) -> Self {
+        let mut frame = Frame::soft(Size::splat(g.upem));
+        match g.item {
+            GlyphFrameItem::Tofu(pos, shape) => {
+                frame.push(pos, FrameItem::Shape(shape, Span::detached()))
+            }
+            GlyphFrameItem::Image(pos, image, size) => {
+                frame.push(pos, FrameItem::Image(image, size, Span::detached()))
+            }
+        }
+        frame
+    }
+}
+
+/// The glyph item that is drawn.
+#[derive(Clone)]
+pub enum GlyphFrameItem {
+    /// A fallback rectangle.
+    Tofu(Point, Shape),
+    /// An image glyph.
+    Image(Point, Image, Size),
+}
+
+impl GlyphFrameItem {
+    /// The position of the glyph item inside the parent frame.
+    pub fn pos(&self) -> Point {
+        match *self {
+            GlyphFrameItem::Tofu(pos, _) => pos,
+            GlyphFrameItem::Image(pos, _, _) => pos,
+        }
+    }
 }
 
 /// Returns a frame representing a glyph and whether it is a fallback tofu
@@ -37,51 +84,43 @@ pub fn should_outline(font: &Font, glyph: &Glyph) -> bool {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
-pub fn glyph_frame(font: &Font, glyph_id: u16) -> (Frame, bool) {
+pub fn glyph_frame(font: &Font, glyph_id: u16) -> Option<GlyphFrame> {
     let upem = Abs::pt(font.units_per_em());
     let glyph_id = GlyphId(glyph_id);
 
-    let mut frame = Frame::soft(Size::splat(upem));
-    let mut tofu = false;
-
-    if draw_glyph(&mut frame, font, upem, glyph_id).is_none()
-        && font.ttf().glyph_index(' ') != Some(glyph_id)
-    {
-        // Generate a fallback tofu if the glyph couldn't be drawn, unless it is
-        // the space glyph. Then, an empty frame does the job. (This happens for
-        // some rare CBDT fonts, which don't define a bitmap for the space, but
-        // also don't have a glyf or CFF table.)
-        draw_fallback_tofu(&mut frame, font, upem, glyph_id);
-        tofu = true;
+    if let Some(frame) = draw_glyph(font, upem, glyph_id) {
+        return Some(frame);
     }
 
-    (frame, tofu)
+    // Generate a fallback tofu if the glyph couldn't be drawn, unless it is
+    // the space glyph. Then, an empty frame does the job. (This happens for
+    // some rare CBDT fonts, which don't define a bitmap for the space, but
+    // also don't have a glyf or CFF table.)
+    let not_space = font.ttf().glyph_index(' ') != Some(glyph_id);
+    not_space.then(|| draw_fallback_tofu(font, upem, glyph_id))
 }
 
 /// Tries to draw a glyph.
-fn draw_glyph(
-    frame: &mut Frame,
-    font: &Font,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<()> {
+fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let ttf = font.ttf();
-    if let Some(raster_image) = ttf
+    let kind = if let Some(raster_image) = ttf
         .glyph_raster_image(glyph_id, u16::MAX)
         .filter(|img| img.format == ttf_parser::RasterImageFormat::PNG)
     {
-        draw_raster_glyph(frame, font, upem, raster_image)
+        draw_raster_glyph(font, upem, raster_image)
     } else if ttf.is_color_glyph(glyph_id) {
-        draw_colr_glyph(frame, font, upem, glyph_id)
+        draw_colr_glyph(font, upem, glyph_id)
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
-        draw_svg_glyph(frame, font, upem, glyph_id)
+        draw_svg_glyph(font, upem, glyph_id)
     } else {
         None
-    }
+    };
+
+    kind.map(|kind| GlyphFrame { upem, item: kind })
 }
 
 /// Draws a fallback tofu box with the advance width of the glyph.
-fn draw_fallback_tofu(frame: &mut Frame, font: &Font, upem: Abs, glyph_id: GlyphId) {
+fn draw_fallback_tofu(font: &Font, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
     let advance = font
         .ttf()
         .glyph_hor_advance(glyph_id)
@@ -94,18 +133,17 @@ fn draw_fallback_tofu(frame: &mut Frame, font: &Font, upem: Abs, glyph_id: Glyph
     let thickness = upem / 20.0;
     let stroke = FixedStroke { thickness, ..Default::default() };
     let shape = Geometry::Rect(size).stroked(stroke);
-    frame.push(pos, FrameItem::Shape(shape, Span::detached()));
+    GlyphFrame { upem, item: GlyphFrameItem::Tofu(pos, shape) }
 }
 
 /// Draws a raster glyph in a frame.
 ///
 /// Supports only PNG images.
 fn draw_raster_glyph(
-    frame: &mut Frame,
     font: &Font,
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
-) -> Option<()> {
+) -> Option<GlyphFrameItem> {
     let data = Bytes::new(raster_image.data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
@@ -124,13 +162,30 @@ fn draw_raster_glyph(
     );
     let aspect_ratio = image.width() / image.height();
     let size = Size::new(upem, upem * aspect_ratio);
-    frame.push(position, FrameItem::Image(image, size, Span::detached()));
+    Some(GlyphFrameItem::Image(position, image, size))
+}
 
-    Some(())
+/// Draws a glyph from the COLR table into the frame.
+fn draw_colr_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+    let svg_string = colr_glyph_to_svg(font, glyph_id)?;
+
+    let ttf = font.ttf();
+    let width = ttf.global_bounding_box().width() as f64;
+    let height = ttf.global_bounding_box().height() as f64;
+    let x_min = ttf.global_bounding_box().x_min as f64;
+    let y_max = ttf.global_bounding_box().y_max as f64;
+
+    let data = Bytes::from_string(svg_string);
+    let image = Image::plain(SvgImage::new(data).ok()?);
+
+    let y_shift = Abs::pt(upem.to_pt() - y_max);
+    let position = Point::new(Abs::pt(x_min), y_shift);
+    let size = Size::new(Abs::pt(width), Abs::pt(height));
+    Some(GlyphFrameItem::Image(position, image, size))
 }
 
 /// Convert a COLR glyph into an SVG file.
-pub fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
+fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     let ttf = font.ttf();
@@ -176,39 +231,8 @@ pub fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
     Some(svg.end_document())
 }
 
-/// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(
-    frame: &mut Frame,
-    font: &Font,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<()> {
-    let svg_string = colr_glyph_to_svg(font, glyph_id)?;
-
-    let ttf = font.ttf();
-    let width = ttf.global_bounding_box().width() as f64;
-    let height = ttf.global_bounding_box().height() as f64;
-    let x_min = ttf.global_bounding_box().x_min as f64;
-    let y_max = ttf.global_bounding_box().y_max as f64;
-
-    let data = Bytes::from_string(svg_string);
-    let image = Image::plain(SvgImage::new(data).ok()?);
-
-    let y_shift = Abs::pt(upem.to_pt() - y_max);
-    let position = Point::new(Abs::pt(x_min), y_shift);
-    let size = Size::new(Abs::pt(width), Abs::pt(height));
-    frame.push(position, FrameItem::Image(image, size, Span::detached()));
-
-    Some(())
-}
-
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(
-    frame: &mut Frame,
-    font: &Font,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<()> {
+fn draw_svg_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
     let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
@@ -221,21 +245,16 @@ fn draw_svg_glyph(
         data = &decoded;
     }
 
-    // Parse XML.
+    // Parse and simplify the SVG.
     let xml = std::str::from_utf8(data).ok()?;
     let document = roxmltree::Document::parse(xml).ok()?;
-
-    // Parse SVG.
     let opts = usvg::Options::default();
     let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-
-    let bbox = tree.root().bounding_box();
-    let width = bbox.width() as f64;
-    let height = bbox.height() as f64;
-    let left = bbox.left() as f64;
-    let top = bbox.top() as f64;
-
-    let mut data = tree.to_string(&usvg::WriteOptions::default());
+    let mut data = tree.to_string(&usvg::WriteOptions {
+        indent: usvg::Indent::None,
+        attributes_indent: usvg::Indent::None,
+        ..Default::default()
+    });
 
     // The SVG coordinates and the font coordinates are not the same: the Y axis
     // is mirrored. But the origin of the axes are the same (which means that
@@ -243,62 +262,54 @@ fn draw_svg_glyph(
     // the reference for more details:
     // https://learn.microsoft.com/en-us/typography/opentype/spec/svg#coordinate-systems-and-glyph-metrics
     //
-    // If we used the SVG document as it is, svg2pdf would produce a cropped
-    // glyph (only what is under the baseline would be visible). So we need to
-    // embed the original SVG in another one that has the exact dimensions of
-    // the glyph, with a transform to make it fit. We also need to remove the
-    // viewBox, height and width attributes from the inner SVG, otherwise usvg
-    // takes into account these values to clip the embedded SVG.
-    make_svg_unsized(&mut data);
-    let wrapper_svg = format!(
-        r#"
-        <svg
-            width="{width}"
-            height="{height}"
-            viewBox="0 0 {width} {height}"
-            xmlns="http://www.w3.org/2000/svg">
-            <g transform="matrix(1 0 0 1 {tx} {ty})">
-            {inner}
-            </g>
-        </svg>
-    "#,
-        inner = data,
-        tx = -left,
-        ty = -top,
+    // Using this SVG directly can result in a cropped glyph. In order to avoid
+    // clipping issues, we apply a translate transform so the top-left corner of
+    // the bounding box is moved into the origin (0, 0) to make it fully fit
+    // into the view port defined by `viewBox="0 0 width height"`, like a
+    // conventional SVG.
+    let bbox = tree.root().bounding_box();
+    let view_box = Rect::new(
+        Point::new(Abs::pt(bbox.left() as f64), Abs::pt(bbox.top() as f64)),
+        Point::new(Abs::pt(bbox.right() as f64), Abs::pt(bbox.bottom() as f64)),
     );
+    fixup_svg(&mut data, view_box);
 
-    let data = Bytes::from_string(wrapper_svg);
+    let data = Bytes::from_string(data);
     let image = Image::plain(SvgImage::new(data).ok()?);
 
-    let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
-    let size = Size::new(Abs::pt(width), Abs::pt(height));
-    frame.push(position, FrameItem::Image(image, size, Span::detached()));
-
-    Some(())
+    let position = Point::new(view_box.min.x, view_box.min.y + upem);
+    let size = view_box.size();
+    Some(GlyphFrameItem::Image(position, image, size))
 }
 
-/// Remove all size specifications (viewBox, width and height attributes) from a
-/// SVG document.
-fn make_svg_unsized(svg: &mut String) {
+/// Replace or insert the size attributes (viewBox, width and height), and
+/// insert a group with a transform that translates the `viewBox` so that the
+/// top-left point is at the origin (0, 0).
+fn fixup_svg(svg: &mut String, view_box: Rect) {
     let mut viewbox_range = None;
     let mut width_range = None;
     let mut height_range = None;
 
     let mut s = unscanny::Scanner::new(svg);
-
     s.eat_until("<svg");
-    s.eat_if("<svg");
+    s.expect("<svg");
+
+    let svg_attr_start = s.cursor();
+
     while !s.eat_if('>') && !s.done() {
         s.eat_whitespace();
         let start = s.cursor();
+
         let attr_name = s.eat_until('=').trim();
         // Eat the equal sign and the quote.
-        s.eat();
-        s.eat();
-        let mut escaped = false;
-        while (escaped || !s.eat_if('"')) && !s.done() {
-            escaped = s.eat() == Some('\\');
+        s.expect('=');
+        s.eat_until('"');
+        s.expect('"');
+
+        while !s.eat_if('"') && !s.done() {
+            s.eat();
         }
+
         match attr_name {
             "viewBox" => viewbox_range = Some(start..s.cursor()),
             "width" => width_range = Some(start..s.cursor()),
@@ -307,19 +318,43 @@ fn make_svg_unsized(svg: &mut String) {
         }
     }
 
-    // Remove the `viewBox` attribute.
-    if let Some(range) = viewbox_range {
-        svg.replace_range(range.clone(), &" ".repeat(range.len()));
-    }
+    let svg_body_start = s.cursor();
+    let Some(svg_body_end) = svg.rfind("</svg>") else {
+        return;
+    };
 
-    // Remove the `width` attribute.
-    if let Some(range) = width_range {
-        svg.replace_range(range.clone(), &" ".repeat(range.len()));
-    }
+    svg.insert_str(svg_body_end, "</g>");
+    svg.insert_str(
+        svg_body_start,
+        &format!(
+            r#"<g transform="translate({} {})">"#,
+            -view_box.min.x.to_pt(),
+            -view_box.min.y.to_pt()
+        ),
+    );
 
-    // Remove the `height` attribute.
-    if let Some(range) = height_range {
-        svg.replace_range(range, "");
+    let size = view_box.size();
+    let mut edits = [
+        (
+            viewbox_range,
+            format!("viewBox=\"0 0 {} {}\"", size.x.to_pt(), size.y.to_pt(),),
+        ),
+        (width_range, format!("width=\"{}\"", size.x.to_pt())),
+        (height_range, format!("height=\"{}\"", size.y.to_pt())),
+    ];
+
+    // Sort edits by ranges; missing ranges will be moved to the start.
+    edits.sort_by_key(|(range, _)| range.clone().map(|r| r.start));
+
+    // Replace or insert the attribute. Iterate in reverse, so the modifying the
+    // string doesn't affect the ranges of the edits that are applied later on.
+    for (range, str) in edits.into_iter().rev() {
+        if let Some(range) = range {
+            svg.replace_range(range, &str);
+        } else {
+            svg.insert_str(svg_attr_start, &str);
+            svg.insert(svg_attr_start, ' ');
+        }
     }
 }
 

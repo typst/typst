@@ -362,7 +362,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   format: "rgba8",
 )
 
---- issue-measure-image paged ---
+--- issue-measure-image paged empty ---
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
   let size = measure(image("/assets/images/tiger.jpg"))
@@ -420,3 +420,18 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-6869-image-zero-sized paged ---
 // Primarily to ensure that it does not crash in PDF export.
 #image("/assets/images/f2t.jpg", width: 0pt, height: 0pt)
+
+--- issue-7178-svg-fallback-deadlock paged ---
+// We used to not honor resvg's `exclude_fonts` mechanism, which could result in
+// an infinite fallback loop.
+//
+// On way to trigger this is if there are two codepoints that result in one
+// cluster, and the first exists in a font, but the second always shapes to a
+// tofu.
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="1" width="1">
+    <text font-family="Libertinus Serif">x&#1761;</text>
+  </svg>
+  ```.text
+))

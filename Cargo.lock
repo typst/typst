@@ -202,6 +202,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63044e1ae8e69f3b5a92c736ca6269b8d12fa7efe39bf34ddb06d102cf0e2cab"
+dependencies = [
+ "memchr",
+ "regex-automata",
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,9 +640,9 @@ dependencies = [
 
 [[package]]
 name = "ecow"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e42fc0a93992b20c58b99e59d61eaf1635a25bfbe49e4275c34ba0aee98119ba"
+checksum = "78e4f79b296fbaab6ce2e22d52cb4c7f010fe0ebe7a32e34fa25885fd797bd02"
 dependencies = [
  "serde",
 ]
@@ -922,15 +933,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-
-[[package]]
-name = "hashbrown"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 
 [[package]]
 name = "hayagriva"
@@ -941,11 +946,11 @@ dependencies = [
  "biblatex",
  "ciborium",
  "citationberg",
- "indexmap 2.7.1",
+ "indexmap",
  "paste",
  "roman-numerals-rs",
  "serde",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "thiserror",
  "unic-langid",
  "unicode-segmentation",
@@ -1310,24 +1315,15 @@ checksum = "09e54e57b4c48b40f7aec75635392b12b3421fa26fe8b4332e63138ed278459c"
 
 [[package]]
 name = "indexmap"
-version = "1.9.3"
+version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
-dependencies = [
- "autocfg",
- "hashbrown 0.12.3",
-]
-
-[[package]]
-name = "indexmap"
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
+checksum = "0ad4bb2b565bca0645f4d68c5c9af97fba094e9791da685bf83cb5f3ce74acf2"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown",
  "rayon",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -1437,8 +1433,8 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.5.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
+version = "0.6.0"
+source = "git+https://github.com/LaurenzV/krilla?rev=84c6332#84c6332a4d6459427b02bb40c8eb7e46b6a173d1"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1449,6 +1445,7 @@ dependencies = [
  "hayro-write",
  "image-webp",
  "imagesize 0.14.0",
+ "indexmap",
  "once_cell",
  "pdf-writer",
  "png",
@@ -1467,8 +1464,8 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.2.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=f22a936#f22a9365bafa46bbe26c8c56c88208eb50063e63"
+version = "0.3.0"
+source = "git+https://github.com/LaurenzV/krilla?rev=84c6332#84c6332a4d6459427b02bb40c8eb7e46b6a173d1"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1855,7 +1852,7 @@ dependencies = [
  "bitvec",
  "crossbeam-channel",
  "filetime",
- "indexmap 2.7.1",
+ "indexmap",
  "libdeflater",
  "log",
  "rayon",
@@ -2012,7 +2009,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42cf17e9a1800f5f396bc67d193dc9411b59012a5876445ef450d449881e1016"
 dependencies = [
  "base64",
- "indexmap 2.7.1",
+ "indexmap",
  "quick-xml 0.32.0",
  "serde",
  "time",
@@ -2428,18 +2425,28 @@ checksum = "f79dfe2d285b0488816f30e700a7438c5a73d816b5b7d3ac72fbc48b0d185e03"
 
 [[package]]
 name = "serde"
-version = "1.0.217"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.217"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2469,23 +2476,11 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
-dependencies = [
- "indexmap 1.9.3",
- "ryu",
- "serde",
- "yaml-rust",
-]
-
-[[package]]
-name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap",
  "itoa",
  "ryu",
  "serde",
@@ -2518,6 +2513,16 @@ name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
+
+[[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+dependencies = [
+ "bstr",
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "simplecss"
@@ -2742,6 +2747,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-wrapper"
+version = "0.14.2"
+
+[[package]]
 name = "thin-vec"
 version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2899,7 +2908,7 @@ version = "0.22.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02a8b472d1a3d7c18e2d61a489aee3453fd9031c33e4f55bd533f4a7adca1bee"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -2934,7 +2943,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "arrayvec",
  "comemo",
@@ -2953,12 +2962,12 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.14.0"
-source = "git+https://github.com/typst/typst-assets?rev=d6a4834#d6a48348174f11bed3ab9f5dccdb6f4e894528d0"
+version = "0.14.2"
+source = "git+https://github.com/typst/typst-assets?rev=57a38ca#57a38ca98236748ad83c806a48096b281686a7de"
 
 [[package]]
 name = "typst-cli"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "chrono",
  "clap",
@@ -2970,25 +2979,23 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
- "notify",
+ "memchr",
  "open",
  "parking_lot",
  "pathdiff",
  "rayon",
- "rustc-hash",
- "same-file",
  "self-replace",
  "semver",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "shell-escape",
  "sigpipe",
  "tar",
  "tempfile",
- "tiny_http",
  "toml",
  "typst",
+ "typst-dev-assets",
  "typst-eval",
  "typst-html",
  "typst-kit",
@@ -2997,19 +3004,19 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "typst-timing",
- "ureq",
+ "typst-utils",
  "xz2",
  "zip",
 ]
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.14.0"
-source = "git+https://github.com/typst/typst-dev-assets?rev=f46583d#f46583d68167e3512c1f4ebaf564a86c60862160"
+version = "0.14.2"
+source = "git+https://github.com/typst/typst-dev-assets?rev=c4e80f3#c4e80f363066e92e38eac25be1fca5f98acfbe9a"
 
 [[package]]
 name = "typst-docs"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "clap",
  "codex",
@@ -3020,7 +3027,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "syntect",
  "typed-arena",
  "typst",
@@ -3030,16 +3037,15 @@ dependencies = [
  "typst-utils",
  "unicode-math-class",
  "unscanny",
- "yaml-front-matter",
 ]
 
 [[package]]
 name = "typst-eval"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "comemo",
  "ecow",
- "indexmap 2.7.1",
+ "indexmap",
  "rustc-hash",
  "stacker",
  "toml",
@@ -3053,7 +3059,7 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
@@ -3068,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "typst-html"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "bumpalo",
  "comemo",
@@ -3087,25 +3093,26 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "comemo",
  "ecow",
  "once_cell",
- "pathdiff",
  "rustc-hash",
  "serde",
  "typst",
  "typst-assets",
  "typst-dev-assets",
  "typst-eval",
+ "typst-html",
  "unscanny",
 ]
 
 [[package]]
 name = "typst-kit"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
+ "codespan-reporting",
  "dirs",
  "ecow",
  "env_proxy",
@@ -3113,11 +3120,16 @@ dependencies = [
  "flate2",
  "fontdb",
  "native-tls",
+ "notify",
  "once_cell",
  "openssl",
+ "parking_lot",
+ "rustc-hash",
+ "same-file",
  "serde",
  "serde_json",
  "tar",
+ "tiny_http",
  "typst-assets",
  "typst-library",
  "typst-syntax",
@@ -3128,7 +3140,7 @@ dependencies = [
 
 [[package]]
 name = "typst-layout"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "az",
  "bumpalo",
@@ -3143,6 +3155,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo 0.12.0",
+ "libm",
  "memchr",
  "rustc-hash",
  "rustybuzz",
@@ -3162,7 +3175,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "arrayvec",
  "az",
@@ -3174,6 +3187,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "either",
  "flate2",
  "fontdb",
  "glidesort",
@@ -3183,9 +3197,10 @@ dependencies = [
  "icu_provider",
  "icu_provider_blob",
  "image",
- "indexmap 2.7.1",
+ "indexmap",
  "kamadak-exif",
  "kurbo 0.12.0",
+ "libm",
  "lipsum",
  "memchr",
  "palette",
@@ -3201,7 +3216,7 @@ dependencies = [
  "rustybuzz",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "siphasher",
  "smallvec",
  "syntect",
@@ -3228,7 +3243,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3238,14 +3253,14 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "az",
  "bytemuck",
  "comemo",
  "ecow",
  "image",
- "indexmap 2.7.1",
+ "indexmap",
  "infer",
  "krilla",
  "krilla-svg",
@@ -3262,7 +3277,7 @@ dependencies = [
 
 [[package]]
 name = "typst-realize"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -3278,12 +3293,13 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "bytemuck",
  "comemo",
  "hayro",
  "image",
+ "libm",
  "pixglyph",
  "resvg",
  "tiny-skia",
@@ -3296,7 +3312,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "base64",
  "comemo",
@@ -3305,20 +3321,22 @@ dependencies = [
  "hayro",
  "hayro-svg",
  "image",
+ "indexmap",
+ "itoa",
  "rustc-hash",
+ "ryu",
  "ttf-parser",
  "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-timing",
  "typst-utils",
- "xmlparser",
  "xmlwriter",
 ]
 
 [[package]]
 name = "typst-syntax"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "ecow",
  "rustc-hash",
@@ -3335,26 +3353,35 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
+ "base64",
  "bitflags 2.9.1",
  "clap",
  "comemo",
  "ecow",
+ "hayro",
+ "hayro-svg",
  "hayro-syntax",
- "indexmap 2.7.1",
+ "indexmap",
+ "open",
  "oxipng",
  "parking_lot",
  "rayon",
  "regex",
  "roxmltree",
  "rustc-hash",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
+ "similar",
+ "smallvec",
+ "time",
  "tiny-skia",
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-eval",
  "typst-html",
+ "typst-kit",
  "typst-library",
  "typst-pdf",
  "typst-render",
@@ -3367,7 +3394,7 @@ dependencies = [
 
 [[package]]
 name = "typst-timing"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "parking_lot",
  "serde",
@@ -3377,12 +3404,14 @@ dependencies = [
 
 [[package]]
 name = "typst-utils"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
+ "libm",
  "once_cell",
  "portable-atomic",
  "rayon",
  "rustc-hash",
+ "semver",
  "siphasher",
  "thin-vec",
  "unicode-math-class",
@@ -3689,9 +3718,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi"
-version = "0.51.2"
+version = "0.51.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "118030b2d125bc893e0cc5b1ce156eb41461f4373308cb5f2e3c698533b5e547"
+checksum = "bb321403ce594274827657a908e13d1d9918aa02257b8bf8391949d9764023ff"
 dependencies = [
  "spin",
  "wasmi_collections",
@@ -3702,24 +3731,24 @@ dependencies = [
 
 [[package]]
 name = "wasmi_collections"
-version = "0.51.2"
+version = "0.51.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "653fa20efc966818934524dceb54b1b81e6f845bbcc2e155d6e9fc32becf667e"
+checksum = "e9b8e98e45a2a534489f8225e765cbf1cb9a3078072605e58158910cf4749172"
 
 [[package]]
 name = "wasmi_core"
-version = "0.51.2"
+version = "0.51.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65701f60308c7e46cca85f273ad17e80c60998cc63d3fa168ac393f62b123038"
+checksum = "c25f375c0cdf14810eab07f532f61f14d4966f09c747a55067fdf3196e8512e6"
 dependencies = [
  "libm",
 ]
 
 [[package]]
 name = "wasmi_ir"
-version = "0.51.2"
+version = "0.51.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6539f63bf2a6838f27876e2877f0b00a088e84f91e92445620cc6b977fde032"
+checksum = "624e2a68a4293ecb8f564260b68394b29cf3b3edba6bce35532889a2cb33c3d9"
 dependencies = [
  "wasmi_core",
 ]
@@ -3874,7 +3903,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "886614b5ce857341226aa091f3c285e450683894acaaa7887f366c361efef79d"
 dependencies = [
  "font-types",
- "indexmap 2.7.1",
+ "indexmap",
  "kurbo 0.12.0",
  "log",
  "read-fonts",
@@ -3913,12 +3942,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xmlparser"
-version = "0.13.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
-
-[[package]]
 name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3937,16 +3960,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388c44dc09d76f1536602ead6d325eb532f5c122f17782bd57fb47baeeb767e2"
 dependencies = [
  "lzma-sys",
-]
-
-[[package]]
-name = "yaml-front-matter"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a94fb32d2b438e3fddf901fbfe9eb87b34d63853ca6c6da5d2ab7e27031e0bae"
-dependencies = [
- "serde",
- "serde_yaml 0.8.26",
 ]
 
 [[package]]
@@ -4101,7 +4114,7 @@ dependencies = [
  "arbitrary",
  "crc32fast",
  "flate2",
- "indexmap 2.7.1",
+ "indexmap",
  "memchr",
  "zopfli",
 ]

@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -90,8 +89,7 @@ pub struct BibliographyElem {
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
-    /// - A path string to load a bibliography file from the given path. For
-    ///   more details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a bibliography file from.
     /// - Raw bytes from which the bibliography should be decoded.
     /// - An array where each item is one of the above.
     #[required]
@@ -127,8 +125,7 @@ pub struct BibliographyElem {
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string to a [CSL file](https://citationstyles.org/). For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
         Some(source) => Some(CslStyle::load(engine, source)?),
@@ -310,13 +307,7 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
     if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
-        let ext = file_id
-            .vpath()
-            .as_rooted_path()
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default();
-
+        let ext = file_id.vpath().extension().unwrap_or_default();
         match ext.to_lowercase().as_str() {
             "yml" | "yaml" => hayagriva::io::from_yaml_str(data)
                 .map_err(format_yaml_error)
@@ -423,7 +414,7 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependant styles"),
+            _ => unreachable!("archive should not contain dependent styles"),
         }
     }
 
@@ -634,7 +625,7 @@ impl Introspect for CiteGroupIntrospection {
         warning!(
             self.0, "citation grouping did not stabilize";
             hint: "this can happen if the citations and bibliographies in the \
-                   document did not stabilize by the end of the third layout iteration"
+                   document did not stabilize by the end of the third layout iteration";
         )
     }
 }
@@ -729,7 +720,7 @@ impl<'a> Generator<'a> {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        child.key.resolve()
+                        child.key.resolve(),
                     ));
                     continue;
                 };

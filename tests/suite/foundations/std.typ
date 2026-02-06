@@ -1,14 +1,14 @@
 // Test 'std', a module with the standard library
 
---- std-basic-access paged ---
+--- std-basic-access eval ---
 #test(std.grid, grid)
 #test(std.calc, calc)
 
---- std-import paged ---
+--- std-import eval ---
 #import std: grid as banana
 #test(grid, banana)
 
---- std-of-shadowed paged ---
+--- std-of-shadowed eval ---
 #let my-grid = grid[a][b]
 #let grid = "oh no!"
 #test(my-grid.func(), std.grid)
@@ -22,7 +22,7 @@
 // Error: 3-6 cannot mutate a constant: std
 #(std = 10)
 
---- std-shadowed-mutation paged ---
+--- std-shadowed-mutation eval ---
 #let std = 10
 #(std = 7)
 #test(std, 7)

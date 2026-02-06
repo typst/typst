@@ -150,7 +150,7 @@ use crate::loading::{DataSource, Load};
 #[func(scope)]
 pub fn plugin(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a WebAssembly file or raw WebAssembly bytes.
+    /// A path to a WebAssembly file or raw WebAssembly bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
     let loaded = source.load(engine.world)?;
@@ -309,7 +309,7 @@ impl Plugin {
         })
     }
 
-    /// Execute a function with access to an instsance.
+    /// Execute a function with access to an instance.
     fn call(&self, func: &str, args: Vec<Bytes>) -> StrResult<Bytes> {
         // Acquire an instance from the pool (potentially creating a new one).
         let mut instance = self.acquire()?;
@@ -460,7 +460,7 @@ impl PluginInstance {
         // match the schema.
         if ty.params().iter().any(|&v| v != wasmi::core::ValType::I32) {
             bail!(
-                "plugin function `{func}` has a parameter that is not a 32-bit integer"
+                "plugin function `{func}` has a parameter that is not a 32-bit integer",
             );
         }
         if ty.results() != [wasmi::core::ValType::I32] {

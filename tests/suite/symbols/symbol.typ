@@ -112,7 +112,7 @@
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
 
---- symbol-repr paged ---
+--- symbol-repr eval ---
 #test(
   repr(sym.amp),
   `symbol("&", ("inv", "⅋"))`.text,

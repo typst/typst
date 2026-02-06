@@ -1,4 +1,4 @@
---- float-constructor paged ---
+--- float-constructor eval ---
 #test(float(10), 10.0)
 #test(float(50% * 30%), 0.15)
 #test(float("31.4e-1"), 3.14)
@@ -20,14 +20,14 @@
 // Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
---- float-is-nan paged ---
+--- float-is-nan eval ---
 // Test float `is-nan()`.
 #test(float(float.nan).is-nan(), true)
 #test(float(10).is-nan(), false)
 #test(float(calc.inf).is-nan(), false)
 #test(float(-calc.inf).is-nan(), false)
 
---- float-is-infinite paged ---
+--- float-is-infinite eval ---
 // Test float `is-infinite()`.
 #test(float(calc.inf).is-infinite(), true)
 #test(float(-calc.inf).is-infinite(), true)
@@ -35,7 +35,7 @@
 #test(float(-10).is-infinite(), false)
 #test(float(float.nan).is-infinite(), false)
 
---- float-signum paged ---
+--- float-signum eval ---
 // Test float `signum()`
 #test(float(0.0).signum(), 1.0)
 #test(float(1.0).signum(), 1.0)
@@ -46,7 +46,7 @@
 #test(float(-calc.inf).signum(), -1.0)
 #test(float(float.nan).signum().is-nan(), true)
 
---- float-from-and-to-bytes paged ---
+--- float-from-and-to-bytes eval ---
 // Test float `from-bytes()` and `to-bytes()`.
 #test(float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))), 1.0)
 #test(float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big"), 1.0)
@@ -62,7 +62,7 @@
 // Error: 2-54 bytes must have a length of 4 or 8
 #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1, 0)))
 
---- float-repr paged ---
+--- float-repr eval ---
 // Test the `repr` function with floats.
 #test(repr(12.0), "12.0")
 #test(repr(3.14), "3.14")

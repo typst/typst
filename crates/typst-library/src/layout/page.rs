@@ -44,6 +44,13 @@ use crate::visualize::{Color, Paint};
 /// invisible to Assistive Technology (AT) like screen readers. Only the body of
 /// the page is read by AT. Do not include vital information not included
 /// elsewhere in the document in these areas.
+///
+/// # Styling
+/// Note that the [`page`] element cannot be targeted by show rules; writing
+/// `{show page: ..}` has no effect. To repeat content on every page, you can
+/// instead configure the [`header`]($page.header), [`footer`]($page.footer),
+/// [`background`]($page.background), and [`foreground`]($page.foreground)
+/// properties with a set rule.
 #[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
@@ -218,7 +225,8 @@ pub struct PageElem {
     /// 1. The first number is the current page number.
     /// 2. The second number is the total number of pages. In a numbering
     ///    pattern, the second number can be omitted. If a function is passed,
-    ///    it will always receive both numbers.
+    ///    it will receive one argument in the context of links or references,
+    ///    and two arguments when producing the visible page numbers.
     ///
     /// These are logical numbers controlled by the page counter, and may thus
     /// not match the physical numbers. Specifically, they are the
@@ -298,7 +306,8 @@ pub struct PageElem {
     #[ghost]
     pub header: Smart<Option<Content>>,
 
-    /// The amount the header is raised into the top margin.
+    /// The amount the header is raised into the top margin. Ratios are relative
+    /// to the height of the top margin.
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub header_ascent: Rel<Length>,
@@ -334,7 +343,48 @@ pub struct PageElem {
     #[ghost]
     pub footer: Smart<Option<Content>>,
 
-    /// The amount the footer is lowered into the bottom margin.
+    /// The amount the footer is lowered into the bottom margin. Ratios are
+    /// relative to the height of the bottom margin.
+    ///
+    /// ```preview
+    /// #set page(
+    ///   height: 126pt,
+    ///   width: 240pt,
+    ///   margin: (top: 0pt, x: 20pt, bottom: 50pt),
+    ///   numbering: (..nums) => box(
+    ///     outset: (x: 50%),
+    ///     fill: orange.lighten(50%),
+    ///   )[6 / 8],
+    ///   footer-descent: 47%,
+    ///   foreground: place(bottom, {
+    ///     let arrow(height) = math.stretch(
+    ///       text(1.4em, sym.arrow.t.b),
+    ///       size: height,
+    ///     )
+    ///     set text(
+    ///       1.2em,
+    ///       purple.darken(10%),
+    ///       bottom-edge: "bounds",
+    ///       top-edge: "bounds",
+    ///     )
+    ///     set par(leading: 0.5em)
+    ///     import grid: cell
+    ///     context grid(
+    ///       align: center + horizon,
+    ///       columns: (37%, 10%, 6%, 47%),
+    ///       cell(rowspan: 2, align: right)[bottom\ margin],
+    ///       cell(rowspan: 2, align: left, arrow(page.margin.bottom)),
+    ///       arrow(page.margin.bottom * page.footer-descent.ratio),
+    ///       cell(align: left)[footer descent],
+    ///     )
+    ///   }),
+    /// )
+    /// #block(width: 100%, height: 100%, fill: green.lighten(75%), {
+    ///   set par(justify: true)
+    ///   set text(luma(25%))
+    ///   place(bottom, lorem(42))
+    /// })
+    /// ```
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub footer_descent: Rel<Length>,
@@ -386,7 +436,8 @@ impl Construct for PageElem {
     fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The page constructor is special: It doesn't create a page element.
         // Instead, it just ensures that the passed content lives in a separate
-        // page and styles it.
+        // page and styles it. Because no element node is produced, `show`
+        // rules can't match `page`; use `set` rules instead.
         let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([

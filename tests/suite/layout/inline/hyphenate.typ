@@ -167,7 +167,7 @@ Hello-#text(red)[world]
 // Error: 18-52 unexpected key "invalid-key", valid keys are "hyphenation", "runt", "widow", and "orphan"
 #set text(costs: (hyphenation: 1%, invalid-key: 3%))
 
---- costs-access paged ---
+--- costs-access paged empty ---
 #set text(costs: (hyphenation: 1%, runt: 2%))
 #set text(costs: (widow: 3%))
 #context test(text.costs, (hyphenation: 1%, runt: 2%, widow: 3%, orphan: 100%))

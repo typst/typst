@@ -481,9 +481,18 @@ impl Lang {
 
     /// The default direction for the language.
     pub fn dir(self) -> Dir {
-        match self.as_str() {
-            "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
-            | "yi" => Dir::RTL,
+        match self {
+            Lang::ARABIC
+            | Lang::DIVEHI
+            | Lang::PERSIAN
+            | Lang::HEBREW
+            | Lang::KASHMIRI
+            | Lang::PUNJABI
+            | Lang::PASHTO
+            | Lang::SINDHI
+            | Lang::UYGHUR
+            | Lang::URDU
+            | Lang::YIDDISH => Dir::RTL,
             _ => Dir::LTR,
         }
     }
@@ -712,7 +721,7 @@ mod tests {
                     file.file_stem()
                         .expect("translation file should have basename")
                         .to_str()
-                        .expect("translation file name should be utf-8 encoded")
+                        .expect("translation file name should be UTF-8 encoded")
                 ),
                 "translation from {:?} should be registered in TRANSLATIONS in {}",
                 file.file_name().unwrap(),
@@ -727,7 +736,7 @@ mod tests {
     fn test_all_translation_files_formatted() {
         for file in translation_files_iter() {
             let content = std::fs::read_to_string(&file)
-                .expect("translation file should be in utf-8 encoding");
+                .expect("translation file should be in UTF-8 encoding");
             let filename = file.file_name().unwrap();
             assert!(
                 content.ends_with('\n'),

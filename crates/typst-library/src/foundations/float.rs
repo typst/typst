@@ -28,7 +28,7 @@ use crate::layout::Ratio;
 #[ty(scope, cast, name = "float")]
 type f64;
 
-#[scope]
+#[scope(ext)]
 impl f64 {
     /// Positive infinity.
     const INF: f64 = f64::INFINITY;

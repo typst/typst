@@ -1,21 +1,21 @@
---- destructuring-group-1 paged ---
+--- destructuring-group-1 eval ---
 // This wasn't allowed.
 #let ((x)) = 1
 #test(x, 1)
 
---- destructuring-group-2 paged ---
+--- destructuring-group-2 eval ---
 // This also wasn't allowed.
 #let ((a, b)) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
---- destructuring-dict-underscore paged ---
+--- destructuring-dict-underscore eval ---
 // Here, `best` was accessed as a variable, where it shouldn't have.
 #{
   (best: _) = (best: "brr")
 }
 
---- destructuring-dict-array-at paged ---
+--- destructuring-dict-array-at eval ---
 // Same here.
 #{
   let array = (1, 2, 3, 4)
@@ -28,69 +28,69 @@
 // Error: 12-14 expected pattern, found integer
 #let ((a): 10) = "world"
 
---- destructuring-bad-duplicate paged ---
+--- destructuring-bad-duplicate eval ---
 // Here, `a` is not duplicate, where it was previously identified as one.
 #let f((a: b), (c,), a) = (a, b, c)
 #test(f((a: 1), (2,), 3), (3, 1, 2))
 
---- destructuring-non-atomic paged ---
+--- destructuring-non-atomic eval ---
 // Ensure that we can't have non-atomic destructuring.
 #let x = 1
 #let c = [#() = ()]
 #test(c.children.last(), [()])
 
---- destructuring-let-array paged ---
+--- destructuring-let-array eval ---
 // Simple destructuring.
 #let (a, b) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
---- destructuring-let-array-single-item paged ---
+--- destructuring-let-array-single-item eval ---
 #let (a,) = (1,)
 #test(a, 1)
 
---- destructuring-let-array-placeholders paged ---
+--- destructuring-let-array-placeholders eval ---
 // Destructuring with multiple placeholders.
 #let (a, _, c, _) = (1, 2, 3, 4)
 #test(a, 1)
 #test(c, 3)
 
---- destructuring-let-array-with-sink-at-end paged ---
+--- destructuring-let-array-with-sink-at-end eval ---
 // Destructuring with a sink.
 #let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, 2)
 #test(c, (3, 4, 5, 6))
 
---- destructuring-let-array-with-sink-in-middle paged ---
+--- destructuring-let-array-with-sink-in-middle eval ---
 // Destructuring with a sink in the middle.
 #let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, (2, 3, 4, 5))
 #test(c, 6)
 
---- destructuring-let-array-with-sink-at-start-empty paged ---
+--- destructuring-let-array-with-sink-at-start-empty eval ---
 // Destructuring with an empty sink.
 #let (..a, b, c) = (1, 2)
 #test(a, ())
 #test(b, 1)
 #test(c, 2)
 
---- destructuring-let-array-with-sink-in-middle-empty paged ---
+--- destructuring-let-array-with-sink-in-middle-empty eval ---
 // Destructuring with an empty sink.
 #let (a, ..b, c) = (1, 2)
 #test(a, 1)
 #test(b, ())
 #test(c, 2)
 
---- destructuring-let-array-with-sink-at-end-empty paged ---
+--- destructuring-let-array-with-sink-at-end-empty eval ---
 // Destructuring with an empty sink.
 #let (a, b, ..c) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 #test(c, ())
 
---- destructuring-let-array-with-sink-empty paged ---
+--- destructuring-let-array-with-sink-empty eval ---
 // Destructuring with an empty sink and empty array.
 #let (..a) = ()
 #test(a, ())
@@ -119,7 +119,7 @@
 // Error: 7-14 expected pattern, found function call
 #let (a.at(0),) = (1,)
 
---- destructuring-let-empty-array paged ---
+--- destructuring-let-empty-array eval ---
 #let () = ()
 
 --- destructuring-let-empty-array-too-many-elements paged ---
@@ -146,39 +146,39 @@
 // Error: 6-12 cannot destructure boolean
 #let (a, b) = true
 
---- destructuring-let-dict paged ---
+--- destructuring-let-dict eval ---
 // Simple destructuring.
 #let (a: a, b, x: c) = (a: 1, b: 2, x: 3)
 #test(a, 1)
 #test(b, 2)
 #test(c, 3)
 
---- destructuring-let-dict-with-sink-at-end paged ---
+--- destructuring-let-dict-with-sink-at-end eval ---
 // Destructuring with a sink.
 #let (a: _, ..b) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2, c: 3))
 
---- destructuring-let-dict-with-sink-in-middle paged ---
+--- destructuring-let-dict-with-sink-in-middle eval ---
 // Destructuring with a sink in the middle.
 #let (a: _, ..b, c: _) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2))
 
---- destructuring-let-dict-with-sink-at-end-empty paged ---
+--- destructuring-let-dict-with-sink-at-end-empty eval ---
 // Destructuring with an empty sink.
 #let (a: _, ..b) = (a: 1)
 #test(b, (:))
 
---- destructuring-let-dict-with-sink-empty paged ---
+--- destructuring-let-dict-with-sink-empty eval ---
 // Destructuring with an empty sink and empty dict.
 #let (..a) = (:)
 #test(a, (:))
 
---- destructuring-let-dict-with-unnamed-sink paged ---
+--- destructuring-let-dict-with-unnamed-sink eval ---
 // Destructuring with unnamed sink.
 #let (a, ..) = (a: 1, b: 2)
 #test(a, 1)
 
---- destructuring-let-nested paged ---
+--- destructuring-let-nested eval ---
 // Nested destructuring.
 #let ((a, b), (key: c)) = ((1, 2), (key: 3))
 #test((a, b, c), (1, 2, 3))
@@ -233,7 +233,7 @@
   [#word = #roman \ ]
 }
 
---- destructuring-assign paged ---
+--- destructuring-assign eval ---
 // Test destructuring assignments.
 
 #let a = none
@@ -275,7 +275,7 @@
 #test(a, ((2, 3, 4), 2))
 #test(b, 1)
 
---- destructuring-assign-commas paged ---
+--- destructuring-assign-commas eval ---
 // Test comma placement in destructuring assignment.
 #let array = (1, 2, 3)
 #((key: array.at(1)) = (key: "hi"))
@@ -293,7 +293,7 @@
 #((array.at(1)) = ("hi",))
 #test(array, (1, ("hi",), 3))
 
---- destructuring-assign-nested paged ---
+--- destructuring-assign-nested eval ---
 // Test nested destructuring assignment.
 #let a
 #let b
@@ -307,21 +307,21 @@
 #((array.at(1),) = ("hi"))
 #test(array, (1, ("hi",), 3))
 
---- issue-3275-normal-variable paged ---
+--- issue-3275-normal-variable eval ---
 // Normal variable.
 #for x in (1, 2) {}
 #for x in (a: 1, b: 2) {}
 #for x in "foo" {}
 #for x in bytes("😊") {}
 
---- issue-3275-placeholder paged ---
+--- issue-3275-placeholder eval ---
 // Placeholder.
 #for _ in (1, 2) {}
 #for _ in (a: 1, b: 2) {}
 #for _ in "foo" {}
 #for _ in bytes("😊") {}
 
---- issue-3275-destructuring paged ---
+--- issue-3275-destructuring eval ---
 // Destructuring.
 #for (a,b,c) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}
 #for (a, ..) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}

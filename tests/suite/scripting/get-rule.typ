@@ -1,17 +1,17 @@
---- get-rule-basic paged ---
+--- get-rule-basic paged empty ---
 // Test basic get rule.
 #context test(text.lang, "en")
 #set text(lang: "de")
 #context test(text.lang, "de")
 #text(lang: "es", context test(text.lang, "es"))
 
---- get-rule-in-function paged ---
+--- get-rule-in-function paged empty ---
 // Test whether context is retained in nested function.
 #let translate(..args) = args.named().at(text.lang)
 #set text(lang: "de")
 #context test(translate(de: "Inhalt", en: "Contents"), "Inhalt")
 
---- get-rule-in-array-callback paged ---
+--- get-rule-in-array-callback paged empty ---
 // Test whether context is retained in built-in callback.
 #set text(lang: "de")
 #context test(
@@ -19,7 +19,7 @@
   ("de", "en", "fr"),
 )
 
---- get-rule-folding paged ---
+--- get-rule-folding paged empty ---
 // Test folding.
 #set rect(stroke: red)
 #context {
@@ -32,7 +32,7 @@
 ]
 #context test(rect.stroke, stroke(red))
 
---- get-rule-figure-caption-collision paged ---
+--- get-rule-figure-caption-collision paged empty ---
 // We have one collision: `figure.caption` could be both the element and a get
 // rule for the `caption` field, which is settable. We always prefer the
 // element. It's unfortunate, but probably nobody writes

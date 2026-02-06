@@ -1,6 +1,6 @@
 // Test WebAssembly plugins.
 
---- plugin-basic paged ---
+--- plugin-basic eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 #test(p.hello(), bytes("Hello from wasm!!!"))
 #test(p.double_it(bytes("hey!")), bytes("hey!.hey!"))
@@ -9,18 +9,18 @@
   bytes("value3-value1-value2"),
 )
 
---- plugin-func paged ---
+--- plugin-func eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 #test(type(p.hello), function)
 #test(("a", "b").map(bytes).map(p.double_it), ("a.a", "b.b").map(bytes))
 
---- plugin-import paged ---
+--- plugin-import eval ---
 #import plugin("/assets/plugins/hello.wasm"): hello, double_it
 
 #test(hello(), bytes("Hello from wasm!!!"))
 #test(double_it(bytes("hey!")), bytes("hey!.hey!"))
 
---- plugin-transition paged ---
+--- plugin-transition eval ---
 #let empty = plugin("/assets/plugins/hello-mut.wasm")
 #test(str(empty.get()), "[]")
 

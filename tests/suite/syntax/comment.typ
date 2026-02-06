@@ -34,7 +34,7 @@ Second part
 First part          //
 Second part
 
---- issue-4632-sth-followed-by-comment paged ---
+--- issue-4632-sth-followed-by-comment eval ---
 // Test heading markers followed by comments.
 #test([
   =// Comment

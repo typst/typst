@@ -32,7 +32,7 @@ Three
 #test(v2, 2)
 #test(v3, 3)
 
---- let-valid-idents paged ---
+--- let-valid-idents eval ---
 // Test what constitutes a valid Typst identifier.
 #let name = 1
 #test(name, 1)
@@ -59,7 +59,7 @@ Three
   let as = 10
 }
 
---- let-ident-parenthesized paged ---
+--- let-ident-parenthesized eval ---
 // Test parenthesised assignments.
 #let (a) = (1, 2)
 

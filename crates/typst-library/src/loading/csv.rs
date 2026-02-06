@@ -26,7 +26,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "CSV")]
 pub fn csv(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a CSV file or raw CSV bytes.
+    /// A path to a CSV file or raw CSV bytes.
     source: Spanned<DataSource>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.
@@ -177,7 +177,7 @@ fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => {
-            LoadError::new(pos, msg, "file is not valid utf-8")
+            LoadError::new(pos, msg, "file is not valid UTF-8")
         }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =

@@ -30,8 +30,8 @@ use typst_library::text::{
     TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
-    RectElem, SquareElem, Stroke,
+    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
+    SquareElem, Stroke,
 };
 use typst_utils::{Get, Numeric};
 
@@ -100,7 +100,6 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, CIRCLE_RULE);
     rules.register(Paged, POLYGON_RULE);
     rules.register(Paged, CURVE_RULE);
-    rules.register(Paged, PATH_RULE);
 
     // Math.
     rules.register(Paged, EQUATION_RULE);
@@ -340,7 +339,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
         bail!(
             span,
             "parent-scoped placement is only available for floating figures";
-            hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
         );
     }
 
@@ -395,19 +394,19 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+    // The footnote number that links to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(link).pack().spanned(elem.span());
     Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let number_gap = Em::new(0.05);
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
+    let prefix = PdfMarkerTag::Label(sup);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        PdfMarkerTag::Label(prefix),
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
@@ -815,10 +814,6 @@ const POLYGON_RULE: ShowFn<PolygonElem> = |elem, _, _| {
 
 const CURVE_RULE: ShowFn<CurveElem> = |elem, _, _| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_curve).pack())
-};
-
-const PATH_RULE: ShowFn<PathElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_path).pack())
 };
 
 const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
