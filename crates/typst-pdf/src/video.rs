@@ -28,8 +28,7 @@ pub(crate) fn handle_video(
     let rect = bounding_box(fc, size);
 
     // 3. Build the screen annotation.
-    let video_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-        Arc::new(video.data().clone());
+    let video_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(video.data().clone());
 
     let annotation = Annotation::new_screen(
         ScreenAnnotation {

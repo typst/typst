@@ -83,7 +83,11 @@ impl VideoElem {}
 
 impl Packed<VideoElem> {
     /// Decodes the video element into a `Video` struct.
-    pub fn decode(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Video> {
+    pub fn decode(
+        &self,
+        _engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Video> {
         let span = self.span();
         let video_loaded = &self.source.derived;
         let poster_loaded = &self.poster.derived;
@@ -95,15 +99,14 @@ impl Packed<VideoElem> {
         }
 
         // Decode the poster image as a raster image (PNG/JPG/GIF/WebP).
-        let poster_format = ExchangeFormat::detect(
-            &poster_loaded.data,
-        )
-        .ok_or("unknown poster image format")
-        .at(span)?;
+        let poster_format = ExchangeFormat::detect(&poster_loaded.data)
+            .ok_or("unknown poster image format")
+            .at(span)?;
 
         let raster_format = RasterFormat::Exchange(poster_format);
-        let raster = RasterImage::new(poster_loaded.data.clone(), raster_format, Smart::Auto)
-            .at(span)?;
+        let raster =
+            RasterImage::new(poster_loaded.data.clone(), raster_format, Smart::Auto)
+                .at(span)?;
         let poster = Image::new(ImageKind::Raster(raster), None, Smart::Auto);
 
         // Derive a filename from the source path.
