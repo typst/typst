@@ -73,11 +73,68 @@ pub fn yaml(
     engine: &mut Engine,
     /// A path to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
+    /// Whether to perform merging of `<<`` keys into the surrounding mapping
+    /// according to the [YAML 1.1 draft specification](https://yaml.org/type/merge.html).
+    ///
+    /// The merge key feature has not been standardized in YAML 1.1 or 1.2, and
+    /// has several undefined edge cases. You can disable it if you don't need
+    /// to merge keys.
+    ///
+    /// ````example
+    /// #let source = bytes(
+    ///   ```yaml
+    ///   presets:
+    ///     - &left { x: 0, y: 0 }
+    ///     - &center { x: 1, y: 0 }
+    ///     - &small { r: 2 }
+    ///     - &large { r: 10 }
+    ///
+    ///   merge-one:
+    ///     <<: *left
+    ///     r: 2
+    ///     fill: red
+    ///
+    ///   merge-multiple:
+    ///     <<: [ *center, *small ]
+    ///     fill: yellow
+    ///
+    ///   override:
+    ///     <<: [ *small, *left, *large ]
+    ///     x: 2
+    ///     fill: green
+    ///   ```.text,
+    /// )
+    ///
+    /// #let (presets, ..data) = yaml(source)
+    /// #set page(height: auto, width: auto)
+    /// #grid(
+    ///   columns: data.len(),
+    ///   gutter: 1em,
+    ///   ..data
+    ///     .values()
+    ///     .map(((x, y, r, fill)) => grid.cell(
+    ///       x: x,
+    ///       y: y,
+    ///       circle(
+    ///         fill: eval(fill),
+    ///         radius: r * 1em,
+    ///       ),
+    ///     )),
+    /// )
+    /// ````
+    #[named]
+    #[default(true)]
+    merge_keys: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    serde_yaml::from_slice(loaded.data.as_slice())
+    let mut value = serde_yaml::from_slice(loaded.data.as_slice())
         .map_err(format_yaml_error)
-        .within(&loaded)
+        .within(&loaded)?;
+
+    if merge_keys {
+        apply_yaml_merge(&mut value).within(&loaded)?;
+    }
+    Ok(value)
 }
 
 #[scope]
@@ -93,7 +150,8 @@ impl yaml {
         /// YAML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        yaml(engine, data.map(Readable::into_source))
+        // Typst 0.14 did not merge keys, so it's false here.
+        yaml(engine, data.map(Readable::into_source), false)
     }
 
     /// Encode structured data into a YAML string.
@@ -121,4 +179,60 @@ pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
         })
         .unwrap_or_default();
     LoadError::new(pos, "failed to parse YAML", error)
+}
+
+/// Performs merging of `<<` keys into the surrounding mapping.
+/// A copy of [`serde_yaml::Value::apply_merge`] to [`Value`]. (Apache-2.0 license)
+fn apply_yaml_merge(value: &mut Value) -> Result<(), LoadError> {
+    let yaml_error = |error: &str| {
+        // Even serde_yaml can't report positions of these errors, so we give up.
+        Err(LoadError::new(ReportPos::default(), "failed to parse YAML", error))
+    };
+
+    let mut stack = Vec::new();
+    stack.push(value);
+    while let Some(node) = stack.pop() {
+        match node {
+            Value::Dict(dict) => {
+                match dict.take("<<") {
+                    Ok(Value::Dict(merge)) => {
+                        for (k, v) in merge {
+                            dict.entry(k).or_insert(v);
+                        }
+                    }
+                    Ok(Value::Array(array)) => {
+                        for value in array {
+                            match value {
+                                Value::Dict(merge) => {
+                                    for (k, v) in merge {
+                                        dict.entry(k).or_insert(v);
+                                    }
+                                }
+                                Value::Array(_) => {
+                                    return yaml_error(
+                                        "expected a mapping for merging, but found sequence",
+                                    );
+                                }
+                                _unexpected => {
+                                    return yaml_error(
+                                        "expected a mapping for merging, but found scalar",
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(_) => {}
+                    Ok(_unexpected) => {
+                        return yaml_error(
+                            "expected a mapping or list of mappings for merging, but found scalar",
+                        );
+                    }
+                }
+                stack.extend(dict.values_mut());
+            }
+            Value::Array(array) => stack.extend(array.iter_mut()),
+            _ => {}
+        }
+    }
+    Ok(())
 }
