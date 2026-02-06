@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Smart};
+use typst::foundations::{Bytes, Datetime, Duration, Smart};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
@@ -107,7 +107,7 @@ impl World for TestWorld {
         self.base.fonts.get(index).cloned()
     }
 
-    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
     }
 }
