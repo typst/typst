@@ -74,10 +74,11 @@ pub fn yaml(
     /// A path to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
     /// Whether to perform merging of `<<`` keys into the surrounding mapping
-    /// according to the [YAML specification](https://yaml.org/type/merge.html).
+    /// according to the [YAML 1.1 draft specification](https://yaml.org/type/merge.html).
     ///
-    /// Merged keys cannot be determined until the whole YAML is loaded. If you
-    /// don't need this feature, you can disable it for better performance.
+    /// The merge key feature has not been standardized in YAML 1.1 or 1.2, and
+    /// has several undefined edge cases. You can disable it if you don't need
+    /// to merge keys.
     ///
     /// ````example
     /// #let source = bytes(
