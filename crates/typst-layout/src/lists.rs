@@ -8,8 +8,8 @@ use typst_library::foundations::{
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{
-    Abs, Axes, BlockElem, Fragment, Frame, HAlignment, Length, Point, Region, Regions,
-    Size, Sizing, StackChild, StackElem, VAlignment,
+    Abs, Axes, BlockElem, Fragment, Frame, FrameItem, HAlignment, Length, Point, Region,
+    Regions, Size, Sizing, StackChild, StackElem, VAlignment,
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
@@ -194,11 +194,13 @@ fn layout_item(
         styles,
         regions,
     )?;
-    let baseline = fragment
-        .as_slice()
-        .first()
-        .filter(|x| x.has_baseline())
-        .map_or(Abs::zero(), |x| x.baseline());
+    let baseline = match fragment.as_slice() {
+        [first, ..] if first.has_baseline() => first.baseline(),
+        [first, ..] => extract_baseline(&first, Abs::zero()),
+        _ => Abs::zero(),
+    };
+
+    dbg!(&fragment, baseline);
 
     let mut diff = baseline;
     if marker.has_baseline() {
@@ -218,4 +220,24 @@ fn layout_item(
     }
 
     Ok(Fragment::frames(frames))
+}
+
+fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
+    let mut baseline = Abs::inf();
+    // let mut items: Vec<_> = first.items().collect();
+    for (pos, item) in first.items() {
+        let height = pos.y + y_offset;
+        let new_baseline = match item {
+            FrameItem::Group(group) if group.frame.has_baseline() => {
+                group.frame.baseline() + height
+            }
+            FrameItem::Group(group) => extract_baseline(&group.frame, height),
+            FrameItem::Tag(_) => continue,
+            _ => height,
+        };
+        dbg!(new_baseline, item);
+        baseline.set_min(new_baseline);
+    }
+
+    if baseline.to_raw().is_finite() { baseline } else { Abs::zero() }
 }
