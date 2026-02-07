@@ -312,3 +312,14 @@ World
   - B
   - C
 - C
+
+--- issue-529-list-center-alignment paged ---
+#set page(width: 2cm)
+- A
+- #align(center)[B]
+- $ C $
+
+--- issue-1204-list-baseline-alignment paged ---
+- A
+- $ sum_(i = 1)^n overbrace(x^6, y) $
+- #box(baseline: 1cm)[C]

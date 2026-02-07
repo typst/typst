@@ -609,6 +609,7 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 149d8387d80ba298067081b6809ba2c5 issue-1041-smartquotes-in-outline
 29df276f53db6613015e8c040bad5562 issue-1050-terms-indent
 070b232e7ca9895a62393217762ec470 issue-1052-math-number-spacing
+54f633d65110ea2e19f372c72bb2e8ee issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
 b64cc1773a30caac6ccd8b8b27701250 issue-1240-stack-v-fr
@@ -723,6 +724,7 @@ c80a0f8bff426e241bfa226e905f78ce issue-5253-consecutive-weak-space-math
 afa9c1b4c29da1695db6a1a1c1a81b8e issue-5262-block-negative-height-in-flow
 005e161913fa6b9aea5e95358be21ef6 issue-5262-text-negative-size
 6ad5eb2567511a9f29c9b40edaa4c144 issue-5276-shaping-consecutive-ltr-with-lang
+ef1bd801f15cb99296a67355341b33f2 issue-529-list-center-alignment
 faf4f3339ea31f7f5ef14a025fc0ca83 issue-5296-block-sticky-in-block-at-top
 9bd97d6967997cbb0220d0037855ddc6 issue-5296-block-sticky-spaced-from-top-of-page
 8e9e39ca1023b43830e7ed9577f57f98 issue-5296-block-sticky-weakly-spaced-from-top-of-page
