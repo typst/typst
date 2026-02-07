@@ -609,6 +609,7 @@ b7344bd617891d6f9e27a3e272011f8f int-display
 0f4ed386eaa2d6e062c64e8d03596803 issue-1041-smartquotes-in-outline
 ed8af5ce228e8905cb80c0ad1dd9417e issue-1050-terms-indent
 7171a6e60394f316604eef5da325bb84 issue-1052-math-number-spacing
+472567a6b4933062ce57b0af927dcec3 issue-1204-enum-baseline-alignment
 933770351be07fb7a9b26cb3c120d759 issue-1204-list-baseline-alignment
 8f98cbefedb0ccbed828371a22ce6faf issue-1216-clamp-panic
 aee77b0b8bd128323a59aa0660c9fdc8 issue-1240-stack-h-fr
@@ -724,6 +725,7 @@ ff588f531150a420af665186c176ee34 issue-5256-multiple-footnotes-in-footnote
 79ef86326f54fa34a465a08e48d01a25 issue-5262-block-negative-height-in-flow
 3fc455bfc10d8a00e064a1b2a3f2af3e issue-5262-text-negative-size
 f0f1c4c01917ecad3257718c4513b393 issue-5276-shaping-consecutive-ltr-with-lang
+5fdb9bd1bb3f78f2f765d53e8dd4e625 issue-529-enum-center-alignment
 2707134789c76e7ef438b7c72ea1a277 issue-529-list-center-alignment
 620cc90281d119b865cff7aa42e27252 issue-5296-block-sticky-in-block-at-top
 c365fb8d48f371c21c12c83d179835ca issue-5296-block-sticky-spaced-from-top-of-page
