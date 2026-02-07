@@ -14,8 +14,9 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem,
-    Fr, Fragment, Frame, FrameParent, Inherit, PagebreakElem, PlaceElem, PlacementScope,
-    Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
+    Fr, Fragment, Frame, FrameParent, HAlignment, Inherit, PagebreakElem, PlaceElem,
+    PlacementScope, Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VAlignment,
+    VElem,
 };
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
@@ -286,9 +287,21 @@ impl<'a> Collector<'a, '_, '_> {
     ) -> SourceResult<()> {
         let alignment = elem.alignment.get(styles);
 
-        let align_x = alignment.map_or(FixedAlignment::Center, |align| {
-            align.x().unwrap_or_default().resolve(styles)
-        });
+        let align_x =
+            if elem.read_horizontal_from_styles.get(styles) && alignment == Smart::Auto {
+                // For figures with auto placement, read horizontal alignment from styles
+                // This includes the figure's ShowSet (CENTER) and any show rule overrides
+                styles
+                    .get(AlignElem::alignment)
+                    .x()
+                    .unwrap_or(HAlignment::Center)
+                    .resolve(styles)
+            } else {
+                // Traditional behavior: Smart::Auto defaults to center
+                alignment.map_or(FixedAlignment::Center, |align| {
+                    align.x().unwrap_or_default().resolve(styles)
+                })
+            };
 
         let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
 
@@ -640,7 +653,26 @@ impl PlacedChild<'_> {
     /// Build the child's frame given the region's base size.
     pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
         self.cell.get_or_init(base, |base| {
-            let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
+            let align = match self.alignment {
+                Smart::Auto => {
+                    // Check if this is a figure with explicit horizontal alignment
+                    if self.elem.read_horizontal_from_styles.get(self.styles) {
+                        // Read horizontal alignment from styles (includes ShowSet + show rules)
+                        let h_align = self
+                            .styles
+                            .get(AlignElem::alignment)
+                            .x()
+                            .unwrap_or(HAlignment::Center);
+                        // Combine with top vertical alignment (vertical doesn't matter for layout)
+                        h_align + VAlignment::Top
+                    } else {
+                        // Default behavior for plain place(auto, float: true)
+                        Alignment::CENTER
+                    }
+                }
+                Smart::Custom(align) => align,
+            };
+
             let aligned = AlignElem::alignment.set(align).wrap();
             let styles = self.styles.chain(&aligned);
 
