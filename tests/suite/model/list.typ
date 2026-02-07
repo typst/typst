@@ -323,3 +323,4 @@ World
 - A
 - $ sum_(i = 1)^n overbrace(x^6, y) $
 - #box(baseline: 1cm)[C]
+- #v(1cm) D
