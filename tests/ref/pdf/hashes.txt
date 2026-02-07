@@ -245,6 +245,7 @@ ff7e8ca07f785829fb3d7734c1638f16 footnote-ref-multiple
 d769935c2e7c0190f88134c7563233a4 footnote-space-collapsing
 8b6caa429ef51dc075fe4bbd61b90bd4 footnote-styling
 fdacac3583b252e6d9fa9330a95237ee for-loop-basic
+c74b8868d000fa2ec368f4598b169d70 gradient-angle-rotation-aspect
 c6170e6f11695bda78e4332de93c893e gradient-conic
 a66907816415e182548c9ce6b4c5fc6f gradient-conic-angled
 dd67671a641c13b86dca4a890782a581 gradient-conic-center-shifted-1
@@ -285,6 +286,7 @@ d37ef81cb70183eed6a75169008a582a gradient-math-dir
 22d05716eaf7b971ffc77b375bedcafe gradient-math-radial
 951d14151bbeec2c08116982460eade3 gradient-math-root
 641f1baa27603f0b3f907bf9257b654c gradient-math-underover
+73b0b723d7ab521ba8c3d72431f9667e gradient-negative-square-angles
 6bf078df5186b9ac155818dc6753b316 gradient-presets
 7686015f639fd0a80d23f7648bfc8119 gradient-radial-center
 4f50914ce63397b7305daa85cab07cc1 gradient-radial-focal-center-and-radius
@@ -768,6 +770,7 @@ f4050ba75f826edc48765b6ad8090539 issue-622-hide-meta-outline
 25661c8cec6a6865ffe1b6a1afc9bfc2 issue-6399-grid-cell-colspan-set-rule
 a784083fbc5d91e4a07b85f5e29b154d issue-6399-grid-cell-rowspan-set-rule
 f420fcaa78fa27566a8b2fde93343cc8 issue-6539-cjk-latin-spacing-at-manual-linebreak
+79b8c4587f88dafcbe34cabaffbedcb6 issue-6597-gradient-angle-negative-size
 2f34597f58f2bff11faf51542eb3a701 issue-6666-auto-hlines-around-footer
 656b9317ed1a9ad13c477fce1b3dda27 issue-6666-auto-hlines-around-header
 17c14c838d6522ec690a85ff6ad78aaa issue-6680-gradient-linear-with-aspect-correction

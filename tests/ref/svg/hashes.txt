@@ -245,6 +245,7 @@ f83e1dbaf425b3b73a482730b15690d6 footnote-ref-in-footnote
 2dc2a4b7a6025cbfa784bb3353e0c61a footnote-space-collapsing
 5a4e9ffa1e30c0988594df9292ca5cbf footnote-styling
 9cdbf5ba38b080d650707cff2adee43c for-loop-basic
+8d089c588c3f2119a1894c0846cc578d gradient-angle-rotation-aspect
 3161e1ce37ffd088addc10b780e8d3b9 gradient-conic
 949948c4d90047b075ea8219e1984c82 gradient-conic-angled
 58527ef904516f9e51504e42978ffec6 gradient-conic-center-shifted-1
@@ -256,7 +257,7 @@ f38946f81545e14637ce17fc103fcbfd gradient-conic-hsv
 3ce52c1eabfeae1efd5a9ef74fe408b3 gradient-conic-relative-parent
 34458ceace8e961fb87b5631abbce6fb gradient-conic-relative-self
 803f09b53ede42214b587d9f5f09da6f gradient-conic-stroke
-771403eb44e98da6497b371005ba6d0c gradient-conic-text
+ee36bc09f4601770c79f5b3159c0a56c gradient-conic-text
 89f1810ced465d3a34f30e9bea2d536d gradient-fill-and-stroke
 c6a37961c74a922c18df9fcc750732fc gradient-linear-angled
 01f9fe61fa34faf10c5ecf3fdfc0a063 gradient-linear-hsl
@@ -277,7 +278,7 @@ d83568f1695c5c0019abe06fbe5a502e gradient-linear-repeat-and-mirror-2
 510e4a06c0d6e46fca38a13badee8660 gradient-linear-stroke
 ab87611416572fc96d9f849ddc925727 gradient-linear-stroke-relative-parent
 354c03b69fde65d3a07ab2bddb194e38 gradient-math-cancel
-e4850f37fe1f374bce34955709a0083e gradient-math-conic
+360ae9057bdb21898b8bd364914023ef gradient-math-conic
 e1dfb9c36ef58a5712dd3af5f13fa8b3 gradient-math-dir
 9f4fd9167de3190fa4ea92ed9a78e7be gradient-math-frac
 82219d9c75b55f38f3c3f50a2441388f gradient-math-mat
@@ -285,6 +286,7 @@ b0fc1a364b8c9d64b6e521fe2b52c113 gradient-math-misc
 edb3a93d2e3567e40bc91702229aa58b gradient-math-radial
 8af4cca43398428de5af7bba4cf311e6 gradient-math-root
 1c8ea2789f43eb9d961ced80cbcb9a44 gradient-math-underover
+1228c384f3bd04d34a45b6acb1b38bc7 gradient-negative-square-angles
 058f1ca505df8ff74338f353bd281fef gradient-presets
 01a180c5bb3e43753c8b9d3b3c542dff gradient-radial-center
 1245db00a88d3991c8d1c7458092035e gradient-radial-focal-center-and-radius
@@ -768,6 +770,7 @@ c68b85f1ab752fc70fd6fbb3ff2e2af0 issue-6304-block-skip-label
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-colspan-set-rule
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-rowspan-set-rule
 db9d75f95fe99ca9af1188aa1eaed27a issue-6539-cjk-latin-spacing-at-manual-linebreak
+bff0c456e7a07e4a44e4d56cbe74ec6b issue-6597-gradient-angle-negative-size
 52209b822378a74e51c6a522c1fbde42 issue-6666-auto-hlines-around-footer
 22f6610970f2b29e5f643f1df1e1ad7d issue-6666-auto-hlines-around-header
 dd1b2542502857d847bf215e24f6136d issue-6680-gradient-linear-with-aspect-correction
