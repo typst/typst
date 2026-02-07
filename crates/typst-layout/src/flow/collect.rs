@@ -285,10 +285,25 @@ impl<'a> Collector<'a, '_, '_> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         let alignment = elem.alignment.get(styles);
-        let align_x = alignment.map_or(FixedAlignment::Center, |align| {
-            align.x().unwrap_or_default().resolve(styles)
-        });
-        let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
+
+        let align_x = match alignment {
+            Smart::Auto => {
+                // When placement is align, we respect style chain's horizontal alignment
+                styles.get(AlignElem::alignment).resolve(styles).x
+            }
+            Smart::Custom(align) => align.x().unwrap_or_default().resolve(styles),
+        };
+
+        // Extract vertical alignment, treating None (Horizontal-only) as Auto
+        let align_y = match alignment {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(align) => {
+                match align.y() {
+                    Some(v) => Smart::Custom(Some(v.resolve(styles))),
+                    None => Smart::Auto, // Horizontal-only alignment meaning auto vertical
+                }
+            }
+        };
         let scope = elem.scope.get(styles);
         let float = elem.float.get(styles);
 
