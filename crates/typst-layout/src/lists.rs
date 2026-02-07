@@ -193,18 +193,16 @@ fn layout_item(
         regions,
     )?;
     let baseline = match fragment.as_slice() {
-        [first, ..] if first.has_baseline() => dbg!(first.baseline()),
-        [first, ..] => dbg!(extract_baseline(&first, Abs::zero())),
-        _ => dbg!(Abs::zero()),
+        [first, ..] if first.has_baseline() => first.baseline(),
+        [first, ..] => extract_baseline(&first, Abs::zero()),
+        _ => Abs::zero(),
     };
-
-    dbg!(&fragment, baseline);
 
     let diff = baseline
         - if marker.has_baseline() {
-            dbg!(marker.baseline())
+            marker.baseline()
         } else {
-            dbg!(extract_baseline(&marker, Abs::zero()))
+            extract_baseline(&marker, Abs::zero())
         };
     marker.set_baseline(baseline);
 
@@ -224,21 +222,16 @@ fn layout_item(
 
 fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
     let mut baseline = Abs::inf();
-    // let mut items: Vec<_> = first.items().collect();
-    dbg!(first, y_offset);
     for (pos, item) in first.items() {
         let height = pos.y + y_offset;
         let new_baseline = match item {
             FrameItem::Group(group) if group.frame.has_baseline() => {
-                dbg!(group.frame.baseline());
-                dbg!(height);
-                dbg!(group.frame.baseline() + height)
+                group.frame.baseline() + height
             }
             FrameItem::Group(group) => extract_baseline(&group.frame, height),
             FrameItem::Tag(_) => continue,
             _ => height,
         };
-        dbg!(new_baseline, item);
         baseline.set_min(new_baseline);
         break;
     }
