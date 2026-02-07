@@ -1,9 +1,14 @@
+use std::fs;
 use std::io::{self, IsTerminal, StderrLock, Write};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ecow::EcoString;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rustc_hash::FxHashMap;
 
-use crate::collect::Test;
+use crate::collect::{FilePos, Test};
 use crate::report::{ReportFile, TestReport};
 use crate::{ARGS, report};
 
@@ -35,9 +40,12 @@ pub struct TestResult {
     pub mismatched_output: bool,
     /// The data necessary to generate a HTML report.
     pub report: Option<TestReport>,
+    /// Updates for a test's error annotations.
+    pub updated_body: Option<String>,
 }
 
 impl TestResult {
+    /// Add a report to this result, potentially initializing the option.
     pub fn add_report(&mut self, name: EcoString, file_report: ReportFile) {
         let report = self.report.get_or_insert_with(|| TestReport::new(name));
         report.files.push(file_report);
@@ -56,6 +64,9 @@ pub struct Logger {
     temp_lines: usize,
     terminal: bool,
     pub reports: Vec<TestReport>,
+    /// Updates to error annotations per file (so we can write each file
+    /// atomically).
+    pub test_updates: FxHashMap<Arc<PathBuf>, Vec<(usize, String)>>,
 }
 
 impl Logger {
@@ -72,6 +83,7 @@ impl Logger {
             last_change: Instant::now(),
             terminal: std::io::stderr().is_terminal(),
             reports: vec![],
+            test_updates: FxHashMap::default(),
         }
     }
 
@@ -96,7 +108,13 @@ impl Logger {
             .unwrap();
             return;
         };
-        let TestResult { errors, infos, mismatched_output, report } = result;
+        let TestResult {
+            errors,
+            infos,
+            mismatched_output,
+            report,
+            updated_body,
+        } = result;
 
         if errors.is_empty() {
             self.passed += 1;
@@ -108,6 +126,11 @@ impl Logger {
         self.last_change = Instant::now();
 
         self.reports.extend(report);
+
+        if let Some(new_body) = updated_body {
+            let FilePos { path, line } = test.body.pos.clone();
+            self.test_updates.entry(path).or_default().push((line, new_body));
+        }
 
         self.print(move |out| {
             if !errors.is_empty() {
@@ -140,13 +163,27 @@ impl Logger {
 
     /// Prints a summary and returns whether the test suite passed.
     pub fn finish(self) -> Result<(), SuiteError> {
-        let Self { selected, passed, failed, skipped, reports, .. } = self;
+        let Self {
+            selected,
+            passed,
+            failed,
+            skipped,
+            reports,
+            test_updates,
+            ..
+        } = self;
+
+        test_updates.into_par_iter().for_each(|(path, updates)| {
+            update_test_bodies(&path, updates);
+        });
 
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
         if self.mismatched_output {
-            eprintln!("  pass the --update flag to update the reference output");
+            eprintln!(
+                "  pass '--update' to update error annotations or reference outputs"
+            );
             eprintln!("  for a rich diff, view tests/store/report.html");
         }
 
@@ -212,4 +249,40 @@ impl Logger {
 
         Ok(())
     }
+}
+
+/// Write updated test bodies.
+pub fn update_test_bodies(path: &Path, mut updates: Vec<(usize, String)>) {
+    let old = fs::read_to_string(path).unwrap();
+    let mut new = String::with_capacity(old.len());
+    let mut lines = old.lines().enumerate();
+
+    updates.sort_by_key(|(line, _body)| *line);
+    for (index, new_body) in updates {
+        // Copy over all lines up to the body.
+        while let Some((i, line)) = lines.next()
+            && i + 1 < index
+        {
+            new.push_str(line);
+            new.push('\n');
+        }
+        // Write the new body.
+        new.push_str(&new_body);
+        // Skip lines from the original body.
+        for (_, line) in lines.by_ref() {
+            if line.starts_with("---") {
+                // At a new test, write its header and stop skipping.
+                new.push_str(line);
+                new.push('\n');
+                break;
+            }
+        }
+    }
+    // Write any remaining lines.
+    for (_, line) in lines {
+        new.push_str(line);
+        new.push('\n');
+    }
+
+    fs::write(path, new).unwrap();
 }

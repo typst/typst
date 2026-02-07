@@ -103,6 +103,64 @@ impl TestBody {
             None => self.notes.push(Note { status, seen, kind, range, message }),
         }
     }
+
+    /// Create a new body for this test with only the seen annotations.
+    pub fn write_seen_annotations(&mut self) -> (String, [(&'static str, usize); 3]) {
+        let old = self.source.text();
+        let mut new = String::with_capacity(old.len());
+        let mut lines = old.lines().enumerate().peekable();
+
+        // Stable sort keeps Warning/Error annotations well-ordered relative to
+        // their Hints since hints usually have the same range.
+        self.notes.sort_by_key(|note| match &note.range {
+            // Compare by None < Some, external < internal, start-A < start-B,
+            // then end-A < end-B.
+            // Assume external notes are all for the same file (currently true).
+            NoteRange::None => None, // Option::None < Option::Some
+            NoteRange::Some { external_file, indices, .. } => {
+                Some((external_file.is_none(), indices.start, indices.end))
+            }
+        });
+
+        let (mut removed, mut added, mut adjusted) = (0, 0, 0);
+        for Note { kind, range, message, status, seen } in &self.notes {
+            match status {
+                NoteStatus::Annotated { .. } if seen.is_empty() => {
+                    removed += 1;
+                    continue;
+                }
+                NoteStatus::Annotated { .. } => {}
+                NoteStatus::Updated { .. } => adjusted += 1,
+                NoteStatus::Emitted => added += 1,
+            }
+            match &range {
+                NoteRange::None => {
+                    writeln!(new, "// {kind}: {message}").unwrap();
+                }
+                NoteRange::Some { positions: Range { start, .. }, .. } => {
+                    while let Some(&(line_index, line)) = lines.peek()
+                        && line_index < start.line
+                    {
+                        new.push_str(line);
+                        new.push('\n');
+                        lines.next();
+                    }
+                    // Indent the same as the line being annotated.
+                    if let Some(&(_, line)) = lines.peek() {
+                        new.push_str(Scanner::new(line).eat_while(' '));
+                    }
+                    writeln!(new, "// {kind}: {range} {message}").unwrap();
+                }
+            }
+        }
+        for (_, line) in lines {
+            new.push_str(line);
+            new.push('\n');
+        }
+
+        let stats = [("removed", removed), ("added", added), ("adjusted", adjusted)];
+        (new, stats)
+    }
 }
 
 /// An annotation like `// Error: 2-6 message` in a test.

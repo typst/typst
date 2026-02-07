@@ -236,10 +236,18 @@ impl<'a> Runner<'a> {
 
     /// Handle error/warning annotation issues.
     fn handle_annotations(&mut self) {
+        let mut needs_update = false;
         let mut inconsistent_stages = false;
         let mut consistent_set = TestStages::all();
 
         for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+            // Set `needs_update` in one place for clarity.
+            needs_update |= match &status {
+                NoteStatus::Annotated { .. } => seen.is_empty(),
+                NoteStatus::Updated { .. } => true,
+                NoteStatus::Emitted => true,
+            };
+
             if seen.is_empty() {
                 let NoteStatus::Annotated { pos } = &status else { unreachable!() };
                 if !ARGS.update {
@@ -265,6 +273,10 @@ impl<'a> Runner<'a> {
                 inconsistent_stages = true;
                 let siblings = ran_stages & seen.with_siblings();
                 log!(self, "only emitted in [{seen}] but expected in [{siblings}]");
+            }
+
+            if ARGS.update && fully_covered {
+                continue;
             }
 
             // Log errors with the annotated vs. emitted diagnostics.
@@ -307,6 +319,29 @@ impl<'a> Runner<'a> {
                         log!(self, "  emitted   | {message}");
                     }
                 }
+            }
+        }
+
+        if needs_update {
+            if ARGS.update && inconsistent_stages {
+                // We can't update notes if they were emitted inconsistently.
+                log!(self, "unable to update test annotations");
+            } else if ARGS.update {
+                let (new_body, note_stats) = self.test.body.write_seen_annotations();
+                self.result.updated_body = Some(new_body);
+
+                let stats = note_stats
+                    .into_iter()
+                    .filter(|(_, count)| *count > 0)
+                    .map(|(verb, count)| format!("{verb} {count}"))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                // We won't actually update until we've finished running every
+                // test, but it's not really worth explaining.
+                log!(into: self.result.infos, "updated test annotations ({stats})");
+            } else {
+                self.result.mismatched_output = true;
             }
         }
 
