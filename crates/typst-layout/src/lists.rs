@@ -2,15 +2,22 @@ use comemo::Track;
 use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
+use typst_library::foundations::{
+    Content, Context, Depth, NativeElement, Packed, Resolve, StyleChain,
+};
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
-use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
+use typst_library::layout::{
+    Abs, Axes, BlockElem, Fragment, Frame, HAlignment, Length, Point, Region, Regions,
+    Size, Sizing, StackChild, StackElem, VAlignment,
+};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
+use typst_macros::elem;
 
 use crate::grid::GridLayouter;
+use crate::stack::layout_stack;
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
@@ -45,25 +52,21 @@ pub fn layout_list(
         }
         let body = body.set(ListElem::depth, Depth(1));
 
-        cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
-        cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
+        let elem = ItemData::new(
+            indent,
+            body_indent,
+            PdfMarkerTag::ListItemLabel(marker.clone()),
+            PdfMarkerTag::ListItemBody(body),
+        );
+        let item = BlockElem::multi_layouter(Packed::new(elem), layout_item).pack();
+        cells.push(StackChild::Block(item));
     }
 
-    let grid = CellGrid::new(
-        Axes::with_x(&[
-            Sizing::Rel(indent.into()),
-            Sizing::Auto,
-            Sizing::Rel(body_indent.into()),
-            Sizing::Auto,
-        ]),
-        Axes::with_y(&[gutter.into()]),
-        cells,
-    );
-    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
+    let stack = StackElem::new(cells)
+        .with_spacing(Some(gutter.into()))
+        .with_dir(typst_library::layout::Dir::TTB);
 
-    layouter.layout(engine)
+    layout_stack(&Packed::new(stack), engine, locator, styles, regions)
 }
 
 /// Layout the enumeration.
@@ -129,25 +132,90 @@ pub fn layout_enum(
 
         let body = body.set(EnumElem::parents, smallvec![number]);
 
-        cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
-        cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
+        let elem = ItemData::new(
+            indent,
+            body_indent,
+            PdfMarkerTag::ListItemLabel(resolved),
+            PdfMarkerTag::ListItemBody(body),
+        );
+        let item = BlockElem::multi_layouter(Packed::new(elem), layout_item).pack();
+        cells.push(StackChild::Block(item));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
 
-    let grid = CellGrid::new(
-        Axes::with_x(&[
-            Sizing::Rel(indent.into()),
-            Sizing::Auto,
-            Sizing::Rel(body_indent.into()),
-            Sizing::Auto,
-        ]),
-        Axes::with_y(&[gutter.into()]),
-        cells,
-    );
-    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
+    let stack = StackElem::new(cells)
+        .with_spacing(Some(gutter.into()))
+        .with_dir(typst_library::layout::Dir::TTB);
 
-    layouter.layout(engine)
+    layout_stack(&Packed::new(stack), engine, locator, styles, regions)
+}
+
+#[elem]
+struct ItemData {
+    #[required]
+    indent: Length,
+
+    #[required]
+    body_indent: Length,
+
+    #[required]
+    marker: Content,
+
+    #[required]
+    body: Content,
+}
+
+/// Layout the item.
+#[typst_macros::time(span = elem.span())]
+fn layout_item(
+    elem: &Packed<ItemData>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    mut regions: Regions,
+) -> SourceResult<Fragment> {
+    let mut locator = locator.split();
+    let mut marker = crate::layout_frame(
+        engine,
+        &elem.marker,
+        locator.next(&elem.marker.span()),
+        styles,
+        Region::new(regions.size, Axes::splat(false)),
+    )?;
+    let indent = elem.indent.resolve(styles);
+    let body_indent = elem.body_indent.resolve(styles);
+    let marker_size = marker.size();
+    regions.size.x -= indent + body_indent + marker_size.x;
+    let fragment = crate::layout_fragment(
+        engine,
+        &elem.body,
+        locator.next(&elem.body.span()),
+        styles,
+        regions,
+    )?;
+    let baseline = fragment
+        .as_slice()
+        .first()
+        .filter(|x| x.has_baseline())
+        .map_or(Abs::zero(), |x| x.baseline());
+
+    let mut diff = baseline;
+    if marker.has_baseline() {
+        diff -= marker.baseline();
+    }
+    marker.set_baseline(baseline);
+
+    let mut frames = vec![];
+    for body_frame in fragment {
+        let mut frame = Frame::soft(Size::new(
+            indent + body_indent + marker_size.x + body_frame.width(),
+            (marker_size.y + diff).max(body_frame.height()),
+        ));
+        frame.push_frame(Point::new(indent, diff), marker.clone());
+        frame.push_frame(Point::with_x(indent + marker_size.x + body_indent), body_frame);
+        frames.push(frame);
+    }
+
+    Ok(Fragment::frames(frames))
 }
