@@ -149,43 +149,70 @@ attributes are currently defined:
 
 There are, broadly speaking, three kinds of tests:
 
-- Tests that just ensure that the code runs successfully: Those typically make
-  use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
-  to ensure certain properties hold when executing the Typst code. Generic
-  scripting tests that don't depend on the target should use the `eval`
-  attribute, if possible. If they rely on the evaluated content being compiled,
-  for example due to test code in show-rules, they should use `paged empty` or
-  `html empty`.
+1. Tests that just ensure that some code **runs successfully**:
+    ```typ
+    --- example-eval-test eval ---
+    // Test that `range` produces a normal array.
+    #test(type(range(1)), array)
+    #test(range(3), (0, 1, 2))
+    #test(range(3) + (3,), (0, 1, 2, 3))
+    ```
 
-- Tests that ensure the code emits particular diagnostic messages: Those have
-  inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
-  start with either "Error", "Warning", or "Hint". The range designates the
-  code span the diagnostic message refers to in the first non-comment line
-  below. If the code span is in a line further below, you can write ranges
-  like `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
+    These typically call `test` or `assert.eq` (both are very similar, `test` is
+    just shorter) to ensure certain properties hold when executing Typst code.
 
-- Tests that ensure certain output is produced:
+    Most of these tests can use the `eval` attribute because they just check for
+    generic scripting behavior without depending on the compiled output itself.
+    But if a test does rely on the evaluated content being compiled beyond just
+    evaluation, for example to test code in show-rules, then it should use the
+    `paged empty` or `html empty` attributes.
 
-  - Visual output: When a test has the `paged` attribute, the compiler produces
-    paged output, renders it with the `typst-render` crate, and compares it
-    against a reference image stored in the repository. The test runner
-    automatically detects whether a test has visual output and requires a
-    reference image in this case.
 
-    To prevent bloat, it is important that the test images are kept as small as
-    possible. To that effect, the test runner enforces a maximum size of 20 KiB.
-    If you're updating a test and hit `reference output size exceeds`, see the
-    section on "Updating reference images" below. If truly necessary, the size
-    limit can be lifted by adding a `large` attribute after the test name, but
-    this should be the case very rarely.
+2. Tests that ensure the code **emits a particular diagnostic message**:
+    ```typ
+    --- example-diagnostic-test eval ---
+    // Test that parentheses without commas don't make arrays.
+    // Error: 4-19 cannot add array and integer
+    #{ (0, 1, 2) + (3) }
+    ```
 
-  - HTML output: When a test has the `html` attribute, the compiler produces
-    HTML output and compares it against a reference file stored in the
-    repository.
+    These have inline annotations like `// Error: 2-7 thing was wrong`. An
+    annotation can start with either "Error", "Warning", or "Hint". The range
+    designates the code span the diagnostic message refers to in the _first
+    non-annotation line_ below. If the code span is in a line further below, you
+    can write ranges like `3:2-3:7` to indicate the 2-7 column in the 3rd
+    non-annotation line.
 
-  - PDF tags output: When a test has the `pdftags` attribute, the compiler
-    produces a human readable tag tree formatted as a YAML document and compares
-    it against a reference file stored in the repository.
+    Similarly to 1, these tests should have either the `eval` attribute or a
+    pair like `paged empty` or `html empty`.
+
+3. Tests that ensure certain **output is produced**:
+    ```typ
+    --- example-visual-test paged ---
+    // Test how array values are displayed as content.
+    #range(3)
+    ```
+
+    - **Visual output:** When a test has the `paged` attribute, the compiler
+      produces paged output, renders it with the `typst-render` crate, and
+      compares it against a reference image stored in the repository. The test
+      runner automatically detects whether a test has visual output and requires
+      a reference image in this case.
+
+      To prevent bloat, it is important that the test images are kept as small
+      as possible. To that effect, the test runner enforces a maximum size of 20
+      KiB. If you're updating a test and hit `reference output size exceeds`,
+      see the section on "Updating reference images" below. If truly necessary,
+      the size limit can be lifted by adding a `large` attribute after the test
+      name, but this should be the case very rarely.
+
+    - **HTML output:** When a test has the `html` attribute, the compiler
+      produces HTML output and compares it against a reference file stored in
+      the repository.
+
+    - **PDF tag output:** When a test has the `pdftags` attribute, the compiler
+      produces a human readable tag tree formatted as a YAML document and
+      compares it against a reference file stored in the repository.
 
 If you have the choice between writing a test using assertions or using
 reference images, prefer assertions. This makes the test easier to understand

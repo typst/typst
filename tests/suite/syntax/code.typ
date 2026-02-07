@@ -25,14 +25,14 @@
 ####
 
 --- embedded-code-invalid-character paged ---
-// Error: 2-3 the character `!` is not valid in code
-// Hint: 2-3 the preceding hash is causing this to parse in code mode
-// Hint: 2-3 try escaping the preceding hash: `\#`
-#!
 // Error: 2-3 the character `&` is not valid in code
 // Hint: 2-3 the preceding hash is causing this to parse in code mode
 // Hint: 2-3 try escaping the preceding hash: `\#`
 #&&
+// Error: 2-3 the character `!` is not valid in code
+// Hint: 2-3 the preceding hash is causing this to parse in code mode
+// Hint: 2-3 try escaping the preceding hash: `\#`
+#!
 
 --- code-syntax-extra-hash paged ---
 // Test unneeded hashtags in code mode.

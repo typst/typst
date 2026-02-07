@@ -18,7 +18,7 @@
 #read("../../../../file.txt")
 
 --- read-through-package eval ---
-#import "@local/reader:0.1.0"
+#import "@test/reader:0.1.0"
 
 // Reads from the package.
 #test(read(reader.hello-path), "Hello from package\n")
@@ -28,7 +28,7 @@
 #test(reader.read-it(path("/assets/text/hello.txt")), "Hello, world!\n")
 
 --- read-from-project-in-package-fails paged ---
-#import "@local/reader:0.1.0"
+#import "@test/reader:0.1.0"
 
 // Error: "tests/packages/reader-0.1.0/src/lib.typ" 2:24-2:25 file not found (searched at tests/packages/reader-0.1.0/assets/text/hello.txt)
 #reader.read-it("/assets/text/hello.txt")

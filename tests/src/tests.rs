@@ -5,6 +5,7 @@ mod collect;
 mod custom;
 mod git;
 mod logger;
+mod notes;
 mod output;
 mod pdftags;
 mod report;
@@ -122,7 +123,7 @@ fn test() {
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
     let hashes = hashes.map(RwLock::new);
-    let runner = |test: &Test| {
+    let runner = |test: &mut Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
@@ -151,12 +152,12 @@ fn test() {
         // We use `par_bridge` instead of `par_iter` because the former
         // results in a stack overflow during PDF export. Probably related
         // to `typst::utils::Deferred` yielding.
-        tests.iter().par_bridge().for_each(|test| {
-            logger.lock().start(test);
+        tests.into_iter().par_bridge().for_each(|mut test| {
+            logger.lock().start(&test);
 
             // This is in fact not formally unwind safe, but the code paths that
             // hold a lock of the hashes are quite short and shouldn't panic.
-            let closure = std::panic::AssertUnwindSafe(|| runner(test));
+            let closure = std::panic::AssertUnwindSafe(|| runner(&mut test));
             let result = std::panic::catch_unwind(closure);
             logger.lock().end(test, result);
         });
@@ -186,7 +187,7 @@ fn undangle() {
             for error in errors.iter() {
                 match &error.kind {
                     TestParseErrorKind::DanglingFile => {
-                        std::fs::remove_file(&error.pos.path).unwrap();
+                        std::fs::remove_file(&*error.pos.path).unwrap();
                         eprintln!("✅ deleted {}", error.pos.path.display());
                     }
                     TestParseErrorKind::DanglingHash(name) => {
@@ -229,15 +230,10 @@ fn run_parser_test(
     live_path: &Path,
     ref_path: &Option<PathBuf>,
 ) -> TestResult {
-    let mut result = TestResult {
-        errors: String::new(),
-        infos: String::new(),
-        mismatched_output: false,
-        report: None,
-    };
+    let mut result = TestResult::default();
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
-    let tree = format!("{:#?}\n", test.source.root());
+    let tree = format!("{:#?}\n", test.body.source.root());
     std::fs::write(syntax_file, &tree).unwrap();
 
     let Some(ref_path) = ref_path else { return result };

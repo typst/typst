@@ -28,7 +28,7 @@
 #test(data-from-path, data)
 
 --- xml-invalid paged ---
-// Error: "/assets/data/bad.xml" 3:0 failed to parse XML (found closing tag 'data' instead of 'hello')
+// Error: "/assets/data/bad.xml" 3:1 failed to parse XML (found closing tag 'data' instead of 'hello')
 #xml("/assets/data/bad.xml")
 
 --- xml-decode-deprecated eval ---
