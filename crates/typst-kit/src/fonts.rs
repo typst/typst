@@ -147,7 +147,29 @@ pub fn embedded() -> impl Iterator<Item = (Font, FontInfo)> {
 #[cfg(feature = "scan-fonts")]
 pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");
-    with_db(|db| db.load_system_fonts())
+    with_db(|db| {
+        db.load_system_fonts();
+
+        // Add Adobe Fonts on Windows and macOS.
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        if let Some(data_dir) = dirs::data_dir() {
+            let adobe_base = data_dir.join("Adobe");
+
+            #[cfg(target_os = "macos")]
+            let dot = ".";
+            #[cfg(target_os = "windows")]
+            let dot = "";
+
+            let subdirs = [
+                format!("CoreSync/plugins/livetype/{dot}r"),
+                format!("{dot}User Owned Fonts"),
+            ];
+
+            for subdir in subdirs {
+                load_adobe_fonts(db, &adobe_base.join(subdir));
+            }
+        }
+    })
 }
 
 /// Scans for fonts in a directory.
@@ -185,4 +207,29 @@ fn with_db(
         })
         .collect::<Vec<_>>()
         .into_iter()
+}
+
+#[cfg(all(feature = "scan-fonts", any(target_os = "windows", target_os = "macos")))]
+fn load_adobe_fonts(db: &mut fontdb::Database, path: &std::path::Path) {
+    if !path.exists() {
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(path) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+
+        // Adobe fonts are stored as files (directories are skipped)
+        if !metadata.is_file() {
+            continue;
+        }
+
+        let font_path = entry.path();
+        db.load_font_file(&font_path).ok();
+    }
 }
