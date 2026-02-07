@@ -329,12 +329,22 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
 
     // Wrap in a float.
     if let Some(align) = elem.placement.get(styles) {
+        let alignment = styles.get(AlignElem::alignment);
+        let h_align = alignment.x().unwrap_or(HAlignment::Center);
+
+        let full_alignment = match align {
+            // for auto placement, pass horizontal-only aligment
+            Smart::Auto => Smart::Custom(Alignment::H(h_align)),
+            // For specific vertical placement, combine both
+            Smart::Custom(v_align) => Smart::Custom(h_align + v_align),
+        };
+
         realized = PlaceElem::new(realized)
-            .with_alignment(align.map(|align| HAlignment::Center + align))
+            .with_alignment(full_alignment)
             .with_scope(elem.scope.get(styles))
             .with_float(true)
             .pack()
-            .spanned(span);
+            .spanned(span)
     } else if elem.scope.get(styles) == PlacementScope::Parent {
         bail!(
             span,
