@@ -334,7 +334,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
 
         let full_alignment = match align {
             // for auto placement, pass horizontal-only aligment
-            Smart::Auto => Smart::Custom(Alignment::H(h_align)),
+            Smart::Auto => Smart::Auto,
             // For specific vertical placement, combine both
             Smart::Custom(v_align) => Smart::Custom(h_align + v_align),
         };
