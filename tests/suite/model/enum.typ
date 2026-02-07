@@ -246,3 +246,15 @@ a + 0.
   + E
 + = F
   G
+
+--- issue-529-enum-center-alignment paged ---
+#set page(width: 2cm)
++ A
++ #align(center)[B]
++ $ C $
+
+--- issue-1204-enum-baseline-alignment paged ---
++ A
++ $ sum_(i = 1)^n overbrace(x^6, y) $
++ #box(baseline: 1cm)[C]
++ #v(1cm) D
