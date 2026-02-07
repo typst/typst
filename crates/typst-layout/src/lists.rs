@@ -6,17 +6,15 @@ use typst_library::foundations::{
     Content, Context, Depth, NativeElement, Packed, Resolve, StyleChain,
 };
 use typst_library::introspection::Locator;
-use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{
     Abs, Axes, BlockElem, Fragment, Frame, FrameItem, HAlignment, Length, Point, Region,
-    Regions, Size, Sizing, StackChild, StackElem, VAlignment,
+    Regions, Size, StackChild, StackElem, VAlignment,
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
 use typst_macros::elem;
 
-use crate::grid::GridLayouter;
 use crate::stack::layout_stack;
 
 /// Layout the list.
@@ -202,17 +200,19 @@ fn layout_item(
         regions,
     )?;
     let baseline = match fragment.as_slice() {
-        [first, ..] if first.has_baseline() => first.baseline(),
-        [first, ..] => extract_baseline(&first, Abs::zero()),
-        _ => Abs::zero(),
+        [first, ..] if first.has_baseline() => dbg!(first.baseline()),
+        [first, ..] => dbg!(extract_baseline(&first, Abs::zero())),
+        _ => dbg!(Abs::zero()),
     };
 
     dbg!(&fragment, baseline);
 
-    let mut diff = baseline;
-    if marker.has_baseline() {
-        diff -= marker.baseline();
-    }
+    let diff = baseline
+        - if marker.has_baseline() {
+            dbg!(marker.baseline())
+        } else {
+            dbg!(extract_baseline(&marker, Abs::zero()))
+        };
     marker.set_baseline(baseline);
 
     let mut frames = vec![];
@@ -232,11 +232,14 @@ fn layout_item(
 fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
     let mut baseline = Abs::inf();
     // let mut items: Vec<_> = first.items().collect();
+    dbg!(first, y_offset);
     for (pos, item) in first.items() {
         let height = pos.y + y_offset;
         let new_baseline = match item {
             FrameItem::Group(group) if group.frame.has_baseline() => {
-                group.frame.baseline() + height
+                dbg!(group.frame.baseline());
+                dbg!(height);
+                dbg!(group.frame.baseline() + height)
             }
             FrameItem::Group(group) => extract_baseline(&group.frame, height),
             FrameItem::Tag(_) => continue,
@@ -244,6 +247,7 @@ fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
         };
         dbg!(new_baseline, item);
         baseline.set_min(new_baseline);
+        break;
     }
 
     if baseline.to_raw().is_finite() { baseline } else { Abs::zero() }
