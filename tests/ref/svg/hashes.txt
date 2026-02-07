@@ -609,7 +609,7 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 149d8387d80ba298067081b6809ba2c5 issue-1041-smartquotes-in-outline
 29df276f53db6613015e8c040bad5562 issue-1050-terms-indent
 070b232e7ca9895a62393217762ec470 issue-1052-math-number-spacing
-54f633d65110ea2e19f372c72bb2e8ee issue-1204-list-baseline-alignment
+a05539b4191da7baf3e63fc51ce24bd7 issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
 b64cc1773a30caac6ccd8b8b27701250 issue-1240-stack-v-fr
