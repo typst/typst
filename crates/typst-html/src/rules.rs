@@ -63,6 +63,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, CSL_LIGHT_RULE);
     rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
+    rules.register(Html, TABLE_CELL_RULE);
 
     // Text.
     rules.register(Html, SUB_RULE);
@@ -694,11 +695,13 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
         attrs.push(attr::rowspan, rowspan);
     }
     HtmlElem::new(tag)
-        .with_body(Some(cell.body.clone()))
+        .with_body(Some(cell.clone().pack()))
         .with_attrs(attrs)
         .pack()
         .spanned(cell.span())
 }
+
+const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, _| Ok(elem.body.clone());
 
 const SUB_RULE: ShowFn<SubElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
