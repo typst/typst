@@ -8,10 +8,10 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{
-    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RelativeTo,
-    Tiling, WeightedColor,
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
+    RelativeTo, Shape, Tiling, WeightedColor,
 };
 use typst_utils::Numeric;
 
@@ -26,9 +26,9 @@ pub(crate) fn convert_fill(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    size: Size,
+    shape: Option<&Shape>,
 ) -> SourceResult<Fill> {
-    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, size)?;
+    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, shape)?;
 
     Ok(Fill {
         paint,
@@ -43,10 +43,10 @@ pub(crate) fn convert_stroke(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    size: Size,
+    shape: Option<&Shape>,
 ) -> SourceResult<Stroke> {
     let (paint, opacity) =
-        convert_paint(fc, &stroke.paint, on_text, surface, state, size)?;
+        convert_paint(fc, &stroke.paint, on_text, surface, state, shape)?;
 
     Ok(Stroke {
         paint,
@@ -65,13 +65,31 @@ fn convert_paint(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    mut size: Size,
+    shape: Option<&Shape>,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    // Edge cases for strokes.
+    let mut size = Size::zero();
+    let mut offset = Point::zero();
+    if let Some(s) = shape {
+        size = s.geometry.bbox_size();
+
+        // Edge cases for strokes.
+        if matches!(s.geometry, Geometry::Line(..)) {
+            (offset, size) = s.geometry.bbox_size_with_stroke(s.stroke.as_ref());
+            // avoid mirroring gradient if line angle results in negative sizes
+            if size.x.signum() < 0.0 {
+                offset.x += size.x;
+                size.x = size.x.abs();
+            }
+            if size.y.signum() < 0.0 {
+                offset.y += size.y;
+                size.y = size.y.abs();
+            }
+        }
+    }
+
     if size.x.is_zero() {
         size.x = Abs::pt(1.0);
     }
-
     if size.y.is_zero() {
         size.y = Abs::pt(1.0);
     }
@@ -81,7 +99,7 @@ fn convert_paint(
             let (c, a) = convert_solid(c);
             Ok((c.into(), a))
         }
-        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size)),
+        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size, offset)),
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
 }
@@ -149,10 +167,11 @@ fn convert_gradient(
     on_text: bool,
     state: &State,
     size: Size,
+    offset: Point,
 ) -> (krilla::paint::Paint, u8) {
-    let size = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => size,
-        RelativeTo::Parent => state.container_size(),
+    let (size, offset) = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => (size, offset),
+        RelativeTo::Parent => (state.container_size(), Point::zero()),
     };
 
     let angle = gradient.angle().unwrap_or_else(Angle::zero);
@@ -182,6 +201,7 @@ fn convert_gradient(
                 y2,
                 // x and y coordinates are normalized, so need to scale by the size.
                 transform: base_transform
+                    .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
                         Ratio::new(size.x.to_f32() as f64),
                         Ratio::new(size.y.to_f32() as f64),
@@ -203,6 +223,7 @@ fn convert_gradient(
                 cy: radial.center.y.get() as f32,
                 cr: radial.radius.get() as f32,
                 transform: base_transform
+                    .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
                         Ratio::new(size.x.to_f32() as f64),
                         Ratio::new(size.y.to_f32() as f64),
@@ -226,6 +247,7 @@ fn convert_gradient(
                     Abs::pt(cx as f64),
                     Abs::pt(cy as f64),
                 ))
+                .pre_concat(Transform::translate(offset.x, offset.y))
                 // Default start point in krilla and Typst are at the opposite side, so we need
                 // to flip it horizontally.
                 .pre_concat(Transform::scale_at(

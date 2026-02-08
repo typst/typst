@@ -1,5 +1,5 @@
 use tiny_skia as sk;
-use typst_library::layout::{Abs, Axes, Point, Ratio, Size};
+use typst_library::layout::{Abs, Axes, Point, Ratio};
 use typst_library::visualize::{
     Curve, CurveItem, DashPattern, FillRule, FixedStroke, Geometry, LineCap, LineJoin,
     Shape,
@@ -68,42 +68,35 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
         if width > 0.0 {
             let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
-            let bbox = shape.geometry.bbox_size();
-            let offset_bbox = if !matches!(shape.geometry, Geometry::Line(..)) {
-                offset_bounding_box(bbox, *thickness)
-            } else {
-                bbox
-            };
-
+            let bbox_without_stroke = shape.geometry.bbox_size();
+            let (offset, bbox) =
+                shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref());
             let fill_transform =
-                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
-                    sk::Transform::from_translate(
-                        -thickness.to_f32(),
-                        -thickness.to_f32(),
-                    )
-                });
-
-            let gradient_map =
-                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
-                    (
-                        Point::new(
-                            -*thickness * state.pixel_per_pt as f64,
-                            -*thickness * state.pixel_per_pt as f64,
-                        ),
-                        Axes::new(
-                            Ratio::new(offset_bbox.x / bbox.x),
-                            Ratio::new(offset_bbox.y / bbox.y),
-                        ),
-                    )
-                });
+                sk::Transform::from_translate(offset.x.to_f32(), offset.y.to_f32());
+            let gradient_map = match shape.geometry {
+                Geometry::Line(_) => Some((
+                    Point::new(
+                        bbox.x.signum().min(0.0) * bbox.x.abs(),
+                        bbox.y.signum().min(0.0) * bbox.y.abs(),
+                    ) * state.pixel_per_pt as f64,
+                    bbox.map(Abs::signum).map(Ratio::new),
+                )),
+                _ => Some((
+                    offset * state.pixel_per_pt as f64,
+                    Axes::new(
+                        Ratio::new(bbox.x / bbox_without_stroke.x),
+                        Ratio::new(bbox.y / bbox_without_stroke.y),
+                    ),
+                )),
+            };
 
             let mut pixmap = None;
             let paint = paint::to_sk_paint(
                 paint,
                 state,
-                offset_bbox,
+                bbox,
                 false,
-                fill_transform,
+                Some(fill_transform),
                 &mut pixmap,
                 gradient_map,
             );
@@ -148,10 +141,6 @@ pub fn convert_curve(curve: &Curve) -> Option<sk::Path> {
         };
     }
     builder.finish()
-}
-
-fn offset_bounding_box(bbox: Size, stroke_width: Abs) -> Size {
-    Size::new(bbox.x + stroke_width * 2.0, bbox.y + stroke_width * 2.0)
 }
 
 pub fn to_sk_line_cap(cap: LineCap) -> sk::LineCap {
