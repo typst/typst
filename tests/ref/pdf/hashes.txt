@@ -259,6 +259,7 @@ ec07b72a1b374308fe58f87c6b2d800e gradient-conic-relative-self
 8777614934f36959f5c67985bee4f381 gradient-conic-stroke
 1f54dde37c2342787f712088722adf45 gradient-conic-text
 77241bb987f1ae9f1b3e5148ecbe6ec9 gradient-fill-and-stroke
+6cb245189f45a5795b6efe7468fc72a6 gradient-line-stroke
 fb26ede30bbebf76a288188c27a2bb70 gradient-linear-angled
 db0989426b5200e53a76f71de2f91bb7 gradient-linear-hsl
 515ece6ff67a7d8a8eb7269af9c4a39e gradient-linear-hsv
