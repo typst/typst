@@ -258,7 +258,10 @@ f38946f81545e14637ce17fc103fcbfd gradient-conic-hsv
 34458ceace8e961fb87b5631abbce6fb gradient-conic-relative-self
 803f09b53ede42214b587d9f5f09da6f gradient-conic-stroke
 ee36bc09f4601770c79f5b3159c0a56c gradient-conic-text
+56b8799dab0278db4a1cdc9cf835a94f gradient-curve-stroke
+73008d67396390e938fc4d115e349a9f gradient-curve-stroke-quad
 89f1810ced465d3a34f30e9bea2d536d gradient-fill-and-stroke
+301ef5a417a076746e65ae221ba7bb8d gradient-line-stroke
 c6a37961c74a922c18df9fcc750732fc gradient-linear-angled
 01f9fe61fa34faf10c5ecf3fdfc0a063 gradient-linear-hsl
 99635cc21bd2ef71b115bc1207287f7b gradient-linear-hsv
@@ -747,6 +750,7 @@ f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
+c1cbd7f1e9350607409afe306733bbb1 issue-5705-gradient-border-stroke
 b7fa7f5a5ef1fcdc0acaffec5d6b35ef issue-5719-enum-nested
 a1a4c1ba094a741cb00677a6a6975083 issue-5719-heading-nested
 b0f751c80c588d891f3172c008db4401 issue-5719-list-nested
@@ -758,6 +762,7 @@ b8d74ba232642396a1952273d2295524 issue-5723-grid-heading-numbering
 4d951b1907258e18359d5c186bed1127 issue-5930-symbol-label
 560cea9c10b192a718fee88624a974c5 issue-5940-text-negative-size-panic
 0feaf17125fd54917355888342459d97 issue-6062-justify-cjk-latin-spacing
+42fa5d388d7a5f26c20106dc2886135e issue-6068-curve-stroke-gradient
 f8915e29d04b075620b2d6ff30b19c65 issue-6090-math-overhang
 1da011c9de357c5b57ff4bfa8f00aee9 issue-6125-block-place-width-limited
 06874c31d6fa6a67834b5ceac8c804dd issue-6162-coincident-gradient-stops-export-png
