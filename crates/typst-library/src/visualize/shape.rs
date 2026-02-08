@@ -1,6 +1,7 @@
 use crate::foundations::{Cast, Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
+use typst_library::layout::Angle;
 
 /// A rectangle with optional content.
 ///
@@ -421,6 +422,34 @@ impl Geometry {
             Self::Line(line) => Size::new(line.x, line.y),
             Self::Rect(rect) => *rect,
             Self::Curve(curve) => curve.bbox_size(),
+        }
+    }
+
+    /// The bounding box offset and size
+    /// taking the stroke width of the shape into account
+    pub fn bbox_size_with_stroke(&self, stroke: Option<&FixedStroke>) -> (Point, Size) {
+        let bbox = self.bbox_size();
+        let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
+        match self {
+            Self::Line(line) => {
+                let a = Angle::atan2(line.y.to_raw(), line.x.to_raw());
+                let padding = Size::new(
+                    line.x.signum() * stroke_width * 0.5 * a.sin().abs(),
+                    line.y.signum() * stroke_width * 0.5 * a.cos().abs(),
+                );
+                (-padding.to_point(), bbox + 2.0 * padding)
+            }
+            Self::Rect(rect) => (
+                Point::new(-stroke_width, -stroke_width),
+                Size::new(
+                    bbox.x + rect.x.signum() * 2.0 * stroke_width,
+                    bbox.y + rect.y.signum() * 2.0 * stroke_width,
+                ),
+            ),
+            _ => (
+                Point::new(-stroke_width, -stroke_width),
+                Size::new(bbox.x + 2.0 * stroke_width, bbox.y + 2.0 * stroke_width),
+            ),
         }
     }
 }
