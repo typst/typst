@@ -313,6 +313,22 @@ impl Transform {
         self == Self::identity()
     }
 
+    /// Whether this transformation only scales along the X and Y axis.
+    pub fn is_only_scale(self) -> bool {
+        self.ky == Ratio::zero()
+            && self.kx == Ratio::zero()
+            && self.tx == Abs::zero()
+            && self.ty == Abs::zero()
+    }
+
+    /// Whether this transformation only translates along the X and Y axis.
+    pub fn is_only_translate(self) -> bool {
+        self.sx == Ratio::one()
+            && self.sy == Ratio::one()
+            && self.ky == Ratio::zero()
+            && self.kx == Ratio::zero()
+    }
+
     /// Pre-concatenate another transformation.
     pub fn pre_concat(self, prev: Self) -> Self {
         Transform {

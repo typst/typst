@@ -82,7 +82,7 @@ Text seen on #ref(<text>, form: "page", supplement: "Page").
 #ref(<quark>, form: "page")
 #bibliography("/assets/bib/works.bib")
 
---- issue-4536-non-whitespace-before-ref paged ---
+--- issue-4536-non-whitespace-before-ref paged empty ---
 // Test reference with non-whitespace before it.
 #figure[] <1>
 #test([(#ref(<1>))], [(@1)])

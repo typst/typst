@@ -568,21 +568,21 @@ $ A = mat(
 ) $
 
 
---- gradient-kind paged ---
+--- gradient-kind eval ---
 // Test gradient functions.
 #test(gradient.linear(red, green, blue).kind(), gradient.linear)
 
---- gradient-stops paged ---
+--- gradient-stops eval ---
 #test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
 
---- gradient-sample paged ---
+--- gradient-sample eval ---
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
 #test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
 #test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
 #test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
 
---- gradient-space paged ---
+--- gradient-space eval ---
 #test(gradient.linear(red, green, space: rgb).space(), rgb)
 #test(gradient.linear(red, green, space: oklab).space(), oklab)
 #test(gradient.linear(red, green, space: oklch).space(), oklch)
@@ -592,19 +592,19 @@ $ A = mat(
 #test(gradient.linear(red, green, space: color.hsl).space(), color.hsl)
 #test(gradient.linear(red, green, space: color.hsv).space(), color.hsv)
 
---- gradient-relative paged ---
+--- gradient-relative eval ---
 #test(gradient.linear(red, green, relative: "self").relative(), "self")
 #test(gradient.linear(red, green, relative: "parent").relative(), "parent")
 #test(gradient.linear(red, green).relative(), auto)
 
---- gradient-angle paged ---
+--- gradient-angle eval ---
 #test(gradient.linear(red, green).angle(), 0deg)
 #test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
 #test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
 #test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
 #test(gradient.linear(red, green, dir: btt).angle(), 270deg)
 
---- gradient-repeat paged ---
+--- gradient-repeat eval ---
 #test(
   gradient.linear(red, green, blue).repeat(2).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
@@ -660,7 +660,7 @@ $ A = mat(
   fill: gradient.linear(violet, blue, space: cmyk)
 )
 
---- issue-5819-gradient-repeat paged ---
+--- issue-5819-gradient-repeat eval ---
 // Ensure the gradient constructor generates monotonic stops which can be fed
 // back into the gradient constructor itself.
 #let my-gradient = gradient.linear(red, blue).repeat(5)

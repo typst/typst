@@ -91,3 +91,8 @@ $ [x+y] / {z} $
 // Test inline layout of styled fractions
 #set math.frac(style: "horizontal")
 $a/(b+c), frac(a, b+c, style: "skewed"), frac(a, b+c, style: "vertical")$
+
+--- math-frac-line-fill-stroke paged ---
+// Test that the horizontal stroke is also decorated like text glyphs
+#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$1/Delta$]
+#text(size: 25pt, stroke: red)[$1/Delta$]

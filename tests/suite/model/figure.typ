@@ -223,7 +223,7 @@ We can clearly see that @fig-cylinder and
   supplement: [B],
 )
 
---- figure-caption-position paged ---
+--- figure-caption-position paged empty ---
 #set figure.caption(position: top)
 
 --- figure-caption-position-bad paged ---
@@ -263,7 +263,7 @@ We can clearly see that @fig-cylinder and
   caption: [Ένας κύκλος.],
 )
 
---- issue-2165-figure-caption-panic paged ---
+--- issue-2165-figure-caption-panic paged empty ---
 #figure.caption[]
 
 --- issue-2328-figure-entry-panic paged ---
@@ -274,7 +274,7 @@ HI#footnote.entry(clearance: 2.5em)[There]
 --- issue-2530-figure-caption-panic paged ---
 #figure(caption: [test])[].caption
 
---- issue-2821-figure-missing-fields paged ---
+--- issue-2821-figure-missing-fields paged empty ---
 // Issue #2821: Setting a figure's supplement to none removes the field
 #show figure.caption: it => {
   assert(it.has("supplement"))

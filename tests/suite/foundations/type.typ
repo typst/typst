@@ -1,4 +1,4 @@
---- type paged ---
+--- type eval ---
 #test(type(1), int)
 #test(type(ltr), direction)
 #test(type(10 / 3), float)
@@ -16,7 +16,7 @@
 // Error: 6-18 type string does not contain field `from-unïcode`
 #str.from-unïcode(97)
 
---- issue-2747-repr-auto-none paged ---
+--- issue-2747-repr-auto-none eval ---
 #test(repr(none), "none")
 #test(repr(auto), "auto")
 #test(repr(type(none)), "type(none)")

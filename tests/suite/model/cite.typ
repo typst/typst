@@ -167,7 +167,7 @@ aaa
 #cite(<netwok>, style: "chicago-fullnotes")
 #bibliography("/assets/bib/works.bib")
 
---- cite-chicago-fullnotes-set-rule-warning paged ---
+--- cite-chicago-fullnotes-set-rule-warning paged empty ---
 // Test warning for deprecated alias.
 // Warning: 18-37 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #set cite(style: "chicago-fullnotes")

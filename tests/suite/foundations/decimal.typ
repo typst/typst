@@ -1,4 +1,4 @@
---- decimal-constructor paged ---
+--- decimal-constructor eval ---
 #test(decimal(10), decimal("10.0"))
 #test(decimal("-7654.321"), decimal("-7654.321"))
 #test(decimal("\u{2212}7654.321"), decimal("-7654.321"))
@@ -16,7 +16,7 @@
 // Error: 10-17 invalid decimal: 1.2.3
 #decimal("1.2.3")
 
---- decimal-constructor-float-literal paged ---
+--- decimal-constructor-float-literal eval ---
 // Warning: 18-25 creating a decimal using imprecise float literal
 // Hint: 18-25 use a string in the decimal constructor to avoid loss of precision: `decimal("1.32523")`
 #let _ = decimal(1.32523)
@@ -33,14 +33,14 @@
 // Error: 10-19 float is not a valid decimal: float.nan
 #decimal(float.nan)
 
---- decimal-scale-is-observable paged ---
+--- decimal-scale-is-observable eval ---
 // Ensure equal decimals with different scales produce different strings.
 #let f1(x) = str(x)
 #let f2(x) = f1(x)
 #test(f2(decimal("3.140")), "3.140")
 #test(f2(decimal("3.14000")), "3.14000")
 
---- decimal-repr paged ---
+--- decimal-repr eval ---
 // Test the `repr` function with decimals.
 #test(repr(decimal("12.0")), "decimal(\"12.0\")")
 #test(repr(decimal("3.14")), "decimal(\"3.14\")")

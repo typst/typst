@@ -23,12 +23,12 @@
 #g([A], [B])
 #g()[A][B]
 
---- call-aliased-function paged ---
+--- call-aliased-function eval ---
 // Call function assigned to variable.
 #let alias = type
 #test(alias(alias), type)
 
---- call-complex-callee-expression paged ---
+--- call-complex-callee-expression eval ---
 // Callee expressions.
 #{
   // Wrapped in parens.
@@ -68,7 +68,7 @@
 // Error: 2-6 expected function, found content
 #f[1](2)
 
---- call-args-trailing-comma paged ---
+--- call-args-trailing-comma eval ---
 // Trailing comma.
 #test(1 + 1, 2,)
 
@@ -111,11 +111,11 @@
 // Error: 7-10 expected identifier, found group
 #func((x):1)
 
---- call-args-lone-underscore paged ---
+--- call-args-lone-underscore eval ---
 // Test that lone underscore works.
 #test((1, 2, 3).map(_ => {}).len(), 3)
 
---- call-args-spread-override paged ---
+--- call-args-spread-override eval ---
 // Test standard argument overriding.
 #{
   let f(style: "normal", weight: "regular") = {
@@ -128,7 +128,7 @@
   test(myf(style: "italic"), "(style: italic, weight: bold)")
 }
 
---- call-args-spread-forward paged ---
+--- call-args-spread-forward eval ---
 // Test multiple calls.
 #{
   let f(b, c: "!") = b + c
@@ -136,7 +136,7 @@
   test(g("a", "b", c: "c"), "abc")
 }
 
---- call-args-spread-type-repr paged ---
+--- call-args-spread-type-repr eval ---
 // Test doing things with arguments.
 #{
   let save(..args) = {
@@ -147,7 +147,7 @@
   save(1, 2, three: true)
 }
 
---- call-args-spread-array-and-dict paged ---
+--- call-args-spread-array-and-dict eval ---
 // Test spreading array and dictionary.
 #{
   let more = (3, -3, 6, 10)
@@ -162,7 +162,7 @@
   test(tostr(a: 1, ..more, b: 2), "arguments(a: 1, c: 3, d: 4, b: 2)")
 }
 
---- call-args-spread-none paged ---
+--- call-args-spread-none eval ---
 // None is spreadable.
 #let f() = none
 #f(..none)
@@ -182,18 +182,18 @@
 #let foo(..body) = repr(body.pos())
 #foo(a: "1", b: "2", 1, 2, 3, 4, 5, 6)
 
---- issue-3144-unexpected-arrow paged ---
+--- issue-3144-unexpected-arrow eval ---
 #let f(a: 10) = a(1) + 1
 #test(f(a: _ => 5), 6)
 
---- issue-3502-space-and-comments-around-destructuring-colon paged ---
+--- issue-3502-space-and-comments-around-destructuring-colon eval ---
 #let ( key :  /* hi */ binding ) = ( key: "ok" )
 #test(binding, "ok")
 
---- issue-3502-space-around-dict-colon paged ---
+--- issue-3502-space-around-dict-colon eval ---
 #test(( key : "value" ).key, "value")
 
---- issue-3502-space-around-param-colon paged ---
+--- issue-3502-space-around-param-colon eval ---
 // Test that a space after a named parameter is permissible.
 #let f( param : v ) = param
 #test(f( param /* ok */ : 2 ), 2)

@@ -132,7 +132,7 @@ impl PicoStr {
             exceptions::LIST[index]
         };
 
-        ResolvedPicoStr(Repr::Static(string))
+        ResolvedPicoStr(ResolvedPicoStrInner::Static(string))
     }
 }
 
@@ -145,7 +145,7 @@ impl Debug for PicoStr {
 /// A 5-bit encoding for strings with length up two 12 that are restricted to a
 /// specific charset.
 mod bitcode {
-    use super::{Repr, ResolvedPicoStr};
+    use super::{ResolvedPicoStr, ResolvedPicoStrInner};
 
     /// Maps from encodings to their bytes.
     const DECODE: &[u8; 32] = b"\0abcdefghijklmnopqrstuvwxyz-1234";
@@ -197,7 +197,7 @@ mod bitcode {
             value >>= 5;
         }
 
-        ResolvedPicoStr(Repr::Inline(buf, len))
+        ResolvedPicoStr(ResolvedPicoStrInner::Inline(buf, len))
     }
 
     /// A failure during compile-time interning.
@@ -339,10 +339,10 @@ mod exceptions {
 /// This is returned by [`PicoStr::resolve`].
 ///
 /// Dereferences to a `str`.
-pub struct ResolvedPicoStr(Repr);
+pub struct ResolvedPicoStr(ResolvedPicoStrInner);
 
-/// Representation of a resolved string.
-enum Repr {
+/// The internal representation of a [`ResolvedPicoStr`].
+enum ResolvedPicoStrInner {
     Inline([u8; 12], u8),
     Static(&'static str),
 }
@@ -351,10 +351,10 @@ impl ResolvedPicoStr {
     /// Retrieve the underlying string.
     pub fn as_str(&self) -> &str {
         match &self.0 {
-            Repr::Inline(buf, len) => unsafe {
+            ResolvedPicoStrInner::Inline(buf, len) => unsafe {
                 std::str::from_utf8_unchecked(&buf[..*len as usize])
             },
-            Repr::Static(s) => s,
+            ResolvedPicoStrInner::Static(s) => s,
         }
     }
 }

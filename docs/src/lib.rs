@@ -18,8 +18,8 @@ use std::sync::LazyLock;
 use typst::diag::{StrResult, bail};
 use typst::foundations::Deprecation;
 use typst::foundations::{
-    AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
-    Smart, Type, Value,
+    AutoValue, Binding, Bytes, CastInfo, Func, Module, NativeParamInfo, NoneValue, Repr,
+    Scope, Smart, Type, Value,
 };
 use typst::layout::{Abs, Margin, PageElem, PagedDocument};
 use typst::text::{Font, FontBook};
@@ -219,6 +219,8 @@ fn changelog_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("changelog/welcome.md"));
     let base = format!("{}changelog/", resolver.base());
     page.children = vec![
+        md_page(resolver, &base, load!("changelog/0.14.2.md")),
+        md_page(resolver, &base, load!("changelog/0.14.1.md")),
         md_page(resolver, &base, load!("changelog/0.14.0.md")),
         md_page(resolver, &base, load!("changelog/0.13.1.md")),
         md_page(resolver, &base, load!("changelog/0.13.0.md")),
@@ -446,12 +448,24 @@ fn func_model(
     let scope = func.scope().unwrap();
     let docs = func.docs().unwrap();
 
+    let typed_html = func.keywords().contains(&"typed-html");
+
     let mut self_ = false;
-    let mut params = func.params().unwrap();
-    if params.first().is_some_and(|first| first.name == "self") {
-        self_ = true;
-        params = &params[1..];
-    }
+    let params = func
+        .params()
+        .enumerate()
+        .filter_map(|(i, param)| {
+            let param = param.to_native()?;
+            if i == 0 && param.name == "self" {
+                self_ = true;
+                return None;
+            }
+            if typed_html && is_global_html_attr(param.name) {
+                return None;
+            }
+            Some(param_model(resolver, param))
+        })
+        .collect();
 
     let mut returns = vec![];
     let mut strings = vec![];
@@ -474,18 +488,13 @@ fn func_model(
         panic!("function lacks any details")
     };
 
-    let mut params = params.to_vec();
-    if func.keywords().contains(&"typed-html") {
-        params.retain(|param| !is_global_html_attr(param.name));
-    }
-
     FuncModel {
         path: path.iter().copied().map(Into::into).collect(),
         name: name.into(),
         title: func.title().unwrap(),
         keywords: func.keywords(),
         oneliner: oneliner(first_md),
-        element: func.element().is_some(),
+        element: func.to_element().is_some(),
         contextual: func.contextual().unwrap_or(false),
         deprecation_message: deprecation.map(Deprecation::message),
         deprecation_until: deprecation.and_then(Deprecation::until),
@@ -494,14 +503,14 @@ fn func_model(
             .map(|proto| proto.into_model(resolver, nesting))
             .collect(),
         self_,
-        params: params.iter().map(|param| param_model(resolver, param)).collect(),
+        params,
         returns,
         scope: scope_models(resolver, name, scope),
     }
 }
 
 /// Produce a parameter's model.
-fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
+fn param_model(resolver: &dyn Resolver, info: &NativeParamInfo) -> ParamModel {
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
@@ -757,8 +766,7 @@ fn group_page(
         let div = group.module().scope().get("div").unwrap();
         let func = div.read().clone().cast::<Func>().unwrap();
         func.params()
-            .unwrap()
-            .iter()
+            .filter_map(|param| param.to_native())
             .filter(|param| is_global_html_attr(param.name))
             .map(|info| param_model(resolver, info))
             .collect()
@@ -996,6 +1004,7 @@ const TYPE_ORDER: &[&str] = &[
     "datetime",
     "duration",
     "str",
+    "path",
     "bytes",
     "regex",
     "label",

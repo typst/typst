@@ -157,6 +157,16 @@
   #lorem(10)
 ]))
 
+--- tiling-text-fill paged ---
+#let t = tiling(
+  size: (30pt, 30pt),
+  relative: "parent",
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+);
+#set text(fill: t)
+
+#lorem(20)
+
 --- tiling-pattern-compatibility paged ---
 #set page(width: auto, height: auto, margin: 0pt)
 

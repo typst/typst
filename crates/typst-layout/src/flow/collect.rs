@@ -149,7 +149,7 @@ impl<'a> Collector<'a, '_, '_> {
             Spacing::Rel(rel) => {
                 Child::Rel(rel.resolve(styles), elem.weak.get(styles) as u8)
             }
-            Spacing::Fr(fr) => Child::Fr(fr),
+            Spacing::Fr(fr) => Child::Fr(fr, elem.weak.get(styles) as u8),
         });
     }
 
@@ -246,7 +246,7 @@ impl<'a> Collector<'a, '_, '_> {
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
-            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
+            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr, 2),
         };
 
         self.output.push(spacing(elem.above.get(styles)));
@@ -349,8 +349,8 @@ pub enum Child<'a> {
     Tag(&'a Tag),
     /// Relative spacing with a specific weakness level.
     Rel(Rel<Abs>, u8),
-    /// Fractional spacing.
-    Fr(Fr),
+    /// Fractional spacing with a specific weakness level.
+    Fr(Fr, u8),
     /// An already layouted line of a paragraph.
     Line(BumpBox<'a, LineChild>),
     /// An unbreakable block.

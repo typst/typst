@@ -95,13 +95,13 @@ fn compile_impl<D: Document>(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<D> {
-    if D::TARGET == Target::Html {
+    if D::target() == Target::Html {
         warn_or_error_for_html(world, sink)?;
     }
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::TARGET).wrap();
+    let target = TargetElem::target.set(D::target()).wrap();
     let styles = base.chain(&target);
     let empty_introspector = Introspector::default();
 
@@ -210,19 +210,14 @@ fn hint_invalid_main_file(
     // mistyped the filename. For example, they could have written "file.pdf"
     // instead of "file.typ".
     if is_utf8_error {
-        let path = input.vpath();
-        let extension = path.as_rootless_path().extension();
-        if extension.is_some_and(|extension| extension == "typ") {
-            // No hints if the file is already a .typ file.
-            // The file is indeed just invalid.
-            return eco_vec![diagnostic];
-        }
+        match input.vpath().extension() {
+            // No hints if the file is already a .typ file. The file is indeed
+            // just invalid.
+            Some("typ") => return eco_vec![diagnostic],
 
-        match extension {
-            Some(extension) => {
+            Some(ext) => {
                 diagnostic.hint(eco_format!(
-                    "a file with the `.{}` extension is not usually a Typst file",
-                    extension.to_string_lossy()
+                    "a file with the `.{ext}` extension is not usually a Typst file",
                 ));
             }
 
@@ -232,7 +227,7 @@ fn hint_invalid_main_file(
             }
         };
 
-        if world.source(input.with_extension("typ")).is_ok() {
+        if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
     }
@@ -294,23 +289,62 @@ impl Document for HtmlDocument {
     }
 }
 
+/// A trait for accepting an arbitrary kind of document as input.
+///
+/// Can be used to accept a reference to
+/// - any kind of sized type that implements [`Document`], or
+/// - the trait object [`&dyn Document`].
+///
+/// Should be used as `impl AsDocument` rather than `&impl AsDocument`.
+///
+/// # Why is this needed?
+/// Unfortunately, `&impl Document` can't be turned into `&dyn Document` in a
+/// generic function. Directly accepting `&dyn Document` is of course also
+/// possible, but is less convenient, especially in cases where the document is
+/// optional.
+///
+/// See also
+/// <https://users.rust-lang.org/t/converting-from-generic-unsized-parameter-to-trait-object/72376>
+pub trait AsDocument {
+    /// Turns the reference into the trait object.
+    fn as_document(&self) -> &dyn Document;
+}
+
+impl AsDocument for &dyn Document {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
+impl<D: Document> AsDocument for &D {
+    fn as_document(&self) -> &dyn Document {
+        *self
+    }
+}
+
 mod sealed {
     use typst_library::foundations::{Content, Target};
 
     use super::*;
 
-    pub trait Sealed: Sized {
-        const TARGET: Target;
+    pub trait Sealed {
+        fn target() -> Target
+        where
+            Self: Sized;
 
         fn create(
             engine: &mut Engine,
             content: &Content,
             styles: StyleChain,
-        ) -> SourceResult<Self>;
+        ) -> SourceResult<Self>
+        where
+            Self: Sized;
     }
 
     impl Sealed for PagedDocument {
-        const TARGET: Target = Target::Paged;
+        fn target() -> Target {
+            Target::Paged
+        }
 
         fn create(
             engine: &mut Engine,
@@ -322,7 +356,9 @@ mod sealed {
     }
 
     impl Sealed for HtmlDocument {
-        const TARGET: Target = Target::Html;
+        fn target() -> Target {
+            Target::Html
+        }
 
         fn create(
             engine: &mut Engine,

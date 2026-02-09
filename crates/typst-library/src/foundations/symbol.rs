@@ -12,7 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
 use crate::foundations::{
-    Array, Content, Func, NativeElement, Packed, PlainText, Repr as _, cast, elem, func,
+    Array, Content, Func, NativeElement, Packed, PlainText, Repr, cast, elem, func,
     scope, ty,
 };
 
@@ -48,11 +48,11 @@ use crate::foundations::{
 /// ```
 #[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Symbol(Repr);
+pub struct Symbol(SymbolInner);
 
-/// The internal representation.
+/// The internal representation of a [`Symbol`].
 #[derive(Clone, Eq, PartialEq, Hash)]
-enum Repr {
+enum SymbolInner {
     /// A native symbol that has no named variant.
     Single(&'static str),
     /// A native symbol with multiple named variants.
@@ -89,14 +89,14 @@ enum List {
 impl Symbol {
     /// Create a new symbol from a single value.
     pub const fn single(value: &'static str) -> Self {
-        Self(Repr::Single(value))
+        Self(SymbolInner::Single(value))
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
     pub const fn list(list: &'static [Variant<&'static str>]) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Complex(list))
+        Self(SymbolInner::Complex(list))
     }
 
     /// Create a symbol from a runtime char.
@@ -108,7 +108,7 @@ impl Symbol {
     #[track_caller]
     pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Modified(Arc::new(Modified {
+        Self(SymbolInner::Modified(Arc::new(Modified {
             list: List::Runtime(list),
             modifiers: ModifierSet::default(),
             deprecated: false,
@@ -118,11 +118,11 @@ impl Symbol {
     /// Get the symbol's value.
     pub fn get(&self) -> &str {
         match &self.0 {
-            Repr::Single(value) => value,
-            Repr::Complex(_) => ModifierSet::<&'static str>::default()
+            SymbolInner::Single(value) => value,
+            SymbolInner::Complex(_) => ModifierSet::<&'static str>::default()
                 .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
-            Repr::Modified(arc) => arc
+            SymbolInner::Modified(arc) => arc
                 .modifiers
                 .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
@@ -143,15 +143,15 @@ impl Symbol {
         sink: impl DeprecationSink,
         modifier: &str,
     ) -> StrResult<Self> {
-        if let Repr::Complex(list) = self.0 {
-            self.0 = Repr::Modified(Arc::new(Modified {
+        if let SymbolInner::Complex(list) = self.0 {
+            self.0 = SymbolInner::Modified(Arc::new(Modified {
                 list: List::Static(list),
                 modifiers: ModifierSet::default(),
                 deprecated: false,
             }));
         }
 
-        if let Repr::Modified(arc) = &mut self.0 {
+        if let SymbolInner::Modified(arc) = &mut self.0 {
             let modified = Arc::make_mut(arc);
             modified.modifiers.insert_raw(modifier);
             if let Some(deprecation) = modified
@@ -176,16 +176,16 @@ impl Symbol {
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
-            Repr::Single(value) => Variants::Single(std::iter::once(*value)),
-            Repr::Complex(list) => Variants::Static(list.iter()),
-            Repr::Modified(arc) => arc.list.variants(),
+            SymbolInner::Single(value) => Variants::Single(std::iter::once(*value)),
+            SymbolInner::Complex(list) => Variants::Static(list.iter()),
+            SymbolInner::Modified(arc) => arc.list.variants(),
         }
     }
 
     /// Possible modifiers.
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let modifiers = match &self.0 {
-            Repr::Modified(arc) => arc.modifiers.as_deref(),
+            SymbolInner::Modified(arc) => arc.modifiers.as_deref(),
             _ => ModifierSet::default(),
         };
         self.variants()
@@ -316,7 +316,7 @@ impl Display for Symbol {
     }
 }
 
-impl Debug for Repr {
+impl Debug for SymbolInner {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Single(value) => Debug::fmt(value, f),
@@ -335,17 +335,17 @@ impl Debug for List {
     }
 }
 
-impl crate::foundations::Repr for Symbol {
+impl Repr for Symbol {
     fn repr(&self) -> EcoString {
         match &self.0 {
-            Repr::Single(value) => eco_format!("symbol({})", value.repr()),
-            Repr::Complex(variants) => {
+            SymbolInner::Single(value) => eco_format!("symbol({})", value.repr()),
+            SymbolInner::Complex(variants) => {
                 eco_format!(
                     "symbol{}",
                     repr_variants(variants.iter().copied(), ModifierSet::default())
                 )
             }
-            Repr::Modified(arc) => {
+            SymbolInner::Modified(arc) => {
                 let Modified { list, modifiers, .. } = arc.as_ref();
                 if modifiers.is_empty() {
                     eco_format!(
@@ -466,7 +466,7 @@ impl PlainText for Packed<SymbolElem> {
     }
 }
 
-impl crate::foundations::Repr for SymbolElem {
+impl Repr for SymbolElem {
     /// Use a custom repr that matches normal content.
     fn repr(&self) -> EcoString {
         eco_format!("[{}]", self.text)

@@ -36,7 +36,7 @@
 #let f(..args) = (f1(..args) + f2(..args)).join(", ")
 #f(1, a: 2)
 
---- for-loop-integrated paged ---
+--- for-loop-integrated eval ---
 #let out = ()
 
 // Values of array.

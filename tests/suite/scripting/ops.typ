@@ -4,7 +4,7 @@
 // Test adding content.
 #([*Hello* ] + [world!])
 
---- ops-unary-basic paged ---
+--- ops-unary-basic eval ---
 // Test math operators.
 
 // Test plus and minus.
@@ -35,7 +35,7 @@
 // Error: 3-26 value is too large
 #(9223372036854775807 + 1)
 
---- ops-binary-basic paged ---
+--- ops-binary-basic eval ---
 // Subtraction.
 #test(1-4, 3*-1)
 #test(4cm - 2cm, 2cm)
@@ -113,7 +113,7 @@
   }
 }
 
---- ops-binary-decimal paged ---
+--- ops-binary-decimal eval ---
 // Addition.
 #test(decimal("40.1") + decimal("13.2"), decimal("53.3"))
 #test(decimal("12.34330") + decimal("45.96670"), decimal("58.31000"))
@@ -133,14 +133,14 @@
 #test(decimal("9999991.6666") / decimal("3.0"), decimal("3333330.5555333333333333333333"))
 #test(decimal("3253452.4034029359598214312040") / decimal("-49293591.4039493929532"), decimal("-0.0660015290170614346071165643"))
 
---- ops-binary-decimal-int paged ---
+--- ops-binary-decimal-int eval ---
 // Operations between decimal and integer.
 #test(decimal("2359.123456789123456789001234") + 2, decimal("2361.123456789123456789001234"))
 #test(decimal("2359.123456789123456789001234") - 2, decimal("2357.123456789123456789001234"))
 #test(decimal("2359.123456789123456789001234") * 2, decimal("4718.246913578246913578002468"))
 #test(decimal("2359.123456789123456789001234") / 2, decimal("1179.561728394561728394500617"))
 
---- ops-binary-decimal-multiplication-division-imprecision paged ---
+--- ops-binary-decimal-multiplication-division-imprecision eval ---
 // Test digit truncation by multiplication and division.
 #test(decimal("0.7777777777777777777777777777") / 1000, decimal("0.0007777777777777777777777778"))
 #test(decimal("0.7777777777777777777777777777") * decimal("0.001"), decimal("0.0007777777777777777777777778"))
@@ -159,7 +159,7 @@
 #(float("inf") * 1em)
 #(float("inf") * (1pt + 1em))
 
---- ops-attempt-nan-length paged ---
+--- ops-attempt-nan-length eval ---
 // Test that trying to produce a NaN scalar (such as in lengths) does not crash.
 #let infpt = float("inf") * 1pt
 #test(infpt - infpt, 0pt)
@@ -167,7 +167,7 @@
 // TODO: this result is surprising
 #test(infpt / float("inf"), 0pt)
 
---- ops-unary-bool paged ---
+--- ops-unary-bool eval ---
 // Test boolean operators.
 
 // Test not.
@@ -190,7 +190,7 @@
 #test(false and dont-care, false)
 #test(true or dont-care, true)
 
---- ops-equality paged ---
+--- ops-equality eval ---
 // Test equality operators.
 
 // Most things compare by value.
@@ -220,7 +220,7 @@
 #test(grid[a] == grid[a], true)
 #test(grid[a] == grid[b], false)
 
---- ops-compare paged ---
+--- ops-compare eval ---
 // Test comparison operators.
 
 #test(13 * 3 < 14 * 4, true)
@@ -250,7 +250,7 @@
 #test(decimal("459.9999999999999999999999999") < 460, true)
 #test(decimal("128.50") > 460, false)
 
---- ops-in paged ---
+--- ops-in eval ---
 // Test `in` operator.
 #test("hi" in "worship", true)
 #test("hi" in ("we", "hi", "bye"), true)
@@ -271,7 +271,7 @@
 // Error: 10 expected keyword `in`
 #("a" not)
 
---- func-with paged ---
+--- func-with eval ---
 // Test `with` method.
 
 // Apply positional arguments.
@@ -301,7 +301,7 @@
 #test((times.with(2).with(5, negate: true))(), -10)
 #test((times.with(2).with(negate: true))(5), -10)
 
---- ops-precedence-basic paged ---
+--- ops-precedence-basic eval ---
 // Multiplication binds stronger than addition.
 #test(1+2*-3, -5)
 
@@ -323,7 +323,7 @@
 // Error: 3-12 cannot apply '-' to boolean
 #(-not true)
 
---- ops-precedence-not-in paged ---
+--- ops-precedence-not-in eval ---
 // Not in handles precedence.
 #test(-1 not in (1, 2, 3), true)
 
@@ -335,13 +335,13 @@
 // Error: 8-9 unclosed delimiter
 #test({(1 + 1}, 2)
 
---- ops-associativity-left paged ---
+--- ops-associativity-left eval ---
 // Math operators are left-associative.
 #test(10 / 2 / 2 == (10 / 2) / 2, true)
 #test(10 / 2 / 2 == 10 / (2 / 2), false)
 #test(1 / 2 * 3, 1.5)
 
---- ops-associativity-right paged ---
+--- ops-associativity-right eval ---
 // Assignment is right-associative.
 #{
   let x = 1
@@ -448,7 +448,7 @@
 // Error: 3-10 number must be at least zero
 #(-1 * "")
 
---- ops-assign paged ---
+--- ops-assign eval ---
 // Test assignment operators.
 
 #let x = 0
@@ -507,7 +507,7 @@
 // Error: 3-7 cannot mutate a constant: rect
 #(rect = "hi")
 
---- ops-assign-to-shadowed-std-constant paged ---
+--- ops-assign-to-shadowed-std-constant eval ---
 // Works if we define rect beforehand
 // (since then it doesn't resolve to the standard library version anymore).
 #let rect = ""

@@ -54,7 +54,7 @@
   Seven.
 ]
 
---- if-else-if-else paged ---
+--- if-else-if-else eval ---
 // Test else if.
 
 #let nth(n) = {
@@ -71,7 +71,7 @@
 #test(nth(4), "4th")
 #test(nth(5), "5th")
 
---- if-expression paged ---
+--- if-expression eval ---
 // Value of if expressions.
 
 #{

@@ -9,6 +9,7 @@ use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::StrResult;
+use typst_kit::packages::FsPackages;
 
 use crate::CliArguments;
 use crate::args::{Feature, InfoCommand};
@@ -41,8 +42,8 @@ struct Info {
 #[derive(Default, Serialize)]
 #[serde(rename_all = "kebab-case")]
 struct Build {
-    /// The commit this binary was compiled with.
-    commit: &'static str,
+    /// The commit this binary was compiled from. May be `None` if unknown.
+    commit: Option<&'static str>,
 
     /// The platform this binary was compiled for.
     platform: Platform,
@@ -319,10 +320,11 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
     };
 
+    let version = typst::utils::version();
     let value = Info {
-        version: crate::typst_version(),
+        version: version.raw(),
         build: Build {
-            commit: crate::typst_commit_sha(),
+            commit: version.commit(),
             platform: Platform::new(),
             settings: Settings {
                 self_update: cfg!(feature = "self-update"),
@@ -348,12 +350,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
                 .typst_package_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_path),
+                .or_else(|| FsPackages::system_data().map(|fs| fs.path().into())),
             package_cache_path: env
                 .typst_package_cache_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_cache_path),
+                .or_else(|| FsPackages::system_cache().map(|fs| fs.path().into())),
         },
         env,
     };
@@ -535,7 +537,7 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write!(out, " ")?;
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
-    write_value_simple(&mut out, value.build.commit, None)?;
+    write_value_simple(&mut out, typst_utils::display_commit(value.build.commit), None)?;
     write!(out, ", ")?;
     write_value_simple(&mut out, value.build.platform.os, None)?;
     write!(out, " on ")?;

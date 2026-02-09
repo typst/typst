@@ -1,12 +1,16 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Add;
+use std::slice;
 
+use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, error};
+use crate::engine::Engine;
 use crate::foundations::{
-    Array, Dict, FromValue, IntoValue, Repr, Str, Value, cast, func, repr, scope, ty,
+    Array, Context, Dict, FromValue, Func, IntoValue, Repr, Str, Value, cast, func, repr,
+    scope, ty,
 };
 
 /// Captured arguments to a function.
@@ -271,6 +275,11 @@ cast! {
 }
 
 impl Args {
+    /// Tests whether there is no positional nor named argument.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     fn get(&self, key: &ArgumentKey) -> Option<&Value> {
         let item = match key {
             &ArgumentKey::Index(index) => {
@@ -313,6 +322,12 @@ impl Args {
         args.take()
     }
 
+    /// The number of arguments, positional or named.
+    #[func(title = "Length")]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///
@@ -353,6 +368,64 @@ impl Args {
             .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
             .collect()
     }
+
+    /// Produces a new `arguments` with only the arguments for which the value
+    /// passes the test.
+    ///
+    /// ```example
+    /// #{
+    ///   arguments(-1, a: 0, b: 1, 2)
+    ///     .filter(v => v > 0)
+    /// }
+    /// ```
+    #[func]
+    pub fn filter(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        /// The function to apply to each value. Must return a boolean.
+        test: Func,
+    ) -> SourceResult<Args> {
+        let mut run_test = |v: &Value| {
+            test.call(engine, context, [v.clone()])?
+                .cast::<bool>()
+                .at(test.span())
+        };
+        self.into_iter()
+            .filter_map(|arg| {
+                run_test(&arg.value.v).map(|b| b.then_some(arg)).transpose()
+            })
+            .collect()
+    }
+
+    /// Produces a new `arguments` by transforming each argument value with the
+    /// passed function.
+    ///
+    /// ```example
+    /// #{
+    ///   arguments(0, a: 1, 2)
+    ///     .map(v => v + 1)
+    /// }
+    /// ```
+    #[func]
+    pub fn map(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        /// The function to apply to each value.
+        mapper: Func,
+    ) -> SourceResult<Args> {
+        self.into_iter()
+            .map(|arg| {
+                let mapped_value = mapper.call(engine, context, [arg.value.v])?;
+                Ok(Arg {
+                    span: arg.span,
+                    name: arg.name,
+                    value: Spanned::detached(mapped_value),
+                })
+            })
+            .collect()
+    }
 }
 
 impl Debug for Args {
@@ -386,6 +459,33 @@ impl Add for Args {
         self.items.extend(rhs.items);
         self.span = Span::detached();
         self
+    }
+}
+
+impl FromIterator<Arg> for Args {
+    fn from_iter<T: IntoIterator<Item = Arg>>(iter: T) -> Self {
+        Self {
+            span: Span::detached(),
+            items: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for Args {
+    type Item = Arg;
+    type IntoIter = <EcoVec<Arg> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Args {
+    type Item = &'a Arg;
+    type IntoIter = slice::Iter<'a, Arg>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
     }
 }
 

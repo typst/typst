@@ -24,7 +24,7 @@ impl Eval for ast::SetRule<'_> {
             .cast::<Func>()
             .map_err(|err| hint_if_shadowed_std(vm, &target_expr, err))
             .and_then(|func| {
-                func.element().ok_or_else(|| {
+                func.to_element().ok_or_else(|| {
                     "only element functions can be used in set rules".into()
                 })
             })
