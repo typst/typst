@@ -35,18 +35,18 @@ __
 // Hint: 13-15 using multiple consecutive underscores (e.g. __) has no additional effect
 __not italic__
 
---- emph-unclosed paged ---
+--- emph-unclosed eval ---
 // Error: 6-7 unclosed delimiter
 #box[_Scoped] to body.
 
---- emph-ends-at-parbreak paged ---
+--- emph-ends-at-parbreak eval ---
 // Ends at paragraph break.
 // Error: 1-2 unclosed delimiter
 _Hello
 
 World
 
---- emph-strong-unclosed-nested paged ---
+--- emph-strong-unclosed-nested eval ---
 // Error: 11-12 unclosed delimiter
 // Error: 3-4 unclosed delimiter
 #[_Cannot *be interleaved]

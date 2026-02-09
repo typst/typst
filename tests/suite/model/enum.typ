@@ -130,11 +130,11 @@ a + 0.
 + E
 + F
 
---- enum-numbering-pattern-empty paged ---
+--- enum-numbering-pattern-empty eval ---
 // Error: 22-24 invalid numbering pattern
 #set enum(numbering: "")
 
---- enum-numbering-pattern-invalid paged ---
+--- enum-numbering-pattern-invalid eval ---
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
 

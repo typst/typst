@@ -27,6 +27,6 @@
   }
 }
 
---- lorem-missing-words paged ---
+--- lorem-missing-words eval ---
 // Error: 2-9 missing argument: words
 #lorem()

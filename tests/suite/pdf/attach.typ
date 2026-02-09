@@ -23,7 +23,7 @@
 --- pdf-attach-zero-bytes paged empty ---
 #pdf.attach("file", bytes(()))
 
---- pdf-attach-invalid-relationship paged ---
+--- pdf-attach-invalid-relationship eval ---
 #pdf.attach(
   "/assets/text/hello.txt",
   // Error: 17-23 expected "source", "data", "alternative", "supplement", or none
@@ -32,7 +32,7 @@
   description: "A test file",
 )
 
---- pdf-attach-invalid-data paged ---
+--- pdf-attach-invalid-data eval ---
 // Error: 39-46 expected bytes, found string
 #pdf.attach("/assets/text/hello.txt", "hello")
 

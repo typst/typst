@@ -9,12 +9,12 @@
 #let data-from-path = json(path("/assets/data/zoo.json"))
 #test(data-from-path, data)
 
---- json-with-bom paged ---
+--- json-with-bom eval ---
 // Error: 7-43 failed to parse JSON (unexpected Byte Order Mark at 1:1)
 // Hint: 7-43 JSON requires UTF-8 without a BOM
 #json(bytes("\u{FEFF}{\"name\": \"BOM\"}"))
 
---- json-invalid paged ---
+--- json-invalid eval ---
 // Error: "/assets/data/bad.json" 3:14 failed to parse JSON (expected value at line 3 column 14)
 #json("/assets/data/bad.json")
 

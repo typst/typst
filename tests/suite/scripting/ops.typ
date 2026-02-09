@@ -31,7 +31,7 @@
 #test((1, 2) + (3, 4), (1, 2, 3, 4))
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 
---- ops-add-too-large paged ---
+--- ops-add-too-large eval ---
 // Error: 3-26 value is too large
 #(9223372036854775807 + 1)
 
@@ -145,11 +145,11 @@
 #test(decimal("0.7777777777777777777777777777") / 1000, decimal("0.0007777777777777777777777778"))
 #test(decimal("0.7777777777777777777777777777") * decimal("0.001"), decimal("0.0007777777777777777777777778"))
 
---- ops-add-too-large-decimal paged ---
+--- ops-add-too-large-decimal eval ---
 // Error: 3-47 value is too large
 #(decimal("79228162514264337593543950335") + 1)
 
---- ops-subtract-too-large-decimal paged ---
+--- ops-subtract-too-large-decimal eval ---
 // Error: 3-48 value is too large
 #(decimal("-79228162514264337593543950335") - 1)
 
@@ -267,7 +267,7 @@
 #test("sys" in std, true)
 #test("system" in std, false)
 
---- ops-not-trailing paged ---
+--- ops-not-trailing eval ---
 // Error: 10 expected keyword `in`
 #("a" not)
 
@@ -312,13 +312,13 @@
 #test("a" == "a" and 2 < 3, true)
 #test(not "b" == "b", false)
 
---- ops-precedence-boolean-ops paged ---
+--- ops-precedence-boolean-ops eval ---
 // Assignment binds stronger than boolean operations.
 // Error: 2:3-2:8 cannot mutate a temporary value
 #let x = false
 #(not x = "a")
 
---- ops-precedence-unary paged ---
+--- ops-precedence-unary eval ---
 // Precedence doesn't matter for chained unary operators.
 // Error: 3-12 cannot apply '-' to boolean
 #(-not true)
@@ -327,7 +327,7 @@
 // Not in handles precedence.
 #test(-1 not in (1, 2, 3), true)
 
---- ops-precedence-parentheses paged ---
+--- ops-precedence-parentheses eval ---
 // Parentheses override precedence.
 #test((1), 1)
 #test((1+2)*-3, -9)
@@ -351,100 +351,100 @@
   test(y, "ok")
 }
 
---- ops-unary-minus-missing-expr paged ---
+--- ops-unary-minus-missing-expr eval ---
 // Error: 4 expected expression
 #(-)
 
---- ops-add-missing-rhs paged ---
+--- ops-add-missing-rhs eval ---
 // Error: 10 expected expression
 #test({1+}, 1)
 
---- ops-mul-missing-rhs paged ---
+--- ops-mul-missing-rhs eval ---
 // Error: 10 expected expression
 #test({2*}, 2)
 
---- ops-unary-plus-on-content paged ---
+--- ops-unary-plus-on-content eval ---
 // Error: 3-13 cannot apply unary '+' to content
 #(+([] + []))
 
---- ops-unary-plus-on-string paged ---
+--- ops-unary-plus-on-string eval ---
 // Error: 3-6 cannot apply '-' to string
 #(-"")
 
---- ops-not-on-array paged ---
+--- ops-not-on-array eval ---
 // Error: 3-9 cannot apply 'not' to array
 #(not ())
 
---- ops-compare-relative-length-and-ratio paged ---
+--- ops-compare-relative-length-and-ratio eval ---
 // Error: 3-19 cannot compare relative length and ratio
 #(30% + 1pt <= 40%)
 
---- ops-compare-em-with-abs paged ---
+--- ops-compare-em-with-abs eval ---
 // Error: 3-14 cannot compare 1em with 10pt
 #(1em <= 10pt)
 
---- ops-compare-normal-float-with-nan paged ---
+--- ops-compare-normal-float-with-nan eval ---
 // Error: 3-22 cannot compare 2.2 with float.nan
 #(2.2 <= float("nan"))
 
---- ops-compare-int-and-str paged ---
+--- ops-compare-int-and-str eval ---
 // Error: 3-26 cannot compare integer and string
 #((0, 1, 3) > (0, 1, "a"))
 
---- ops-compare-array-nested-failure paged ---
+--- ops-compare-array-nested-failure eval ---
 // Error: 3-42 cannot compare 3.5 with float.nan
 #((0, "a", 3.5) <= (0, "a", float("nan")))
 
---- ops-divide-by-zero-float paged ---
+--- ops-divide-by-zero-float eval ---
 // Error: 3-12 cannot divide by zero
 #(1.2 / 0.0)
 
---- ops-divide-by-zero-int paged ---
+--- ops-divide-by-zero-int eval ---
 // Error: 3-8 cannot divide by zero
 #(1 / 0)
 
---- ops-divide-by-zero-angle paged ---
+--- ops-divide-by-zero-angle eval ---
 // Error: 3-15 cannot divide by zero
 #(15deg / 0deg)
 
---- ops-binary-arithmetic-error-message paged ---
+--- ops-binary-arithmetic-error-message eval ---
 // Special messages for +, -, * and /.
 // Error: 3-10 cannot add integer and string
 #(1 + "2", 40% - 1)
 
---- add-assign-int-and-str paged ---
+--- add-assign-int-and-str eval ---
 // Error: 15-23 cannot add integer and string
 #{ let x = 1; x += "2" }
 
---- ops-divide-ratio-by-length paged ---
+--- ops-divide-ratio-by-length eval ---
 // Error: 4-13 cannot divide ratio by length
 #( 10% / 5pt )
 
---- ops-divide-em-by-abs paged ---
+--- ops-divide-em-by-abs eval ---
 // Error: 3-12 cannot divide these two lengths
 #(1em / 5pt)
 
---- ops-divide-relative-length-by-ratio paged ---
+--- ops-divide-relative-length-by-ratio eval ---
 // Error: 3-19 cannot divide relative length by ratio
 #((10% + 1pt) / 5%)
 
---- ops-divide-relative-lengths paged ---
+--- ops-divide-relative-lengths eval ---
 // Error: 3-28 cannot divide these two relative lengths
 #((10% + 1pt) / (20% + 1pt))
 
---- ops-subtract-int-from-ratio paged ---
+--- ops-subtract-int-from-ratio eval ---
 // Error: 13-20 cannot subtract integer from ratio
 #((1234567, 40% - 1))
 
---- ops-multiply-int-with-bool paged ---
+--- ops-multiply-int-with-bool eval ---
 // Error: 3-11 cannot multiply integer with boolean
 #(2 * true)
 
---- ops-divide-int-by-length paged ---
+--- ops-divide-int-by-length eval ---
 // Error: 3-11 cannot divide integer by length
 #(3 / 12pt)
 
---- multiply-negative-int-with-str paged ---
+--- multiply-negative-int-with-str eval ---
 // Error: 3-10 number must be at least zero
 #(-1 * "")
 
@@ -460,14 +460,14 @@
 #(x = "some")   #test(x, "some")
 #(x += "thing") #test(x, "something")
 
---- ops-assign-unknown-var-lhs paged ---
+--- ops-assign-unknown-var-lhs eval ---
 #{
   // Error: 3-6 unknown variable: a-1
   // Hint: 3-6 if you meant to use subtraction, try adding spaces around the minus sign: `a - 1`
   a-1 = 2
 }
 
---- ops-assign-unknown-var-rhs paged ---
+--- ops-assign-unknown-var-rhs eval ---
 #{
   let a = 2
   a = 1-a
@@ -478,32 +478,32 @@
   a = a-1
 }
 
---- ops-assign-unknown-parenthesized-variable paged ---
+--- ops-assign-unknown-parenthesized-variable eval ---
 // Error: 4-5 unknown variable: x
 #((x) = "")
 
---- ops-assign-destructuring-unknown-variable paged ---
+--- ops-assign-destructuring-unknown-variable eval ---
 // Error: 4-5 unknown variable: x
 #((x,) = (1,))
 
---- ops-assign-to-temporary paged ---
+--- ops-assign-to-temporary eval ---
 // Error: 3-8 cannot mutate a temporary value
 #(1 + 2 += 3)
 
---- ops-assign-to-invalid-unary-op paged ---
+--- ops-assign-to-invalid-unary-op eval ---
 // Error: 2:3-2:8 cannot apply 'not' to string
 #let x = "Hey"
 #(not x = "a")
 
---- ops-assign-to-invalid-binary-op paged ---
+--- ops-assign-to-invalid-binary-op eval ---
 // Error: 7-8 unknown variable: x
 #(1 + x += 3)
 
---- ops-assign-unknown-variable paged ---
+--- ops-assign-unknown-variable eval ---
 // Error: 3-4 unknown variable: z
 #(z = 1)
 
---- ops-assign-to-std-constant paged ---
+--- ops-assign-to-std-constant eval ---
 // Error: 3-7 cannot mutate a constant: rect
 #(rect = "hi")
 
