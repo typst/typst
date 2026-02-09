@@ -139,10 +139,13 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.body.source.root());
         }
 
+        // Unconditionally eval the document to check for empty/non-empty
+        // content. This result is cached, so calling compile below won't
+        // duplicate any work.
         if let Some(content) = self.eval() {
             if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
                 if !output::is_empty_content(&content) {
-                    self.unexpected_non_empty.eval(content.clone());
+                    self.unexpected_non_empty.eval(content);
                 }
             } else if output::is_empty_content(&content) {
                 self.unexpected_empty.eval();
