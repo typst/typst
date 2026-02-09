@@ -152,23 +152,7 @@ pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
 
         // Add Adobe Fonts on Windows and macOS.
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        if let Some(data_dir) = dirs::data_dir() {
-            let adobe_base = data_dir.join("Adobe");
-
-            #[cfg(target_os = "macos")]
-            let dot = ".";
-            #[cfg(target_os = "windows")]
-            let dot = "";
-
-            let subdirs = [
-                format!("CoreSync/plugins/livetype/{dot}r"),
-                format!("{dot}User Owned Fonts"),
-            ];
-
-            for subdir in subdirs {
-                load_adobe_fonts(db, &adobe_base.join(subdir));
-            }
-        }
+        load_adobe_fonts(db);
     })
 }
 
@@ -209,27 +193,32 @@ fn with_db(
         .into_iter()
 }
 
+/// Loads Adobe fonts available on the system. Only supported on Windows and
+/// macOS.
+///
+/// This is permissible as per Clause 3.1 (A) of the
+/// [Adobe Fonts Service Product Specific Terms][terms].
+///
+/// [terms]: https://wwwimages2.adobe.com/content/dam/cc/en/legal/servicetou/Adobe-Fonts-Product-Specific-Terms-en_US-20241007.pdf
 #[cfg(all(feature = "scan-fonts", any(target_os = "windows", target_os = "macos")))]
-fn load_adobe_fonts(db: &mut fontdb::Database, path: &std::path::Path) {
-    if !path.exists() {
-        return;
-    }
+fn load_adobe_fonts(db: &mut fontdb::Database) {
+    let Some(data) = dirs::data_dir() else { return };
+    let base = data.join("Adobe");
 
-    let Ok(entries) = fs::read_dir(path) else {
-        return;
-    };
+    let prefix = if cfg!(target_os = "macos") { "." } else { "" };
+    let subdirs = [
+        format!("CoreSync/plugins/livetype/{prefix}r"),
+        format!("{prefix}User Owned Fonts"),
+    ];
 
-    for entry in entries.flatten() {
-        let Ok(metadata) = entry.metadata() else {
-            continue;
-        };
-
-        // Adobe fonts are stored as files (directories are skipped)
-        if !metadata.is_file() {
-            continue;
+    for subdir in subdirs {
+        let Ok(entries) = fs::read_dir(base.join(subdir)) else { return };
+        for entry in entries.flatten() {
+            // Adobe fonts are stored as files (directories are skipped).
+            let Ok(metadata) = entry.metadata() else { continue };
+            if metadata.is_file() {
+                db.load_font_file(entry.path()).ok();
+            }
         }
-
-        let font_path = entry.path();
-        db.load_font_file(&font_path).ok();
     }
 }
