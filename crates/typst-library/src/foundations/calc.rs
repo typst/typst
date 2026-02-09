@@ -4,7 +4,6 @@ use std::cmp;
 use std::cmp::Ordering;
 
 use az::SaturatingAs;
-use libm;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{Scalar, round_int_with_precision, round_with_precision};
 
@@ -427,7 +426,8 @@ pub fn asinh(
 /// ```
 #[func(title = "Inverse Hyperbolic Cosine")]
 pub fn acosh(
-    /// The number whose inverse hyperbolic cosine to calculate. Must be greater than or equal to 1.
+    /// The number whose inverse hyperbolic cosine to calculate. Must be greater
+    /// than or equal to 1.
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
@@ -445,7 +445,8 @@ pub fn acosh(
 /// ```
 #[func(title = "Inverse Hyperbolic Tangent")]
 pub fn atanh(
-    /// The number whose inverse hyperbolic tangent to calculate. Must be between -1 and 1 (exclusive).
+    /// The number whose inverse hyperbolic tangent to calculate. Must be
+    /// between -1 and 1 (exclusive).
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
