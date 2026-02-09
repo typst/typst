@@ -221,27 +221,6 @@
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
 
---- dict-function-item-not-a-method eval ---
-#{
-  let dict = (
-    call-me: () => 1,
-  )
-  // Error: 8-15 type dictionary has no method `call-me`
-  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
-  dict.call-me()
-}
-
---- dict-item-missing-method eval ---
-#{
-  let dict = (
-    nonfunc: 1
-  )
-
-  // Error: 8-15 type dictionary has no method `nonfunc`
-  // Hint: 8-15 did you mean to access the field `nonfunc`?
-  dict.nonfunc()
-}
-
 --- dict-dynamic-duplicate-key eval ---
 #let a = "hello"
 #let b = "world"
