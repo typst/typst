@@ -34,6 +34,27 @@
 // Error: 7-8 no named argument "b"
 #args.b
 
+--- arguments-function-item-not-a-method paged ---
+#{
+  let args = arguments(
+    call-me: () => 1,
+  )
+  // Error: 8-15 type arguments has no method `call-me`
+  // Hint: 8-15 to call the function stored in a named argument, surround the field access with parentheses, e.g. `(args.call-me)(..)`
+  args.call-me()
+}
+
+--- arguments-item-missing-method paged ---
+#{
+  let args = arguments(
+    nonfunc: 1
+  )
+
+  // Error: 8-15 type arguments has no method `nonfunc`
+  // Hint: 8-15 did you mean to access the field `nonfunc`?
+  args.nonfunc()
+}
+
 --- arguments-plus-sum-join eval ---
 #let lhs = arguments(0, "1", key: "value", 3)
 #let rhs = arguments(other-key: 4, key: "other value", 3)
