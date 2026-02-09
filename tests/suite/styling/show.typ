@@ -278,3 +278,13 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 Hello
 
 World
+
+--- issue-7797-list-grouping-linebreak paged ---
+// Error: 7:1-7:6 maximum grouping depth exceeded
+#show list: it => {
+  for item in it.children {
+    [#item\ ]
+  }
+}
+
+- One
