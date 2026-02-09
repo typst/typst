@@ -174,7 +174,7 @@ fn layout_item(
     mut regions: Regions,
 ) -> SourceResult<Fragment> {
     let mut locator = locator.split();
-    let mut marker = crate::layout_frame(
+    let marker = crate::layout_frame(
         engine,
         &elem.marker,
         locator.next(&elem.marker.span()),
@@ -198,13 +198,13 @@ fn layout_item(
         _ => Abs::zero(),
     };
 
-    let diff = baseline
+    let diff = (baseline
         - if marker.has_baseline() {
             marker.baseline()
         } else {
             extract_baseline(&marker, Abs::zero())
-        };
-    marker.set_baseline(baseline);
+        })
+    .max(Abs::zero());
 
     let mut frames = vec![];
     for body_frame in fragment {

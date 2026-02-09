@@ -609,8 +609,8 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 149d8387d80ba298067081b6809ba2c5 issue-1041-smartquotes-in-outline
 29df276f53db6613015e8c040bad5562 issue-1050-terms-indent
 070b232e7ca9895a62393217762ec470 issue-1052-math-number-spacing
-3847ddc4897669e7b0ae94b3c2b1b477 issue-1204-enum-baseline-alignment
-a05539b4191da7baf3e63fc51ce24bd7 issue-1204-list-baseline-alignment
+0a2e0ec1c151981e2734ce1498af1113 issue-1204-enum-baseline-alignment
+b54f598c89112294bf270a315306e81c issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
 b64cc1773a30caac6ccd8b8b27701250 issue-1240-stack-v-fr
@@ -726,7 +726,7 @@ afa9c1b4c29da1695db6a1a1c1a81b8e issue-5262-block-negative-height-in-flow
 005e161913fa6b9aea5e95358be21ef6 issue-5262-text-negative-size
 6ad5eb2567511a9f29c9b40edaa4c144 issue-5276-shaping-consecutive-ltr-with-lang
 d048ac1b283bf297e897ac13f13d9e3e issue-529-enum-center-alignment
-ef1bd801f15cb99296a67355341b33f2 issue-529-list-center-alignment
+c037280bed47ff97ecfa5029c7b992a3 issue-529-list-center-alignment
 faf4f3339ea31f7f5ef14a025fc0ca83 issue-5296-block-sticky-in-block-at-top
 9bd97d6967997cbb0220d0037855ddc6 issue-5296-block-sticky-spaced-from-top-of-page
 8e9e39ca1023b43830e7ed9577f57f98 issue-5296-block-sticky-weakly-spaced-from-top-of-page
@@ -749,9 +749,9 @@ f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
-b7fa7f5a5ef1fcdc0acaffec5d6b35ef issue-5719-enum-nested
+b8d31c7a385885d01c99b48d98b4cd2e issue-5719-enum-nested
 a1a4c1ba094a741cb00677a6a6975083 issue-5719-heading-nested
-b0f751c80c588d891f3172c008db4401 issue-5719-list-nested
+ea721d0aa3b375b8f6e902b3e0b10cb6 issue-5719-list-nested
 fc51612e7e9bd340c302a418704ce5f6 issue-5719-terms-nested
 b8d74ba232642396a1952273d2295524 issue-5723-grid-heading-numbering
 3603154bea37b6f8d4bb323755e6eae2 issue-5760-disable-cjk-latin-spacing-in-raw
