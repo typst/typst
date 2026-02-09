@@ -642,7 +642,11 @@ pub struct FirstLineIndent {
 
 cast! {
     FirstLineIndent,
-    self => Value::Dict(self.into()),
+    self => Value::Dict(dict! {
+        // Resolve defaults, so that values from context are more intuitive.
+        "amount" => self.amount(),
+        "all" => self.all(),
+    }),
     amount: Length => Self { amount: Some(amount), all: Default::default() },
     mut dict: Dict => {
         // Get a value by key, accepting either non-existence or something
@@ -656,15 +660,6 @@ cast! {
         dict.finish(&["amount", "all"])?;
         Self { amount, all }
     },
-}
-
-impl From<FirstLineIndent> for Dict {
-    fn from(indent: FirstLineIndent) -> Self {
-        dict! {
-            "amount" => indent.amount(),
-            "all" => indent.all(),
-        }
-    }
 }
 
 impl FirstLineIndent {
