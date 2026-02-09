@@ -990,6 +990,7 @@ e8d812e8211e884238df314992db0d2d math-attach-kerning-mixed
 1faea4ab2fa0ed56bd56393e07ee2043 math-attach-mixed
 5c675003241e27c125ba12cde2bbfda5 math-attach-nested
 daa8ce444236a701cdf9bf5f74cb08ec math-attach-nested-base
+1ed090bfe9a0a4606d4bf08338ee6184 math-attach-nested-base-bad-placement
 546f2fdc7c346dba07a85cb02594a5a4 math-attach-nested-deep-base
 79cd3f10cb464b2bd5583a8a72607d8e math-attach-postscripts
 e120f62f76c1a20a4f33805cfc842753 math-attach-prescripts
@@ -1159,6 +1160,9 @@ a39f6291cfd58ec7f59349ea037eae35 math-primes-attach
 f8d4ad248d034d90e322b8be9592c4d0 math-primes-complex
 636b58d40ac5d7529bf2ae3c86c22278 math-primes-factorial
 26c1cd94f79b4c13bff3bb863cefec81 math-primes-limits
+0739e8faef37de1867aa6dab65f910e1 math-primes-merge-inner-prime
+908806657fd03009d1616d8d157e46d5 math-primes-merge-top
+a7be25224113db91927c20e92ffe4594 math-primes-merge-top-nested
 3b852deffd75c03cdc35f1f4bc31d056 math-primes-scripts
 d3ef8e83ad9047588a3df051ad4c55dd math-primes-show-rule
 6f627c97cc410a10d88cda3d544faaf1 math-primes-spaces
