@@ -410,3 +410,30 @@
 --- calc-norm-expected-float paged ---
 // Error: 12-15 expected float, found ratio
 #calc.norm(10%)
+
+--- calc-asinh eval ---
+#let t(a, b) = assert(calc.abs(a - b) < 1e-6)
+#t(calc.asinh(0), 0.0)
+#t(calc.asinh(1), calc.ln(1 + calc.sqrt(2)))
+
+--- calc-acosh eval ---
+#let t(a, b) = assert(calc.abs(a - b) < 1e-6)
+#t(calc.acosh(1), 0.0)
+#t(calc.acosh(2), calc.ln(2 + calc.sqrt(3)))
+
+--- calc-acosh-less-than-1 eval ---
+// Error: 13-16 value must be greater than or equal to 1
+#calc.acosh(0.5)
+
+--- calc-atanh eval ---
+#let t(a, b) = assert(calc.abs(a - b) < 1e-6)
+#t(calc.atanh(0), 0.0)
+#t(calc.atanh(0.5), 0.5 * calc.ln(3))
+
+--- calc-atanh-less-than-negative-1 eval ---
+// Error: 13-15 value must be between -1 and 1 (exclusive)
+#calc.atanh(-2)
+
+--- calc-atanh-greater-than-1 eval ---
+// Error: 13-14 value must be between -1 and 1 (exclusive)
+#calc.atanh(2)
