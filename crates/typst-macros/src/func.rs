@@ -412,7 +412,7 @@ fn create_param_info(param: &Param) -> TokenStream {
         }
     }));
     quote! {
-        #foundations::ParamInfo {
+        #foundations::NativeParamInfo {
             name: #name,
             docs: #docs,
             input: <#ty as #foundations::Reflect>::input(),

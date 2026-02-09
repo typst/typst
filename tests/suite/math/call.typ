@@ -288,8 +288,15 @@ $ mat(
 
 --- issue-2885-math-var-only-in-global paged ---
 // Error: 7-10 unknown variable: rgb
-// Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
+// Hint: 7-10 `rgb` is not available directly in math, but is in the standard library
+// Hint: 7-10 to access `rgb` in code mode you can add a hash: `#rgb`
+// Hint: 7-10 or access `rgb` in math mode by using the `std` module: `std.rgb`
 $text(rgb(0, 0, 0), "foo")$
+
+--- math-call-shadowed-builtin paged ---
+// We don't error if we try to call a shadowed standard library function.
+#let box = "box"
+$ box() $
 
 --- math-call-error paged ---
 // Test the span of errors when calling a function.

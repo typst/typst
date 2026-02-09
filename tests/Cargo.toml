@@ -26,12 +26,16 @@ typst-render = { workspace = true }
 typst-kit = { workspace = true }
 typst-svg = { workspace = true }
 typst-utils = { workspace = true }
+base64 = { workspace = true }
 bitflags = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+hayro = { workspace = true }
+hayro-svg = { workspace = true }
 hayro-syntax = { workspace = true }
 indexmap = { workspace = true }
+open = { workspace = true }
 oxipng = { workspace = true }
 parking_lot = { workspace = true }
 roxmltree = { workspace = true }
@@ -39,6 +43,9 @@ rayon = { workspace = true }
 regex = { workspace = true }
 rustc-hash = { workspace = true }
 serde_yaml = { workspace = true }
+similar = { workspace = true }
+smallvec = { workspace = true }
+time = { workspace = true }
 tiny-skia = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
