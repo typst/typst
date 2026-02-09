@@ -234,25 +234,23 @@ impl SVGRenderer<'_> {
                 // They tend to just ignore the color space of the gradient.
                 // The goal is to have smooth gradients but not to balloon the file size
                 // too much if there are already a lot of stops as in most presets.
-                let len = if gradient.anti_alias() {
-                    (256 / gradient.stops_ref().len() as u32).max(2)
-                } else {
-                    2
+                if gradient.anti_alias() {
+                    let len = (256 / gradient.stops_ref().len() as u32).max(2);
+                    for i in 1..(len - 1) {
+                        let t0 = i as f64 / (len - 1) as f64;
+                        let t = start_t + (end_t - start_t) * t0;
+                        let c = gradient.sample(RatioOrAngle::Ratio(t));
+                        svg.elem("stop")
+                            .attr("offset", t.repr())
+                            .attr("stop-color", c.to_hex());
+                    }
                 };
+            }
 
-                for i in 1..(len - 1) {
-                    let t0 = i as f64 / (len - 1) as f64;
-                    let t = start_t + (end_t - start_t) * t0;
-                    let c = gradient.sample(RatioOrAngle::Ratio(t));
-
-                    svg.elem("stop")
-                        .attr("offset", t.repr())
-                        .attr("stop-color", c.to_hex());
-                }
-
+            if let Some((last_c, last_t)) = gradient.stops_ref().last() {
                 svg.elem("stop")
-                    .attr("offset", end_t.repr())
-                    .attr("stop-color", end_c.to_hex());
+                    .attr("offset", last_t.repr())
+                    .attr("stop-color", last_c.to_hex());
             }
         }
     }
