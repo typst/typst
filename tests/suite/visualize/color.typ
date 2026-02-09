@@ -37,7 +37,7 @@
 // Error: 6-51 cannot mix more than two colors in a hue-based space
 #rgb(color.mix(red, blue, white, space: color.hsl))
 
---- color-conversion paged ---
+--- color-conversion eval ---
 // Test color conversion method kinds
 #test(rgb(rgb(10, 20, 30)).space(), rgb)
 #test(color.linear-rgb(rgb(10, 20, 30)).space(), color.linear-rgb)
@@ -145,14 +145,14 @@
 #box(square(size: 9pt, fill: color.hsl(col)))
 #box(square(size: 9pt, fill: color.hsv(col)))
 
---- color-space paged ---
+--- color-space eval ---
 // Test color kind method.
 #test(rgb(1, 2, 3, 4).space(), rgb)
 #test(cmyk(4%, 5%, 6%, 7%).space(), cmyk)
 #test(luma(40).space(), luma)
 #test(rgb(1, 2, 3, 4).space() != luma, true)
 
---- color-components paged ---
+--- color-components eval ---
 // Test color '.components()' without conversions
 
 #let test-components(col, ref, has-alpha: true) = {
@@ -295,13 +295,13 @@
   box(square(size: 9pt, fill: col.desaturate(x * 10%)))
 }
 
---- color-luma-ops paged ---
+--- color-luma-ops eval ---
 // Test gray color modification.
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
 #test-repr(luma(80%).negate(space: luma), luma(20%))
 
---- color-transparentize paged ---
+--- color-transparentize eval ---
 // Test alpha modification.
 #test-repr(luma(100%, 100%).transparentize(50%), luma(100%, 50%))
 #test-repr(luma(100%, 100%).transparentize(75%), luma(100%, 25%))
@@ -310,7 +310,7 @@
 #test-repr(luma(100%, 40%).transparentize(-50%), luma(100%, 70%))
 #test-repr(luma(100%, 0%).transparentize(-100%), luma(100%, 100%))
 
---- color-opacify paged ---
+--- color-opacify eval ---
 #test-repr(luma(100%, 50%).opacify(50%), luma(100%, 75%))
 #test-repr(luma(100%, 20%).opacify(100%), luma(100%, 100%))
 #test-repr(luma(100%, 100%).opacify(250%), luma(100%, 100%))

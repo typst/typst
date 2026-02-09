@@ -1,12 +1,14 @@
 #[doc(inline)]
 pub use typst_macros::func;
+use typst_syntax::ast::AstNode;
 
 use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
-use typst_syntax::{Span, SyntaxNode, ast};
+use either::Either;
+use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{LazyHash, Static, singleton};
 
 use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
@@ -203,19 +205,28 @@ impl Func {
     }
 
     /// Get details about this function's parameters if available.
-    pub fn params(&self) -> Option<&'static [ParamInfo]> {
+    pub fn params(&self) -> impl Iterator<Item = ParamInfo> {
         match &self.inner {
-            FuncInner::Native(native) => Some(&native.0.params),
-            FuncInner::Element(elem) => Some(elem.params()),
-            FuncInner::Closure(_) => None,
-            FuncInner::Plugin(_) => None,
+            FuncInner::Native(native) => {
+                Either::Left(native.0.params.iter().map(ParamInfo::Native))
+            }
+            FuncInner::Element(elem) => {
+                Either::Left(elem.params().iter().map(ParamInfo::Native))
+            }
+            FuncInner::Closure(closure) => {
+                Either::Right(Either::Left(closure.params().map(ParamInfo::Closure)))
+            }
+            FuncInner::Plugin(_) => {
+                Either::Right(Either::Right([ParamInfo::Plugin].into_iter()))
+            }
+            // TODO: We could take into account the known arguments.
             FuncInner::With(with) => with.0.params(),
         }
     }
 
     /// Get the parameter info for a parameter with the given name if it exist.
-    pub fn param(&self, name: &str) -> Option<&'static ParamInfo> {
-        self.params()?.iter().find(|param| param.name == name)
+    pub fn param(&self, name: &str) -> Option<ParamInfo> {
+        self.params().find(|param| param.name() == Some(name))
     }
 
     /// Get details about the function's return type.
@@ -488,6 +499,100 @@ impl From<PluginFunc> for Func {
     }
 }
 
+/// Details about a function parameter.
+#[derive(Debug, Clone)]
+pub enum ParamInfo {
+    /// Details about a parameter of a native, Rust-defined function.
+    Native(&'static NativeParamInfo),
+    /// Details about a user-defined function.
+    Closure(Spanned<ClosureParamInfo>),
+    /// A plugin's sole variadic bytes parameter.
+    Plugin,
+}
+
+impl ParamInfo {
+    /// Attempts to cast to a native parameter info.
+    pub fn to_native(&self) -> Option<&'static NativeParamInfo> {
+        match self {
+            Self::Native(native) => Some(native),
+            _ => None,
+        }
+    }
+
+    /// The parameter's name, if any.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::Native(info) => Some(info.name),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Pos { name } => name.as_deref(),
+                ClosureParamInfo::Sink { name } => name.as_deref(),
+                ClosureParamInfo::Named { name, .. } => Some(name),
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// The parameter's default value, if any.
+    pub fn default(&self) -> Option<Value> {
+        match self {
+            Self::Native(info) => info.default.map(|f| f()),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Named { default, .. } => Some(default.clone()),
+                _ => None,
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// Whether the parameter is positional (includes variadic).
+    pub fn positional(&self) -> bool {
+        match self {
+            Self::Native(info) => info.positional,
+            Self::Closure(info) => matches!(
+                &info.v,
+                ClosureParamInfo::Pos { .. } | ClosureParamInfo::Sink { .. }
+            ),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is named.
+    pub fn named(&self) -> bool {
+        match self {
+            Self::Native(info) => info.named,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Named { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is variadic.
+    pub fn variadic(&self) -> bool {
+        match self {
+            Self::Native(info) => info.variadic,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Sink { .. }),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is required.
+    pub fn required(&self) -> bool {
+        match self {
+            Self::Native(info) => info.required,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Pos { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is settable.
+    pub fn settable(&self) -> bool {
+        match self {
+            Self::Native(info) => info.settable,
+            Self::Closure(_) => false,
+            Self::Plugin => false,
+        }
+    }
+}
+
 /// A Typst function that is defined by a native Rust type that shadows a
 /// native Rust function.
 pub trait NativeFunc {
@@ -518,7 +623,7 @@ pub struct NativeFuncData {
     /// Definitions in the scope of the function.
     pub scope: DynLazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: DynLazyLock<Vec<ParamInfo>>,
+    pub params: DynLazyLock<Vec<NativeParamInfo>>,
     /// Information about the return value of this function.
     pub returns: DynLazyLock<CastInfo>,
 }
@@ -552,7 +657,7 @@ type DynLazyLock<T> = LazyLock<T, &'static (dyn Fn() -> T + Send + Sync)>;
 
 /// Describes a function parameter.
 #[derive(Debug, Clone)]
-pub struct ParamInfo {
+pub struct NativeParamInfo {
     /// The parameter's name.
     pub name: &'static str,
     /// Documentation for the parameter.
@@ -609,9 +714,57 @@ impl Closure {
             _ => None,
         }
     }
+
+    /// Returns details about this closure's parameters.
+    pub fn params(&self) -> impl Iterator<Item = Spanned<ClosureParamInfo>> {
+        let params = match self.node {
+            ClosureNode::Closure(ref node) => Some(
+                node.cast::<ast::Closure>()
+                    .expect("node to be an `ast::Closure`")
+                    .params()
+                    .children(),
+            ),
+            ClosureNode::Context(_) => None,
+        };
+
+        let mut defaults = self.defaults.iter();
+        params.into_iter().flatten().map(move |param| {
+            let info = match param {
+                ast::Param::Pos(pattern) => ClosureParamInfo::Pos {
+                    name: match pattern {
+                        ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                            Some(ident.get().clone())
+                        }
+                        _ => None,
+                    },
+                },
+                ast::Param::Spread(spread) => ClosureParamInfo::Sink {
+                    name: spread.sink_ident().map(|ident| ident.get().clone()),
+                },
+                ast::Param::Named(named) => ClosureParamInfo::Named {
+                    name: named.name().get().clone(),
+                    default: defaults.next().unwrap().clone(),
+                },
+            };
+            Spanned::new(info, param.span())
+        })
+    }
 }
 
 cast! {
     Closure,
     self => Value::Func(self.into()),
+}
+
+/// Details about a closure parameter.
+#[derive(Debug, Clone)]
+pub enum ClosureParamInfo {
+    /// A positional parameter. It might have a name, but it could also be a
+    /// pattern.
+    Pos { name: Option<EcoString> },
+    /// A sink parameter. Might have a name, but could also just be a discarding
+    /// sink.
+    Sink { name: Option<EcoString> },
+    /// A named parameter with its name and default value.
+    Named { name: EcoString, default: Value },
 }

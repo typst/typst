@@ -9,12 +9,11 @@
       /K:
         - Tag: Link
           /K:
-            - Annotation: page=0 subtype=Link
-              /Contents: "1"
             - Tag: Span
               /BaselineShift:   2.975
               /LineHeight:   5.100
               /K:
                 - Content: page=0 mcid=1
-                  /Lang: "en"
+            - Annotation: page=0 subtype=Link
+              /Contents: "1"
     - Content: page=0 mcid=2

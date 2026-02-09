@@ -1,109 +1,158 @@
 use std::fmt::Write;
-use std::ops::Range;
 use std::path::Path;
-use std::str::FromStr;
-use std::sync::LazyLock;
 
 use parking_lot::RwLock;
-use regex::{Captures, Regex};
-use rustc_hash::FxHashMap;
 use typst::diag::{SourceDiagnostic, Warned};
+use typst::foundations::{Content, Repr};
 use typst::layout::PagedDocument;
-use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
-use typst_syntax::{FileId, Lines, VirtualPath};
+use typst_syntax::Spanned;
 
-use crate::collect::{FileSize, NoteKind, Test, TestStage, TestStages, TestTarget};
+use crate::collect::{
+    FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
+    TestTarget,
+};
 use crate::logger::TestResult;
-use crate::output::{FileOutputType, HashOutputType, HashedRefs, OutputType};
-use crate::world::{TestWorld, system_path};
-use crate::{ARGS, custom, output};
-
-type OutputHashes = FxHashMap<&'static VirtualPath, HashedRefs>;
+use crate::notes::{Note, NoteKind, NoteStatus};
+use crate::output::{
+    FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
+};
+use crate::report::{Old, ReportFile};
+use crate::world::TestWorld;
+use crate::{ARGS, STORE_PATH, custom, git, output};
 
 /// Runs a single test.
 ///
 /// Returns whether the test passed.
-pub fn run(hashes: &[RwLock<OutputHashes>], test: &Test) -> TestResult {
+pub fn run(hashes: &[RwLock<HashedRefs>], test: &mut Test) -> TestResult {
     Runner::new(hashes, test).run()
 }
 
 /// Write all hashed references that have been updated
-pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<OutputHashes>]) {
-    #[allow(clippy::iter_over_hash_type)]
-    for (source_path, hashed_refs) in hashes[T::INDEX].write().iter_mut() {
-        hashed_refs.sort();
-        if !hashed_refs.changed {
-            continue;
-        }
+pub fn update_hash_refs<T: HashOutputType>(hashes: &[RwLock<HashedRefs>]) {
+    let mut hashed_refs = hashes[T::INDEX].write();
+    hashed_refs.sort();
 
-        let ref_path =
-            T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
-        if hashed_refs.is_empty() {
-            std::fs::remove_file(ref_path).ok();
-        } else {
-            std::fs::write(ref_path, hashed_refs.to_string()).unwrap();
-        }
+    let ref_path = T::OUTPUT.hash_refs_path();
+    if hashed_refs.is_empty() {
+        std::fs::remove_file(ref_path).ok();
+    } else {
+        std::fs::write(ref_path, hashed_refs.to_string()).unwrap();
     }
 }
 
 /// Write a line to a log sink, defaulting to the test's error log.
 macro_rules! log {
-    (into: $sink:expr, $($tts:tt)*) => {
+    (into: $sink:expr, $($tts:tt)*) => {{
         writeln!($sink, $($tts)*).unwrap();
-    };
-    ($runner:expr, $($tts:tt)*) => {
+    }};
+    ($runner:expr, $($tts:tt)*) => {{
         writeln!(&mut $runner.result.errors, $($tts)*).unwrap();
-    };
+    }};
 }
 
 /// Runs a single test.
 pub struct Runner<'a> {
-    hashes: &'a [RwLock<OutputHashes>],
-    test: &'a Test,
+    hashes: &'a [RwLock<HashedRefs>],
+    test: &'a mut Test,
     world: TestWorld,
-    /// In which targets the note has been seen.
-    seen: Vec<TestStages>,
     result: TestResult,
-    not_annotated: String,
+    unexpected_empty: UnexpectedEmpty,
+    unexpected_non_empty: UnexpectedNonEmpty,
+}
+
+/// The test unexpectedly produced non-empty content or output.
+///
+/// The variants are ordered by relevance from low to high.
+enum UnexpectedNonEmpty {
+    None,
+    Eval(Content),
+    Output(TestStages),
+}
+
+impl UnexpectedNonEmpty {
+    fn eval(&mut self, content: Content) {
+        match self {
+            Self::None | Self::Eval(_) => {
+                *self = Self::Eval(content);
+            }
+            Self::Output(_) => (),
+        }
+    }
+
+    fn output(&mut self, output: TestOutput) {
+        match self {
+            Self::None | Self::Eval(_) => {
+                *self = Self::Output(output.into());
+            }
+            Self::Output(stages) => {
+                *stages |= output.into();
+            }
+        }
+    }
+}
+
+/// The test unexpectedly produced empty content or output.
+///
+/// The variants are ordered by relevance from low to high.
+enum UnexpectedEmpty {
+    None,
+    Output(TestStages),
+    Eval,
+}
+
+impl UnexpectedEmpty {
+    fn eval(&mut self) {
+        *self = Self::Eval;
+    }
+
+    fn output(&mut self, output: TestOutput) {
+        match self {
+            Self::None => {
+                *self = Self::Output(output.into());
+            }
+            Self::Output(stages) => {
+                *stages |= output.into();
+            }
+            Self::Eval => (),
+        }
+    }
 }
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(hashes: &'a [RwLock<OutputHashes>], test: &'a Test) -> Self {
+    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
+        let world = TestWorld::new(test.body.source.clone());
         Self {
             hashes,
             test,
-            world: TestWorld::new(test.source.clone()),
-            seen: vec![TestStages::empty(); test.notes.len()],
-            result: TestResult {
-                errors: String::new(),
-                infos: String::new(),
-                mismatched_output: false,
-            },
-            not_annotated: String::new(),
+            world,
+            result: TestResult::default(),
+            unexpected_empty: UnexpectedEmpty::None,
+            unexpected_non_empty: UnexpectedNonEmpty::None,
         }
     }
 
     /// Run the test.
     fn run(mut self) -> TestResult {
-        if crate::ARGS.syntax {
-            log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
+        if ARGS.syntax {
+            log!(into: self.result.infos, "tree: {:#?}", self.test.body.source.root());
         }
 
-        // Only compile paged document when the paged target is specified or
-        // implied. If so, run tests for all paged outputs unless excluded by
-        // the `--stages` flag. The test attribute still control which
-        // reference outputs are saved and compared though.
-        if ARGS.should_run(self.test.attrs.stages & TestStages::PAGED_STAGES) {
-            let mut doc = self.compile::<PagedDocument>(TestTarget::Paged);
-
-            if let Some(doc) = &mut doc
-                && doc.info.title.is_none()
-            {
-                doc.info.title = Some(self.test.name.clone());
+        if let Some(content) = self.eval() {
+            if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
+                if !output::is_empty_content(&content) {
+                    self.unexpected_non_empty.eval(content.clone());
+                }
+            } else if output::is_empty_content(&content) {
+                self.unexpected_empty.eval();
             }
+        }
 
+        // Only compile paged document when the paged target is explicitly
+        // specified or required by paged outputs.
+        if self.test.should_run(TestTarget::Paged) {
+            let mut doc = self.compile::<PagedDocument>();
             let errors = custom::check(self.test, &self.world, doc.as_ref());
             if !errors.is_empty() {
                 log!(self, "custom check failed");
@@ -112,84 +161,227 @@ impl<'a> Runner<'a> {
                 }
             }
 
-            if ARGS.should_run(self.test.attrs.stages & TestStages::RENDER) {
+            if let Some(doc) = &mut doc
+                && doc.info.title.is_none()
+            {
+                doc.info.title = Some(self.test.name.clone());
+            }
+
+            if self.test.should_run(TestOutput::Render) {
                 self.run_file_test::<output::Render>(doc.as_ref());
             }
-            if ARGS.should_run(self.test.attrs.stages & TestStages::PDF_STAGES) {
+            if self.test.should_run(TestOutput::Svg) {
+                self.run_hash_test::<output::Svg>(doc.as_ref());
+            }
+            if self.test.should_run(TestOutput::Pdf) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
-                if ARGS.should_run(TestStages::PDFTAGS) {
+                if self.test.should_run(TestOutput::Pdftags) {
                     self.run_file_test::<output::Pdftags>(pdf.as_ref());
                 }
-            }
-            if ARGS.should_run(self.test.attrs.stages & TestStages::SVG) {
-                self.run_hash_test::<output::Svg>(doc.as_ref());
             }
         }
 
         // Only compile html document when the html target is specified.
-        if ARGS.should_run(self.test.attrs.stages & TestStages::HTML) {
-            let doc = self.compile::<HtmlDocument>(TestTarget::Html);
+        if self.test.should_run(TestTarget::Html) {
+            let doc = self.compile::<HtmlDocument>();
             self.run_file_test::<output::Html>(doc.as_ref());
         }
 
-        self.handle_not_emitted();
-        self.handle_not_annotated();
+        self.handle_empty();
+        self.handle_annotations();
 
         self.result
     }
 
-    /// Handle errors that weren't annotated.
-    fn handle_not_annotated(&mut self) {
-        if !self.not_annotated.is_empty() {
-            log!(self, "not annotated");
-            self.result.errors.push_str(&self.not_annotated);
+    fn handle_empty(&mut self) {
+        match &self.unexpected_non_empty {
+            UnexpectedNonEmpty::None => (),
+            UnexpectedNonEmpty::Eval(content) => {
+                log!(self, "[eval] test produced non-empty content: {}", content.repr());
+                log!(
+                    self,
+                    "  hint: consider making this a `paged empty` or `html empty` test"
+                );
+            }
+            UnexpectedNonEmpty::Output(stages) => {
+                log!(
+                    self,
+                    "[{}] test produced non-empty output for [{stages}]",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider removing the `empty` attribute");
+            }
+        }
+
+        match self.unexpected_empty {
+            UnexpectedEmpty::None => (),
+            UnexpectedEmpty::Eval => {
+                log!(
+                    self,
+                    "[{}] test produced empty content",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider making this an `eval` test");
+            }
+            UnexpectedEmpty::Output(stages) => {
+                log!(
+                    self,
+                    "[{}] test produced empty output for [{stages}]",
+                    self.test.attrs.implied_stages()
+                );
+                log!(self, "  hint: consider adding the `empty` attribute");
+            }
         }
     }
 
-    /// Handle notes that weren't handled before.
-    fn handle_not_emitted(&mut self) {
-        let mut first = true;
-        for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            let mut missing_stages = TestStages::empty();
-            let required_stages = ARGS.stages() & self.test.attrs.stages;
+    /// Handle error/warning annotation issues.
+    fn handle_annotations(&mut self) {
+        let mut needs_update = false;
+        let mut inconsistent_stages = false;
+        let mut consistent_set = TestStages::all();
 
-            // If a test stage requiring the paged target has been specified,
-            // require the annotated diagnostics to be present in any paged
-            // stage. For example if `pdftags` is specified and an error is
-            // emitted in the pdf stage, that is ok.
-            if !(required_stages & TestStages::PAGED_STAGES).is_empty()
-                && (seen & TestStages::PAGED_STAGES).is_empty()
-            {
-                missing_stages |= TestStages::PAGED;
-            }
-            if !(required_stages & TestStages::HTML).is_empty()
-                && (seen & TestStages::HTML).is_empty()
-            {
-                missing_stages |= TestStages::HTML;
-            }
+        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+            // Set `needs_update` in one place for clarity.
+            needs_update |= match &status {
+                NoteStatus::Annotated { .. } => seen.is_empty(),
+                NoteStatus::Updated { .. } => true,
+                NoteStatus::Emitted => true,
+            };
 
-            if missing_stages.is_empty() {
+            if seen.is_empty() {
+                let NoteStatus::Annotated { pos } = &status else { unreachable!() };
+                if !ARGS.update {
+                    log!(self, "not emitted");
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
                 continue;
             }
-            let note_range = self.format_range(note.file, &note.range);
-            if first {
-                log!(self, "not emitted [{missing_stages}]");
-                first = false;
+
+            // Even if a diagnostic is emitted and annotated, it may only have
+            // been emitted in a subset of the ran stages. This may be an error,
+            // but only if that subset isn't "covered" by each ran stage.
+            // For example, if we have a `paged html` test that sees an error
+            // only in `eval`, this is fine because `eval` is covered by both
+            // `paged` and `html`. But we do not support errors occuring in
+            // only one of `paged` or `html` when both are given.
+            let ran_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
+            // Whether the seen stages are implied by all ran stages.
+            let fully_covered =
+                ran_stages.iter().all(|s| s.with_required().intersects(*seen));
+            if !fully_covered {
+                consistent_set &= *seen;
+                inconsistent_stages = true;
+                let siblings = ran_stages & seen.with_siblings();
+                log!(self, "only emitted in [{seen}] but expected in [{siblings}]");
             }
-            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos,);
+
+            if ARGS.update && fully_covered {
+                continue;
+            }
+
+            // Log errors with the annotated vs. emitted diagnostics.
+            match &status {
+                NoteStatus::Emitted => {
+                    log!(self, "not annotated");
+                    // The `#` ensures the range includes line numbers.
+                    log!(self, "  {kind}: {range:#} {message}");
+                }
+                NoteStatus::Annotated { pos } | NoteStatus::Updated { pos, .. }
+                    if !fully_covered =>
+                {
+                    // Just print the annotation if not fully covered.
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
+                NoteStatus::Annotated { .. } => {} // Annotated and emitted!
+                NoteStatus::Updated { pos, annotated } => {
+                    let (anot_kind, anot_range, anot_message) = &**annotated;
+                    // Kind is wrong.
+                    if anot_kind != kind {
+                        log!(self, "mismatched error kind ({pos}):");
+                        log!(self, "  annotated | `{anot_kind}`");
+                        log!(self, "  emitted   | `{kind}`");
+                    }
+                    // Range is wrong.
+                    if let Some((anot_r, emit_r)) = anot_range.diff(range) {
+                        log!(self, "mismatched range ({pos}):");
+                        if anot_message == message {
+                            log!(self, "  message   | {anot_kind}: {anot_message}");
+                        }
+                        let pad = 10.max(anot_r.len()).max(emit_r.len());
+                        let anot_text = anot_range.text();
+                        log!(self, "  annotated | {anot_r:<pad$} | {}", anot_text);
+                        log!(self, "  emitted   | {emit_r:<pad$} | {}", range.text());
+                    }
+                    // Message is wrong.
+                    if anot_message != message {
+                        log!(self, "mismatched message ({pos}):");
+                        log!(self, "  annotated | {anot_message}");
+                        log!(self, "  emitted   | {message}");
+                    }
+                }
+            }
+        }
+
+        if needs_update {
+            if ARGS.update && inconsistent_stages {
+                // We can't update notes if they were emitted inconsistently.
+                log!(self, "unable to update test annotations");
+            } else if ARGS.update {
+                let (new_body, note_stats) = self.test.body.write_seen_annotations();
+                self.result.updated_body = Some(new_body);
+
+                let stats = note_stats
+                    .into_iter()
+                    .filter(|(_, count)| *count > 0)
+                    .map(|(verb, count)| format!("{verb} {count}"))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                // We won't actually update until we've finished running every
+                // test, but it's not really worth explaining.
+                log!(into: self.result.infos, "updated test annotations ({stats})");
+            } else {
+                self.result.mismatched_output = true;
+            }
+        }
+
+        if inconsistent_stages {
+            log!(self, "errors/warnings were emitted differently across multiple stages");
+            if consistent_set.is_empty() {
+                log!(self, "consider moving to multiple tests with different stages");
+            } else {
+                // This will probably be Eval if anything.
+                log!(self, "consider changing the test to only {consistent_set}");
+            }
         }
     }
 
-    /// Compile a document with the specified target.
-    fn compile<D: Document>(&mut self, target: TestTarget) -> Option<D> {
-        let Warned { output, warnings } = typst::compile::<D>(&self.world);
+    /// Evaluate document content, this is the target agnostic part of compilation.
+    fn eval(&mut self) -> Option<Content> {
+        let Warned { output, warnings } = eval::eval(&self.world);
         for warning in &warnings {
-            self.check_diagnostic(NoteKind::Warning, warning, target);
+            self.check_diagnostic(NoteKind::Warning, warning, TestEval);
         }
 
         if let Err(errors) = &output {
             for error in errors.iter() {
-                self.check_diagnostic(NoteKind::Error, error, target);
+                self.check_diagnostic(NoteKind::Error, error, TestEval);
+            }
+        }
+
+        output.ok()
+    }
+
+    /// Compile a document with the specified target.
+    fn compile<D: TestDocument>(&mut self) -> Option<D> {
+        let Warned { output, warnings } = typst::compile::<D>(&self.world);
+        for warning in &warnings {
+            self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
+        }
+
+        if let Err(errors) = &output {
+            for error in errors.iter() {
+                self.check_diagnostic(NoteKind::Error, error, D::TARGET);
             }
         }
 
@@ -201,56 +393,88 @@ impl<'a> Runner<'a> {
         &mut self,
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
-        let output = self.run_test::<T>(doc);
-        if self.test.attrs.should_check_ref(T::OUTPUT) {
-            self.check_file_ref::<T>(&output)
+        let live = self.run_test::<T>(doc);
+        {
+            let output = doc.zip(live.as_ref());
+            let live_data = self.save_live::<T>(output);
+            if self.test.should_check(T::OUTPUT) {
+                let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
+                self.check_file_ref::<T>(output)
+            }
         }
-        output.map(|(_, live)| live)
+        live
     }
 
-    /// Run test for an output format that produces a hashed reference.
+    /// sun test for an output format that produces a hashed reference.
     fn run_hash_test<T: HashOutputType>(
         &mut self,
         doc: Option<&T::Doc>,
     ) -> Option<T::Live> {
-        let output = self.run_test::<T>(doc);
-        if self.test.attrs.should_check_ref(T::OUTPUT) {
-            self.check_hash_ref::<T>(&output)
+        let live = self.run_test::<T>(doc);
+        {
+            let output = doc.zip(live.as_ref());
+            let live_data = self.save_live::<T>(output);
+            if self.test.should_check(T::OUTPUT) {
+                let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
+                self.check_hash_ref::<T>(output);
+            }
         }
-        output.map(|(_, live)| live)
+        live
     }
 
     /// Run test for a specific output format, and save the live output to disk.
-    fn run_test<'d, T: OutputType>(
-        &mut self,
-        doc: Option<&'d T::Doc>,
-    ) -> Option<(&'d T::Doc, T::Live)> {
+    fn run_test<T: OutputType>(&mut self, doc: Option<&T::Doc>) -> Option<T::Live> {
+        let doc = doc?;
+        let live = T::make_live(self.test, doc);
+
+        if let Err(errors) = &live {
+            if errors.is_empty() {
+                log!(self, "no document, but also no errors");
+            }
+
+            for error in errors.iter() {
+                self.check_diagnostic(NoteKind::Error, error, T::OUTPUT);
+            }
+        }
+
+        live.ok()
+    }
+
+    fn save_live<'d, T: OutputType>(
+        &self,
+        output: Option<(&'d T::Doc, &'d T::Live)>,
+    ) -> Option<impl AsRef<[u8]> + use<'d, T>> {
         let live_path = T::OUTPUT.live_path(&self.test.name);
 
-        let output = doc.and_then(|doc| match T::make_live(self.test, doc) {
-            Ok(live) => Some((doc, live)),
-            Err(errors) => {
-                if errors.is_empty() {
-                    log!(self, "no document, but also no errors");
+        // Convert live output, so it can be written to disk.
+        let live_data = output.map(|(doc, live)| T::save_live(doc, live));
+
+        match (output, &live_data) {
+            (Some((doc, live)), Some(live_data)) if !T::is_empty(doc, live) => {
+                match T::OUTPUT.kind() {
+                    TestOutputKind::File => {
+                        std::fs::write(&live_path, live_data).unwrap();
+                    }
+                    TestOutputKind::Hash(_) => {
+                        // Write the file to a path of its hash.
+                        let hash = T::make_hash(live);
+                        let hash_path = T::OUTPUT.hash_path(hash, &self.test.name);
+                        std::fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
+                        std::fs::write(&hash_path, live_data).unwrap();
+
+                        // Create a link in the store directory.
+                        std::fs::remove_file(&live_path).ok();
+
+                        let relative_path = hash_path.strip_prefix(STORE_PATH).unwrap();
+                        let link_path = Path::new("..").join(relative_path);
+
+                        #[cfg(target_family = "unix")]
+                        std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
+                        #[cfg(target_family = "windows")]
+                        std::os::windows::fs::symlink_file(&link_path, &live_path)
+                            .unwrap();
+                    }
                 }
-
-                for error in errors.iter() {
-                    self.check_diagnostic(NoteKind::Error, error, T::OUTPUT);
-                }
-                None
-            }
-        });
-
-        let skippable = match &output {
-            Some((doc, live)) => T::is_skippable(doc, live).unwrap_or(true),
-            None => false,
-        };
-
-        match &output {
-            Some((doc, live)) if !skippable => {
-                // Convert and save live version.
-                let live_data = T::save_live(doc, live);
-                std::fs::write(&live_path, live_data).unwrap();
             }
             _ => {
                 // Clean live output.
@@ -258,86 +482,86 @@ impl<'a> Runner<'a> {
             }
         }
 
-        output
+        live_data
     }
 
     /// Check that the document output matches the existing file reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_file_ref<T: FileOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
+    fn check_file_ref<T: FileOutputType>(
+        &mut self,
+        output: Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
         let ref_path = T::OUTPUT.file_ref_path(&self.test.name);
 
-        let old_ref_data = std::fs::read(&ref_path);
-        let Some((doc, live)) = output else {
-            if old_ref_data.is_ok() {
-                log!(self, "missing document");
-                log!(self, "  ref       | {}", ref_path.display());
-            }
-            return;
-        };
+        let old_ref_data = read_ref_data(&ref_path);
 
-        let skippable = match T::is_skippable(doc, live) {
-            Ok(skippable) => skippable,
+        let live = match self.expect_output::<T>(&output) {
+            Ok(non_empty) => match non_empty.and(output) {
+                Some((_, live, _)) => live,
+                None => return,
+            },
             Err(()) => {
-                log!(self, "document has zero pages");
+                self.result.mismatched_output = true;
+
+                if ARGS.gen_report() {
+                    let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
+                    let new = output.map(|(_, _, data)| (live_path, data));
+                    let file_report = make_report::<T>(old, new);
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
                 return;
             }
         };
 
-        // Tests without visible output and no reference output don't need to be
-        // compared.
-        if skippable && old_ref_data.is_err() {
+        // Happy path: output is ok and doesn't need to be updated.
+        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
             return;
         }
 
-        // Compare against reference output if available.
-        // Test that is ok doesn't need to be updated.
-        if old_ref_data.as_ref().is_ok_and(|r| T::matches(r, live)) {
-            return;
-        }
-
-        if crate::ARGS.update {
-            if skippable {
-                std::fs::remove_file(&ref_path).unwrap();
+        let new_ref_data = T::save_ref(live);
+        let new_ref_data = new_ref_data.as_ref();
+        if ARGS.update {
+            if !self.test.attrs.large && new_ref_data.len() > crate::REF_LIMIT {
+                log!(self, "reference output would exceed maximum size");
+                log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
+                log!(self, "  size      | {}", FileSize(new_ref_data.len()));
                 log!(
-                    into: self.result.infos,
-                    "removed reference output ({})", ref_path.display()
+                    self,
+                    "please try to minimize the size of the test (smaller pages, less text, etc.)"
                 );
-            } else {
-                let new_ref_data = T::make_ref(live);
-                let new_ref_data = new_ref_data.as_ref();
-                if !self.test.attrs.large && new_ref_data.len() > crate::REF_LIMIT {
-                    log!(self, "reference output would exceed maximum size");
-                    log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
-                    log!(self, "  size      | {}", FileSize(new_ref_data.len()));
-                    log!(
-                        self,
-                        "please try to minimize the size of the test (smaller pages, less text, etc.)"
-                    );
-                    log!(
-                        self,
-                        "if you think the test cannot be reasonably minimized, mark it as `large`"
-                    );
-                    return;
-                }
-                std::fs::write(&ref_path, new_ref_data).unwrap();
                 log!(
-                    into: self.result.infos,
-                    "updated reference output ({}, {})",
-                    ref_path.display(),
-                    FileSize(new_ref_data.len()),
+                    self,
+                    "if you think the test cannot be reasonably minimized, mark it as `large`"
                 );
+                return;
             }
+            std::fs::write(&ref_path, new_ref_data).unwrap();
+            log!(
+                into: self.result.infos,
+                "updated reference output ({}, {})",
+                ref_path.display(),
+                FileSize(new_ref_data.len()),
+            );
         } else {
             self.result.mismatched_output = true;
-            if old_ref_data.is_ok() {
+            let old = if let Some(old_ref_data) = old_ref_data {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
                 log!(self, "  ref       | {}", ref_path.display());
+
+                Some((ref_path, Old::Data(old_ref_data)))
             } else {
                 log!(self, "missing reference output");
                 log!(self, "  live      | {}", live_path.display());
+
+                None
+            };
+
+            if ARGS.gen_report() {
+                let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
+                self.result.add_report(self.test.name.clone(), file_report);
             }
         }
     }
@@ -345,87 +569,128 @@ impl<'a> Runner<'a> {
     /// Check that the document output matches the existing hashed reference.
     /// On mismatch, (over-)write or remove the reference if the `--update` flag
     /// is provided.
-    fn check_hash_ref<T: HashOutputType>(&mut self, output: &Option<(&T::Doc, T::Live)>) {
+    fn check_hash_ref<T: HashOutputType>(
+        &mut self,
+        output: Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) {
         let live_path = T::OUTPUT.live_path(&self.test.name);
+        let old_hash = self.hashes[T::INDEX].read().get(&self.test.name);
 
-        let source_path = self.test.source.id().get().vpath();
-        let old_ref_hash =
-            if let Some(hashed_refs) = self.hashes[T::INDEX].read().get(source_path) {
-                hashed_refs.get(&self.test.name)
-            } else {
-                let ref_path =
-                    T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
-                let string = std::fs::read_to_string(&ref_path).unwrap_or_default();
-                let hashed_refs = HashedRefs::from_str(&string)
-                    .inspect_err(|e| {
-                        log!(self, "error parsing hashed refs: {e}");
-                    })
-                    .unwrap_or_default();
-
-                let mut hashes = self.hashes[T::INDEX].write();
-                let entry = hashes.entry(source_path).insert_entry(hashed_refs);
-                entry.get().get(&self.test.name)
-            };
-
-        let Some((doc, live)) = output else {
-            if old_ref_hash.is_some() {
-                log!(self, "missing document");
-                log!(self, "  ref       | {}", self.test.name);
-            }
-            return;
-        };
-
-        let skippable = match T::is_skippable(doc, live) {
-            Ok(skippable) => skippable,
+        let (live, live_data) = match self.expect_output::<T>(&output) {
+            Ok(non_empty) => match non_empty.and(output) {
+                Some((_, live, data)) => (live, data),
+                None => return,
+            },
             Err(()) => {
-                log!(self, "document has zero pages");
+                self.result.mismatched_output = true;
+
+                if ARGS.gen_report() {
+                    let old = old_hash.map(|old_hash| {
+                        let old_hash_path =
+                            T::OUTPUT.hash_path(old_hash, &self.test.name);
+                        let old_live_data = self.read_old_live_data::<T>(old_hash);
+                        (old_hash_path, old_live_data)
+                    });
+
+                    let new = output.map(|(_, live, data)| {
+                        let new_hash = T::make_hash(live);
+                        let new_hash_path =
+                            T::OUTPUT.hash_path(new_hash, &self.test.name);
+                        (new_hash_path, data)
+                    });
+
+                    let file_report = make_report::<T>(old, new);
+                    self.result.add_report(self.test.name.clone(), file_report);
+                }
+
                 return;
             }
         };
 
-        // Tests without visible output and no reference output don't need to be
-        // compared.
-        if skippable && old_ref_hash.is_none() {
+        // Happy path: output is ok and doesn't need to be updated.
+        let new_hash = T::make_hash(live);
+        if old_hash.as_ref().is_some_and(|h| *h == new_hash) {
             return;
         }
 
-        // Compare against reference output if available.
-        // Test that is ok doesn't need to be updated.
-        let new_ref_hash = T::make_hash(live);
-        if old_ref_hash.as_ref().is_some_and(|h| *h == new_ref_hash) {
-            return;
-        }
-
-        if crate::ARGS.update {
-            let mut hashes = self.hashes[T::INDEX].write();
-            let hashed_refs = hashes.get_mut(source_path).unwrap();
-            let ref_path =
-                T::OUTPUT.hashed_ref_path(Path::new(source_path.get_without_slash()));
-            if skippable {
-                hashed_refs.remove(&self.test.name);
-                log!(
-                    into: self.result.infos,
-                    "removed reference hash ({})", ref_path.display()
-                );
-            } else {
-                hashed_refs.update(self.test.name.clone(), new_ref_hash);
-                log!(
-                    into: self.result.infos,
-                    "updated reference hash ({}, {new_ref_hash})",
-                    ref_path.display(),
-                );
-            }
+        if ARGS.update {
+            let mut hashed_refs = self.hashes[T::INDEX].write();
+            let ref_path = T::OUTPUT.hash_refs_path();
+            hashed_refs.update(self.test.name.clone(), new_hash);
+            log!(
+                into: self.result.infos,
+                "updated reference hash ({}, {new_hash})",
+                ref_path.display(),
+            );
         } else {
             self.result.mismatched_output = true;
-            if let Some(old_ref_hash) = old_ref_hash {
+            let old = if let Some(old_hash) = old_hash {
                 log!(self, "mismatched output");
                 log!(self, "  live      | {}", live_path.display());
-                log!(self, "  old       | {old_ref_hash}");
-                log!(self, "  new       | {new_ref_hash}");
+                log!(self, "  old       | {old_hash}");
+                log!(self, "  new       | {new_hash}");
+
+                let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+                let old_live_data = self.read_old_live_data::<T>(old_hash);
+                Some((old_hash_path, old_live_data))
             } else {
-                log!(self, "missing reference output");
+                log!(self, "missing reference hash");
                 log!(self, "  live      | {}", live_path.display());
+                log!(self, "  new       | {new_hash}");
+
+                None
+            };
+
+            if ARGS.gen_report() {
+                let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
+                let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
+                self.result.add_report(self.test.name.clone(), file_report);
             }
+        }
+    }
+
+    /// Check if the output matches what the attributes and test annotations
+    /// expect.
+    /// The `Ok` case returns whether an expected output is present and
+    /// should be compared to a reference.
+    fn expect_output<T: OutputType>(
+        &mut self,
+        output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
+    ) -> Result<Option<()>, ()> {
+        let Some((doc, live, _)) = output else {
+            if !self.test.body.has_error() {
+                log!(self, "missing output [{}]", T::OUTPUT);
+                return Err(());
+            }
+            return Ok(None);
+        };
+
+        if self.test.attrs.empty {
+            if !T::is_empty(doc, live) {
+                self.unexpected_non_empty.output(T::OUTPUT);
+                return Err(());
+            }
+            return Ok(None);
+        } else if T::is_empty(doc, live) {
+            self.unexpected_empty.output(T::OUTPUT);
+            return Err(());
+        }
+
+        Ok(Some(()))
+    }
+
+    fn read_old_live_data<T: HashOutputType>(
+        &mut self,
+        old_hash: HashedRef,
+    ) -> Old<Vec<u8>> {
+        let old_hash_path = T::OUTPUT.hash_path(old_hash, &self.test.name);
+
+        let old_live_data = std::fs::read(&old_hash_path).inspect_err(|_| {
+            log!(self, "  missing old live output {}", old_hash_path.display());
+        });
+        match old_live_data {
+            Ok(data) => Old::Data(data),
+            Err(_) => Old::Missing(old_hash),
         }
     }
 
@@ -441,144 +706,101 @@ impl<'a> Runner<'a> {
         if diag.message == "html export is under active development and incomplete" {
             return;
         }
+        let stage = stage.into();
 
-        let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range, &diag.message, stage);
+        let emitted_diag =
+            Note::emitted(kind, stage, &diag.message, diag.span, &self.world);
+        self.test.body.mark_seen_or_update(emitted_diag);
 
         // Check hints.
-        for hint in &diag.hints {
+        for Spanned { v: hint, span } in &diag.hints {
             // HACK: This hint only gets emitted in debug builds, so filter it
             // out to make the test suite also pass for release builds.
-            if hint.v == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
+            if hint == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
                 continue;
             }
 
-            let span = hint.span.or(diag.span);
-            let range = self.world.range(span);
-            self.validate_note(NoteKind::Hint, span.id(), range, &hint.v, stage);
+            let emitted_hint = Note::emitted(
+                NoteKind::Hint,
+                stage,
+                hint,
+                span.or(diag.span),
+                &self.world,
+            );
+            self.test.body.mark_seen_or_update(emitted_hint);
         }
     }
+}
 
-    /// Try to find a matching note for the given `kind`, `range`, and
-    /// `message`.
-    ///
-    /// - If found, marks it as seen and returns it.
-    /// - If none was found, emits a "Not annotated" error and returns nothing.
-    fn validate_note(
-        &mut self,
-        kind: NoteKind,
-        file: Option<FileId>,
-        range: Option<Range<usize>>,
-        message: &str,
-        stage: impl TestStage,
-    ) {
-        // HACK: Replace backslashes path sepators with slashes for cross
-        // platform reproducible error messages.
-        static RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new("\\((.*) (at|in) (.+)\\)").unwrap());
-        let message = RE.replace(message, |caps: &Captures| {
-            let path = caps[3].replace('\\', "/");
-            format!("({} {} {})", &caps[1], &caps[2], path)
+// Convenience wrapper that handles both owned and borrowed data.
+fn make_report<T: OutputType>(
+    a: Option<(impl AsRef<Path>, Old<impl AsRef<[u8]>>)>,
+    b: Option<(impl AsRef<Path>, impl AsRef<[u8]>)>,
+) -> ReportFile {
+    let a = (a.as_ref())
+        .map(|(path, data)| (path.as_ref(), data.as_ref().map(|d| d.as_ref())));
+    let b = b.as_ref().map(|(path, data)| (path.as_ref(), data.as_ref()));
+    T::make_report(a, b.ok_or(()))
+}
+
+/// Read a reference file either from a specific git base revision, or from
+/// the file system.
+pub fn read_ref_data(ref_path: &Path) -> Option<Vec<u8>> {
+    match &ARGS.base_revision {
+        Some(rev) => git::read_file(rev, ref_path),
+        None => std::fs::read(ref_path).ok(),
+    }
+}
+
+/// A bunch of copy pasted code from the `typst` crate, so we don't have to
+/// change the public API.
+mod eval {
+    use comemo::{Track, Tracked};
+    use ecow::EcoVec;
+    use rustc_hash::FxHashSet;
+    use typst::diag::{SourceDiagnostic, SourceResult, Warned};
+    use typst::engine::{Route, Sink, Traced};
+    use typst::foundations::Content;
+    use typst::{ROUTINES, World};
+
+    pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
+        let mut sink = Sink::new();
+        let output = eval_impl(world.track(), Traced::default().track(), &mut sink)
+            .map_err(deduplicate);
+
+        Warned { output, warnings: sink.warnings() }
+    }
+
+    fn eval_impl(
+        world: Tracked<dyn World + '_>,
+        traced: Tracked<Traced>,
+        sink: &mut Sink,
+    ) -> SourceResult<Content> {
+        // Fetch the main source file once.
+        let main = world.main();
+        let main = world.source(main).expect("valid main file");
+
+        // First evaluate the main source file into a module.
+        let content = typst_eval::eval(
+            &ROUTINES,
+            world,
+            traced,
+            sink.track_mut(),
+            Route::default().track(),
+            &main,
+        )?
+        .content();
+
+        Ok(content)
+    }
+
+    /// Deduplicate diagnostics.
+    fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
+        let mut unique = FxHashSet::default();
+        diags.retain(|diag| {
+            let hash = typst_utils::hash128(&(&diag.span, &diag.message));
+            unique.insert(hash)
         });
-
-        // Try to find perfect match.
-        let file = file.unwrap_or(self.test.source.id());
-        if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
-                && note.kind == kind
-                && note.range == range
-                && note.message == message
-                && note.file == file
-        }) {
-            self.seen[i] |= stage.into();
-            return;
-        }
-
-        // Try to find closely matching annotation. If the note has the same
-        // range or message, it's most likely the one we're interested in.
-        let Some((i, note)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
-                && note.kind == kind
-                && (note.range == range || note.message == message)
-        }) else {
-            // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(file, &range);
-            log!(into: self.not_annotated, "  {kind} [{stage}]: {diag_range} {}", message);
-            return;
-        };
-
-        // Mark this annotation as visited and return it.
-        self.seen[i] |= stage.into();
-
-        // Range is wrong.
-        if range != note.range {
-            let note_range = self.format_range(note.file, &note.range);
-            let note_text = self.text_for_range(note.file, &note.range);
-            let diag_range = self.format_range(file, &range);
-            let diag_text = self.text_for_range(file, &range);
-            log!(self, "mismatched range [{stage}] ({}):", note.pos);
-            log!(self, "  message   | {}", note.message);
-            log!(self, "  annotated | {note_range:<9} | {note_text}");
-            log!(self, "  emitted   | {diag_range:<9} | {diag_text}");
-        }
-
-        // Message is wrong.
-        if message != note.message {
-            log!(self, "mismatched message [{stage}] ({}):", note.pos);
-            log!(self, "  annotated | {}", note.message);
-            log!(self, "  emitted   | {message}");
-        }
-    }
-
-    /// Display the text for a range.
-    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No text".into() };
-        if range.is_empty() {
-            return "(empty)".into();
-        }
-
-        let lines = self.lookup(file);
-        lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
-    }
-
-    /// Display a byte range as a line:column range.
-    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No range".into() };
-
-        let mut preamble = String::new();
-        if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
-        }
-
-        if range.start == range.end {
-            format!("{preamble}{}", self.format_pos(file, range.start))
-        } else {
-            format!(
-                "{preamble}{}-{}",
-                self.format_pos(file, range.start),
-                self.format_pos(file, range.end)
-            )
-        }
-    }
-
-    /// Display a position as a line:column pair.
-    fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.lookup(file);
-
-        let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
-        let Some((line, col)) = res else {
-            return "oob".into();
-        };
-
-        if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
-    }
-
-    #[track_caller]
-    fn lookup(&self, file: FileId) -> Lines<String> {
-        if self.test.source.id() == file {
-            self.test.source.lines().clone()
-        } else {
-            self.world.lookup(file)
-        }
+        diags
     }
 }

@@ -1,6 +1,6 @@
 // Test integrated numbering patterns.
 
---- numbering paged ---
+--- numbering eval ---
 #let t(pat: "1", step: 1, ..vals) = {
   let num = 0
   for val in vals.pos() {

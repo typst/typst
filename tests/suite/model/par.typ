@@ -125,7 +125,7 @@ But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
---- par-spacing-context paged ---
+--- par-spacing-context paged empty ---
 #set par(spacing: 10pt)
 #context test(par.spacing, 10pt)
 
@@ -255,7 +255,7 @@ Welcome \ here. Does this work well?
   World
 ]
 
---- par-empty-metadata paged ---
+--- par-empty-metadata paged empty ---
 // Check that metadata still works in a zero length paragraph.
 #block(height: 0pt)[#""#metadata(false)<hi>]
 #context test(query(<hi>).first().value, false)
@@ -317,7 +317,7 @@ A
 #set par(justify: true)
 #box($k in NN_0$)
 
---- issue-4770-par-tag-at-start paged ---
+--- issue-4770-par-tag-at-start paged empty ---
 #h(0pt) #box[] <a>
 
 #context test(query(<a>).len(), 1)
@@ -336,7 +336,7 @@ A
   The par function has a constructor and justification.
 ]
 
---- show-par-set-block-hint paged ---
+--- show-par-set-block-hint paged empty ---
 // Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
 // Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
 // Hint: 2-36 write `set par(spacing: ..)` instead

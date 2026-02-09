@@ -1,4 +1,4 @@
---- path paged ---
+--- path eval ---
 #test(
   repr(path("hi/there.txt")),
   "path(\"/tests/suite/foundations/hi/there.txt\")",

@@ -202,6 +202,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63044e1ae8e69f3b5a92c736ca6269b8d12fa7efe39bf34ddb06d102cf0e2cab"
+dependencies = [
+ "memchr",
+ "regex-automata",
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2504,6 +2515,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+dependencies = [
+ "bstr",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "simplecss"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2724,6 +2745,10 @@ dependencies = [
  "rustix",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "test-wrapper"
+version = "0.14.2"
 
 [[package]]
 name = "thin-vec"
@@ -2955,13 +2980,10 @@ dependencies = [
  "ecow",
  "fs_extra",
  "memchr",
- "notify",
  "open",
  "parking_lot",
  "pathdiff",
  "rayon",
- "rustc-hash",
- "same-file",
  "self-replace",
  "semver",
  "serde",
@@ -2971,7 +2993,6 @@ dependencies = [
  "sigpipe",
  "tar",
  "tempfile",
- "tiny_http",
  "toml",
  "typst",
  "typst-dev-assets",
@@ -2984,7 +3005,6 @@ dependencies = [
  "typst-svg",
  "typst-timing",
  "typst-utils",
- "ureq",
  "xz2",
  "zip",
 ]
@@ -3092,6 +3112,7 @@ dependencies = [
 name = "typst-kit"
 version = "0.14.2"
 dependencies = [
+ "codespan-reporting",
  "dirs",
  "ecow",
  "env_proxy",
@@ -3099,11 +3120,16 @@ dependencies = [
  "flate2",
  "fontdb",
  "native-tls",
+ "notify",
  "once_cell",
  "openssl",
+ "parking_lot",
+ "rustc-hash",
+ "same-file",
  "serde",
  "serde_json",
  "tar",
+ "tiny_http",
  "typst-assets",
  "typst-library",
  "typst-syntax",
@@ -3129,6 +3155,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo 0.12.0",
+ "libm",
  "memchr",
  "rustc-hash",
  "rustybuzz",
@@ -3160,6 +3187,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "either",
  "flate2",
  "fontdb",
  "glidesort",
@@ -3172,6 +3200,7 @@ dependencies = [
  "indexmap",
  "kamadak-exif",
  "kurbo 0.12.0",
+ "libm",
  "lipsum",
  "memchr",
  "palette",
@@ -3270,6 +3299,7 @@ dependencies = [
  "comemo",
  "hayro",
  "image",
+ "libm",
  "pixglyph",
  "resvg",
  "tiny-skia",
@@ -3325,12 +3355,16 @@ dependencies = [
 name = "typst-tests"
 version = "0.14.2"
 dependencies = [
+ "base64",
  "bitflags 2.9.1",
  "clap",
  "comemo",
  "ecow",
+ "hayro",
+ "hayro-svg",
  "hayro-syntax",
  "indexmap",
+ "open",
  "oxipng",
  "parking_lot",
  "rayon",
@@ -3338,11 +3372,16 @@ dependencies = [
  "roxmltree",
  "rustc-hash",
  "serde_yaml",
+ "similar",
+ "smallvec",
+ "time",
  "tiny-skia",
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-eval",
  "typst-html",
+ "typst-kit",
  "typst-library",
  "typst-pdf",
  "typst-render",
@@ -3367,6 +3406,7 @@ dependencies = [
 name = "typst-utils"
 version = "0.14.2"
 dependencies = [
+ "libm",
  "once_cell",
  "portable-atomic",
  "rayon",

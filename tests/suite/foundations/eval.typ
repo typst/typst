@@ -1,4 +1,4 @@
---- eval paged ---
+--- eval eval ---
 // Test the eval function.
 #test(eval("1 + 2"), 3)
 #test(eval("1 + x", scope: (x: 3)), 4)
@@ -43,7 +43,7 @@ Blue #move(dy: -0.15em)[🌊]
 _Tiger!_
 ```
 
---- eval-path-resolve-relative paged ---
+--- eval-path-resolve-relative eval ---
 // Test relative path.
 #test(eval(`"HELLO" in read("./eval.typ")`.text), true)
 
@@ -53,7 +53,7 @@ _Tiger!_
 
 $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 
---- issue-6067-eval-warnings paged ---
+--- issue-6067-eval-warnings paged empty ---
 // Test that eval shows warnings from the executed code.
 // Warning: 7-11 no text within stars
 // Hint: 7-11 using multiple consecutive stars (e.g. **) has no additional effect

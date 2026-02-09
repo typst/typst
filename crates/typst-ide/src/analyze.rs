@@ -47,6 +47,33 @@ pub fn analyze_expr(
     eco_vec![(val, None)]
 }
 
+/// Tries to determine a single value for an expression with tracing, falling
+/// back to a standard library definition, if applicable.
+///
+/// This gives us best-effort results in dead code.
+pub fn analyze_expr_with_fallback(
+    world: &dyn IdeWorld,
+    node: &LinkedNode,
+) -> Option<Value> {
+    if let Some((value, _)) = analyze_expr(world, node).into_iter().next() {
+        return Some(value);
+    }
+
+    let globals = crate::utils::globals(world, node);
+    let value = match node.cast::<ast::Expr>()? {
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
+        ast::Expr::FieldAccess(access) => match access.target() {
+            ast::Expr::Ident(target) => {
+                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
+            }
+            _ => return None,
+        },
+        _ => return None,
+    };
+
+    Some(value.clone())
+}
+
 /// Tries to load a module from the given `source` node.
 pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value> {
     // Use span in the node for resolving imports with relative paths.

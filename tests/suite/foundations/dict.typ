@@ -12,7 +12,7 @@
 #test(dict.normal, 1)
 #test(dict.at("spacy key"), 2)
 
---- dict-fields paged ---
+--- dict-fields eval ---
 // Test field on dictionary.
 #let dict = (nothing: "ness", hello: "world")
 #test(dict.nothing, "ness")
@@ -52,7 +52,7 @@
 // Error: 17 expected expression
 #(:1 b:"", true:)
 
---- spread-into-dict paged ---
+--- spread-into-dict eval ---
 #{
   let x = (a: 1)
   let y = (b: 2)
@@ -65,7 +65,7 @@
 // Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
 
---- dict-at-lvalue paged ---
+--- dict-at-lvalue eval ---
 // Test lvalue and rvalue access.
 #{
   let dict = (a: 1, "b b": 1)
@@ -86,12 +86,12 @@
   let x = dict.at("c")
 }
 
---- dict-at-default paged ---
+--- dict-at-default eval ---
 // Test default value.
 #test((a: 1, b: 2).at("b", default: 3), 2)
 #test((a: 1, b: 2).at("c", default: 3), 3)
 
---- dict-insert paged ---
+--- dict-insert eval ---
 // Test insert.
 #{
   let dict = (a: 1, b: 2)
@@ -101,7 +101,7 @@
   test(dict, (a: 1, b: 3, c: 5))
 }
 
---- dict-remove-with-default paged ---
+--- dict-remove-with-default eval ---
 // Test remove with default value.
 #{
   let dict = (a: 1, b: 2)
@@ -122,7 +122,7 @@
   dict.b += 1
 }
 
---- dict-basic-methods paged ---
+--- dict-basic-methods eval ---
 // Test dictionary methods.
 #let dict = (a: 3, c: 2, b: 1)
 #test("c" in dict, true)
@@ -134,18 +134,18 @@
 #test("c" in dict, false)
 #test(dict, (a: 3, b: 1))
 
---- dict-from-module paged ---
+--- dict-from-module eval ---
 // Test dictionary constructor
 #test(type(dictionary(sys).at("version")), version)
 #test(dictionary(sys).at("no-crash", default: none), none)
 
---- dict-remove-order paged ---
+--- dict-remove-order eval ---
 // Test that removal keeps order.
 #let dict = (a: 1, b: 2, c: 3, d: 4)
 #test(dict.remove("b"), 2)
 #test(dict.keys(), ("a", "c", "d"))
 
---- dict-insert-order paged ---
+--- dict-insert-order eval ---
 #let dict = (a: 1, b: 2)
 #let rhs = (c: 3, a: 4)
 
@@ -198,7 +198,7 @@
   dict.nonfunc()
 }
 
---- dict-dynamic-duplicate-key paged ---
+--- dict-dynamic-duplicate-key eval ---
 #let a = "hello"
 #let b = "world"
 #let c = "value"
@@ -209,7 +209,7 @@
 #test((hello: 1, (a): 2), ("hello": 2))
 #test((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
 
---- dict-filter paged ---
+--- dict-filter eval ---
 // Test the `filter` method.
 #test((:).filter(calc.even), (:))
 #test((a: 0, b: 1, c: 2).filter(v => v != 0), (b: 1, c: 2))
@@ -220,7 +220,7 @@
 // Error: 23-28 cannot subtract integer from string
 #(a: "a").filter(v => v - 2)
 
---- dict-map paged ---
+--- dict-map eval ---
 // Test the `map` method.
 #test(().map(x => x * 2), ())
 #test((a: 2, b: 3).map(x => x * 2), (a: 4, b: 6))
@@ -249,7 +249,7 @@
   dict.at("b")
 }
 
---- issue-3154-dict-at-missing-default paged ---
+--- issue-3154-dict-at-missing-default eval ---
 #{
   let dict = (a: 1)
   test(dict.at("b", default: 0), 0)
@@ -278,7 +278,7 @@
   dict.b
 }
 
---- issue-3154-dict-syntax-missing-mutable paged ---
+--- issue-3154-dict-syntax-missing-mutable eval ---
 #{
   let dict = (a: 1)
   dict.b = 9

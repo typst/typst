@@ -108,7 +108,7 @@ I
   text(fill: t, "Hello")
 })
 
---- text-font-types paged ---
+--- text-font-types paged empty ---
 #let ubuntu = (name: "Ubuntu", covers: regex("[\u{20}-\u{FFFF}]"))
 #set text(font: ubuntu)
 #set text(font: (ubuntu, "Ubuntu"))
@@ -182,7 +182,7 @@ The number 123.
 // Hint: 17-65 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))
 
---- text-font-covers-reflection paged ---
+--- text-font-covers-reflection paged empty ---
 // reflect "latin-in-cjk" covers
 #set text(font: (name: "Ubuntu", covers: "latin-in-cjk"))
 #context test(text.font, (name: "ubuntu", covers: "latin-in-cjk"))

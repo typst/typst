@@ -4,7 +4,6 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
-  TYPST_TESTS_EXTENDED: true
   PKG_CONFIG_i686-unknown-linux-gnu: /usr/bin/i686-linux-gnu-pkgconf
 
 permissions:
@@ -37,7 +36,13 @@ jobs:
             bits: 32
     runs-on: ${{ matrix.os }}
     steps:
+      - if: matrix.bits == 32
+        run: echo 'CARGO_BUILD_TARGET=i686-unknown-linux-gnu' >> $GITHUB_ENV
+
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          # Also include a list of recent commits, to regenerate missing live output.
+          fetch-depth: 100
       - if: startsWith(matrix.os, 'ubuntu-') && matrix.bits == 32
         run: |
           sudo dpkg --add-architecture i386
@@ -49,26 +54,34 @@ jobs:
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: ${{ matrix.bits }}
-      - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
-      - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
-      - name: Upload rendered test output
+      - run: cargo test --workspace --no-run
+      - run: cargo test --workspace --no-fail-fast
+        env:
+          # Only generate annotations from one matrix configuration.
+          USE_GITHUB_ANNOTATIONS: ${{ startsWith(matrix.os, 'ubuntu-') && matrix.bits == 64 }}
+
+      - name: Generate missing live output and regenerate the test report
+        if: always()
+        run: cargo testit regen --rerun ${{ (job.status == 'success' && github.event_name == 'pull_request') && format('--base-revision={0}', github.event.pull_request.base.sha) || '' }}
+
+      - name: Upload test store
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: tests-rendered-${{ matrix.os }}-${{ matrix.bits }}
-          path: tests/store/render/**
+          name: tests-store-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          path: |
+            tests/store/by-hash
+            tests/store/render
+            tests/store/pdftags
+            tests/store/html
           retention-days: 3
-      - name: Update test artifacts
-        if: failure()
-        run: |
-          cargo test --workspace --test tests ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }} -- --update
-          echo 'updated_artifacts=1' >> "$GITHUB_ENV"
-      - name: Upload updated reference output (for use if the test changes are desired)
-        if: failure() && env.updated_artifacts
+
+      - name: Upload test report
+        if: failure() || (success() && github.event_name == 'pull_request')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: tests-updated-${{ matrix.os }}-${{ matrix.bits }}
-          path: tests/ref/**
+          name: tests-report-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          path: tests/store/report.html
           retention-days: 3
 
   checks:

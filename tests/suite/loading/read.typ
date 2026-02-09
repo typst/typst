@@ -1,4 +1,4 @@
---- read-text paged ---
+--- read-text eval ---
 // Test reading plain text files
 #let data = read("/assets/text/hello.txt")
 #test(data, "Hello, world!\n")
@@ -17,8 +17,8 @@
 // Hint: 7-29 you can adjust the project root with the `--root` argument
 #read("../../../../file.txt")
 
---- read-through-package paged ---
-#import "@local/reader:0.1.0"
+--- read-through-package eval ---
+#import "@test/reader:0.1.0"
 
 // Reads from the package.
 #test(read(reader.hello-path), "Hello from package\n")
@@ -28,7 +28,7 @@
 #test(reader.read-it(path("/assets/text/hello.txt")), "Hello, world!\n")
 
 --- read-from-project-in-package-fails paged ---
-#import "@local/reader:0.1.0"
+#import "@test/reader:0.1.0"
 
 // Error: "tests/packages/reader-0.1.0/src/lib.typ" 2:24-2:25 file not found (searched at tests/packages/reader-0.1.0/assets/text/hello.txt)
 #reader.read-it("/assets/text/hello.txt")
