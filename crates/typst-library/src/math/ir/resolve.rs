@@ -324,7 +324,7 @@ fn resolve_attach<'a, 'v, 'e>(
 /// This is a mutable stack-allocated linked list used for attachment merging.
 ///
 /// Consider: `attach(attach(attach(a, t: 1), b: 2), t: 3, b: 4)`.
-/// We would like this to become `attach(attach(b, t: 1, b: 2), t: 3, b: 4)`.
+/// We would like this to become `attach(attach(a, t: 1, b: 2), t: 3, b: 4)`.
 ///
 /// However if we only consider attachments in adjacent levels, we won't merge
 /// `b:4` inward because `b:2` is already present (but we will merge `t:3` in).
@@ -337,8 +337,8 @@ fn resolve_attach<'a, 'v, 'e>(
 /// relatively straightforward.
 ///
 /// Unfortunately, this does require the complication of interior mutability,
-/// i.e. the `Cell` type. See the linked section of "Learning Rust With Entirely
-/// Too Many Linked Lists" for more explanation:
+/// i.e. the `Cell` type, due to lifetime variance. See the linked section of
+/// "Learning Rust With Entirely Too Many Linked Lists" for more explanation:
 /// https://rust-unofficial.github.io/too-many-lists/infinity-stack-allocated.html
 enum AttachmentList<'a> {
     Node {
@@ -411,12 +411,13 @@ fn resolve_inner_attach<'a, 'v, 'e>(
         [t, b, tl, tr, bl, br]
     };
 
-    // Resolve the base and recursively merge outer attachments inwards.
-    let mut base_elem = &elem.base;
     // Extract from a nested EquationElem.
+    let mut base_elem = &elem.base;
     while let Some(equation) = base_elem.to_packed::<EquationElem>() {
         base_elem = &equation.body;
     }
+
+    // Resolve the base and recursively merge outer attachments inwards.
     let base = if let Some(base_elem) = base_elem.to_packed::<AttachElem>() {
         resolve_inner_attach(base_elem, &attachments, t_inside_tr, ctx, styles)?
     } else {
