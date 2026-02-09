@@ -24,7 +24,7 @@ use typst_library::layout::{
 use typst_library::math::ir::{
     BoxItem, ExternalItem, MathItem, MathKind, MathProperties, resolve_equation,
 };
-use typst_library::math::{EquationElem, families};
+use typst_library::math::{EquationElem, VarElem, families};
 use typst_library::model::ParElem;
 use typst_library::routines::Arenas;
 use typst_library::text::{Font, FontFlags, TextEdgeBounds, TextElem, variant};
@@ -55,18 +55,22 @@ pub fn layout_equation_inline(
     assert!(!elem.block.get(styles));
 
     let span = elem.span();
-    let font = get_font(engine.world, styles, span)?;
+
+    let mut locator = locator.split();
+
+    let arenas = Arenas::default();
+
+    // Truly awful hack.
+    let font_styles = get_var_style_chain(engine, &mut locator, &arenas, styles)?;
+    let font = get_font(engine.world, font_styles, span)?;
     warn_non_math_font(&font, engine, span);
 
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
-    let arenas = Arenas::default();
     let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
+    let mut ctx = MathContext::new(engine, &mut locator, &arenas, region, font.clone());
     let mut items = if !item.is_multiline() {
         ctx.layout_into_fragments(&item, styles)?.into_par_items()
     } else {
@@ -112,18 +116,23 @@ pub fn layout_equation_block(
     assert!(elem.block.get(styles));
 
     let span = elem.span();
-    let font = get_font(engine.world, styles, span)?;
+
+    let mut locator = locator.split();
+
+    let arenas = Arenas::default();
+
+    // Truly awful hack.
+    let font_styles = get_var_style_chain(engine, &mut locator, &arenas, styles)?;
+    let font = get_font(engine.world, font_styles, span)?;
     warn_non_math_font(&font, engine, span);
 
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
-    let arenas = Arenas::default();
     let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
+    let mut ctx =
+        MathContext::new(engine, &mut locator, &arenas, regions.base(), font.clone());
     let full_equation_builder = ctx
         .layout_into_fragments(&item, styles)?
         .multiline_frame_builder(styles);
@@ -360,6 +369,7 @@ struct MathContext<'a, 'v, 'e> {
     engine: &'v mut Engine<'e>,
     locator: &'v mut SplitLocator<'a>,
     region: Region,
+    arenas: &'a Arenas,
     // Mutable.
     fonts_stack: Vec<Font>,
     fragments: Vec<MathFragment>,
@@ -370,6 +380,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
     fn new(
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
+        arenas: &'a Arenas,
         base: Size,
         font: Font,
     ) -> Self {
@@ -377,6 +388,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             engine,
             locator,
             region: Region::new(base, Axes::splat(false)),
+            arenas,
             fonts_stack: vec![font],
             fragments: vec![],
         }
@@ -607,6 +619,25 @@ fn get_font(
         })
         .ok_or("no font could be found")
         .at(span)
+}
+
+fn get_var_style_chain<'a>(
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    arenas: &'a Arenas,
+    styles: StyleChain<'a>,
+) -> SourceResult<StyleChain<'a>> {
+    let var = arenas.content.alloc(VarElem::new(TextElem::packed(" ")).pack());
+    let pairs = (engine.routines.realize)(
+        typst_library::routines::RealizationKind::Math,
+        engine,
+        locator,
+        arenas,
+        var,
+        styles,
+    )?;
+    let (_, font_styles) = pairs.first().unwrap();
+    Ok(*font_styles)
 }
 
 /// Check if the top-level base font has a MATH table.

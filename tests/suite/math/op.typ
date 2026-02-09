@@ -39,7 +39,7 @@ $ colim_(x -> 0) inline(colim_(x -> 0)) $
 
 --- math-op-set-font paged ---
 // Test setting font.
-#show math.equation: set text(weight: "regular")
+#show math.var: set text(weight: "regular")
 #let lig = math.op("fi")
 #let test = $sech(x) mod_(x -> oo) lig_1(X)$
 #test
