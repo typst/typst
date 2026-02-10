@@ -1730,6 +1730,8 @@ d1ec9b4e74e627ff220c997e676b0dd2 tiling-spacing-zero
 a8e4c9234e67e7efb01714392f6a1020 tiling-stroke-relative-parent
 32a35fc91ce489ef8e85d777d704dcf8 tiling-text
 f3dc8bd7853bee4509a10494a4c93859 tiling-text-fill
+1804c6fece7420334b1dfd407f642eae tiling-with-different-size
+b6505fef6e5f17756522d78baa4103f0 tiling-with-different-spacing
 774e1191dd8b538dd4a247bda509752b title
 e1a28140e308d246294a7eb22fdf20ff title-show-set
 35487ad39e1312c3f2b9f42f6d306537 title-with-body
