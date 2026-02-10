@@ -246,7 +246,9 @@ fn configuration(
 /// inline layout that isn't a semantic paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ParSituation {
-    /// The paragraph is the first thing in the flow.
+    /// The paragraph is the first child in the flow (i.e. in the container or
+    /// page run) or right after a column break. For such paragraphs, we may
+    /// want to avoid applying first line indent (depending on configuration).
     First,
     /// The paragraph follows another paragraph.
     Consecutive,

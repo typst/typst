@@ -1338,6 +1338,7 @@ dc75173639f8bc8d33aca73bdafefc98 par-first-line-indent-all
 47662d08d750c765853e83b944826c50 par-first-line-indent-all-enum
 0a3307f7a31d77a5d4e9b148304b7555 par-first-line-indent-all-list
 d90cb42979db5cff7e46ef432c6feb60 par-first-line-indent-all-terms
+2b18db37d8abaf4dd2935e4b1b9d472c par-first-line-indent-columns
 af68509ff8cd974c0099b1c17365e87d par-hanging-indent
 6bf006358d56562890ffcaf58787dc30 par-hanging-indent-manual-linebreak
 d0a54239f56b51f69438f1188cce0eb6 par-hanging-indent-rtl

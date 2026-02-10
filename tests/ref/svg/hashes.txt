@@ -1338,6 +1338,7 @@ a930710a8c15af3be797d788c7f9da20 pagebreak-weak-place
 dfcd7b08c9b9cc12a17bea22a97a3118 par-first-line-indent-all-enum
 7665b5ee23e0613958c9fb29ca73f2cd par-first-line-indent-all-list
 1da2039696cf41b288a85ed1a76593a4 par-first-line-indent-all-terms
+db40c1211a453c47871bcda92df2f91c par-first-line-indent-columns
 0626993ceb5d1fcc6784900356bffd7a par-hanging-indent
 606ed205f48c379648331f70b8e696c5 par-hanging-indent-manual-linebreak
 f5ab8b0ad0ae569a01be3285db50fd30 par-hanging-indent-rtl
