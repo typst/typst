@@ -1,21 +1,39 @@
-use std::cell::Cell;
+use std::cell::{Cell, LazyCell};
+use std::sync::LazyLock;
 
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_syntax::{Span, is_newline};
-use typst_utils::SliceExt;
+use typst_utils::{LazyHash, SliceExt};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::item::*;
+use super::multiline::split_at_align;
+use super::preprocess::{PreprocessMode, preprocess};
 use crate::diag::{SourceResult, bail, warning};
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, Resolve, StyleChain, Styles, SymbolElem};
+use crate::foundations::{
+    Content, Packed, Resolve, Style, StyleChain, Styles, SymbolElem,
+};
 use crate::introspection::{SplitLocator, TagElem};
 use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spacing};
 use crate::math::*;
 use crate::routines::{Arenas, RealizationKind};
-use crate::text::{LinebreakElem, SpaceElem, TextElem, is_default_ignorable};
+use crate::text::{
+    BottomEdge, BottomEdgeMetric, LinebreakElem, SpaceElem, TextElem, TopEdge,
+    TopEdgeMetric, is_default_ignorable,
+};
 use crate::visualize::FixedStroke;
+
+/// Base styles chained to the style chain for text items.
+static TEXT_BASE_LOCAL_STYLES: LazyLock<[LazyHash<Style>; 3]> = LazyLock::new(|| {
+    [
+        TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
+        TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+        TextElem::overhang.set(false),
+    ]
+    .map(|p| p.wrap())
+});
 
 /// The math IR builder.
 pub(crate) struct MathResolver<'a, 'v, 'e> {
@@ -84,11 +102,18 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
     ) -> SourceResult<MathItem<'a>> {
         let start = self.resolve_into_items(elem, styles)?;
         let len = self.items.len() - start;
-        Ok(if len == 1 {
-            self.items.pop().unwrap()
-        } else {
-            GroupItem::create(self.items.drain(start..), false, styles)
-        })
+
+        // Don't emit standalone linebreaks or alignment points.
+        if len == 1
+            && !matches!(
+                self.items.last().unwrap(),
+                MathItem::Align | MathItem::Linebreak
+            )
+        {
+            return Ok(self.items.pop().unwrap());
+        }
+
+        Ok(MathItem::group(self.items.drain(start..), false, styles))
     }
 
     /// Resolve arbitrary content.
@@ -221,16 +246,31 @@ fn resolve_text<'a, 'v, 'e>(
     // Disable auto-italic.
     let italic = styles.get(EquationElem::italic).or(Some(false));
 
-    let num = elem.text.chars().all(|c| c.is_ascii_digit() || c == '.');
-    let multiline = elem.text.contains(is_newline);
+    // Create item with correct styles and properties.
+    let local_styles =
+        LazyCell::new(|| ctx.chain_styles(styles, TEXT_BASE_LOCAL_STYLES.clone()));
+    let create_item = |text: &str| {
+        let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
+        let styled_text: EcoString = text
+            .chars()
+            .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
+            .collect();
+        if num {
+            NumberItem::create(styled_text, styles, elem.span())
+        } else {
+            TextItem::create(styled_text, *local_styles, elem.span())
+        }
+    };
 
-    let styled_text: EcoString = elem
-        .text
-        .chars()
-        .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
-        .collect();
-
-    ctx.push(TextItem::create(styled_text, !multiline && !num, styles, elem.span()));
+    let text = elem.text.strip_suffix(is_newline).unwrap_or(&elem.text);
+    let item = if !text.contains(is_newline) {
+        create_item(text)
+    } else {
+        let rows: Vec<_> =
+            text.split(is_newline).map(|line| vec![create_item(line)]).collect();
+        MultilineItem::create(rows, styles).with_multiline_centering()
+    };
+    ctx.push(item);
     Ok(())
 }
 
@@ -333,7 +373,7 @@ fn resolve_attach<'a, 'v, 'e>(
 /// Unfortunately, this does require the complication of interior mutability,
 /// i.e. the `Cell` type, due to lifetime variance. See the linked section of
 /// "Learning Rust With Entirely Too Many Linked Lists" for more explanation:
-/// https://rust-unofficial.github.io/too-many-lists/infinity-stack-allocated.html
+/// <https://rust-unofficial.github.io/too-many-lists/infinity-stack-allocated.html>
 enum AttachmentList<'a> {
     Node {
         /// We use `Option<Content>` instead of just `Content` to allow for the
@@ -848,17 +888,82 @@ fn resolve_lr<'a, 'v, 'e>(
 
     let open = opening_exists.then(|| inner_items.remove(0));
     let close = closing_exists.then(|| inner_items.pop().unwrap());
-    let item = FencedItem::create(
-        open,
-        close,
-        GroupItem::create(inner_items, closing_exists, styles),
-        true,
-        styles,
-        elem.span(),
-    );
 
-    ctx.items.insert(start + start_idx, item);
+    let preprocessed = preprocess(inner_items, closing_exists, PreprocessMode::Group);
+
+    let insert_pos = start + start_idx;
+    if preprocessed.has_linebreaks {
+        let items =
+            expand_multiline_fence(open, close, preprocessed.items, styles, elem.span());
+        ctx.items.splice(insert_pos..insert_pos, items);
+    } else {
+        let body = GroupItem::create(preprocessed.items, styles);
+        let item = FencedItem::create(open, close, body, true, styles, elem.span());
+        ctx.items.insert(insert_pos, item);
+    }
+
     Ok(())
+}
+
+/// Splits a fenced item's body by alignment points and linebreaks into
+/// segments.
+fn expand_multiline_fence<'a>(
+    mut open: Option<MathItem<'a>>,
+    mut close: Option<MathItem<'a>>,
+    items: Vec<MathItem<'a>>,
+    styles: StyleChain<'a>,
+    span: Span,
+) -> Vec<MathItem<'a>> {
+    let mut bodies = Vec::new();
+    let mut row_lengths = Vec::new();
+
+    let mut row = Vec::new();
+    for item in items {
+        if matches!(item, MathItem::Linebreak) {
+            let cols = split_at_align(row.drain(..));
+            row_lengths.push(cols.len());
+            bodies.extend(cols.into_iter().map(|cell| MathItem::wrap(cell, styles)));
+        } else {
+            row.push(item);
+        }
+    }
+    let cols = split_at_align(row);
+    row_lengths.push(cols.len());
+    bodies.extend(cols.into_iter().map(|cell| MathItem::wrap(cell, styles)));
+
+    let ncells: usize = row_lengths.iter().sum();
+    let nrows = row_lengths.len();
+    let sizing = SharedFenceSizing::new(bodies);
+
+    // Build fenced items interleaved with alignment points and linebreaks.
+    let mut result = Vec::with_capacity((2 * ncells).saturating_sub(1));
+    let mut body_idx = 0;
+    for (row_idx, &ncols) in row_lengths.iter().enumerate() {
+        if row_idx > 0 {
+            result.push(MathItem::Linebreak);
+        }
+
+        for col_idx in 0..ncols {
+            if col_idx > 0 {
+                result.push(MathItem::Align);
+            }
+
+            let is_first = row_idx == 0 && col_idx == 0;
+            let is_last = row_idx + 1 == nrows && col_idx + 1 == ncols;
+            result.push(FencedItem::create(
+                open.take_if(|_| is_first),
+                close.take_if(|_| is_last),
+                FencedBody::shared(body_idx, sizing.clone()),
+                true,
+                styles,
+                span,
+            ));
+
+            body_idx += 1;
+        }
+    }
+
+    result
 }
 
 /// Resolves a middle element (in a left/right element).
@@ -1000,31 +1105,41 @@ fn resolve_cells<'a, 'v, 'e>(
     children: &str,
 ) -> SourceResult<MathItem<'a>> {
     let cell_styles = ctx.chain_styles(styles, style_for_denominator(styles));
-    let cells = rows
-        .iter()
-        .map(|row| {
-            row.iter()
-                .map(|cell| {
-                    let cell_span = cell.span();
-                    let cell = ctx.resolve_into_item(cell, cell_styles)?;
 
-                    // We ignore linebreaks in the cells as we can't differentiate
-                    // alignment points for the whole body from ones for a specific
-                    // cell, and multiline cells don't quite make sense at the moment.
-                    if cell.is_multiline() {
-                        ctx.engine.sink.warn(warning!(
-                           cell_span,
-                           "linebreaks are ignored in {}", children;
-                           hint: "use commas instead to separate each line";
-                        ));
-                    }
-                    Ok(cell)
-                })
-                .collect::<SourceResult<_>>()
-        })
-        .collect::<SourceResult<_>>();
+    let mut cells = Vec::with_capacity(rows.len());
+    for row in rows {
+        let mut resolved_row = Vec::with_capacity(row.len());
+        for cell in row {
+            let start = ctx.resolve_into_items(cell, cell_styles)?;
+            let preprocessed =
+                preprocess(ctx.items.drain(start..), false, PreprocessMode::TableCell);
 
-    Ok(TableItem::create(cells?, gap, augment, align, alternator, styles, span))
+            // We strip linebreaks in the cells as we can't differentiate
+            // alignment points for the whole body from ones for a specific
+            // cell, and multiline cells don't quite make sense at the moment.
+            if preprocessed.had_linebreaks {
+                ctx.engine.sink.warn(warning!(
+                   cell.span(),
+                   "linebreaks are ignored in {}", children;
+                   hint: "use commas instead to separate each line";
+                ));
+            }
+
+            // Create the cell's sub-columns by splitting at alignment points.
+            let sub_columns: TableCell<'_> = if preprocessed.has_align {
+                let cols = split_at_align(preprocessed.items);
+                cols.into_iter().map(|col| MathItem::wrap(col, cell_styles)).collect()
+            } else {
+                vec![MathItem::wrap(preprocessed.items, cell_styles)]
+            };
+
+            resolved_row.push(sub_columns);
+        }
+
+        cells.push(resolved_row);
+    }
+
+    Ok(TableItem::create(cells, gap, augment, align, alternator, styles, span))
 }
 
 /// Resolves the delimiters around the body of a vector, matrix, or cases.
@@ -1100,6 +1215,7 @@ fn resolve_root<'a, 'v, 'e>(
     let radicand = {
         let cramped = ctx.store_styles(style_cramped());
         ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
+            .with_multiline_centering()
     };
     let index = {
         let sscript =

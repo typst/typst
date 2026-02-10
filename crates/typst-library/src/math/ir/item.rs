@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 use std::cell::Cell;
-use std::ops::MulAssign;
+use std::ops::{Deref, MulAssign};
+use std::rc::Rc;
 
 use ecow::EcoString;
 use typst_syntax::Span;
@@ -8,7 +9,9 @@ use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::preprocess::preprocess;
+use super::multiline::build_multiline;
+use super::preprocess::{PreprocessMode, preprocess};
+use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::Tag;
 use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
@@ -16,6 +19,9 @@ use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
 };
 use crate::visualize::FixedStroke;
+
+/// A cell in a table, split at alignment points into sub-columns.
+pub(crate) type TableCell<'a> = Vec<MathItem<'a>>;
 
 /// The top-level item in the math IR.
 #[derive(Debug)]
@@ -35,12 +41,55 @@ pub enum MathItem<'a> {
 }
 
 impl<'a> From<MathComponent<'a>> for MathItem<'a> {
-    fn from(comp: MathComponent<'a>) -> MathItem<'a> {
-        MathItem::Component(comp)
+    fn from(comp: MathComponent<'a>) -> Self {
+        Self::Component(comp)
     }
 }
 
 impl<'a> MathItem<'a> {
+    /// Groups the given items together, returning a multiline item if there
+    /// are linebreaks and a group item otherwise.
+    ///
+    /// Use this function instead of [`Self::wrap`] when the items are "raw"
+    /// and have not had any processing done to them.
+    ///
+    /// The items are preprocessed to calculate spacing between them. The
+    /// `closing_exists` parameter indicates whether a closing delimiter
+    /// will follow the group of items.
+    pub(crate) fn group<I>(
+        items: I,
+        closing_exists: bool,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a>
+    where
+        I: IntoIterator<Item = MathItem<'a>>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let preprocessed = preprocess(items, closing_exists, PreprocessMode::Group);
+        if preprocessed.has_linebreaks {
+            build_multiline(preprocessed.items, styles)
+        } else {
+            GroupItem::create(preprocessed.items, styles)
+        }
+    }
+
+    /// Wraps the given items into a group item, or returns the single item if
+    /// there is only one.
+    ///
+    /// Use this function instead of [`Self::group`] when the items you have
+    /// have already been processed and contain no alignment points or
+    /// linebreaks.
+    pub(crate) fn wrap(
+        mut items: Vec<MathItem<'a>>,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        if items.len() == 1 {
+            items.pop().unwrap()
+        } else {
+            GroupItem::create(items, styles)
+        }
+    }
+
     /// Returns the limit placement configuration for this item.
     pub(crate) fn limits(&self) -> Limits {
         match self {
@@ -148,52 +197,12 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Whether this item contains multiple lines.
+    /// Whether this item is a multiline item.
     pub fn is_multiline(&self) -> bool {
-        let items = self.as_slice();
-        let len = items.len();
-        for (i, item) in items.iter().enumerate() {
-            let is_last = i == len - 1;
-
-            match item {
-                // If it's a linebreak and not the last item, it counts.
-                MathItem::Linebreak if !is_last => return true,
-                MathItem::Component(MathComponent {
-                    kind: MathKind::Fenced(fence),
-                    ..
-                }) => {
-                    // Check for linebreak in the middle of the body, e.g.
-                    // `(a \ b)`.
-                    if fence.body.is_multiline() {
-                        return true;
-                    }
-
-                    // The above check leaves out `(a \ )` and `(a \`, in the
-                    // former case it should always count, but in the latter
-                    // case it should only count if this isn't the last item.
-                    if fence.body.ends_with_linebreak()
-                        && (fence.close.is_some() || !is_last)
-                    {
-                        return true;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        false
-    }
-
-    /// Whether this item ends with a line break.
-    fn ends_with_linebreak(&self) -> bool {
-        match self.as_slice().last() {
-            Some(MathItem::Linebreak) => true,
-            Some(MathItem::Component(MathComponent {
-                kind: MathKind::Fenced(fence),
-                ..
-            })) if fence.close.is_none() => fence.body.ends_with_linebreak(),
-            _ => false,
-        }
+        matches!(
+            self,
+            MathItem::Component(MathComponent { kind: MathKind::Multiline(_), .. })
+        )
     }
 
     /// Returns the inner items if this is a group, or a slice containing
@@ -234,6 +243,16 @@ impl<'a> MathItem<'a> {
         if let Self::Component(comp) = self {
             comp.props.rspace = rspace;
         }
+    }
+
+    /// If this is a multiline item, sets the centered field to true.
+    pub(crate) fn with_multiline_centering(mut self) -> Self {
+        if let Self::Component(comp) = &mut self
+            && let MathKind::Multiline(multiline) = &mut comp.kind
+        {
+            multiline.centered = true;
+        }
+        self
     }
 
     /// Sets whether this glyph has been stretched as a middle delimiter.
@@ -314,11 +333,13 @@ pub struct MathComponent<'a> {
 
 /// The specific kind of a layoutable math item.
 ///
-/// Recursive or large variants are boxed (allocated in a bump arena).
+/// Recursive or large variants are boxed.
 #[derive(Debug)]
 pub enum MathKind<'a> {
     /// A group of math items laid out horizontally.
     Group(GroupItem<'a>),
+    /// A multiline equation with items pre-split into rows and columns.
+    Multiline(MultilineItem<'a>),
     /// A radical (square root or nth root).
     Radical(Box<RadicalItem<'a>>),
     /// An item enclosed in delimiters.
@@ -341,6 +362,8 @@ pub enum MathKind<'a> {
     Primes(Box<PrimesItem<'a>>),
     /// A text string.
     Text(TextItem),
+    /// A number.
+    Number(NumberItem),
     /// A single glyph (grapheme cluster).
     Glyph(Box<GlyphItem>),
     /// Inline content.
@@ -359,7 +382,7 @@ pub struct MathProperties {
     /// The current math size.
     pub size: MathSize,
     /// Whether this item should be ignored for spacing calculations.
-    pub ignorant: bool,
+    pub(crate) ignorant: bool,
     /// Whether this item should have explicit spaces around it.
     pub(crate) spaced: bool,
     /// The amount of spacing to the left of this item.
@@ -371,52 +394,31 @@ pub struct MathProperties {
 }
 
 impl MathProperties {
+    /// Creates properties with an explicit class, avoiding the style lookup.
+    fn new(styles: StyleChain, class: MathClass) -> MathProperties {
+        Self {
+            limits: Limits::Never,
+            class,
+            size: styles.get(EquationElem::size),
+            ignorant: false,
+            spaced: false,
+            lspace: None,
+            rspace: None,
+            span: Span::detached(),
+        }
+    }
+
     /// Creates default properties from the given styles.
     ///
     /// This gets both the math class and size from the styles.
     pub fn default(styles: StyleChain) -> MathProperties {
-        Self {
-            limits: Limits::Never,
-            class: styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
+        Self::new(styles, styles.get(EquationElem::class).unwrap_or(MathClass::Normal))
     }
 
-    /// Creates properties with an explicit class, avoiding the style lookup.
-    fn with_explicit_class(styles: StyleChain, class: MathClass) -> MathProperties {
-        Self {
-            limits: Limits::Never,
-            class,
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
-    }
-
-    /// Creates properties with explicit limits and class, avoiding style lookups.
-    fn with_explicit_limits_and_class(
-        styles: StyleChain,
-        limits: Limits,
-        class: MathClass,
-    ) -> MathProperties {
-        Self {
-            limits,
-            class,
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
+    /// Sets how attachments should be positioned for this item.
+    fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
     }
 
     /// Sets whether this item should be ignored for spacing calculations.
@@ -446,22 +448,40 @@ pub struct GroupItem<'a> {
 }
 
 impl<'a> GroupItem<'a> {
-    /// Creates a new group item from the given items.
-    ///
-    /// The items are preprocessed to calculate spacing between them. The
-    /// `closing_exists` parameter indicates whether a closing delimiter
-    /// will follow the group of items.
-    pub(crate) fn create<I>(
-        items: I,
-        closing_exists: bool,
+    /// Creates a new group item.
+    pub(crate) fn create(
+        items: Vec<MathItem<'a>>,
         styles: StyleChain<'a>,
-    ) -> MathItem<'a>
-    where
-        I: IntoIterator<Item = MathItem<'a>>,
-        I::IntoIter: ExactSizeIterator,
-    {
+    ) -> MathItem<'a> {
         let props = MathProperties::default(styles);
-        let kind = MathKind::Group(Self { items: preprocess(items, closing_exists) });
+        let kind = MathKind::Group(Self { items });
+        MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// A multiline equation with items pre-split into rows and columns.
+#[derive(Debug)]
+pub struct MultilineItem<'a> {
+    /// The cells, organized by row.
+    ///
+    /// Rows correspond to linebreaks in the source. Columns within each row
+    /// correspond to alignment points. All rows are padded to have the same
+    /// number of columns.
+    pub rows: Vec<Vec<MathItem<'a>>>,
+    /// Whether the resulting frame should be aligned on the math axis.
+    ///
+    /// Only used in paged export.
+    pub centered: bool,
+}
+
+impl<'a> MultilineItem<'a> {
+    /// Creates a new multiline item.
+    pub(crate) fn create(
+        rows: Vec<Vec<MathItem<'a>>>,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        let kind = MathKind::Multiline(Self { rows, centered: false });
+        let props = MathProperties::default(styles);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -502,7 +522,7 @@ pub struct FencedItem<'a> {
     /// The optional closing delimiter.
     pub close: Option<MathItem<'a>>,
     /// The item between the delimiters.
-    pub body: MathItem<'a>,
+    pub body: FencedBody<'a>,
     /// How the target height for the delimiters should be calculated.
     ///
     /// If true, the height for each body item is two times the maximum of its
@@ -518,12 +538,13 @@ impl<'a> FencedItem<'a> {
     pub(crate) fn create(
         open: Option<MathItem<'a>>,
         close: Option<MathItem<'a>>,
-        body: MathItem<'a>,
+        body: impl Into<FencedBody<'a>>,
         balanced: bool,
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let kind = MathKind::Fenced(Box::new(Self { open, close, body, balanced }));
+        let kind =
+            MathKind::Fenced(Box::new(Self { open, close, body: body.into(), balanced }));
         let props = MathProperties::default(styles).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
@@ -591,7 +612,7 @@ impl<'a> SkewedFractionItem<'a> {
 #[derive(Debug)]
 pub struct TableItem<'a> {
     /// The cells of the table, organized by row.
-    pub cells: Vec<Vec<MathItem<'a>>>,
+    pub cells: Vec<Vec<TableCell<'a>>>,
     /// The gap between rows and columns.
     pub gap: Axes<Rel<Abs>>,
     /// Optional augmentation lines to draw.
@@ -605,7 +626,7 @@ pub struct TableItem<'a> {
 impl<'a> TableItem<'a> {
     /// Creates a new table item.
     pub(crate) fn create(
-        cells: Vec<Vec<MathItem<'a>>>,
+        cells: Vec<Vec<TableCell<'a>>>,
         gap: Axes<Rel<Abs>>,
         augment: Option<Augment<Abs>>,
         align: FixedAlignment,
@@ -653,7 +674,7 @@ impl<'a> ScriptsItem<'a> {
         bottom_right: Option<MathItem<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::with_explicit_class(styles, base.class());
+        let props = MathProperties::new(styles, base.class());
         let kind = MathKind::Scripts(Box::new(Self {
             base,
             top,
@@ -693,7 +714,7 @@ impl<'a> AccentItem<'a> {
         exact_frame_width: bool,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::with_explicit_class(styles, base.class());
+        let props = MathProperties::new(styles, base.class());
         let kind = MathKind::Accent(Box::new(Self {
             base,
             accent,
@@ -735,8 +756,7 @@ impl<'a> CancelItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props =
-            MathProperties::with_explicit_class(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class()).with_span(span);
         let kind = MathKind::Cancel(Box::new(Self {
             base,
             length,
@@ -768,8 +788,7 @@ impl<'a> LineItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props =
-            MathProperties::with_explicit_class(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class()).with_span(span);
         let kind = MathKind::Line(Box::new(Self { base, position }));
         MathComponent { kind, props, styles }.into()
     }
@@ -810,23 +829,36 @@ pub struct TextItem {
 impl TextItem {
     /// Creates a new text item.
     ///
-    /// The `line` parameter indicates that the text does not contain a newline
-    /// and is not a number. If true, then the resulting item is spaced and has
-    /// alphabetic math class.
+    /// The resulting item is spaced and has alphabetic math class.
     pub(crate) fn create<'a>(
         text: EcoString,
-        line: bool,
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
         let kind = MathKind::Text(Self { text });
-        let props = if line {
-            MathProperties::with_explicit_class(styles, MathClass::Alphabetic)
-                .with_spaced(true)
-        } else {
-            MathProperties::default(styles)
-        }
-        .with_span(span);
+        let props = MathProperties::new(styles, MathClass::Alphabetic)
+            .with_spaced(true)
+            .with_span(span);
+        MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// A number.
+#[derive(Debug)]
+pub struct NumberItem {
+    /// The number's text content.
+    pub text: EcoString,
+}
+
+impl NumberItem {
+    /// Creates a new number item.
+    pub(crate) fn create<'a>(
+        text: EcoString,
+        styles: StyleChain<'a>,
+        span: Span,
+    ) -> MathItem<'a> {
+        let kind = MathKind::Number(Self { text });
+        let props = MathProperties::default(styles).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -871,8 +903,8 @@ impl GlyphItem {
             mid_stretched: Cell::new(None),
             flac: Cell::new(false),
         }));
-        let props = MathProperties::with_explicit_limits_and_class(styles, limits, class)
-            .with_span(span);
+        let props =
+            MathProperties::new(styles, class).with_limits(limits).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -916,6 +948,77 @@ impl<'a> ExternalItem<'a> {
             .with_spaced(true)
             .with_ignorant(content.is::<PlaceElem>());
         MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// Shared sizing information for split fence segments.
+#[derive(Debug)]
+pub struct SharedFenceSizing<'a> {
+    /// The body items of all fence segments.
+    items: Vec<MathItem<'a>>,
+    /// Relative to height for stretch size calculation.
+    relative_to: Cell<Option<Abs>>,
+}
+
+impl<'a> SharedFenceSizing<'a> {
+    /// Creates a new shared sizing information.
+    pub(crate) fn new(items: Vec<MathItem<'a>>) -> Rc<Self> {
+        Rc::new(Self { items, relative_to: Cell::new(None) })
+    }
+
+    /// Retrieves or sets the relative to height by applying `f` to the body
+    /// items.
+    pub fn try_get_or_update(
+        &self,
+        f: impl FnOnce(&[MathItem<'a>]) -> SourceResult<Abs>,
+    ) -> SourceResult<Abs> {
+        Ok(if let Some(relative_to) = self.relative_to.get() {
+            relative_to
+        } else {
+            let relative_to = f(&self.items)?;
+            self.relative_to.set(Some(relative_to));
+            relative_to
+        })
+    }
+}
+
+/// The body of a [`FencedItem`].
+#[derive(Debug)]
+pub enum FencedBody<'a> {
+    /// Owned body.
+    Owned(MathItem<'a>),
+    /// Shared body stored in [`SharedFenceSizing`].
+    Shared { index: usize, sizing: Rc<SharedFenceSizing<'a>> },
+}
+
+impl<'a> FencedBody<'a> {
+    pub(crate) fn shared(index: usize, sizing: Rc<SharedFenceSizing<'a>>) -> Self {
+        Self::Shared { index, sizing }
+    }
+
+    /// Shared sizing info for split fence segments.
+    pub fn sizing(&self) -> Option<&SharedFenceSizing<'a>> {
+        match self {
+            Self::Owned(_) => None,
+            Self::Shared { sizing, .. } => Some(sizing),
+        }
+    }
+}
+
+impl<'a> From<MathItem<'a>> for FencedBody<'a> {
+    fn from(item: MathItem<'a>) -> Self {
+        Self::Owned(item)
+    }
+}
+
+impl<'a> Deref for FencedBody<'a> {
+    type Target = MathItem<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(item) => item,
+            Self::Shared { index, sizing } => &sizing.items[*index],
+        }
     }
 }
 
