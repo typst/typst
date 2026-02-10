@@ -1,10 +1,13 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::diag::{At, SourceResult, bail};
+use typst_library::foundations::{
+    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
+use typst_syntax::SyntaxNode;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
 
 use crate::{Eval, Vm};
@@ -46,14 +49,42 @@ impl Eval for ast::MathIdent<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        Ok(vm
-            .scopes
-            .get_in_math(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
+        eval_math_ident(vm, self, false)
     }
+}
+
+/// Evaluate an identifier in math, erroring if we produce a function literal
+/// but aren't calling a function.
+pub(crate) fn eval_math_ident(
+    vm: &mut Vm,
+    ident: ast::MathIdent,
+    is_callee: bool,
+) -> SourceResult<Value> {
+    let span = ident.span();
+    let value = vm
+        .scopes
+        .get_in_math(&ident)
+        .at(span)?
+        .read_checked((&mut vm.engine, span))
+        .clone();
+    if !is_callee
+        && !matches!(value, Value::Symbol(_))
+        && value.clone().cast::<Func>().is_ok()
+    {
+        error_func_not_called_in_math(ident.to_untyped())?;
+    }
+    Ok(value)
+}
+
+/// Produce an error for function literals that aren't being called.
+pub(crate) fn error_func_not_called_in_math(node: &SyntaxNode) -> SourceResult<()> {
+    let func = node.clone().into_text();
+    bail!(
+        node.span(),
+        "this does not call the `{func}` function";
+        hint: "to call the `{func}` function, write `{func}()`"
+        // TODO: Hint to remove a space if followed by non-direct parens: `abs ()`?
+    )
 }
 
 impl Eval for ast::MathShorthand<'_> {

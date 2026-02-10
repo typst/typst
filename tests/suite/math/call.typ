@@ -427,3 +427,43 @@ $ int(
   // Error: 3-8 missing argument: value
   int()
 ) $
+
+--- math-func-literal-basic eval ---
+// Error: 3-6 this does not call the `mat` function
+// Hint: 3-6 to call the `mat` function, write `mat()`
+$ mat $
+
+--- math-func-literal-parens eval ---
+// Error: 3-6 this does not call the `mat` function
+// Hint: 3-6 to call the `mat` function, write `mat()`
+$ mat () $
+
+--- math-func-literal-brackets eval ---
+// Error: 3-6 this does not call the `mat` function
+// Hint: 3-6 to call the `mat` function, write `mat()`
+$ mat[] $
+
+--- math-func-literal-field eval ---
+// Error: 3-16 this does not call the `std.assert.eq` function
+// Hint: 3-16 to call the `std.assert.eq` function, write `std.assert.eq()`
+$ std.assert.eq () $
+
+--- math-func-literal-delimited eval ---
+// Error: 4-6 this does not call the `lr` function
+// Hint: 4-6 to call the `lr` function, write `lr()`
+$ (lr ()) $
+
+--- math-func-literal-attach eval ---
+// Error: 5-11 this does not call the `attach` function
+// Hint: 5-11 to call the `attach` function, write `attach()`
+$ a_attach (b, t: c) $
+
+--- math-func-literal-frac eval ---
+// Error: 7-11 this does not call the `sqrt` function
+// Hint: 7-11 to call the `sqrt` function, write `sqrt()`
+$ 1 / sqrt (2) $
+
+--- math-func-literal-root eval ---
+// Error: 4-8 this does not call the `frac` function
+// Hint: 4-8 to call the `frac` function, write `frac()`
+$ √frac (1,2) $

@@ -111,7 +111,7 @@ impl Eval for ast::MathCall<'_> {
 
         let math_call_result = match callee {
             ast::MathCallee::MathIdent(ident) => {
-                let callee_value = ident.eval(vm)?;
+                let callee_value = crate::math::eval_math_ident(vm, ident, true)?;
                 match callee_value.clone().cast::<Func>() {
                     Ok(func) => FieldCallee::Func(func),
                     Err(err) => FieldCallee::NonFunc(callee_value, err),
@@ -121,7 +121,8 @@ impl Eval for ast::MathCall<'_> {
                 let target_expr = access.target();
                 target_span = target_expr.span();
                 let field = access.field();
-                let target = target_expr.eval(vm)?;
+                let (was_math, target) = crate::code::eval_field_target(vm, target_expr)?;
+                assert!(was_math);
                 if is_mutating_method(field.as_str())
                     && matches!(target, Value::Array(_) | Value::Dict(_))
                 {

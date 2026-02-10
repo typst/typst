@@ -315,31 +315,60 @@ impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.target().eval(vm)?;
-        let field = self.field();
-        let field_span = field.span();
-
-        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
-            Err(err) => err,
-        };
-
-        // Check whether this is a get rule field access.
-        if let Value::Func(func) = &value
-            && let Some(element) = func.to_element()
-            && let Some(id) = element.field_id(&field)
-            && let styles = vm.context.styles().at(field.span())
-            && let Ok(value) = element
-                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+        let (in_math, target) = eval_field_target(vm, self.target())?;
+        let value = access_field(vm, target, self.field())?;
+        if in_math
+            && !matches!(value, Value::Symbol(_))
+            && value.clone().cast::<Func>().is_ok()
         {
-            // Only validate the context once we know that this is indeed
-            // a field from the style chain.
-            let _ = styles?;
-            return Ok(value);
+            crate::math::error_func_not_called_in_math(self.to_untyped())?;
         }
-
-        Err(err)
+        Ok(value)
     }
+}
+
+/// Evaluate a field access's target and return whether it is a math access. If
+/// it is, we will have recursively evaluated the target without passing through
+/// the [`Eval`] trait.
+pub(crate) fn eval_field_target(
+    vm: &mut Vm,
+    target: ast::Expr,
+) -> SourceResult<(bool, Value)> {
+    Ok(match target {
+        ast::Expr::MathIdent(ident) => {
+            (true, crate::math::eval_math_ident(vm, ident, true)?)
+        }
+        ast::Expr::FieldAccess(inner) => {
+            let (in_math, target) = eval_field_target(vm, inner.target())?;
+            (in_math, access_field(vm, target, inner.field())?)
+        }
+        expr => (false, expr.eval(vm)?),
+    })
+}
+
+/// Access a field on a target.
+fn access_field(vm: &mut Vm, target: Value, field: ast::Ident) -> SourceResult<Value> {
+    let field_span = field.span();
+    let err = match target.field(&field, (&mut vm.engine, field_span)).at(field_span) {
+        Ok(value) => return Ok(value),
+        Err(err) => err,
+    };
+
+    // Check whether this is a get rule field access.
+    if let Value::Func(func) = &target
+        && let Some(element) = func.to_element()
+        && let Some(id) = element.field_id(&field)
+        && let styles = vm.context.styles().at(field.span())
+        && let Ok(value) =
+            element.field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+    {
+        // Only validate the context once we know that this is indeed
+        // a field from the style chain.
+        let _ = styles?;
+        return Ok(value);
+    }
+
+    Err(err)
 }
 
 impl Eval for ast::Contextual<'_> {
