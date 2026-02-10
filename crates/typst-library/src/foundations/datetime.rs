@@ -629,5 +629,5 @@ cast! {
     TodayOffset,
     self => self.0.into_value(),
     v: Duration => Self(v),
-    hours: i64 => Self(Duration::construct(0, 0, hours, 0, 0)),
+    hours: i64 => Self(time::Duration::hours(hours).into()),
 }
