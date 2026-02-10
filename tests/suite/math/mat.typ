@@ -264,6 +264,8 @@ $ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 $ mat(a; b; c) mat(a \ b \ c) $
 
 --- math-mat-linebreaks-trailing paged ---
+// Warning: 7-10 linebreaks are ignored in cells
+// Hint: 7-10 use commas instead to separate each line
 $ mat(a \ ) $
 
 --- math-mat-vec-cases-unity paged ---

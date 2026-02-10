@@ -56,6 +56,8 @@ $ vec(1, 2) $
 $ vec(a, b, c) vec(a \ b \ c) $
 
 --- math-vec-linebreaks-trailing paged ---
+// Warning: 7-10 linebreaks are ignored in elements
+// Hint: 7-10 use commas instead to separate each line
 $ vec(a \ ) $
 
 --- math-vec-delim-class paged ---
