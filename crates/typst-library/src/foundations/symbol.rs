@@ -10,7 +10,7 @@ use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
+use crate::diag::{SourceResult, StrResult, WarningSink, bail, error};
 use crate::foundations::{
     Array, Content, Func, NativeElement, Packed, PlainText, Repr, cast, elem, func,
     scope, ty,
@@ -140,7 +140,7 @@ impl Symbol {
     /// Apply a modifier to the symbol.
     pub fn modified(
         mut self,
-        sink: impl DeprecationSink,
+        mut sink: impl WarningSink,
         modifier: &str,
     ) -> StrResult<Self> {
         if let SymbolInner::Complex(list) = self.0 {
@@ -164,7 +164,7 @@ impl Symbol {
                     && let Some(message) = deprecation
                 {
                     modified.deprecated = true;
-                    sink.emit(message, None);
+                    sink.emit(message);
                 }
                 return Ok(self);
             }

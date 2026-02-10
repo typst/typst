@@ -19,9 +19,10 @@ pub use self::encode::html;
 pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
-use typst_library::Category;
+use typst_library::diag::WarningSink;
 use typst_library::foundations::{Content, Module, Scope};
 use typst_library::introspection::Location;
+use typst_library::Category;
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -107,12 +108,16 @@ impl HtmlElem {
         attr: HtmlAttr,
         value: Option<impl Into<EcoString>>,
     ) -> Self {
-        if let Some(value) = value { self.with_attr(attr, value) } else { self }
+        if let Some(value) = value {
+            self.with_attr(attr, value)
+        } else {
+            self
+        }
     }
 
     /// Adds CSS styles to an element.
-    fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
+    fn with_styles(self, properties: css::Properties, sink: impl WarningSink) -> Self {
+        if let Some(value) = properties.into_inline_styles(sink) {
             self.with_attr(attr::style, value)
         } else {
             self

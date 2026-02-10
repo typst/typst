@@ -1,11 +1,11 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use ecow::{EcoString, eco_format};
+use ecow::{eco_format, EcoString};
 use typst_syntax::FileId;
 
-use crate::diag::{DeprecationSink, StrResult, bail};
-use crate::foundations::{Content, Repr, Scope, Value, ty};
+use crate::diag::{bail, StrResult, WarningSink};
+use crate::foundations::{ty, Content, Repr, Scope, Value};
 
 /// A collection of variables and functions that are commonly related to
 /// a single theme.
@@ -137,7 +137,7 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<&Value> {
+    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<&Value> {
         match self.scope().get(field) {
             Some(binding) => Ok(binding.read_checked(sink)),
             None => match &self.name {

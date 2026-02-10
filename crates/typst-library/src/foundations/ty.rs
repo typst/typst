@@ -5,12 +5,12 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::LazyLock;
 
-use ecow::{EcoString, eco_format};
+use ecow::{eco_format, EcoString};
 use typst_utils::Static;
 
-use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::diag::{bail, StrResult, WarningSink};
 use crate::foundations::{
-    AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
+    cast, func, AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value,
 };
 
 /// Describes a kind of value.
@@ -111,7 +111,7 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => Ok(binding.read_checked(sink)),

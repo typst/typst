@@ -6,16 +6,16 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{EcoString, eco_format};
+use ecow::{eco_format, EcoString};
 use either::Either;
-use typst_syntax::{Span, Spanned, SyntaxNode, ast};
-use typst_utils::{LazyHash, Static, singleton};
+use typst_syntax::{ast, Span, Spanned, SyntaxNode};
+use typst_utils::{singleton, LazyHash, Static};
 
-use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
+use crate::diag::{bail, At, SourceResult, StrResult, WarningSink};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
-    Selector, Type, Value, cast, scope, ty,
+    cast, scope, ty, Args, Bytes, CastInfo, Content, Context, Element, IntoArgs,
+    PluginFunc, Repr, Scope, Selector, Type, Value,
 };
 
 /// A mapping from argument values to a return value.
@@ -268,7 +268,7 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;

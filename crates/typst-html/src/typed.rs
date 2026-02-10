@@ -9,9 +9,9 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use ecow::{EcoString, eco_format, eco_vec};
+use ecow::{eco_format, eco_vec, EcoString};
 use typst_assets::html as data;
-use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
+use typst_library::diag::{bail, At, Hint, HintedStrResult, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
@@ -24,7 +24,8 @@ use typst_library::visualize::Color;
 use typst_macros::cast;
 use typst_syntax::Spanned;
 
-use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, css, tag};
+use crate::css::ToCss;
+use crate::{tag, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
 
 /// Hook up all typed HTML definitions.
 pub(super) fn define(html: &mut Scope) {
@@ -544,7 +545,7 @@ impl IntoAttr for PositiveF64 {
 
 impl IntoAttr for Color {
     fn into_attr(self) -> EcoString {
-        eco_format!("{}", css::color(self))
+        eco_format!("{}", self.to_css(()))
     }
 }
 
@@ -711,7 +712,7 @@ cast! {
             .cast::<Length>()
             .hint("CSS lengths that are not expressible as Typst lengths are not yet supported")
             .hint("you can use `html.elem` to create a raw attribute")?;
-        Self(eco_format!("({condition}) {}", css::length(size)))
+        Self(eco_format!("({condition}) {}", size.to_css(())))
     },
 }
 
