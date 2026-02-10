@@ -284,6 +284,14 @@ impl<T: Numeric> Add<Ratio> for Rel<T> {
     }
 }
 
+impl<T: Numeric> Sub<T> for Rel<T> {
+    type Output = Self;
+
+    fn sub(self, other: T) -> Self::Output {
+        self - Rel::from(other)
+    }
+}
+
 impl<T> Resolve for Rel<T>
 where
     T: Resolve + Numeric,

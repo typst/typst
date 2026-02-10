@@ -232,7 +232,9 @@ impl HtmlElement {
 
     /// Adds CSS styles to an element.
     pub(crate) fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
+        // TODO: Where does the warning sink come from?
+        let sink = ();
+        if let Some(value) = properties.into_inline_styles(sink) {
             self.with_attr(attr::style, value)
         } else {
             self
