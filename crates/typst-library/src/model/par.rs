@@ -661,8 +661,8 @@ cast! {
 impl From<FirstLineIndent> for Dict {
     fn from(indent: FirstLineIndent) -> Self {
         dict! {
-            "amount" => indent.amount(),
-            "all" => indent.all(),
+            "amount" => indent.amount,
+            "all" => indent.all,
         }
     }
 }
