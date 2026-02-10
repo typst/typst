@@ -826,8 +826,8 @@ impl Gradient {
         first: GradientStop,
         second: GradientStop,
     ) -> impl Iterator<Item = (Color, Ratio)> {
-        let threshold = 0.001;
-        let max_subdivisions = 64;
+        const THRESHOLD: f32 = 0.001;
+        const MAX_SUBDIVISIONS: u64 = 64;
 
         let t0 = first.offset.unwrap().get();
         let dt = second.offset.unwrap().get() - t0;
@@ -855,7 +855,7 @@ impl Gradient {
                     (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
                 };
 
-                if n < max_subdivisions && euclidean_error > threshold {
+                if n < MAX_SUBDIVISIONS && euclidean_error > THRESHOLD {
                     // deviation to large -> subdivide again
                     n *= 2;
                     i = 2 * i - 1;
