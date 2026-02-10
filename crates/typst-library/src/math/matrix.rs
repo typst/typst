@@ -1,6 +1,6 @@
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Spanned;
-use typst_utils::{Numeric, default_math_class};
+use typst_utils::{Numeric, default_math_class, matching_delim};
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, StrResult, bail};
@@ -300,21 +300,6 @@ impl Delimiter {
     pub fn get(self) -> Option<char> {
         self.0
     }
-
-    pub fn find_matching(self) -> Self {
-        match self.0 {
-            None => Self::none(),
-            Some('[') => Self(Some(']')),
-            Some(']') => Self(Some('[')),
-            Some('{') => Self(Some('}')),
-            Some('}') => Self(Some('{')),
-            Some(c) => match default_math_class(c) {
-                Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
-                Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
-                _ => Self(Some(c)),
-            },
-        }
-    }
 }
 
 /// A pair of delimiters (one closing, one opening) used for matrices, vectors
@@ -337,7 +322,11 @@ cast! {
         },
         _ => bail!("expected 2 delimiters, found {}", v.len())
     },
-    v: Delimiter => Self { open: v, close: v.find_matching() }
+    open: Delimiter => {
+        // If not paired, open is a fence which we reuse as the closing delim.
+        let matching = open.get().and_then(matching_delim).or(open.get());
+        Self { open, close: Delimiter(matching) }
+    }
 }
 
 impl DelimiterPair {

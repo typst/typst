@@ -17,6 +17,12 @@ $func(a$
 // Error: 5-6 unclosed delimiter
 $sin(x$
 
+--- math-call-missing-operator-sides eval ---
+// Error: 11 expected an expression to the right of the operator
+// Error: 15 expected an expression to the right of the operator
+// Error: 22 expected an expression to the right of the operator
+$func(1^2_, 1/; , , √ )$
+
 --- math-call-named-args paged ---
 #let func1(my: none) = my
 #let func2(_my: none) = _my
@@ -88,18 +94,21 @@ $args(..a + b)$
 // Error: 8-10 unexpected dots
 $args(#..range(1, 5).chunks(2))$
 
---- math-call-spread-unexpected-binary paged ---
+--- math-call-spread-unexpected-binary eval ---
 // Test spread operators followed by binary math operators with and without
 // right operands. These errors aren't great, but they can be silenced with a
 // space and no one would actually write this.
 $
-  // Error: 9-10 unexpected slash
-  // Error: 19-20 unexpected hat
-  // Error: 29-30 unexpected underscore
+  // Error: 9 expected an expression to the left of the operator
+  // Error: 19 expected an expression to the left of the operator
+  // Error: 29 expected an expression to the left of the operator
   vec(../.) vec(..^.) vec(.._.)
-  // Error: 9-10 unexpected slash
-  // Error: 19-20 unexpected hat
-  // Error: 29-30 unexpected underscore
+  // Error: 9 expected an expression to the left of the operator
+  // Error: 10 expected an expression to the right of the operator
+  // Error: 19 expected an expression to the left of the operator
+  // Error: 20 expected an expression to the right of the operator
+  // Error: 29 expected an expression to the left of the operator
+  // Error: 30 expected an expression to the right of the operator
   vec(../)  vec(..^)  vec(.._)
 $
 

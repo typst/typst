@@ -76,6 +76,40 @@ $
   a + &     & c &   & #p + d
 $
 
+--- math-align-point-in-operator eval ---
+// Test lone alignment points in various operators.
+$
+  // Error: 6 expected an expression to the right of the operator
+  1 / &
+  // Error: 4 expected an expression to the left of the operator
+  & / 2 \
+  // Error: 6 expected an expression to the right of the operator
+  1 _ &
+  // Error: 4 expected an expression to the left of the operator
+  & ^ 2 \
+  // Error: 4 expected an expression to the right of the operator
+  √ &
+$
+
+--- math-linebreak-in-operator eval ---
+// Test lone linebreaks in various operators.
+$
+  // Error: 6 expected an expression to the right of the operator
+  1 / \
+  // Error: 4 expected an expression to the left of the operator
+  \ / 2 \
+  // Error: 6 expected an expression to the right of the operator
+  1 _ \
+  // Error: 4 expected an expression to the left of the operator
+  \ ^ 2 \
+  // Error: 4 expected an expression to the right of the operator
+  √ \
+$
+
+--- math-linebreak-delimited paged ---
+// Test linebreaks in delimiters.
+$ ( \ ) / { \ } $
+
 --- math-attach-subscript-multiline paged ---
 // Test multiline subscript.
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $

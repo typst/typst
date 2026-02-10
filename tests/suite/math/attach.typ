@@ -199,10 +199,17 @@ $
 $lr(size: #240%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 
---- math-attach-missing-sides paged ---
+--- math-attach-missing-sides eval ---
 // Test attachments that are missing a side.
-// Error: 23-24 unexpected underscore
+// Error: 13 expected an expression to the right of the operator
+// Error: 19 expected an expression to the right of the operator
+// Error: 23 expected an expression to the left of the operator
 $ a _ b (d _) (d'_ ) (_ c) $
+
+--- math-attach-missing-side-frac eval ---
+// Error: 5 expected an expression to the left of the operator
+// Error: 10 expected an expression to the left of the operator
+$ a_/b a/^b $
 
 --- math-attach-double-chain paged ---
 // Test attachment chain grouping with doubled operators and primes
