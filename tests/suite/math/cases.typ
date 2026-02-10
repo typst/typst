@@ -22,6 +22,8 @@ $ cases(a, b, c) $
 $ cases(a, b, c) cases(reverse: #true, a \ b \ c) $
 
 --- math-cases-linebreaks-trailing paged ---
+// Warning: 9-12 linebreaks are ignored in branches
+// Hint: 9-12 use commas instead to separate each line
 $ cases(a \ ) $
 
 --- math-cases-delim-class paged ---

@@ -1,6 +1,7 @@
 //! Intermediate representation for math.
 
 mod item;
+mod multiline;
 mod preprocess;
 mod resolve;
 

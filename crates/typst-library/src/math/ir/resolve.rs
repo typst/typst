@@ -1,5 +1,7 @@
 use std::cell::Cell;
 
+use bumpalo::boxed::Box as BumpBox;
+use bumpalo::collections::Vec as BumpVec;
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_syntax::{Span, is_newline};
@@ -7,6 +9,8 @@ use typst_utils::SliceExt;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::item::*;
+use super::multiline::split_at_align;
+use super::preprocess::{PreprocessMode, preprocess};
 use crate::diag::{SourceResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{Content, Packed, Resolve, StyleChain, Styles, SymbolElem};
@@ -14,7 +18,10 @@ use crate::introspection::{SplitLocator, TagElem};
 use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spacing};
 use crate::math::*;
 use crate::routines::{Arenas, RealizationKind};
-use crate::text::{LinebreakElem, SpaceElem, TextElem, is_default_ignorable};
+use crate::text::{
+    BottomEdge, BottomEdgeMetric, LinebreakElem, SpaceElem, TextElem, TopEdge,
+    TopEdgeMetric, is_default_ignorable,
+};
 use crate::visualize::FixedStroke;
 
 /// The math IR builder.
@@ -84,11 +91,18 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
     ) -> SourceResult<MathItem<'a>> {
         let start = self.resolve_into_items(elem, styles)?;
         let len = self.items.len() - start;
-        Ok(if len == 1 {
-            self.items.pop().unwrap()
-        } else {
-            GroupItem::create(self.items.drain(start..), false, styles, &self.arenas.bump)
-        })
+
+        // Don't emit standalone linebreaks or alignment points.
+        if len == 1
+            && !matches!(
+                self.items.last().unwrap(),
+                MathItem::Align | MathItem::Linebreak
+            )
+        {
+            return Ok(self.items.pop().unwrap());
+        }
+
+        Ok(MathItem::group(self.items.drain(start..), false, styles, &self.arenas.bump))
     }
 
     /// Resolve arbitrary content.
@@ -221,22 +235,46 @@ fn resolve_text<'a, 'v, 'e>(
     // Disable auto-italic.
     let italic = styles.get(EquationElem::italic).or(Some(false));
 
-    let num = elem.text.chars().all(|c| c.is_ascii_digit() || c == '.');
-    let multiline = elem.text.contains(is_newline);
+    // Create item with correct styles and properties.
+    let mut local_styles = None;
+    let mut create_item = |text: &str| {
+        let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
+        let styled_text: EcoString = text
+            .chars()
+            .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
+            .collect();
+        let styles = if !num {
+            *local_styles.get_or_insert_with(|| {
+                let local = [
+                    TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
+                    TextElem::bottom_edge
+                        .set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+                    TextElem::overhang.set(false),
+                ]
+                .map(|p| p.wrap());
+                ctx.chain_styles(styles, local)
+            })
+        } else {
+            styles
+        };
+        TextItem::create(styled_text, num, styles, elem.span(), &ctx.arenas.bump)
+    };
 
-    let styled_text: EcoString = elem
-        .text
-        .chars()
-        .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
-        .collect();
-
-    ctx.push(TextItem::create(
-        styled_text,
-        !multiline && !num,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    ));
+    let item = if !elem.text.contains(is_newline) {
+        create_item(&elem.text)
+    } else {
+        let bump = &ctx.arenas.bump;
+        let rows = BumpVec::from_iter_in(
+            elem.text.split_terminator(is_newline).map(|line| {
+                let item = create_item(line);
+                BumpVec::from_iter_in([item], bump)
+            }),
+            bump,
+        );
+        let row_lengths = bump.alloc_slice_fill_copy(rows.len(), 1);
+        MultilineItem::create(rows, row_lengths, styles).with_multiline_align()
+    };
+    ctx.push(item);
     Ok(())
 }
 
@@ -877,18 +915,89 @@ fn resolve_lr<'a, 'v, 'e>(
 
     let open = opening_exists.then(|| inner_items.remove(0));
     let close = closing_exists.then(|| inner_items.pop().unwrap());
-    let item = FencedItem::create(
-        open,
-        close,
-        GroupItem::create(inner_items, closing_exists, styles, &ctx.arenas.bump),
-        true,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    );
+    let body = MathItem::group(inner_items, closing_exists, styles, &ctx.arenas.bump);
 
-    ctx.items.insert(start + start_idx, item);
+    let insert_pos = start + start_idx;
+    if let MathItem::Component(MathComponent {
+        kind: MathKind::Multiline(multiline),
+        ..
+    }) = body
+    {
+        let items = split_into_fenced_segments(
+            open,
+            close,
+            multiline,
+            styles,
+            elem.span(),
+            &ctx.arenas.bump,
+        );
+        ctx.items.splice(insert_pos..insert_pos, items);
+    } else {
+        let item = FencedItem::create(
+            open,
+            close,
+            body,
+            true,
+            styles,
+            elem.span(),
+            &ctx.arenas.bump,
+        );
+        ctx.items.insert(insert_pos, item);
+    }
+
     Ok(())
+}
+
+/// Splits a fenced item's body by alignment points and linebreaks into
+/// segments.
+fn split_into_fenced_segments<'a>(
+    mut open: Option<MathItem<'a>>,
+    mut close: Option<MathItem<'a>>,
+    multiline: MultilineItem<'a>,
+    styles: StyleChain<'a>,
+    span: Span,
+    bump: &'a bumpalo::Bump,
+) -> Vec<MathItem<'a>> {
+    // Flatten multiline into a list of cells.
+    let mut bodies = BumpVec::new_in(bump);
+    for (row, len) in multiline.rows.into_iter().zip(multiline.row_lengths) {
+        bodies.extend(row.into_iter().take(*len));
+    }
+
+    let sizing = SharedFenceSizing::new(bodies.into_boxed_slice());
+    let ncells: usize = multiline.row_lengths.iter().sum();
+    let nrows = multiline.row_lengths.len();
+
+    // Build fenced items interleaved with alignment points and linebreaks.
+    let mut items = Vec::with_capacity((2 * ncells).saturating_sub(1));
+    let mut body_idx = 0;
+    for (row_idx, &ncols) in multiline.row_lengths.iter().enumerate() {
+        if row_idx > 0 {
+            items.push(MathItem::Linebreak);
+        }
+
+        for col_idx in 0..ncols {
+            if col_idx > 0 {
+                items.push(MathItem::Align);
+            }
+
+            let is_first = row_idx == 0 && col_idx == 0;
+            let is_last = row_idx + 1 == nrows && col_idx + 1 == ncols;
+            items.push(FencedItem::create(
+                open.take_if(|_| is_first),
+                close.take_if(|_| is_last),
+                FencedBody::shared(body_idx, sizing.clone()),
+                true,
+                styles,
+                span,
+                bump,
+            ));
+
+            body_idx += 1;
+        }
+    }
+
+    items
 }
 
 /// Resolves a middle element (in a left/right element).
@@ -1030,32 +1139,52 @@ fn resolve_cells<'a, 'v, 'e>(
     children: &str,
 ) -> SourceResult<MathItem<'a>> {
     let cell_styles = ctx.chain_styles(styles, style_for_denominator(styles));
-    let cells = rows
-        .iter()
-        .map(|row| {
-            row.iter()
-                .map(|cell| {
-                    let cell_span = cell.span();
-                    let cell = ctx.resolve_into_item(cell, cell_styles)?;
+    let bump = &ctx.arenas.bump;
 
-                    // We ignore linebreaks in the cells as we can't differentiate
-                    // alignment points for the whole body from ones for a specific
-                    // cell, and multiline cells don't quite make sense at the moment.
-                    if cell.is_multiline() {
-                        ctx.engine.sink.warn(warning!(
-                           cell_span,
-                           "linebreaks are ignored in {}", children;
-                           hint: "use commas instead to separate each line";
-                        ));
-                    }
-                    Ok(cell)
-                })
-                .collect::<SourceResult<_>>()
-        })
-        .collect::<SourceResult<_>>();
+    let mut cells = BumpVec::with_capacity_in(rows.len(), bump);
+    for row in rows {
+        let mut resolved_row = BumpVec::with_capacity_in(row.len(), bump);
+        for cell in row {
+            let start = ctx.resolve_into_items(cell, cell_styles)?;
+            let preprocessed = preprocess(
+                ctx.items.drain(start..),
+                bump,
+                false,
+                PreprocessMode::TableCell,
+            );
+
+            // We strip linebreaks in the cells as we can't differentiate
+            // alignment points for the whole body from ones for a specific
+            // cell, and multiline cells don't quite make sense at the moment.
+            if preprocessed.had_linebreaks {
+                ctx.engine.sink.warn(warning!(
+                   cell.span(),
+                   "linebreaks are ignored in {}", children;
+                   hint: "use commas instead to separate each line";
+                ));
+            }
+
+            // Create the cell's sub-columns by splitting at alignment points.
+            let sub_columns = if preprocessed.has_align {
+                let cols = split_at_align(preprocessed.items, bump);
+                BumpVec::from_iter_in(
+                    cols.into_iter().map(|col| MathItem::wrap(col, cell_styles)),
+                    bump,
+                )
+                .into_boxed_slice()
+            } else {
+                let item = MathItem::wrap(preprocessed.items, cell_styles);
+                BumpBox::new_in([item], bump).into()
+            };
+
+            resolved_row.push(sub_columns);
+        }
+
+        cells.push(resolved_row.into_boxed_slice());
+    }
 
     Ok(TableItem::create(
-        cells?,
+        cells.into_boxed_slice(),
         gap,
         augment,
         align,
@@ -1147,6 +1276,7 @@ fn resolve_root<'a, 'v, 'e>(
     let radicand = {
         let cramped = ctx.store_styles(style_cramped());
         ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
+            .with_multiline_align()
     };
     let index = {
         let sscript =

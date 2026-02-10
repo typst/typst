@@ -1115,7 +1115,7 @@ e6bc550db563cf9fce245f9512a588c7 math-lr-weak-spacing
 5d9f92c5f05e2e36f70c212d21e1dfa7 math-mat-align-complex
 9b8c9596c64b2cf369613196d386d8e2 math-mat-align-explicit-alternating
 76624d5576b71d90a4c2bb6dc7be521b math-mat-align-explicit-left
-dc0e30d083534174a541a3dfe88701b7 math-mat-align-explicit-mixed
+e86cdd10b42c02eb2f28953fa6bf66fa math-mat-align-explicit-mixed
 2d44f3014f9eb2c225251319d398cc0d math-mat-align-explicit-right
 4036ec8e6708622e24274303dc640fcc math-mat-align-implicit
 3a9ca3ddc7bc0f40cf8b641cd293ace0 math-mat-align-signed-numbers
@@ -1222,7 +1222,7 @@ c5a29258b04d99ebef55c54182f7c40b math-stretch-nested-horizontal-attach
 ba3629d3e32a25ff0d92d49ce57a7242 math-stretch-vertical-attach
 a3875d813dbf848675c4371c780e847d math-stretch-vertical-large-class
 eba7a710f957c73cffbdd93c3abf45e2 math-stretch-vertical-scripts
-76465a7780c52cfaa2012b869b71c16d math-style
+2dd03856eaa243438c19b99a67aeeff0 math-style
 2741fab79a9edec47f3a81e85a0b4417 math-style-cluster
 be1a7b5874e21c26dad6efa0150542e0 math-style-dotless
 4cd158cfd08d9fa2d6f8b4eee76d4d9f math-style-exceptions
@@ -1238,7 +1238,7 @@ a3140620bff78bc544eea5be763c173f math-text-color
 313d3f9324bdf2ff5bad9e42b7f300aa math-text-grapheme-cluster-fallback
 3d0b2bb8b8d4677109893458cb791e7a math-text-single-grapheme-cluster
 4c57f19ffcf2340715014745ba0b4729 math-text-size
-94fa8a2a92059e34bbdbf121fcd0d7e0 math-text-styled-num
+f362938759deb1fd4f40eaf3b16ae16b math-text-styled-num
 5b0ed819bd81bc9b7f5a09a27cfe2388 math-underover-brace
 42d53452f669e181b4c771aa4edd6bd3 math-underover-brackets
 80fd4c75da365fcb133775f3259b39c2 math-underover-line-bracket
