@@ -379,16 +379,16 @@ impl<'a> Runner<'a> {
     }
 
     /// Compile a document with the specified target.
+    ///
+    /// Conceptually, this functions takes the evaluated content as input and
+    /// produces a document. In practice it also re-evaluates the sources and
+    /// thus generates duplicate diagnostics for the eval stage, so we filter
+    /// those out.
     fn compile<D: TestDocument>(
         &mut self,
         evaluated: Warned<SourceResult<Content>>,
     ) -> Option<D> {
         let Warned { output, warnings } = typst::compile::<D>(&self.world);
-
-        // Conecptually this functions takes the evaluated content as input and
-        // produces a document. In practice it also re-evaluates the sources and
-        // thus generates duplicate diagnostics for the eval stage, so we filter
-        // those out.
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
         for warning in warnings.iter() {
