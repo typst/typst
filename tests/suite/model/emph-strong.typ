@@ -23,7 +23,7 @@ _Still #[
 // Inside of words can still use the functions.
 P#strong[art]ly em#emph[phas]ized.
 
---- emph-empty-hint paged ---
+--- emph-empty-hint paged empty ---
 // Warning: 1-3 no text within underscores
 // Hint: 1-3 using multiple consecutive underscores (e.g. __) has no additional effect
 __
@@ -61,7 +61,7 @@ Normal
 #set strong(delta: 150)
 *Medium* and *#[*Bold*]*
 
---- strong-empty-hint paged ---
+--- strong-empty-hint paged empty ---
 // Warning: 1-3 no text within stars
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect
 **

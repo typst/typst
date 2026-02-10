@@ -115,7 +115,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("../../../assets/images/linked.svg", width: 39pt)
 
 --- image-svg-linked-file-not-found paged ---
-// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
+// Error: 1:8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -125,7 +125,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-url paged ---
-// Error: 8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
+// Error: 1:8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -135,7 +135,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-pdf paged ---
-// Error: 8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
+// Error: 1:8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -145,7 +145,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-csv paged ---
-// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
+// Error: 1:8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -155,7 +155,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-absolute1 paged ---
-// Error: 8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
+// Error: 1:8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -165,7 +165,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-absolute2 paged ---
-// Error: 8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
+// Error: 1:8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -362,7 +362,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   format: "rgba8",
 )
 
---- issue-measure-image paged ---
+--- issue-measure-image paged empty ---
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
   let size = measure(image("/assets/images/tiger.jpg"))
@@ -420,3 +420,18 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-6869-image-zero-sized paged ---
 // Primarily to ensure that it does not crash in PDF export.
 #image("/assets/images/f2t.jpg", width: 0pt, height: 0pt)
+
+--- issue-7178-svg-fallback-deadlock paged ---
+// We used to not honor resvg's `exclude_fonts` mechanism, which could result in
+// an infinite fallback loop.
+//
+// On way to trigger this is if there are two codepoints that result in one
+// cluster, and the first exists in a font, but the second always shapes to a
+// tofu.
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="1" width="1">
+    <text font-family="Libertinus Serif">x&#1761;</text>
+  </svg>
+  ```.text
+))

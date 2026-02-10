@@ -34,8 +34,8 @@
 				"enablement": "typst-test-helper.runButtonEnabled"
 			},
 			{
-				"command": "typst-test-helper.copyImageFilePathFromPreviewContext",
-				"title": "Copy image file path",
+				"command": "typst-test-helper.copyFilePathFromPreviewContext",
+				"title": "Copy file path",
 				"category": "Typst Test Helper"
 			},
 			{
@@ -83,8 +83,8 @@
 			],
 			"webview/context": [
 				{
-					"command": "typst-test-helper.copyImageFilePathFromPreviewContext",
-					"when": "webviewId == typst-test-helper.preview && (webviewSection == png || webviewSection == ref)"
+					"command": "typst-test-helper.copyFilePathFromPreviewContext",
+					"when": "webviewId == typst-test-helper.preview && (uri != undefined)"
 				}
 			]
 		}

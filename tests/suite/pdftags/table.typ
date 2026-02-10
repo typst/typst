@@ -1,3 +1,6 @@
+--- table-tags-empty pdftags pdfstandard(ua-1) ---
+#table()
+
 --- table-tags-basic pdftags pdfstandard(ua-1) ---
 #table(
   columns: 3,

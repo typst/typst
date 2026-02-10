@@ -23,39 +23,39 @@ else {
   ("1", "2")
 }
 
---- newline-continuation-method-blank paged ---
+--- newline-continuation-method-blank eval ---
 #test({
   "hi 1"
 
     .clusters()
 }, ("h", "i", " ", "1"))
 
---- newline-continuation-method-line-comment-after paged ---
+--- newline-continuation-method-line-comment-after eval ---
 #test({
   "hi 2"// comment
     .clusters()
 }, ("h", "i", " ", "2"))
 
---- newline-continuation-method-block-comment-after paged ---
+--- newline-continuation-method-block-comment-after eval ---
 #test({
   "hi 3"/* comment */
     .clusters()
 }, ("h", "i", " ", "3"))
 
---- newline-continuation-method-line-comment-between paged ---
+--- newline-continuation-method-line-comment-between eval ---
 #test({
   "hi 4"
   // comment
     .clusters()
 }, ("h", "i", " ", "4"))
 
---- newline-continuation-method-block-comment-between paged ---
+--- newline-continuation-method-block-comment-between eval ---
 #test({
   "hi 5"
   /*comment*/.clusters()
 }, ("h", "i", " ", "5"))
 
---- newline-continuation-method-comments-and-blanks paged ---
+--- newline-continuation-method-comments-and-blanks eval ---
 #test({
   "hi 6"
   // comment
@@ -65,7 +65,7 @@ else {
     .clusters()
 }, ("h", "i", " ", "6"))
 
---- newline-continuation-if-else-comment paged ---
+--- newline-continuation-if-else-comment eval ---
 #test({
   let foo(x) = {
     if x < 0 { "negative" }

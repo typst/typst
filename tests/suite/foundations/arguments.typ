@@ -1,13 +1,13 @@
 // Test arguments.
 
---- arguments-len paged ---
+--- arguments-len eval ---
 #test(arguments().len(), 0)
 #test(arguments("hello").len(), 1)
 #test(arguments(a: "world").len(), 1)
 #test(arguments(a: "hey", 14).len(), 2)
 #test(arguments(0, 1, a: 2, 3).len(), 4)
 
---- arguments-at paged ---
+--- arguments-at eval ---
 #let args = arguments(0, 1, a: 2, 3)
 #test(args.at(0), 0)
 #test(args.at(1), 1)
@@ -24,7 +24,7 @@
 // Error: 2-14 arguments do not contain key "b" and no default value was specified
 #args.at("b")
 
---- arguments-plus-sum-join paged ---
+--- arguments-plus-sum-join eval ---
 #let lhs = arguments(0, "1", key: "value", 3)
 #let rhs = arguments(other-key: 4, key: "other value", 3)
 #let result = arguments(0, "1", 3, other-key: 4, key: "other value", 3)
@@ -33,7 +33,7 @@
 #test((lhs, rhs).sum(), result)
 #test((lhs, rhs).join(), result)
 
---- arguments-filter paged ---
+--- arguments-filter eval ---
 // Test the `filter` method.
 #test(arguments().filter(calc.even), arguments())
 #test(arguments(1, a: 2, b: 3, 4).filter(calc.even), arguments(a: 2, 4))
@@ -44,7 +44,7 @@
 // Error: 29-34 cannot subtract integer from string
 #arguments("a").filter(x => x - 2)
 
---- arguments-map paged ---
+--- arguments-map eval ---
 // Test the `map` method.
 #test(arguments().map(x => x * 2), arguments())
 #test(arguments(2, a: 3).map(x => x * 2), arguments(4, a: 6))

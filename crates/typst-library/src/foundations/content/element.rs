@@ -11,7 +11,7 @@ use typst_utils::Static;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Content, ContentVtable, FieldAccessError, Func, ParamInfo, Repr, Scope,
+    Args, Content, ContentVtable, FieldAccessError, Func, NativeParamInfo, Repr, Scope,
     Selector, StyleChain, Styles, Value, cast,
 };
 use crate::text::{Lang, Region};
@@ -99,13 +99,13 @@ impl Element {
     }
 
     /// Details about the element's fields.
-    pub fn params(&self) -> &'static [ParamInfo] {
+    pub fn params(&self) -> &'static [NativeParamInfo] {
         (self.vtable().store)().params.get_or_init(|| {
             self.vtable()
                 .fields
                 .iter()
                 .filter(|field| !field.synthesized)
-                .map(|field| ParamInfo {
+                .map(|field| NativeParamInfo {
                     name: field.name,
                     docs: field.docs,
                     input: (field.input)(),
@@ -193,7 +193,7 @@ cast! {
 #[derive(Default)]
 pub struct LazyElementStore {
     pub scope: OnceLock<Scope>,
-    pub params: OnceLock<Vec<ParamInfo>>,
+    pub params: OnceLock<Vec<NativeParamInfo>>,
 }
 
 impl LazyElementStore {

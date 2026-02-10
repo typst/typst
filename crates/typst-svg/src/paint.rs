@@ -89,9 +89,10 @@ impl SVGRenderer<'_> {
         // that it needs and once to actually render it.
         let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        // Use the rendered SVG as a key, since the `Tiling` itself includes
-        // `Location`s which aren't stable.
-        let tiling_id = self.tilings.insert_with(rendered, || tiling.clone());
+        // Use the rendered SVG and the tiling size as a key, since the `Tiling`
+        // itself includes `Location`s which aren't stable.
+        let tiling_id =
+            self.tilings.insert_with((tiling_size, rendered), || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
@@ -118,15 +119,18 @@ impl SVGRenderer<'_> {
 
                     let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
-                    let length = sin.abs() + cos.abs();
-                    let (x1, y1, x2, y2) = match angle.quadrant() {
-                        Quadrant::First => (0.0, 0.0, cos * length, sin * length),
-                        Quadrant::Second => (1.0, 0.0, cos * length + 1.0, sin * length),
-                        Quadrant::Third => {
-                            (1.0, 1.0, cos * length + 1.0, sin * length + 1.0)
-                        }
-                        Quadrant::Fourth => (0.0, 1.0, cos * length, sin * length + 1.0),
+
+                    // Scale to edges of unit square.
+                    let factor = sin.abs() + cos.abs();
+
+                    let (x1, y1) = match angle.quadrant() {
+                        Quadrant::First => (0.0, 0.0),
+                        Quadrant::Second => (1.0, 0.0),
+                        Quadrant::Third => (1.0, 1.0),
+                        Quadrant::Fourth => (0.0, 1.0),
                     };
+                    let x2 = x1 + (cos * factor);
+                    let y2 = y1 + (sin * factor);
 
                     gradient.attr("x1", x1);
                     gradient.attr("y1", y1);

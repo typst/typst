@@ -23,7 +23,7 @@
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
-//! - `server`: Enables a live-reloading HTTP serving via [`server::HttpServer`]
+//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`]
 //! - `vendor-openssl`: Whether to vendor OpenSSL for the `system-downloader`.
 //!   Not applicable to Windows and macOS build.
 
@@ -38,7 +38,7 @@
         feature = "emit-diagnostics",
         feature = "system-downloader",
         feature = "watcher",
-        feature = "server",
+        feature = "http-server",
     )),
     allow(rustdoc::broken_intra_doc_links)
 )]

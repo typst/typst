@@ -1,4 +1,4 @@
---- relative-fields paged ---
+--- relative-fields eval ---
 // Test relative length fields.
 #test((100% + 2em + 2pt).ratio, 100%)
 #test((100% + 2em + 2pt).length, 2em + 2pt)

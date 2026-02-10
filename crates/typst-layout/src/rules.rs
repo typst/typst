@@ -394,19 +394,19 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+    // The footnote number that links to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(link).pack().spanned(elem.span());
     Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let number_gap = Em::new(0.05);
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
+    let prefix = PdfMarkerTag::Label(sup);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        PdfMarkerTag::Label(prefix),
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))

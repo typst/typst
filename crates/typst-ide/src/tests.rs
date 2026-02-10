@@ -242,3 +242,19 @@ fn cursor(source: &Source, cursor: isize) -> usize {
         cursor as usize
     }
 }
+
+/// A test function that is used in autocomplete & tooltip tests.
+pub const EXAMPLE_CLOSURE: &str = "
+// A *useful* function.
+//
+// With extra text.
+#let foo(
+    wood,
+    /// Tree with three slashes.
+    tree: 1,
+    // More *trees*.
+    //
+    // More information, $1+2$.
+    forest: rgb(\"#123\"),
+) = (wood * tree, forest)
+";

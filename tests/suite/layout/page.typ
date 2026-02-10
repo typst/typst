@@ -1,6 +1,6 @@
 // Test the page class.
 
---- page-call-empty paged ---
+--- page-call-empty paged empty ---
 // Just empty page.
 // Should result in auto-sized page, just like nothing.
 #page[]
@@ -348,7 +348,7 @@ A
   A
 ]
 
---- page-show-warning paged ---
+--- page-show-warning paged empty ---
 // Warning: 2-17 `show page` is not supported and has no effect
 // Hint: 2-17 customize pages with `set page(..)` instead
 #show page: none
@@ -392,7 +392,7 @@ text
   On page #here().page()
 ]
 
---- issue-3671-get-from-page-call paged ---
+--- issue-3671-get-from-page-call paged empty ---
 #set page(margin: 5pt)
 #context test(page.margin, 5pt)
 #page(margin: 10pt, context test(page.margin, 10pt))

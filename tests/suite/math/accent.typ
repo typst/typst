@@ -103,6 +103,11 @@ $ accent(x + y, "..") $
 // Error: 17-19 expected a single-codepoint symbol
 $ accent(x + y, ..) $
 
+--- math-accent-overlay paged ---
+// Ensure accent is laid out above the base.
+#show "\u{0338}": set text(red)
+$accent(W, \u{0338})$, $accent(y, \u{0338})$
+
 --- issue-7437-math-accent-text-presentation paged ---
 // Make sure that the `arrow.l.r` symbol correctly works as an accent even
 // though it includes a text presentation variation selector.

@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_syntax::{Span, is_newline};
@@ -307,38 +309,156 @@ fn resolve_accent<'a, 'v, 'e>(
 /// Resolves an attach element.
 ///
 /// Deals with primes, merges nested attachements, and decides the final
-/// positioning.
+/// positioning based on limits/scripts.
 fn resolve_attach<'a, 'v, 'e>(
     elem: &'a Packed<AttachElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let merged = elem.merge_base();
-    let elem = merged.map_or(elem, |x| ctx.arenas.bump.alloc(x));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let outer_attachments = &mut [const { AttachmentList::End }; 6];
+    let item = resolve_inner_attach(elem, outer_attachments, false, ctx, styles)?;
+    ctx.push(item);
+    Ok(())
+}
 
-    let base = ctx.resolve_into_item(&elem.base, styles)?;
+/// This is a mutable stack-allocated linked list used for attachment merging.
+///
+/// Consider: `attach(attach(attach(a, t: 1), b: 2), t: 3, b: 4)`.
+/// We would like this to become `attach(attach(a, t: 1, b: 2), t: 3, b: 4)`.
+///
+/// However if we only consider attachments in adjacent levels, we won't merge
+/// `b:4` inward because `b:2` is already present (but we will merge `t:3` in).
+/// But at the next step `b:2` would merge inwards, leaving us with the sorry
+/// state of `attach(attach(attach(a, t: 1, b: 2), t: 3), b: 4)` with `t:3` and
+/// `b:4` separated, despite originally starting at the same level!
+///
+/// So for correct handling we need a proper list of attachments, for which I am
+/// using a stack-allocated linked list to avoid allocations and because it's
+/// relatively straightforward.
+///
+/// Unfortunately, this does require the complication of interior mutability,
+/// i.e. the `Cell` type, due to lifetime variance. See the linked section of
+/// "Learning Rust With Entirely Too Many Linked Lists" for more explanation:
+/// https://rust-unofficial.github.io/too-many-lists/infinity-stack-allocated.html
+enum AttachmentList<'a> {
+    Node {
+        /// We use `Option<Content>` instead of just `Content` to allow for the
+        /// "unmerging" operation used by primes in tr position.
+        data: Cell<Option<Content>>,
+        outer: &'a AttachmentList<'a>,
+    },
+    End,
+}
+
+impl<'a> AttachmentList<'a> {
+    fn inner(content: Option<Content>, outer: &'a Self) -> Self {
+        fn merge_inward(list: &AttachmentList) -> Option<Content> {
+            match list {
+                AttachmentList::Node { data, outer } => data.replace(merge_inward(outer)),
+                AttachmentList::End => None,
+            }
+        }
+        let data = content.or_else(|| merge_inward(outer));
+        AttachmentList::Node { data: Cell::new(data), outer }
+    }
+
+    fn unmerge(mut self: &Self, content: Content) {
+        let mut data = Some(content);
+        while data.is_some()
+            && let AttachmentList::Node { data: outer_data, outer } = self
+        {
+            data = outer_data.replace(data);
+            self = outer;
+        }
+        assert!(data.is_none(), "only called if we previously merged inward");
+    }
+}
+
+/// Recursively resolve the base of an `AttachElem`, merging outer attachments
+/// inwards.
+fn resolve_inner_attach<'a, 'v, 'e>(
+    elem: &'a Packed<AttachElem>,
+    outer_attachments: &[AttachmentList; 6],
+    outer_t_inside_tr: bool,
+    ctx: &mut MathResolver<'a, 'v, 'e>,
+    styles: StyleChain<'a>,
+) -> SourceResult<MathItem<'a>> {
+    // Lifetime-extend the super/subscript styles.
+    let bumped_styles = ctx.arenas.bump.alloc(styles);
     let sup_style = ctx.store_styles(style_for_superscript(styles));
     let sup_style_chain = bumped_styles.chain(sup_style);
-    let tl = elem.tl.get_cloned(sup_style_chain);
-    let tr = elem.tr.get_cloned(sup_style_chain);
-    let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
-    let t = elem.t.get_cloned(sup_style_chain);
-
     let sub_style = ctx.store_styles(style_for_subscript(styles));
     let sub_style_chain = bumped_styles.chain(sub_style);
-    let bl = elem.bl.get_cloned(sub_style_chain);
-    let br = elem.br.get_cloned(sub_style_chain);
-    let b = elem.b.get_cloned(sub_style_chain);
 
+    // Get the merged attachments without resolving them to items yet.
+    let (no_inner_tr, t_inside_tr);
+    let attachments = {
+        let [o_t, o_b, o_tl, o_tr, o_bl, o_br] = outer_attachments;
+
+        let tl = AttachmentList::inner(elem.tl.get_cloned(sup_style_chain), o_tl);
+        // We remember the status of t and tr for correct prime handling below.
+        let elem_t = elem.t.get_cloned(sup_style_chain);
+        let elem_tr = elem.tr.get_cloned(sup_style_chain);
+        no_inner_tr = elem_tr.is_none();
+        t_inside_tr = no_inner_tr && (elem_t.is_some() || outer_t_inside_tr);
+        let t = AttachmentList::inner(elem_t, o_t);
+        let tr = AttachmentList::inner(elem_tr, o_tr);
+
+        let b = AttachmentList::inner(elem.b.get_cloned(sub_style_chain), o_b);
+        let bl = AttachmentList::inner(elem.bl.get_cloned(sub_style_chain), o_bl);
+        let br = AttachmentList::inner(elem.br.get_cloned(sub_style_chain), o_br);
+
+        [t, b, tl, tr, bl, br]
+    };
+
+    // Extract from a nested EquationElem.
+    let mut base_elem = &elem.base;
+    while let Some(equation) = base_elem.to_packed::<EquationElem>() {
+        base_elem = &equation.body;
+    }
+
+    // Resolve the base and recursively merge outer attachments inwards.
+    let base = if let Some(base_elem) = base_elem.to_packed::<AttachElem>() {
+        resolve_inner_attach(base_elem, &attachments, t_inside_tr, ctx, styles)?
+    } else {
+        ctx.resolve_into_item(base_elem, styles)?
+    };
+
+    // We can now take our inner attachments back out of the list.
+    let [t, b, tl, tr, bl, br] = attachments.map(|a| match a {
+        AttachmentList::Node { data: content, outer: _ } => content.into_inner(),
+        AttachmentList::End => None,
+    });
+
+    // If we're not actually attaching anything, just return the base.
+    if [&t, &b, &tl, &tr, &bl, &br].iter().all(|a| a.is_none()) {
+        return Ok(base);
+    }
+
+    // Apply limits, potentially joining top-right primes with the top attachment.
     let limits = base.limits().active(styles);
     let (t, tr) = match (t, tr) {
-        (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
+        (Some(t), Some(tr)) if !limits => {
+            let primed = tr.is::<PrimesElem>();
+            if primed && no_inner_tr && t_inside_tr {
+                // If we brought a primed tr inward, yield it back to the outer
+                // attachment to avoid inverting the order with `tr + t`.
+                // And note that `t + tr` would just look bad.
+                outer_attachments[3].unmerge(tr);
+                (None, Some(t))
+            } else if primed {
+                // This makes `x'^2` look better than `x^'^2`.
+                (None, Some(tr + t))
+            } else {
+                (Some(t), Some(tr))
+            }
+        }
         (Some(t), None) if !limits => (None, Some(t)),
         (t, tr) => (t, tr),
     };
     let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
 
+    // Finally, resolve the attachments themselves from content to items.
     macro_rules! layout {
         ($content:ident, $style_chain:ident) => {
             $content
@@ -354,7 +474,7 @@ fn resolve_attach<'a, 'v, 'e>(
     let top_right = layout!(tr, sup_style_chain)?;
     let bottom_right = layout!(br, sub_style_chain)?;
 
-    ctx.push(ScriptsItem::create(
+    Ok(ScriptsItem::create(
         base,
         top,
         bottom,
@@ -364,9 +484,7 @@ fn resolve_attach<'a, 'v, 'e>(
         bottom_right,
         styles,
         &ctx.arenas.bump,
-    ));
-
-    Ok(())
+    ))
 }
 
 /// Resolves grouped primes.
