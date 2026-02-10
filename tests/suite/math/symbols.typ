@@ -4,12 +4,12 @@
 #let sym = symbol("s", ("basic", "s"))
 #test($sym.basic$, $s$)
 
---- math-symbol-underscore paged ---
+--- math-symbol-underscore eval ---
 #let sym = symbol("s", ("test_underscore", "s"))
 // Error: 6-10 unknown symbol modifier
 $sym.test_underscore$
 
---- math-symbol-dash paged ---
+--- math-symbol-dash eval ---
 #let sym = symbol("s", ("test-dash", "s"))
 // Error: 6-10 unknown symbol modifier
 $sym.test-dash$
@@ -18,12 +18,12 @@ $sym.test-dash$
 #let sym = symbol("s", ("test.basic", "s"))
 #test($sym.test.basic$, $s$)
 
---- math-symbol-double-underscore paged ---
+--- math-symbol-double-underscore eval ---
 #let sym = symbol("s", ("one.test_underscore", "s"))
 // Error: 10-14 unknown symbol modifier
 $sym.one.test_underscore$
 
---- math-symbol-double-dash paged ---
+--- math-symbol-double-dash eval ---
 #let sym = symbol("s", ("one.test-dash", "s"))
 // Error: 10-14 unknown symbol modifier
 $sym.one.test-dash$

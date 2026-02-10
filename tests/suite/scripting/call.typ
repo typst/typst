@@ -39,30 +39,30 @@
   test(adder(2)(5), 7)
 }
 
---- call-bad-type-bool-literal paged ---
+--- call-bad-type-bool-literal eval ---
 // Error: 2-6 expected function, found boolean
 #true()
 
---- call-bad-type-string-var paged ---
+--- call-bad-type-string-var eval ---
 #let x = "x"
 
 // Error: 2-3 expected function, found string
 #x()
 
---- call-shadowed-builtin-function paged ---
+--- call-shadowed-builtin-function eval ---
 #let image = "image"
 
 // Error: 2-7 expected function, found string
 // Hint: 2-7 use `std.image` to access the shadowed standard library function
 #image("image")
 
---- call-bad-type-int-expr paged ---
+--- call-bad-type-int-expr eval ---
 #let f(x) = x
 
 // Error: 2-6 expected function, found integer
 #f(1)(2)
 
---- call-bad-type-content-expr paged ---
+--- call-bad-type-content-expr eval ---
 #let f(x) = x
 
 // Error: 2-6 expected function, found content
@@ -72,42 +72,42 @@
 // Trailing comma.
 #test(1 + 1, 2,)
 
---- call-args-duplicate paged ---
+--- call-args-duplicate eval ---
 // Error: 26-30 duplicate argument: font
 #set text(font: "Arial", font: "Helvetica")
 
---- call-args-bad-positional-as-named paged ---
+--- call-args-bad-positional-as-named eval ---
 // Error: 4-15 the argument `amount` is positional
 // Hint: 4-15 try removing `amount:`
 #h(amount: 0.5)
 
---- call-args-bad-colon paged ---
+--- call-args-bad-colon eval ---
 // Error: 7-8 unexpected colon
 #func(:)
 
---- call-args-bad-token paged ---
+--- call-args-bad-token eval ---
 // Error: 10-12 unexpected end of block comment
 // Hint: 10-12 consider escaping the `*` with a backslash or opening the block comment with `/*`
 #func(a:1*/)
 
---- call-args-missing-comma paged ---
+--- call-args-missing-comma eval ---
 // Error: 8 expected comma
 #func(1 2)
 
---- call-args-bad-name-and-incomplete-pair paged ---
+--- call-args-bad-name-and-incomplete-pair eval ---
 // Error: 7-8 expected identifier, found integer
 // Error: 9 expected expression
 #func(1:)
 
---- call-args-bad-name-int paged ---
+--- call-args-bad-name-int eval ---
 // Error: 7-8 expected identifier, found integer
 #func(1:2)
 
---- call-args-bad-name-string paged ---
+--- call-args-bad-name-string eval ---
 // Error: 7-12 expected identifier, found string
 #func("abc": 2)
 
---- call-args-bad-name-group paged ---
+--- call-args-bad-name-group eval ---
 // Error: 7-10 expected identifier, found group
 #func((x):1)
 
@@ -169,11 +169,11 @@
 #f(..if false {})
 #f(..for x in () [])
 
---- call-args-spread-string-invalid paged ---
+--- call-args-spread-string-invalid eval ---
 // Error: 11-19 cannot spread string
 #calc.min(.."nope")
 
---- call-args-content-block-unclosed paged ---
+--- call-args-content-block-unclosed eval ---
 // Error: 6-7 unclosed delimiter
 #func[`a]`
 
@@ -198,11 +198,11 @@
 #let f( param : v ) = param
 #test(f( param /* ok */ : 2 ), 2)
 
---- call-args-unclosed paged ---
+--- call-args-unclosed eval ---
 // Error: 7-8 unclosed delimiter
 #{func(}
 
---- call-args-unclosed-string paged ---
+--- call-args-unclosed-string eval ---
 // Error: 6-7 unclosed delimiter
 // Error: 1:7-2:1 unclosed string
 #func("]

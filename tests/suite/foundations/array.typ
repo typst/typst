@@ -20,35 +20,35 @@
     , rgb("002")
     ,)
 
---- array-bad-token paged ---
+--- array-bad-token eval ---
 // Error: 4-6 unexpected end of block comment
 // Hint: 4-6 consider escaping the `*` with a backslash or opening the block comment with `/*`
 #(1*/2)
 
---- array-bad-number-suffix paged ---
+--- array-bad-number-suffix eval ---
 // Error: 6-8 invalid number suffix: u
 #(1, 1u 2)
 
---- array-leading-comma paged ---
+--- array-leading-comma eval ---
 // Error: 3-4 unexpected comma
 #(,1)
 
---- array-incomplete-pair paged ---
+--- array-incomplete-pair eval ---
 // Missing expression makes named pair incomplete, making this an empty array.
 // Error: 5 expected expression
 #(a:)
 
---- array-named-pair paged ---
+--- array-named-pair eval ---
 // Named pair after this is already identified as an array.
 // Error: 6-10 expected expression, found named pair
 #(1, b: 2)
 
---- array-keyed-pair paged ---
+--- array-keyed-pair eval ---
 // Keyed pair after this is already identified as an array.
 // Error: 6-14 expected expression, found keyed pair
 #(1, "key": 2)
 
---- array-bad-conversion-from-string paged ---
+--- array-bad-conversion-from-string eval ---
 // Error: 8-15 expected array, bytes, or version, found string
 #array("hello")
 
@@ -61,7 +61,7 @@
   test((..none), ())
 }
 
---- spread-dict-into-array paged ---
+--- spread-dict-into-array eval ---
 // Error: 9-17 cannot spread dictionary into array
 #(1, 2, ..(a: 1))
 
@@ -87,16 +87,16 @@
   test(array, (7, 16, 3))
 }
 
---- array-at-out-of-bounds paged ---
+--- array-at-out-of-bounds eval ---
 // Test rvalue out of bounds.
 // Error: 2-17 array index out of bounds (index: 5, len: 3) and no default value was specified
 #(1, 2, 3).at(5)
 
---- array-at-out-of-bounds-negative paged ---
+--- array-at-out-of-bounds-negative eval ---
 // Error: 2-18 array index out of bounds (index: -4, len: 3) and no default value was specified
 #(1, 2, 3).at(-4)
 
---- array-at-out-of-bounds-lvalue paged ---
+--- array-at-out-of-bounds-lvalue eval ---
 // Test lvalue out of bounds.
 #{
   let array = (1, 2, 3)
@@ -134,29 +134,29 @@
 #test(range(5, 2, step: -1), (5, 4, 3))
 #test(range(10, 0, step: -3), (10, 7, 4, 1))
 
---- array-range-end-missing paged ---
+--- array-range-end-missing eval ---
 // Error: 2-9 missing argument: end
 #range()
 
---- array-range-float-invalid paged ---
+--- array-range-float-invalid eval ---
 // Error: 11-14 expected integer, found float
 #range(1, 2.0)
 
---- array-range-bad-step-type paged ---
+--- array-range-bad-step-type eval ---
 // Error: 17-22 expected integer, found string
 #range(4, step: "one")
 
---- array-range-step-zero paged ---
+--- array-range-step-zero eval ---
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
 
---- array-bad-method-lvalue paged ---
+--- array-bad-method-lvalue eval ---
 // Test bad lvalue.
 // Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)
 #(array.len() = 4)
 
---- array-unknown-method-lvalue paged ---
+--- array-unknown-method-lvalue eval ---
 // Test bad lvalue.
 // Error: 2:9-2:13 type array has no method `yolo`
 #let array = (1, 2, 3)
@@ -184,11 +184,11 @@
 #test((1, 2).last(default: 99), 2)
 #test(().last(default: 99), 99)
 
---- array-first-empty paged ---
+--- array-first-empty eval ---
 // Error: 2-12 array is empty
 #().first()
 
---- array-last-empty paged ---
+--- array-last-empty eval ---
 // Error: 2-11 array is empty
 #().last()
 
@@ -212,7 +212,7 @@
   test(array, (0, 2, 3, 4, 5))
 }
 
---- array-insert-missing-index paged ---
+--- array-insert-missing-index eval ---
 // Error: 2:2-2:18 missing argument: index
 #let numbers = ()
 #numbers.insert()
@@ -230,19 +230,19 @@
 #test((1, 2, 3).slice(-3, 2), (1, 2))
 #test("ABCD".split("").slice(1, -1).join("-"), "A-B-C-D")
 
---- array-slice-count-end paged ---
+--- array-slice-count-end eval ---
 // Error: 2-33 `end` and `count` are mutually exclusive
 #(1, 2, 3).slice(0, 1, count: 2)
 
---- array-slice-out-of-bounds paged ---
+--- array-slice-out-of-bounds eval ---
 // Error: 2-30 array index out of bounds (index: 12, len: 10)
 #range(10).slice(9, count: 3)
 
---- array-slice-out-of-bounds-from-back paged ---
+--- array-slice-out-of-bounds-from-back eval ---
 // Error: 2-31 array index out of bounds (index: 12, len: 10)
 #range(10).slice(-2, count: 4)
 
---- array-slice-out-of-bounds-negative paged ---
+--- array-slice-out-of-bounds-negative eval ---
 // Error: 2-24 array index out of bounds (index: -4, len: 3)
 #(1, 2, 3).slice(0, -4)
 
@@ -258,7 +258,7 @@
 #test((1, 2, 3, 4).filter(calc.even), (2, 4))
 #test((7, 3, 2, 5, 1).filter(x => x < 5), (3, 2, 1))
 
---- array-filter-error paged ---
+--- array-filter-error eval ---
 // Test that errors in the predicate are reported properly.
 // Error: 21-26 cannot subtract integer from string
 #("a",).filter(x => x - 2)
@@ -268,7 +268,7 @@
 #test(().map(x => x * 2), ())
 #test((2, 3).map(x => x * 2), (4, 6))
 
---- array-map-error paged ---
+--- array-map-error eval ---
 // Test that errors in the function are reported properly.
 // Error: 18-23 cannot subtract integer from string
 #("a",).map(x => x - 2)
@@ -278,7 +278,7 @@
 #test(().fold("hi", grid), "hi")
 #test((1, 2, 3, 4).fold(0, (s, x) => s + x), 10)
 
---- array-fold-closure-without-params paged ---
+--- array-fold-closure-without-params eval ---
 // Error: 20-22 unexpected argument
 #(1, 2, 3).fold(0, () => none)
 
@@ -288,7 +288,7 @@
 #test(().sum(default: []), [])
 #test((1, 2, 3).sum(), 6)
 
---- array-sum-empty paged ---
+--- array-sum-empty eval ---
 // Error: 2-10 cannot calculate sum of empty array with no default
 #().sum()
 
@@ -299,7 +299,7 @@
 #test(([ab], 3).product(), [ab]*3)
 #test((1, 2, 3).product(), 6)
 
---- array-product-empty paged ---
+--- array-product-empty eval ---
 // Error: 2-14 cannot calculate product of empty array with no default
 #().product()
 
@@ -319,11 +319,11 @@
 #test(("hello",).join(default: "EMPTY", ", "), "hello")
 #test(("hello", "world").join(default: "EMPTY", ", "), "hello, world")
 
---- array-join-bad-values paged ---
+--- array-join-bad-values eval ---
 // Error: 2-22 cannot join boolean with boolean
 #(true, false).join()
 
---- array-join-bad-separator paged ---
+--- array-join-bad-separator eval ---
 // Error: 2-20 cannot join string with integer
 #("a", "b").join(1)
 
@@ -350,11 +350,11 @@
 #test((1, 2, 3, 4, 5, 6).chunks(3, exact: true), ((1, 2, 3), (4, 5, 6)))
 #test((1, 2, 3, 4, 5, 6, 7, 8).chunks(3, exact: true), ((1, 2, 3), (4, 5, 6)))
 
---- array-chunks-size-zero paged ---
+--- array-chunks-size-zero eval ---
 // Error: 19-20 number must be positive
 #(1, 2, 3).chunks(0)
 
---- array-chunks-size-negative paged ---
+--- array-chunks-size-negative eval ---
 // Error: 19-21 number must be positive
 #(1, 2, 3).chunks(-5)
 
@@ -365,11 +365,11 @@
 #test((1, 2, 3, 4, 5).windows(3), ((1, 2, 3), (2, 3, 4), (3, 4, 5)))
 #test((1, 2, 3, 4, 5, 6, 7, 8).windows(5), ((1, 2, 3, 4, 5), (2, 3, 4, 5, 6), (3, 4, 5, 6, 7), (4, 5, 6, 7, 8)))
 
---- array-windows-size-zero paged ---
+--- array-windows-size-zero eval ---
 // Error: 20-21 number must be positive
 #(1, 2, 3).windows(0)
 
---- array-windows-size-negative paged ---
+--- array-windows-size-negative eval ---
 // Error: 20-22 number must be positive
 #(1, 2, 3).windows(-5)
 
@@ -387,11 +387,11 @@
 #test(("I", "the", "hi", "text").sorted(by: (x, y) => x.len() < y.len()), ("I", "hi", "the", "text"))
 #test(("I", "the", "hi", "text").sorted(key: x => x.len(), by: (x, y) => y < x), ("text", "the", "hi", "I"))
 
---- array-sorted-invalid-by-function paged ---
+--- array-sorted-invalid-by-function eval ---
 // Error: 2-39 expected boolean from `by` function, got string
 #(1, 2, 3).sorted(by: (_, _) => "hmm")
 
---- array-sorted-key-function-positional-1 paged ---
+--- array-sorted-key-function-positional-1 eval ---
 // Error: 12-18 unexpected argument
 #().sorted(x => x)
 
@@ -411,11 +411,11 @@
 #test((1, 2, 3).zip(), ((1,), (2,), (3,)))
 #test(array.zip(()), ())
 
---- array-zip-exact-error paged ---
+--- array-zip-exact-error eval ---
 // Error: 13-22 second array has different length (3) from first array (2)
 #(1, 2).zip((1, 2, 3), exact: true)
 
---- array-zip-exact-multi-error paged ---
+--- array-zip-exact-multi-error eval ---
 // Error: 13-22 array has different length (3) from first array (2)
 // Error: 24-36 array has different length (4) from first array (2)
 #(1, 2).zip((1, 2, 3), (1, 2, 3, 4), exact: true)
@@ -451,82 +451,82 @@
 #test((("a", 1), ("b", 2), ("c", 3)).to-dict(), (a: 1, b: 2, c: 3))
 #test((("a", 1), ("b", 2), ("c", 3), ("b", 4)).to-dict(), (a: 1, b: 4, c: 3))
 
---- array-to-dict-bad-item-type paged ---
+--- array-to-dict-bad-item-type eval ---
 // Error: 2-16 expected (str, any) pairs, found integer
 #(1,).to-dict()
 
---- array-to-dict-bad-pair-length-1 paged ---
+--- array-to-dict-bad-pair-length-1 eval ---
 // Error: 2-19 expected pairs of length 2, found length 1
 #((1,),).to-dict()
 
---- array-to-dict-bad-pair-length-3 paged ---
+--- array-to-dict-bad-pair-length-3 eval ---
 // Error: 2-26 expected pairs of length 2, found length 3
 #(("key",1,2),).to-dict()
 
---- array-to-dict-bad-key-type paged ---
+--- array-to-dict-bad-key-type eval ---
 // Error: 2-21 expected key of type str, found integer
 #((1, 2),).to-dict()
 
---- array-zip-positional-and-named-argument paged ---
+--- array-zip-positional-and-named-argument eval ---
 // Error: 13-30 unexpected argument: val
 #().zip((), val: "applicable")
 
---- array-sorted-bad-key paged ---
+--- array-sorted-bad-key eval ---
 // Error: 32-37 cannot divide by zero
 #(1, 2, 0, 3).sorted(key: x => 5 / x)
 
---- array-sorted-underdetermined-with-key paged ---
+--- array-sorted-underdetermined-with-key eval ---
 // Error: 2-40 cannot compare content and content
 // Hint: 2-40 consider defining the comparison with `by` or choosing a different `key`
 #((1, []), (1, [])).sorted(key: a => a)
 
---- array-sorted-uncomparable paged ---
+--- array-sorted-uncomparable eval ---
 // Error: 2-26 cannot compare content and content
 // Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #([Hi], [There]).sorted()
 
---- array-sorted-uncomparable-lengths paged ---
+--- array-sorted-uncomparable-lengths eval ---
 // Error: 2-26 cannot compare 3em with 2pt
 // Hint: 2-26 consider choosing a `key` or defining the comparison with `by`
 #(1pt, 2pt, 3em).sorted()
 
---- array-sorted-key-function-positional-2 paged ---
+--- array-sorted-key-function-positional-2 eval ---
 // Error: 42-52 unexpected argument
 #((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
 
---- issue-3014-mix-array-dictionary paged ---
+--- issue-3014-mix-array-dictionary eval ---
 // Error: 8-17 expected expression, found named pair
 #(box, fill: red)
 
---- issue-3154-array-first-empty paged ---
+--- issue-3154-array-first-empty eval ---
 #{
   let array = ()
   // Error: 3-16 array is empty
   array.first()
 }
 
---- issue-3154-array-first-mutable-empty paged ---
+--- issue-3154-array-first-mutable-empty eval ---
 #{
   let array = ()
   // Error: 3-16 array is empty
   array.first() = 9
 }
 
---- issue-3154-array-last-empty paged ---
+--- issue-3154-array-last-empty eval ---
 #{
   let array = ()
   // Error: 3-15 array is empty
   array.last()
 }
 
---- issue-3154-array-last-mutable-empty paged ---
+--- issue-3154-array-last-mutable-empty eval ---
 #{
   let array = ()
   // Error: 3-15 array is empty
   array.last() = 9
 }
 
---- issue-3154-array-at-out-of-bounds paged ---
+--- issue-3154-array-at-out-of-bounds eval ---
 #{
   let array = (1,)
   // Error: 3-14 array index out of bounds (index: 1, len: 1) and no default value was specified
@@ -539,25 +539,25 @@
   test(array.at(1, default: 0), 0)
 }
 
---- issue-3154-array-at-out-of-bounds-mutable paged ---
+--- issue-3154-array-at-out-of-bounds-mutable eval ---
 #{
   let array = (1,)
   // Error: 3-14 array index out of bounds (index: 1, len: 1)
   array.at(1) = 9
 }
 
---- issue-3154-array-at-out-of-bounds-mutable-default paged ---
+--- issue-3154-array-at-out-of-bounds-mutable-default eval ---
 #{
   let array = (1,)
   // Error: 3-26 array index out of bounds (index: 1, len: 1)
   array.at(1, default: 0) = 9
 }
 
---- array-unopened paged ---
+--- array-unopened eval ---
 // Error: 2-3 unclosed delimiter
 #{)}
 
---- array-unclosed paged ---
+--- array-unclosed eval ---
 // Error: 3-4 unclosed delimiter
 #{(}
 
@@ -566,15 +566,15 @@
 #test(().reduce(grid), none)
 #test((1, 2, 3, 4).reduce((s, x) => s + x), 10)
 
---- array-reduce-missing-reducer paged ---
+--- array-reduce-missing-reducer eval ---
 // Error: 2-13 missing argument: reducer
 #().reduce()
 
---- array-reduce-unexpected-argument paged ---
+--- array-reduce-unexpected-argument eval ---
 // Error: 19-21 unexpected argument
 #(1, 2, 3).reduce(() => none)
 
---- issue-6285-crashed-with-sorting-non-total-order paged ---
+--- issue-6285-crashed-with-sorting-non-total-order eval ---
 // Error: 2-66 cannot compare none and string
 // Hint: 2-66 consider choosing a `key` or defining the comparison with `by`
 #(("a", "b", "c", "d", "e", "z") * 3 + ("c", none, "a")).sorted()

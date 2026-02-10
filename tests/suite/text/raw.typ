@@ -91,7 +91,7 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
---- raw-syntaxes-invalid-sublime-syntax paged ---
+--- raw-syntaxes-invalid-sublime-syntax eval ---
 // Prevent test parser from failing on "^---" line.
 #let sublime-syntax = ```yaml
 %YAML 1.2
@@ -183,7 +183,7 @@ b = 324923
   "#let f(x) = x\n#align(center, line(length: 1em))",
 ))
 
---- raw-align-invalid paged ---
+--- raw-align-invalid eval ---
 // Error: 17-20 expected `start`, `left`, `center`, `right`, or `end`, found top
 #set raw(align: top)
 
@@ -831,7 +831,7 @@ hi:
   What is this?: This is incredible text!
 ```
 
---- raw-unclosed paged ---
+--- raw-unclosed eval ---
 // Test unterminated raw text.
 //
 // Note: This test should be the final one in the file because it messes up

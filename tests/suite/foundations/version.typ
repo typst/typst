@@ -21,7 +21,7 @@
 #test(version(0), version(0, 0))
 #test(version(1, 2), version(1, 2, 0, 0, 0, 0))
 
---- version-at paged ---
+--- version-at eval ---
 // Test `version.at`.
 
 // Non-negative index in bounds

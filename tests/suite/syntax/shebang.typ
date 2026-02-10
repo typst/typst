@@ -1,6 +1,6 @@
 // Test shebang support.
 
---- shebang paged ---
+--- shebang eval ---
 #!typst compile
 
 // Error: 2-3 the character `!` is not valid in code

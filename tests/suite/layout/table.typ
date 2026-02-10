@@ -16,7 +16,7 @@
 --- table-fill-basic paged ---
 #table(columns: 3, stroke: none, fill: green, [A], [B], [C])
 
---- table-fill-bad paged ---
+--- table-fill-bad eval ---
 // Error: 14-19 expected color, gradient, tiling, none, array, or function, found string
 #table(fill: "hey")
 
@@ -321,7 +321,7 @@
   par[C],
 )
 
---- grid-cell-in-table paged ---
+--- grid-cell-in-table eval ---
 // Error: 8-19 cannot use `grid.cell` as a table cell
 // Hint: 8-19 use `table.cell` instead
 #table(grid.cell[])

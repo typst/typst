@@ -387,7 +387,7 @@
 #set text(fill: gradient.conic(red, blue, angle: 45deg))
 #lorem(30)
 
---- gradient-text-bad-relative paged ---
+--- gradient-text-bad-relative eval ---
 // Make sure they don't work when `relative: "self"`.
 // Hint: 17-61 make sure to set `relative: auto` on your text fill
 // Error: 17-61 gradients and tilings on text must be relative to the parent

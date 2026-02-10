@@ -13,7 +13,7 @@
   test(eval(s)(), 51)
 }
 
---- parser-backtracking-destructuring-assignment paged ---
+--- parser-backtracking-destructuring-assignment eval ---
 #{
   let s = "(x) = 1"
   let pat = "(x: {_}) = 1"

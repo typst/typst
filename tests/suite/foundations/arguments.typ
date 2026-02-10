@@ -14,12 +14,12 @@
 #test(args.at(2), 3)
 #test(args.at("a"), 2)
 
---- arguments-at-invalid-index paged ---
+--- arguments-at-invalid-index eval ---
 #let args = arguments(0, 1, a: 2, 3)
 // Error: 2-12 arguments do not contain key 4 and no default value was specified
 #args.at(4)
 
---- arguments-at-invalid-name paged ---
+--- arguments-at-invalid-name eval ---
 #let args = arguments(0, 1, a: 2, 3)
 // Error: 2-14 arguments do not contain key "b" and no default value was specified
 #args.at("b")
@@ -39,7 +39,7 @@
 #test(arguments(1, a: 2, b: 3, 4).filter(calc.even), arguments(a: 2, 4))
 #test(arguments(h: 7, e: 3, l: 2, o: 5, 1).filter(x => x < 5), arguments(e: 3, l: 2, 1))
 
---- arguments-filter-error paged ---
+--- arguments-filter-error eval ---
 // Test that errors in the predicate are reported properly.
 // Error: 29-34 cannot subtract integer from string
 #arguments("a").filter(x => x - 2)
@@ -49,7 +49,7 @@
 #test(arguments().map(x => x * 2), arguments())
 #test(arguments(2, a: 3).map(x => x * 2), arguments(4, a: 6))
 
---- arguments-map-error paged ---
+--- arguments-map-error eval ---
 // Test that errors in the function are reported properly.
 // Error: 26-31 cannot subtract integer from string
 #arguments("a").map(x => x - 2)

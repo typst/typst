@@ -27,7 +27,7 @@
 #let data-from-path = xml(path("/assets/data/hello.xml"))
 #test(data-from-path, data)
 
---- xml-invalid paged ---
+--- xml-invalid eval ---
 // Error: "/assets/data/bad.xml" 3:1 failed to parse XML (found closing tag 'data' instead of 'hello')
 #xml("/assets/data/bad.xml")
 

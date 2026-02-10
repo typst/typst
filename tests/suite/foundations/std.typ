@@ -13,12 +13,12 @@
 #let grid = "oh no!"
 #test(my-grid.func(), std.grid)
 
---- std-shadowing paged ---
+--- std-shadowing eval ---
 #let std = 5
 // Error: 6-10 cannot access fields on type integer
 #std.grid
 
---- std-mutation paged ---
+--- std-mutation eval ---
 // Error: 3-6 cannot mutate a constant: std
 #(std = 10)
 

@@ -57,7 +57,7 @@ hi:
   bytes(src.text)
 ))
 
---- bibliography-duplicate-key paged ---
+--- bibliography-duplicate-key eval ---
 // Error: 15-65 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works.bib"))
 
@@ -101,7 +101,7 @@ hi:
 // Error: 2-62 CSL style "Alphanumeric" is not suitable for bibliographies
 #bibliography("/assets/bib/works.bib", style: "alphanumeric")
 
---- bibliography-empty-key paged ---
+--- bibliography-empty-key eval ---
 #let src = ```yaml
 "":
   type: Book

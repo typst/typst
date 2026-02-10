@@ -268,7 +268,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // width, but rather max out at its natural size.
 #image("/assets/images/f2t.jpg")
 
---- image-file-not-found paged ---
+--- image-file-not-found eval ---
 // Error: 8-29 file not found (searched at tests/suite/visualize/path/does/not/exist)
 #image("path/does/not/exist")
 
@@ -332,7 +332,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-pixmap-unknown-attribute paged ---
+--- image-pixmap-unknown-attribute eval ---
 #image(
   bytes((0x00, 0x00, 0x00)),
   // Error: 1:11-6:4 unexpected key "stowaway", valid keys are "encoding", "width", and "height"
@@ -344,7 +344,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-pixmap-but-png-format paged ---
+--- image-pixmap-but-png-format eval ---
 #image(
   bytes((0x00, 0x00, 0x00)),
   // Error: 1:11-5:4 expected "rgb8", "rgba8", "luma8", or "lumaa8"
@@ -355,7 +355,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-png-but-pixmap-format paged ---
+--- image-png-but-pixmap-format eval ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
   // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", "pdf", or auto

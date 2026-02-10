@@ -129,11 +129,11 @@
 #pagebreak()
 #rect(width: 100%)[Right]
 
---- page-margin-left-and-outside paged ---
+--- page-margin-left-and-outside eval ---
 // Error: 19-44 `inside` and `outside` are mutually exclusive with `left` and `right`
 #set page(margin: (left: 1cm, outside: 2cm))
 
---- page-margin-binding-bad paged ---
+--- page-margin-binding-bad eval ---
 // Error: 20-23 must be `left` or `right`
 #set page(binding: top)
 
@@ -177,7 +177,7 @@ Z
 
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
---- page-number-align-left-horizon paged ---
+--- page-number-align-left-horizon eval ---
 // Error: 25-39 expected `top` or `bottom`, found horizon
 #set page(number-align: left + horizon)
 
