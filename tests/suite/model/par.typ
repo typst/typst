@@ -156,6 +156,20 @@ starts a paragraph, also with indent.
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
 
+--- par-first-line-indent-columns paged ---
+#set par(first-line-indent: (amount: 1em, all: false))
+
+A \ B
+
+C \ D
+
+#colbreak()
+
+// No first line indent after column break
+E \ F
+
+G \ H
+
 --- par-first-line-indent-all paged ---
 #set par(
   first-line-indent: (amount: 12pt, all: true),
