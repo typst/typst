@@ -1,5 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Add;
+use std::ops::{Add, Neg};
 
 use typst_utils::Get;
 
@@ -281,6 +281,14 @@ impl<T: Fold> Fold for Sides<Option<T>> {
         // explicit `None`. However, here `None` means unspecified and thus
         // we want `outer`, so we use `fold_or` to opt into such behavior.
         self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))
+    }
+}
+
+impl<T: Neg> Neg for Sides<T> {
+    type Output = Sides<T::Output>;
+
+    fn neg(self) -> Self::Output {
+        self.map(|val| -val)
     }
 }
 

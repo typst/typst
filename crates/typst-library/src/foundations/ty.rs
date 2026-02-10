@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use ecow::{EcoString, eco_format};
 use typst_utils::Static;
 
-use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::diag::{StrResult, WarningSink, bail};
 use crate::foundations::{
     AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
 };
@@ -111,7 +111,7 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => Ok(binding.read_checked(sink)),
