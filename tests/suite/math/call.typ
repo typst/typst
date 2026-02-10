@@ -8,12 +8,12 @@ $ pi(a,) $
 $ pi(a,b) $
 $ pi(a,b,) $
 
---- math-call-unclosed-func paged ---
+--- math-call-unclosed-func eval ---
 #let func(x) = x
 // Error: 6-7 unclosed delimiter
 $func(a$
 
---- math-call-unclosed-non-func paged ---
+--- math-call-unclosed-non-func eval ---
 // Error: 5-6 unclosed delimiter
 $sin(x$
 
@@ -31,32 +31,32 @@ $ func5(m: a) $
 $ func5(m: sigma : f) $
 $ func5(m: sigma:pi) $
 
---- math-call-named-args-no-expr paged ---
+--- math-call-named-args-no-expr eval ---
 #let func(m: none) = m
 // Error: 10 expected expression
 $ func(m: ) $
 
---- math-call-named-args-duplicate paged ---
+--- math-call-named-args-duplicate eval ---
 #let func(my: none) = my
 // Error: 15-17 duplicate argument: my
 $ func(my: a, my: b) $
 
---- math-call-named-args-shorthand-clash-1 paged ---
+--- math-call-named-args-shorthand-clash-1 eval ---
 #let func(m: none) = m
 // Error: 18-21 unexpected argument
 $func(m: =) func(m:=)$
 
---- math-call-named-args-shorthand-clash-2 paged ---
+--- math-call-named-args-shorthand-clash-2 eval ---
 #let func(m: none) = m
 // Error: 41-45 unexpected argument
 $func(m::) func(m: :=) func(m:: =) func(m::=)$
 
---- math-call-named-single-underscore paged ---
+--- math-call-named-single-underscore eval ---
 #let func(x) = x
 // Error: 8-9 expected identifier, found underscore
 $ func(_: a) $
 
---- math-call-named-single-char-error paged ---
+--- math-call-named-single-char-error eval ---
 #let func(m: none) = m
 // Error: 8-13 unexpected argument
 $ func(m : a) $
@@ -73,22 +73,22 @@ $ func(m : a) $
 #check($args(a-b: a-b)$, "arguments(a-b: sequence([a], [−], [b]))")
 #check($args(a-b)$, "arguments(sequence([a], [−], [b]))")
 
---- math-call-spread-content-error paged ---
+--- math-call-spread-content-error eval ---
 #let args(..body) = body
 // Error: 7-16 cannot spread content
 $args(..(a + b))$
 
---- math-call-spread-multiple-exprs paged ---
+--- math-call-spread-multiple-exprs eval ---
 #let args(..body) = body
 // Error: 7-14 cannot spread content
 $args(..a + b)$
 
---- math-call-spread-unexpected-dots paged ---
+--- math-call-spread-unexpected-dots eval ---
 #let args(..body) = body
 // Error: 8-10 unexpected dots
 $args(#..range(1, 5).chunks(2))$
 
---- math-call-spread-unexpected-binary paged ---
+--- math-call-spread-unexpected-binary eval ---
 // Test spread operators followed by binary math operators with and without
 // right operands. These errors aren't great, but they can be silenced with a
 // space and no one would actually write this.
@@ -125,7 +125,7 @@ $func(...)$
 #check($func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
 #check($func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
 
---- math-call-named-spread-duplicate paged ---
+--- math-call-named-spread-duplicate eval ---
 // Test duplicate named args with the spread operator.
 // The error should only happen for manually added args.
 #let func(..) = none
@@ -164,7 +164,7 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(a,b,)$, "arguments([a], [b])")
 #check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
---- math-call-2d-non-func paged ---
+--- math-call-2d-non-func eval ---
 // Error: 6-7 expected content, found array
 // Error: 8-9 expected content, found array
 $ pi(a;b) $
@@ -235,7 +235,7 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 // with whitespace/trivia:
 #check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
 
---- math-call-value-non-func paged ---
+--- math-call-value-non-func eval ---
 $ sin(1) $
 // Error: 8-9 expected content, found integer
 $ sin(#1) $
@@ -256,7 +256,7 @@ $
   bx(x y)  &&quad  bx(x (y z))  &quad  bx(x y^z) \
 $
 
---- math-call-unknown-var-hint paged ---
+--- math-call-unknown-var-hint eval ---
 // Error: 4-6 unknown variable: ab
 // Hint: 4-6 if you meant to display multiple letters as is, try adding spaces between each letter: `a b`
 // Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
@@ -267,7 +267,7 @@ $ phi(x) $
 $ phi(x, y) $
 $ phi(1,2,,3,) $
 
---- math-call-symbol-named-argument paged ---
+--- math-call-symbol-named-argument eval ---
 // Error: 10-18 unexpected argument: alpha
 $ phi(x, alpha: y) $
 
@@ -286,7 +286,7 @@ $ mat(
    , ,1;
 ) $
 
---- issue-2885-math-var-only-in-global paged ---
+--- issue-2885-math-var-only-in-global eval ---
 // Error: 7-10 unknown variable: rgb
 // Hint: 7-10 `rgb` is not available directly in math, but is in the standard library
 // Hint: 7-10 to access `rgb` in code mode you can add a hash: `#rgb`
@@ -298,13 +298,13 @@ $text(rgb(0, 0, 0), "foo")$
 #let box = "box"
 $ box() $
 
---- math-call-error paged ---
+--- math-call-error eval ---
 // Test the span of errors when calling a function.
 #let func(a, b, c) = {}
 // Error: 3-13 missing argument: c
 $ func(a, b) $
 
---- math-call-error-inside-func paged ---
+--- math-call-error-inside-func eval ---
 // Test whether errors inside function calls produce further errors.
 #let int = int
 $ int(

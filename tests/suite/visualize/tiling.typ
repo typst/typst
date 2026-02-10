@@ -60,7 +60,7 @@
   fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black))
 )
 
---- tiling-zero-sized paged ---
+--- tiling-zero-sized eval ---
 // Error: 15-52 tile size must be non-zero
 // Hint: 15-52 try setting the size manually
 #line(stroke: tiling(curve(curve.move((1em, 0pt)))))

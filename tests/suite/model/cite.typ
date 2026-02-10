@@ -136,13 +136,13 @@ B #cite(<netwok>) #cite(<arrgh>).
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- cite-type-error-hint paged ---
+--- cite-type-error-hint eval ---
 // Test hint for cast error from str to label
 // Error: 7-15 expected label, found string
 // Hint: 7-15 use `<netwok>` or `label("netwok")` to create a label
 #cite("netwok")
 
---- cite-type-error-hint-invalid-literal paged ---
+--- cite-type-error-hint-invalid-literal eval ---
 // Test hint for cast error from str to label
 // Error: 7-17 expected label, found string
 // Hint: 7-17 use `label("%@&#*!\\")` to create a label

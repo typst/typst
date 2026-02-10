@@ -195,7 +195,7 @@ $ 1 + 2 $ <eq>
 #counter(figure.where(kind: image)).update(n => n + 3)
 #figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]
 
---- counter-at-no-context paged ---
+--- counter-at-no-context eval ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
 // Hint: 2-28 try wrapping this in a `context` expression

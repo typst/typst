@@ -20,7 +20,7 @@ $ binom(circle, square) $
 // Test multinomial coefficients.
 $ binom(n, k_1, k_2, k_3) $
 
---- math-binom-missing-lower paged ---
+--- math-binom-missing-lower eval ---
 // Error: 3-13 missing argument: lower
 $ binom(x^2) $
 

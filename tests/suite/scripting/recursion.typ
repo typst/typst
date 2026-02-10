@@ -12,7 +12,7 @@
 
 #test(fib(10), 55)
 
---- recursion-unnamed-invalid paged ---
+--- recursion-unnamed-invalid eval ---
 // Test with unnamed function.
 // Error: 17-18 unknown variable: f
 #let f = (n) => f(n - 1)
@@ -36,7 +36,7 @@
 #let f(x) = if x != none { f(none) } else { "world" }
 #test(f(1), "world")
 
---- recursion-maximum-depth paged ---
+--- recursion-maximum-depth eval ---
 // Error: 15-21 maximum function call depth exceeded
 #let rec(n) = rec(n) + 1
 #rec(1)

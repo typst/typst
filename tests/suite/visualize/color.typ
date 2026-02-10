@@ -1,6 +1,6 @@
 // Test color modification methods.
 
---- color-mix paged ---
+--- color-mix eval ---
 // Compare both ways.
 #test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
@@ -185,49 +185,49 @@
 // Test gray color conversion.
 #stack(dir: ltr, rect(fill: luma(0)), rect(fill: luma(80%)))
 
---- color-rgb-out-of-range paged ---
+--- color-rgb-out-of-range eval ---
 // Error for values that are out of range.
 // Error: 11-14 number must be between 0 and 255
 #test(rgb(-30, 15, 50))
 
---- color-rgb-bad-string paged ---
+--- color-rgb-bad-string eval ---
 // Error: 6-11 color string contains non-hexadecimal letters
 #rgb("lol")
 
---- color-rgb-missing-argument-red paged ---
+--- color-rgb-missing-argument-red eval ---
 // Error: 2-7 missing argument: red component
 #rgb()
 
---- color-rgb-missing-argument-blue paged ---
+--- color-rgb-missing-argument-blue eval ---
 // Error: 2-11 missing argument: blue component
 #rgb(0, 1)
 
---- color-rgb-bad-type paged ---
+--- color-rgb-bad-type eval ---
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
---- color-luma-unexpected-argument paged ---
+--- color-luma-unexpected-argument eval ---
 // Error: 10-20 unexpected argument: key
 #luma(1, key: "val")
 
---- color-mix-bad-amount-type paged ---
+--- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string
 #color.mix((red, "yes"), (green, "no"), (green, 10%))
 
---- color-mix-bad-value paged ---
+--- color-mix-bad-value eval ---
 // Error: 12-23 expected a color or color-weight pair
 #color.mix((red, 1, 2))
 
---- color-mix-bad-space-type paged ---
+--- color-mix-bad-space-type eval ---
 // Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
 #color.mix(red, green, space: "cyber")
 
---- color-mix-bad-space-value-1 paged ---
+--- color-mix-bad-space-value-1 eval ---
 // Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: image)
 
---- color-mix-bad-space-value-2 paged ---
+--- color-mix-bad-space-value-2 eval ---
 // Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: calc.round)
 

@@ -124,15 +124,15 @@ To the right! Where the sunlight peeks behind the mountain.
 #test((bottom + end).inv(), (start + top))
 #test((horizon + center).inv(), (center + horizon))
 
---- alignment-add-two-horizontal paged ---
+--- alignment-add-two-horizontal eval ---
 // Error: 8-22 cannot add two horizontal alignments
 #align(center + right, [A])
 
---- alignment-add-two-vertical paged ---
+--- alignment-add-two-vertical eval ---
 // Error: 8-20 cannot add two vertical alignments
 #align(top + bottom, [A])
 
---- alignment-add-vertical-and-2d paged ---
+--- alignment-add-vertical-and-2d eval ---
 // Error: 8-30 cannot add a vertical and a 2D alignment
 #align(top + (bottom + right), [A])
 

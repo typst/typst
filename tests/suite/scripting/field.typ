@@ -6,68 +6,68 @@
 #assert.eq
 #assert.ne
 
---- field-normal-function-invalid paged ---
+--- field-normal-function-invalid eval ---
 // Error: 9-16 function `assert` does not contain field `invalid`
 #assert.invalid
 
---- field-elem-function-invalid paged ---
+--- field-elem-function-invalid eval ---
 // Error: 7-14 function `enum` does not contain field `invalid`
 #enum.invalid
 
---- field-elem-function-invalid-call paged ---
+--- field-elem-function-invalid-call eval ---
 // Error: 7-14 function `enum` does not contain field `invalid`
 #enum.invalid()
 
---- field-closure-invalid paged ---
+--- field-closure-invalid eval ---
 // Closures cannot have fields.
 #let f(x) = x
 // Error: 4-11 cannot access fields on user-defined functions
 #f.invalid
 
---- field-bool-invalid paged ---
+--- field-bool-invalid eval ---
 // Error: 8-10 cannot access fields on type boolean
 #false.ok
 
---- field-bool-keyword-invalid paged ---
+--- field-bool-keyword-invalid eval ---
 // Error: 9-13 cannot access fields on type boolean
 #{false.true}
 
---- field-invalid-none paged ---
+--- field-invalid-none eval ---
 #{
   let object = none
   // Error: 3-9 none does not have accessible fields
   object.property = "value"
 }
 
---- field-invalid-int paged ---
+--- field-invalid-int eval ---
 #{
   let object = 10
   // Error: 3-9 integer does not have accessible fields
   object.property = "value"
 }
 
---- field-mutable-invalid-symbol paged ---
+--- field-mutable-invalid-symbol eval ---
 #{
   let object = sym.eq.not
   // Error: 3-9 cannot mutate fields on symbol
   object.property = "value"
 }
 
---- field-mutable-invalid-module paged ---
+--- field-mutable-invalid-module eval ---
 #{
   let object = calc
   // Error: 3-9 cannot mutate fields on module
   object.property = "value"
 }
 
---- field-mutable-invalid-function paged ---
+--- field-mutable-invalid-function eval ---
 #{
   let object = calc.sin
   // Error: 3-9 cannot mutate fields on function
   object.property = "value"
 }
 
---- field-mutable-invalid-stroke paged ---
+--- field-mutable-invalid-stroke eval ---
 #{
   let s = 1pt + red
   // Error: 3-4 fields on stroke are not yet mutable

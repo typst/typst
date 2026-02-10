@@ -7,11 +7,11 @@ What's up?
 --- document-set-author-date paged empty ---
 #set document(author: ("A", "B"), date: datetime.today())
 
---- document-date-bad paged ---
+--- document-date-bad eval ---
 // Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
 
---- document-author-bad paged ---
+--- document-author-bad eval ---
 // Error: 23-29 expected string, found integer
 #set document(author: (123,))
 What's up?
@@ -22,7 +22,7 @@ What's up?
 Hello
 #set document(title: [Hello])
 
---- document-constructor paged ---
+--- document-constructor eval ---
 // Error: 2-12 can only be used in set rules
 #document()
 

@@ -32,6 +32,6 @@ $floor(phi.alt. )$
 // Numbers should parse the same regardless of number of characters.
 $1/2(x)$ vs. $1/10(x)$
 
---- math-unclosed paged ---
+--- math-unclosed eval ---
 // Error: 1-2 unclosed delimiter
 $a

@@ -52,7 +52,7 @@ Expanded by height.
   1fr,
 )
 
---- circle-radius-width-and-height paged ---
+--- circle-radius-width-and-height eval ---
 // Radius wins over width and height.
 // Error: 23-34 unexpected argument: width
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
