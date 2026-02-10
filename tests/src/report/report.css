@@ -584,12 +584,12 @@ label.icon-toggle-button:has(input:checked) {
   color: var(--action-primary-selected);
 }
 
-*:disabled label.icon-toggle-button {
+label.icon-toggle-button:has(input:disabled) {
   background-color: var(--action-secondary-disabled);
   color: var(--text-disabled);
 }
 
-*:disabled label.icon-toggle-button:has(input:checked) {
+label.icon-toggle-button:has(input:disabled:checked) {
   color: var(--action-primary-disabled);
 }
 
@@ -617,11 +617,6 @@ button.icon-button:hover {
 
 button.icon-button:active {
   background-color: var(--action-secondary-active);
-}
-
-*:disabled button.icon-button {
-  background-color: var(--action-secondary-disabled);
-  color: var(--text-disabled);
 }
 
 button.icon-button:disabled {
