@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ecow::{EcoString, EcoVec, eco_vec};
 use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::Engine;
@@ -153,11 +155,7 @@ fn handle(
         make_block_level(&mut node).unwrap();
         converter.push(node);
     } else {
-        converter.engine.sink.warn(warning!(
-            child.span(),
-            "{} was ignored during HTML export",
-            child.elem().name(),
-        ));
+        converter.engine.ignored(child.span(), child.elem().name());
     }
     Ok(())
 }
@@ -694,4 +692,15 @@ fn last_char(nodes: &[HtmlNode]) -> Option<char> {
         }
     }
     None
+}
+
+pub trait EngineExt {
+    fn ignored(&mut self, span: Span, what: impl Display);
+}
+
+impl EngineExt for Engine<'_> {
+    fn ignored(&mut self, span: Span, what: impl Display) {
+        self.sink
+            .warn(warning!(span, "{what} was ignored during HTML export"));
+    }
 }

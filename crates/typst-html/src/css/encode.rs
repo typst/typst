@@ -5,9 +5,12 @@ use std::ops::Deref;
 
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::WarningSink;
-use typst_library::layout::{Abs, Angle, Em, Length, Ratio, Rel};
+use typst_library::foundations::Smart;
+use typst_library::layout::{Abs, Angle, Axes, Corners, Em, Length, Ratio, Rel, Sides};
 use typst_library::visualize::{
-    Color, Hsl, LinearRgb, Oklab, Oklch, Paint, ProcessColor, Rgb,
+    Color, ColorSpace, ConicGradient, DashPattern, Gradient, Hsl, LinearGradient,
+    LinearRgb, Oklab, Oklch, Paint, ProcessColor, ProcessColorSpace, RadialGradient, Rgb,
+    Stroke, Tiling,
 };
 use typst_utils::Numeric;
 
@@ -216,6 +219,8 @@ impl<'a, 'b> CallWriter<'a, 'b> {
         Self { w, count: 0, separator }
     }
 
+    fn finish(self) {}
+
     fn arg(&mut self, value: impl ToCss) -> &mut Self {
         self.arg_with(value, self.separator)
     }
@@ -224,6 +229,7 @@ impl<'a, 'b> CallWriter<'a, 'b> {
         if self.count > 0 {
             self.w.write(match separator {
                 Separator::Space => " ",
+                Separator::Comma => ", ",
                 Separator::Slash => " / ",
             });
         }
@@ -243,6 +249,7 @@ impl Drop for CallWriter<'_, '_> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Separator {
     Space,
+    Comma,
     Slash,
 }
 
@@ -326,6 +333,26 @@ pub trait ToCss {
         let mut w = CssWriter::new(&mut sink);
         self.emit(&mut w);
         w.buf
+    }
+}
+
+impl ToCss for Corners<Rel> {
+    fn emit(&self, w: &mut CssWriter) {
+        if self.is_uniform() {
+            w.emit(self.top_left);
+        } else if self.is_diagonal() {
+            w.emit(self.top_left);
+            w.write(" ");
+            w.emit(self.top_right);
+        } else {
+            w.emit(self.top_left);
+            w.write(" ");
+            w.emit(self.top_right);
+            w.write(" ");
+            w.emit(self.bottom_right);
+            w.write(" ");
+            w.emit(self.bottom_left);
+        }
     }
 }
 
@@ -415,15 +442,20 @@ impl ToCss for Paint {
 impl ToCss for Color {
     fn emit(&self, w: &mut CssWriter) {
         // Convert to ProcessColor (spot colors use their fallback)
-        let process = self.to_process();
-        match process {
+        w.emit(self.to_process());
+    }
+}
+
+impl ToCss for ProcessColor {
+    fn emit(&self, w: &mut CssWriter) {
+        match self {
             ProcessColor::Rgb(_) | ProcessColor::Cmyk(_) | ProcessColor::Luma(_) => {
-                w.emit(process.to_rgb());
+                w.emit(self.to_rgb());
             }
             ProcessColor::Oklab(v) => w.emit(v),
             ProcessColor::Oklch(v) => w.emit(v),
             ProcessColor::LinearRgb(v) => w.emit(v),
-            ProcessColor::Hsl(_) | ProcessColor::Hsv(_) => w.emit(process.to_hsl()),
+            ProcessColor::Hsl(_) | ProcessColor::Hsv(_) => w.emit(self.to_hsl()),
         }
     }
 }
@@ -533,4 +565,420 @@ fn is_very_close(a: impl Into<f64>, b: impl Into<f64>) -> bool {
     const MAX_BIT_DEPTH: u32 = 12;
     const EPS: f64 = 0.5 / 2_i32.pow(MAX_BIT_DEPTH) as f64;
     (a.into() - b.into()).abs() < EPS
+}
+
+impl ToCss for Gradient {
+    fn emit(&self, w: &mut CssWriter) {
+        match self {
+            Self::Linear(v) => w.emit(v.as_ref()),
+            Self::Radial(v) => w.emit(v.as_ref()),
+            Self::Conic(v) => w.emit(v.as_ref()),
+        }
+    }
+}
+
+impl ToCss for LinearGradient {
+    fn emit(&self, w: &mut CssWriter) {
+        let mut call = w.call("linear-gradient", Separator::Space);
+        call.arg(LinearGradientAngle(self.angle.normalized()));
+        let space = gradient_color_interpolation_method(&mut call, &self.space);
+
+        gradient_color_stops(
+            &mut call,
+            space,
+            self.stops.iter().map(|(c, r)| (c.to_process(), *r)),
+        );
+
+        call.finish();
+
+        if self.relative.is_custom() {
+            w.ignored("relative gradient placement");
+        }
+    }
+}
+
+struct LinearGradientAngle(Angle);
+
+impl ToCss for LinearGradientAngle {
+    fn emit(&self, w: &mut CssWriter) {
+        let v = self.0.to_deg();
+        if is_very_close(v, 0.0) {
+            w.write("to right");
+        } else if is_very_close(v, 90.0) {
+            w.write("to bottom");
+        } else if is_very_close(v, 180.0) {
+            w.write("to left");
+        } else if is_very_close(v, 270.0) {
+            w.write("to top");
+        } else {
+            w.emit(self.0 + Angle::deg(90.0));
+        }
+    }
+}
+
+impl ToCss for RadialGradient {
+    fn emit(&self, w: &mut CssWriter) {
+        let mut call = w.call("radial-gradient", Separator::Space);
+
+        // CSS default is `farthest-corner`, so also write the Typst default of `50%`.
+        //
+        // <https://www.w3.org/TR/css-images/#valdef-radial-gradient-radial-size>
+        call.arg(RadialGradientSize(self.radius));
+
+        if !is_center(self.center) {
+            call.arg(GradientPosition(self.center));
+        }
+        if !is_center(self.focal_center) {
+            call.w.ignored("radial gradient focal-center");
+        }
+
+        let space = gradient_color_interpolation_method(&mut call, &self.space);
+
+        let stops = self.stops.iter().map(|(c, r)| (c.to_process(), *r));
+        if !is_very_close(self.focal_radius.get(), 0.0) {
+            // Since CSS gradients don't support an explicit focal radius, remap
+            // the color stop percentages to mimic one.
+            let remap = |(color, ratio)| {
+                let min = self.focal_radius;
+                let max = self.radius;
+                let prev_range = max;
+                let new_range = max - min;
+                let scale = new_range / prev_range;
+                let offset = Ratio::new(min / prev_range);
+                let remapped_ratio = (scale * ratio) + offset;
+                (color, remapped_ratio)
+            };
+            gradient_color_stops(&mut call, space, stops.map(remap));
+        } else {
+            gradient_color_stops(&mut call, space, stops);
+        }
+
+        call.finish();
+
+        if self.relative.is_custom() {
+            w.ignored("relative gradient placement");
+        }
+    }
+}
+
+/// The gradient's radius, write two `length-percentage`s for an elliptic
+/// radial shape.
+///
+/// <https://www.w3.org/TR/css-images/#valdef-radial-gradient-radial-size>
+struct RadialGradientSize(Ratio);
+
+impl ToCss for RadialGradientSize {
+    fn emit(&self, w: &mut CssWriter) {
+        w.emit(self.0);
+        w.write(" ");
+        w.emit(self.0);
+    }
+}
+
+/// Whether this position is at the center (50%, 50%).
+fn is_center(pos: Axes<Ratio>) -> bool {
+    is_very_close(pos.x.get(), 0.5) && is_very_close(pos.y.get(), 0.5)
+}
+
+impl ToCss for ConicGradient {
+    fn emit(&self, w: &mut CssWriter) {
+        // NOTE: Conic gradients in Typst should scale to the aspect ratio of
+        // the parent container, but in CSS they keep the same proportions.
+        let mut call = w.call("conic-gradient", Separator::Space);
+
+        call.arg(ConicGradientAngle(self.angle.normalized()));
+
+        if !is_center(self.center) {
+            call.arg(GradientPosition(self.center));
+        }
+
+        let space = gradient_color_interpolation_method(&mut call, &self.space);
+
+        let stops = self.stops.iter().map(|(c, r)| (c.to_process(), *r));
+        gradient_color_stops(&mut call, space, stops);
+
+        call.finish();
+
+        if self.relative.is_custom() {
+            w.ignored("relative gradient placement");
+        }
+    }
+}
+
+struct ConicGradientAngle(Angle);
+
+impl ToCss for ConicGradientAngle {
+    fn emit(&self, w: &mut CssWriter) {
+        w.write("from ");
+        w.emit((self.0 - Angle::deg(90.0)).normalized());
+    }
+}
+
+/// <https://www.w3.org/TR/css-images/#valdef-radial-gradient-position>
+#[derive(Copy, Clone)]
+struct GradientPosition(Axes<Ratio>);
+
+impl ToCss for GradientPosition {
+    fn emit(&self, w: &mut CssWriter) {
+        w.write("at ");
+
+        let x = self.0.x.get();
+        let y = self.0.y.get();
+
+        match (is_very_close(x, 0.5), is_very_close(y, 0.5)) {
+            (true, true) => w.write("center"),
+            (true, false) => {
+                if !is_very_close(x, 0.0) || is_very_close(x, 1.0) {
+                    w.write("center ");
+                }
+                self.y_position(w);
+            }
+            (false, true) => self.x_position(w),
+            (false, false) => {
+                self.x_position(w);
+                w.write(" ");
+                self.y_position(w);
+            }
+        }
+    }
+}
+
+impl GradientPosition {
+    fn x_position(self, w: &mut CssWriter) {
+        let x = self.0.x.get();
+        if is_very_close(x, 0.0) {
+            w.write("left");
+        } else if is_very_close(x, 0.5) {
+            w.write("center");
+        } else if is_very_close(x, 1.0) {
+            w.write("right");
+        } else {
+            w.emit(self.0.x);
+        }
+    }
+
+    fn y_position(self, w: &mut CssWriter) {
+        let y = self.0.y.get();
+        if is_very_close(y, 0.0) {
+            w.write("top");
+        } else if is_very_close(y, 0.5) {
+            w.write("center");
+        } else if is_very_close(y, 1.0) {
+            w.write("bottom");
+        } else {
+            w.emit(self.0.y);
+        }
+    }
+}
+
+/// The `<color-interpolation-method>` is the same between `linear-`, `radial-`
+/// and `connic-gradient`.
+///
+/// <https://www.w3.org/TR/css-color-4/#color-interpolation-method>
+fn gradient_color_interpolation_method(
+    call: &mut CallWriter,
+    space: &ColorSpace,
+) -> ProcessColorSpace {
+    // Always use process color space (spot colors use their fallback)
+    let space = space.to_process();
+    match space {
+        ProcessColorSpace::Oklab => {
+            call.arg("in oklab");
+        }
+        ProcessColorSpace::Oklch => {
+            call.arg("in oklch");
+        }
+        ProcessColorSpace::Srgb => {
+            // This is the default in CSS.
+        }
+        ProcessColorSpace::D65Gray => {
+            // CSS doesn't support this, so we convert the stops instead.
+            // See below.
+        }
+        ProcessColorSpace::LinearRgb => {
+            call.arg("in srgb-linear");
+        }
+        ProcessColorSpace::Hsl => {
+            call.arg("in hsl");
+        }
+        ProcessColorSpace::Hsv => {
+            call.w.ignored("hsv gradient color space");
+        }
+        ProcessColorSpace::Cmyk => {
+            call.w.ignored("cmyk gradient color space");
+        }
+    }
+    space
+}
+
+/// Since Typst only supports ratios for gradient stops, this code can be shared
+/// between all CSS gradient types.
+fn gradient_color_stops(
+    call: &mut CallWriter,
+    space: ProcessColorSpace,
+    stops: impl IntoIterator<Item = (ProcessColor, Ratio)>,
+) {
+    for (mut color, ratio) in stops {
+        // CSS does not directly support interpolating in D65 gray, but
+        // converting the stops to it (they will be encoded as RGB) is
+        // equivalent.
+        // TODO: Does it make sense to do this for all spaces?
+        if space == ProcessColorSpace::D65Gray {
+            color = color.to_space(space);
+        }
+
+        call.arg_with(color, Separator::Comma);
+        call.arg_with(ratio, Separator::Space);
+    }
+}
+
+impl ToCss for Tiling {
+    fn emit(&self, w: &mut CssWriter) {
+        w.fail("tiling");
+    }
+}
+
+impl ToCss for Sides<Rel> {
+    fn emit(&self, w: &mut CssWriter) {
+        if self.is_uniform() {
+            w.emit(self.top);
+        } else if self.top == self.bottom && self.left == self.right {
+            w.emit(self.top);
+            w.write(" ");
+            w.emit(self.left);
+        } else if self.left == self.right {
+            w.emit(self.top);
+            w.write(" ");
+            w.emit(self.left);
+            w.write(" ");
+            w.emit(self.bottom);
+        } else {
+            w.emit(self.top);
+            w.write(" ");
+            w.emit(self.right);
+            w.write(" ");
+            w.emit(self.bottom);
+            w.write(" ");
+            w.emit(self.left);
+        }
+    }
+}
+
+impl<T: WarningSink> PropertiesBuilder<T> {
+    pub fn push_margin_and_padding(&mut self, container: ContainerModel) {
+        if let Some(margin) = container.margin {
+            self.push("margin", margin);
+        }
+        if let Some(padding) = container.padding {
+            // FIXME: negative padding
+            self.push("padding", padding);
+        }
+    }
+
+    pub fn push_border(&mut self, border: &Sides<Option<Border>>) {
+        if border.is_uniform() {
+            let border = border.as_ref().left;
+            if let Some(border) = border {
+                self.push("border", border);
+            }
+        } else {
+            // TODO: More concise definitions, by setting `border` and overriding
+            // deviating sides or writing multiple values using `border-width`, etc.
+            let names = ["border-left", "border-top", "border-right", "border-bottom"];
+            for (name, value) in names.iter().zip(border.iter()) {
+                if let Some(value) = value {
+                    self.push(name, value);
+                }
+            }
+        }
+    }
+}
+
+pub struct ContainerModel {
+    margin: Option<Sides<Rel>>,
+    padding: Option<Sides<Rel>>,
+}
+
+impl ContainerModel {
+    pub fn resolve(
+        outset: Sides<Option<Rel>>,
+        inset: Sides<Option<Rel>>,
+        border: &Sides<Option<Border>>,
+    ) -> ContainerModel {
+        let border_widths = border
+            .as_ref()
+            .map(|s| s.as_ref().map(|s| s.width_or_default()))
+            .unwrap_or_default();
+
+        // Use negative margin to represent outset.
+        let margin = outset
+            .zip(border_widths)
+            .map(|(outset, stroke)| -(outset.unwrap_or_default() + 0.5 * stroke));
+
+        let padding =
+            outset.zip(inset).zip(border_widths).map(|((outset, inset), stroke)| {
+                outset.unwrap_or_default() + inset.unwrap_or_default() - 0.5 * stroke
+            });
+
+        let margin = margin.iter().any(|margin| !margin.is_zero()).then_some(margin);
+        let padding = padding.iter().any(|padding| !padding.is_zero()).then_some(padding);
+
+        ContainerModel { margin, padding }
+    }
+
+    pub fn box_sizing(&self) -> Option<&'static str> {
+        self.padding.is_some().then_some("border-box")
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Border<'a> {
+    width: Smart<Length>,
+    color: Smart<&'a Paint>,
+    dash: Option<&'a DashPattern>,
+}
+
+impl<'a> Border<'a> {
+    pub fn resolve(stroke: &'a Option<Stroke>) -> Option<Self> {
+        let stroke = stroke.as_ref()?;
+
+        let width = stroke.thickness;
+        let color = stroke.paint.as_ref();
+        let dash = stroke.dash.as_ref().custom().and_then(|d| d.as_ref());
+
+        Some(Self { width, color, dash })
+    }
+
+    fn width_or_default(&self) -> Length {
+        // TODO: The default in HTML is 1px, but in Typst it's 1pt.
+        self.width.unwrap_or(Abs::pt(1.0).into())
+    }
+
+    fn style(&self) -> &'static str {
+        if self.dash.is_some() { "dashed" } else { "solid" }
+    }
+}
+
+impl ToCss for Border<'_> {
+    fn emit(&self, w: &mut CssWriter) {
+        if let Smart::Custom(length) = self.width {
+            w.emit(length);
+            w.write(" ");
+        }
+
+        // Always write the style.
+        w.write(self.style());
+
+        if let Smart::Custom(paint) = &self.color {
+            w.write(" ");
+            match paint {
+                Paint::Solid(color) => w.emit(color),
+                // TODO: `border-image` doesn't really work here, consider using
+                // a wrapping div and setting a clipping to represent the border
+                // in the presentational profile.
+                Paint::Gradient(_) => w.ignored("stroke gradient"),
+                Paint::Tiling(_) => w.ignored("stroke tiling"),
+            }
+        }
+    }
 }

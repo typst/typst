@@ -1,4 +1,4 @@
-pub use encode::{Properties, ToCss};
+pub use encode::{Border, ContainerModel, Properties, PropertiesBuilder, ToCss};
 pub use resolve::resolve_inline_styles;
 
 mod encode;

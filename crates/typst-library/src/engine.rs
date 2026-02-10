@@ -9,7 +9,9 @@ use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
 
-use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::diag::{
+    HintedStrResult, SourceDiagnostic, SourceResult, StrResult, WarningSink, bail,
+};
 use crate::foundations::{NormalBindingGuard, Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::{Library, World};
@@ -114,6 +116,11 @@ impl<'a> Engine<'a> {
         let output = introspection.introspect(self, introspector);
         self.sink.introspection(Introspection::new(introspection));
         output
+    }
+
+    /// Create a struct that implements [`crate::diag::WarningSink`].
+    pub fn warning_sink(&'_ mut self, span: Span) -> impl WarningSink {
+        self.binding_guard(span)
     }
 
     /// Create a struct that implements [`crate::foundations::BindingGuard`].

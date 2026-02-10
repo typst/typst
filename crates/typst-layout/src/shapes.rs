@@ -563,7 +563,8 @@ fn layout_shape(
         Smart::Auto if fill.is_none() => Sides::splat(Some(FixedStroke::default())),
         Smart::Auto => Sides::splat(None),
         Smart::Custom(strokes) => {
-            strokes.unwrap_or_default().map(|s| s.map(Stroke::unwrap_or_default))
+            let s = strokes.unwrap_or_default();
+            s.map(|s| s.map(Stroke::unwrap_or_default))
         }
     };
 

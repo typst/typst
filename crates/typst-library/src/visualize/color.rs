@@ -2317,6 +2317,13 @@ pub struct SpotColorant {
     pub fallback: ProcessColor,
 }
 
+impl SpotColorant {
+    /// The process fallback color space used for spot colorants.
+    pub const fn fallback() -> ProcessColorSpace {
+        ProcessColorSpace::Oklab
+    }
+}
+
 impl Repr for SpotColorant {
     fn repr(&self) -> EcoString {
         eco_format!("color.spot({}, {})", self.name.repr(), self.fallback.repr())
@@ -2536,6 +2543,17 @@ impl ColorSpace {
         match self {
             Self::Process(s) => s.hue_index(),
             Self::Spot(_) => None,
+        }
+    }
+
+    /// Convert to a `ProcessColorSpace`, using fallback for spot colors.
+    ///
+    /// This is useful for rendering and export where spot colors cannot be
+    /// expressed and need to be converted to their fallback representation.
+    pub fn to_process(&self) -> ProcessColorSpace {
+        match self {
+            Self::Process(s) => *s,
+            Self::Spot(c) => c.fallback.space(),
         }
     }
 }
