@@ -4,7 +4,8 @@ equation = Phương trình
 bibliography = Tài liệu tham khảo
 heading = Phần
 outline = Mục lục
-raw = Đoạn mã
+# may be wrong
+raw = Chương trình
 page = trang
 footnote = Chú thích
 email = Email
