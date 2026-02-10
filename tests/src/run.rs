@@ -2,7 +2,7 @@ use std::fmt::Write;
 use std::path::Path;
 
 use parking_lot::RwLock;
-use typst::diag::{SourceDiagnostic, Warned};
+use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::foundations::{Content, Repr};
 use typst::layout::PagedDocument;
 use typst_html::HtmlDocument;
@@ -142,12 +142,13 @@ impl<'a> Runner<'a> {
         // Unconditionally eval the document to check for empty/non-empty
         // content. This result is cached, so calling compile below won't
         // duplicate any work.
-        if let Some(content) = self.eval() {
+        let evaluated = self.eval();
+        if let Ok(content) = &evaluated.output {
             if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
-                if !output::is_empty_content(&content) {
-                    self.unexpected_non_empty.eval(content);
+                if !output::is_empty_content(content) {
+                    self.unexpected_non_empty.eval(content.clone());
                 }
-            } else if output::is_empty_content(&content) {
+            } else if output::is_empty_content(content) {
                 self.unexpected_empty.eval();
             }
         }
@@ -155,7 +156,7 @@ impl<'a> Runner<'a> {
         // Only compile paged document when the paged target is explicitly
         // specified or required by paged outputs.
         if self.test.should_run(TestTarget::Paged) {
-            let mut doc = self.compile::<PagedDocument>();
+            let mut doc = self.compile::<PagedDocument>(evaluated.clone());
             let errors = custom::check(self.test, &self.world, doc.as_ref());
             if !errors.is_empty() {
                 log!(self, "custom check failed");
@@ -186,7 +187,7 @@ impl<'a> Runner<'a> {
 
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
-            let doc = self.compile::<HtmlDocument>();
+            let doc = self.compile::<HtmlDocument>(evaluated);
             self.run_file_test::<output::Html>(doc.as_ref());
         }
 
@@ -360,35 +361,55 @@ impl<'a> Runner<'a> {
     }
 
     /// Evaluate document content, this is the target agnostic part of compilation.
-    fn eval(&mut self) -> Option<Content> {
-        let Warned { output, warnings } = eval::eval(&self.world);
-        for warning in &warnings {
+    fn eval(&mut self) -> Warned<SourceResult<Content>> {
+        let evaluated = eval::eval(&self.world);
+
+        let Warned { output, warnings } = &evaluated;
+        for warning in warnings {
             self.check_diagnostic(NoteKind::Warning, warning, TestEval);
         }
 
-        if let Err(errors) = &output {
+        if let Err(errors) = output {
             for error in errors.iter() {
                 self.check_diagnostic(NoteKind::Error, error, TestEval);
             }
         }
 
-        output.ok()
+        evaluated
     }
 
     /// Compile a document with the specified target.
-    fn compile<D: TestDocument>(&mut self) -> Option<D> {
+    fn compile<D: TestDocument>(
+        &mut self,
+        evaluated: Warned<SourceResult<Content>>,
+    ) -> Option<D> {
         let Warned { output, warnings } = typst::compile::<D>(&self.world);
-        for warning in &warnings {
+
+        // Conecptually this functions takes the evaluated content as input and
+        // produces a document. In practice it also re-evaluates the sources and
+        // thus generates duplicate diagnostics for the eval stage, so we filter
+        // those out.
+
+        let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
+        for warning in warnings.iter() {
             self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
         }
 
-        if let Err(errors) = &output {
-            for error in errors.iter() {
-                self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+        match output {
+            Ok(output) => Some(output),
+            Err(errors) => {
+                let eval_errors = (evaluated.output.as_ref().err())
+                    .map(|errors| errors.as_slice())
+                    .unwrap_or(&[]);
+                let errors = eval::deduplicate_with(errors, eval_errors);
+
+                for error in errors.iter() {
+                    self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+                }
+
+                None
             }
         }
-
-        output.ok()
     }
 
     /// Run test for an output format that produces a file reference.
@@ -798,12 +819,20 @@ mod eval {
     }
 
     /// Deduplicate diagnostics.
-    fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-        let mut unique = FxHashSet::default();
-        diags.retain(|diag| {
-            let hash = typst_utils::hash128(&(&diag.span, &diag.message));
-            unique.insert(hash)
-        });
+    pub fn deduplicate(diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
+        deduplicate_with(diags, [])
+    }
+
+    // Deduplicate diagnostics with a set of already existing ones.
+    pub fn deduplicate_with<'a>(
+        mut diags: EcoVec<SourceDiagnostic>,
+        existing: impl IntoIterator<Item = &'a SourceDiagnostic>,
+    ) -> EcoVec<SourceDiagnostic> {
+        let hash =
+            |diag: &SourceDiagnostic| typst_utils::hash128(&(&diag.span, &diag.message));
+
+        let mut unique = existing.into_iter().map(hash).collect::<FxHashSet<_>>();
+        diags.retain(|diag| unique.insert(hash(diag)));
         diags
     }
 }
