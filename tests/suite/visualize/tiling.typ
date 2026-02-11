@@ -174,3 +174,21 @@
 // Hint: 10-17 it will be removed in Typst 0.15.0
 #let t = pattern(size: (10pt, 10pt), line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
 #rect(width: 50pt, height: 50pt, fill: t)
+
+--- tiling-with-different-size paged ---
+#let content = place(dx: 5pt, dy: 5pt, circle(radius: 5pt, fill: blue))
+#let pat1 = tiling(size: (20pt, 20pt), content)
+// Second tiling, only the size attribute changes
+#let pat2 = tiling(size: (40pt, 20pt), content)
+
+#rect(fill: pat1, width: 100pt, height: 20pt, stroke: 1pt)
+#rect(fill: pat2, width: 100pt, height: 20pt, stroke: 1pt)
+
+--- tiling-with-different-spacing paged ---
+#let content = place(dx: 5pt, dy: 5pt, circle(radius: 5pt, fill: blue))
+#let pat1 = tiling(size: (20pt, 20pt), content)
+// Second tiling, only the spacing attribute changes
+#let pat2 = tiling(size: (20pt, 20pt), spacing: (20pt, 0pt), content)
+
+#rect(fill: pat1, width: 100pt, height: 20pt, stroke: 1pt)
+#rect(fill: pat2, width: 100pt, height: 20pt, stroke: 1pt)

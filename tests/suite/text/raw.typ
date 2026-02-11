@@ -837,5 +837,5 @@ hi:
 // Note: This test should be the final one in the file because it messes up
 // syntax highlighting.
 //
-// Error: 1-2:1 unclosed raw text
+// Error: 1:1-2:1 unclosed raw text
 `endless

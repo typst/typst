@@ -188,6 +188,20 @@ starts a paragraph, also with indent.
 // Error: 29-54 expected length, found none
 #set par(first-line-indent: (amount: none, all: true))
 
+--- par-first-line-indent-columns paged ---
+#set par(first-line-indent: (amount: 1em, all: false))
+
+A \ B
+
+C \ D
+
+#colbreak()
+
+// No first line indent after column break
+E \ F
+
+G \ H
+
 --- par-first-line-indent-all paged ---
 #set par(
   first-line-indent: (amount: 12pt, all: true),

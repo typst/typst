@@ -33,7 +33,9 @@ use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
-use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
+use crate::foundations::{
+    Array, Binding, Bytes, Datetime, Dict, Duration, Module, Scope, Styles,
+};
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
 use crate::text::{Font, FontBook};
@@ -88,11 +90,11 @@ pub trait World: Send + Sync {
     /// Get the current date.
     ///
     /// If no offset is specified, the local date should be chosen. Otherwise,
-    /// the UTC date should be chosen with the corresponding offset in hours.
+    /// the UTC date should be chosen with the corresponding offset.
     ///
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
-    fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
 }
 
 macro_rules! world_impl {
@@ -122,7 +124,7 @@ macro_rules! world_impl {
                 self.deref().font(index)
             }
 
-            fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+            fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
                 self.deref().today(offset)
             }
         }

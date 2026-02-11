@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Smart};
+use typst::foundations::{Bytes, Datetime, Duration, Smart};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
@@ -107,7 +107,7 @@ impl World for TestWorld {
         self.base.fonts.get(index).cloned()
     }
 
-    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
     }
 }
@@ -242,3 +242,19 @@ fn cursor(source: &Source, cursor: isize) -> usize {
         cursor as usize
     }
 }
+
+/// A test function that is used in autocomplete & tooltip tests.
+pub const EXAMPLE_CLOSURE: &str = "
+// A *useful* function.
+//
+// With extra text.
+#let foo(
+    wood,
+    /// Tree with three slashes.
+    tree: 1,
+    // More *trees*.
+    //
+    // More information, $1+2$.
+    forest: rgb(\"#123\"),
+) = (wood * tree, forest)
+";
