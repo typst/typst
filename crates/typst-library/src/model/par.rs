@@ -660,10 +660,14 @@ cast! {
 
 impl From<FirstLineIndent> for Dict {
     fn from(indent: FirstLineIndent) -> Self {
-        dict! {
-            "amount" => indent.amount,
-            "all" => indent.all,
+        let mut dict = Dict::new();
+        if let Some(amount) = indent.amount {
+            dict.insert("amount".into(), amount.into_value());
         }
+        if let Some(all) = indent.all {
+            dict.insert("all".into(), all.into_value());
+        }
+        dict
     }
 }
 
