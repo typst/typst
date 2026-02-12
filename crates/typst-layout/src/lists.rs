@@ -7,8 +7,8 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, BlockElem, Fragment, Frame, FrameItem, HAlignment, Length, Point, Region,
-    Regions, Size, StackChild, StackElem, VAlignment,
+    Abs, Axes, BlockElem, Dir, Fragment, Frame, FrameItem, HAlignment, Length, Point,
+    Region, Regions, Size, StackChild, StackElem, VAlignment,
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
@@ -33,6 +33,7 @@ pub fn layout_list(
     let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
         if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
+    let is_rtl = styles.get(TextElem::dir).resolve(styles) == Dir::RTL;
 
     let Depth(depth) = styles.get(ListElem::depth);
     let marker = elem
@@ -57,6 +58,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            is_rtl,
         );
         items.push(item);
     }
@@ -81,6 +83,7 @@ pub fn layout_enum(
     let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
         if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
+    let is_rtl = styles.get(TextElem::dir).resolve(styles) == Dir::RTL;
 
     let mut items = vec![];
     let mut number = elem
@@ -133,6 +136,7 @@ pub fn layout_enum(
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            is_rtl,
         );
         items.push(item);
         number =
@@ -190,18 +194,16 @@ fn layout_items(
 struct ItemData {
     #[required]
     indent: Length,
-
     #[required]
     body_indent: Length,
-
     #[required]
     marker: Content,
-
     #[required]
     body: Content,
-
     #[required]
     marker_size: Length,
+    #[required]
+    is_rtl: bool,
 }
 
 /// Layout the item.
@@ -267,17 +269,26 @@ fn layout_item(
             .is_some();
 
     for (i, body_frame) in fragment.into_iter().enumerate() {
+        let width = indent + body_indent + marker_size.x + body_frame.width();
         let mut frame = Frame::soft(Size::new(
-            indent + body_indent + marker_size.x + body_frame.width(),
+            width,
             (marker_size.y + diff).max(body_frame.height()),
         ));
+
+        // Don't place extraneous markers after a region skip.
         if i > 0 || !skip_first_frame {
-            // Don't place extraneous markers after a region skip.
-            frame.push_frame(Point::new(indent, diff), marker.clone());
-            frame.push_frame(
-                Point::with_x(indent + marker_size.x + body_indent),
-                body_frame,
-            );
+            let mut marker_pos = Point::new(indent, diff);
+            let mut body_pos = Point::with_x(indent + marker_size.x + body_indent);
+
+            if elem.is_rtl {
+                // In RTL cells expand to the left, thus the position must
+                // additionally be offset by the cell's width.
+                marker_pos.x = width - (marker_pos.x + marker_size.x);
+                body_pos.x = width - (body_pos.x + body_frame.width());
+            }
+
+            frame.push_frame(marker_pos, marker.clone());
+            frame.push_frame(body_pos, body_frame);
         }
         frames.push(frame);
     }
