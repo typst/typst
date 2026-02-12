@@ -1022,6 +1022,7 @@ b387322c1619293d550cae8d12d9dd22 math-cases-delim
 223ba211e23e8ef32b295a3a3e3e9d2f math-cases-delim-class
 76235f6a8278f89bb55cbda5f5aeded5 math-cases-gap
 3095c6a6c824e55bee11881f78d658a2 math-cases-linebreaks
+a194a19946047ba15f8fe8b347d8a6cb math-cases-linebreaks-trailing
 aee5b9d4144185750c17ef2084a80592 math-class-chars
 75d1a91b3d309e3022c7d20bdd6bb229 math-class-content
 b2fd1ba8c1b68a87c0d1490a233af049 math-class-exceptions
@@ -1095,6 +1096,9 @@ e25055c41d17ea05af790f438cb86741 math-lr-ignore-ignorant
 8a185f1e21e13006977027fadccc28c5 math-lr-mid-class
 c50fba95232f506dea27c9cc1ef91eef math-lr-mid-size
 fbeea106452a9012ef82688192526f42 math-lr-mid-size-nested-equation
+a4578e10f2b545de9d2a8ebf5157e845 math-lr-multiline
+6fd487d33fe0733a925e53232cb218a6 math-lr-multiline-align
+68c80e54f5d855ecbec5bfd41517cfc7 math-lr-multiline-trailing
 0e88ceb23714dbf2a1a5ad5257d689f3 math-lr-nested
 eb1c6673c26e5140e5026422d977157a math-lr-nested-mid
 43464929359aada5317f5ffb3af6345b math-lr-scripts
@@ -1127,6 +1131,7 @@ a09d3a3563f9a0437ffcd28f9bbff170 math-mat-augment
 98245f1e90f67b9b36454fd2d6b2a085 math-mat-gap
 f9645a79f2fbdd3d4605f3db3d4ef1dc math-mat-gaps
 52998dacc1e795c9fabae2dbbacfe6fa math-mat-linebreaks
+b424ca7875cbeb25a2efc045172f85c4 math-mat-linebreaks-trailing
 594578876ea2fabf65ea4db44f25bca3 math-mat-semicolon
 c5e42d35dfdc867b473722c3234d67d8 math-mat-sparse
 ecc7174cfffe57b138e184a01e280403 math-mat-spread
@@ -1135,6 +1140,7 @@ c22f82156063456f6375cc7d867a0b78 math-mat-spread-2d
 9fbab3ae866dd3f4d14f5321ff5cc2f4 math-mat-vec-cases-unity
 ae3b440c89afe53e2bd0398acdc831c9 math-multiline-multiple-trailing-linebreaks
 1b7feb3eadd07aaafc6b03421f6ec234 math-multiline-no-trailing-linebreak
+575304ee89e4ca6caff93eff96356520 math-multiline-string
 ca38f19088793920cd0d995c9c3e089b math-multiline-trailing-linebreak
 346bad082800b1287a38a09cfc76e4b5 math-nested-normal-layout
 acc8d43c8ee2474c2d4e7e3e44a0d21e math-non-math-content
@@ -1232,6 +1238,7 @@ a3140620bff78bc544eea5be763c173f math-text-color
 313d3f9324bdf2ff5bad9e42b7f300aa math-text-grapheme-cluster-fallback
 3d0b2bb8b8d4677109893458cb791e7a math-text-single-grapheme-cluster
 4c57f19ffcf2340715014745ba0b4729 math-text-size
+94fa8a2a92059e34bbdbf121fcd0d7e0 math-text-styled-num
 5b0ed819bd81bc9b7f5a09a27cfe2388 math-underover-brace
 42d53452f669e181b4c771aa4edd6bd3 math-underover-brackets
 80fd4c75da365fcb133775f3259b39c2 math-underover-line-bracket
@@ -1249,6 +1256,7 @@ ce5765400aec3f089040cfcee22e459d math-vec-align
 dcd09ab3a85f244ebe57986fb3853afe math-vec-delim-set
 d81eb6e5c9c93bfb496afe0a560751fc math-vec-gap
 52998dacc1e795c9fabae2dbbacfe6fa math-vec-linebreaks
+b424ca7875cbeb25a2efc045172f85c4 math-vec-linebreaks-trailing
 d7ce3f34312f1f70a2047c1c4201ed01 math-vec-wide
 ecf555a6daf4a1d6f26c17dff6c41b8c measure-citation-deeply-nested
 16d4a6e424dcfc9e46f844252136ac5b measure-citation-in-flow
