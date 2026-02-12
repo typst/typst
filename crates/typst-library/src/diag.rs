@@ -955,7 +955,7 @@ impl<T> ExpectInternal<T> for Option<T> {
 /// The shared internal implementation of [`assert_internal`] and
 /// [`expect_internal`].
 #[track_caller]
-fn internal_error(msg: impl Display) -> HintedString {
+pub fn internal_error(msg: impl Display) -> HintedString {
     let loc = std::panic::Location::caller();
     let mut error = error!(
         "internal error: {msg} (occurred at {loc})";

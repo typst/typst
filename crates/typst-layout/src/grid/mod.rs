@@ -5,7 +5,7 @@ mod rowspans;
 
 pub use self::layouter::GridLayouter;
 
-use typst_library::diag::{At, SourceResult, assert_internal};
+use typst_library::diag::{At, SourceResult, assert_internal, internal_error};
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::introspection::{Locatable, Locator, Tag, Tagged};
@@ -73,14 +73,26 @@ pub fn layout_cell(
     .at(body.span())?;
 
     // Extract the start and end tag of the element.
-    let start_tag = frames[first_idx].remove(0);
-    assert!(matches!(start_tag.1, FrameItem::Tag(Tag::Start(..))));
-
+    let start = frames[first_idx].remove(0);
+    let FrameItem::Tag(start_tag @ Tag::Start(..)) = &start.1 else {
+        return Err(internal_error(display!("expected start tag, found {:?}", start.1)))
+            .at(body.span())?;
+    };
     let last = &mut frames[last_idx];
-    let end_tag = last.remove(last.items().len() - 1);
-    assert!(matches!(end_tag.1, FrameItem::Tag(Tag::End(..))));
-
-    let loc = end_tag.1.as_tag().unwrap().location();
+    let end = last.remove(last.items().len() - 1);
+    let FrameItem::Tag(end_tag @ Tag::End(..)) = &end.1 else {
+        return Err(internal_error(display!("expected end tag, found {:?}", start.1)))
+            .at(body.span())?;
+    };
+    assert_internal(
+        start_tag.location() == end_tag.location(),
+        display!(
+            "start ({:?}) and end ({:?}) tags don't match",
+            start_tag.location(),
+            end_tag.location()
+        ),
+    )
+    .at(body.span())?;
 
     // Set the logical parent of all frames to the cell, which converts them
     // to group frames. Then prepend the start and end tags containing no
@@ -89,9 +101,9 @@ pub fn layout_cell(
     // inserted immediately after the start tag of the parent element
     // preceding any content within the parent element's tags.
     for frame in frames[first_idx..=last_idx].iter_mut() {
-        frame.set_parent(FrameParent::new(loc, Inherit::Yes));
+        frame.set_parent(FrameParent::new(start_tag.location(), Inherit::Yes));
     }
-    frames[0].prepend_multiple([start_tag, end_tag]);
+    frames[0].prepend_multiple([start, end]);
 
     Ok(Fragment::frames(frames))
 }
