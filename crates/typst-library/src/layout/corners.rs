@@ -80,6 +80,15 @@ impl<T> Corners<T> {
             && self.top_right == self.bottom_right
             && self.bottom_right == self.bottom_left
     }
+
+    /// The top-left and bottom-right corners as well as the top-right and
+    /// bottom-left corners are the same.
+    pub fn is_diagonal(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.top_left == self.bottom_right && self.top_right == self.bottom_left
+    }
 }
 
 impl<T> Corners<Option<T>> {

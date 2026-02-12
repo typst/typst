@@ -539,9 +539,7 @@ fn layout_shape(
             crate::pad::grow(&mut frame, &inset);
         }
     } else {
-        // The default size that a shape takes on if it has no child and no
-        // forced sizes.
-        let default = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(region.size);
+        let default = Shape::DEFAULT_SIZE.min(region.size);
 
         let size = if kind.is_quadratic() {
             Size::splat(match quadratic_size(region) {

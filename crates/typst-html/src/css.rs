@@ -3,8 +3,8 @@
 use std::fmt::{self, Display, Write};
 
 use ecow::EcoString;
-use typst_library::layout::{Length, Rel};
-use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
+use typst_library::layout::{Abs, Corners, Length, Rel};
+use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Paint, Rgb};
 use typst_utils::Numeric;
 
 /// A list of CSS properties with values.
@@ -38,6 +38,43 @@ impl Properties {
     }
 }
 
+pub fn corners<T, F, D>(corners: Corners<T>, fmt: F) -> impl Display
+where
+    T: Copy + PartialEq,
+    F: Fn(T) -> D,
+    D: Display,
+{
+    typst_utils::display(move |f| {
+        if corners.is_uniform() {
+            fmt(corners.top_left).fmt(f)
+        } else if corners.is_diagonal() {
+            write!(f, "{} {}", fmt(corners.top_left), fmt(corners.top_right))
+        } else {
+            write!(
+                f,
+                "{} {} {} {}",
+                fmt(corners.top_left),
+                fmt(corners.top_right),
+                fmt(corners.bottom_right),
+                fmt(corners.bottom_left)
+            )
+        }
+    })
+}
+
+pub fn or<T, F, D, O>(val: Option<T>, fmt: F, or: O) -> impl Display
+where
+    T: Copy + PartialEq,
+    F: Fn(T) -> D,
+    D: Display,
+    O: Display,
+{
+    typst_utils::display(move |f| match val {
+        Some(val) => fmt(val).fmt(f),
+        None => or.fmt(f),
+    })
+}
+
 pub fn rel(rel: Rel) -> impl Display {
     typst_utils::display(move |f| match (rel.abs.is_zero(), rel.rel.is_zero()) {
         (false, false) => {
@@ -54,7 +91,21 @@ pub fn length(length: Length) -> impl Display {
             write!(f, "calc({}pt + {}em)", length.abs.to_pt(), length.em.get())
         }
         (true, false) => write!(f, "{}em", length.em.get()),
-        (_, true) => write!(f, "{}pt", length.abs.to_pt()),
+        (_, true) => abs(length.abs).fmt(f),
+    })
+}
+
+pub fn abs(abs: Abs) -> impl Display {
+    typst_utils::display(move |f| write!(f, "{}pt", abs.to_pt()))
+}
+
+pub fn paint(paint: &Paint) -> impl Display {
+    typst_utils::display(move |f| match paint {
+        Paint::Solid(c) => color(*c).fmt(f),
+        // TODO: Convert to CSS gradient.
+        Paint::Gradient(_) => f.write_str("inherit"),
+        // TODO: Convert to base64 SVG pattern?
+        Paint::Tiling(_) => f.write_str("inherit"),
     })
 }
 

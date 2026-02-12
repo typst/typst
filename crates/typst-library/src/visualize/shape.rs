@@ -341,6 +341,12 @@ pub struct Shape {
     pub stroke: Option<FixedStroke>,
 }
 
+impl Shape {
+    /// The default size that a shape takes on if it has no child and no forced
+    /// sizes.
+    pub const DEFAULT_SIZE: Size = Size::new(Abs::pt(45.0), Abs::pt(30.0));
+}
+
 /// A fill rule for curve drawing.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FillRule {

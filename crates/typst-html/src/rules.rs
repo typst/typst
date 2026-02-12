@@ -13,7 +13,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
-    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Rel, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
@@ -26,7 +26,7 @@ use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
-use typst_library::visualize::{Color, ImageElem};
+use typst_library::visualize::{Color, ImageElem, RectElem, Shape};
 use typst_macros::elem;
 use typst_syntax::Span;
 use typst_utils::singleton;
@@ -82,6 +82,13 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // Visualize.
     rules.register(Html, IMAGE_RULE);
+    // TODO: rules.register(Html, LINE_RULE);
+    rules.register(Html, RECT_RULE);
+    // TODO: rules.register(Html, SQUARE_RULE);
+    // TODO: rules.register(Html, ELLIPSE_RULE);
+    // TODO: rules.register(Html, CIRCLE_RULE);
+    // TODO: rules.register(Html, POLYGON_RULE);
+    // TODO: rules.register(Html, CURVE_RULE);
 
     // For the HTML target, `html.frame` is a primitive. In the laid-out target,
     // it should be a no-op so that nested frames don't break (things like `show
@@ -845,4 +852,37 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     }
 
     Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
+};
+
+const RECT_RULE: ShowFn<RectElem> = |elem, _, styles| {
+    let mut block = css::Properties::new();
+
+    if let Some(_child) = elem.body.get_ref(styles) {
+        // TODO: Inset
+    } else {
+        match elem.width.get(styles) {
+            Smart::Auto => block.push("width", css::abs(Shape::DEFAULT_SIZE.x)),
+            Smart::Custom(rel) => block.push("width", css::rel(rel)),
+        }
+
+        match elem.height.get(styles) {
+            Sizing::Auto => block.push("height", css::abs(Shape::DEFAULT_SIZE.y)),
+            Sizing::Rel(rel) => block.push("height", css::rel(rel)),
+            Sizing::Fr(_) => {}
+        }
+    }
+
+    if let Some(fill) = elem.fill.get_ref(styles) {
+        block.push("background", css::paint(fill));
+    }
+
+    let radii = elem.radius.get(styles);
+    if !radii.iter().all(|r| r.is_none_or(Rel::is_zero)) {
+        block.push("border-radius", css::corners(radii, |r| css::or(r, css::rel, 0)));
+    }
+
+    Ok(HtmlElem::new(tag::div)
+        .with_styles(block)
+        .with_body(elem.body.get_cloned(styles))
+        .pack())
 };
