@@ -851,10 +851,30 @@ impl<'a> Equation<'a> {
 
     /// Whether the equation should be displayed as a separate block.
     pub fn block(self) -> bool {
-        let is_space = |node: Option<&SyntaxNode>| {
-            node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
-        };
-        is_space(self.0.children().nth(1)) && is_space(self.0.children().nth_back(1))
+        // The `.unwrap()` calls in this function won't panic because there will
+        // always be an extra dollar-sign node on the opposing side.
+        let mut front_iter = self.0.children().enumerate().skip(1);
+        let (mut front_idx, mut front) = front_iter.next().unwrap();
+        // The parser likes to group adjacent trivia, so if the equation's body
+        // is an empty Math node, e.g. in `$ /**/ $`, the CST will look like:
+        // `Eqn [ Math(<empty>) Space(" ") Trivia("/**/") Space(" ") ]`.
+        // Yet we still want to treat this as a block, so we check the following
+        // node by skipping an empty math node at the start.
+        if front.is_empty() && front.kind() == SyntaxKind::Math {
+            (front_idx, front) = front_iter.next().unwrap();
+        }
+        let (back_idx, back) = self.0.children().enumerate().nth_back(1).unwrap();
+
+        front.kind() == SyntaxKind::Space
+            && back.kind() == SyntaxKind::Space
+            // If the front and back spaces are the same one, require that it
+            // has multiple characters or, if one char, that it is a newline.
+            && (front_idx != back_idx || {
+                match front.text().char_indices().next_back() {
+                    Some((0, c)) => is_newline(c), // A single char must be a newline.
+                    _ => true
+                }
+            })
     }
 }
 
