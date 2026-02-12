@@ -21,6 +21,9 @@ $ cases(a, b, c) $
 // Hint: 40-49 use commas instead to separate each line
 $ cases(a, b, c) cases(reverse: #true, a \ b \ c) $
 
+--- math-cases-linebreaks-trailing paged ---
+$ cases(a \ ) $
+
 --- math-cases-delim-class paged ---
 // Test that delimiters have opening and closing math class.
 $ 2cases(a, reverse: #true, delim: bar.v) 2 $

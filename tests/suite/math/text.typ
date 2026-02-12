@@ -27,6 +27,12 @@ $bird "or" 🐦‍⬛$
 // Hint: 1-16 rendering may be poor
 $bird "or" 🐦‍⬛$
 
+--- math-text-styled-num paged ---
+// Test that styled numbers are treated the same as unstyled ones.
+$ a"123.4"b quad a "123.4" b $
+#show math.text: math.bold
+$ a"123.4"b quad a "123.4" b $
+
 --- math-font-features paged ---
 $ nothing $
 $ "hi ∅ hey" $
