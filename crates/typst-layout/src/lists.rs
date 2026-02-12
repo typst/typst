@@ -14,6 +14,7 @@ use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem}
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
 use typst_macros::elem;
+use typst_syntax::Span;
 
 use crate::stack::layout_stack;
 
@@ -41,7 +42,7 @@ pub fn layout_list(
         // avoid '#set align' interference with the list
         .aligned(HAlignment::Start + VAlignment::Top);
 
-    let mut cells = vec![];
+    let mut items = vec![];
     for item in &elem.children {
         // Text in wide lists shall always turn into paragraphs.
         let mut body = item.body.clone();
@@ -50,21 +51,17 @@ pub fn layout_list(
         }
         let body = body.set(ListElem::depth, Depth(1));
 
-        let elem = ItemData::new(
+        let item = ItemData::new(
             indent,
             body_indent,
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
+            Length::zero(),
         );
-        let item = BlockElem::multi_layouter(Packed::new(elem), layout_item).pack();
-        cells.push(StackChild::Block(item));
+        items.push(item);
     }
 
-    let stack = StackElem::new(cells)
-        .with_spacing(Some(gutter.into()))
-        .with_dir(typst_library::layout::Dir::TTB);
-
-    layout_stack(&Packed::new(stack), engine, locator, styles, regions)
+    layout_items(items, gutter, elem.span(), engine, locator, styles, regions)
 }
 
 /// Layout the enumeration.
@@ -85,7 +82,7 @@ pub fn layout_enum(
         if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
 
-    let mut cells = vec![];
+    let mut items = vec![];
     let mut number = elem
         .start
         .get(styles)
@@ -130,23 +127,63 @@ pub fn layout_enum(
 
         let body = body.set(EnumElem::parents, smallvec![number]);
 
-        let elem = ItemData::new(
+        let item = ItemData::new(
             indent,
             body_indent,
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
+            Length::zero(),
         );
-        let item = BlockElem::multi_layouter(Packed::new(elem), layout_item).pack();
-        cells.push(StackChild::Block(item));
+        items.push(item);
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
+
+    layout_items(items, gutter, elem.span(), engine, locator, styles, regions)
+}
+
+/// Layout items.
+#[typst_macros::time(span = span)]
+fn layout_items(
+    items: Vec<ItemData>,
+    gutter: Length,
+    span: Span,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    // 1. Measure markers
+    let mut locator = locator.split();
+    let mut marker_size = Abs::zero();
+    for item in &items {
+        let marker = crate::layout_frame(
+            engine,
+            &item.marker,
+            locator.next(&item.marker.span()),
+            styles,
+            Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
+        )?;
+
+        marker_size.set_max(marker.width());
+    }
+
+    let cells = items
+        .into_iter()
+        .map(|mut elem| {
+            elem.marker_size = Length::from(marker_size);
+            StackChild::Block(
+                BlockElem::multi_layouter(Packed::new(elem), layout_item).pack(),
+            )
+        })
+        .collect();
 
     let stack = StackElem::new(cells)
         .with_spacing(Some(gutter.into()))
         .with_dir(typst_library::layout::Dir::TTB);
 
-    layout_stack(&Packed::new(stack), engine, locator, styles, regions)
+    // TODO: is this locator invocation right?
+    layout_stack(&Packed::new(stack), engine, locator.next(&()), styles, regions)
 }
 
 #[elem]
@@ -162,6 +199,9 @@ struct ItemData {
 
     #[required]
     body: Content,
+
+    #[required]
+    marker_size: Length,
 }
 
 /// Layout the item.
@@ -171,27 +211,37 @@ fn layout_item(
     engine: &mut Engine,
     locator: Locator,
     styles: StyleChain,
-    mut regions: Regions,
+    regions: Regions,
 ) -> SourceResult<Fragment> {
     let mut locator = locator.split();
+    // Should only be absolute (cannot use Abs due to element definition
+    // restrictions).
+    assert!(elem.marker_size.em.get() == 0.0);
     let marker = crate::layout_frame(
         engine,
         &elem.marker,
         locator.next(&elem.marker.span()),
         styles,
-        Region::new(regions.size, Axes::splat(false)),
+        Region::new(
+            Axes::new(elem.marker_size.abs, regions.base().y),
+            Axes::new(true, false),
+        ),
     )?;
     let indent = elem.indent.resolve(styles);
     let body_indent = elem.body_indent.resolve(styles);
     let marker_size = marker.size();
-    regions.size.x -= indent + body_indent + marker_size.x;
-    let fragment = crate::layout_fragment(
-        engine,
-        &elem.body,
-        locator.next(&elem.body.span()),
-        styles,
-        regions,
-    )?;
+    let fragment = {
+        let mut regions = regions;
+        regions.size.x -= indent + body_indent + marker_size.x;
+        crate::layout_fragment(
+            engine,
+            &elem.body,
+            locator.next(&elem.body.span()),
+            styles,
+            regions,
+        )?
+    };
+
     let baseline = match fragment.as_slice() {
         [first, ..] if first.has_baseline() => first.baseline(),
         [first, ..] => extract_baseline(&first, Abs::zero()),
