@@ -380,7 +380,7 @@ impl<'a> Runner<'a> {
 
     /// Compile a document with the specified target.
     ///
-    /// Conceptually, this functions takes the evaluated content as input and
+    /// Conceptually, this function takes the evaluated content as input and
     /// produces a document. In practice it also re-evaluates the sources and
     /// thus generates duplicate diagnostics for the eval stage, so we filter
     /// those out.
