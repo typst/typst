@@ -173,7 +173,6 @@ $func(a: #2, ..dict, a: #3)$
 #let dict = (one: 1, two: 2)
 #let both = arguments(..nums, ..dict)
 #check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
-// Error: 14-20 cannot spread dictionary into array
 #check($args(..dict;)$, "arguments(one: 1, two: 2, ())") // Adds an empty array
 #check($args(1, ..dict;)$, "arguments(one: 1, two: 2, ([1],))")
 #check($args(1, ..dict, 2;)$, "arguments(one: 1, two: 2, ([1], [2]))")
@@ -211,17 +210,21 @@ $ mat(#"code"; "wins") $
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a: b)$, "((), (a: [b]))")
 #check($args(a: b,)$, "((), (a: [b]))")
-// #check($args(a: b;)$, "(((),), (a: [b]))")
+#check($args(a: b;)$, "(((),), (a: [b]))")
 #check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
+
+// This set should all be the same.
 #check($args(a: b, 1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, a: b, 2; 3, 4)$, "(([1], ([2],), ([3], [4])), (a: [b]))")
-#check($args(1, 2, a: b; 3, 4)$, "(([1], [2], (), ([3], [4])), (a: [b]))")
+#check($args(1, a: b, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2, a: b; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
 #check($args(1, 2; a: b, 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), [3], ([4],)), (a: [b]))")
-#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), [3], [4]), (a: [b]))")
+#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, 4; a: b)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+
 #check($args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
 #check($args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
-#check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
+#check($args(a-b: a,, e:f;; d)$, "((([],), ([],), ([d],)), (a-b: [a], e: [f]))")
 #check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
 --- math-call-2d-escape-repr eval ---
@@ -267,9 +270,8 @@ $ mat(#1) $
 // Error: 8-9 expected content, found integer
 $ vec(#1) $
 
---- math-call-value-non-func eval ---
+--- math-call-value-non-func paged ---
 $ sin(1) $
-// Error: 8-9 expected content, found integer
 $ sin(#1) $
 
 --- math-call-pass-to-box paged ---
@@ -299,25 +301,25 @@ $ phi(x) $
 $ phi(x, y) $
 $ phi(1,2,,3,) $
 
---- math-call-symbol-2d eval ---
-// Error: 6-7 expected content, found array
-// Error: 8-9 expected content, found array
+--- math-call-symbol-2d paged ---
 $ pi(a;b) quad gamma(;) quad eta(#"a";;, ; upright(b),) $
 
 --- math-call-symbol-named-argument eval ---
-// Error: 10-18 unexpected argument: alpha
+// Error: 10-18 named-argument syntax can only be used with functions
+// Hint: 3-6 `phi` is not a function
+// Hint: 10-18 to render the colon as text, escape it: `alpha\: y`
 $ phi(x, alpha: y) $
 
 --- math-call-symbol-spread-argument eval ---
-// Error: 10-17 cannot spread symbol
+// Error: 10-17 spread-argument syntax can only be used with functions
+// Hint: 3-6 `phi` is not a function
+// Hint: 10-17 to render the dots as text, add a space: `.. alpha`
 $ phi(x, ..alpha) $
 
---- math-call-symbol-spacing eval ---
+--- math-call-symbol-spacing paged ---
 // Test that we keep the same spacing when unparsing.
 #show regex("[,;]"): math.class.with("fence")
 $
-  // Error: 8-13 expected content, found array
-  // Error: 16-17 expected content, found array
    phi(| , | ; |) \
   phi\(| , | ; |\) \
 $
@@ -333,6 +335,7 @@ $ pi.alt() $
 --- math-call-field-symbol-error eval ---
 #math.tilde($pi.alt$)
 // Error: 2-13 symbol ϖ is not callable
+// Hint: 2-13 try adding a space before the parentheses: `math.pi.alt ($tilde$)`
 #math.pi.alt($tilde$)
 
 --- math-call-field-mutating eval ---
@@ -340,7 +343,8 @@ $ pi.alt() $
 #let array = (1, 2)
 #let dict = (one: 1)
 #let _ = $
-  // Error: 3-8 cannot mutate a temporary value
+  // Error: 3-20 cannot call mutating methods in math
+  // Hint: 3-20 try using code mode to call the method: `#array.push("two")`
   array.push("two")
   array.push(dict.remove("one"))
   dict.insert(array.pop(), array.remove(#1))
@@ -348,35 +352,32 @@ $
 #test(array, (1, 1))
 #test(dict, (two: 2))
 
---- math-call-field-content eval ---
+--- math-call-field-content paged ---
 // Test accessing a field on content in a call.
 #let pi = [pi]
-// Error: 6-10 element text has no method `text`
-// Hint: 6-10 did you mean to access the field `text`?
 $ pi.text() $
 
 --- math-call-field-module paged ---
 // Test accessing a field on a module in a call.
 $ std.color.map() $
 
---- math-call-field-dict-non-func eval ---
+--- math-call-field-dict-non-func paged ---
 // Test accessing a field on a dictionary in a call.
 #let pi = (alt: math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 did you mean to access the field `alt`?
 $ pi.alt() $
 
 --- math-call-field-dict-function-error eval ---
 // Test calling a function from a dictionary.
 #let pi = (alt: _ => math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.alt)(..)`
+// Error: 3-9 cannot directly call a function stored in a dictionary
+// Hint: 3-9 to call the function, use code mode and wrap the field access in parentheses: `#(pi.alt)(..)`
 $ pi.alt() $
 
 --- math-call-field-dict-push eval ---
 // Test accessing the non-mutating push field on a dictionary.
 #let dict = (push: "p")
-// Error: 3-7 cannot mutate a temporary value
+// Error: 3-16 cannot call mutating methods in math
+// Hint: 3-16 try using code mode to call the method: `#dict.push("")`
 $ dict.push("") $
 
 --- issue-3774-math-call-empty-2d-args paged ---
@@ -416,7 +417,7 @@ $ func(a, b) $
 // Test the span of errors for 2d arguments.
 // The current range isn't the best, but it's hard to improve.
 #let func() = {}
-// Error: 8-12 unexpected argument
+// Error: 7-20 unexpected argument
 $ func(a, b; c, d;) $
 
 --- math-call-error-inside-func eval ---
