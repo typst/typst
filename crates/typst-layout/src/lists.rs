@@ -257,17 +257,41 @@ fn layout_item(
     .max(Abs::zero());
 
     let mut frames = vec![];
-    for body_frame in fragment {
+    let skip_first_frame = fragment.len() > 1
+        && is_empty_frame(&fragment.as_slice()[0])
+        && fragment
+            .iter()
+            .skip(1)
+            .filter(|f| !is_empty_frame(f))
+            .next()
+            .is_some();
+
+    for (i, body_frame) in fragment.into_iter().enumerate() {
         let mut frame = Frame::soft(Size::new(
             indent + body_indent + marker_size.x + body_frame.width(),
             (marker_size.y + diff).max(body_frame.height()),
         ));
-        frame.push_frame(Point::new(indent, diff), marker.clone());
-        frame.push_frame(Point::with_x(indent + marker_size.x + body_indent), body_frame);
+        if i > 0 || !skip_first_frame {
+            // Don't place extraneous markers after a region skip.
+            frame.push_frame(Point::new(indent, diff), marker.clone());
+            frame.push_frame(
+                Point::with_x(indent + marker_size.x + body_indent),
+                body_frame,
+            );
+        }
         frames.push(frame);
     }
 
     Ok(Fragment::frames(frames))
+}
+
+/// Check if a frame is empty (taken from grid layouting).
+///
+/// HACK: Also consider frames empty if they only contain tags. Table
+/// and grid cells need to be locatable for pdf accessibility, but
+/// the introspection tags interfere with the layouting.
+fn is_empty_frame(frame: &Frame) -> bool {
+    frame.items().all(|(_, item)| matches!(item, FrameItem::Tag(_)))
 }
 
 fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
