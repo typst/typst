@@ -83,6 +83,123 @@ impl Eval for ast::FuncCall<'_> {
     }
 }
 
+/// This used only as the return value of `eval_field_call`.
+/// - `Normal` means that we have a function to call and the arguments to call it with.
+/// - `Resolved` means that we have already resolved the call and have the value.
+enum FieldCall {
+    Normal(Value, Args),
+    Resolved(Value),
+}
+
+/// Evaluate a field call's callee and arguments.
+///
+/// This follows the normal function call order: we evaluate the callee before the
+/// arguments.
+///
+/// Prioritize associated functions on the value's type (e.g., methods) over its fields.
+/// A function call on a field is only allowed for functions, types, modules (because
+/// they are scopes), and symbols (because they have modifiers or associated functions).
+///
+/// For dictionaries, it is not allowed because it would be ambiguous - prioritizing
+/// associated functions would make an addition of a new associated function a breaking
+/// change and prioritizing fields would break associated functions for certain
+/// dictionaries.
+fn eval_field_call(
+    target_expr: ast::Expr,
+    field: Ident,
+    args: ast::Args,
+    span: Span,
+    vm: &mut Vm,
+) -> SourceResult<FieldCall> {
+    // Evaluate the field-call's target and overall arguments.
+    let (target, mut args) = if is_mutating_method(&field) {
+        // If `field` looks like a mutating method, we evaluate the arguments first,
+        // because `target_expr.access(vm)` mutably borrows the `vm`, so that we can't
+        // evaluate the arguments after it.
+        let args = args.eval(vm)?.spanned(span);
+        // However, this difference from the normal call order is not observable because
+        // expressions like `(1, arr.len(), 2, 3).push(arr.pop())` evaluate the target to
+        // a temporary which we disallow mutation on (returning an error).
+        // Theoretically this could be observed if a method matching `is_mutating_method`
+        // was added to some type in the future and we didn't update this function.
+        match target_expr.access(vm)? {
+            // Only arrays and dictionaries have mutable methods.
+            target @ (Value::Array(_) | Value::Dict(_)) => {
+                let value = call_method_mut(target, &field, args, span);
+                let point = || Tracepoint::Call(Some(field.get().clone()));
+                return Ok(FieldCall::Resolved(value.trace(vm.world(), point, span)?));
+            }
+            target => (target.clone(), args),
+        }
+    } else {
+        let target = target_expr.eval(vm)?;
+        let args = args.eval(vm)?.spanned(span);
+        (target, args)
+    };
+
+    let field_span = field.span();
+    let sink = (&mut vm.engine, field_span);
+    if let Some(callee) = target.ty().scope().get(&field) {
+        args.insert(0, target_expr.span(), target);
+        Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
+    } else if let Value::Content(content) = &target {
+        if let Some(callee) = content.elem().scope().get(&field) {
+            args.insert(0, target_expr.span(), target);
+            Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
+        } else {
+            bail!(missing_field_call_error(target, field))
+        }
+    } else if matches!(
+        target,
+        Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
+    ) {
+        // Certain value types may have their own ways to access method fields.
+        // e.g. `$arrow.r(v)$`, `table.cell[..]`
+        let value = target.field(&field, sink).at(field_span)?;
+        Ok(FieldCall::Normal(value, args))
+    } else {
+        // Otherwise we cannot call this field.
+        bail!(missing_field_call_error(target, field))
+    }
+}
+
+/// Produce an error when we cannot call the field.
+fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
+    let mut error = match &target {
+        Value::Content(content) => error!(
+            field.span(),
+            "element {} has no method `{}`",
+            content.elem().name(),
+            field.as_str(),
+        ),
+        _ => error!(
+            field.span(),
+            "type {} has no method `{}`",
+            target.ty(),
+            field.as_str(),
+        ),
+    };
+
+    match target {
+        Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
+            error.hint(eco_format!(
+                "to call the function stored in the dictionary, surround \
+                the field access with parentheses, e.g. `(dict.{})(..)`",
+                field.as_str(),
+            ));
+        }
+        _ if target.field(&field, ()).is_ok() => {
+            error.hint(eco_format!(
+                "did you mean to access the field `{}`?",
+                field.as_str(),
+            ));
+        }
+        _ => {}
+    }
+
+    error
+}
+
 impl Eval for ast::Args<'_> {
     type Output = Args;
 
@@ -133,6 +250,42 @@ impl Eval for ast::Args<'_> {
         // span to be one level higher (the whole function call).
         Ok(Args { span: Span::detached(), items })
     }
+}
+
+/// Check if the expression is in a math context.
+fn in_math(expr: ast::Expr) -> bool {
+    match expr {
+        ast::Expr::MathIdent(_) => true,
+        ast::Expr::FieldAccess(access) => in_math(access.target()),
+        _ => false,
+    }
+}
+
+/// For non-functions in math, we wrap the arguments in parentheses.
+fn wrap_args_in_math(
+    callee: Value,
+    callee_span: Span,
+    mut args: Args,
+    trailing_comma: bool,
+) -> SourceResult<Value> {
+    let mut body = Content::empty();
+    for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+        if i > 0 {
+            body += SymbolElem::packed(',');
+        }
+        body += arg;
+    }
+    if trailing_comma {
+        body += SymbolElem::packed(',');
+    }
+
+    let formatted = callee.display().spanned(callee_span)
+        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
+            .pack()
+            .spanned(args.span);
+
+    args.finish()?;
+    Ok(Value::Content(formatted))
 }
 
 impl Eval for ast::Closure<'_> {
@@ -280,159 +433,6 @@ pub fn eval_closure(
     }
 
     Ok(output)
-}
-
-/// This used only as the return value of `eval_field_call`.
-/// - `Normal` means that we have a function to call and the arguments to call it with.
-/// - `Resolved` means that we have already resolved the call and have the value.
-enum FieldCall {
-    Normal(Value, Args),
-    Resolved(Value),
-}
-
-/// Evaluate a field call's callee and arguments.
-///
-/// This follows the normal function call order: we evaluate the callee before the
-/// arguments.
-///
-/// Prioritize associated functions on the value's type (e.g., methods) over its fields.
-/// A function call on a field is only allowed for functions, types, modules (because
-/// they are scopes), and symbols (because they have modifiers or associated functions).
-///
-/// For dictionaries, it is not allowed because it would be ambiguous - prioritizing
-/// associated functions would make an addition of a new associated function a breaking
-/// change and prioritizing fields would break associated functions for certain
-/// dictionaries.
-fn eval_field_call(
-    target_expr: ast::Expr,
-    field: Ident,
-    args: ast::Args,
-    span: Span,
-    vm: &mut Vm,
-) -> SourceResult<FieldCall> {
-    // Evaluate the field-call's target and overall arguments.
-    let (target, mut args) = if is_mutating_method(&field) {
-        // If `field` looks like a mutating method, we evaluate the arguments first,
-        // because `target_expr.access(vm)` mutably borrows the `vm`, so that we can't
-        // evaluate the arguments after it.
-        let args = args.eval(vm)?.spanned(span);
-        // However, this difference from the normal call order is not observable because
-        // expressions like `(1, arr.len(), 2, 3).push(arr.pop())` evaluate the target to
-        // a temporary which we disallow mutation on (returning an error).
-        // Theoretically this could be observed if a method matching `is_mutating_method`
-        // was added to some type in the future and we didn't update this function.
-        match target_expr.access(vm)? {
-            // Only arrays and dictionaries have mutable methods.
-            target @ (Value::Array(_) | Value::Dict(_)) => {
-                let value = call_method_mut(target, &field, args, span);
-                let point = || Tracepoint::Call(Some(field.get().clone()));
-                return Ok(FieldCall::Resolved(value.trace(vm.world(), point, span)?));
-            }
-            target => (target.clone(), args),
-        }
-    } else {
-        let target = target_expr.eval(vm)?;
-        let args = args.eval(vm)?.spanned(span);
-        (target, args)
-    };
-
-    let field_span = field.span();
-    let sink = (&mut vm.engine, field_span);
-    if let Some(callee) = target.ty().scope().get(&field) {
-        args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
-    } else if let Value::Content(content) = &target {
-        if let Some(callee) = content.elem().scope().get(&field) {
-            args.insert(0, target_expr.span(), target);
-            Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
-        } else {
-            bail!(missing_field_call_error(target, field))
-        }
-    } else if matches!(
-        target,
-        Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
-    ) {
-        // Certain value types may have their own ways to access method fields.
-        // e.g. `$arrow.r(v)$`, `table.cell[..]`
-        let value = target.field(&field, sink).at(field_span)?;
-        Ok(FieldCall::Normal(value, args))
-    } else {
-        // Otherwise we cannot call this field.
-        bail!(missing_field_call_error(target, field))
-    }
-}
-
-/// Produce an error when we cannot call the field.
-fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
-    let mut error = match &target {
-        Value::Content(content) => error!(
-            field.span(),
-            "element {} has no method `{}`",
-            content.elem().name(),
-            field.as_str(),
-        ),
-        _ => error!(
-            field.span(),
-            "type {} has no method `{}`",
-            target.ty(),
-            field.as_str(),
-        ),
-    };
-
-    match target {
-        Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
-            error.hint(eco_format!(
-                "to call the function stored in the dictionary, surround \
-                the field access with parentheses, e.g. `(dict.{})(..)`",
-                field.as_str(),
-            ));
-        }
-        _ if target.field(&field, ()).is_ok() => {
-            error.hint(eco_format!(
-                "did you mean to access the field `{}`?",
-                field.as_str(),
-            ));
-        }
-        _ => {}
-    }
-
-    error
-}
-
-/// Check if the expression is in a math context.
-fn in_math(expr: ast::Expr) -> bool {
-    match expr {
-        ast::Expr::MathIdent(_) => true,
-        ast::Expr::FieldAccess(access) => in_math(access.target()),
-        _ => false,
-    }
-}
-
-/// For non-functions in math, we wrap the arguments in parentheses.
-fn wrap_args_in_math(
-    callee: Value,
-    callee_span: Span,
-    mut args: Args,
-    trailing_comma: bool,
-) -> SourceResult<Value> {
-    let mut body = Content::empty();
-    for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-        if i > 0 {
-            body += SymbolElem::packed(',');
-        }
-        body += arg;
-    }
-    if trailing_comma {
-        body += SymbolElem::packed(',');
-    }
-
-    let formatted = callee.display().spanned(callee_span)
-        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
-            .pack()
-            .spanned(args.span);
-
-    args.finish()?;
-    Ok(Value::Content(formatted))
 }
 
 /// A visitor that determines which variables to capture for a closure.
