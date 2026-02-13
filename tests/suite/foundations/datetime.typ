@@ -64,10 +64,10 @@
 // Test today
 #test(datetime.today().display(), "1970-01-01")
 #test(datetime.today(offset: auto).display(), "1970-01-01")
-#test(datetime.today(offset: 2).display(), "1970-01-01")
+#test(datetime.today(offset: 2).display(), "1970-01-01 02:00:00")
 #test(datetime.today(offset: 24).display(), "1970-01-02")
 #test(datetime.today(offset: -24).display(), "1969-12-31")
-#test(datetime.today(offset: duration(hours: 5, minutes: 45)).display(), "1970-01-01")
+#test(datetime.today(offset: duration(hours: 5, minutes: 45)).display(), "1970-01-01 05:45:00")
 #test(datetime.today(offset: duration(days: 2)).display(), "1970-01-03")
 #test(datetime.today(offset: duration(days: -2)).display(), "1969-12-30")
 

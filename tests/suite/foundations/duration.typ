@@ -74,6 +74,17 @@
 #test(datetime(day: 1, month: 2, year: 2000) - b, duration(days: 31))
 #test(datetime(day: 15, month: 1, year: 2000) - b, duration(weeks: 2))
 
+--- issue-7843-date-duration-precision eval ---
+#test(
+  datetime(year: 2030, month: 5, day: 25,            hour:  6, minute:  30, second:  19),
+  datetime(year: 2030, month: 5, day: 25) + duration(hours: 6, minutes: 30, seconds: 19)
+)
+
+#let some-day = datetime(year: 2000, month: 6, day: 5)
+#let two-hours = duration(hours: 2)
+#test(some-day + 100 * two-hours, range(100).fold(some-day, (d, _) => d + two-hours))
+#test(some-day - 100 * two-hours, range(100).fold(some-day, (d, _) => d - two-hours))
+
 --- duration-multiply-with-number eval ---
 // Test multiplying and dividing durations with numbers.
 #test(duration(minutes: 10) * 6, duration(hours: 1))
