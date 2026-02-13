@@ -163,12 +163,13 @@ eac46c66efb620d5ef22d333b7ab7654 emph-and-strong-call-in-word
 7bab294c6605958990b366a0d9ac1df1 enum-array-deprecated
 2a1ca42f8680b4b1ff03a4213eb2ff12 enum-built-in-loop
 1d0827cd558ce85c02add1c25885e172 enum-function-call
+23f9c4b7ea72a6a1e83a37e289516127 enum-in-align-in-block
 3f651808ebaa81921034ba3b9d04be7d enum-item-number-optional
 798f94af88f1c89902ded435bc23561d enum-number-align-2d
 4b20ad715ebbeaf3ab845e2a7c00407e enum-number-align-default
 8471640a1edfefbc2d55e358a09b26a0 enum-number-align-specified
 0eda52aba3d012cca65a515bcbe512f3 enum-number-align-unaffected
-89989140ebdf552db32b374e5e2f071c enum-number-align-unfolded
+eda3d4b138c8038abc5fb62040ba12ff enum-number-align-unfolded
 784b33f6e95df8c925db20a0c0ce5047 enum-number-override
 d708c4a29619b3ea56de2540080c2e21 enum-number-override-nested
 eee8c5906f66d92588dc0439dced1530 enum-numbering-closure
@@ -745,7 +746,7 @@ c7ffe4891d4f983856401b9367874e7d issue-5296-block-sticky-weakly-spaced-from-top-
 a0b1fa0278cc46dcb8c3d1658969b76f issue-5499-text-fill-in-clip-block
 49572d82a14404076bdbcc25c9e4ebd6 issue-5503-cite-group-interrupted-by-par-align
 2ffc3142d16f45b49e2113aa75fc39e3 issue-5503-cite-in-align
-5194436d9e1cde341aff2f7d4f3e650a issue-5503-enum-in-align
+1e7e480b280ba4a805f0895b85a85573 issue-5503-enum-in-align
 b7245650773c0bfe5d7d6c1e5f7c04bb issue-5503-list-in-align
 7e474ea9b9d4e75c0ca28dbe33b4cf3e issue-5503-terms-in-align
 a7bb358c848c9763ed37daeb03cacd41 issue-5536-quote-inline-quotes-false
@@ -1532,7 +1533,7 @@ dcc66afa45f5eb7ff058398505981c6b show-text-basic
 572fdb5d5a0f1c5b8dd4721d3e97f2f8 show-text-exactly-once
 f9f6165eed9c5dad31cb6d0f15d14c75 show-text-get-text-on-it
 d277fa6bebec01490ae5e0098bfb5d64 show-text-in-citation
-164e565e79e376452ca17e37f6b618d6 show-text-in-other-show
+748453444832a4b14df03dd4b3f6cc04 show-text-in-other-show
 9812a7c3f0815e388a42085b21cc323c show-text-indirectly-cyclic
 8d738b9cd74b9dd21dc7b4bc9e0304e1 show-text-line-wrapping
 d074c3f2fa0b2e558875613980c30bed show-text-linebreak

@@ -163,12 +163,13 @@ c56d9977eee33b131b0d70e9bcedf0ec emph-syntax
 5988a5ebb682c08f31bcb9c289432a43 enum-array-deprecated
 043d530ba4131c6d226788b9256e8885 enum-built-in-loop
 480ceafbc7b32e6bd87320162c2c6436 enum-function-call
+f439ade0da68b7d96e522795612c0982 enum-in-align-in-block
 56a29624f22acf7e7bb37eb4bd423a42 enum-item-number-optional
 6f96a704bfe378b2c0746cf2e1bef14b enum-number-align-2d
 1e48064c16a70dc456426fc66a3f89d8 enum-number-align-default
 7b7fc1350268a34154ae2c9506ffff28 enum-number-align-specified
 6e0f144b156ba17b95aa426e9dd1c8e1 enum-number-align-unaffected
-d22c727ab0172a84a18cfa84a64807cc enum-number-align-unfolded
+512ca0d9144588784f0d1240239cc917 enum-number-align-unfolded
 df264bc8af2e55dcb1130849ab4712df enum-number-override
 c6924430253085ef66e5a32468cfcd76 enum-number-override-nested
 f57c806a9302a449254f8e2f49328b16 enum-numbering-closure
@@ -745,7 +746,7 @@ cf64bf16868e5f3f954cbd98501cbdd4 issue-5490-bidi-invalid-range
 6a7622eaed584850d0fc4f73e14ee686 issue-5499-text-fill-in-clip-block
 93683cf428199836176e46e15a36628d issue-5503-cite-group-interrupted-by-par-align
 0a2ce7cab10712fa52e32bf5afc52da4 issue-5503-cite-in-align
-f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
+b933f12ca11dbd9ea9aedfce9ac7f137 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
@@ -1532,7 +1533,7 @@ bce9e527b76d30d09dd62e855d11fe81 show-text-citation-smartquote
 42774c51adb5a6198ad293f03894ff56 show-text-exactly-once
 86248aa70b1e8e27efdd2e93f65838f4 show-text-get-text-on-it
 61e3b763e5fac416637aab08668d5bb5 show-text-in-citation
-be9151a5f9b11e4471cd178639b7105d show-text-in-other-show
+48d1325fa44ec0a9a0fb64126fb92679 show-text-in-other-show
 eda549e8ff2b0fdf23540f9c455dd1ae show-text-indirectly-cyclic
 fe514ec68ea2ff585adad29320fe9f0b show-text-line-wrapping
 f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
