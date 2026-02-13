@@ -44,6 +44,20 @@ a + 0.
   13. d // indented past c
 14. e
 
+--- enum-in-align-in-block paged ---
+// The marker doesn't move as the list body expands and aligns itself.
+// However, with `block`, the list body does not expand, so the marker is also
+// aligned.
++ a
++ b
+#align(right)[+ c]
+#align(right, block[+ d])
+
+--- enum-in-align-centering paged ---
++ $ x $
+#align(right)[+ $ y $]
+#align(right, block[+ $ z $])
+
 --- enum-number-override paged ---
 // Test item number overriding.
 1. first
