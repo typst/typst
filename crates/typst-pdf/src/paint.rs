@@ -10,8 +10,8 @@ use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{
-    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RatioOrAngle,
-    RelativeTo, Tiling, WeightedColor,
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RelativeTo,
+    Tiling, WeightedColor,
 };
 use typst_utils::Numeric;
 
@@ -281,25 +281,23 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
             for window in gradient.stops().windows(2) {
                 let (first, second) = (window[0], window[1]);
 
+                add_single(&first.color, first.offset.unwrap());
+
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                if gradient.space().hue_index().is_some()
-                    || gradient.space() == ColorSpace::Oklab
+                if second.offset.unwrap() > first.offset.unwrap()
+                    && (gradient.space().hue_index().is_some()
+                        || gradient.space() == ColorSpace::Oklab)
                 {
-                    for i in 0..=32 {
-                        let t = i as f64 / 32.0;
-                        let real_t = Ratio::new(
-                            first.offset.unwrap().get() * (1.0 - t)
-                                + second.offset.unwrap().get() * t,
-                        );
-
-                        let c = gradient.sample(RatioOrAngle::Ratio(real_t));
-                        add_single(&c, real_t);
-                    }
+                    gradient
+                        .generate_intermediate_stops_for_rgb_interpolation(first, second)
+                        .for_each(|(color, at)| add_single(&color, at));
                 }
+            }
 
-                add_single(&second.color, second.offset.unwrap());
+            if let Some(last) = gradient.stops().last() {
+                add_single(&last.color, last.offset.unwrap());
             }
         }
         Gradient::Conic(conic) => {
