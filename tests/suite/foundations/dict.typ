@@ -61,6 +61,35 @@
   test((..(a: 1), b: 2), (a: 1, b: 2))
 }
 
+--- spread-dicts-in-array-diagnostic paged ---
+
+#{
+  let x = (a: 1)
+  let y = (b: 2)
+  // Error: 4-7 cannot spread dictionary into array
+  // Hint: 4-7 open container with `(:` to create a dictionary
+  (..x,..y)
+}
+
+--- spread-single-dict-in-array-diagnostic paged ---
+
+#{
+  let x = (a: 1)
+  // Error: 4-7 cannot spread dictionary into array
+  // Hint: 4-7 open container with `(:` to create a dictionary
+  (..x)
+}
+
+--- spread-dict-and-array-in-array-diagnostic paged ---
+// Here we should not emit a hint to use `(: <...>)` syntax
+// since the developer's intent is unclear
+#{
+  let x = (a: 1)
+  let y = (2,3)
+  // Error: 4-7 cannot spread dictionary into array
+  (..x,..y)
+}
+
 --- spread-array-into-dict paged ---
 // Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
