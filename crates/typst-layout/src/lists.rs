@@ -232,7 +232,7 @@ fn layout_item(
     let indent = elem.indent.resolve(styles);
     let body_indent = elem.body_indent.resolve(styles);
     let marker_size = marker.size();
-    let fragment = {
+    let mut fragment = {
         let mut regions = regions;
         regions.size.x -= indent + body_indent + marker_size.x;
         crate::layout_fragment(
@@ -244,41 +244,61 @@ fn layout_item(
         )?
     };
 
-    let baseline = match fragment.as_slice() {
-        [first, ..] if first.has_baseline() => first.baseline(),
-        [first, ..] => extract_baseline(&first, Abs::zero()),
+    let mut skip_first = should_skip_first_frame(&fragment);
+
+    let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
+        Some(first) if first.has_baseline() => first.baseline(),
+        Some(first) => extract_baseline(&first, Abs::zero()),
         _ => Abs::zero(),
     };
 
-    let diff = (baseline
+    let diff = baseline
         - if marker.has_baseline() {
             marker.baseline()
         } else {
             extract_baseline(&marker, Abs::zero())
-        })
-    .max(Abs::zero());
+        };
+
+    let (marker_dy, body_dy) = if diff >= Abs::zero() {
+        // Marker's baseline is above the body's baseline, so we can align them
+        // by moving the baseline downwards.
+        (diff, Abs::zero())
+    } else {
+        // Marker's baseline is below the body's baseline, so move the body
+        // down to avoid overflowing the marker into something above the list
+        // (item).
+        //
+        // To do this, we layout the body again but with '-diff' less space, and
+        // then move the result '-diff' units downwards. Of course, this could
+        // theoretically generate a new result that is even worse - but there is
+        // only so much we can do with a finite number of iterations.
+        let mut regions = regions;
+        regions.size.x -= indent + body_indent + marker_size.x;
+        regions.size.y += diff;
+        fragment = crate::layout_fragment(
+            engine,
+            &elem.body,
+            locator.next(&elem.body.span()),
+            styles,
+            regions,
+        )?;
+        skip_first = should_skip_first_frame(&fragment);
+
+        (Abs::zero(), -diff)
+    };
 
     let mut frames = vec![];
-    let skip_first_frame = fragment.len() > 1
-        && is_empty_frame(&fragment.as_slice()[0])
-        && fragment
-            .iter()
-            .skip(1)
-            .filter(|f| !is_empty_frame(f))
-            .next()
-            .is_some();
-
     for (i, body_frame) in fragment.into_iter().enumerate() {
         let width = indent + body_indent + marker_size.x + body_frame.width();
         let mut frame = Frame::soft(Size::new(
             width,
-            (marker_size.y + diff).max(body_frame.height()),
+            (marker_size.y + marker_dy).max(body_frame.height() + body_dy),
         ));
 
         // Don't place extraneous markers after a region skip.
-        if i > 0 || !skip_first_frame {
-            let mut marker_pos = Point::new(indent, diff);
-            let mut body_pos = Point::with_x(indent + marker_size.x + body_indent);
+        if i > 0 || !skip_first {
+            let mut marker_pos = Point::new(indent, marker_dy);
+            let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
 
             if elem.is_rtl {
                 // In RTL cells expand to the left, thus the position must
@@ -294,6 +314,17 @@ fn layout_item(
     }
 
     Ok(Fragment::frames(frames))
+}
+
+fn should_skip_first_frame(fragment: &Fragment) -> bool {
+    fragment.len() > 1
+        && is_empty_frame(&fragment.as_slice()[0])
+        && fragment
+            .iter()
+            .skip(1)
+            .filter(|f| !is_empty_frame(f))
+            .next()
+            .is_some()
 }
 
 /// Check if a frame is empty (taken from grid layouting).
