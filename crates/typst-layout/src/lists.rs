@@ -2,10 +2,14 @@ use comemo::Track;
 use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
+use typst_library::foundations::{
+    Content, Context, Depth, NativeElement, Packed, StyleChain,
+};
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
-use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
+use typst_library::layout::{
+    Axes, Fragment, GridCell, HAlignment, Regions, Sizing, VAlignment,
+};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
@@ -46,9 +50,11 @@ pub fn layout_list(
         let body = body.set(ListElem::depth, Depth(1));
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
+        cells.push(Cell::new(
+            GridCell::new(PdfMarkerTag::ListItemLabel(marker.clone())).pack(),
+        ));
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
+        cells.push(Cell::new(GridCell::new(PdfMarkerTag::ListItemBody(body)).pack()));
     }
 
     let grid = CellGrid::new(
@@ -130,9 +136,10 @@ pub fn layout_enum(
         let body = body.set(EnumElem::parents, smallvec![number]);
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
+        cells
+            .push(Cell::new(GridCell::new(PdfMarkerTag::ListItemLabel(resolved)).pack()));
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
+        cells.push(Cell::new(GridCell::new(PdfMarkerTag::ListItemBody(body)).pack()));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
