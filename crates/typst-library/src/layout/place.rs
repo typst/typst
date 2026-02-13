@@ -168,6 +168,12 @@ pub struct PlaceElem {
     /// were wrapped in a [`move`] element.
     pub dy: Rel<Length>,
 
+    /// Whether to read horizontal alignment from the style chain when alignment is auto.
+    /// This is used internally for fiugres to respect show rule alignments
+    #[internal]
+    #[parse(Some(false))]
+    pub read_horizontal_from_styles: bool,
+
     /// The content to place.
     #[required]
     pub body: Content,
