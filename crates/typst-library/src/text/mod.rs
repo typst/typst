@@ -784,10 +784,10 @@ pub struct TextElem {
     #[ghost]
     pub case: Option<Case>,
 
-    /// Whether small capital glyphs should be used. ("smcp", "c2sc")
+    /// The configuration for small capitals, if enabled.
     #[internal]
     #[ghost]
-    pub smallcaps: Option<Smallcaps>,
+    pub smallcaps_settings: Option<SmallcapsSettings>,
 
     /// The configuration for superscripts or subscripts, if one of them is
     /// enabled.
@@ -1340,13 +1340,8 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"kern", 0);
     }
 
-    // Features that are off by default in Harfbuzz are only added if enabled.
-    if let Some(sc) = styles.get(TextElem::smallcaps) {
-        feat(b"smcp", 1);
-        if sc == Smallcaps::All {
-            feat(b"c2sc", 1);
-        }
-    }
+    // Note: smallcaps features (smcp, c2sc) are handled during shaping to
+    // support synthesis fallback when the font doesn't have these features.
 
     match styles.get(TextElem::alternates).0 {
         0 => {}
