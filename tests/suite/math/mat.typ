@@ -187,9 +187,8 @@ $ mat(-1&, 1&, 1&; 1, -1, 1; 1, 1, -1) $
 $ mat(&-1, &1, &1; 1, -1, 1; 1, 1, -1) $
 
 --- math-mat-bad-comma paged ---
-// This error message is bad.
-// Error: 13-14 expected array, found content
-$ mat(1, 2; 3, 4, delim: "[") $,
+// Test an old issue with 2d args and named args in math.
+$ mat(1, 2; 3, 4, delim: "[") $
 
 --- issue-852-mat-type paged ---
 $ mat(B, A B) $

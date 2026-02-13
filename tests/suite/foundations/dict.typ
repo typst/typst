@@ -182,8 +182,8 @@
   let dict = (
     call-me: () => 1,
   )
-  // Error: 8-15 type dictionary has no method `call-me`
-  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
+  // Error: 3-15 cannot directly call a function stored in a dictionary
+  // Hint: 3-15 to call the function, wrap the field access in parentheses: `(dict.call-me)(..)`
   dict.call-me()
 }
 
@@ -193,8 +193,8 @@
     nonfunc: 1
   )
 
-  // Error: 8-15 type dictionary has no method `nonfunc`
-  // Hint: 8-15 did you mean to access the field `nonfunc`?
+  // Error: 3-15 expected function, found integer
+  // Hint: 3-15 try removing the parentheses: `dict.nonfunc`
   dict.nonfunc()
 }
 

@@ -175,6 +175,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
+        SyntaxKind::MathCall => None,
+        SyntaxKind::MathArgs => None,
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
@@ -302,10 +304,18 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf
         && node.range().end == next.offset()
-        && ((next.kind() == SyntaxKind::LeftParen
-            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params)))
-            || (next.kind() == SyntaxKind::LeftBracket
-                && next.parent_kind() == Some(SyntaxKind::ContentBlock)))
+        && ((
+            // Either at a paren, followed by arguments...
+            next.kind() == SyntaxKind::LeftParen
+                && matches!(
+                    next.parent_kind(),
+                    Some(SyntaxKind::Args | SyntaxKind::MathArgs | SyntaxKind::Params)
+                )
+        ) || (
+            // ...or at a bracket, followed by content
+            next.kind() == SyntaxKind::LeftBracket
+                && next.parent_kind() == Some(SyntaxKind::ContentBlock)
+        ))
     {
         return Some(Tag::Function);
     }
