@@ -49,3 +49,45 @@
 --- method-mutate-on-std-constant paged ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)
+
+--- method-dict-function-item-not-a-method paged ---
+#{
+  let dict = (
+    call-me: () => 1,
+  )
+  // Error: 8-15 type dictionary has no method `call-me`
+  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
+  dict.call-me()
+}
+
+--- method-arguments-function-item-not-a-method paged ---
+#{
+  let args = arguments(
+    call-me: () => 1,
+  )
+  // Error: 8-15 type arguments has no method `call-me`
+  // Hint: 8-15 to call the function stored in a named argument, surround the field access with parentheses, e.g. `(args.call-me)(..)`
+  args.call-me()
+}
+
+--- method-dict-item-missing-method paged ---
+#{
+  let dict = (
+    nonfunc: 1
+  )
+
+  // Error: 8-15 type dictionary has no method `nonfunc`
+  // Hint: 8-15 did you mean to access the field `nonfunc`?
+  dict.nonfunc()
+}
+
+--- method-arguments-item-missing-method paged ---
+#{
+  let args = arguments(
+    nonfunc: 1
+  )
+
+  // Error: 8-15 type arguments has no method `nonfunc`
+  // Hint: 8-15 did you mean to access the field `nonfunc`?
+  args.nonfunc()
+}
