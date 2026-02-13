@@ -84,3 +84,10 @@
 // happens when tags are broken up, so it's not *that* bad.
 / A #parbreak() A: 1
 / B: 2
+
+
+--- issue-7789-list-tags-breaking pdftags ---
+#set list(marker: [a] + layout(layout_info => box(height: 100em)))
+
+- A
+  - A
