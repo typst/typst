@@ -384,22 +384,22 @@
   table.vline(x: 3)
 )
 
---- table-hline-in-grid paged ---
+--- table-hline-in-grid eval ---
 // Error: 7-20 cannot use `table.hline` as a grid line
 // Hint: 7-20 use `grid.hline` instead
 #grid(table.hline())
 
---- table-vline-in-grid paged ---
+--- table-vline-in-grid eval ---
 // Error: 7-20 cannot use `table.vline` as a grid line
 // Hint: 7-20 use `grid.vline` instead
 #grid(table.vline())
 
---- grid-hline-in-table paged ---
+--- grid-hline-in-table eval ---
 // Error: 8-20 cannot use `grid.hline` as a table line
 // Hint: 8-20 use `table.hline` instead
 #table(grid.hline())
 
---- grid-vline-in-table paged ---
+--- grid-vline-in-table eval ---
 // Error: 8-20 cannot use `grid.vline` as a table line
 // Hint: 8-20 use `table.vline` instead
 #table(grid.vline())
@@ -422,19 +422,19 @@
   [g], [h], [i],
 )
 
---- grid-hline-position-horizon paged ---
+--- grid-hline-position-horizon eval ---
 // Error: 24-31 expected `top` or `bottom`, found horizon
 #table.hline(position: horizon)
 
---- grid-vline-position-center paged ---
+--- grid-vline-position-center eval ---
 // Error: 24-30 expected `start`, `left`, `right`, or `end`, found center
 #table.vline(position: center)
 
---- grid-hline-position-right paged ---
+--- grid-hline-position-right eval ---
 // Error: 24-29 expected `top` or `bottom`, found right
 #table.hline(position: right)
 
---- grid-vline-position-top paged ---
+--- grid-vline-position-top eval ---
 // Error: 24-27 expected `start`, `left`, `right`, or `end`, found top
 #table.vline(position: top)
 

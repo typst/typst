@@ -4,7 +4,7 @@
 #test(direction.from(top), ttb)
 #test(direction.from(bottom), btt)
 
---- dir-from-invalid paged ---
+--- dir-from-invalid eval ---
 // Error: 17-23 cannot convert this alignment to a side
 #direction.from(center)
 
@@ -14,7 +14,7 @@
 #test(direction.to(top), btt)
 #test(direction.to(bottom), ttb)
 
---- dir-to-invalid paged ---
+--- dir-to-invalid eval ---
 // Error: 15-21 cannot convert this alignment to a side
 #direction.to(center)
 

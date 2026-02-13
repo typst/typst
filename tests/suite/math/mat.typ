@@ -73,7 +73,7 @@ $ mat(..nums, delim: "|",)
 $ mat(..nums) mat(..nums;) \
   mat(..nums;,) mat(..nums,) $
 
---- math-mat-spread-expected-array-error paged ---
+--- math-mat-spread-expected-array-error eval ---
 #let nums = range(0, 2).map(i => (i, i+1))
 // Error: 15-16 expected array, found content
 $ mat(..nums, 0, 1) $
@@ -186,7 +186,7 @@ $ mat(-1&, 1&, 1&; 1&, -1&, 1&; 1&, 1&, -1&) $
 $ mat(-1&, 1&, 1&; 1, -1, 1; 1, 1, -1) $
 $ mat(&-1, &1, &1; 1, -1, 1; 1, 1, -1) $
 
---- math-mat-bad-comma paged ---
+--- math-mat-bad-comma eval ---
 // This error message is bad.
 // Error: 13-14 expected array, found content
 $ mat(1, 2; 3, 4, delim: "[") $,

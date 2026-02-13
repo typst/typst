@@ -91,6 +91,6 @@
 #t(pat: "⓵", 1, "⓵")
 #t(pat: "⓵", 10, "⓾")
 
---- numbering-negative paged ---
+--- numbering-negative eval ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)

@@ -49,27 +49,27 @@
   [Ş ]
 }
 
---- text-script-bad-type paged ---
+--- text-script-bad-type eval ---
 // Error: 19-23 expected string or auto, found none
 #set text(script: none)
 
---- text-script-bad-value paged ---
+--- text-script-bad-value eval ---
 // Error: 19-23 expected three or four letter script code (ISO 15924 or 'math')
 #set text(script: "ab")
 
---- text-lang-bad-type paged ---
+--- text-lang-bad-type eval ---
 // Error: 17-21 expected string, found none
 #set text(lang: none)
 
---- text-lang-bad-value paged ---
+--- text-lang-bad-value eval ---
 // Error: 17-20 expected two or three letter language code (ISO 639-1/2/3)
 #set text(lang: "ӛ")
 
---- text-lang-bad-value-emoji paged ---
+--- text-lang-bad-value-emoji eval ---
 // Error: 17-20 expected two or three letter language code (ISO 639-1/2/3)
 #set text(lang: "😃")
 
---- text-region-bad-value paged ---
+--- text-region-bad-value eval ---
 // Error: 19-24 expected two letter region code (ISO 3166-1 alpha-2)
 #set text(region: "hey")
 
@@ -79,7 +79,7 @@
 #set text(lang: "qaa", region: "aa")
 #outline()
 
---- text-lang-hint-region-parameter paged ---
+--- text-lang-hint-region-parameter eval ---
 // Error: 17-24 expected two or three letter language code (ISO 639-1/2/3)
 // Hint: 17-24 you should leave only "en" in the `lang` parameter and specify "gb" in the `region` parameter
 #set text(lang: "en-gb")

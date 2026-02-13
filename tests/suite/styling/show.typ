@@ -86,11 +86,11 @@ Another text.
 #show text: none
 Hey
 
---- show-selector-not-an-element-function paged ---
+--- show-selector-not-an-element-function eval ---
 // Error: 7-12 only element functions can be used as selectors
 #show upper: it => {}
 
---- show-selector-shadowed-builtin paged ---
+--- show-selector-shadowed-builtin eval ---
 #let heading = 0
 
 // Error: 7-14 expected symbol, string, label, function, regex, or selector, found integer
@@ -102,16 +102,16 @@ Hey
 #show std.heading: it => text(fill: red, it)
 = #heading
 
---- show-bad-replacement-type paged ---
+--- show-bad-replacement-type eval ---
 // Error: 16-20 expected content or function, found integer
 #show heading: 1234
 = Heading
 
---- show-bad-selector-type paged ---
+--- show-bad-selector-type eval ---
 // Error: 7-10 expected symbol, string, label, function, regex, or selector, found color
 #show red: []
 
---- show-selector-in-expression paged ---
+--- show-selector-in-expression eval ---
 // Error: 7-25 show is only allowed directly in code and content blocks
 #(1 + show heading: none)
 
@@ -141,15 +141,15 @@ Forest
 #show: [Shown]
 Ignored
 
---- show-bare-in-expression paged ---
+--- show-bare-in-expression eval ---
 // Error: 4-19 show is only allowed directly in code and content blocks
 #((show: body => 2) * body)
 
---- show-bare-missing-colon-closure paged ---
+--- show-bare-missing-colon-closure eval ---
 // Error: 6 expected colon
 #show it => {}
 
---- show-bare-missing-colon paged ---
+--- show-bare-missing-colon eval ---
 // Error: 6 expected colon
 #show it
 
@@ -254,7 +254,7 @@ the ```rs &mut T``` reference.
 #show selector(strong).or(<special>): highlight
 I am *strong*, I am _emphasized_, and I am #[special<special>].
 
---- show-selector-element-or-text paged ---
+--- show-selector-element-or-text eval ---
 // Ensure that text selector cannot be nested in and/or. That's too complicated,
 // at least for now.
 

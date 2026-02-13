@@ -48,7 +48,7 @@
     (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
 )
 
---- polygon-bad-point-array paged ---
+--- polygon-bad-point-array eval ---
 // Error: 10-17 array must contain exactly two items
 // Hint: 10-17 the first item determines the value for the X axis and the second item the value for the Y axis
 #polygon((50pt,))

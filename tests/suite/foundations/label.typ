@@ -61,7 +61,7 @@ _Visible_
 #test(str(label("hey")), "hey")
 #test(str([Hmm<hey>].label), "hey")
 
---- label-in-code-mode-hint paged ---
+--- label-in-code-mode-hint eval ---
 // Error: 7-7 expected semicolon or line break
 // Hint: 7-7 labels can only be applied in markup mode
 // Hint: 7-7 try wrapping your code in a markup block (`[ ]`)
@@ -89,10 +89,10 @@ _Visible_
 // Warning: 1-4 label `<a>` is not attached to anything
 <a>
 
---- label-non-existent-error paged ---
+--- label-non-existent-error eval ---
 // Error: 5-10 sequence does not have field "label"
 #[].label
 
---- label-empty paged ---
+--- label-empty eval ---
 // Error: 23-32 label name must not be empty
 = Something to label #label("")

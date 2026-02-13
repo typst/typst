@@ -199,7 +199,7 @@ $
 $lr(size: #240%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 
---- math-attach-missing-sides paged ---
+--- math-attach-missing-sides eval ---
 // Test attachments that are missing a side.
 // Error: 23-24 unexpected underscore
 $ a _ b (d _) (d'_ ) (_ c) $
