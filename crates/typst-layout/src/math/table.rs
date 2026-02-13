@@ -7,9 +7,9 @@ use typst_library::text::TextElem;
 use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
-use super::MathContext;
 use super::fragment::{FrameFragment, GlyphFragment};
 use super::run::{AlignmentResult, MathFragmentsExt, alignments};
+use super::{MathContext, get_var_style_chain};
 
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
@@ -69,14 +69,19 @@ pub fn layout_table(
     // This variable stores the maximum ascent and descent for each row.
     let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
 
-    let denom_style = style_for_denominator(styles);
+    let var_styles = get_var_style_chain(ctx.engine, ctx.locator, ctx.arenas, styles)?;
+    let denom_style = style_for_denominator(var_styles);
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
     // This will never panic as a paren will never shape into nothing.
-    let paren =
-        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
-            .unwrap();
+    let paren = GlyphFragment::new_char(
+        ctx,
+        var_styles.chain(&denom_style),
+        '(',
+        Span::detached(),
+    )
+    .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {
         for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {

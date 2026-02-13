@@ -139,7 +139,7 @@ $attach(limits(product), b: 123456789) attach(limits(product), b: 123456789, tr:
 
 --- math-attach-kerning paged ---
 // Test math kerning.
-#show math.equation: set text(font: "STIX Two Math")
+#show math.var: set text(font: "STIX Two Math")
 
 $ L^A Y^c R^2 delta^y omega^f a^2 t^w gamma^V p^+ \
   b_lambda f_k p_i x_1 x_j x_A y_l y_y beta_s theta_k \
@@ -150,7 +150,7 @@ $ L^A Y^c R^2 delta^y omega^f a^2 t^w gamma^V p^+ \
 
 --- math-attach-kerning-mixed paged ---
 // Test mixtures of math kerning.
-#show math.equation: set text(font: "STIX Two Math")
+#show math.var: set text(font: "STIX Two Math")
 
 $ x_1^i x_2^lambda x_2^(2alpha) x_2^(k+1) x_2^(-p_(-1)) x_j^gamma \
   f_2^2 v_0^2  z_0^2 beta_s^2 xi_i^k J_1^2 N_(k y)^(-1) V_pi^x \

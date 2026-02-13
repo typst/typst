@@ -38,7 +38,7 @@ $ dotless.i dotless.j,
 // Test dotless i and j codepoints work without the dtls feature. In
 // particular, make sure that the variation selector is not present with scr
 // and cal.
-#show math.equation: set text(font: "Libertinus Math")
+#show math.var: set text(font: "Libertinus Math")
 $ dotless.i dotless.j, upright(dotless.i dotless.j),
   scr(dotless.i dotless.j), cal(dotless.i dotless.j),
   frak(dotless.i dotless.j), mono(dotless.i dotless.j),
@@ -64,7 +64,7 @@ $upright(aleph), upright(beth), upright(gimel), upright(daleth)$
 // Test variation selectors for scr and cal.
 $cal(A) scr(A) bold(cal(O)) scr(bold(O))$
 
-#show math.equation: set text(font: "Noto Sans Math")
+#show math.var: set text(font: "Noto Sans Math")
 $scr(E) cal(E) bold(scr(Y)) cal(bold(Y))$
 
 --- math-style-cluster paged ---

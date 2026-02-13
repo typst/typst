@@ -61,7 +61,7 @@ $ arrow(P_(c, i dot j) P_(1, i) j) \
 
 --- math-accent-flattened paged ---
 // Test flattened accent glyph variants.
-#show math.equation: set text(font: "STIX Two Math")
+#show math.var: set text(font: "STIX Two Math")
 $hat(a) hat(A)$
 $tilde(w) tilde(W)$
 $grave(i) grave(j)$

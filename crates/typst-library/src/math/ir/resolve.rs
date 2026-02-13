@@ -122,6 +122,8 @@ fn resolve_realized<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     if let Some(elem) = elem.to_packed::<SymbolElem>() {
         resolve_symbol(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<VarElem>() {
+        resolve_realized(&elem.text, ctx, styles)?;
     } else if elem.is::<SpaceElem>() {
         ctx.push(MathItem::Space);
     } else if let Some(elem) = elem.to_packed::<TextElem>() {

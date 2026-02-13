@@ -8,15 +8,16 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
+    Content, Func, NativeElement, Packed, Recipe, Selector, ShowSet, Smart, StyleChain,
+    Styles, SymbolElem, Synthesize, Transformation, elem,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
-use crate::math::MathSize;
+use crate::math::{MathSize, VarElem};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
-use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
+use crate::text::{LocalName, Locale, TextElem};
 
 /// A mathematical equation.
 ///
@@ -201,11 +202,11 @@ impl ShowSet for Packed<EquationElem> {
         } else {
             out.set(EquationElem::size, MathSize::Text);
         }
-        out.set(TextElem::weight, FontWeight::from_number(450));
-        out.set(
-            TextElem::font,
-            FontList(vec![FontFamily::new("New Computer Modern Math")]),
-        );
+        out.push(Recipe::new(
+            Some(Selector::Elem(SymbolElem::ELEM, None)),
+            Transformation::Func(Func::from(VarElem::ELEM)),
+            self.span(),
+        ));
         out
     }
 }

@@ -28,9 +28,11 @@ pub use self::underover::*;
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{Content, Module, NativeElement, Scope, StyleChain, elem};
+use crate::foundations::{
+    Content, Module, NativeElement, Packed, Scope, ShowSet, StyleChain, Styles, elem,
+};
 use crate::layout::{Em, HElem};
-use crate::text::{FontFamily, TextElem};
+use crate::text::{FontFamily, FontList, FontWeight, TextElem};
 
 // Spacings.
 pub const THIN: Em = Em::new(1.0 / 6.0);
@@ -44,6 +46,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.start_category(crate::Category::Math);
     math.define_elem::<EquationElem>();
+    math.define_elem::<VarElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
@@ -147,6 +150,26 @@ pub struct ClassElem {
     /// The content to which the class is applied.
     #[required]
     pub body: Content,
+}
+
+/// A variable in an equation.
+#[elem(title = "Variable", ShowSet, Mathy)]
+pub struct VarElem {
+    /// The variable's text.
+    #[required]
+    pub text: Content,
+}
+
+impl ShowSet for Packed<VarElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(TextElem::weight, FontWeight::from_number(450));
+        out.set(
+            TextElem::font,
+            FontList(vec![FontFamily::new("New Computer Modern Math")]),
+        );
+        out
+    }
 }
 
 /// An iterator that alternates between the `Left` and `Right` values, if the
