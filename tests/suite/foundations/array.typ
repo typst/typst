@@ -152,14 +152,14 @@
 
 --- array-bad-method-lvalue paged ---
 // Test bad lvalue.
-// Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)
+// Error: 3-14 cannot mutate a temporary value
 #(array.len() = 4)
 
 --- array-unknown-method-lvalue paged ---
 // Test bad lvalue.
-// Error: 2:9-2:13 type array has no method `yolo`
 #let array = (1, 2, 3)
+// Error: 3-13 type array has no method `yolo`
 #(array.yolo() = 4)
 
 --- array-negative-indices eval ---

@@ -26,24 +26,24 @@
 }
 
 --- method-unknown paged ---
-// Error: 2:10-2:13 type array has no method `fun`
 #let numbers = ()
+// Error: 2-13 type array has no method `fun`
 #numbers.fun()
 
 --- method-unknown-but-field-exists paged ---
-// Error: 2:4-2:10 element line has no method `stroke`
-// Hint: 2:4-2:10 did you mean to access the field `stroke`?
 #let l = line(stroke: red)
+// Error: 2-10 expected function, found stroke
+// Hint: 2-10 try removing the parentheses: `l.stroke`
 #l.stroke()
 
 --- method-mutate-on-temporary paged ---
-// Error: 2:2-2:43 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
+// Error: 2-43 cannot mutate a temporary value
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
 
 --- assign-to-method-invalid paged ---
-// Error: 2:3-2:19 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
+// Error: 3-19 cannot mutate a temporary value
 #(numbers.sorted() = 1)
 
 --- method-mutate-on-std-constant paged ---
