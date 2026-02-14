@@ -58,6 +58,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            true,
             is_rtl,
         );
         items.push(item);
@@ -136,6 +137,7 @@ pub fn layout_enum(
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            number_align.y().is_none(),
             is_rtl,
         );
         items.push(item);
@@ -190,18 +192,30 @@ fn layout_items(
     layout_stack(&Packed::new(stack), engine, locator.next(&()), styles, regions)
 }
 
+/// Structure with list item information. This should never be placed in practice.
 #[elem]
 struct ItemData {
+    /// List indent from the text start.
     #[required]
     indent: Length,
+    /// Body indent from the marker.
     #[required]
     body_indent: Length,
+    /// The marker.
     #[required]
     marker: Content,
+    /// The body.
     #[required]
     body: Content,
+    /// The width to give to the marker. This is the max width of all markers,
+    /// so they may align horizontally properly.
     #[required]
     marker_size: Length,
+    /// Whether baseline alignment should be enabled. When disabled, markers
+    /// control their own alignment.
+    #[required]
+    baseline_align: bool,
+    /// Whether RTL was the chosen text direction.
     #[required]
     is_rtl: bool,
 }
@@ -219,7 +233,7 @@ fn layout_item(
     // Should only be absolute (cannot use Abs due to element definition
     // restrictions).
     assert!(elem.marker_size.em.get() == 0.0);
-    let marker = crate::layout_frame(
+    let mut marker = crate::layout_frame(
         engine,
         &elem.marker,
         locator.next(&elem.marker.span()),
@@ -246,16 +260,39 @@ fn layout_item(
 
     let mut skip_first = should_skip_first_frame(&fragment);
 
-    let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
-        Some(first) => extract_baseline(&first, Abs::zero()),
-        _ => None,
-    };
+    let diff = if elem.baseline_align {
+        let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
+            Some(first) => extract_baseline(first, Abs::zero()),
+            _ => None,
+        };
 
-    let marker_baseline = extract_baseline(&marker, Abs::zero());
+        let marker_baseline = extract_baseline(&marker, Abs::zero());
 
-    let diff = match (baseline, marker_baseline) {
-        (Some(baseline), Some(marker_baseline)) => baseline - marker_baseline,
-        _ => Abs::zero(),
+        match (baseline, marker_baseline) {
+            (Some(baseline), Some(marker_baseline)) => baseline - marker_baseline,
+            _ => Abs::zero(),
+        }
+    } else {
+        // Re-layout the marker with the same height as the body's first frame
+        // so it may align itself vertically.
+        let mut regions = regions;
+        if let Some(first) = fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
+            regions.size.y = first.height();
+            regions.full = first.height();
+        };
+
+        marker = crate::layout_frame(
+            engine,
+            &elem.marker,
+            locator.next(&elem.marker.span()),
+            styles,
+            Region::new(
+                Axes::new(elem.marker_size.abs, regions.base().y),
+                Axes::splat(true),
+            ),
+        )?;
+
+        Abs::zero()
     };
 
     let (marker_dy, body_dy) = if diff >= Abs::zero() {

@@ -172,7 +172,7 @@ d1e8742ca8c21e183c97ab62147e839f enum-array-deprecated
 3a4b910ba922134014d47877ca525c2c enum-in-align-centering
 f439ade0da68b7d96e522795612c0982 enum-in-align-in-block
 d299a579a7ff14360295b8ebacfb6f95 enum-item-number-optional
-6f96a704bfe378b2c0746cf2e1bef14b enum-number-align-2d
+61f1403731fc9f8636200f77bc01bb21 enum-number-align-2d
 7bcb4bd992c316e005098634bc2e904f enum-number-align-default
 a09d4e82f235cc34996e2819f54a30d0 enum-number-align-specified
 0dcccb7db014d0efa2551286f55d073b enum-number-align-unaffected
@@ -183,7 +183,7 @@ a09d4e82f235cc34996e2819f54a30d0 enum-number-align-specified
 22c8c526f4b1ceae37d12b7e581fbc78 enum-numbering-closure-nested
 b2a6ccf96178e065c50254e290681d86 enum-numbering-closure-nested-complex
 1b0fa636f6490a0a4d4914c1bda331ec enum-numbering-full
-0fa5ac0736932735c44dd78658ddd686 enum-numbering-huge
+9e7735b6a3a38b62f88712c695c39c91 enum-numbering-huge
 06f7dcfe912ce7fc28d87d80e3e1b311 enum-numbering-pattern
 b60945f122e797b75a52577a9a8cac7a enum-numbering-reversed
 794385c1f285693e07a1dcb865de0ef9 enum-numbering-reversed-overridden
@@ -238,7 +238,7 @@ fecb35aea7989477183b2554e6b81afa footnote-break-across-pages-float
 6b397eb0f814ba18258b1ae11fac8f3c footnote-float-priority
 14b85b15b6816bd0ccb49a20d9ddc60e footnote-in-caption
 ebfadcb28ad190d1f9c5746f93145166 footnote-in-columns
-83b4a3cc91cf04cbc01ba56f7d812500 footnote-in-list
+8708538076628688445c3929bc537b37 footnote-in-list
 f4fef945a65bc1e9e17e78e60aceb418 footnote-in-place
 2e53a73c725afe3cfc94a242004f3dec footnote-in-table
 b878894a83ed11b3062efdfb369f85a8 footnote-invariant
@@ -1365,7 +1365,7 @@ a930710a8c15af3be797d788c7f9da20 pagebreak-weak-place
 744bbd8c2c1ff237f880b0d58a8cc30d par-contains-block
 744bbd8c2c1ff237f880b0d58a8cc30d par-contains-parbreak
 91433c40767be47264c31bf3669f4d57 par-explicit-trim-space
-eca2ed4d0f0a64bfa6930ab465c14430 par-first-line-indent
+7607487a421bd457ad063988897c791b par-first-line-indent
 3fa13b7c2d731772f5287e2d4f438fb9 par-first-line-indent-all
 fd00758236806facc85d2d5662f5a993 par-first-line-indent-all-enum
 4a6da48be8b680e32c8602a47cd095be par-first-line-indent-all-list
@@ -1566,7 +1566,7 @@ bce9e527b76d30d09dd62e855d11fe81 show-text-citation-smartquote
 42774c51adb5a6198ad293f03894ff56 show-text-exactly-once
 86248aa70b1e8e27efdd2e93f65838f4 show-text-get-text-on-it
 61e3b763e5fac416637aab08668d5bb5 show-text-in-citation
-48d1325fa44ec0a9a0fb64126fb92679 show-text-in-other-show
+c3dda041a4537a15792f769d0924caa2 show-text-in-other-show
 eda549e8ff2b0fdf23540f9c455dd1ae show-text-indirectly-cyclic
 fe514ec68ea2ff585adad29320fe9f0b show-text-line-wrapping
 f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
