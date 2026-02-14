@@ -115,7 +115,7 @@ a table listing all syntax that is available in code mode:
 | Method call              | `{x.flatten()}`               | [Scripting]($scripting/#methods)   |
 | Function call            | `{min(x, y)}`                 | [Function]($function)              |
 | Argument spreading       | `{min(..nums)}`               | [Arguments]($arguments)            |
-| Unnamed function         | `{(x, y) => x + y}`           | [Function]($function)              |
+| Unnamed function         | `{(x, y) => x + y}`           | [Function]($function/#unnamed)     |
 | Let binding              | `{let x = 1}`                 | [Scripting]($scripting/#bindings)  |
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($function)              |
 | Set rule                 | `{set text(14pt)}`            | [Styling]($styling/#set-rules)     |
