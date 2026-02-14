@@ -163,6 +163,7 @@ c56d9977eee33b131b0d70e9bcedf0ec emph-syntax
 5988a5ebb682c08f31bcb9c289432a43 enum-array-deprecated
 043d530ba4131c6d226788b9256e8885 enum-built-in-loop
 480ceafbc7b32e6bd87320162c2c6436 enum-function-call
+3a4b910ba922134014d47877ca525c2c enum-in-align-centering
 f439ade0da68b7d96e522795612c0982 enum-in-align-in-block
 56a29624f22acf7e7bb37eb4bd423a42 enum-item-number-optional
 6f96a704bfe378b2c0746cf2e1bef14b enum-number-align-2d
@@ -610,8 +611,8 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 149d8387d80ba298067081b6809ba2c5 issue-1041-smartquotes-in-outline
 29df276f53db6613015e8c040bad5562 issue-1050-terms-indent
 070b232e7ca9895a62393217762ec470 issue-1052-math-number-spacing
-0a2e0ec1c151981e2734ce1498af1113 issue-1204-enum-baseline-alignment
-b54f598c89112294bf270a315306e81c issue-1204-list-baseline-alignment
+5214266561e3ba9ca814303a57f41c97 issue-1204-enum-baseline-alignment
+613787ed31685ff451f4ae560c80c663 issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
 b64cc1773a30caac6ccd8b8b27701250 issue-1240-stack-v-fr

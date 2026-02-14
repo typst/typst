@@ -247,17 +247,16 @@ fn layout_item(
     let mut skip_first = should_skip_first_frame(&fragment);
 
     let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
-        Some(first) if first.has_baseline() => first.baseline(),
         Some(first) => extract_baseline(&first, Abs::zero()),
-        _ => Abs::zero(),
+        _ => None,
     };
 
-    let diff = baseline
-        - if marker.has_baseline() {
-            marker.baseline()
-        } else {
-            extract_baseline(&marker, Abs::zero())
-        };
+    let marker_baseline = extract_baseline(&marker, Abs::zero());
+
+    let diff = match (baseline, marker_baseline) {
+        (Some(baseline), Some(marker_baseline)) => baseline - marker_baseline,
+        _ => Abs::zero(),
+    };
 
     let (marker_dy, body_dy) = if diff >= Abs::zero() {
         // Marker's baseline is above the body's baseline, so we can align them
@@ -336,21 +335,30 @@ fn is_empty_frame(frame: &Frame) -> bool {
     frame.items().all(|(_, item)| matches!(item, FrameItem::Tag(_)))
 }
 
-fn extract_baseline(first: &Frame, y_offset: Abs) -> Abs {
-    let mut baseline = Abs::inf();
+fn extract_baseline(first: &Frame, y_offset: Abs) -> Option<Abs> {
+    if first.has_baseline() {
+        return Some(first.baseline() + y_offset);
+    }
+
+    let mut baseline = None;
     for (pos, item) in first.items() {
         let height = pos.y + y_offset;
         let new_baseline = match item {
-            FrameItem::Group(group) if group.frame.has_baseline() => {
-                group.frame.baseline() + height
-            }
             FrameItem::Group(group) => extract_baseline(&group.frame, height),
-            FrameItem::Tag(_) => continue,
-            _ => height,
+            FrameItem::Text(_) => Some(height),
+
+            // Skip frame items that are only markers, not visible at all.
+            FrameItem::Tag(_) | FrameItem::Link(..) => continue,
+
+            // This kind of frame item does not demand baseline alignment.
+            FrameItem::Shape(..) | FrameItem::Image(..) => None,
         };
-        baseline.set_min(new_baseline);
+
+        if let Some(new_baseline) = new_baseline {
+            baseline.get_or_insert(Abs::inf()).set_min(new_baseline);
+        }
         break;
     }
 
-    if baseline.to_raw().is_finite() { baseline } else { Abs::zero() }
+    baseline
 }
