@@ -58,6 +58,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            None,
             is_rtl,
         );
         items.push(item);
@@ -136,6 +137,7 @@ pub fn layout_enum(
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            number_align.y(),
             is_rtl,
         );
         items.push(item);
@@ -190,18 +192,29 @@ fn layout_items(
     layout_stack(&Packed::new(stack), engine, locator.next(&()), styles, regions)
 }
 
+/// Structure with list item information. This should never be placed in practice.
 #[elem]
 struct ItemData {
+    /// List indent from the text start.
     #[required]
     indent: Length,
+    /// Body indent from the marker.
     #[required]
     body_indent: Length,
+    /// The marker.
     #[required]
     marker: Content,
+    /// The body.
     #[required]
     body: Content,
+    /// The width to give to the marker. This is the max width of all markers,
+    /// so they may align horizontally properly.
     #[required]
     marker_size: Length,
+    /// Vertical marker alignment. If absent, align by baseline.
+    #[required]
+    marker_align: Option<VAlignment>,
+    /// Whether RTL was the chosen text direction.
     #[required]
     is_rtl: bool,
 }
