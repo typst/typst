@@ -96,8 +96,8 @@ properties:
           Should be 40-60 characters long, terminate with a full stop, avoid "Typst" unless relevant.
           See [Writing a good description](https://github.com/typst/packages/blob/main/docs/manifest.md#writing-a-good-description).
         # According to docs: ideally 40-60 characters, but this is a recommendation not a hard requirement
-        minLength: 10 # Added: Reasonable minimum to ensure meaningful description
-        maxLength: 200 # Added: Reasonable maximum to keep it concise
+        minLength: 10
+        maxLength: 200 
       homepage:
         type: string
         description: A link to the package's web presence, where there could be more details, an issue tracker, or something else. Will be linked to from the package list. If there is no dedicated web page for the package, don't link to its repository here. Omit this field and prefer `repository`.
