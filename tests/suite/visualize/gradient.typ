@@ -696,3 +696,42 @@ $ A = mat(
 
 --- issue-6680-gradient-linear-with-aspect-correction paged ---
 #set page(width: 200pt, height: auto, margin: 10pt, fill: gradient.linear(red, blue, angle: 45deg).sharp(2))
+
+--- issue-6597-gradient-angle-negative-size paged ---
+#set rect(fill: gradient.linear(angle: 45deg, ..color.map.viridis))
+#grid(columns: (1cm, 1cm), rows: 5mm, gutter: 1mm, align: center + horizon,
+  rect(width: +1cm, height: +5mm), rect(width: -1cm, height: +5mm),
+  rect(width: +1cm, height: -5mm), rect(width: -1cm, height: -5mm),
+)
+
+--- gradient-angle-rotation-aspect paged ---
+#grid(columns: (1cm, 1cm), rows: 5mm, gutter: 1mm, align: center + horizon,
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 60deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 120deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 300deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 240deg, ..color.map.spectral)),
+)
+
+--- gradient-negative-square-angles paged ---
+#grid(columns: 12, ..for i in range(-24,24){(
+  rect(width: 3mm, height: 3mm, fill: gradient.linear(yellow, black, angle: i * 15deg).sharp(3)),
+)})
+
+--- gradient-line-stroke paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        line(length: 36pt, angle: i*30deg, stroke: g + 10pt)
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)

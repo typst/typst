@@ -1,12 +1,11 @@
+use crate::path::SvgPathBuilder;
+use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
+use crate::{SVGRenderer, State};
 use ecow::EcoString;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
-
-use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
-use crate::{SVGRenderer, State};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -55,11 +54,25 @@ impl SVGRenderer<'_> {
         shape: &Shape,
     ) -> Transform {
         let mut shape_size = shape.geometry.bbox_size();
+        let mut offset = Point::zero();
         // Edge cases for strokes.
+        if matches!(shape.geometry, Geometry::Line(..)) {
+            (offset, shape_size) =
+                shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref());
+            // avoid mirroring gradient if line angle results in negative sizes
+            if shape_size.x.signum() < 0.0 {
+                offset.x += shape_size.x;
+                shape_size.x = shape_size.x.abs();
+            }
+            if shape_size.y.signum() < 0.0 {
+                offset.y += shape_size.y;
+                shape_size.y = shape_size.y.abs();
+            }
+        }
+
         if shape_size.x.to_pt() == 0.0 {
             shape_size.x = Abs::pt(1.0);
         }
-
         if shape_size.y.to_pt() == 0.0 {
             shape_size.y = Abs::pt(1.0);
         }
@@ -69,7 +82,8 @@ impl SVGRenderer<'_> {
                 RelativeTo::Self_ => Transform::scale(
                     Ratio::new(shape_size.x.to_pt()),
                     Ratio::new(shape_size.y.to_pt()),
-                ),
+                )
+                .post_concat(Transform::translate(offset.x, offset.y)),
                 RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
@@ -88,7 +102,8 @@ impl SVGRenderer<'_> {
 
     /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
-        let mut shape_size = shape.geometry.bbox_size();
+        let mut shape_size =
+            shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref()).1;
         // Edge cases for strokes.
         if shape_size.x.to_pt() == 0.0 {
             shape_size.x = Abs::pt(1.0);
