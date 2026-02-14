@@ -51,6 +51,7 @@ pub fn convert(
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
+        no_embed_fonts: options.no_embed_fonts,
     };
 
     let mut document = Document::new_with(settings);
@@ -678,6 +679,11 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        ValidationError::FontsNotEmbedded => error!(
+            Span::detached(),
+            "{prefix} fonts are not embedded but the selected standard requires it";
+            hint: "remove --no-embed-fonts when exporting with PDF/A standards";
+        ),
     }
 }
 

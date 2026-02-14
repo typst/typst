@@ -344,6 +344,13 @@ pub struct CompileArgs {
     #[arg(long = "no-pdf-tags")]
     pub no_pdf_tags: bool,
 
+    /// Disable font embedding in the PDF output. Font descriptors and
+    /// metrics are still written so text remains selectable. Reduces file
+    /// size but requires viewers to have the fonts installed locally.
+    /// Incompatible with PDF/A standards.
+    #[arg(long = "no-embed-fonts")]
+    pub no_embed_fonts: bool,
+
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,

@@ -60,6 +60,11 @@ pub struct PdfOptions<'a> {
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
     pub tagged: bool,
+    /// When `true`, font programs will not be embedded in the PDF output.
+    /// Font descriptors and metrics are still written so text remains
+    /// selectable. This reduces file size but requires viewers to have
+    /// the fonts installed locally. Incompatible with PDF/A standards.
+    pub no_embed_fonts: bool,
 }
 
 impl PdfOptions<'_> {
@@ -78,6 +83,7 @@ impl Default for PdfOptions<'_> {
             page_ranges: None,
             standards: PdfStandards::default(),
             tagged: true,
+            no_embed_fonts: false,
         }
     }
 }
