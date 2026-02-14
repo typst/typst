@@ -3,6 +3,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use chrono::{Datelike, FixedOffset, TimeZone, Utc};
 use comemo::Tracked;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
@@ -76,11 +77,32 @@ impl World for TestWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        let mut date = Datetime::from_ymd(1970, 1, 1).unwrap();
-        if let Some(offset) = offset {
-            date = date + offset;
-        }
-        Some(date)
+        // Create a fixed UTC date value by implementing a chrono-based approach similar to
+        // `typst-cli`. This ensures that test cases will more closely mimic CLI's behavior,
+        // compared to directly constructing the result using our Datetime and Duration types.
+
+        let now = Utc.with_ymd_and_hms(1970, 1, 1, 12, 0, 0).unwrap().fixed_offset();
+
+        let with_offset = match offset {
+            None => now,
+            Some(offset) => {
+                let seconds = offset.seconds().trunc();
+                // Check whether we can convert seconds from f64 to i32
+                if !seconds.is_finite()
+                    || seconds < f64::from(i32::MIN)
+                    || seconds > f64::from(i32::MAX)
+                {
+                    return None;
+                }
+                now.with_timezone(&FixedOffset::east_opt(seconds as i32)?)
+            }
+        };
+
+        Datetime::from_ymd(
+            with_offset.year(),
+            with_offset.month().try_into().ok()?,
+            with_offset.day().try_into().ok()?,
+        )
     }
 }
 

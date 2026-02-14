@@ -28,6 +28,7 @@ typst-svg = { workspace = true }
 typst-utils = { workspace = true }
 base64 = { workspace = true }
 bitflags = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
