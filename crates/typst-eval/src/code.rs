@@ -2,8 +2,8 @@ use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Value, ops,
+    Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func, NativeElement,
+    Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -254,10 +254,7 @@ impl Eval for ast::Array<'_> {
 /// Re-evaluates an array literal that contains only spread items as a
 /// dictionary, because the first dict spread indicates the user intended a
 /// dictionary literal.
-fn eval_array_as_dict<'a>(
-    array: ast::Array<'a>,
-    vm: &mut Vm,
-) -> SourceResult<Value> {
+fn eval_array_as_dict<'a>(array: ast::Array<'a>, vm: &mut Vm) -> SourceResult<Value> {
     let mut map = indexmap::IndexMap::default();
     for item in array.items() {
         match item {
@@ -268,10 +265,7 @@ fn eval_array_as_dict<'a>(
                 Value::None => {}
                 Value::Dict(dict) => map.extend(dict.into_iter()),
                 Value::Array(_) => {
-                    bail!(
-                        spread.span(),
-                        "cannot spread array into dictionary"
-                    );
+                    bail!(spread.span(), "cannot spread array into dictionary");
                 }
                 v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
             },
