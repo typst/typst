@@ -16,13 +16,23 @@
 
 --- arguments-at-invalid-index paged ---
 #let args = arguments(0, 1, a: 2, 3)
-// Error: 2-12 arguments do not contain key 4 and no default value was specified
+// Error: 2-12 no named argument 4 and no default value was specified
 #args.at(4)
+
+--- arguments-name-access eval ---
+#let args = arguments(0, 1, a: 2, 3, b: 4, c: 5)
+#test(args.a, 2)
+#test(args.b, 4)
 
 --- arguments-at-invalid-name paged ---
 #let args = arguments(0, 1, a: 2, 3)
-// Error: 2-14 arguments do not contain key "b" and no default value was specified
+// Error: 2-14 no named argument "b" and no default value was specified
 #args.at("b")
+
+--- arguments-invalid-name paged ---
+#let args = arguments(0, 1, a: 2, 3)
+// Error: 7-8 no named argument "b"
+#args.b
 
 --- arguments-plus-sum-join eval ---
 #let lhs = arguments(0, "1", key: "value", 3)

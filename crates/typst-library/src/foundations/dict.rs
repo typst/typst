@@ -195,6 +195,9 @@ impl Dict {
     }
 
     /// Returns the value associated with the specified key in the dictionary.
+    /// Values may also be accessed with field syntax `(key: 42).key` if no default
+    /// is needed.
+    ///
     /// May be used on the left-hand side of an assignment if the key is already
     /// present in the dictionary. Returns the default value if the key is not
     /// part of the dictionary or fails with an error if no default value was

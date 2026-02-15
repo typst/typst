@@ -387,6 +387,13 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
                 field.as_str(),
             ));
         }
+        Value::Args(ref args) if matches!(args.field(&field), Ok(Value::Func(_))) => {
+            error.hint(eco_format!(
+                "to call the function stored in a named argument, surround \
+                the field access with parentheses, e.g. `(args.{})(..)`",
+                field.as_str(),
+            ));
+        }
         _ if target.field(&field, ()).is_ok() => {
             error.hint(eco_format!(
                 "did you mean to access the field `{}`?",
