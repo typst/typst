@@ -2,7 +2,7 @@ use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
+    Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
@@ -118,7 +118,7 @@ impl Eval for ast::Expr<'_> {
             Self::Str(v) => v.eval(vm),
             Self::CodeBlock(v) => v.eval(vm),
             Self::ContentBlock(v) => v.eval(vm).map(Value::Content),
-            Self::Array(v) => v.eval(vm).map(Value::Array),
+            Self::Array(v) => v.eval(vm),
             Self::Dict(v) => v.eval(vm).map(Value::Dict),
             Self::Parenthesized(v) => v.eval(vm),
             Self::FieldAccess(v) => v.eval(vm),
@@ -221,25 +221,63 @@ impl Eval for ast::Str<'_> {
 }
 
 impl Eval for ast::Array<'_> {
-    type Output = Array;
+    type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
+        let mut has_pos = false;
         for item in items {
             match item {
-                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Pos(expr) => {
+                    has_pos = true;
+                    vec.push(expr.eval(vm)?);
+                }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => vec.extend(array.into_iter()),
+                    Value::Dict(_) if !has_pos => {
+                        // All items so far are spreads and we got a dict.
+                        // Re-evaluate as a dictionary spread collection.
+                        return eval_array_as_dict(self, vm);
+                    }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
         }
 
-        Ok(vec.into())
+        Ok(Value::Array(vec.into()))
     }
+}
+
+/// Re-evaluates an array literal that contains only spread items as a
+/// dictionary, because the first dict spread indicates the user intended a
+/// dictionary literal.
+fn eval_array_as_dict<'a>(
+    array: ast::Array<'a>,
+    vm: &mut Vm,
+) -> SourceResult<Value> {
+    let mut map = indexmap::IndexMap::default();
+    for item in array.items() {
+        match item {
+            ast::ArrayItem::Pos(expr) => {
+                bail!(expr.span(), "cannot mix positional and dictionary spread items");
+            }
+            ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
+                Value::None => {}
+                Value::Dict(dict) => map.extend(dict.into_iter()),
+                Value::Array(_) => {
+                    bail!(
+                        spread.span(),
+                        "cannot spread array into dictionary"
+                    );
+                }
+                v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
+            },
+        }
+    }
+    Ok(Value::Dict(map.into()))
 }
 
 impl Eval for ast::Dict<'_> {

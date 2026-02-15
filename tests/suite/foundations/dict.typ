@@ -61,6 +61,15 @@
   test((..(a: 1), b: 2), (a: 1, b: 2))
 }
 
+--- spread-only-dicts eval ---
+// Spreading only dicts without explicit key-value pairs should produce a dict.
+#{
+  let x = (a: 1, b: 2)
+  let y = (c: 3)
+  test((..x), (a: 1, b: 2))
+  test((..x, ..y), (a: 1, b: 2, c: 3))
+}
+
 --- spread-array-into-dict paged ---
 // Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
