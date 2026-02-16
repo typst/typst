@@ -130,6 +130,8 @@ Typst's CLI is available from different sources:
   - build and run the [Typst flake](https://github.com/typst/typst-flake) with
     `nix run github:typst/typst-flake -- --version`.
 
+- mise users can install Typst with `mise use -g typst`.
+
 - Docker users can run a prebuilt image with
   `docker run ghcr.io/typst/typst:latest --help`.
 
