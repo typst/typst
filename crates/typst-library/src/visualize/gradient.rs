@@ -11,7 +11,7 @@ use crate::diag::{SourceResult, bail};
 use crate::foundations::{
     Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
-use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
+use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
 
 /// A color gradient.
@@ -965,14 +965,7 @@ impl Gradient {
     ///
     /// This is used specifically for gradients.
     pub fn correct_aspect_ratio(angle: Angle, aspect_ratio: Ratio) -> Angle {
-        let corrected = Angle::atan(angle.tan() / aspect_ratio.get());
-        let corrected = match angle.quadrant() {
-            Quadrant::First => corrected,
-            Quadrant::Second => corrected + Angle::rad(PI),
-            Quadrant::Third => corrected + Angle::rad(PI),
-            Quadrant::Fourth => corrected,
-        };
-        corrected.normalized()
+        Angle::atan2(angle.sin() / aspect_ratio.get().abs(), angle.cos()).normalized()
     }
 }
 
