@@ -22,7 +22,7 @@
 #test([a].fields(), (text: "a"))
 #test([a *b*].fields(),  (children: ([a], [ ], strong[b])))
 
---- content-fields-mutable-invalid paged ---
+--- content-fields-mutable-invalid eval ---
 #{
   let object = [hi]
   // Error: 3-9 cannot mutate fields on content
@@ -123,14 +123,14 @@
 
 = Hello, world! <my-label>
 
---- content-fields-unset paged ---
+--- content-fields-unset eval ---
 // Error: 10-15 field "block" in raw is not known at this point
 #raw("").block
 
---- content-fields-unset-no-default paged ---
+--- content-fields-unset-no-default eval ---
 // Error: 2-21 field "block" in raw is not known at this point and no default was specified
 #raw("").at("block")
 
---- content-try-to-access-internal-field paged ---
+--- content-try-to-access-internal-field eval ---
 // Error: 9-15 hide does not have field "hidden"
 #hide[].hidden

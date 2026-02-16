@@ -65,7 +65,7 @@ Lריווח #h(1cm) R
 #show raw: set text(dir:rtl)
 לתכנת בעברית `אם א == ב:`
 
---- bidi-vertical paged ---
+--- bidi-vertical eval ---
 // Test setting a vertical direction.
 // Error: 16-19 text direction must be horizontal
 #set text(dir: ttb)

@@ -1,14 +1,14 @@
---- datetime-constructor-empty paged ---
+--- datetime-constructor-empty eval ---
 // Error: 2-12 at least one of date or time must be fully specified
 // Hint: 2-12 add the `hour`, `minute`, and `second` arguments to get a valid time
 // Hint: 2-12 add the `year`, `month`, and `day` arguments to get a valid date
 #datetime()
 
---- datetime-constructor-time-invalid paged ---
+--- datetime-constructor-time-invalid eval ---
 // Error: 2-42 time is invalid
 #datetime(hour: 25, minute: 0, second: 0)
 
---- datetime-constructor-date-invalid paged ---
+--- datetime-constructor-date-invalid eval ---
 // Error: 2-41 date is invalid
 #datetime(year: 2000, month: 2, day: 30)
 
@@ -79,42 +79,42 @@
 #test(datetime(day: 1, month: 3, year: 2001).ordinal(), 31 + 28 + 1);
 #test(datetime(day: 31, month: 12, year: 2001).ordinal(), 365);
 
---- datetime-incomplete-time-1 paged ---
+--- datetime-incomplete-time-1 eval ---
 // Error: 2-34 time is incomplete
 // Hint: 2-34 add the `hour` argument to get a valid time
 #datetime(minute: 14, second: 30)
 
---- datetime-incomplete-time-2 paged ---
+--- datetime-incomplete-time-2 eval ---
 // Error: 2-20 time is incomplete
 // Hint: 2-20 add the `minute` and `second` arguments to get a valid time
 #datetime(hour: 14)
 
---- datetime-incomplete-date-1 paged ---
+--- datetime-incomplete-date-1 eval ---
 // Error: 2-31 date is incomplete
 // Hint: 2-31 add the `month` argument to get a valid date
 #datetime(year: 2014, day: 30)
 
---- datetime-incomplete-date-2 paged ---
+--- datetime-incomplete-date-2 eval ---
 // Error: 2-20 date is incomplete
 // Hint: 2-20 add the `year` and `day` arguments to get a valid date
 #datetime(month: 5)
 
---- datetime-display-missing-closing-bracket paged ---
+--- datetime-display-missing-closing-bracket eval ---
 // Error: 27-34 missing closing bracket for bracket at index 0
 #datetime.today().display("[year")
 
---- datetime-display-invalid-component paged ---
+--- datetime-display-invalid-component eval ---
 // Error: 27-38 invalid component name 'nothing' at index 1
 #datetime.today().display("[nothing]")
 
---- datetime-display-invalid-modifier paged ---
+--- datetime-display-invalid-modifier eval ---
 // Error: 27-50 invalid modifier 'wrong' at index 6
 #datetime.today().display("[year wrong:last_two]")
 
---- datetime-display-expected-component paged ---
+--- datetime-display-expected-component eval ---
 // Error: 27-33 expected component name at index 2
 #datetime.today().display("  []")
 
---- datetime-display-insufficient-information paged ---
+--- datetime-display-insufficient-information eval ---
 // Error: 2-36 failed to format datetime (insufficient information)
 #datetime.today().display("[hour]")

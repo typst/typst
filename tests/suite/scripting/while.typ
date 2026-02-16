@@ -27,21 +27,21 @@
 #let i = 0
 #test(type(while i < 1 [#(i += 1)]), content)
 
---- while-loop-condition-content-invalid paged ---
+--- while-loop-condition-content-invalid eval ---
 // Condition must be boolean.
 // Error: 8-14 expected boolean, found content
 #while [nope] [nope]
 
---- while-loop-condition-always-true paged ---
+--- while-loop-condition-always-true eval ---
 // Error: 8-25 condition is always true
 #while 2 < "hello".len() {}
 
---- while-loop-limit paged ---
+--- while-loop-limit eval ---
 // Error: 2:2-2:24 loop seems to be infinite
 #let i = 1
 #while i > 0 { i += 1 }
 
---- while-loop-incomplete paged ---
+--- while-loop-incomplete eval ---
 // Error: 7 expected expression
 #while
 

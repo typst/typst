@@ -1,6 +1,6 @@
 // Tests for panics in the parser caused by syntax.
 
---- issue-4571-panic-when-compiling-invalid-file paged ---
+--- issue-4571-panic-when-compiling-invalid-file eval ---
 // Test that trying to parse the following does not result in a panic.
 
 // Error: 1:9-1:10 unclosed delimiter

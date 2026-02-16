@@ -73,22 +73,22 @@
 #v(3pt)
 #line(length: 60pt, stroke: (paint: red, thickness: 1pt, dash: (1pt, 3pt, 9pt)))
 
---- line-stroke-field-typo paged ---
+--- line-stroke-field-typo eval ---
 // Error: 29-56 unexpected key "thicknes", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #line(length: 60pt, stroke: (paint: red, thicknes: 1pt))
 
---- line-stroke-bad-dash-kind paged ---
+--- line-stroke-bad-dash-kind eval ---
 // Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, none, or auto
 #line(length: 60pt, stroke: (paint: red, dash: "dash"))
 
---- line-bad-point-array paged ---
+--- line-bad-point-array eval ---
 // Test errors.
 
 // Error: 12-19 array must contain exactly two items
 // Hint: 12-19 the first item determines the value for the X axis and the second item the value for the Y axis
 #line(end: (50pt,))
 
---- line-bad-point-component-type paged ---
+--- line-bad-point-component-type eval ---
 // Error: 14-26 expected relative length, found angle
 #line(start: (3deg, 10pt), length: 5cm)
 

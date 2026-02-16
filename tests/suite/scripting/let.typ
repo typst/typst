@@ -47,12 +47,12 @@ Three
 #let ůñıćóðė = 1
 #test(ůñıćóðė, 1)
 
---- let-binding-keyword-in-markup paged ---
+--- let-binding-keyword-in-markup eval ---
 // Error: 6-8 expected pattern, found keyword `as`
 // Hint: 6-8 keyword `as` is not allowed as an identifier; try `as_` instead
 #let as = 1 + 2
 
---- let-binding-keyword-in-code paged ---
+--- let-binding-keyword-in-code eval ---
 #{
   // Error: 7-9 expected pattern, found keyword `as`
   // Hint: 7-9 keyword `as` is not allowed as an identifier; try `as_` instead
@@ -63,7 +63,7 @@ Three
 // Test parenthesised assignments.
 #let (a) = (1, 2)
 
---- let-incomplete paged ---
+--- let-incomplete eval ---
 // Error: 5 expected pattern
 #let
 
@@ -94,7 +94,7 @@ Three
 // Error: 9-13 expected pattern, found boolean
 #let (..true) = false
 
---- underscore-invalid paged ---
+--- underscore-invalid eval ---
 #let _ = 4
 
 #for _ in range(2) []
@@ -114,45 +114,45 @@ Three
 // Error: 8-9 expected expression, found underscore
 #{ 1 + _ }
 
---- let-function-incomplete paged ---
+--- let-function-incomplete eval ---
 // Error: 13 expected equals sign
 #let func(x)
 
 // Error: 15 expected expression
 #let func(x) =
 
---- let-function-parenthesized paged ---
+--- let-function-parenthesized eval ---
 // This is not yet parsed in the ideal way.
 // Error: 12 expected equals sign
 #let (func)(x)
 
---- let-function-parenthesized-with-init paged ---
+--- let-function-parenthesized-with-init eval ---
 // These errors aren't great.
 // Error: 12 expected equals sign
 // Error: 15-15 expected semicolon or line break
 #let (func)(x) = 3
 
---- let-with-no-init-group paged ---
+--- let-with-no-init-group eval ---
 // This was unintentionally allowed ...
 // Error: 9 expected equals sign
 #let (a)
 
---- let-with-no-init-destructuring paged ---
+--- let-with-no-init-destructuring eval ---
 // ... where this wasn't.
 // Error: 12 expected equals sign
 #let (a, b)
 
---- issue-4027-let-binding-with-keyword-context paged ---
+--- issue-4027-let-binding-with-keyword-context eval ---
 // Error: 6-13 expected pattern, found keyword `context`
 // Hint: 6-13 keyword `context` is not allowed as an identifier; try `context_` instead
 #let context = 5
 
---- issue-4027-let-binding-with-keyword-let paged ---
+--- issue-4027-let-binding-with-keyword-let eval ---
 // Error: 6-9 expected pattern, found keyword `let`
 // Hint: 6-9 keyword `let` is not allowed as an identifier; try `let_` instead
 #let let = 5
 
---- issue-4027-let-binding-with-destructured-keywords paged ---
+--- issue-4027-let-binding-with-destructured-keywords eval ---
 // Error: 7-14 expected pattern, found keyword `context`
 // Hint: 7-14 keyword `context` is not allowed as an identifier; try `context_` instead
 // Error: 21-24 expected pattern, found keyword `let`

@@ -98,12 +98,12 @@ impl UnexpectedNonEmpty {
 enum UnexpectedEmpty {
     None,
     Output(TestStages),
-    Eval,
+    Eval { error: bool },
 }
 
 impl UnexpectedEmpty {
-    fn eval(&mut self) {
-        *self = Self::Eval;
+    fn eval(&mut self, error: bool) {
+        *self = Self::Eval { error };
     }
 
     fn output(&mut self, output: TestOutput) {
@@ -114,7 +114,7 @@ impl UnexpectedEmpty {
             Self::Output(stages) => {
                 *stages |= output.into();
             }
-            Self::Eval => (),
+            Self::Eval { .. } => (),
         }
     }
 }
@@ -143,13 +143,22 @@ impl<'a> Runner<'a> {
         // content. This result is cached, so calling compile below won't
         // duplicate any work.
         let evaluated = self.eval();
-        if let Ok(content) = &evaluated.output {
-            if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
-                if !output::is_empty_content(content) {
-                    self.unexpected_non_empty.eval(content.clone());
-                }
-            } else if output::is_empty_content(content) {
-                self.unexpected_empty.eval();
+        if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
+            // Enforce that `eval` tests produce empty content. Otherwise there
+            // might be code inside the content that will only be executed
+            // during layout/realization.
+            if let Ok(content) = &evaluated.output
+                && !output::is_empty_content(content)
+            {
+                self.unexpected_non_empty.eval(content.clone());
+            }
+        } else {
+            // Enforce that tests which don't have the `eval` attribute produce
+            // non-empty content and don't error in the `eval` stage.
+            if evaluated.output.as_ref().is_ok_and(output::is_empty_content)
+                || evaluated.output.is_err()
+            {
+                self.unexpected_empty.eval(evaluated.output.is_err());
             }
         }
 
@@ -219,12 +228,20 @@ impl<'a> Runner<'a> {
 
         match self.unexpected_empty {
             UnexpectedEmpty::None => (),
-            UnexpectedEmpty::Eval => {
-                log!(
-                    self,
-                    "[{}] test produced empty content",
-                    self.test.attrs.implied_stages()
-                );
+            UnexpectedEmpty::Eval { error } => {
+                if error {
+                    log!(
+                        self,
+                        "[{}] test produced empty content",
+                        self.test.attrs.implied_stages()
+                    );
+                } else {
+                    log!(
+                        self,
+                        "[{}] test errored in the [eval] stage",
+                        self.test.attrs.implied_stages()
+                    );
+                }
                 log!(self, "  hint: consider making this an `eval` test");
             }
             UnexpectedEmpty::Output(stages) => {

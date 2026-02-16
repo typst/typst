@@ -53,24 +53,24 @@
 #test(str(-0987654321), "−987654321")
 #test(str(4 - 8), "−4")
 
---- str-constructor-bad-type paged ---
+--- str-constructor-bad-type eval ---
 // Error: 6-8 expected integer, float, decimal, version, bytes, label, type, or string, found content
 #str([])
 
---- str-constructor-bad-base paged ---
+--- str-constructor-bad-base eval ---
 // Error: 17-19 base must be between 2 and 36
 #str(123, base: 99)
 
---- str-constructor-unary paged ---
+--- str-constructor-unary eval ---
 // Error: 17-18 base must be between 2 and 36
 // Hint: 17-18 generate a unary representation with `"1" * 999`
 #str(999, base: 1)
 
---- str-constructor-unsupported-base paged ---
+--- str-constructor-unsupported-base eval ---
 // Error: 18-19 base is only supported for integers
 #str(1.23, base: 2)
 
---- str-constructor-unsupported-base-ten paged ---
+--- str-constructor-unsupported-base-ten eval ---
 // Error: 18-20 base is only supported for integers
 #str(1.23, base: 10)
 
@@ -79,19 +79,19 @@
 #test(str.from-unicode(97), "a")
 #test(str.to-unicode("a"), 97)
 
---- str-from-unicode-bad-type paged ---
+--- str-from-unicode-bad-type eval ---
 // Error: 19-22 expected integer, found content
 #str.from-unicode([a])
 
---- str-to-unicode-bad-type paged ---
+--- str-to-unicode-bad-type eval ---
 // Error: 17-21 expected exactly one character
 #str.to-unicode("ab")
 
---- str-from-unicode-negative paged ---
+--- str-from-unicode-negative eval ---
 // Error: 19-21 number must be at least zero
 #str.from-unicode(-1)
 
---- str-from-unicode-bad-value paged ---
+--- str-from-unicode-bad-value eval ---
 // Error: 2-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
@@ -117,11 +117,11 @@
 #test("hey".last(default: "d"), "y")
 #test("".last(default: "d"), "d")
 
---- string-first-empty paged ---
+--- string-first-empty eval ---
 // Error: 2-12 string is empty
 #"".first()
 
---- string-last-empty paged ---
+--- string-last-empty eval ---
 // Error: 2-11 string is empty
 #"".last()
 
@@ -137,11 +137,11 @@
 // Test `at`'s 'default' parameter.
 #test("z", "Hello".at(5, default: "z"))
 
---- string-at-not-a-char-boundary paged ---
+--- string-at-not-a-char-boundary eval ---
 // Error: 2-14 string index 2 is not a character boundary
 #"🏳️‍🌈".at(2)
 
---- string-at-out-of-bounds paged ---
+--- string-at-out-of-bounds eval ---
 // Error: 2-15 no default value was specified and string index out of bounds (index: 5, len: 5)
 #"Hello".at(5)
 
@@ -157,11 +157,11 @@
 #test("x🏡yz".slice(-2, count: 2), "yz")
 #test("x🏡yz".slice(-7, count: 7), "x🏡yz")
 
---- string-slice-count-end paged ---
+--- string-slice-count-end eval ---
 // Error: 2-29 `end` and `count` are mutually exclusive
 #"abc".slice(0, 1, count: 2)
 
---- string-slice-not-a-char-boundary paged ---
+--- string-slice-not-a-char-boundary eval ---
 // Error: 2-21 string index -1 is not a character boundary
 #"🏳️‍🌈".slice(0, -1)
 
@@ -287,11 +287,11 @@
 }), "hello world")
 #test("aaa".replace("a", m => str(m.captures.len())), "000")
 
---- string-replace-function-bad-type paged ---
+--- string-replace-function-bad-type eval ---
 // Error: 23-24 expected string, found integer
 #"123".replace("123", m => 1)
 
---- string-replace-bad-type paged ---
+--- string-replace-bad-type eval ---
 // Error: 23-32 expected string or function, found array
 #"123".replace("123", (1, 2, 3))
 
@@ -338,7 +338,7 @@
 #test("abc12306".trim(regex("\\d"), at: end), "abc")
 #test("whole".trim(regex("whole"), at: end), "")
 
---- string-trim-at-bad-alignment paged ---
+--- string-trim-at-bad-alignment eval ---
 // Error: 17-21 expected either `start` or `end`
 #"abc".trim(at: left)
 
@@ -369,6 +369,6 @@
 #test("abc".rev(), "cba")
 #test("ax̂e".rev(), "ex̂a")
 
---- string-unclosed paged ---
+--- string-unclosed eval ---
 // Error: 1:2-2:1 unclosed string
 #"hello\"
