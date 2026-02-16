@@ -94,8 +94,9 @@ pub struct TargetElem {
 /// - `{"html"}` (for HTML export).
 ///
 /// The design of this function is not yet finalized and for this reason it is
-/// guarded behind the `html` feature. Visit the [HTML documentation
-/// page]($html) for more details.
+/// guarded behind the `html` and `bundle` features (enabling either one makes
+/// the function available). Visit the [HTML documentation page]($html) for more
+/// details.
 ///
 /// # When to use it
 /// This function allows you to format your document properly across both HTML

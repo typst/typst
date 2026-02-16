@@ -258,13 +258,14 @@ impl FromIterator<Feature> for Features {
 #[non_exhaustive]
 pub enum Feature {
     Html,
+    Bundle,
     A11yExtras,
 }
 
 impl Feature {
     /// Iterates over all available features.
     pub fn all() -> impl Iterator<Item = Self> {
-        [Self::Html, Self::A11yExtras].into_iter()
+        [Self::Html, Self::Bundle, Self::A11yExtras].into_iter()
     }
 }
 

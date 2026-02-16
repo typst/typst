@@ -650,6 +650,7 @@ display_possible_values!(DiagnosticFormat);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum, Serialize)]
 pub enum Feature {
     Html,
+    Bundle,
     A11yExtras,
 }
 
