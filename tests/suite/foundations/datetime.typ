@@ -65,11 +65,9 @@
 #test(datetime.today().display(), "1970-01-01")
 #test(datetime.today(offset: auto).display(), "1970-01-01")
 #test(datetime.today(offset: 2).display(), "1970-01-01")
-#test(datetime.today(offset: 24).display(), "1970-01-02")
-#test(datetime.today(offset: -24).display(), "1969-12-31")
+#test(datetime.today(offset: 14).display(), "1970-01-02")
+#test(datetime.today(offset: -14).display(), "1969-12-31")
 #test(datetime.today(offset: duration(hours: 5, minutes: 45)).display(), "1970-01-01")
-#test(datetime.today(offset: duration(days: 2)).display(), "1970-01-03")
-#test(datetime.today(offset: duration(days: -2)).display(), "1969-12-30")
 
 --- datetime-ordinal eval ---
 // Test date methods.
@@ -98,6 +96,14 @@
 // Error: 2-20 date is incomplete
 // Hint: 2-20 add the `year` and `day` arguments to get a valid date
 #datetime(month: 5)
+
+--- datetime-today-offset-invalid-1 eval ---
+// Error: 2-28 unable to get the current date
+#datetime.today(offset: 24)
+
+--- datetime-today-offset-invalid-2 eval ---
+// Error: 2-44 unable to get the current date
+#datetime.today(offset: duration(days: -2))
 
 --- datetime-display-missing-closing-bracket eval ---
 // Error: 27-34 missing closing bracket for bracket at index 0
