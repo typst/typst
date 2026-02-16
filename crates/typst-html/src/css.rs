@@ -8,7 +8,7 @@ use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
 use typst_utils::Numeric;
 
 /// A list of CSS properties with values.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Properties(EcoString);
 
 impl Properties {
