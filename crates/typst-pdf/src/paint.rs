@@ -73,7 +73,7 @@ fn convert_paint(
         size = s.geometry.bbox_size();
 
         // Edge cases for strokes.
-        if matches!(s.geometry, Geometry::Line(..)) {
+        if matches!(s.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
             (offset, size) = s.geometry.bbox_size_with_stroke(s.stroke.as_ref());
             // avoid mirroring gradient if line angle results in negative sizes
             if size.x.signum() < 0.0 {

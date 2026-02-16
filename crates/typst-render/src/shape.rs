@@ -74,7 +74,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             let fill_transform =
                 sk::Transform::from_translate(offset.x.to_f32(), offset.y.to_f32());
             let gradient_map = match shape.geometry {
-                Geometry::Line(_) => Some((
+                Geometry::Line(_) | Geometry::Curve(_) => Some((
                     Point::new(
                         bbox.x.signum().min(0.0) * bbox.x.abs(),
                         bbox.y.signum().min(0.0) * bbox.y.abs(),

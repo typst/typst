@@ -412,7 +412,7 @@ impl Geometry {
                 let max = p.max(Point::zero());
                 Rect::new(min, max)
             }
-            Self::Curve(curve) => curve.bbox(),
+            Self::Curve(curve) => curve.bbox(None),
         }
     }
 
@@ -446,10 +446,10 @@ impl Geometry {
                     bbox.y + rect.y.signum() * 2.0 * stroke_width,
                 ),
             ),
-            _ => (
-                Point::new(-stroke_width, -stroke_width),
-                Size::new(bbox.x + 2.0 * stroke_width, bbox.y + 2.0 * stroke_width),
-            ),
+            Self::Curve(curve) => {
+                let bbox = curve.bbox(stroke);
+                (bbox.min, bbox.size())
+            }
         }
     }
 }

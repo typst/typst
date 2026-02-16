@@ -56,7 +56,7 @@ impl SVGRenderer<'_> {
         let mut shape_size = shape.geometry.bbox_size();
         let mut offset = Point::zero();
         // Edge cases for strokes.
-        if matches!(shape.geometry, Geometry::Line(..)) {
+        if matches!(shape.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
             (offset, shape_size) =
                 shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref());
             // avoid mirroring gradient if line angle results in negative sizes
