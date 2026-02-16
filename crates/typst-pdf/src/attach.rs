@@ -113,7 +113,7 @@ fn should_compress(data: &[u8]) -> Option<bool> {
             | "image/heif"
             | "image/avif"
             | "image/jxl"
-            | "image/vnd.djvu" => None,
+            | "image/vnd.djvu" => Some(false),
             _ => None,
         },
         infer::MatcherType::Text => None,
