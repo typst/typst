@@ -147,8 +147,8 @@ c36d138b30a0d8b02676e70e5072ef6b curve-fill-rule
 4ca29f3ec4ae2de09168ee33cbdc200c curve-move-single
 e7af866fa2c601617dd5c4d7d56172bb curve-multiple-non-closed
 922f182125d50e551511cb56d81e4397 curve-quad-mirror
-651f7c13cf98dd6d214bb10484c03215 curve-stroke-gradient
-e4cb4187a7ffb5a8e7f3cdd2595b95d9 curve-stroke-gradient-sharp
+02b09c23b730dd95d91200b4c6028ee1 curve-stroke-gradient
+d2a84fa39321a7917bfb6240158f7fd9 curve-stroke-gradient-sharp
 5fceb8f0adf23bf3656c479ba0818d9b decimal-display
 89bc5763db531cc778e48ff0073255d3 decimal-display-round
 28b487f5bdae455056d3b7fa51b46eb2 destructuring-during-loop-continue
@@ -258,14 +258,14 @@ f38946f81545e14637ce17fc103fcbfd gradient-conic-hsv
 34458ceace8e961fb87b5631abbce6fb gradient-conic-relative-self
 803f09b53ede42214b587d9f5f09da6f gradient-conic-stroke
 ee36bc09f4601770c79f5b3159c0a56c gradient-conic-text
-56b8799dab0278db4a1cdc9cf835a94f gradient-curve-stroke
-73008d67396390e938fc4d115e349a9f gradient-curve-stroke-quad
+ddf5f3ef86679dcd8a7030f7e6e1ce6a gradient-curve-stroke
+a90b143c9a93a17b30a88f65317d6145 gradient-curve-stroke-quad
 89f1810ced465d3a34f30e9bea2d536d gradient-fill-and-stroke
-301ef5a417a076746e65ae221ba7bb8d gradient-line-stroke
+0684594a3ca600501fc398cb93182be5 gradient-line-stroke
 c6a37961c74a922c18df9fcc750732fc gradient-linear-angled
 01f9fe61fa34faf10c5ecf3fdfc0a063 gradient-linear-hsl
 99635cc21bd2ef71b115bc1207287f7b gradient-linear-hsv
-e05c50d1b54237d4a7a9de033c731fef gradient-linear-line
+0dfe784b0cce72a83afaf624eacc7057 gradient-linear-line
 62705e2a2073f7143308583cb0027c00 gradient-linear-oklab
 d8af6422949e2ac1abb74938623d58de gradient-linear-oklch
 b87e6f201a8e396b4940cc55f62f3402 gradient-linear-relative-parent
@@ -750,7 +750,7 @@ f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
-c1cbd7f1e9350607409afe306733bbb1 issue-5705-gradient-border-stroke
+f710eb5e47e56189edaa0a6aff1e84b0 issue-5705-gradient-border-stroke
 b7fa7f5a5ef1fcdc0acaffec5d6b35ef issue-5719-enum-nested
 a1a4c1ba094a741cb00677a6a6975083 issue-5719-heading-nested
 b0f751c80c588d891f3172c008db4401 issue-5719-list-nested
@@ -762,7 +762,7 @@ b8d74ba232642396a1952273d2295524 issue-5723-grid-heading-numbering
 4d951b1907258e18359d5c186bed1127 issue-5930-symbol-label
 560cea9c10b192a718fee88624a974c5 issue-5940-text-negative-size-panic
 0feaf17125fd54917355888342459d97 issue-6062-justify-cjk-latin-spacing
-42fa5d388d7a5f26c20106dc2886135e issue-6068-curve-stroke-gradient
+78f2c136c915a43297c717f44aeb3509 issue-6068-curve-stroke-gradient
 f8915e29d04b075620b2d6ff30b19c65 issue-6090-math-overhang
 1da011c9de357c5b57ff4bfa8f00aee9 issue-6125-block-place-width-limited
 06874c31d6fa6a67834b5ceac8c804dd issue-6162-coincident-gradient-stops-export-png
