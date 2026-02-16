@@ -15,6 +15,7 @@ use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
+use typst::Features;
 use typst::diag::{StrResult, bail};
 use typst::foundations::Deprecation;
 use typst::foundations::{
@@ -24,7 +25,7 @@ use typst::foundations::{
 use typst::layout::{Abs, Margin, PageElem};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Category, Feature, Library, LibraryExt};
+use typst::{Category, Library, LibraryExt};
 use typst_layout::PagedDocument;
 use unicode_math_class::MathClass;
 
@@ -58,9 +59,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::builder()
-        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
-        .build();
+    let mut lib = Library::builder().with_features(Features::all()).build();
     let scope = lib.global.scope_mut();
 
     // Add those types, so that they show up in the docs.

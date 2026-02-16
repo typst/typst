@@ -227,6 +227,16 @@ impl LibraryBuilder {
 pub struct Features(SmallBitSet);
 
 impl Features {
+    /// Creates an instance where all features are enabled.
+    pub fn all() -> Self {
+        Feature::all().collect()
+    }
+
+    /// Creates an instance where no features are enabled.
+    pub fn none() -> Self {
+        Self::default()
+    }
+
     /// Check whether the given feature is enabled.
     pub fn is_enabled(&self, feature: Feature) -> bool {
         self.0.contains(feature as usize)
@@ -249,6 +259,13 @@ impl FromIterator<Feature> for Features {
 pub enum Feature {
     Html,
     A11yExtras,
+}
+
+impl Feature {
+    /// Iterates over all available features.
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Html, Self::A11yExtras].into_iter()
+    }
 }
 
 /// A group of related standard library definitions.

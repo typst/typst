@@ -17,7 +17,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
-use typst::{Feature, Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt, World};
 use typst_kit::files::{FileLoader, FileStore};
 use typst_syntax::package::PackageSpec;
 use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
@@ -193,9 +193,7 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::builder()
-        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
-        .build();
+    let mut lib = Library::builder().with_features(Features::all()).build();
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();
