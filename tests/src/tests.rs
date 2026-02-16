@@ -22,7 +22,7 @@ use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use rustc_hash::FxHashMap;
 
-use crate::args::{CliArguments, Command};
+use crate::args::{CliArguments, Command, PdftagsCommand};
 use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
 use crate::output::{HASH_OUTPUTS, HashedRefs};
@@ -55,6 +55,7 @@ fn main() {
         None => test(),
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
+        Some(Command::Pdftags(command)) => pdftags(command),
     }
 }
 
@@ -210,6 +211,20 @@ fn undangle() {
                 std::fs::write(path, hashed_refs.to_string()).unwrap();
             }
         }
+    }
+}
+
+fn pdftags(command: &PdftagsCommand) {
+    let bytes = match std::fs::read(&command.path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return;
+        }
+    };
+    match pdftags::format(&bytes) {
+        Ok(tags) => println!("{tags}"),
+        Err(err) => eprintln!("error: {err}"),
     }
 }
 

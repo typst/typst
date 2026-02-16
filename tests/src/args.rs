@@ -142,6 +142,14 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+    /// Prints the tags from a PDF file.
+    Pdftags(PdftagsCommand),
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct PdftagsCommand {
+    /// The PDF file containing the tags.
+    pub path: PathBuf,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
