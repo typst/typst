@@ -63,7 +63,7 @@
 
 #test(x, "a_a1a2a_a4")
 
---- loop-break-outside-of-loop paged ---
+--- loop-break-outside-of-loop eval ---
 // Test break outside of loop.
 #let f() = {
   // Error: 3-8 cannot break outside of loop
@@ -88,13 +88,13 @@
 
 #test(out, "AB")
 
---- loop-continue-outside-of-loop-in-block paged ---
+--- loop-continue-outside-of-loop-in-block eval ---
 // Test continue outside of loop.
 
 // Error: 12-20 cannot continue outside of loop
 #let x = { continue }
 
---- loop-continue-outside-of-loop-in-markup paged ---
+--- loop-continue-outside-of-loop-in-markup eval ---
 // Error: 2-10 cannot continue outside of loop
 #continue
 

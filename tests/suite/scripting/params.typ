@@ -1,4 +1,4 @@
---- param-underscore-missing-argument paged ---
+--- param-underscore-missing-argument eval ---
 // Error: 17-20 missing argument: pattern parameter
 #let f(a: 10) = a() + 1
 #f(a: _ => 5)
@@ -17,11 +17,11 @@
 #let f(..) = 2
 #test(f(arg: 1), 2)
 
---- params-sink-bool-invalid paged ---
+--- params-sink-bool-invalid eval ---
 // Error: 10-14 expected pattern, found boolean
 #let f(..true) = none
 
---- params-sink-multiple-invalid paged ---
+--- params-sink-multiple-invalid eval ---
 // Error: 13-16 only one argument sink is allowed
 #let f(..a, ..b) = none
 
@@ -52,7 +52,7 @@
   test(f(15, b: 16, c: 13), (15, 16))
 }
 
---- params-sink-missing-arguments paged ---
+--- params-sink-missing-arguments eval ---
 #{
   let f(..a, b, c, d) = none
 
@@ -64,6 +64,6 @@
 // Test that underscore works in parameter patterns.
 #test((1, 2, 3).zip((1, 2, 3)).map(((_, x)) => x), (1, 2, 3))
 
---- issue-1351-parameter-dictionary paged ---
+--- issue-1351-parameter-dictionary eval ---
 // Error: 17-22 expected pattern, found string
 #let foo((test: "bar")) = {}

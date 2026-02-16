@@ -43,7 +43,7 @@
 
 #f[My other figure]
 
---- return-outside-of-function paged ---
+--- return-outside-of-function eval ---
 // Test return outside of function.
 
 #for x in range(5) {
@@ -79,7 +79,7 @@
 
 #test(f(), "nope")
 
---- return-semicolon-or-linebreak paged ---
+--- return-semicolon-or-linebreak eval ---
 // Test rejection of extra value
 #let f() = [
   // Error: 16-16 expected semicolon or line break

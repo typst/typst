@@ -26,27 +26,27 @@ $ v = vec(1, 2+3, 4) $
 #set math.vec(delim: "[")
 $ vec(1, 2) $
 
---- math-vec-delim-empty-string paged ---
+--- math-vec-delim-empty-string eval ---
 // Error: 22-24 expected exactly one character
 #set math.vec(delim: "")
 
---- math-vec-delim-not-single-char paged ---
+--- math-vec-delim-not-single-char eval ---
 // Error: 22-39 expected exactly one character
 #set math.vec(delim: "not a delimiter")
 
---- math-vec-delim-invalid-char paged ---
+--- math-vec-delim-invalid-char eval ---
 // Error: 22-25 invalid delimiter: "%"
 #set math.vec(delim: "%")
 
---- math-vec-delim-invalid-symbol paged ---
+--- math-vec-delim-invalid-symbol eval ---
 // Error: 22-33 invalid delimiter: "%"
 #set math.vec(delim: sym.percent)
 
---- math-vec-delim-invalid-opening paged ---
+--- math-vec-delim-invalid-opening eval ---
 // Error: 22-33 invalid delimiter: "%"
 #set math.vec(delim: ("%", none))
 
---- math-vec-delim-invalid-closing paged ---
+--- math-vec-delim-invalid-closing eval ---
 // Error: 22-33 invalid delimiter: "%"
 #set math.vec(delim: (none, "%"))
 
