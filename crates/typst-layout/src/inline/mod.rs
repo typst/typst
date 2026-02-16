@@ -195,7 +195,8 @@ fn configuration(
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
         first_line_indent: {
-            let FirstLineIndent { amount, all } = base.first_line_indent;
+            let amount = base.first_line_indent.amount();
+            let all = base.first_line_indent.all();
             if !amount.is_zero()
                 && match situation {
                     // First-line indent for the first paragraph after a list
