@@ -1,6 +1,6 @@
 // Test the `rect` function.
 
---- rect paged ---
+--- rect paged html ---
 // Default rectangle.
 #rect()
 
@@ -98,6 +98,22 @@
   gutter: 5pt,
   ..items,
 )
+
+--- rect-fill-stroke-html html ---
+// TODO: add spacing
+#let variant = rect.with(width: 20pt, height: 10pt)
+#variant(stroke: none)
+#variant()
+#variant(fill: none)
+#variant(stroke: 2pt)
+#variant(stroke: eastern)
+#variant(stroke: eastern + 2pt)
+#variant(fill: eastern)
+#variant(fill: eastern, stroke: none)
+#variant(fill: forest, stroke: none)
+#variant(fill: forest, stroke: conifer)
+#variant(fill: forest, stroke: black + 2pt)
+#variant(fill: forest, stroke: conifer + 2pt)
 
 --- rect-radius-bad-key eval ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"

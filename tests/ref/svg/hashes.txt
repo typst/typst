@@ -51,6 +51,8 @@ e87e5cb02dae543b42bcb85776a8467d block-fr-height
 411951218cc68f200d4bcf2ca5e267c9 block-fr-height-auto-width
 12a7f9167d9f80d8f72a219f739eaddf block-fr-height-first-child
 865e809eb6e6882b1cfa32ddcdcc9c7a block-fr-height-multiple
+bbc0427d310d3294b46258159fe4ef55 block-inset-auto-sized
+3f180fb8a580d282a2cb1c027ee5e4da block-inset-fixed-sized
 c993acad099423d8193cbe9f8052d89e block-multiple-pages
 8f766e71ef7ea6e5f3ec3adc21ba47c7 block-multiple-pages-empty
 56420a884234cf94b1389d62ca556201 block-sizing
@@ -68,6 +70,7 @@ ee64bf3aa4adc633f4435cb2a142cc5d block-sticky-many
 4fbef7f29d4dac197bd1322b3f4db952 box-clip-radius
 6b1f56871f9def6e4f4038dc3196e6fc box-clip-radius-without-stroke
 151fea019531ac99c9192b2e86da3c94 box-clip-rect
+10b4b553ac5815a823fa7ce03453c573 box-empty-in-par
 b5e2bd8b97bdd2add0c84ddabef5e62f box-fr-width
 e6f997715c0c8094c01108a8eae82a88 call-basic
 67a6e9467b00342d23003a771bfd64a3 cases-content-symbol
