@@ -1,11 +1,11 @@
 // Test the `square` function.
 
---- square paged ---
+--- square paged html ---
 // Default square.
 #box(square())
 #box(square[hey!])
 
---- square-auto-sized paged ---
+--- square-auto-sized paged html ---
 // Test auto-sized square.
 #square(fill: eastern)[
   #set text(fill: white, weight: "bold")
@@ -31,6 +31,38 @@
 #set page(width: 100pt, height: 75pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
+]
+
+--- square-intrinsic-size-html html ---
+// This is currently broken, the square doesn't grow in width.
+#square(fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
+]
+#square(fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+
+--- square-fixed-width-html html ---
+#square(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 20pt)
+]
+#square(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+// This is currently broken, the square grows in height.
+#square(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
+]
+
+--- square-fixed-height-html html ---
+#square(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 20pt)
+]
+#square(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+#square(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
 ]
 
 --- square-size-width-and-height eval ---

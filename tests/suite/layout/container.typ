@@ -1,6 +1,6 @@
 // Test the `box` and `block` containers.
 
---- box paged ---
+--- box paged html ---
 // Test box in paragraph.
 A #box[B \ C] D.
 
@@ -12,6 +12,15 @@ Apart
 --- block-sizing paged ---
 // Test block sizing.
 #set page(height: 120pt)
+#set block(spacing: 0pt)
+#block(width: 90pt, height: 80pt, fill: red)[
+  #block(width: 60%, height: 60%, fill: green)
+  #block(width: 50%, height: 60%, fill: blue)
+]
+
+--- block-sizing-html html ---
+// Test block sizing.
+#set html.elem(profile: "presentational")
 #set block(spacing: 0pt)
 #block(width: 90pt, height: 80pt, fill: red)[
   #block(width: 60%, height: 60%, fill: green)
@@ -120,6 +129,18 @@ fn main() {}
 - List
 
 Paragraph
+
+--- block-inset-auto-sized paged html ---
+#set html.elem(profile: "presentational")
+#set block(fill: green)
+#block(inset: 10pt)[A]
+#block[A]
+
+--- block-inset-fixed-sized paged html ---
+#set html.elem(profile: "presentational")
+#set block(width: 40pt, height: 40pt, fill: green, stroke: 5pt + black)
+#block(inset: 10pt)[A]
+#block[A]
 
 --- block-spacing-collapse-text-style paged ---
 // Test spacing collapsing with different font sizes.
@@ -235,7 +256,9 @@ world 2
   is the sun.
 ]
 
---- block-clip-svg-glyphs paged ---
+--- block-clip-svg-glyphs paged html ---
+#set html.elem(profile: "presentational")
+
 // Test clipping svg glyphs
 Emoji: #box(height: 0.5em, stroke: 1pt + black)[🐪, 🌋, 🏞]
 
@@ -308,7 +331,10 @@ Paragraph
 
 #stack(dir: ltr, spacing: 1fr, check(box), check(block))
 
---- issue-2128-block-width-box paged ---
+--- box-empty-in-par paged html ---
+An empty box #box(width: 20pt, height: 10pt, fill: red) inside a paragraph.
+
+--- issue-2128-block-width-box paged html ---
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])

@@ -37,6 +37,8 @@ f48ec2aa86453fdcde03178b446c5c56 block-fr-height
 9dade3cf084c6102af7ef1a27baaa47f block-fr-height-auto-width
 94a2b5788c50188c0d9ad0573569ab14 block-fr-height-first-child
 5d4a34a4db590268ebb3ad0dc1a233a4 block-fr-height-multiple
+7081ac051e6d2d7acdcc4fa3104b5bec block-inset-auto-sized
+3d0b82b380864c68b58f778be45b0233 block-inset-fixed-sized
 163d01c0c247a74d83bfd8c995a447ce block-multiple-pages
 5171bc669cf368c392bec94be12c3a21 block-multiple-pages-empty
 91bef85e238cae39671c956bece37788 block-sizing
