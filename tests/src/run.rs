@@ -5,6 +5,7 @@ use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::foundations::{Content, Output, Repr};
 use typst::model::Document;
+use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_syntax::Spanned;
@@ -195,8 +196,14 @@ impl<'a> Runner<'a> {
 
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
-            let doc = self.compile::<HtmlDocument>(evaluated);
+            let doc = self.compile::<HtmlDocument>(evaluated.clone());
             self.run_file_test::<output::Html>(doc.as_ref());
+        }
+
+        // Only compile bundle when the bundle target is specified.
+        if self.test.should_run(TestTarget::Bundle) {
+            let bundle = self.compile::<Bundle>(evaluated.clone());
+            self.run_file_test::<output::Bundle>(bundle.as_ref());
         }
 
         self.handle_empty();
@@ -744,7 +751,9 @@ impl<'a> Runner<'a> {
         stage: impl TestStage,
     ) {
         // TODO: remove this once HTML export is stable
-        if diag.message == "html export is under active development and incomplete" {
+        if diag.message == "html export is under active development and incomplete"
+            || diag.message == "bundle export is experimental"
+        {
             return;
         }
         let stage = stage.into();

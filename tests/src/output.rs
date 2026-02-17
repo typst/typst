@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Write as _};
 use std::option::Option;
 use std::path::Path;
 use std::str::FromStr;
@@ -15,6 +15,7 @@ use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
 use typst::text::SpaceElem;
 use typst::visualize::Color;
+use typst_bundle::{BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
@@ -467,6 +468,65 @@ impl FileOutputType for Html {
     }
 }
 
+pub struct Bundle;
+
+impl OutputType for Bundle {
+    type Doc = typst_bundle::Bundle;
+    type Live = VirtualFs;
+
+    const OUTPUT: TestOutput = TestOutput::Bundle;
+
+    fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
+        live.is_empty()
+    }
+
+    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
+        let options = BundleOptions {
+            pixel_per_pt: 1.0,
+            pdf: PdfOptions { standards, ..Default::default() },
+        };
+        typst_bundle::export(doc, &options)
+    }
+
+    fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
+        let mut builder = tar::Builder::new(Vec::new());
+        builder.mode(tar::HeaderMode::Deterministic);
+        for (path, data) in live {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            builder
+                .append_data(&mut header, path.get_without_slash(), data.as_slice())
+                .unwrap();
+        }
+        builder.into_inner().unwrap()
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live.as_slice()))
+    }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> ReportFile {
+        // TODO: Bundle diff.
+        let diffs = [text_diff(a, b)];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
+}
+
+impl FileOutputType for Bundle {
+    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
+        hashed_fs_list(live)
+    }
+
+    fn matches(old: &[u8], new: &Self::Live) -> bool {
+        old == hashed_fs_list(new).as_bytes()
+    }
+}
+
 fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
     let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
     let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
@@ -572,6 +632,21 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         tx.to_pt() as f32,
         ty.to_pt() as f32,
     )
+}
+
+/// Turns a virtual file system into a listing of hashes alongside file names.
+fn hashed_fs_list(fs: &VirtualFs) -> String {
+    let mut output = String::new();
+    for (path, data) in fs {
+        writeln!(
+            output,
+            "{} {}",
+            HashedRef(typst_utils::hash128(data)),
+            path.get_without_slash(),
+        )
+        .unwrap();
+    }
+    output
 }
 
 /// Whether this content can be considered empty.

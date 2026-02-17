@@ -113,7 +113,7 @@ ins {
 
 .sidebar {
   flex: 1;
-  min-width: 260px;
+  min-width: 300px;
   height: calc(100% - 2 * var(--size-xxxsmall));
   box-sizing: border-box;
   margin: var(--size-xxxsmall) 0;

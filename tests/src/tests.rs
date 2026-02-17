@@ -67,7 +67,7 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
+    for dir in ["render", "html", "pdf", "pdftags", "svg", "bundle", "by-hash"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 

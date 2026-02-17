@@ -161,6 +161,7 @@ pub enum TestStage {
     Pdftags,
     Svg,
     Html,
+    Bundle,
 }
 
 impl From<TestStage> for TestStages {
@@ -173,6 +174,7 @@ impl From<TestStage> for TestStages {
             TestStage::Pdftags => TestStages::PDFTAGS,
             TestStage::Svg => TestStages::SVG,
             TestStage::Html => TestStages::HTML,
+            TestStage::Bundle => TestStages::BUNDLE,
         }
     }
 }
