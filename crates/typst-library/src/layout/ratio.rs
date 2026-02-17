@@ -87,6 +87,11 @@ impl Ratio {
         let resolved = whole * self.get();
         if resolved.is_finite() { resolved } else { T::zero() }
     }
+
+    /// The reciprocal (inverse) of this ratio, `1/x`.
+    pub fn recip(self) -> Self {
+        Self::new(self.get().recip())
+    }
 }
 
 impl Debug for Ratio {

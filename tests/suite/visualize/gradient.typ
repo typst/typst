@@ -316,6 +316,41 @@
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, angle: 90deg),
 )
 
+--- gradient-linear-angled-aspect-ratio paged ---
+#let grad = gradient.linear(angle: 135deg, ..color.map.inferno).sharp(6)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
+--- gradient-conic-angled-aspect-ratio paged ---
+#let grad = gradient.conic(center: (70%, 30%), angle: 135deg, ..color.map.inferno)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
+--- gradient-radial-aspect-ratio paged ---
+#let grad = gradient.radial(
+  center: (70%, 30%),
+  focal-center: (50%, 50%),
+  focal-radius: 10%,
+  ..color.map.inferno
+).sharp(5)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
 --- gradient-conic-oklab paged ---
 // Test in Oklab space for reference.
 #set page(
