@@ -184,3 +184,13 @@ Hello #skewed[World]!
     ])
   ]
 ]
+
+--- transform-scale-negative paged ---
+// Test negative scaling (mirroring) on both axes.
+// Regression test for issue #7872.
+#set page(width: 150pt, height: auto)
+#rect(fill: aqua, scale(x: -100%, y: -101%)[hey])
+#rect(fill: yellow, scale(x: -100%, y: -100%)[hey])
+#rect(fill: green, scale(x: -100%, y: -99%)[test])
+#rect(fill: red, scale(x: 100%, y: -100%)[flip-y])
+#rect(fill: purple, scale(x: -100%, y: 100%)[flip-x])

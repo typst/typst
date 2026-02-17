@@ -54,6 +54,7 @@ fn render_outline_glyph(
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
     if ppem > 100.0
+        || ppem < 0.0
         || ts.kx != 0.0
         || ts.ky != 0.0
         || ts.sx != ts.sy
