@@ -87,3 +87,14 @@ Hello World!
   #show text.where(hyphenate: false): underline
   False
 ]
+
+--- issue-7825-show-where-auto-on-synthesized-field paged empty ---
+// Test that selectors can still match `auto` before synthesis normalizes it.
+#show heading.where(supplement: auto): _ => {
+  metadata("matched")
+}
+
+#heading(supplement: auto)[Explicit auto]
+= Implicit auto
+
+#context test(query(metadata.where(value: "matched")).len(), 2)

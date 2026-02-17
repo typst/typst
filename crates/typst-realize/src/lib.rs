@@ -428,6 +428,7 @@ fn verdict<'a>(
     // fields before real synthesis runs (during preparation). It's really
     // unfortunate that we have to do this, but otherwise
     // `show figure.where(kind: table)` won't work :(
+    let original = elem;
     let mut elem = elem;
     let mut slot;
     if !prepared && elem.can::<dyn Synthesize>() {
@@ -449,7 +450,14 @@ fn verdict<'a>(
         // We're not interested in recipes that don't match.
         if !recipe
             .selector()
-            .is_some_and(|selector| selector.matches(elem, Some(styles)))
+            .is_some_and(|selector| {
+                // Match against both the pre-synthesized clone and the original
+                // element so selectors can still target raw constructor values
+                // like `auto` even if synthesis normalizes them.
+                selector.matches(elem, Some(styles))
+                    || (!std::ptr::eq(elem, original)
+                        && selector.matches(original, Some(styles)))
+            })
         {
             continue;
         }
