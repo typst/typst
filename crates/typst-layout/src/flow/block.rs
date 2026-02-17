@@ -29,7 +29,7 @@ pub fn layout_single_block(
     let inset = elem.inset.resolve(styles).unwrap_or_default();
 
     // Build the pod regions.
-    let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
+    let pod = unbreakable_pod(&width, &height, &inset, styles, region.size);
 
     // Layout the body.
     let body = elem.body.get_ref(styles);
@@ -120,7 +120,7 @@ pub fn layout_multi_block(
     let mut buf = SmallVec::<[Abs; 2]>::new();
 
     // Build the pod regions.
-    let pod = breakable_pod(&width.into(), &height, &inset, styles, regions, &mut buf);
+    let pod = breakable_pod(&width, &height, &inset, styles, regions, &mut buf);
 
     // Layout the body.
     let body = elem.body.get_ref(styles);
