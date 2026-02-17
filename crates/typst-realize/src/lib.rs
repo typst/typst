@@ -448,17 +448,14 @@ fn verdict<'a>(
 
     for (r, recipe) in styles.recipes().enumerate() {
         // We're not interested in recipes that don't match.
-        if !recipe
-            .selector()
-            .is_some_and(|selector| {
-                // Match against both the pre-synthesized clone and the original
-                // element so selectors can still target raw constructor values
-                // like `auto` even if synthesis normalizes them.
-                selector.matches(elem, Some(styles))
-                    || (!std::ptr::eq(elem, original)
-                        && selector.matches(original, Some(styles)))
-            })
-        {
+        if !recipe.selector().is_some_and(|selector| {
+            // Match against both the pre-synthesized clone and the original
+            // element so selectors can still target raw constructor values
+            // like `auto` even if synthesis normalizes them.
+            selector.matches(elem, Some(styles))
+                || (!std::ptr::eq(elem, original)
+                    && selector.matches(original, Some(styles)))
+        }) {
             continue;
         }
 
