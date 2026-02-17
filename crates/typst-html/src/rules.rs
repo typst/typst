@@ -13,7 +13,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
-    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Rel, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
@@ -833,8 +833,9 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
 
     // TODO: Exclude in semantic profile?
     match elem.width.get(styles) {
-        Smart::Auto => {}
-        Smart::Custom(rel) => inline.push("width", css::rel(rel)),
+        Sizing::Auto => {}
+        Sizing::Rel(rel) => inline.push("width", css::rel(rel)),
+        Sizing::Fr(_) => inline.push("width", css::rel(Rel::one())),
     }
 
     // TODO: Exclude in semantic profile?

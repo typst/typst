@@ -18,7 +18,7 @@ use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 #[elem(title = "Rectangle")]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The rectangle's height, relative to its parent container.
     pub height: Sizing,
@@ -154,10 +154,10 @@ pub struct SquareElem {
         let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
         match size {
             None => args.named("width")?,
-            size => size,
+            size => size.map(Into::into),
         }
     )]
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The square's height. This is mutually exclusive with `size` and `width`.
     ///
@@ -220,7 +220,7 @@ pub struct SquareElem {
 #[elem]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The ellipse's height, relative to its parent container.
     pub height: Sizing,
@@ -285,10 +285,10 @@ pub struct CircleElem {
             .map(|s| s.map(|r| 2.0 * Rel::from(r)));
         match size {
             None => args.named("width")?,
-            size => size,
+            size => size.map(Into::into),
         }
     )]
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The circle's height. This is mutually exclusive with `radius` and
     /// `width`.

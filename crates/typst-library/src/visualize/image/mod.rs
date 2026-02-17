@@ -135,7 +135,7 @@ pub struct ImageElem {
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The height of the image.
     pub height: Sizing,
@@ -252,7 +252,7 @@ impl ImageElem {
             elem.format.set(format);
         }
         if let Some(width) = width {
-            elem.width.set(width);
+            elem.width.set(width.into());
         }
         if let Some(height) = height {
             elem.height.set(height);

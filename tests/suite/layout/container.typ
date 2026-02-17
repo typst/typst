@@ -389,3 +389,12 @@ c
   radius: 100%,
   rect(fill: gray, height: 1cm, width: 1cm),
 )
+
+--- issue-7880-block-fr-width-acts-as-rel-width paged ---
+// Test that block width with fr unit acts as relative 100% width.
+#block(width: 1fr, fill: aqua, inset: .2cm)[
+  outer
+  #block(width: 1fr, fill: blue)[
+    inner
+  ]
+]

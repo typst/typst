@@ -237,7 +237,7 @@ pub struct BlockElem {
     ///   lorem(10),
     /// )
     /// ```
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
 
     /// The block's height. When the height is larger than the remaining space
     /// on a page and [`breakable`]($block.breakable) is `{true}`, the
