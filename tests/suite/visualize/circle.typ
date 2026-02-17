@@ -32,7 +32,7 @@ Rect in auto-sized circle.
 Expanded by height.
 #circle(stroke: black, align(center)[A \ B \ C])
 
---- circle-directly-in-rect paged ---
+--- circle-directly-in-rect paged html ---
 // Ensure circle directly in rect works.
 #rect(width: 40pt, height: 30pt, fill: forest,
   circle(fill: conifer))
@@ -51,6 +51,39 @@ Expanded by height.
   circle(width: 20% + 20pt, fill: eastern, [C]), // D=40pt
   1fr,
 )
+
+--- circle-intrinsic-size-html html ---
+// This is currently broken, the circle doesn't grow in width.
+#circle(fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
+]
+#circle(fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+
+--- circle-fixed-width-html html ---
+#circle(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 20pt)
+]
+#circle(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+// This is currently broken, the circle grows in height.
+#circle(width: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
+]
+
+--- circle-fixed-height-html html ---
+#circle(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 20pt)
+]
+#circle(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 80pt, height: 20pt)
+]
+#circle(height: 60pt, fill: conifer)[
+  #rect(fill: red, width: 20pt, height: 80pt)
+]
+
 
 --- circle-radius-width-and-height eval ---
 // Radius wins over width and height.

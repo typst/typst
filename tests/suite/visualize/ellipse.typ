@@ -1,6 +1,6 @@
 // Test the `ellipse` function.
 
---- ellipse paged ---
+--- ellipse paged html ---
 // Default ellipse.
 #ellipse()
 
@@ -26,6 +26,32 @@ Auto-sized ellipse.
 ]
 
 
+An inline
+#box(ellipse(width: 8pt, height: 6pt, outset: (top: 3pt, rest: 5.5pt)))
+ellipse.
+
+--- ellipse-nested html ---
+#set rect(inset: 0pt)
+#set ellipse(inset: 0pt)
+
+#rect(width: 3cm, height: 2cm, fill: rgb("2a631a"),
+  ellipse(fill: forest, width: 100%, height: 100%,
+    rect(fill: conifer, width: 100%, height: 100%)[
+      Stuff inside an ellipse!
+    ]
+  )
+)
+
+--- ellipse-auto-sizing-html html ---
+#set rect(inset: 0pt)
+#set ellipse(inset: 0pt)
+
+#ellipse(fill: conifer, stroke: 3pt + forest, inset: 3pt)[
+  #set text(8pt)
+  But, soft! what light through yonder window breaks?
+]
+
+--- ellipse-inline html ---
 An inline
 #box(ellipse(width: 8pt, height: 6pt, outset: (top: 3pt, rest: 5.5pt)))
 ellipse.

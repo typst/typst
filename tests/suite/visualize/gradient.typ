@@ -120,14 +120,14 @@
   fill: gradient.linear(..color.map.rainbow).repeat(5, mirror: true)
 )
 
---- gradient-linear-sharp-and-repeat paged ---
+--- gradient-linear-sharp-and-repeat paged html ---
 #rect(
   height: 40pt,
   width: 100%,
   fill: gradient.linear(..color.map.rainbow).sharp(10).repeat(5, mirror: false)
 )
 
---- gradient-linear-sharp-repeat-and-mirror paged ---
+--- gradient-linear-sharp-repeat-and-mirror paged html ---
 #rect(
   height: 40pt,
   width: 100%,
@@ -316,7 +316,8 @@
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, angle: 90deg),
 )
 
---- gradient-linear-angled-aspect-ratio paged ---
+--- gradient-linear-angled-aspect-ratio paged html ---
+#import "../html/helpers.typ": grid
 #let grad = gradient.linear(angle: 135deg, ..color.map.inferno).sharp(6)
 #grid(
   columns: 2,
@@ -326,7 +327,8 @@
   rect(width: 70pt, height: 25pt, fill: grad),
 )
 
---- gradient-conic-angled-aspect-ratio paged ---
+--- gradient-conic-angled-aspect-ratio paged html ---
+#import "../html/helpers.typ": grid
 #let grad = gradient.conic(center: (70%, 30%), angle: 135deg, ..color.map.inferno)
 #grid(
   columns: 2,
@@ -348,6 +350,25 @@
   gutter: 5pt,
   rect(width: 70pt, height: 70pt, fill: grad),
   rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
+--- gradient-radial-aspect-ratio-html html ---
+#import "../html/helpers.typ": grid
+#let grad = gradient.radial(
+  center: (70%, 30%),
+  focal-center: (50%, 50%),
+  focal-radius: 10%,
+  ..color.map.inferno
+).sharp(5)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  // Warning: 3-46 radial gradient focal-center was ignored during HTML export
+  rect(width: 70pt, height: 70pt, fill: grad),
+  // Warning: 3-46 radial gradient focal-center was ignored during HTML export
+  rect(width: 25pt, height: 70pt, fill: grad),
+  // Warning: 3-46 radial gradient focal-center was ignored during HTML export
   rect(width: 70pt, height: 25pt, fill: grad),
 )
 
@@ -608,7 +629,6 @@ $ A = mat(
   4, 5, 6;
   7, 8, 9
 ) $
-
 
 --- gradient-kind eval ---
 // Test gradient functions.

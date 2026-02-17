@@ -498,7 +498,9 @@ impl ToCss for RadialGradient {
         if !is_center(self.center) {
             call.arg(GradientPosition(self.center));
         }
-        if !is_center(self.focal_center) {
+        if !(is_very_close(self.focal_center.x.get(), self.center.x.get())
+            && is_very_close(self.focal_center.y.get(), self.center.y.get()))
+        {
             call.w.ignored("radial gradient focal-center");
         }
 
