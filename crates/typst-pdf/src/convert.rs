@@ -678,6 +678,12 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        ValidationError::InconsistentSeparationFallback(separation_colorant) => {
+            error!(
+                Span::detached(),
+                "{separation_colorant:?} was used with multiple different fallback colors. Occurs when multiple Separation color spaces are specified with the same colorant but a different fallback color.";
+            )
+        }
     }
 }
 
