@@ -7,7 +7,7 @@ use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, Fold, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
@@ -162,6 +162,12 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
                 (a.downcast::<Alignment>(), b.downcast::<Alignment>())
             {
                 return Ok((a + b)?.into_value());
+            }
+
+            // Strokes can be merged using the Fold trait.
+            // The right-hand stroke overrides the left-hand stroke's properties.
+            if let (Some(a), Some(b)) = (a.downcast::<Stroke>(), b.downcast::<Stroke>()) {
+                return Ok(b.clone().fold(a.clone()).into_value());
             }
 
             mismatch!("cannot add {} and {}", a, b);

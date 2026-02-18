@@ -19,6 +19,42 @@
 // Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #stroke((foo: "bar"))
 
+--- stroke-addition eval ---
+// Test stroke addition (merging).
+// Regression test for issue #7839.
+#let s1 = stroke(black + 0.5pt)
+#let s2 = stroke(paint: red, dash: "dashed")
+#let merged = s1 + s2
+
+// Right-hand side overrides left-hand side
+#test(merged.paint, red)
+#test(merged.thickness, 0.5pt)
+#test(merged.dash, (array: (3pt, 3pt), phase: 0pt))
+
+// Order matters
+#let s3 = stroke(paint: blue, thickness: 2pt)
+#let s4 = stroke(paint: green, dash: "dotted")
+#test((s3 + s4).paint, green)
+#test((s3 + s4).thickness, 2pt)
+#test((s4 + s3).paint, blue)
+#test((s4 + s3).thickness, 2pt)
+
+// Multiple additions
+#let base = stroke(paint: purple)
+#let t = stroke(thickness: 3pt)
+#let d = stroke(dash: "dash-dotted")
+#let combined = base + t + d
+#test(combined.paint, purple)
+#test(combined.thickness, 3pt)
+#test(combined.dash, (array: (3pt, 2pt, "dot", 2pt), phase: 0pt))
+
+// Auto values don't override custom values
+#let custom = stroke(paint: orange, thickness: 5pt)
+#let auto-stroke = stroke(paint: auto, thickness: auto)
+#let result = custom + auto-stroke
+#test(result.paint, orange)
+#test(result.thickness, 5pt)
+
 --- stroke-fields-simple eval ---
 // Test stroke fields for simple strokes.
 #test((1em + blue).paint, blue)
