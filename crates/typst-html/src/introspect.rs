@@ -11,6 +11,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{Frame, FrameItem, Point, Transform};
 use typst_library::model::{Destination, LinkElem, Numbering};
+use typst_syntax::VirtualPath;
 
 use crate::{HtmlNode, HtmlSliceExt, tag};
 
@@ -121,6 +122,10 @@ impl Introspector for HtmlIntrospector {
 
     fn anchor(&self, location: Location) -> Option<&EcoString> {
         self.anchors.get(&location)
+    }
+
+    fn path(&self, _: Location) -> Option<&VirtualPath> {
+        None
     }
 }
 

@@ -13,7 +13,7 @@ use typst_library::introspection::{
     DocumentPosition, ElementIntrospector, ElementIntrospectorBuilder, Introspector,
     Location,
 };
-use typst_library::model::Numbering;
+use typst_library::model::{AssetElem, DocumentElem, Numbering};
 use typst_syntax::VirtualPath;
 
 use crate::{BundleDocument, Item};
@@ -109,6 +109,25 @@ impl Introspector for BundleIntrospector {
 
     fn anchor(&self, location: Location) -> Option<&EcoString> {
         self.anchors.get(&location)
+    }
+
+    fn path(&self, location: Location) -> Option<&VirtualPath> {
+        // Check whether the location is that of an element within one of the
+        // bundle documents.
+        let index = *self.elements.position(location)?;
+        if let Some(index) = index {
+            return Some(&self.children[index.get() - 1].0);
+        }
+
+        // Check whether the location is that of a document or asset itself.
+        let content = self.elements.get_by_loc(&location)?;
+        if let Some(doc) = content.to_packed::<DocumentElem>() {
+            Some(doc.path.as_ref())
+        } else if let Some(asset) = content.to_packed::<AssetElem>() {
+            Some(asset.path.as_ref())
+        } else {
+            None
+        }
     }
 }
 

@@ -12,6 +12,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{Frame, FrameItem, Point, Transform};
 use typst_library::model::{Destination, Numbering};
+use typst_syntax::VirtualPath;
 use typst_utils::NonZeroExt;
 
 use crate::Page;
@@ -131,6 +132,10 @@ impl Introspector for PagedIntrospector {
     }
 
     fn anchor(&self, _: Location) -> Option<&EcoString> {
+        None
+    }
+
+    fn path(&self, _: Location) -> Option<&VirtualPath> {
         None
     }
 }

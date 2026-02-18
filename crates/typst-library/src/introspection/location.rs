@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
-use typst_syntax::Span;
+use typst_syntax::{Span, VirtualPath};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
@@ -291,6 +291,41 @@ impl Introspect for PageSupplementIntrospection {
                 eco_format!("supplement of the page on which the {element} is located")
             },
             |supplement| eco_format!("`{}`", supplement.repr()),
+        )
+    }
+}
+
+/// Retrieves the file path of the document/asset which has or contains the
+/// given location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PathIntrospection(pub Location, pub Span);
+
+impl Introspect for PathIntrospection {
+    type Output = Option<VirtualPath>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Self::Output {
+        introspector.path(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "path",
+            |element| {
+                eco_format!("path of the document in which the {element} is located")
+            },
+            |path| {
+                eco_format!(
+                    "`{}`",
+                    path.as_ref().map(|p| p.get_with_slash()).into_value().repr()
+                )
+            },
         )
     }
 }

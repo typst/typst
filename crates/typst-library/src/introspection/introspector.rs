@@ -7,6 +7,7 @@ use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
+use typst_syntax::VirtualPath;
 
 use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
@@ -72,6 +73,13 @@ pub trait Introspector: Send + Sync {
 
     /// Retrieves the anchor to link to for this location in HTML export.
     fn anchor(&self, location: Location) -> Option<&EcoString>;
+
+    /// Returns the file path of the document/asset which has or contains the
+    /// given location.
+    ///
+    /// Returns `None` in a single document (not a bundle) or if the location is
+    /// not associated with a document or asset (top-level in a bundle).
+    fn path(&self, location: Location) -> Option<&VirtualPath>;
 }
 
 /// An introspector that returns empty results for all inquiries.
@@ -137,6 +145,10 @@ impl Introspector for EmptyIntrospector {
     }
 
     fn anchor(&self, _: Location) -> Option<&EcoString> {
+        None
+    }
+
+    fn path(&self, _: Location) -> Option<&VirtualPath> {
         None
     }
 }
