@@ -77,8 +77,8 @@ indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
 itoa = "1"
 kamadak-exif = "0.6"
-krilla = { path = "../krilla/crates/krilla", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = { path = "../krilla/crates/krilla-svg"  }
+krilla = { git = "https://github.com/wmedrano/krilla", rev = "b41ca9a", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/wmedrano/krilla", rev = "b41ca9a" }
 kurbo = "0.13"
 libfuzzer-sys = "0.4"
 libm = "0.2.11"
