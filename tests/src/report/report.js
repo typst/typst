@@ -30,7 +30,7 @@ const reportFiles = []
  */
 
 /**
- * @typedef {"image" | "text"} DiffKind
+ * @typedef {"visual" | "text"} DiffMode
  */
 
 for (const report of document.getElementsByClassName("test-report")) {
@@ -126,11 +126,11 @@ filterSearch.addEventListener("change", () => {
 
 filterDiffs()
 
-let diff_kinds = ["text", "image"]
-for (const kind of diff_kinds) {
-  document.getElementById(`global-diff-mode-${kind}`)
+let diff_modes = ["visual", "text"]
+for (const mode of diff_modes) {
+  document.getElementById(`global-diff-mode-${mode}`)
     .addEventListener("click", () => {
-      changeGlobalDiffMode(kind)
+      changeGlobalDiffMode(mode)
     })
 }
 
@@ -211,31 +211,31 @@ function currentReportFileTab(state) {
 }
 
 /**
- * @param diff_kind {DiffKind}
+ * @param diff_mode {DiffMode}
  */
-function changeGlobalDiffMode(diff_kind) {
+function changeGlobalDiffMode(diff_mode) {
   for (const state of reportFiles) {
     let found = false
     for (const tab of state.fileDiffTabs) {
-      if (tab.value == diff_kind) {
+      if (tab.value == diff_mode) {
         tab.checked = true;
         found = true;
         break;
       }
     }
     if (found) {
-      fileDiffTabChanged(state, diff_kind)
+      fileDiffTabChanged(state, diff_mode)
     }
   }
 }
 
 /**
   * @param state {ReportFileState}
-  * @param diff_kind {DiffKind}
+  * @param diff_mode {DiffMode}
   */
-function fileDiffTabChanged(state, diff_kind) {
+function fileDiffTabChanged(state, diff_mode) {
   for (const [idx, tab] of state.fileDiffTabs.entries()) {
-    const selected = tab.value == diff_kind;
+    const selected = tab.value == diff_mode;
     tab.ariaSelected = selected;
     state.fileDiffTabpanels[idx].hidden = !selected;
   }
@@ -243,7 +243,7 @@ function fileDiffTabChanged(state, diff_kind) {
 
 /**
   * @param state {ReportFileState}
-  * @return {DiffKind}
+  * @return {DiffMode}
   */
 function currentFileDiffTab(state) {
   for (const tab of state.fileDiffTabs) {
