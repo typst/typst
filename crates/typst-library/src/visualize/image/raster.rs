@@ -421,13 +421,20 @@ fn jpeg_dpi(data: &[u8]) -> Option<f64> {
 /// Tries to extract the DPI from raw PNG data.
 fn png_dpi(mut data: &[u8]) -> Option<f64> {
     let mut decoder = png::StreamingDecoder::new();
-    let dims = todo!();
-
-    let dpu = dims.xppu.max(dims.yppu) as f64;
-    match dims.unit {
-        png::Unit::Meter => Some(dpu * 0.0254), // meter -> inches
-        png::Unit::Unspecified => None,
+    while !data.is_empty() {
+        match decoder.update(data, None) {
+            Ok((consumed, _)) => data = &data[consumed..],
+            Err(_) => break,
+        }
+        if let Some(dims) = decoder.info().and_then(|i| i.pixel_dims) {
+            let dpu = dims.xppu.max(dims.yppu) as f64;
+            return match dims.unit {
+                png::Unit::Meter => Some(dpu * 0.0254), // meter -> inches
+                png::Unit::Unspecified => None,
+            };
+        }
     }
+    None
 }
 
 /// Format the user-facing raster graphic decoding error message.
