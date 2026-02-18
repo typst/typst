@@ -55,7 +55,7 @@ pub fn convert(
     let mut document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
-        collect_named_destinations(typst_document, &page_index_converter);
+        collect_named_destinations(&mut document, typst_document, &page_index_converter);
     let tags = tags::init(typst_document, options)?;
 
     let mut gc = GlobalContext::new(
@@ -689,7 +689,8 @@ pub(crate) fn to_span(loc: Option<krilla::surface::Location>) -> Span {
 }
 
 fn collect_named_destinations(
-    document: &PagedDocument,
+    document: &mut Document,
+    typst_document: &PagedDocument,
     pic: &PageIndexConverter,
 ) -> FxHashMap<Location, NamedDestination> {
     let mut locs_to_names = FxHashMap::default();
@@ -698,7 +699,7 @@ fn collect_named_destinations(
     // headings with the same label.
     let matches: Vec<_> = {
         let mut seen = FxHashSet::default();
-        document
+        typst_document
             .introspector
             .query(&HeadingElem::ELEM.select())
             .iter()
@@ -709,9 +710,10 @@ fn collect_named_destinations(
 
     for (loc, label) in matches {
         // Only add named destination if page belonging to the position is exported.
-        let pos = document.introspector.position(loc);
+        let pos = typst_document.introspector.position(loc);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
             let named = NamedDestination::new(label.resolve().to_string(), dest);
+            document.register_named_destination(named.clone());
             locs_to_names.insert(loc, named);
         }
     }
