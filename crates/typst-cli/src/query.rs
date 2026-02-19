@@ -3,7 +3,7 @@ use std::fmt::Write;
 use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
-use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
+use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail, warning};
 use typst::engine::Sink;
 use typst::foundations::{
     Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
@@ -148,9 +148,9 @@ fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
         Input::Stdin => eco_format!("typst eval {query}"),
     };
 
-    SourceDiagnostic::warning(
+    warning!(
         Span::detached(),
-        "the `typst query` subcommand is deprecated",
+        "the `typst query` subcommand is deprecated";
+        hint: "use `{eval_command}` instead";
     )
-    .with_hint(eco_format!("use `{}` instead", eval_command))
 }
