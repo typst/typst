@@ -22,13 +22,11 @@ use crate::modifiers::layout_and_modify;
 pub enum ParChild {
     Frame(Frame),
     Block {
-        // TODO: this is cloned.
         elem: Packed<BlockElem>,
-        // TODO: this is owned.
         styles: Styles,
         width: Abs,
-        // TODO: tag ordering needs to be preserved relative to the block item.
         tags: Vec<Tag>,
+        tags_before: usize,
     },
 }
 
@@ -502,7 +500,8 @@ pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
     line: &Line,
-    width: Abs,
+    line_width: Abs,
+    block_width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
 ) -> SourceResult<ParChild> {
@@ -511,34 +510,49 @@ pub fn commit(
 
         let mut block_elem = None;
         let mut block_styles = None;
-        let mut tags = Vec::new();
+        let mut block_idx = None;
+        let mut tags = Vec::with_capacity(line.items.len().saturating_sub(1));
 
-        // TODO: this cloning and style converting is kind of ugly, but we need
-        // someway to store owned stuff inside the created `ParChild`.
-        for item in line.items.iter() {
-            match item {
+        for &(idx, ref item) in line.items.indexed_iter() {
+            match &**item {
                 Item::Block(elem, styles) => {
+                    // We need owned values as the `ParChild::Block` created
+                    // will outlive inline layout.
                     block_elem = Some((*elem).clone());
                     block_styles = Some(styles.to_map());
+                    block_idx = Some(idx);
                 }
-                // TODO: tag ordering needs to be preserved in final frame
-                // layout (relative to the block item).
                 Item::Tag(tag) => {
-                    tags.push((*tag).clone());
+                    tags.push((idx, (*tag).clone()));
                 }
                 _ => unreachable!(),
+            }
+        }
+
+        let block_idx = block_idx.unwrap();
+        tags.sort_unstable_by_key(|(idx, _)| *idx);
+
+        let mut tags_before = 0;
+        let mut ordered_tags = Vec::with_capacity(tags.len());
+        for (idx, tag) in tags {
+            if idx < block_idx {
+                tags_before += 1;
+                ordered_tags.push(tag);
+            } else if idx > block_idx {
+                ordered_tags.push(tag);
             }
         }
 
         return Ok(ParChild::Block {
             elem: block_elem.unwrap(),
             styles: block_styles.unwrap(),
-            width,
-            tags,
+            width: block_width,
+            tags: ordered_tags,
+            tags_before,
         });
     }
 
-    let mut remaining = width - line.width - p.config.hanging_indent;
+    let mut remaining = line_width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
 
     // We always build the line from left to right. In an LTR paragraph, we must
@@ -659,7 +673,7 @@ pub fn commit(
         remaining = Abs::zero();
     }
 
-    let size = Size::new(width, top + bottom);
+    let size = Size::new(line_width, top + bottom);
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 

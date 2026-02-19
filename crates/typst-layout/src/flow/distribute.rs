@@ -318,12 +318,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        // TODO: add tags for inline blocks to the frame. Ordering needs to be
-        // preserved.
-        if let Some((_, tags)) = &single.inline {
-            for tag in tags {
-                frame.push(Point::zero(), FrameItem::Tag(tag.clone()));
-            }
+        // Push tags around an inline block to the frame.
+        if let Some((_, tags, tags_before)) = &single.inline {
+            push_tags(&mut frame, tags, *tags_before);
         }
 
         self.frame(frame, single.align, single.sticky, false)
@@ -349,12 +346,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        // TODO: add tags for inline blocks to the frame. Ordering needs to be
-        // preserved.
-        if let Some((_, tags)) = &multi.inline {
-            for tag in tags {
-                frame.push(Point::zero(), FrameItem::Tag(tag.clone()));
-            }
+        // Push tags around an inline block to the frame.
+        if let Some((_, tags, tags_before)) = &multi.inline {
+            push_tags(&mut frame, tags, *tags_before);
         }
 
         self.frame(frame, multi.align, multi.sticky, true)?;
@@ -639,4 +633,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         *self.composer.work = snapshot.work;
         self.items.truncate(snapshot.items);
     }
+}
+
+/// Prepend and push tags in order to the frame.
+fn push_tags(frame: &mut Frame, tags: &[Tag], tags_before: usize) {
+    let (before, after) = tags.split_at(tags_before);
+    frame.prepend_multiple(
+        before.iter().map(|tag| (Point::zero(), FrameItem::Tag(tag.clone()))),
+    );
+    frame.push_multiple(
+        after.iter().map(|tag| (Point::zero(), FrameItem::Tag(tag.clone()))),
+    );
 }

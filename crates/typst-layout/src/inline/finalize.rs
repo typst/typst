@@ -28,6 +28,6 @@ pub fn finalize(
 
     lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, locator))
+        .map(|line| commit(engine, p, line, width, region.x, region.y, locator))
         .collect()
 }

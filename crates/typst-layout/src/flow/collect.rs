@@ -251,7 +251,7 @@ impl<'a> Collector<'a, '_, '_> {
                     })));
                     frame_idx += 1;
                 }
-                ParChild::Block { elem, styles, width, tags } => {
+                ParChild::Block { elem, styles, width, tags, tags_before } => {
                     // Bump-allocate the owned data to give it lifetime 'a.
                     let elem: &'a Packed<BlockElem> = self.bump.alloc(elem);
                     let styles: &'a Styles = self.bump.alloc(styles);
@@ -266,7 +266,7 @@ impl<'a> Collector<'a, '_, '_> {
                             align,
                             sticky: false,
                             alone: false,
-                            inline: Some((width, tags)),
+                            inline: Some((width, tags, tags_before)),
                             elem,
                             styles,
                             locator,
@@ -278,7 +278,7 @@ impl<'a> Collector<'a, '_, '_> {
                             sticky: false,
                             alone: false,
                             fr: None,
-                            inline: Some((width, tags)),
+                            inline: Some((width, tags, tags_before)),
                             elem,
                             styles,
                             locator,
@@ -489,8 +489,9 @@ pub struct SingleChild<'a> {
     pub alone: bool,
     pub fr: Option<Fr>,
     /// If this is an inline block, stores the line width it is constrained to
-    /// and its associated tags.
-    pub inline: Option<(Abs, Vec<Tag>)>,
+    /// and its associated tags in logical order with the number of tags that
+    /// are logically before the block.
+    pub inline: Option<(Abs, Vec<Tag>, usize)>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
@@ -504,7 +505,7 @@ impl SingleChild<'_> {
             // Vertical expansion is only kept if this block is the only child.
             region.expand.y &= self.alone;
             // For inline blocks, use the line width as the width constraint.
-            if let Some((line_width, _)) = self.inline {
+            if let Some((line_width, _, _)) = self.inline {
                 region.size.x = line_width;
             }
             layout_single_impl(
@@ -562,8 +563,9 @@ pub struct MultiChild<'a> {
     pub sticky: bool,
     alone: bool,
     /// If this is an inline block, stores the line width it is constrained to
-    /// and its associated tags.
-    pub inline: Option<(Abs, Vec<Tag>)>,
+    /// and its associated tags in logical order with the number of tags that
+    /// are logically before the block.
+    pub inline: Option<(Abs, Vec<Tag>, usize)>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
     locator: Locator<'a>,
@@ -611,7 +613,7 @@ impl<'a> MultiChild<'a> {
             // Vertical expansion is only kept if this block is the only child.
             regions.expand.y &= self.alone;
             // For inline blocks, use the line width as the width constraint.
-            if let Some((line_width, _)) = self.inline {
+            if let Some((line_width, _, _)) = self.inline {
                 regions.size.x = line_width;
             }
             layout_multi_impl(
