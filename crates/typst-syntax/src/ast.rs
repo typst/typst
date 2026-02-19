@@ -77,12 +77,19 @@ using the lazy interface would only need to traverse each node once, improving
 throughput at the cost of initial latency and development flexibility.
 */
 
+// The AST should never panic when parsing a CST, even if the CST is in an
+// invalid structure, e.g. if incorrectly edited from the `typst-ide` crate. We
+// disallow common panics in this file using these lints, and we provide an
+// alternative to panicking with the `AstNode::placeholder()` method.
+#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
+
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
 
 use ecow::EcoString;
+use typst_utils::NonZeroExt;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
@@ -100,6 +107,13 @@ pub trait AstNode<'a>: Sized {
     fn span(self) -> Span {
         self.to_untyped().span()
     }
+
+    /// A placeholder for this node type. If the underlying CST did not come
+    /// from the parser, the AST is not guaranteed to be valid. But instead of
+    /// panicking in that case, we return these placeholder nodes.
+    ///
+    /// These _must not_ be relied upon during AST traversal.
+    fn placeholder() -> Self;
 }
 
 // A generic interface for converting untyped nodes into typed AST nodes.
@@ -125,13 +139,13 @@ impl SyntaxNode {
     }
 
     /// Get the first child of AST type `T` or a placeholder if none.
-    fn cast_first<'a, T: AstNode<'a> + Default>(&'a self) -> T {
-        self.try_cast_first().unwrap_or_default()
+    fn cast_first<'a, T: AstNode<'a>>(&'a self) -> T {
+        self.try_cast_first().unwrap_or(T::placeholder())
     }
 
     /// Get the last child of AST type `T` or a placeholder if none.
-    fn cast_last<'a, T: AstNode<'a> + Default>(&'a self) -> T {
-        self.try_cast_last().unwrap_or_default()
+    fn cast_last<'a, T: AstNode<'a>>(&'a self) -> T {
+        self.try_cast_last().unwrap_or(T::placeholder())
     }
 }
 
@@ -170,11 +184,9 @@ macro_rules! node {
             fn to_untyped(self) -> &'a SyntaxNode {
                 self.0
             }
-        }
 
-        impl Default for $name<'_> {
             #[inline]
-            fn default() -> Self {
+            fn placeholder() -> Self {
                 static PLACEHOLDER: SyntaxNode
                     = SyntaxNode::placeholder(SyntaxKind::$name);
                 Self(&PLACEHOLDER)
@@ -500,6 +512,10 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::FuncReturn(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::None(None::placeholder())
+    }
 }
 
 impl Expr<'_> {
@@ -549,12 +565,6 @@ impl Expr<'_> {
                 | Self::Numeric(_)
                 | Self::Str(_)
         )
-    }
-}
-
-impl Default for Expr<'_> {
-    fn default() -> Self {
-        Expr::None(None::default())
     }
 }
 
@@ -785,7 +795,7 @@ impl<'a> Heading<'a> {
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)
             .and_then(|node| node.len().try_into().ok())
-            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .unwrap_or(NonZeroUsize::ONE)
     }
 }
 
@@ -895,7 +905,7 @@ impl<'a> MathText<'a> {
     /// Return the underlying text.
     pub fn get(self) -> MathTextKind<'a> {
         let text = self.0.text();
-        if text.chars().next().unwrap().is_numeric() {
+        if text.chars().next().unwrap_or_default().is_numeric() {
             // Numbers are potentially grouped as multiple characters. This is
             // done in `Lexer::math_text()`.
             MathTextKind::Number(text)
@@ -1388,6 +1398,10 @@ impl<'a> AstNode<'a> for ArrayItem<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Expr::placeholder())
+    }
 }
 
 node! {
@@ -1429,6 +1443,10 @@ impl<'a> AstNode<'a> for DictItem<'a> {
             Self::Keyed(v) => v.to_untyped(),
             Self::Spread(v) => v.to_untyped(),
         }
+    }
+
+    fn placeholder() -> Self {
+        Self::Spread(Spread::placeholder())
     }
 }
 
@@ -1841,6 +1859,10 @@ impl<'a> AstNode<'a> for Arg<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Expr::placeholder())
+    }
 }
 
 node! {
@@ -1906,6 +1928,10 @@ impl<'a> AstNode<'a> for Param<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Pattern::placeholder())
+    }
 }
 
 /// The kind of a pattern.
@@ -1939,6 +1965,10 @@ impl<'a> AstNode<'a> for Pattern<'a> {
             Self::Destructuring(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Normal(Expr::placeholder())
+    }
 }
 
 impl<'a> Pattern<'a> {
@@ -1950,12 +1980,6 @@ impl<'a> Pattern<'a> {
             Self::Destructuring(v) => v.bindings(),
             _ => vec![],
         }
-    }
-}
-
-impl Default for Pattern<'_> {
-    fn default() -> Self {
-        Self::Normal(Expr::default())
     }
 }
 
@@ -2016,6 +2040,10 @@ impl<'a> AstNode<'a> for DestructuringItem<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pattern(Pattern::placeholder())
+    }
 }
 
 node! {
@@ -2047,7 +2075,7 @@ impl<'a> LetBinding<'a> {
     pub fn kind(self) -> LetBindingKind<'a> {
         match self.0.cast_first() {
             Pattern::Normal(Expr::Closure(closure)) => {
-                LetBindingKind::Closure(closure.name().unwrap_or_default())
+                LetBindingKind::Closure(closure.name().unwrap_or(Ident::placeholder()))
             }
             pattern => LetBindingKind::Normal(pattern),
         }
@@ -2157,7 +2185,7 @@ impl<'a> Conditional<'a> {
             .children()
             .filter_map(SyntaxNode::cast)
             .nth(1)
-            .unwrap_or_default()
+            .unwrap_or(Expr::placeholder())
     }
 
     /// The expression to evaluate if the condition is false.
@@ -2200,7 +2228,7 @@ impl<'a> ForLoop<'a> {
             .children()
             .skip_while(|&c| c.kind() != SyntaxKind::In)
             .find_map(SyntaxNode::cast)
-            .unwrap_or_default()
+            .unwrap_or(Expr::placeholder())
     }
 
     /// The expression to evaluate for each iteration.
@@ -2428,7 +2456,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_expr_default() {
-        assert!(Expr::default().to_untyped().cast::<Expr>().is_some());
+    fn test_expr_placeholder() {
+        assert!(Expr::placeholder().to_untyped().cast::<Expr>().is_some());
     }
 }
