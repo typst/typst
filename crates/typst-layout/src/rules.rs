@@ -123,18 +123,14 @@ const EMPH_RULE: ShowFn<EmphElem> =
 const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
     let tight = elem.tight.get(styles);
 
-    let mut realized = BlockElem::multi_layouter(elem.clone(), crate::lists::layout_list)
-        .pack()
-        .spanned(elem.span());
-
-    if tight {
-        let spacing = elem
-            .spacing
-            .get(styles)
-            .unwrap_or_else(|| styles.get(ParElem::leading));
-        let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
-        realized = v + realized;
+    let realized = if tight {
+        BlockElem::multi_layouter(elem.clone(), crate::lists::layout_list)
+            .with_inlinable(true)
+    } else {
+        BlockElem::multi_layouter(elem.clone(), crate::lists::layout_list)
     }
+    .pack()
+    .spanned(elem.span());
 
     Ok(realized)
 };
@@ -142,18 +138,14 @@ const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
 const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
     let tight = elem.tight.get(styles);
 
-    let mut realized = BlockElem::multi_layouter(elem.clone(), crate::lists::layout_enum)
-        .pack()
-        .spanned(elem.span());
-
-    if tight {
-        let spacing = elem
-            .spacing
-            .get(styles)
-            .unwrap_or_else(|| styles.get(ParElem::leading));
-        let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
-        realized = v + realized;
+    let realized = if tight {
+        BlockElem::multi_layouter(elem.clone(), crate::lists::layout_enum)
+            .with_inlinable(true)
+    } else {
+        BlockElem::multi_layouter(elem.clone(), crate::lists::layout_enum)
     }
+    .pack()
+    .spanned(elem.span());
 
     Ok(realized)
 };

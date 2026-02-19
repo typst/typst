@@ -181,7 +181,7 @@ cd6b2f932b98dd72b23ac6b855e64da9 enum-numbering-pattern
 dcbd9066852184b35f55ca7368de808c enum-numbering-reversed-overridden
 119f74cb6d50f26d5029e3b4fb48e702 enum-par
 4dceb0a7d6b01ad950dd2ab4de474494 enum-syntax-at-start
-feaacf6adc7f48bc41901059d0d34485 enum-syntax-edge-cases
+94baec107e4f6165e95587a19d893778 enum-syntax-edge-cases
 29926d5b0e8d4ff06474a071e1e68d11 enum-syntax-number-length
 9866faacb8c42521a4c3529ca068be9b escape
 77e2b9f472b674143636c6126f482bc5 eval-in-show-rule
@@ -900,7 +900,7 @@ e1966175253dd3d55d9d96c5b61aae1d link-to-page
 6311de52c00a1258c1ea1d0102db4a4e link-trailing-period
 4e8b15e856ef5156f55354238f2b7be8 link-transformed
 3008d99d2521715eb5324c37892bb9ba list-attached
-89108d411959b9ba250d5cd7797c63d6 list-attached-above-spacing
+a413363cf3f6a6d806137ee39f18210c list-attached-above-spacing
 75285984737fc39bd85bd9908397cc53 list-basic
 21dcb583fffecc4e354c61be78890ceb list-content-block
 b6fe869a8e9c238876d59c60a3cbfa32 list-indent-specifics
@@ -911,15 +911,15 @@ c503d4bc274a57d91e1d467a24485719 list-items-context
 695687734ad5021faa147b9240fe5e33 list-marker-closure
 ef5d2316513a1da8e589ee518776e8b8 list-marker-cycle
 259d59146c9df464f055492c5feaffda list-marker-dash
-9ca2af133663bf0cab6ae9ff20939de4 list-mix
+d25b3d728862843ae5948426d1f2ac07 list-mix
 4d82c2ef123c102d911770d06dd2b097 list-mixed-tabs-and-spaces
 033581b45f8ed053aed80e1575ebc8fa list-nested
 0ec555ce2d7b9e0788279a23b08aa488 list-non-attached-followed-by-attached
 54a076929e4f89ca04b6bdec23fe12bc list-par
 300c0849724da119b1eb21bd04db7021 list-rtl
-587649d9ca124b5ff2f7a753b3c06359 list-syntax-edge-cases
+04964a6db17f6e91d947f151650a94a6 list-syntax-edge-cases
 da1983b03ffa1ea3e32d60c5a9bf1070 list-tabs
-79f47cf87371669e399c6308e8916b20 list-tight-non-attached-tight
+d94a58c870c698f8473ceb9fa4d443cd list-tight-non-attached-tight
 9c680001e3685482ee75dc1eb99596e0 list-top-level-indent
 98858e690546f2fd27420ae360c0ea2b list-wide-cannot-attach
 6e8b77c77b34fbf90678f42947488300 list-wide-really-cannot-attach
@@ -1468,7 +1468,7 @@ fcd52d1b71ab674946d9981f349787a8 repeat-unboxed
 4d3889ee5e74165cf26ac42b79b532bf script-metrics-bundled-fonts
 6c82db4e3b9abc82d995c9ae12cd96df set-if
 9433e7cda0995e33f1f1711df6abdc59 set-instantiation-site
-a4b5164a6808db2f73e481876b1544d6 set-instantiation-site-markup
+0eef45ba45dff3518cc6ca135de3a823 set-instantiation-site-markup
 1bfce206f1b6fc86705dadd81ffee55c set-scoped-in-code-block
 e1e1a755deb3e853e715659670b5ef8e set-shadowed-builtin-with-std
 d5f4a00c1b99fdd6cb54bbef28274a85 set-text-override
