@@ -232,13 +232,13 @@ impl<'a> Runner<'a> {
                 if error {
                     log!(
                         self,
-                        "[{}] test produced empty content",
+                        "[{}] test errored in the [eval] stage",
                         self.test.attrs.implied_stages()
                     );
                 } else {
                     log!(
                         self,
-                        "[{}] test errored in the [eval] stage",
+                        "[{}] test produced empty content",
                         self.test.attrs.implied_stages()
                     );
                 }
