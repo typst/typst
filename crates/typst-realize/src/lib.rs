@@ -137,6 +137,14 @@ struct Grouping<'a> {
     /// interrupted, but not yet finished because it may be ignored due to being
     /// fully inline.
     interrupted: bool,
+    /// Only applies to `PAR` grouping: Whether this paragraph group was started
+    /// by a single inlinable block.
+    ///
+    /// A tentative group becomes a real paragraph when a second trigger element
+    /// is added. If the group finishes while still tentative, its elements
+    /// remain in the sink as standalone block-level elements rather than
+    /// forming a paragraph.
+    tentative: bool,
     /// The rule used for this grouping.
     rule: &'a GroupingRule,
 }
@@ -643,8 +651,9 @@ fn visit_styled<'a>(
         visit(s, PagebreakElem::shared_weak(), outer.chain(relevant))?;
     }
 
-    // TODO: need to somehow ensure that the `AlignElem` styles don't interrupt
-    // the paragraph grouping. There's probably a better way to do this.
+    // Show-set styles from an inlinable block's show rule are internal to the
+    // block and should not interrupt the surrounding paragraph grouping. E.g.
+    // `AlignElem` from `#show math.equation: set align(left)`.
     let is_inlinable_block = is_inlinable_block(content);
     if !is_inlinable_block {
         finish_interrupted(s, local)?;
@@ -682,9 +691,14 @@ fn visit_grouping_rules<'a>(
         }
 
         // If the element can be added to the active grouping, do it.
-        if !active.interrupted
-            && ((active.rule.trigger)(content, s) || (active.rule.inner)(content))
-        {
+        let triggered = (active.rule.trigger)(content, s);
+        if !active.interrupted && (triggered || (active.rule.inner)(content)) {
+            // Turn a tentative PAR group into a real paragraph if a second
+            // trigger is added.
+            if active.tentative && triggered {
+                s.groupings.last_mut().unwrap().tentative = false;
+            }
+
             s.sink.push((content, styles));
             return Ok(true);
         }
@@ -705,7 +719,9 @@ fn visit_grouping_rules<'a>(
     // Start a new grouping.
     if let Some(rule) = matching {
         let start = s.sink.len();
-        s.groupings.push(Grouping { start, rule, interrupted: false });
+        let tentative = std::ptr::eq(*rule, &PAR) && is_inlinable_block(content);
+        s.groupings
+            .push(Grouping { start, rule, interrupted: false, tentative });
         s.sink.push((content, styles));
         return Ok(true);
     }
@@ -815,7 +831,7 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
+    let Grouping { mut start, rule, tentative, .. } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
@@ -885,8 +901,11 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
         s.sink.truncate(k);
     }
 
-    // Execute the grouping's finisher rule.
-    (rule.finish)(Grouped { s, start })?;
+    // Execute the grouping's finisher rule, unless this is a tentative PAR
+    // grouping so that a paragraph isn't formed.
+    if !tentative {
+        (rule.finish)(Grouped { s, start })?;
+    }
 
     // Visit the tags and staged elements again.
     for &(content, styles) in tags.iter().chain(&tail) {
@@ -1042,12 +1061,27 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
         s.sink.extend(elems);
     }
 
+    // If textual content is added to a tentative PAR group, that becomes a
+    // second trigger and should turn it into a real paragraph.
+    if s.sink[start..].iter().any(|(c, _)| (PAR.trigger)(c, s))
+        && s.groupings.last().is_some_and(|grouping| {
+            std::ptr::eq(grouping.rule, &PAR) && grouping.tentative
+        })
+    {
+        s.groupings.last_mut().unwrap().tentative = false;
+    }
+
     // Now, there are only two options:
     // 1. We are already in a paragraph group. In this case, the elements just
     //    transparently become part of it.
     // 2. There is no group at all. In this case, we create one.
     if s.groupings.is_empty() && s.rules.iter().any(|&rule| std::ptr::eq(rule, &PAR)) {
-        s.groupings.push(Grouping { start, rule: &PAR, interrupted: false });
+        s.groupings.push(Grouping {
+            start,
+            rule: &PAR,
+            interrupted: false,
+            tentative: false,
+        });
     }
 
     Ok(())
@@ -1061,8 +1095,7 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 }
 
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
-/// spans the whole sink (with the exception of leading tags). Inlinable
-/// `BlockElem` are not considered inline content as they require flow layout.
+/// spans the whole sink (with the exception of leading tags).
 fn is_fully_inline(s: &State) -> bool {
     s.kind.is_fragment()
         && !s.saw_parbreak
@@ -1070,6 +1103,8 @@ fn is_fully_inline(s: &State) -> bool {
             [grouping] => {
                 std::ptr::eq(grouping.rule, &PAR)
                     && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
+                    // Inlinable `BlockElem`s are not considered inline content
+                    // as they require flow layout.
                     && !s.sink[grouping.start..]
                         .iter()
                         .any(|(c, _)| is_inlinable_block(c))
@@ -1082,8 +1117,8 @@ fn is_fully_inline(s: &State) -> bool {
 fn is_inlinable_block(content: &Content) -> bool {
     content
         .to_packed::<BlockElem>()
-        // TODO: is this okay? Could there be a problem with user show rules
-        // being missed?
+        // We don't need the style chain here as `inlinable` is internal and
+        // only set in explicit constructions by built-in show rules.
         .is_some_and(|b| b.inlinable.as_option().is_some_and(|x| x))
 }
 
@@ -1095,27 +1130,6 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
 
     // Collect the children.
     let elems = grouped.get();
-
-    // TODO: need to somehow abort the paragraph grouping if there's only a
-    // single inlinable `BlockElem` (and its tags). Again, there's probably a
-    // better way to do this using the existing finish grouping stuff, but I
-    // don't understand the code here well enough.
-    // TODO: this check will trigger if there are multiple inlinable
-    // `BlockElem`s, not just one. I think the desired behavior is that
-    // multiple inlinable `BlockElem`s together should form a paragraph.
-    let has_inlinable_content = elems.iter().any(|(c, _)| {
-        let elem = c.elem();
-        !is_inlinable_block(c) && elem != TagElem::ELEM
-    });
-    if !has_inlinable_content {
-        let elements: Vec<_> = elems.to_vec();
-        let s = grouped.end();
-        for (content, styles) in elements {
-            s.sink.push((content, styles));
-        }
-        return Ok(());
-    }
-
     let span = select_span(elems);
     let (body, trunk) = repack(elems);
 

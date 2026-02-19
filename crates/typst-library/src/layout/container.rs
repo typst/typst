@@ -364,8 +364,10 @@ pub struct BlockElem {
     #[default(false)]
     pub sticky: bool,
 
-    // TODO: add documentation.
+    /// Whether this block can be inline when next to other inline content.
+    #[internal]
     #[default(false)]
+    #[parse(None)]
     pub inlinable: bool,
 
     /// The contents of the block.
