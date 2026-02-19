@@ -19,7 +19,7 @@ a435ca208442488e4e2aabe6e6099ba0 disable-tags-artifact
 5d6260377cd49d4dea5f6e9657c23990 disable-tags-hide
 3aac7b296f56f38b0fcc052600ee7f4e disable-tags-partially-hidden-list
 43634e3eaf8b049944de5d91b422d4f4 disable-tags-tiling
-859ace8e2c8a260057c11b2977712425 enum-number-override-nested
+aaab758cc657c785de78510d2271b714 enum-number-override-nested
 e3af0bddd6bcdbad33943109d3c79fcb figure-basic
 cb9571403237411f8d62aa142f1f5c80 figure-tags-additional-caption-inside-body
 33b17e86c8121a1a5694dbaf9c68927a figure-tags-alt-with-different-lang
@@ -49,9 +49,9 @@ b32143e1f765df4cde0fec032eeca669 issue-7301-link-tags-empty-link-body-footnote
 f5f3604f1588538567ec71405654998a issue-7301-link-tags-empty-link-body-linebreak
 375c458d2f076f603c2d001d9ff5bbb8 issue-7301-link-tags-empty-link-body-mutliple
 5ab61f7e0ec959263cf94e8a7c2c2740 issue-7763-text-tags-span-order
-4c9538b1955e189fda33054d5f5fc50a issue-7789-list-tags-breaking
+a59058b7d939a703d47384dfcaac63f0 issue-7789-list-tags-breaking
 a82a398895d6aa9fbf754e9bccf1fc73 lang-tags-pars-basic
-1d4724e9204407592d0ed20eeb376b51 lang-tags-propagation
+56b99843646bb8d27d7db4b63402bb4b lang-tags-propagation
 f3dffe7d5f7f86d4ac3d7a2f181602f0 layout-tags-placement-float
 cae4c2653cf68f0c43c1619afea2c424 link-basic
 5c6b8b980f727c417326686acb7f854c link-tags-contact-prefix
@@ -60,11 +60,11 @@ cae4c2653cf68f0c43c1619afea2c424 link-basic
 1cd0843343eaeee4d8429b29e04e298f link-tags-non-refable-location
 ceff1a5f851fa3bc1763a37a2931dcce link-tags-position
 a63593f98e18612ca4f9ac1515f6833c link-tags-with-parbreak
-dd6f6d1616f554e4bb45d72c1c052e85 list-indent-specifics
-2f655c732fc9108e54a10124a5ed5601 list-tags-basic
-fe67736787b7eb37e04cf339da1731c1 list-tags-complex-item-with-nested-list
-fe67736787b7eb37e04cf339da1731c1 list-tags-complex-item-with-sub-list
-ff356c7af0780d552107b88e2f984172 list-tags-mixed-with-enum
+3ab0ff60a0baedd322de38e634dc5ea8 list-indent-specifics
+0200e0d9c08cd6b3edea744d1901f86a list-tags-basic
+e9f3fa771b680de520a6e9db18909765 list-tags-complex-item-with-nested-list
+e9f3fa771b680de520a6e9db18909765 list-tags-complex-item-with-sub-list
+2b786f71d1f1c4b29efabd75386e7463 list-tags-mixed-with-enum
 58d9c8a2ae8e199c8c9a20b108a7e6d7 list-tags-terms-basic
 bd3f383ceb0ca09b57748d22b8164e35 list-tags-terms-basic-wide
 2e5ebc216ba8626cea9ecd551ecbbc01 list-tags-terms-body-with-parbreak
