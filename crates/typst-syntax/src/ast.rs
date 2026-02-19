@@ -100,6 +100,13 @@ pub trait AstNode<'a>: Sized {
     fn span(self) -> Span {
         self.to_untyped().span()
     }
+
+    /// A placeholder for this node type. If the underlying CST did not come
+    /// from the parser, the AST is not guaranteed to be valid, but instead of
+    /// panicking, we return these placeholder nodes.
+    ///
+    /// These _must not_ be relied upon during AST traversal.
+    fn placeholder() -> Self;
 }
 
 // A generic interface for converting untyped nodes into typed AST nodes.
@@ -125,13 +132,13 @@ impl SyntaxNode {
     }
 
     /// Get the first child of AST type `T` or a placeholder if none.
-    fn cast_first<'a, T: AstNode<'a> + Default>(&'a self) -> T {
-        self.try_cast_first().unwrap_or_default()
+    fn cast_first<'a, T: AstNode<'a>>(&'a self) -> T {
+        self.try_cast_first().unwrap_or(T::placeholder())
     }
 
     /// Get the last child of AST type `T` or a placeholder if none.
-    fn cast_last<'a, T: AstNode<'a> + Default>(&'a self) -> T {
-        self.try_cast_last().unwrap_or_default()
+    fn cast_last<'a, T: AstNode<'a>>(&'a self) -> T {
+        self.try_cast_last().unwrap_or(T::placeholder())
     }
 }
 
@@ -170,11 +177,9 @@ macro_rules! node {
             fn to_untyped(self) -> &'a SyntaxNode {
                 self.0
             }
-        }
 
-        impl Default for $name<'_> {
             #[inline]
-            fn default() -> Self {
+            fn placeholder() -> Self {
                 static PLACEHOLDER: SyntaxNode
                     = SyntaxNode::placeholder(SyntaxKind::$name);
                 Self(&PLACEHOLDER)
@@ -500,6 +505,10 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::FuncReturn(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::None(None::placeholder())
+    }
 }
 
 impl Expr<'_> {
@@ -549,12 +558,6 @@ impl Expr<'_> {
                 | Self::Numeric(_)
                 | Self::Str(_)
         )
-    }
-}
-
-impl Default for Expr<'_> {
-    fn default() -> Self {
-        Expr::None(None::default())
     }
 }
 
@@ -895,7 +898,7 @@ impl<'a> MathText<'a> {
     /// Return the underlying text.
     pub fn get(self) -> MathTextKind<'a> {
         let text = self.0.text();
-        if text.chars().next().unwrap().is_numeric() {
+        if text.chars().next().unwrap_or_default().is_numeric() {
             // Numbers are potentially grouped as multiple characters. This is
             // done in `Lexer::math_text()`.
             MathTextKind::Number(text)
@@ -1388,6 +1391,10 @@ impl<'a> AstNode<'a> for ArrayItem<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Expr::placeholder())
+    }
 }
 
 node! {
@@ -1429,6 +1436,10 @@ impl<'a> AstNode<'a> for DictItem<'a> {
             Self::Keyed(v) => v.to_untyped(),
             Self::Spread(v) => v.to_untyped(),
         }
+    }
+
+    fn placeholder() -> Self {
+        Self::Spread(Spread::placeholder())
     }
 }
 
@@ -1841,6 +1852,10 @@ impl<'a> AstNode<'a> for Arg<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Expr::placeholder())
+    }
 }
 
 node! {
@@ -1906,6 +1921,10 @@ impl<'a> AstNode<'a> for Param<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pos(Pattern::placeholder())
+    }
 }
 
 /// The kind of a pattern.
@@ -1939,6 +1958,10 @@ impl<'a> AstNode<'a> for Pattern<'a> {
             Self::Destructuring(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Normal(Expr::placeholder())
+    }
 }
 
 impl<'a> Pattern<'a> {
@@ -1950,12 +1973,6 @@ impl<'a> Pattern<'a> {
             Self::Destructuring(v) => v.bindings(),
             _ => vec![],
         }
-    }
-}
-
-impl Default for Pattern<'_> {
-    fn default() -> Self {
-        Self::Normal(Expr::default())
     }
 }
 
@@ -2016,6 +2033,10 @@ impl<'a> AstNode<'a> for DestructuringItem<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+
+    fn placeholder() -> Self {
+        Self::Pattern(Pattern::placeholder())
+    }
 }
 
 node! {
@@ -2047,7 +2068,7 @@ impl<'a> LetBinding<'a> {
     pub fn kind(self) -> LetBindingKind<'a> {
         match self.0.cast_first() {
             Pattern::Normal(Expr::Closure(closure)) => {
-                LetBindingKind::Closure(closure.name().unwrap_or_default())
+                LetBindingKind::Closure(closure.name().unwrap_or(Ident::placeholder()))
             }
             pattern => LetBindingKind::Normal(pattern),
         }
@@ -2157,7 +2178,7 @@ impl<'a> Conditional<'a> {
             .children()
             .filter_map(SyntaxNode::cast)
             .nth(1)
-            .unwrap_or_default()
+            .unwrap_or(Expr::placeholder())
     }
 
     /// The expression to evaluate if the condition is false.
@@ -2200,7 +2221,7 @@ impl<'a> ForLoop<'a> {
             .children()
             .skip_while(|&c| c.kind() != SyntaxKind::In)
             .find_map(SyntaxNode::cast)
-            .unwrap_or_default()
+            .unwrap_or(Expr::placeholder())
     }
 
     /// The expression to evaluate for each iteration.
@@ -2428,7 +2449,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_expr_default() {
-        assert!(Expr::default().to_untyped().cast::<Expr>().is_some());
+    fn test_expr_placeholder() {
+        assert!(Expr::placeholder().to_untyped().cast::<Expr>().is_some());
     }
 }
