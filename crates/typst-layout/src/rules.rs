@@ -811,6 +811,7 @@ const CURVE_RULE: ShowFn<CurveElem> = |elem, _, _| {
 const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
     if elem.block.get(styles) {
         Ok(BlockElem::multi_layouter(elem.clone(), crate::math::layout_equation_block)
+            .with_inlinable(true)
             .pack())
     } else {
         Ok(InlineElem::layouter(elem.clone(), crate::math::layout_equation_inline).pack())
