@@ -77,8 +77,8 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         errors: std::mem::take(&mut gc.tags.tree.errors),
     };
 
-    let mut children = Vec::with_capacity(root.nodes().len());
-    let mut accum = Accumulator::new(ElementKind::Grouping, &mut children);
+    let mut accum = Accumulator::root();
+    accum.reserve(root.nodes().len());
 
     for child in root.nodes().iter() {
         resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
@@ -88,7 +88,8 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         return Err(resolver.errors);
     }
 
-    accum.finish();
+    let children = accum.finish();
+
     Ok((doc_lang, TagTree::from(children)))
 }
 
@@ -120,7 +121,7 @@ fn resolve_group_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
     mut parent_bbox: &mut Option<BBoxCtx>,
-    accum: &mut Accumulator,
+    mut accum: &mut Accumulator,
     id: GroupId,
 ) {
     let group = rs.groups.get(id);
@@ -128,11 +129,15 @@ fn resolve_group_node(
     let tag = build_group_tag(rs, group);
     let mut lang = group.kind.lang().filter(|_| tag.is_some());
     let mut bbox = rs.ctx.bbox(&group.kind).cloned();
-    let mut nodes = Vec::new();
-    let mut children = {
-        let nesting = tag.as_ref().map(element_kind).unwrap_or(accum.nesting);
-        let buf = if tag.is_some() { &mut nodes } else { &mut accum.buf };
-        Accumulator::new(nesting, buf)
+
+    // If this group doesn't produce a tag, don't create a nested accumulator
+    // and push the children directly into the parent.
+    let mut nested_children = None;
+    let children = if let Some(tag) = &tag {
+        let nesting = element_kind(tag);
+        nested_children.insert(accum.nest(nesting))
+    } else {
+        &mut accum
     };
 
     // If a tag has an alternative description specified, flatten the children
@@ -151,9 +156,9 @@ fn resolve_group_node(
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
-            children.buf.reserve(group.nodes().len());
+            children.reserve(group.nodes().len());
             for child in group.nodes().iter() {
-                resolve_node(rs, lang, bbox, &mut children, child);
+                resolve_node(rs, lang, bbox, children, child);
             }
         }
     });
@@ -166,16 +171,17 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
-    children.finish();
+    // If this isn't a tagged group the children have already been inserted
+    // directly into the parent
+    let Some((mut tag, nested_children)) = tag.zip(nested_children) else {
+        return;
+    };
 
     // Omit the weak group if it is empty.
+    let nodes = nested_children.finish();
     if group.weak && nodes.is_empty() {
         return;
     }
-
-    // If this isn't a tagged group the children we're directly inserted into
-    // the parent.
-    let Some(mut tag) = tag else { return };
 
     tag.set_lang(lang.map(|l| l.rfc_3066().to_string()));
     if let Some(bbox) = bbox {
