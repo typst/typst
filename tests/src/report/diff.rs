@@ -5,6 +5,7 @@ use base64::Engine;
 use ecow::EcoString;
 use similar::{ChangeTag, InlineChange, TextDiff};
 use smallvec::SmallVec;
+use typst_utils::display;
 
 use crate::collect::TestOutput;
 use crate::output::HashedRef;
@@ -14,7 +15,7 @@ pub struct ReportFile {
     pub output: TestOutput,
     pub left: Option<File>,
     pub right: Option<File>,
-    pub diffs: SmallVec<[DiffKind; 2]>,
+    pub diffs: SmallVec<[Diff; 2]>,
 }
 
 impl ReportFile {
@@ -22,7 +23,7 @@ impl ReportFile {
         output: TestOutput,
         old: Option<File>,
         new: Option<File>,
-        diffs: impl IntoIterator<Item = DiffKind>,
+        diffs: impl IntoIterator<Item = Diff>,
     ) -> Self {
         Self {
             output,
@@ -41,24 +42,41 @@ pub struct File {
 }
 
 /// A text or image diff.
-pub enum DiffKind {
+pub enum Diff {
     Text(FileDiff<Lines>),
     Image(FileDiff<Image>),
+    Html(FileDiff<Html>),
 }
 
-impl DiffKind {
+impl Diff {
     pub fn missing_old(&self) -> Option<HashedRef> {
         match self {
-            DiffKind::Text(diff) => diff.left().and_then(|old| old.missing()),
-            DiffKind::Image(diff) => diff.left().and_then(|old| old.missing()),
+            Diff::Text(diff) => diff.left().and_then(|old| old.missing()),
+            Diff::Image(diff) => diff.left().and_then(|old| old.missing()),
+            Diff::Html(diff) => diff.left().and_then(|old| old.missing()),
         }
     }
 
-    pub fn kind_str(&self) -> &'static str {
+    pub fn mode(&self) -> DiffMode {
         match self {
-            DiffKind::Text(_) => "text",
-            DiffKind::Image(_) => "image",
+            Diff::Text(_) => DiffMode::Text,
+            Diff::Image(_) | Diff::Html(_) => DiffMode::Visual,
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum DiffMode {
+    Text,
+    Visual,
+}
+
+impl Display for DiffMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            DiffMode::Text => "text",
+            DiffMode::Visual => "visual",
+        })
     }
 }
 
@@ -308,15 +326,36 @@ pub fn image_diff(
     b: Result<&[u8], ()>,
     format: &str,
 ) -> FileDiff<Image> {
-    let image = |bytes| Image::new(data_url(format, bytes));
+    let image = |bytes| {
+        let mime = display!("image/{format}");
+        Image::new(data_url(mime, bytes))
+    };
     match (a, b) {
         (Some(a), b) => FileDiff::Diff(a.map(image), b.map(image)),
         (None, b) => FileDiff::Right(b.map(image)),
     }
 }
 
-fn data_url(format: &str, data: &[u8]) -> String {
-    let mut data_url = format!("data:image/{format};base64,");
+pub struct Html {
+    pub data_url: String,
+}
+
+impl Html {
+    pub fn new(data_url: String) -> Self {
+        Self { data_url }
+    }
+}
+
+pub fn html_diff(a: Option<Old<&[u8]>>, b: Result<&[u8], ()>) -> FileDiff<Html> {
+    let html = |bytes| Html::new(data_url("text/html", bytes));
+    match (a, b) {
+        (Some(a), b) => FileDiff::Diff(a.map(html), b.map(html)),
+        (None, b) => FileDiff::Right(b.map(html)),
+    }
+}
+
+fn data_url(mime: impl Display, data: &[u8]) -> String {
+    let mut data_url = format!("data:{mime};base64,");
     base64::engine::general_purpose::STANDARD.encode_string(data, &mut data_url);
     data_url
 }

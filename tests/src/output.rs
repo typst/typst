@@ -21,7 +21,7 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
 use crate::collect::{Test, TestOutput, TestTarget};
-use crate::report::{DiffKind, File, Old, ReportFile};
+use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
 
 pub trait TestDocument: Document {
@@ -286,7 +286,7 @@ impl OutputType for Pdf {
             svg_buf_b = pdf_to_svg(bytes);
             svg_buf_b.as_bytes()
         });
-        let diffs = [DiffKind::Image(report::image_diff(svg_a, svg_b, "svg+xml"))];
+        let diffs = [Diff::Image(report::image_diff(svg_a, svg_b, "svg+xml"))];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -465,8 +465,7 @@ impl OutputType for Html {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> ReportFile {
-        // TODO: HTML preview in iframe.
-        let diffs = [text_diff(a, b)];
+        let diffs = [html_diff(a, b), text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -481,27 +480,33 @@ impl FileOutputType for Html {
     }
 }
 
+fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
+    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
+    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
+    Diff::Text(report::text_diff(a, b))
+}
+
 fn image_diff(
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
     format: &str,
-) -> DiffKind {
+) -> Diff {
     let a = a.map(|(_, old)| old);
     let b = b.map(|(_, bytes)| bytes);
-    DiffKind::Image(report::image_diff(a, b, format))
+    Diff::Image(report::image_diff(a, b, format))
 }
 
-fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> DiffKind {
-    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
-    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
-    DiffKind::Text(report::text_diff(a, b))
+fn html_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
+    let a = a.map(|(_, old)| old);
+    let b = b.map(|(_, bytes)| bytes);
+    Diff::Html(report::html_diff(a, b))
 }
 
 fn file_report(
     output: TestOutput,
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
-    diffs: impl IntoIterator<Item = DiffKind>,
+    diffs: impl IntoIterator<Item = Diff>,
 ) -> ReportFile {
     let old = a.map(|(path, old)| File {
         path: eco_format!("{}", path.display()),

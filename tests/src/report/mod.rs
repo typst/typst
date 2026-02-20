@@ -16,7 +16,7 @@
 mod diff;
 mod html;
 
-pub use self::diff::{DiffKind, File, Old, ReportFile, image_diff, text_diff};
+pub use self::diff::{Diff, File, Old, ReportFile, html_diff, image_diff, text_diff};
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -54,7 +54,7 @@ pub fn write(mut reports: Vec<TestReport>) -> Result<bool, ()> {
     let mut missing_live = (reports.iter())
         .flat_map(|report| std::iter::repeat(&report.name).zip(report.files.iter()))
         .filter_map(|(name, file)| {
-            let hash_ref = file.diffs.iter().find_map(DiffKind::missing_old)?;
+            let hash_ref = file.diffs.iter().find_map(Diff::missing_old)?;
             Some(((name.as_str(), file.output), hash_ref))
         })
         .collect::<IndexMap<_, _, FxBuildHasher>>();
