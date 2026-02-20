@@ -147,8 +147,8 @@ c36d138b30a0d8b02676e70e5072ef6b curve-fill-rule
 4ca29f3ec4ae2de09168ee33cbdc200c curve-move-single
 e7af866fa2c601617dd5c4d7d56172bb curve-multiple-non-closed
 922f182125d50e551511cb56d81e4397 curve-quad-mirror
-651f7c13cf98dd6d214bb10484c03215 curve-stroke-gradient
-e4cb4187a7ffb5a8e7f3cdd2595b95d9 curve-stroke-gradient-sharp
+02b09c23b730dd95d91200b4c6028ee1 curve-stroke-gradient
+d2a84fa39321a7917bfb6240158f7fd9 curve-stroke-gradient-sharp
 5fceb8f0adf23bf3656c479ba0818d9b decimal-display
 89bc5763db531cc778e48ff0073255d3 decimal-display-round
 28b487f5bdae455056d3b7fa51b46eb2 destructuring-during-loop-continue
@@ -258,11 +258,15 @@ f38946f81545e14637ce17fc103fcbfd gradient-conic-hsv
 34458ceace8e961fb87b5631abbce6fb gradient-conic-relative-self
 803f09b53ede42214b587d9f5f09da6f gradient-conic-stroke
 ee36bc09f4601770c79f5b3159c0a56c gradient-conic-text
+ddf5f3ef86679dcd8a7030f7e6e1ce6a gradient-curve-stroke
+a90b143c9a93a17b30a88f65317d6145 gradient-curve-stroke-quad
 89f1810ced465d3a34f30e9bea2d536d gradient-fill-and-stroke
+935061b1a439cfdc844f6e446794056f gradient-line-cap
+ddf5f3ef86679dcd8a7030f7e6e1ce6a gradient-line-stroke
 c6a37961c74a922c18df9fcc750732fc gradient-linear-angled
 01f9fe61fa34faf10c5ecf3fdfc0a063 gradient-linear-hsl
 99635cc21bd2ef71b115bc1207287f7b gradient-linear-hsv
-e05c50d1b54237d4a7a9de033c731fef gradient-linear-line
+0dfe784b0cce72a83afaf624eacc7057 gradient-linear-line
 62705e2a2073f7143308583cb0027c00 gradient-linear-oklab
 d8af6422949e2ac1abb74938623d58de gradient-linear-oklch
 b87e6f201a8e396b4940cc55f62f3402 gradient-linear-relative-parent
@@ -666,7 +670,7 @@ f2815183d2a36cc0e3671dc2cabdb321 issue-2902-gradient-oklch-panic
 4713c691f624bbb441e38395a1898ddb issue-3191-raw-justify
 9f2c6da573af2705edc59f7fe191297c issue-3191-raw-normal-paragraphs-still-shrink
 efa2e641038c885c2bbdbbc67cb101a1 issue-3232-dict-empty
-8f06bd1a282dadcfc4daef3a5990d493 issue-3264-rect-negative-dimensions
+5947b0b8c0b4c7c80ddf5a8f2b10c894 issue-3264-rect-negative-dimensions
 654899b10fa2c4268f0e13b14309c920 issue-3355-metadata-weak-spacing
 249c492a349382bdfe24e01485d538d4 issue-3363-json-large-number
 32d15ea999a998e97f28b804fe056286 issue-3481-cite-location
@@ -747,6 +751,7 @@ f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
+f710eb5e47e56189edaa0a6aff1e84b0 issue-5705-gradient-border-stroke
 b7fa7f5a5ef1fcdc0acaffec5d6b35ef issue-5719-enum-nested
 a1a4c1ba094a741cb00677a6a6975083 issue-5719-heading-nested
 b0f751c80c588d891f3172c008db4401 issue-5719-list-nested
@@ -758,6 +763,7 @@ b8d74ba232642396a1952273d2295524 issue-5723-grid-heading-numbering
 4d951b1907258e18359d5c186bed1127 issue-5930-symbol-label
 560cea9c10b192a718fee88624a974c5 issue-5940-text-negative-size-panic
 0feaf17125fd54917355888342459d97 issue-6062-justify-cjk-latin-spacing
+78f2c136c915a43297c717f44aeb3509 issue-6068-curve-stroke-gradient
 f8915e29d04b075620b2d6ff30b19c65 issue-6090-math-overhang
 1da011c9de357c5b57ff4bfa8f00aee9 issue-6125-block-place-width-limited
 06874c31d6fa6a67834b5ceac8c804dd issue-6162-coincident-gradient-stops-export-png
@@ -770,7 +776,7 @@ c68b85f1ab752fc70fd6fbb3ff2e2af0 issue-6304-block-skip-label
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-colspan-set-rule
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-rowspan-set-rule
 db9d75f95fe99ca9af1188aa1eaed27a issue-6539-cjk-latin-spacing-at-manual-linebreak
-bff0c456e7a07e4a44e4d56cbe74ec6b issue-6597-gradient-angle-negative-size
+9c12b2b382543f7bddba44891a6e07dd issue-6597-gradient-angle-negative-size
 52209b822378a74e51c6a522c1fbde42 issue-6666-auto-hlines-around-footer
 22f6610970f2b29e5f643f1df1e1ad7d issue-6666-auto-hlines-around-header
 dd1b2542502857d847bf215e24f6136d issue-6680-gradient-linear-with-aspect-correction

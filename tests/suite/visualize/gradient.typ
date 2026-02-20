@@ -716,3 +716,107 @@ $ A = mat(
 #grid(columns: 12, ..for i in range(-24,24){(
   rect(width: 3mm, height: 3mm, fill: gradient.linear(yellow, black, angle: i * 15deg).sharp(3)),
 )})
+
+--- gradient-line-stroke paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        line(length: 36pt, angle: i*30deg, stroke: g + 10pt)
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-curve-stroke paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        curve(
+          curve.line((36pt * calc.cos(i*30deg), 36pt * calc.sin(i*30deg))),
+          stroke: g + 10pt,
+        )
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-curve-stroke-quad paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        curve(
+          curve.quad((18pt * calc.cos((i+1)*30deg), 18pt * calc.sin((i+1)*30deg)), (36pt * calc.cos(i*30deg), 36pt * calc.sin(i*30deg))),
+          stroke: g + 10pt,
+        )
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-line-cap paged ---
+// Test that line caps are taken into account for gradient fills.
+#for cap in ("square", "butt", "round"){
+  box(line(length: 10pt, stroke: (
+    thickness: 20pt,
+    paint: gradient.radial(blue, orange).sharp(4),
+    cap: cap
+  )), width: 30pt)
+}
+
+--- issue-6068-curve-stroke-gradient paged ---
+#let stroke = gradient.linear(blue, red).sharp(2)
+#line(start: (0pt, 0pt), end: (100pt, 0pt), stroke: stroke)
+#curve(curve.line((100pt, 0pt)), stroke: stroke)
+#curve(curve.quad(none, (100pt, 0pt)), stroke: stroke)
+#curve(
+  curve.quad(none, (100pt, 0pt)),
+  curve.quad(none, (100pt, 10pt)),
+  stroke: stroke
+)
+#line(start: (10pt, 0pt), end: (90pt, 0pt), stroke: stroke)
+#curve(
+  curve.move((10pt, 0pt)),
+  curve.quad(none, (90pt, 0pt)),
+  curve.quad(none, (90pt, 10pt)),
+  stroke: stroke
+)
+
+--- issue-5705-gradient-border-stroke paged ---
+#rect(
+  width: 100pt,
+  height: 100pt,
+  radius: 20pt,
+  stroke: (
+    top: gradient.linear(green, black, yellow, angle: 90deg) + 20pt,
+    right: gradient.linear(green, black, yellow, angle: 180deg) + 20pt,
+    bottom: gradient.linear(green, black, yellow, angle: 270deg) + 20pt,
+    left: gradient.linear(green, black, yellow, angle: 0deg) + 20pt,
+  )
+)
