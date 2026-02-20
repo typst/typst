@@ -6,6 +6,7 @@ use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
+use typst_utils::Numeric;
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -60,20 +61,20 @@ impl SVGRenderer<'_> {
             (offset, shape_size) =
                 shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref());
             // avoid mirroring gradient if line angle results in negative sizes
-            if shape_size.x.signum() < 0.0 {
+            if shape_size.x < Abs::zero() {
                 offset.x += shape_size.x;
                 shape_size.x = shape_size.x.abs();
             }
-            if shape_size.y.signum() < 0.0 {
+            if shape_size.y < Abs::zero() {
                 offset.y += shape_size.y;
                 shape_size.y = shape_size.y.abs();
             }
         }
 
-        if shape_size.x.to_pt() == 0.0 {
+        if shape_size.x.is_zero() {
             shape_size.x = Abs::pt(1.0);
         }
-        if shape_size.y.to_pt() == 0.0 {
+        if shape_size.y.is_zero() {
             shape_size.y = Abs::pt(1.0);
         }
 

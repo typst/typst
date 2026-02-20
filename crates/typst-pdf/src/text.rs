@@ -34,12 +34,8 @@ pub(crate) fn handle_text(
         fc.state(),
         None,
     )?;
-    let stroke = if let Some(stroke) = t
-        .stroke
-        .as_ref()
-        .map(|s| paint::convert_stroke(gc, s, true, surface, fc.state(), None))
-    {
-        Some(stroke?)
+    let stroke = if let Some(stroke) = t.stroke.as_ref() {
+        Some(paint::convert_stroke(gc, stroke, true, surface, fc.state(), None)?)
     } else {
         None
     };

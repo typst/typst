@@ -76,11 +76,11 @@ fn convert_paint(
         if matches!(s.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
             (offset, size) = s.geometry.bbox_size_with_stroke(s.stroke.as_ref());
             // avoid mirroring gradient if line angle results in negative sizes
-            if size.x.signum() < 0.0 {
+            if size.x < Abs::zero() {
                 offset.x += size.x;
                 size.x = size.x.abs();
             }
-            if size.y.signum() < 0.0 {
+            if size.y < Abs::zero() {
                 offset.y += size.y;
                 size.y = size.y.abs();
             }

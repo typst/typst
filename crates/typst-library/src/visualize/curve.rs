@@ -1,4 +1,4 @@
-use kurbo::Shape;
+use kurbo::Shape as _;
 use typst_macros::{Cast, scope};
 use typst_utils::Numeric;
 
@@ -523,7 +523,7 @@ impl Curve {
     /// When this curve is stroked with `stroke`, would the stroke contain
     /// `point`?
     pub fn stroke_contains(&self, stroke: &FixedStroke, needle: Point) -> bool {
-        Shape::contains(&self.to_kurbo_stroke(stroke), point_to_kurbo(needle))
+        kurbo::Shape::contains(&self.to_kurbo_stroke(stroke), point_to_kurbo(needle))
     }
 
     fn to_kurbo_stroke(&self, stroke: &FixedStroke) -> kurbo::BezPath {
