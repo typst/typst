@@ -11,7 +11,7 @@ $mat() dot
  mat(1, 2; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
---- math-mat-sparse paged ---
+--- math-mat-sparse paged html ---
 // Test sparse matrix.
 $ mat(
   1, 2, ..., 10;
