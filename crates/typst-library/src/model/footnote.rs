@@ -14,7 +14,7 @@ use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
+use crate::model::{DirectLinkElem, Numbering, NumberingKind, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -89,6 +89,8 @@ pub struct FootnoteElem {
 impl FootnoteElem {
     #[elem]
     type FootnoteEntry;
+    #[elem]
+    type FootnoteGroup;
 }
 
 impl LocalName for Packed<FootnoteElem> {
@@ -177,6 +179,87 @@ impl Count for Packed<FootnoteElem> {
     }
 }
 
+/// A group of footnotes.
+///
+/// This is automatically created from adjacent footnotes during show rule
+/// application.
+#[elem(name = "group", title = "Footnote Group", Locatable)]
+pub struct FootnoteGroup {
+    /// The separator between the footnote markers in the text.
+    ///
+    /// It is `{auto}` by default, and the separator depends on the footnote
+    /// [numbering pattern or function]($numbering). If set to `{none}`,
+    /// there's no separator.
+    ///
+    /// ```example
+    /// #set footnote.group(separator: "&")
+    ///
+    /// The coldest winter is the summer in San Francisco
+    /// #footnote[Referring to the city's characteristic summer fog.]
+    /// #footnote[This quip is often misattributed to Mark Twain.].
+    /// ```
+    #[default(Smart::Auto)]
+    pub separator: Smart<Option<Content>>,
+
+    /// The footnotes.
+    #[required]
+    pub children: Vec<Packed<FootnoteElem>>,
+}
+
+impl FootnoteGroup {
+    pub fn alt_text(styles: StyleChain, nums: Vec<&str>) -> EcoString {
+        let local_name = Packed::<FootnoteElem>::local_name_in(styles);
+        eco_format!("{local_name} {}", nums.join(","))
+    }
+
+    pub fn get_separator(
+        &self,
+        numbering: Numbering,
+        styles: StyleChain,
+    ) -> Option<Content> {
+        if let Smart::Custom(sep) = self.separator.get_cloned(styles) {
+            return sep;
+        }
+
+        match numbering {
+            // The most sensible default since a Func can be arbitrary
+            // and we don't presume to guess.
+            Numbering::Func(_) => None,
+            Numbering::Pattern(pattern) => match pattern {
+                // If a footnote marker's either end is normal text
+                // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
+                // to add a separator.
+                NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
+                NumberingPattern { pieces, .. } => match pieces.as_slice() {
+                    [(prefix, ..), ..] if !prefix.is_empty() => None,
+                    [.., (.., kind)] => match kind {
+                        NumberingKind::LowerSimplifiedChinese
+                        | NumberingKind::UpperSimplifiedChinese
+                        | NumberingKind::LowerTraditionalChinese
+                        | NumberingKind::UpperTraditionalChinese
+                        | NumberingKind::HiraganaAiueo
+                        | NumberingKind::HiraganaIroha
+                        | NumberingKind::KatakanaAiueo
+                        | NumberingKind::KatakanaIroha => Some(TextElem::packed("、")),
+                        NumberingKind::KoreanJamo | NumberingKind::KoreanSyllable => {
+                            Some(TextElem::packed("·"))
+                        }
+                        NumberingKind::EasternArabic
+                        | NumberingKind::EasternArabicPersian => {
+                            Some(TextElem::packed("،"))
+                        }
+                        NumberingKind::Symbol => Some(TextElem::packed(" ")),
+                        NumberingKind::CircledNumber
+                        | NumberingKind::DoubleCircledNumber => None,
+                        _ => Some(TextElem::packed(",")),
+                    },
+                    _ => None,
+                },
+            },
+        }
+    }
+}
+
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -205,7 +288,7 @@ cast! {
 ///
 /// My footnote listing
 /// #footnote[It's down here]
-/// has red text!
+/// has red Some(TextElem::packed
 /// ```
 ///
 /// _Note:_ Footnote entry properties must be uniform across each page run (a
