@@ -228,13 +228,10 @@ impl Eval for ast::Array<'_> {
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
 
-        // We raise an error when one of the array items is
-        // the spread of a dictionary. If _all_ of the array
-        // items are spreads of dictionaries, the user probably
-        // wanted to write `(: ..dict_a, ..dict_b)` instead to
-        // create a dictionary, not an array. In this case we
-        // provide a hint to that effect. This boolean is to
-        // track whether we should emit that hint.
+        // We raise an error when one of the array items is the spread of a
+        // dictionary. If _all_ of the array items are spreads of dictionaries,
+        // the user probably wanted to write `(: ..dict_a, ..dict_b)` instead
+        // to create a dictionary, not an array.
         let mut items_seen_are_spread_dicts = true;
 
         while let Some(item) = items.next() {
