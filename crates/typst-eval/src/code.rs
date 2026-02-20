@@ -224,15 +224,45 @@ impl Eval for ast::Array<'_> {
     type Output = Array;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let items = self.items();
+        let mut items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
-        for item in items {
+
+        // We raise an error when one of the array items is the spread of a
+        // dictionary. If _all_ of the array items are spreads of dictionaries,
+        // the user probably wanted to write `(: ..dict_a, ..dict_b)` instead
+        // to create a dictionary, not an array.
+        let mut items_seen_are_spread_dicts = true;
+
+        while let Some(item) = items.next() {
             match item {
-                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Pos(expr) => {
+                    items_seen_are_spread_dicts = false;
+                    vec.push(expr.eval(vm)?)
+                }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Array(array) => vec.extend(array.into_iter()),
+                    Value::Array(array) => {
+                        items_seen_are_spread_dicts = false;
+                        vec.extend(array.into_iter())
+                    }
+                    v @ Value::Dict(_)
+                        if items_seen_are_spread_dicts
+                        // Lookahead to see whether remaining items are spreads
+                        // of dicts
+                        && items.all(|it| {
+                            let ast::ArrayItem::Spread(spd) = it else {
+                                return false;
+                            };
+                            spd.expr()
+                                .eval(vm)
+                                .is_ok_and(|spd| matches!(spd, Value::Dict(_)))
+                        }) =>
+                    {
+                        bail!(spread.span(), "cannot spread {} into array",
+                            v.ty();
+                        hint: "add a colon to create a dictionary instead `(: ..dict)`")
+                    }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
