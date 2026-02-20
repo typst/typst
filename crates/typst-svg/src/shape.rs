@@ -54,11 +54,12 @@ impl SVGRenderer<'_> {
         paint: &Paint,
         shape: &Shape,
     ) -> Transform {
-        let mut bbox = Rect::from_pos_size(Point::zero(), shape.geometry.bbox_size());
-        // Edge cases for strokes.
-        if matches!(shape.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
-            bbox = shape.geometry.bbox(shape.stroke.as_ref());
-        }
+        let mut bbox = if matches!(shape.geometry, Geometry::Rect(..)) {
+            // Special handling for fill of rectangles (mirrors gradients for negative sizes)
+            Rect::from_pos_size(Point::zero(), shape.geometry.bbox_size())
+        } else {
+            shape.geometry.bbox(shape.stroke.as_ref())
+        };
 
         if bbox.size().x.is_zero() {
             bbox.max.x = bbox.min.x + Abs::pt(1.0);

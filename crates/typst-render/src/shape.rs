@@ -67,20 +67,19 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
         // Don't draw zero-pt stroke.
         if width > 0.0 {
             let dash = dash.as_ref().and_then(to_sk_dash_pattern);
-
-            let bbox_without_stroke = shape.geometry.bbox_size();
             let bbox = shape.geometry.bbox(shape.stroke.as_ref());
             let fill_transform =
                 sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
             let gradient_map = match shape.geometry {
-                Geometry::Line(_) | Geometry::Curve(_) => None,
-                _ => Some((
+                // Special handling for fill of rectangles (mirrors gradients for negative sizes)
+                Geometry::Rect(rect) => Some((
                     bbox.min * state.pixel_per_pt as f64,
                     Axes::new(
-                        Ratio::new(bbox.size().x / bbox_without_stroke.x),
-                        Ratio::new(bbox.size().y / bbox_without_stroke.y),
+                        Ratio::new(bbox.size().x / rect.x),
+                        Ratio::new(bbox.size().y / rect.y),
                     ),
                 )),
+                _ => None,
             };
 
             let mut pixmap = None;

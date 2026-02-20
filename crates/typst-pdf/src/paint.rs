@@ -67,15 +67,17 @@ fn convert_paint(
     state: &State,
     shape: Option<&Shape>,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    let mut bbox = Rect::from_pos_size(Point::zero(), Size::zero());
-    if let Some(s) = shape {
-        bbox.max = bbox.min + s.geometry.bbox_size().to_point();
-
-        // Edge cases for strokes.
-        if matches!(s.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
-            bbox = s.geometry.bbox(s.stroke.as_ref());
+    let mut bbox = if let Some(s) = shape {
+        match s.geometry {
+            Geometry::Line(_) | Geometry::Curve(_) => s.geometry.bbox(s.stroke.as_ref()),
+            // Special handling for fill of rectangles (mirrors gradients for negative sizes)
+            Geometry::Rect(_) => {
+                Rect::from_pos_size(Point::zero(), s.geometry.bbox_size())
+            }
         }
-    }
+    } else {
+        Rect::from_pos_size(Point::zero(), Size::zero())
+    };
 
     if bbox.size().x.is_zero() {
         bbox.max.x = bbox.min.x + Abs::pt(1.0);
