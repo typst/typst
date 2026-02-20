@@ -421,7 +421,8 @@ impl Geometry {
         }
     }
 
-    /// The bounding box of the geometry.
+    /// The bounding box size of the geometry
+    /// Unlike bbox, this may be negative!
     pub fn bbox_size(&self) -> Size {
         match self {
             Self::Line(line) => Size::new(line.x, line.y),
