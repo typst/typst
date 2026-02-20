@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use ecow::EcoVec;
-use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
+use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
@@ -12,9 +12,12 @@ use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
+use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
+
+mod accumulator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TagNode {
@@ -340,72 +343,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     }
 
     Some(tag)
-}
-
-struct Accumulator<'a> {
-    nesting: ElementKind,
-    buf: &'a mut Vec<Node>,
-    // Whether the last node is a `Span` used to wrap marked content sequences
-    // inside a grouping element. Groupings element may not contain marked
-    // content sequences directly.
-    grouping_span: Option<Vec<Node>>,
-}
-
-impl std::ops::Drop for Accumulator<'_> {
-    fn drop(&mut self) {
-        self.push_grouping_span();
-    }
-}
-
-impl<'a> Accumulator<'a> {
-    fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, grouping_span: None }
-    }
-
-    fn push_buf(&mut self, node: Node) {
-        self.buf.push(node);
-    }
-
-    fn push_grouping_span(&mut self) {
-        if let Some(span_nodes) = self.grouping_span.take() {
-            let tag = Tag::Span.with_placement(Some(kt::Placement::Block));
-            let group = TagGroup::with_children(tag, span_nodes);
-            self.push_buf(group.into());
-        }
-    }
-
-    fn push(&mut self, mut node: Node) {
-        if self.nesting == ElementKind::Grouping {
-            match &mut node {
-                Node::Group(group) => {
-                    self.push_grouping_span();
-
-                    // Ensure ILSE have block placement when inside grouping elements.
-                    if element_kind(&group.tag) == ElementKind::Inline {
-                        group.tag.set_placement(Some(kt::Placement::Block));
-                    }
-
-                    self.push_buf(node);
-                }
-                Node::Leaf(_) => {
-                    let span_nodes = self.grouping_span.get_or_insert_default();
-                    span_nodes.push(node);
-                }
-            }
-        } else {
-            self.push_buf(node);
-        }
-    }
-
-    fn extend(&mut self, nodes: impl ExactSizeIterator<Item = Node>) {
-        self.buf.reserve(nodes.len());
-        for node in nodes {
-            self.push(node);
-        }
-    }
-
-    // Postfix drop.
-    fn finish(self) {}
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
