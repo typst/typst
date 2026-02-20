@@ -6,7 +6,7 @@ use typst_library::layout::{Abs, Axis, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, TextItem};
 use typst_library::math::{EquationElem, MathSize, style_dtls, style_flac};
 use typst_library::text::{
-    BottomEdge, BottomEdgeMetric, Font, TextElem, TopEdge, TopEdgeMetric,
+    BottomEdge, BottomEdgeMetric, Font, Overhang, TextElem, TopEdge, TopEdgeMetric,
 };
 use typst_syntax::{Span, is_newline};
 use typst_utils::Get;
@@ -83,7 +83,7 @@ fn layout_inline_text(
         let local = [
             TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
             TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-            TextElem::overhang.set(false),
+            TextElem::overhang.set(Overhang::DISABLED),
         ]
         .map(|p| p.wrap());
 
