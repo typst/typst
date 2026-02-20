@@ -61,6 +61,12 @@ impl Html {
         write!(self.buf, r#" {name}="{val}""#).ok();
     }
 
+    fn write_bool_attr(&mut self, name: &str) {
+        assert!(self.in_attribute_list);
+
+        write!(self.buf, r" {name}").ok();
+    }
+
     fn write_text(&mut self, text: impl Display) {
         if self.in_attribute_list {
             self.buf.push('>');
@@ -206,6 +212,13 @@ impl<'a> HtmlElem<'a> {
         self
     }
 
+    fn bool_attr(&mut self, name: &str, val: bool) -> &mut Self {
+        if val {
+            self.html.write_bool_attr(name);
+        }
+        self
+    }
+
     fn text(&mut self, text: impl Display) -> &mut Self {
         self.html.write_text(text);
         self
@@ -264,11 +277,11 @@ macro_rules! attr_methods {
     };
 }
 
-macro_rules! flag_attr_methods {
+macro_rules! bool_attr_methods {
     ($(fn $name:ident();)+) => {
         $(
             fn $name(&mut self, $name: bool) -> &mut Self {
-                self.opt_attr(stringify!($name), $name.then_some(stringify!($name)))
+                self.bool_attr(stringify!($name), $name)
             }
         )+
     };
@@ -331,10 +344,11 @@ impl HtmlElem<'_> {
         fn tabindex(i32);
     }
 
-    flag_attr_methods! {
+    bool_attr_methods! {
         fn disabled();
         fn checked();
         fn hidden();
+        fn sandbox();
     }
 
     fn type_(&mut self, ty: &str) -> &mut Self {
@@ -1215,6 +1229,7 @@ fn html_diff(parent: &mut HtmlElem, diff: &FileDiff<diff::Html>) {
             .iframe()
             .class("html-frame")
             .src(data_url)
+            .sandbox(true) // Apply all restrictions to the sandbox.
             .opt_attr("style", data_url.is_empty().then_some("visibility: hidden"));
     };
 
