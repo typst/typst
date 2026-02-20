@@ -23,23 +23,7 @@ pub fn layout_radical(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    // Layout radicand.
-    let radicand = {
-        let multiline = item.radicand.is_multiline();
-        let radicand = ctx.layout_into_fragment(&item.radicand, styles)?;
-        if multiline {
-            // Align the frame center line with the math axis.
-            let (font, size) =
-                radicand.font(ctx, item.radicand.styles().unwrap_or(styles));
-            let axis = font.math().axis_height.at(size);
-            let mut radicand = radicand.into_frame();
-            radicand.set_baseline(radicand.height() / 2.0 + axis);
-            radicand
-        } else {
-            radicand.into_frame()
-        }
-    };
-
+    let radicand = ctx.layout_into_fragment(&item.radicand, styles)?.into_frame();
     let target = {
         let sqrt = ctx.layout_into_fragment(&item.sqrt, styles)?;
         let styles = item.sqrt.styles().unwrap_or(styles);
