@@ -6,21 +6,23 @@
   attrs: (:),
   children: (
     "\n  ",
-    (tag: "hello", attrs: (name: "hi"), children: ("1",)),
+    (tag: "hello", attrs: (name: "hi"), children: ("1",), namespace: none),
     "\n  ",
     (
       tag: "data",
       attrs: (:),
       children: (
         "\n    ",
-        (tag: "hello", attrs: (:), children: ("World",)),
+        (tag: "hello", attrs: (:), children: ("World",), namespace: none),
         "\n    ",
-        (tag: "hello", attrs: (:), children: ("World",)),
+        (tag: "hello", attrs: (:), children: ("World",), namespace: none),
         "\n  ",
       ),
+      namespace: none,
     ),
     "\n",
   ),
+  namespace: none,
 ),))
 
 // Test reading through path type.
