@@ -246,21 +246,22 @@ impl Eval for ast::Array<'_> {
                         items_seen_are_spread_dicts = false;
                         vec.extend(array.into_iter())
                     }
-                    v @ Value::Dict(_) if items_seen_are_spread_dicts => {
-                        // Lookahead to see whether remaining items
-                        // are spreads of dicts
-                        if items.all(|it| {
+                    v @ Value::Dict(_)
+                        if items_seen_are_spread_dicts
+                        // Lookahead to see whether remaining items are spreads
+                        // of dicts
+                        && items.all(|it| {
                             let ast::ArrayItem::Spread(spd) = it else {
                                 return false;
                             };
                             spd.expr()
                                 .eval(vm)
                                 .is_ok_and(|spd| matches!(spd, Value::Dict(_)))
-                        }) {
-                            bail!(spread.span(), "cannot spread {} into array", v.ty(); hint: "open container with `(:` to create a dictionary")
-                        } else {
-                            bail!(spread.span(), "cannot spread {} into array", v.ty())
-                        }
+                        }) =>
+                    {
+                        bail!(spread.span(), "cannot spread {} into array",
+                            v.ty();
+                        hint: "add a colon to create a dictionary instead `(: ..dict)`")
                     }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
