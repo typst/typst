@@ -61,7 +61,7 @@
   test((..(a: 1), b: 2), (a: 1, b: 2))
 }
 
---- spread-dicts-in-array-diagnostic paged ---
+--- spread-dicts-in-array-diagnostic eval ---
 #{
   let x = (a: 1)
   let y = (b: 2)
@@ -70,7 +70,7 @@
   (..x,..y)
 }
 
---- spread-single-dict-in-array-diagnostic paged ---
+--- spread-single-dict-in-array-diagnostic eval ---
 #{
   let x = (a: 1)
   // Error: 4-7 cannot spread dictionary into array
@@ -78,7 +78,7 @@
   (..x)
 }
 
---- spread-dict-and-array-in-array-diagnostic paged ---
+--- spread-dict-and-array-in-array-diagnostic eval ---
 // Here we should not emit a hint to use `(: <...>)` syntax
 // since the developer's intent is unclear
 #{
@@ -88,7 +88,7 @@
   (..x,..y)
 }
 
---- spread-dict-and-single-item paged ---
+--- spread-dict-and-single-item eval ---
 // Here we should not emit a hint to use `(: <...>)` syntax
 // since the developer's intent is unclear
 #{
