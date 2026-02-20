@@ -57,7 +57,7 @@ impl SVGRenderer<'_> {
         let mut bbox = Rect::from_pos_size(Point::zero(), shape.geometry.bbox_size());
         // Edge cases for strokes.
         if matches!(shape.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
-            bbox = shape.geometry.bbox_with_stroke(shape.stroke.as_ref());
+            bbox = shape.geometry.bbox(shape.stroke.as_ref());
         }
 
         if bbox.size().x.is_zero() {
@@ -92,8 +92,7 @@ impl SVGRenderer<'_> {
 
     /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
-        let mut shape_size =
-            shape.geometry.bbox_with_stroke(shape.stroke.as_ref()).size();
+        let mut shape_size = shape.geometry.bbox(shape.stroke.as_ref()).size();
         // Edge cases for strokes.
         if shape_size.x.is_zero() {
             shape_size.x = Abs::pt(1.0);

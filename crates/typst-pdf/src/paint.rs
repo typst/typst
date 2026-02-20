@@ -73,7 +73,7 @@ fn convert_paint(
 
         // Edge cases for strokes.
         if matches!(s.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
-            bbox = s.geometry.bbox_with_stroke(s.stroke.as_ref());
+            bbox = s.geometry.bbox(s.stroke.as_ref());
         }
     }
 

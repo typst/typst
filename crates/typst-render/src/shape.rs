@@ -69,7 +69,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox_without_stroke = shape.geometry.bbox_size();
-            let bbox = shape.geometry.bbox_with_stroke(shape.stroke.as_ref());
+            let bbox = shape.geometry.bbox(shape.stroke.as_ref());
             let fill_transform =
                 sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
             let gradient_map = match shape.geometry {
