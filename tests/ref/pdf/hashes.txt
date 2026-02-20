@@ -1417,10 +1417,10 @@ fafa67def504361bb4b1e3e53163297f raw-empty-lines
 ec444d9d04914cd2a58431bf9734d59c raw-highlight-html-jinja2
 b20717344d3216d3464852f84d36af8c raw-highlight-py
 b1ed49e96d2e03347c1bf4d0935e3c02 raw-highlight-rust
-587a9438f79e5e3c86e96fabfdd48bb0 raw-highlight-typ
+40f778f94dba573b76bf3b36c75f3680 raw-highlight-typ
 722c7a2667aad20c619602eb1b1e9db4 raw-highlight-typc
-bbf56feda8305a853ce2f76c95cb026b raw-highlight-typm
-b062433c419d7af48964aa47eaca118d raw-highlight-typm-extra
+fb90f93cde8b6cc30b34ba9ab28ec6d9 raw-highlight-typm
+e47531905840c384275967b0b3542c2d raw-highlight-typm-idents
 29ebe7afd0fb0f0b9aeebfb1b0ad6c31 raw-inline-multiline
 eecf0ee312fbbb0bea6bbb67a5362dfb raw-line
 6e59f685a58cd537467ead5c9defc926 raw-line-alternating-fill
