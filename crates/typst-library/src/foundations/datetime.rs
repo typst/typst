@@ -526,7 +526,13 @@ impl Add<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime + rhs),
-            Self::Date(date) => Self::Date(date + rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) + rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time + rhs),
         }
     }
@@ -539,7 +545,13 @@ impl Sub<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime - rhs),
-            Self::Date(date) => Self::Date(date - rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) - rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time - rhs),
         }
     }
