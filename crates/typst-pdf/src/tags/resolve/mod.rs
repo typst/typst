@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use ecow::EcoVec;
-use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
+use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
@@ -12,9 +12,12 @@ use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
+use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
+
+mod accumulator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TagNode {
@@ -74,8 +77,8 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         errors: std::mem::take(&mut gc.tags.tree.errors),
     };
 
-    let mut children = Vec::with_capacity(root.nodes().len());
-    let mut accum = Accumulator::new(ElementKind::Grouping, &mut children);
+    let mut accum = Accumulator::root();
+    accum.reserve(root.nodes().len());
 
     for child in root.nodes().iter() {
         resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
@@ -85,7 +88,8 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         return Err(resolver.errors);
     }
 
-    accum.finish();
+    let children = accum.finish();
+
     Ok((doc_lang, TagTree::from(children)))
 }
 
@@ -117,7 +121,7 @@ fn resolve_group_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
     mut parent_bbox: &mut Option<BBoxCtx>,
-    accum: &mut Accumulator,
+    mut accum: &mut Accumulator,
     id: GroupId,
 ) {
     let group = rs.groups.get(id);
@@ -125,11 +129,15 @@ fn resolve_group_node(
     let tag = build_group_tag(rs, group);
     let mut lang = group.kind.lang().filter(|_| tag.is_some());
     let mut bbox = rs.ctx.bbox(&group.kind).cloned();
-    let mut nodes = Vec::new();
-    let mut children = {
-        let nesting = tag.as_ref().map(element_kind).unwrap_or(accum.nesting);
-        let buf = if tag.is_some() { &mut nodes } else { &mut accum.buf };
-        Accumulator::new(nesting, buf)
+
+    // If this group doesn't produce a tag, don't create a nested accumulator
+    // and push the children directly into the parent.
+    let mut nested_children = None;
+    let children = if let Some(tag) = &tag {
+        let nesting = element_kind(tag);
+        nested_children.insert(accum.nest(nesting))
+    } else {
+        &mut accum
     };
 
     // If a tag has an alternative description specified, flatten the children
@@ -148,9 +156,9 @@ fn resolve_group_node(
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
-            children.buf.reserve(group.nodes().len());
+            children.reserve(group.nodes().len());
             for child in group.nodes().iter() {
-                resolve_node(rs, lang, bbox, &mut children, child);
+                resolve_node(rs, lang, bbox, children, child);
             }
         }
     });
@@ -163,16 +171,17 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
-    children.finish();
+    // If this isn't a tagged group the children have already been inserted
+    // directly into the parent
+    let Some((mut tag, nested_children)) = tag.zip(nested_children) else {
+        return;
+    };
 
     // Omit the weak group if it is empty.
+    let nodes = nested_children.finish();
     if group.weak && nodes.is_empty() {
         return;
     }
-
-    // If this isn't a tagged group the children we're directly inserted into
-    // the parent.
-    let Some(mut tag) = tag else { return };
 
     tag.set_lang(lang.map(|l| l.rfc_3066().to_string()));
     if let Some(bbox) = bbox {
@@ -340,72 +349,6 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     }
 
     Some(tag)
-}
-
-struct Accumulator<'a> {
-    nesting: ElementKind,
-    buf: &'a mut Vec<Node>,
-    // Whether the last node is a `Span` used to wrap marked content sequences
-    // inside a grouping element. Groupings element may not contain marked
-    // content sequences directly.
-    grouping_span: Option<Vec<Node>>,
-}
-
-impl std::ops::Drop for Accumulator<'_> {
-    fn drop(&mut self) {
-        self.push_grouping_span();
-    }
-}
-
-impl<'a> Accumulator<'a> {
-    fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
-        Self { nesting, buf, grouping_span: None }
-    }
-
-    fn push_buf(&mut self, node: Node) {
-        self.buf.push(node);
-    }
-
-    fn push_grouping_span(&mut self) {
-        if let Some(span_nodes) = self.grouping_span.take() {
-            let tag = Tag::Span.with_placement(Some(kt::Placement::Block));
-            let group = TagGroup::with_children(tag, span_nodes);
-            self.push_buf(group.into());
-        }
-    }
-
-    fn push(&mut self, mut node: Node) {
-        if self.nesting == ElementKind::Grouping {
-            match &mut node {
-                Node::Group(group) => {
-                    self.push_grouping_span();
-
-                    // Ensure ILSE have block placement when inside grouping elements.
-                    if element_kind(&group.tag) == ElementKind::Inline {
-                        group.tag.set_placement(Some(kt::Placement::Block));
-                    }
-
-                    self.push_buf(node);
-                }
-                Node::Leaf(_) => {
-                    let span_nodes = self.grouping_span.get_or_insert_default();
-                    span_nodes.push(node);
-                }
-            }
-        } else {
-            self.push_buf(node);
-        }
-    }
-
-    fn extend(&mut self, nodes: impl ExactSizeIterator<Item = Node>) {
-        self.buf.reserve(nodes.len());
-        for node in nodes {
-            self.push(node);
-        }
-    }
-
-    // Postfix drop.
-    fn finish(self) {}
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
