@@ -203,3 +203,14 @@ $ bracket.l(x, nope: "nope") $
 // The outline thing is just a roundabout way to force a cast from symbol to
 // function...
 #test(repr(outline(indent: sym.chevron.l.curly).indent), "(..) => ..")
+
+--- math-lr-multiline-trailing paged ---
+$ (a \ ) $
+
+--- math-lr-multiline paged ---
+$ 1 + (a/b + b \ = c) + 2 $
+$ abs(x + y & 1 & 2 & a + b \ 3 &&& 4, size: #200%) $
+
+--- math-lr-multiline-align paged ---
+$ (a & b \ c) $
+$ (a \ b & c) $

@@ -8,7 +8,7 @@ use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
 use typst_utils::Numeric;
 
 /// A list of CSS properties with values.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Properties(EcoString);
 
 impl Properties {
@@ -48,7 +48,8 @@ pub fn rel(rel: Rel) -> impl Display {
     })
 }
 
-pub fn length(length: Length) -> impl Display {
+pub fn length(length: impl Into<Length>) -> impl Display {
+    let length = length.into();
     typst_utils::display(move |f| match (length.abs.is_zero(), length.em.is_zero()) {
         (false, false) => {
             write!(f, "calc({}pt + {}em)", length.abs.to_pt(), length.em.get())

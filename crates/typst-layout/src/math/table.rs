@@ -1,15 +1,15 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Rel, Size};
-use typst_library::math::ir::{MathProperties, TableItem};
+use typst_library::math::ir::{MathItem, MathProperties, TableItem};
 use typst_library::math::{AugmentOffsets, style_for_denominator};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::MathContext;
-use super::fragment::{FrameFragment, GlyphFragment};
-use super::run::{AlignmentResult, MathFragmentsExt, alignments};
+use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
+use super::run::{measure_sub_columns, stack_sub_column_rows};
 
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
@@ -24,12 +24,6 @@ pub fn layout_table(
     let rows = &item.cells;
     let nrows = rows.len();
     let ncols = rows.first().map_or(0, |row| row.len());
-
-    // Transpose rows of the matrix into columns.
-    let mut row_iters: Vec<_> = rows.iter().map(|i| i.iter()).collect();
-    let columns: Vec<Vec<_>> = (0..ncols)
-        .map(|_| row_iters.iter_mut().map(|i| i.next().unwrap()).collect())
-        .collect();
 
     if ncols == 0 || nrows == 0 {
         ctx.push(FrameFragment::new(props, styles, Frame::soft(Size::zero())));
@@ -64,7 +58,8 @@ pub fn layout_table(
     // Before the full matrix body can be laid out, the
     // individual cells must first be independently laid out
     // so we can ensure alignment across rows and columns.
-    let mut cols = vec![vec![]; ncols];
+    let mut cols: Vec<Vec<CellLayout>> =
+        (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
 
     // This variable stores the maximum ascent and descent for each row.
     let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
@@ -78,14 +73,14 @@ pub fn layout_table(
         GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
             .unwrap();
 
-    for (column, col) in columns.iter().zip(&mut cols) {
-        for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {
-            let cell = ctx.layout_into_fragments(cell, styles)?;
+    for (r, row) in rows.iter().enumerate() {
+        for (c, cell) in row.iter().enumerate() {
+            let cell = layout_cell(cell, ctx, styles)?;
 
-            ascent.set_max(cell.ascent().max(paren.ascent()));
-            descent.set_max(cell.descent().max(paren.descent()));
+            heights[r].0.set_max(cell.dims.0.max(paren.ascent()));
+            heights[r].1.set_max(cell.dims.1.max(paren.descent()));
 
-            col.push(cell);
+            cols[c].push(cell);
         }
     }
 
@@ -128,28 +123,27 @@ pub fn layout_table(
     }
 
     for (index, col) in cols.into_iter().enumerate() {
-        let AlignmentResult { points, width: rcol } = alignments(&col);
+        let sub_widths = compute_sub_column_widths(&col);
+        let rows = col.into_iter().enumerate().map(|(row, cell_layout)| {
+            (cell_layout.sub_columns, cell_layout.dims, heights[row])
+        });
 
-        let mut y = if hline.0.contains(&0) { gap.y } else { Abs::zero() };
+        let builder = stack_sub_column_rows(
+            rows,
+            &sub_widths,
+            item.alternator,
+            item.align,
+            gap.y,
+            if hline.0.contains(&0) { gap.y } else { Abs::zero() },
+        );
 
-        for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_line_frame(&points, item.alternator);
-            let pos = Point::new(
-                if points.is_empty() {
-                    x + item.align.position(rcol - cell.width())
-                } else {
-                    x
-                },
-                y + ascent - cell.ascent(),
-            );
-
+        for (cell, mut pos) in builder.frames {
+            pos.x += x;
             frame.push_frame(pos, cell);
-
-            y += ascent + descent + gap.y;
         }
 
         // Advance to the end of the column
-        x += rcol;
+        x += builder.size.x;
 
         // If a vertical line should be inserted after this column
         if vline.0.contains(&(index as isize + 1)) {
@@ -189,6 +183,38 @@ pub fn layout_table(
 
     ctx.push(FrameFragment::new(props, styles, frame));
     Ok(())
+}
+
+struct CellLayout {
+    sub_columns: Vec<Vec<MathFragment>>,
+    dims: (Abs, Abs),
+}
+
+/// Layout one cell, split at alignment points into sub-columns.
+fn layout_cell(
+    cell: &[MathItem],
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) -> SourceResult<CellLayout> {
+    let mut sub_columns = Vec::with_capacity(cell.len());
+    for item in cell {
+        sub_columns.push(ctx.layout_into_fragments(item, styles)?);
+    }
+    let dims = measure_sub_columns(&sub_columns);
+    Ok(CellLayout { sub_columns, dims })
+}
+
+/// Compute max sub-column widths across a table column.
+fn compute_sub_column_widths(col: &[CellLayout]) -> Vec<Abs> {
+    let len = col.iter().map(|cell| cell.sub_columns.len()).max().unwrap_or(1);
+    let mut sub_widths = vec![Abs::zero(); len];
+    for cell in col {
+        for (i, sub_column) in cell.sub_columns.iter().enumerate() {
+            let width = sub_column.iter().map(|f| f.width()).sum();
+            sub_widths[i].set_max(width);
+        }
+    }
+    sub_widths
 }
 
 fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> FrameItem {

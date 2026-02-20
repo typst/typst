@@ -1,19 +1,16 @@
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Axis, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, TextItem};
 use typst_library::math::{EquationElem, MathSize, style_dtls, style_flac};
-use typst_library::text::{
-    BottomEdge, BottomEdgeMetric, Font, TextElem, TopEdge, TopEdgeMetric,
-};
-use typst_syntax::{Span, is_newline};
+use typst_library::text::{Font, TextElem};
 use typst_utils::Get;
 use unicode_math_class::MathClass;
 
 use super::MathContext;
-use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
+use super::fragment::{FrameFragment, GlyphFragment};
 use super::run::MathFragmentsExt;
 
 /// Lays out a [`TextItem`].
@@ -24,50 +21,9 @@ pub fn layout_text(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    let text = &item.text;
+    let text = item.text;
     let span = props.span;
-    let fragment = if text.contains(is_newline) {
-        layout_text_lines(text.split(is_newline), span, ctx, styles, props)?
-    } else {
-        layout_inline_text(text, span, ctx, styles, props)?
-    };
-    ctx.push(fragment);
-    Ok(())
-}
-
-/// Layout multiple lines of text.
-fn layout_text_lines<'a>(
-    lines: impl Iterator<Item = &'a str>,
-    span: Span,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-    props: &MathProperties,
-) -> SourceResult<FrameFragment> {
-    let mut fragments = vec![];
-    for (i, line) in lines.enumerate() {
-        if i != 0 {
-            fragments.push(MathFragment::Linebreak);
-        }
-        if !line.is_empty() {
-            fragments.push(layout_inline_text(line, span, ctx, styles, props)?.into());
-        }
-    }
-    let mut frame = fragments.into_frame(styles);
-    let axis = ctx.font().math().axis_height.resolve(styles);
-    frame.set_baseline(frame.height() / 2.0 + axis);
-    Ok(FrameFragment::new(props, styles, frame))
-}
-
-/// Layout the given text string into a [`FrameFragment`] after styling all
-/// characters for the math font (without auto-italics).
-fn layout_inline_text(
-    text: &str,
-    span: Span,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-    props: &MathProperties,
-) -> SourceResult<FrameFragment> {
-    if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
+    let frame = if item.num {
         // Small optimization for numbers. Note that this lays out slightly
         // differently to normal text and is worth re-evaluating in the future.
         let mut fragments = vec![];
@@ -77,24 +33,15 @@ fn layout_inline_text(
             let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
-        let frame = fragments.into_frame(styles);
-        Ok(FrameFragment::new(props, styles, frame).with_text_like(true))
+        fragments.into_frame()
     } else {
-        let local = [
-            TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
-            TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-            TextElem::overhang.set(false),
-        ]
-        .map(|p| p.wrap());
-
-        let styles = styles.chain(&local);
         let elem = TextElem::packed(text).spanned(span);
 
         // There isn't a natural width for a paragraph in a math environment;
         // because it will be placed somewhere probably not at the left margin
         // it will overflow. So emulate an `hbox` instead and allow the
         // paragraph to extend as far as needed.
-        let frame = crate::inline::layout_inline(
+        crate::inline::layout_inline(
             ctx.engine,
             &[(&elem, styles)],
             &mut ctx.locator.next(&span).split(),
@@ -102,10 +49,10 @@ fn layout_inline_text(
             Size::splat(Abs::inf()),
             false,
         )?
-        .into_frame();
-
-        Ok(FrameFragment::new(props, styles, frame).with_text_like(true))
-    }
+        .into_frame()
+    };
+    ctx.push(FrameFragment::new(props, styles, frame).with_text_like(true));
+    Ok(())
 }
 
 /// Layout a single character in the math font.

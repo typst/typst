@@ -1,6 +1,6 @@
 // Test roots.
 
---- math-root-basic paged ---
+--- math-root-basic paged html ---
 // Test root with more than one character.
 $A = sqrt(x + y) = c$
 
@@ -15,7 +15,7 @@ $ sqrt(a) quad
   sqrt(b^2) quad
   sqrt(q_1^2) $
 
---- math-root-precomposed paged ---
+--- math-root-precomposed paged html ---
 // Test precomposed vs constructed roots.
 // 3 and 4 are precomposed.
 $sqrt(x)$

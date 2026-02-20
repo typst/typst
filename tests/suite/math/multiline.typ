@@ -196,6 +196,9 @@ $ a + b $
 Shouldn't overflow:
 $ a + b $
 
+--- math-multiline-string paged ---
+$ "a\nb\n\n\n" "a\nb\n\n" "a\nb\n" "a\nb" $
+
 --- issue-5113-pagebreaking-empty paged empty ---
 // Test empty breakable equations.
 #show math.equation: set block(breakable: true)

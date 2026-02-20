@@ -2963,7 +2963,10 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.14.2"
-source = "git+https://github.com/typst/typst-assets?rev=57a38ca#57a38ca98236748ad83c806a48096b281686a7de"
+source = "git+https://github.com/mkorje/typst-assets?rev=f3ade61#f3ade61900182a82c9efe2b9cc0937139eb383bb"
+dependencies = [
+ "bitflags 2.9.1",
+]
 
 [[package]]
 name = "typst-cli"
@@ -3089,6 +3092,7 @@ dependencies = [
  "typst-syntax",
  "typst-timing",
  "typst-utils",
+ "unicode-math-class",
 ]
 
 [[package]]

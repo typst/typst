@@ -31,8 +31,6 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Frame(FrameFragment),
     Space(Abs),
-    Linebreak,
-    Align,
     Tag(Tag),
 }
 
@@ -100,21 +98,11 @@ impl MathFragment {
         }
     }
 
-    pub fn is_ignorant(&self) -> bool {
-        match self {
-            Self::Frame(fragment) => fragment.ignorant,
-            Self::Tag(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn class(&self) -> MathClass {
         match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Frame(fragment) => fragment.class,
             Self::Space(_) => MathClass::Space,
-            Self::Linebreak => MathClass::Space,
-            Self::Align => MathClass::Special,
             Self::Tag(_) => MathClass::Special,
         }
     }
@@ -501,7 +489,6 @@ pub struct FrameFragment {
     italics_correction: Abs,
     accent_attach: (Abs, Abs),
     text_like: bool,
-    ignorant: bool,
 }
 
 impl FrameFragment {
@@ -520,7 +507,6 @@ impl FrameFragment {
             italics_correction: Abs::zero(),
             accent_attach: (accent_attach, accent_attach),
             text_like: false,
-            ignorant: props.ignorant,
         }
     }
 

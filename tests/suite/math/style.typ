@@ -1,6 +1,6 @@
 // Test text styling in math.
 
---- math-style-italic-default paged ---
+--- math-style-italic-default paged html ---
 // Test italic defaults.
 $a, A, delta, ϵ, partial, Delta, ϴ$
 
@@ -55,7 +55,7 @@ $h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta)) \
 // Test a few greek exceptions.
 $bb(Gamma) , bb(gamma), bb(Pi), bb(pi), bb(sum)$
 
---- math-style-hebrew-exceptions paged ---
+--- math-style-hebrew-exceptions paged html ---
 // Test hebrew exceptions.
 $aleph, beth, gimel, daleth$ \
 $upright(aleph), upright(beth), upright(gimel), upright(daleth)$

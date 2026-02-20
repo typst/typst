@@ -11,7 +11,7 @@ $mat() dot
  mat(1, 2; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
---- math-mat-sparse paged ---
+--- math-mat-sparse paged html ---
 // Test sparse matrix.
 $ mat(
   1, 2, ..., 10;
@@ -262,6 +262,11 @@ $ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 // Warning: 20-29 linebreaks are ignored in cells
 // Hint: 20-29 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
+
+--- math-mat-linebreaks-trailing paged ---
+// Warning: 7-10 linebreaks are ignored in cells
+// Hint: 7-10 use commas instead to separate each line
+$ mat(a \ ) $
 
 --- math-mat-vec-cases-unity paged ---
 // Test that matrices, vectors, and cases are all laid out the same.
