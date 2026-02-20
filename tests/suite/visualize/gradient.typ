@@ -780,6 +780,16 @@ $ A = mat(
   test(gradient.conic(..color.map.spectral).sharp(12)),
 )
 
+--- gradient-line-cap paged ---
+// Test that line caps are taken into account for gradient fills.
+#for cap in ("square", "butt", "round"){
+  box(line(length: 10pt, stroke: (
+    thickness: 20pt,
+    paint: gradient.radial(blue, orange).sharp(4),
+    cap: cap
+  )), width: 30pt)
+}
+
 --- issue-6068-curve-stroke-gradient paged ---
 #let stroke = gradient.linear(blue, red).sharp(2)
 #line(start: (0pt, 0pt), end: (100pt, 0pt), stroke: stroke)

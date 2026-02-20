@@ -261,6 +261,7 @@ ec07b72a1b374308fe58f87c6b2d800e gradient-conic-relative-self
 a13dac8757c1695cecd937b289670593 gradient-curve-stroke
 118d128b9c58f4860b57b4dddb7048ca gradient-curve-stroke-quad
 77241bb987f1ae9f1b3e5148ecbe6ec9 gradient-fill-and-stroke
+8d5a34c731a71df9c568309c8a55d93d gradient-line-cap
 03337be61584e9900db190fb4dce879c gradient-line-stroke
 fb26ede30bbebf76a288188c27a2bb70 gradient-linear-angled
 db0989426b5200e53a76f71de2f91bb7 gradient-linear-hsl

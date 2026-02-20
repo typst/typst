@@ -1,7 +1,7 @@
 use crate::foundations::{Cast, Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
-use typst_library::layout::Angle;
+use kurbo::{PathEl, Shape as _};
 
 /// A rectangle with optional content.
 ///
@@ -431,14 +431,27 @@ impl Geometry {
         let bbox = self.bbox_size();
         let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
         match self {
-            Self::Line(line) => {
-                let a = Angle::atan2(line.y.to_raw(), line.x.to_raw());
-                let padding = Size::new(
-                    line.x.signum() * stroke_width * 0.5 * a.sin().abs(),
-                    line.y.signum() * stroke_width * 0.5 * a.cos().abs(),
-                );
-                (-padding.to_point(), bbox + 2.0 * padding)
-            }
+            Self::Line(line) => stroke.map_or((Point::zero(), bbox), |stroke| {
+                let cap = match stroke.cap {
+                    super::LineCap::Butt => kurbo::Cap::Butt,
+                    super::LineCap::Round => kurbo::Cap::Round,
+                    super::LineCap::Square => kurbo::Cap::Square,
+                };
+                let style = kurbo::Stroke::new(stroke_width.to_raw()).with_caps(cap);
+                let opts = kurbo::StrokeOpts::default();
+                let tolerance = 0.01;
+                let bbox = kurbo::stroke(
+                    [PathEl::LineTo(kurbo::Point::new(line.x.to_raw(), line.y.to_raw()))],
+                    &style,
+                    &opts,
+                    tolerance,
+                )
+                .bounding_box();
+                (
+                    Point::new(Abs::raw(bbox.x0), Abs::raw(bbox.y0)),
+                    Size::new(Abs::raw(bbox.width()), Abs::raw(bbox.height())),
+                )
+            }),
             Self::Rect(rect) => (
                 Point::new(-stroke_width, -stroke_width),
                 Size::new(

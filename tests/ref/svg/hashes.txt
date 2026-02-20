@@ -261,7 +261,8 @@ ee36bc09f4601770c79f5b3159c0a56c gradient-conic-text
 ddf5f3ef86679dcd8a7030f7e6e1ce6a gradient-curve-stroke
 a90b143c9a93a17b30a88f65317d6145 gradient-curve-stroke-quad
 89f1810ced465d3a34f30e9bea2d536d gradient-fill-and-stroke
-0684594a3ca600501fc398cb93182be5 gradient-line-stroke
+935061b1a439cfdc844f6e446794056f gradient-line-cap
+ddf5f3ef86679dcd8a7030f7e6e1ce6a gradient-line-stroke
 c6a37961c74a922c18df9fcc750732fc gradient-linear-angled
 01f9fe61fa34faf10c5ecf3fdfc0a063 gradient-linear-hsl
 99635cc21bd2ef71b115bc1207287f7b gradient-linear-hsv
