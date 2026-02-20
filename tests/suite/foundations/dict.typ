@@ -62,21 +62,19 @@
 }
 
 --- spread-dicts-in-array-diagnostic paged ---
-
 #{
   let x = (a: 1)
   let y = (b: 2)
   // Error: 4-7 cannot spread dictionary into array
-  // Hint: 4-7 open container with `(:` to create a dictionary
+  // Hint: 4-7 add a colon to create a dictionary instead `(: ..dict)`
   (..x,..y)
 }
 
 --- spread-single-dict-in-array-diagnostic paged ---
-
 #{
   let x = (a: 1)
   // Error: 4-7 cannot spread dictionary into array
-  // Hint: 4-7 open container with `(:` to create a dictionary
+  // Hint: 4-7 add a colon to create a dictionary instead `(: ..dict)`
   (..x)
 }
 
@@ -90,14 +88,13 @@
   (..x,..y)
 }
 
---- spread-multiple-dicts-diagnostic paged ---
-
+--- spread-dict-and-single-item paged ---
+// Here we should not emit a hint to use `(: <...>)` syntax
+// since the developer's intent is unclear
 #{
   let x = (a: 1)
-  let y = (b: 2)
-  let z = (3,4)
   // Error: 4-7 cannot spread dictionary into array
-  (..x,..y)
+  (..x,"item")
 }
 
 --- spread-array-into-dict eval ---
