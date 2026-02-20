@@ -8,7 +8,7 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Rect, Size, Transform};
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
     RelativeTo, Shape, Tiling, WeightedColor,
@@ -67,31 +67,21 @@ fn convert_paint(
     state: &State,
     shape: Option<&Shape>,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    let mut size = Size::zero();
-    let mut offset = Point::zero();
+    let mut bbox = Rect::from_pos_size(Point::zero(), Size::zero());
     if let Some(s) = shape {
-        size = s.geometry.bbox_size();
+        bbox.max = bbox.min + s.geometry.bbox_size().to_point();
 
         // Edge cases for strokes.
         if matches!(s.geometry, Geometry::Line(..) | Geometry::Curve(..)) {
-            (offset, size) = s.geometry.bbox_size_with_stroke(s.stroke.as_ref());
-            // avoid mirroring gradient if line angle results in negative sizes
-            if size.x < Abs::zero() {
-                offset.x += size.x;
-                size.x = size.x.abs();
-            }
-            if size.y < Abs::zero() {
-                offset.y += size.y;
-                size.y = size.y.abs();
-            }
+            bbox = s.geometry.bbox_with_stroke(s.stroke.as_ref());
         }
     }
 
-    if size.x.is_zero() {
-        size.x = Abs::pt(1.0);
+    if bbox.size().x.is_zero() {
+        bbox.max.x = bbox.min.x + Abs::pt(1.0);
     }
-    if size.y.is_zero() {
-        size.y = Abs::pt(1.0);
+    if bbox.size().y.is_zero() {
+        bbox.max.y = bbox.min.y + Abs::pt(1.0);
     }
 
     match paint {
@@ -99,7 +89,9 @@ fn convert_paint(
             let (c, a) = convert_solid(c);
             Ok((c.into(), a))
         }
-        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size, offset)),
+        Paint::Gradient(g) => {
+            Ok(convert_gradient(g, on_text, state, bbox.size(), bbox.min))
+        }
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
 }

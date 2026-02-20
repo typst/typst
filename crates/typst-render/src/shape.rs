@@ -1,5 +1,5 @@
 use tiny_skia as sk;
-use typst_library::layout::{Abs, Axes, Point, Ratio};
+use typst_library::layout::{Abs, Axes, Ratio};
 use typst_library::visualize::{
     Curve, CurveItem, DashPattern, FillRule, FixedStroke, Geometry, LineCap, LineJoin,
     Shape,
@@ -69,23 +69,16 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox_without_stroke = shape.geometry.bbox_size();
-            let (offset, bbox) =
-                shape.geometry.bbox_size_with_stroke(shape.stroke.as_ref());
+            let bbox = shape.geometry.bbox_with_stroke(shape.stroke.as_ref());
             let fill_transform =
-                sk::Transform::from_translate(offset.x.to_f32(), offset.y.to_f32());
+                sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
             let gradient_map = match shape.geometry {
-                Geometry::Line(_) | Geometry::Curve(_) => Some((
-                    Point::new(
-                        bbox.x.signum().min(0.0) * bbox.x.abs(),
-                        bbox.y.signum().min(0.0) * bbox.y.abs(),
-                    ) * state.pixel_per_pt as f64,
-                    bbox.map(Abs::signum).map(Ratio::new),
-                )),
+                Geometry::Line(_) | Geometry::Curve(_) => None,
                 _ => Some((
-                    offset * state.pixel_per_pt as f64,
+                    bbox.min * state.pixel_per_pt as f64,
                     Axes::new(
-                        Ratio::new(bbox.x / bbox_without_stroke.x),
-                        Ratio::new(bbox.y / bbox_without_stroke.y),
+                        Ratio::new(bbox.size().x / bbox_without_stroke.x),
+                        Ratio::new(bbox.size().y / bbox_without_stroke.y),
                     ),
                 )),
             };
@@ -94,7 +87,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
             let paint = paint::to_sk_paint(
                 paint,
                 state,
-                bbox,
+                bbox.size(),
                 false,
                 Some(fill_transform),
                 &mut pixmap,

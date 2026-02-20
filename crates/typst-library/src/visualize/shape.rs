@@ -425,13 +425,12 @@ impl Geometry {
         }
     }
 
-    /// The bounding box offset and size
+    /// The bounding box
     /// taking the stroke width of the shape into account
-    pub fn bbox_size_with_stroke(&self, stroke: Option<&FixedStroke>) -> (Point, Size) {
-        let bbox = self.bbox_size();
+    pub fn bbox_with_stroke(&self, stroke: Option<&FixedStroke>) -> Rect {
         let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
         match self {
-            Self::Line(line) => stroke.map_or((Point::zero(), bbox), |stroke| {
+            Self::Line(line) => stroke.map_or(self.bbox(), |stroke| {
                 let cap = match stroke.cap {
                     super::LineCap::Butt => kurbo::Cap::Butt,
                     super::LineCap::Round => kurbo::Cap::Round,
@@ -447,22 +446,19 @@ impl Geometry {
                     tolerance,
                 )
                 .bounding_box();
-                (
+                Rect::new(
                     Point::new(Abs::raw(bbox.x0), Abs::raw(bbox.y0)),
-                    Size::new(Abs::raw(bbox.width()), Abs::raw(bbox.height())),
+                    Point::new(Abs::raw(bbox.x1), Abs::raw(bbox.y1)),
                 )
             }),
-            Self::Rect(rect) => (
+            Self::Rect(rect) => Rect::from_pos_size(
                 Point::new(-stroke_width, -stroke_width),
                 Size::new(
-                    bbox.x + rect.x.signum() * 2.0 * stroke_width,
-                    bbox.y + rect.y.signum() * 2.0 * stroke_width,
+                    rect.x.abs() + 2.0 * stroke_width,
+                    rect.y.abs() + 2.0 * stroke_width,
                 ),
             ),
-            Self::Curve(curve) => {
-                let bbox = curve.bbox(stroke);
-                (bbox.min, bbox.size())
-            }
+            Self::Curve(curve) => curve.bbox(stroke),
         }
     }
 }

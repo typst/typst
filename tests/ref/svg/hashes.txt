@@ -670,7 +670,7 @@ f2815183d2a36cc0e3671dc2cabdb321 issue-2902-gradient-oklch-panic
 4713c691f624bbb441e38395a1898ddb issue-3191-raw-justify
 9f2c6da573af2705edc59f7fe191297c issue-3191-raw-normal-paragraphs-still-shrink
 efa2e641038c885c2bbdbbc67cb101a1 issue-3232-dict-empty
-8f06bd1a282dadcfc4daef3a5990d493 issue-3264-rect-negative-dimensions
+5947b0b8c0b4c7c80ddf5a8f2b10c894 issue-3264-rect-negative-dimensions
 654899b10fa2c4268f0e13b14309c920 issue-3355-metadata-weak-spacing
 249c492a349382bdfe24e01485d538d4 issue-3363-json-large-number
 32d15ea999a998e97f28b804fe056286 issue-3481-cite-location
@@ -776,7 +776,7 @@ c68b85f1ab752fc70fd6fbb3ff2e2af0 issue-6304-block-skip-label
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-colspan-set-rule
 46e93d920fac8252d012c1baa9aa6449 issue-6399-grid-cell-rowspan-set-rule
 db9d75f95fe99ca9af1188aa1eaed27a issue-6539-cjk-latin-spacing-at-manual-linebreak
-bff0c456e7a07e4a44e4d56cbe74ec6b issue-6597-gradient-angle-negative-size
+9c12b2b382543f7bddba44891a6e07dd issue-6597-gradient-angle-negative-size
 52209b822378a74e51c6a522c1fbde42 issue-6666-auto-hlines-around-footer
 22f6610970f2b29e5f643f1df1e1ad7d issue-6666-auto-hlines-around-header
 dd1b2542502857d847bf215e24f6136d issue-6680-gradient-linear-with-aspect-correction
