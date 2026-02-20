@@ -104,10 +104,12 @@ fn convert_xml(node: roxmltree::Node) -> Value {
         .attributes()
         .map(|attr| (attr.name().into(), attr.value().into_value()))
         .collect();
+    let namespace = node.tag_name().namespace();
 
     Value::Dict(dict! {
         "tag" => tag,
         "attrs" => attrs,
+        "namespace" => namespace,
         "children" => children,
     })
 }
