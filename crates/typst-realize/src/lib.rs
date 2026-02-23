@@ -62,6 +62,7 @@ pub fn realize<'a>(
         },
         sink: vec![],
         groupings: ArrayVec::new(),
+        grouping_depth: 0,
         outside: kind.is_document(),
         may_attach: false,
         saw_parbreak: false,
@@ -99,6 +100,8 @@ struct State<'a, 'x, 'y, 'z> {
     rules: &'x [&'x GroupingRule],
     /// Currently active groupings.
     groupings: ArrayVec<Grouping<'x>, MAX_GROUP_NESTING>,
+    /// Recursion depth for grouping finishers.
+    grouping_depth: usize,
     /// Whether we are currently not within any container or show rule output.
     /// This is used to determine page styles during layout.
     outside: bool,
@@ -684,7 +687,7 @@ fn visit_grouping_rules<'a>(
 
         finish_innermost_grouping(s)?;
         i += 1;
-        if i > 512 {
+        if i > MAX_GROUPING_DEPTH {
             // It seems like this case is only hit when there is a cycle between
             // a show rule and a grouping rule. The show rule produces content
             // that is matched by a grouping rule, which is then again processed
@@ -798,11 +801,26 @@ where
     while f(s) {
         finish_innermost_grouping(s)?;
         i += 1;
-        if i > 512 {
+        if i > MAX_GROUPING_DEPTH {
             bail!(Span::detached(), "maximum grouping depth exceeded");
         }
     }
     Ok(())
+}
+
+fn with_grouping_depth<T>(
+    s: &mut State,
+    span: Span,
+    f: impl FnOnce(&mut State) -> SourceResult<T>,
+) -> SourceResult<T> {
+    s.grouping_depth += 1;
+    if s.grouping_depth > MAX_GROUPING_DEPTH {
+        s.grouping_depth -= 1;
+        bail!(span, "maximum grouping depth exceeded");
+    }
+    let result = f(s);
+    s.grouping_depth -= 1;
+    result
 }
 
 /// Finishes the currently innermost grouping.
@@ -879,7 +897,8 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     }
 
     // Execute the grouping's finisher rule.
-    (rule.finish)(Grouped { s, start })?;
+    let span = select_span(&s.sink[start..]);
+    with_grouping_depth(s, span, |s| (rule.finish)(Grouped { s, start }))?;
 
     // Visit the tags and staged elements again.
     for &(content, styles) in tags.iter().chain(&tail) {
@@ -910,6 +929,8 @@ fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
 /// The maximum number of nested groups that are possible. Corresponds to the
 /// number of unique priority levels.
 const MAX_GROUP_NESTING: usize = 3;
+/// The maximum grouping recursion/iteration depth before bailing.
+const MAX_GROUPING_DEPTH: usize = 512;
 
 /// Grouping rules used in layout realization.
 static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
