@@ -51,7 +51,7 @@ It explains #name.
 Sum is #my-add(2, 3).
 ```
 
-Let bindings can also be used to destructure @array[arrays] and @dictionary[dictionaries]. In this case, the left-hand side of the assignment should mirror an array or dictionary. The `..` operator can be used once in the pattern to collect the remainder of the array's or dictionary's items.
+Let bindings can also be used to destructure @array[arrays] and @dictionary[dictionaries]. In this case, the structure of the left-hand side of the assignment should mirror the array or dictionary: With bindings corresponding by position for arrays and by key name for dictionaries. The `..` operator can be used once in the pattern to collect the remainder of the array's or the dictionary's items.
 
 ```example
 #let (x, y) = (1, 2)
