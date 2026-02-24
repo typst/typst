@@ -84,9 +84,9 @@ Sum is #my-add(2, 3).
 
 Let bindings can also be used to destructure [arrays]($array) and
 [dictionaries]($dictionary). In this case, the left-hand side of the
-assignment should mirror an array or dictionary. The `..` operator can be used
-once in the pattern to collect the remainder of the array's or dictionary's
-items.
+assignment should mirror an array or dictionary: by order for an array, and by
+keys for a dictionary. The `..` operator can be used once in the pattern to
+collect the remainder of the array's or dictionary's items.
 
 ```example
 #let (x, y) = (1, 2)
