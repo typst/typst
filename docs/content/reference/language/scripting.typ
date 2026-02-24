@@ -108,7 +108,7 @@ Destructuring also works in argument lists of functions ...
 ```
 
 = Conditionals <conditionals>
-With a conditional, you can display or compute different things depending on whether some condition is fulfilled. Typst supports `{if}`, `{else if}` and `{else}` expressions. When the condition evaluates to `{true}`, the conditional yields the value resulting from the if's body, otherwise yields the value resulting from the else's body.
+With a conditional, you can display or compute different things depending on whether some condition is fulfilled. Typst supports `{if}`, `{else if}` and `{else}` expressions. When the condition evaluates to `{true}`, the conditional yields the value resulting from the if's body. Otherwise, it yields the value resulting from the else's body.
 
 ```example
 #if 1 < 2 [
