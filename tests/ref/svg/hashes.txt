@@ -166,7 +166,7 @@ d1e8742ca8c21e183c97ab62147e839f enum-array-deprecated
 3a4b910ba922134014d47877ca525c2c enum-in-align-centering
 f439ade0da68b7d96e522795612c0982 enum-in-align-in-block
 d299a579a7ff14360295b8ebacfb6f95 enum-item-number-optional
-6f96a704bfe378b2c0746cf2e1bef14b enum-number-align-2d
+61f1403731fc9f8636200f77bc01bb21 enum-number-align-2d
 7bcb4bd992c316e005098634bc2e904f enum-number-align-default
 a09d4e82f235cc34996e2819f54a30d0 enum-number-align-specified
 0dcccb7db014d0efa2551286f55d073b enum-number-align-unaffected
