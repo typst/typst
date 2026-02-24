@@ -23,29 +23,29 @@
   test(world, "world")
 }
 
---- dict-missing-field paged ---
+--- dict-missing-field eval ---
 // Error: 6-13 dictionary does not contain key "invalid"
 #(:).invalid
 
---- dict-bad-key paged ---
+--- dict-bad-key eval ---
 // Error: 3-7 expected string, found boolean
 // Error: 16-18 expected string, found integer
 #(true: false, 42: 3)
 
---- dict-duplicate-key paged ---
+--- dict-duplicate-key eval ---
 // Error: 24-29 duplicate key: first
 #(first: 1, second: 2, first: 3)
 
---- dict-duplicate-key-stringy paged ---
+--- dict-duplicate-key-stringy eval ---
 // Error: 17-20 duplicate key: a
 #(a: 1, "b": 2, "a": 3)
 
---- dict-bad-expression paged ---
+--- dict-bad-expression eval ---
 // Simple expression after already being identified as a dictionary.
 // Error: 9-10 expected named or keyed pair, found identifier
 #(a: 1, b)
 
---- dict-leading-colon paged ---
+--- dict-leading-colon eval ---
 // Identified as dictionary due to initial colon.
 // The boolean key is allowed for now since it will only cause an error at the evaluation stage.
 // Error: 4-5 expected named or keyed pair, found integer
@@ -61,7 +61,7 @@
   test((..(a: 1), b: 2), (a: 1, b: 2))
 }
 
---- spread-array-into-dict paged ---
+--- spread-array-into-dict eval ---
 // Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
 
@@ -78,7 +78,7 @@
   test(dict.state.err, false)
 }
 
---- dict-at-missing-key paged ---
+--- dict-at-missing-key eval ---
 // Test rvalue missing key.
 #{
   let dict = (a: 1, b: 2)
@@ -113,7 +113,7 @@
   test(dict.remove("c", default: 3), 3)
 }
 
---- dict-missing-lvalue paged ---
+--- dict-missing-lvalue eval ---
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
@@ -173,11 +173,11 @@
   test(dict.keys(), ("a", "b", "c", "d"))
 }
 
---- dict-temporary-lvalue paged ---
+--- dict-temporary-lvalue eval ---
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
 
---- dict-function-item-not-a-method paged ---
+--- dict-function-item-not-a-method eval ---
 #{
   let dict = (
     call-me: () => 1,
@@ -187,7 +187,7 @@
   dict.call-me()
 }
 
---- dict-item-missing-method paged ---
+--- dict-item-missing-method eval ---
 #{
   let dict = (
     nonfunc: 1
@@ -215,7 +215,7 @@
 #test((a: 0, b: 1, c: 2).filter(v => v != 0), (b: 1, c: 2))
 #test((a: 0, b: 1, c: 2).filter(calc.even), (a: 0, c: 2))
 
---- dict-filter-error paged ---
+--- dict-filter-error eval ---
 // Test that errors in the predicate are reported properly.
 // Error: 23-28 cannot subtract integer from string
 #(a: "a").filter(v => v - 2)
@@ -225,24 +225,24 @@
 #test(().map(x => x * 2), ())
 #test((a: 2, b: 3).map(x => x * 2), (a: 4, b: 6))
 
---- dict-map-error paged ---
+--- dict-map-error eval ---
 // Test that errors in the function are reported properly.
 // Error: 20-25 cannot subtract integer from string
 #(a: "a").map(v => v - 2)
 
---- issue-1338-dictionary-underscore paged ---
+--- issue-1338-dictionary-underscore eval ---
 #let foo = "foo"
 #let bar = "bar"
 // Error: 8-9 expected expression, found underscore
 // Error: 16-17 expected expression, found underscore
 #(foo: _, bar: _)
 
---- issue-1342-dictionary-bare-expressions paged ---
+--- issue-1342-dictionary-bare-expressions eval ---
 // Error: 5-8 expected named or keyed pair, found identifier
 // Error: 10-13 expected named or keyed pair, found identifier
 #(: foo, bar)
 
---- issue-3154-dict-at-not-contained paged ---
+--- issue-3154-dict-at-not-contained eval ---
 #{
   let dict = (a: 1)
   // Error: 3-15 dictionary does not contain key "b" and no default value was specified
@@ -255,7 +255,7 @@
   test(dict.at("b", default: 0), 0)
 }
 
---- issue-3154-dict-at-missing-mutable paged ---
+--- issue-3154-dict-at-missing-mutable eval ---
 #{
   let dict = (a: 1)
   // Error: 3-15 dictionary does not contain key "b"
@@ -263,7 +263,7 @@
   dict.at("b") = 9
 }
 
---- issue-3154-dict-at-missing-mutable-default paged ---
+--- issue-3154-dict-at-missing-mutable-default eval ---
 #{
   let dict = (a: 1)
   // Error: 3-27 dictionary does not contain key "b"
@@ -271,7 +271,7 @@
   dict.at("b", default: 0) = 9
 }
 
---- issue-3154-dict-syntax-missing paged ---
+--- issue-3154-dict-syntax-missing eval ---
 #{
   let dict = (a: 1)
   // Error: 8-9 dictionary does not contain key "b"
@@ -285,7 +285,7 @@
   test(dict, (a: 1, b: 9))
 }
 
---- issue-3154-dict-syntax-missing-add-assign paged ---
+--- issue-3154-dict-syntax-missing-add-assign eval ---
 #{
   let dict = (a: 1)
   // Error: 3-9 dictionary does not contain key "b"
@@ -293,20 +293,20 @@
   dict.b += 9
 }
 
---- issue-3232-dict-unexpected-keys-sides paged ---
+--- issue-3232-dict-unexpected-keys-sides eval ---
 // Confusing "expected relative length or dictionary, found dictionary"
 // Error: 16-58 unexpected keys "unexpected" and "unexpected-too"
 #block(outset: (unexpected: 0.5em, unexpected-too: 0.2em), [Hi])
 
---- issue-3232-dict-unexpected-keys-corners paged ---
+--- issue-3232-dict-unexpected-keys-corners eval ---
 // Error: 14-56 unexpected keys "unexpected" and "unexpected-too"
 #box(radius: (unexpected: 0.5em, unexpected-too: 0.5em), [Hi])
 
---- issue-3232-dict-unexpected-key-sides paged ---
+--- issue-3232-dict-unexpected-key-sides eval ---
 // Error: 16-49 unexpected key "unexpected", valid keys are "left", "top", "right", "bottom", "x", "y", and "rest"
 #block(outset: (unexpected: 0.2em, right: 0.5em), [Hi]) // The 1st key is unexpected
 
---- issue-3232-dict-unexpected-key-corners paged ---
+--- issue-3232-dict-unexpected-key-corners eval ---
 // Error: 14-50 unexpected key "unexpected", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #box(radius: (top-left: 0.5em, unexpected: 0.5em), [Hi]) // The 2nd key is unexpected
 

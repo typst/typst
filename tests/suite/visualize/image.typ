@@ -115,7 +115,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("../../../assets/images/linked.svg", width: 39pt)
 
 --- image-svg-linked-file-not-found paged ---
-// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
+// Error: 1:8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -125,7 +125,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-url paged ---
-// Error: 8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
+// Error: 1:8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -135,7 +135,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-pdf paged ---
-// Error: 8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
+// Error: 1:8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -145,7 +145,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-csv paged ---
-// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
+// Error: 1:8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -155,7 +155,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-absolute1 paged ---
-// Error: 8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
+// Error: 1:8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -165,7 +165,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-absolute2 paged ---
-// Error: 8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
+// Error: 1:8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
@@ -268,7 +268,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // width, but rather max out at its natural size.
 #image("/assets/images/f2t.jpg")
 
---- image-file-not-found paged ---
+--- image-file-not-found eval ---
 // Error: 8-29 file not found (searched at tests/suite/visualize/path/does/not/exist)
 #image("path/does/not/exist")
 
@@ -332,7 +332,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-pixmap-unknown-attribute paged ---
+--- image-pixmap-unknown-attribute eval ---
 #image(
   bytes((0x00, 0x00, 0x00)),
   // Error: 1:11-6:4 unexpected key "stowaway", valid keys are "encoding", "width", and "height"
@@ -344,7 +344,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-pixmap-but-png-format paged ---
+--- image-pixmap-but-png-format eval ---
 #image(
   bytes((0x00, 0x00, 0x00)),
   // Error: 1:11-5:4 expected "rgb8", "rgba8", "luma8", or "lumaa8"
@@ -355,7 +355,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ),
 )
 
---- image-png-but-pixmap-format paged ---
+--- image-png-but-pixmap-format eval ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
   // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", "pdf", or auto

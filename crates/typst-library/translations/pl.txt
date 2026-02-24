@@ -1,11 +1,11 @@
 figure = Rysunek
 table = Tabela
 equation = Równanie
-bibliography = Bibliografia
-heading = Sekcja
+bibliography = Piśmiennictwo
+heading = Rozdział
 outline = Spis treści
-raw = Program
+raw = Listing
 page = strona
-# footnote =
-# email =
-# telephone =
+footnote = Przypis
+email = Adres mailowy
+telephone = Telefon

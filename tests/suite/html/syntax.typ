@@ -191,7 +191,7 @@ A#"  "B#"   C"
 --- html-style-str html ---
 #html.style("body { --name: \"Typst\"; }")
 
---- html-style-content html ---
+--- html-style-content eval ---
 // Error: 1:12-3:2 expected string, found content
 #html.style[
   body { --name: "Typst"; }
@@ -202,7 +202,7 @@ A#"  "B#"   C"
   body { --name: "Typst"; }
 ]
 
---- html-raw-text-contains-elem html ---
+--- html-raw-text-contains-elem eval ---
 // Error: 14-32 expected string, found content
 #html.script(html.strong[Hello])
 

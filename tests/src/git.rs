@@ -33,7 +33,7 @@ pub fn blame_file(
     let blame = std::str::from_utf8(&blame).map_err(|err| err.to_string())?;
 
     // Format of git blame is:
-    // `<hash> <padded_nr>) <text>
+    // `{hash} (<{email}> {date} {padded_nr}) {text}`
     blame
         .lines()
         .map(|line| {
@@ -52,7 +52,7 @@ pub fn blame_file(
             }
             s.eat_until('>');
             if !s.eat_if('>') {
-                bail!("expected email end (`<`)");
+                bail!("expected email end (`>`)");
             }
             s.eat_whitespace();
 

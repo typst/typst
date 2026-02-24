@@ -1,25 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::IsTerminal;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bitflags::{Flags, bitflags};
-use ecow::{EcoString, eco_format};
+use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst::foundations::Bytes;
-use typst_kit::files::FileLoader;
 use typst_pdf::PdfStandard;
-use typst_syntax::package::PackageVersion;
-use typst_syntax::{
-    FileId, RootedPath, Source, VirtualPath, VirtualRoot, is_id_continue, is_ident,
-    is_newline,
-};
+use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
+use crate::notes::{TestBody, parse_test_body};
 use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
-use crate::world::TestFiles;
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -33,19 +26,12 @@ pub fn collect() -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseErr
 
 /// A single test.
 pub struct Test {
-    pub pos: FilePos,
     pub name: EcoString,
     pub attrs: Attrs,
-    pub source: Source,
-    pub notes: Vec<Note>,
+    pub body: TestBody,
 }
 
 impl Test {
-    /// Whether this test is expected to emit an error.
-    pub fn should_error(&self) -> bool {
-        self.notes.iter().any(|n| n.kind == NoteKind::Error)
-    }
-
     /// Whether this test output should be compared and saved, this is true for
     /// stages that are explicitly specified and those that are
     /// [implied](TestStages::with_implied).
@@ -67,24 +53,21 @@ impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // underline path
         if std::io::stdout().is_terminal() {
-            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
+            write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.body.pos)
         } else {
-            write!(f, "{} ({})", self.name, self.pos)
+            write!(f, "{} ({})", self.name, self.body.pos)
         }
     }
 }
 
-/// A position in a file.
+/// A position in a file. This allows us to print errors that point to specific
+/// line numbers and create a clickable link in editors like VSCode.
 #[derive(Clone)]
 pub struct FilePos {
-    pub path: PathBuf,
+    pub path: Arc<PathBuf>,
+    /// Line numbers are 1-indexed, so if this is zero we treat it as pointing
+    /// to the file as a whole.
     pub line: usize,
-}
-
-impl FilePos {
-    fn new(path: impl Into<PathBuf>, line: usize) -> Self {
-        Self { path: path.into(), line }
-    }
 }
 
 impl Display for FilePos {
@@ -403,47 +386,6 @@ impl Display for FileSize {
     }
 }
 
-/// An annotation like `// Error: 2-6 message` in a test.
-pub struct Note {
-    pub pos: FilePos,
-    pub kind: NoteKind,
-    /// The file [`Self::range`] belongs to.
-    pub file: FileId,
-    pub range: Option<Range<usize>>,
-    pub message: String,
-}
-
-/// A kind of annotation in a test.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum NoteKind {
-    Error,
-    Warning,
-    Hint,
-}
-
-impl FromStr for NoteKind {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "Error" => Self::Error,
-            "Warning" => Self::Warning,
-            "Hint" => Self::Hint,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl Display for NoteKind {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Error => "Error",
-            Self::Warning => "Warning",
-            Self::Hint => "Hint",
-        })
-    }
-}
-
 /// Collects all tests from all files.
 struct Collector {
     hashes: [HashedRefs; 2],
@@ -532,28 +474,29 @@ impl Collector {
 
         let Some((pos, attrs)) = self.seen.get(name) else {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
             return;
         };
 
         if !attrs.implied_stages().contains(output.into()) || attrs.empty {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
         }
 
         let len = path.metadata().unwrap().len() as usize;
         if !attrs.large && len > crate::REF_LIMIT {
-            self.errors.push(TestParseError::new(
-                pos.clone(),
-                format!(
-                    "reference output size exceeds {}, but the test is not marked as `large`",
-                    FileSize(crate::REF_LIMIT),
-                ),
-            ));
+            let message = format!(
+                "reference output size exceeds {}, but the test is not marked as `large`",
+                FileSize(crate::REF_LIMIT),
+            );
+            self.errors
+                .push(TestParseError { pos: pos.clone(), kind: message.into() });
         }
     }
 
@@ -567,8 +510,9 @@ impl Collector {
 
         if output.hash_refs_path() != path {
             self.errors.push(TestParseError::new(
-                FilePos::new(path, 0),
                 TestParseErrorKind::DanglingFile,
+                path,
+                0,
             ));
             return None;
         }
@@ -577,8 +521,9 @@ impl Collector {
         let hashed_refs = HashedRefs::from_str(&string)
             .inspect_err(|err| {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, 0),
                     format!("error parsing reference hash file: {err}"),
+                    path,
+                    0,
                 ));
             })
             .ok()?;
@@ -586,16 +531,18 @@ impl Collector {
         for (name, line) in hashed_refs.names().zip(1..) {
             let Some((_, attrs)) = self.seen.get(name) else {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, line),
                     TestParseErrorKind::DanglingHash(name.clone()),
+                    path,
+                    line,
                 ));
                 continue;
             };
 
             if !attrs.implied_stages().contains(output.into()) || attrs.empty {
                 self.errors.push(TestParseError::new(
-                    FilePos::new(path, line),
                     TestParseErrorKind::DanglingHash(name.clone()),
+                    path,
+                    line,
                 ));
                 continue;
             }
@@ -608,7 +555,7 @@ impl Collector {
 /// Parses a single test file.
 struct Parser<'a> {
     collector: &'a mut Collector,
-    path: &'a Path,
+    path: Arc<PathBuf>,
     s: Scanner<'a>,
     test_start_line: usize,
     line: usize,
@@ -619,8 +566,9 @@ impl<'a> Parser<'a> {
     fn new(collector: &'a mut Collector, path: &'a Path, source: &'a str) -> Self {
         Self {
             collector,
-            path,
+            path: Arc::new(path.to_owned()),
             s: Scanner::new(source),
+            // Lines in files are 1-indexed.
             test_start_line: 1,
             line: 1,
         }
@@ -633,7 +581,6 @@ impl<'a> Parser<'a> {
         while !self.s.done() {
             let mut name = EcoString::new();
             let mut attrs = Attrs::default();
-            let mut notes = vec![];
             if self.s.eat_if("---") {
                 self.s.eat_while(' ');
                 name = self.s.eat_until(char::is_whitespace).into();
@@ -661,7 +608,10 @@ impl<'a> Parser<'a> {
             let start = self.s.cursor();
             self.test_start_line = self.line;
 
-            let pos = FilePos::new(self.path, self.test_start_line);
+            let pos = FilePos {
+                path: self.path.clone(),
+                line: self.test_start_line,
+            };
             self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
 
             while !self.s.done() && !self.s.at("---") {
@@ -671,8 +621,6 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            let text = self.s.from(start);
-
             if !ARGS.implied_stages().intersects(attrs.implied_stages())
                 || !selected(&name, self.path.canonicalize().unwrap())
             {
@@ -680,28 +628,25 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let vpath = VirtualPath::virtualize(Path::new(""), self.path).unwrap();
-            let source = Source::new(
-                RootedPath::new(VirtualRoot::Project, vpath).intern(),
-                text.into(),
-            );
+            let body = self.s.from(start);
+            let body = parse_test_body(pos, body, &mut self.collector.errors);
 
-            self.s.jump(start);
-            self.line = self.test_start_line;
+            self.collector.tests.push(Test { name, attrs, body });
+        }
+    }
 
-            while !self.s.done() && !self.s.at("---") {
-                self.s.eat_while(' ');
-                if self.s.eat_if("// ") {
-                    notes.extend(self.parse_note(&source));
-                }
-
-                self.s.eat_until(is_newline);
-                if self.s.eat_newline() {
-                    self.line += 1;
-                }
+    /// Skips the preamble of a test file.
+    fn skip_preamble(&mut self) {
+        let mut errored = false;
+        while !self.s.done() && !self.s.at("---") {
+            let line = self.s.eat_until(is_newline).trim();
+            if !errored && !line.is_empty() && !line.starts_with("//") {
+                self.error("test preamble may only contain comments and blank lines");
+                errored = true;
             }
-
-            self.collector.tests.push(Test { pos, name, source, notes, attrs });
+            if self.s.eat_newline() {
+                self.line += 1;
+            }
         }
     }
 
@@ -789,170 +734,11 @@ impl<'a> Parser<'a> {
         flags.insert(flag);
     }
 
-    /// Skips the preamble of a test.
-    fn skip_preamble(&mut self) {
-        let mut errored = false;
-        while !self.s.done() && !self.s.at("---") {
-            let line = self.s.eat_until(is_newline).trim();
-            if !errored && !line.is_empty() && !line.starts_with("//") {
-                self.error("test preamble may only contain comments and blank lines");
-                errored = true;
-            }
-            if self.s.eat_newline() {
-                self.line += 1;
-            }
-        }
-    }
-
-    /// Parses an annotation in a test.
-    fn parse_note(&mut self, source: &Source) -> Option<Note> {
-        let head = self.s.eat_while(is_id_continue);
-        if !self.s.eat_if(':') {
-            return None;
-        }
-
-        let kind: NoteKind = head.parse().ok()?;
-        self.s.eat_if(' ');
-
-        let mut file = None;
-        if self.s.eat_if('"') {
-            let path = self.s.eat_until(|c| is_newline(c) || c == '"');
-            if !self.s.eat_if('"') {
-                self.error("expected closing quote after file path");
-                return None;
-            }
-
-            let vpath = VirtualPath::new(path).unwrap();
-            file = Some(RootedPath::new(VirtualRoot::Project, vpath).intern());
-
-            self.s.eat_if(' ');
-        }
-
-        let mut range = None;
-        if self.s.at('-') || self.s.at(char::is_numeric) {
-            if let Some(file) = file {
-                range = self.parse_range_external(file);
-            } else {
-                range = self.parse_range(source);
-            }
-
-            if range.is_none() {
-                self.error("range is malformed");
-                return None;
-            }
-        }
-
-        let message = self
-            .s
-            .eat_until(is_newline)
-            .trim()
-            .replace("VERSION", &eco_format!("{}", PackageVersion::compiler()))
-            .replace("\\n", "\n");
-
-        Some(Note {
-            pos: FilePos::new(self.path, self.line),
-            kind,
-            file: file.unwrap_or(source.id()),
-            range,
-            message,
-        })
-    }
-
-    /// Parse a range in an external file, optionally abbreviated as just a position
-    /// if the range is empty.
-    fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
-        let bytes = match TestFiles.load(file) {
-            Ok(data) => Bytes::new(data),
-            Err(err) => {
-                self.error(err.to_string());
-                return None;
-            }
-        };
-
-        let start = self.parse_line_col()?;
-        let lines = bytes.lines().expect(
-            "errors shouldn't be annotated for files \
-             that aren't human readable (not valid UTF-8)",
-        );
-        let range = if self.s.eat_if('-') {
-            let (line, col) = start;
-            let start = lines.line_column_to_byte(line, col);
-            let (line, col) = self.parse_line_col()?;
-            let end = lines.line_column_to_byte(line, col);
-            Option::zip(start, end).map(|(a, b)| a..b)
-        } else {
-            let (line, col) = start;
-            lines.line_column_to_byte(line, col).map(|i| i..i)
-        };
-        if range.is_none() {
-            self.error("range is out of bounds");
-        }
-        range
-    }
-
-    /// Parses absolute `line:column` indices in an external file.
-    fn parse_line_col(&mut self) -> Option<(usize, usize)> {
-        let line = self.parse_number()?;
-        if !self.s.eat_if(':') {
-            self.error("positions in external files always require both `<line>:<col>`");
-            return None;
-        }
-        let col = self.parse_number()?;
-        if line < 0 || col < 0 {
-            self.error("line and column numbers must be positive");
-            return None;
-        }
-
-        Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1)))
-    }
-
-    /// Parse a range, optionally abbreviated as just a position if the range
-    /// is empty.
-    fn parse_range(&mut self, source: &Source) -> Option<Range<usize>> {
-        let start = self.parse_position(source)?;
-        let end = if self.s.eat_if('-') { self.parse_position(source)? } else { start };
-        Some(start..end)
-    }
-
-    /// Parses a relative `(line:)?column` position.
-    fn parse_position(&mut self, source: &Source) -> Option<usize> {
-        let first = self.parse_number()?;
-        let (line_delta, column) =
-            if self.s.eat_if(':') { (first, self.parse_number()?) } else { (1, first) };
-
-        let text = source.text();
-        let line_idx_in_test = self.line - self.test_start_line;
-        let comments = text
-            .lines()
-            .skip(line_idx_in_test + 1)
-            .take_while(|line| line.trim().starts_with("//"))
-            .count();
-
-        let line_idx = (line_idx_in_test + comments).checked_add_signed(line_delta)?;
-        let column_idx = if column < 0 {
-            // Negative column index is from the back.
-            let range = source.lines().line_to_range(line_idx)?;
-            text[range].chars().count().saturating_add_signed(column)
-        } else {
-            usize::try_from(column).ok()?.checked_sub(1)?
-        };
-
-        source.lines().line_column_to_byte(line_idx, column_idx)
-    }
-
-    /// Parse a number.
-    fn parse_number(&mut self) -> Option<isize> {
-        let start = self.s.cursor();
-        self.s.eat_if('-');
-        self.s.eat_while(char::is_numeric);
-        self.s.from(start).parse().ok()
-    }
-
     /// Stores a test parsing error.
     fn error(&mut self, message: impl Into<String>) {
         self.collector
             .errors
-            .push(TestParseError::new(FilePos::new(self.path, self.line), message));
+            .push(TestParseError::new(message, &self.path, self.line));
     }
 }
 
@@ -970,13 +756,13 @@ fn selected(name: &str, abs: PathBuf) -> bool {
         return false;
     }
 
-    let paths = &crate::ARGS.path;
+    let paths = &ARGS.path;
     if !paths.is_empty() && !paths.iter().any(|path| abs.starts_with(path)) {
         return false;
     }
 
-    let exact = crate::ARGS.exact;
-    let patterns = &crate::ARGS.pattern;
+    let exact = ARGS.exact;
+    let patterns = &ARGS.pattern;
     patterns.is_empty()
         || patterns.iter().any(|pattern: &regex::Regex| {
             if exact { name == pattern.as_str() } else { pattern.is_match(name) }
@@ -990,8 +776,11 @@ pub struct TestParseError {
 }
 
 impl TestParseError {
-    pub fn new(pos: FilePos, kind: impl Into<TestParseErrorKind>) -> Self {
-        Self { pos, kind: kind.into() }
+    pub fn new(kind: impl Into<TestParseErrorKind>, path: &Path, line: usize) -> Self {
+        Self {
+            pos: FilePos { path: Arc::new(path.to_owned()), line },
+            kind: kind.into(),
+        }
     }
 }
 

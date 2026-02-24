@@ -316,8 +316,8 @@ pub struct BlockElem {
     /// A second paragraph.
     /// ```
     #[external]
-    #[default(Em::new(1.2).into())]
-    pub spacing: Spacing,
+    #[default(Smart::Custom(Em::new(1.2).into()))]
+    pub spacing: Smart<Spacing>,
 
     /// The spacing between this block and its predecessor.
     #[parse(
