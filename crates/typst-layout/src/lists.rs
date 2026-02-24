@@ -262,7 +262,7 @@ fn layout_item(
 
     let diff = if elem.baseline_align {
         let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
-            Some(first) => extract_baseline(&first, Abs::zero()),
+            Some(first) => extract_baseline(first, Abs::zero()),
             _ => None,
         };
 
@@ -355,12 +355,7 @@ fn layout_item(
 fn should_skip_first_frame(fragment: &Fragment) -> bool {
     fragment.len() > 1
         && is_empty_frame(&fragment.as_slice()[0])
-        && fragment
-            .iter()
-            .skip(1)
-            .filter(|f| !is_empty_frame(f))
-            .next()
-            .is_some()
+        && fragment.iter().skip(1).any(|f| !is_empty_frame(f))
 }
 
 /// Check if a frame is empty (taken from grid layouting).
