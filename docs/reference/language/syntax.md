@@ -50,7 +50,7 @@ more about their syntax and usage.
 | Math               | `[$x^2$]`                    | [Math]($category/math)   |
 | Line break         | `[\]`                        | [`linebreak`]            |
 | Smart quote        | `['single' or "double"]`     | [`smartquote`]           |
-| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/sym) |
+| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/) |
 | Code expression    | `[#rect(width: 1cm)]`        | [Scripting]($scripting/#expressions) |
 | Character escape   | `[Tweet at us \#ad]`         | [Below](#escapes)        |
 | Comment            | `[/* block */]`, `[// line]` | [Below](#comments)       |
@@ -75,7 +75,7 @@ syntax specific to math mode follows:
 | Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
-| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/sym) |
+| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/) |
 | Text/string in math    | `[$a "is natural"$]`     | [Math]($category/math)   |
 | Math function call     | `[$floor(x)$]`           | [Math]($category/math)   |
 | Code expression        | `[$#rect(width: 1cm)$]`  | [Scripting]($scripting/#expressions) |
