@@ -86,6 +86,7 @@ impl SVGRenderer<'_> {
 
     pub(super) fn push_tiling(&mut self, tiling: &Tiling, ts: Transform) -> DedupId {
         let tiling_size = tiling.size() + tiling.spacing();
+        let tiling_offset = tiling.offset();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
@@ -93,8 +94,9 @@ impl SVGRenderer<'_> {
 
         // Use the rendered SVG and the tiling size as a key, since the `Tiling`
         // itself includes `Location`s which aren't stable.
-        let tiling_id =
-            self.tilings.insert_with((tiling_size, rendered), || tiling.clone());
+        let tiling_id = self
+            .tilings
+            .insert_with((tiling_size, tiling_offset, rendered), || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
@@ -324,6 +326,8 @@ impl SVGRenderer<'_> {
                 .attr("id", id)
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
+                .attr("x", tiling.dx().to_pt())
+                .attr("y", tiling.dy().to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])

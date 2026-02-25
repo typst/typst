@@ -124,7 +124,8 @@ fn convert_pattern(
     surface: &mut Surface,
     state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    let transform = correct_transform(state, pattern.unwrap_relative(on_text));
+    let transform = correct_transform(state, pattern.unwrap_relative(on_text))
+        .pre_concat(Transform::translate(pattern.dx(), pattern.dy()));
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();

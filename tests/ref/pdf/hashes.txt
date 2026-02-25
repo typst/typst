@@ -1723,6 +1723,9 @@ fabb4e6c8206344cffc47d7c188ad9ff text-tracking-negative
 b68ba872ae19b8c3c58b1288d2e4f941 text-unknown-font-family-warning
 f81370fe7db884600d9168025ea700ce tiling-line
 55a9a7f62377cb78bc5faa5ff78252b6 tiling-lines
+aff58474914f136cd1c927eaa894da79 tiling-offset-negative
+9e73db5c8daafa42a619697ba19d845c tiling-offset-positive
+633a4e0ae1faa3753b43fb7a9a38bc18 tiling-offset-zero
 74fd200638d867aa8e3971cb5d620ca9 tiling-pattern-compatibility
 3c711fb4cb219588885f12e7b757bf77 tiling-relative-parent
 e509ad7c1d194dd5ed0fd9bc9385cbe4 tiling-relative-self
