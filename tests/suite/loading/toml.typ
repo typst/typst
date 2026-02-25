@@ -40,7 +40,7 @@
 #let data-from-path = toml(path("/assets/data/toml-types.toml"))
 #test(data-from-path, data)
 
---- toml-invalid paged ---
+--- toml-invalid eval ---
 // Error: "/assets/data/bad.toml" 1:16-2:1 failed to parse TOML (expected `.`, `=`)
 #toml("/assets/data/bad.toml")
 
@@ -61,7 +61,7 @@
   )
 }
 
---- toml-decode-integer-too-large paged ---
+--- toml-decode-integer-too-large eval ---
 // If an integer cannot be represented losslessly, an error must be thrown.
 // https://toml.io/en/v1.0.0#integer
 
@@ -69,7 +69,7 @@
 // Error: 7-55 failed to parse TOML (number too large to fit in target type at 1:7)
 #toml(bytes("key = " + large-integer.i64-max-plus-one))
 
---- toml-decode-integer-too-small paged ---
+--- toml-decode-integer-too-small eval ---
 #import "edge-case.typ": large-integer
 // Error: 7-56 failed to parse TOML (number too small to fit in target type at 1:7)
 #toml(bytes("key = " + large-integer.i64-min-minus-one))
@@ -83,10 +83,10 @@
   )
 }
 
---- toml-encode-non-table paged ---
+--- toml-encode-non-table eval ---
 // Error: 14-15 expected dictionary, found integer
 #toml.encode(3)
 
---- toml-decode-non-table paged ---
+--- toml-decode-non-table eval ---
 // Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
 #toml(bytes("3"))

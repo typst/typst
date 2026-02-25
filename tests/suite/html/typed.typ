@@ -106,82 +106,82 @@
 // Icon size.
 #html.link(rel: "icon", sizes: ((32, 24), (64, 48)))
 
---- html-typed-dir-str html ---
+--- html-typed-dir-str eval ---
 // Error: 16-21 expected direction or auto, found string
 #html.div(dir: "ltr")
 
---- html-typed-char-too-long html ---
+--- html-typed-char-too-long eval ---
 // Error: 22-35 expected exactly one character
 #html.div(accesskey: ("Ctrl", "K"))
 
---- html-typed-int-negative html ---
+--- html-typed-int-negative eval ---
 // Error: 18-21 number must be at least zero
 #html.img(width: -10)
 
---- html-typed-int-zero html ---
+--- html-typed-int-zero eval ---
 // Error: 22-23 number must be positive
 #html.textarea(rows: 0)
 
---- html-typed-float-negative html ---
+--- html-typed-float-negative eval ---
 // Error: 19-23 number must be positive
 #html.input(step: -3.4)
 
---- html-typed-string-array-with-space html ---
+--- html-typed-string-array-with-space eval ---
 // Error: 18-41 array item may not contain a space
 // Hint: 18-41 the array attribute will be encoded as a space-separated string
 #html.div(class: ("alpha beta", "gamma"))
 
---- html-typed-float-array-invalid-shorthand html ---
+--- html-typed-float-array-invalid-shorthand eval ---
 // Error: 20-23 expected array, found float
 #html.area(coords: 4.5)
 
---- html-typed-dir-vertical html ---
+--- html-typed-dir-vertical eval ---
 // Error: 16-19 direction must be horizontal
 #html.div(dir: ttb)
 
---- html-typed-string-enum-invalid html ---
+--- html-typed-string-enum-invalid eval ---
 // Error: 21-28 expected "application/x-www-form-urlencoded", "multipart/form-data", or "text/plain"
 #html.form(enctype: "utf-8")
 
---- html-typed-or-invalid html ---
+--- html-typed-or-invalid eval ---
 // Error: 25-31 expected boolean or "mixed"
 #html.div(aria-checked: "nope")
 
---- html-typed-string-enum-or-array-invalid html ---
+--- html-typed-string-enum-or-array-invalid eval ---
 // Error: 27-33 expected array, "additions", "additions text", "all", "removals", or "text"
 // Error: 49-54 expected boolean or "mixed"
 #html.link(aria-relevant: "nope", aria-checked: "yes")
 
---- html-typed-srcset-both-width-and-density html ---
+--- html-typed-srcset-both-width-and-density eval ---
 // Error: 19-64 cannot specify both `width` and `density`
 #html.img(srcset: ((src: "img.png", width: 120, density: 0.5),))
 
---- html-typed-srcset-src-comma html ---
+--- html-typed-srcset-src-comma eval ---
 // Error: 19-50 `src` must not start or end with a comma
 #html.img(srcset: ((src: "img.png,", width: 50),))
 
---- html-typed-sizes-string-size html ---
+--- html-typed-sizes-string-size eval ---
 // Error: 18-66 expected length, found string
 // Hint: 18-66 CSS lengths that are not expressible as Typst lengths are not yet supported
 // Hint: 18-66 you can use `html.elem` to create a raw attribute
 #html.img(sizes: ((condition: "min-width: 100px", size: "10px"),))
 
---- html-typed-input-value-invalid html ---
+--- html-typed-input-value-invalid eval ---
 // Error: 20-25 expected string, float, datetime, color, or array, found boolean
 #html.input(value: false)
 
---- html-typed-input-bound-invalid html ---
+--- html-typed-input-bound-invalid eval ---
 // Error: 18-21 expected string, float, or datetime, found color
 #html.input(min: red)
 
---- html-typed-icon-size-invalid html ---
+--- html-typed-icon-size-invalid eval ---
 // Error: 32-45 expected array, found string
 #html.link(rel: "icon", sizes: "10x20 20x30")
 
---- html-typed-hidden-none html ---
+--- html-typed-hidden-none eval ---
 // Error: 19-23 expected boolean or "until-found", found none
 #html.div(hidden: none)
 
---- html-typed-invalid-body html ---
+--- html-typed-invalid-body eval ---
 // Error: 10-14 unexpected argument
 #html.img[hi]

@@ -6,7 +6,7 @@
 #test(c.children.first().func(), (context none).func())
 #test(c.children.last(), [.])
 
---- context-element-constructor-forbidden paged ---
+--- context-element-constructor-forbidden eval ---
 // Test that manual construction is forbidden.
 // Error: 2-25 cannot be constructed manually
 #(context none).func()()

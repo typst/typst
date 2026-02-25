@@ -5,6 +5,7 @@ mod collect;
 mod custom;
 mod git;
 mod logger;
+mod notes;
 mod output;
 mod pdftags;
 mod report;
@@ -21,7 +22,7 @@ use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use rustc_hash::FxHashMap;
 
-use crate::args::{CliArguments, Command};
+use crate::args::{CliArguments, Command, PdftagsCommand};
 use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
 use crate::output::{HASH_OUTPUTS, HashedRefs};
@@ -54,6 +55,7 @@ fn main() {
         None => test(),
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
+        Some(Command::Pdftags(command)) => pdftags(command),
     }
 }
 
@@ -122,7 +124,7 @@ fn test() {
     let parser_dirs = ARGS.parser_compare.clone().map(create_syntax_store);
 
     let hashes = hashes.map(RwLock::new);
-    let runner = |test: &Test| {
+    let runner = |test: &mut Test| {
         if let Some((live_path, ref_path)) = &parser_dirs {
             run_parser_test(test, live_path, ref_path)
         } else {
@@ -151,12 +153,12 @@ fn test() {
         // We use `par_bridge` instead of `par_iter` because the former
         // results in a stack overflow during PDF export. Probably related
         // to `typst::utils::Deferred` yielding.
-        tests.iter().par_bridge().for_each(|test| {
-            logger.lock().start(test);
+        tests.into_iter().par_bridge().for_each(|mut test| {
+            logger.lock().start(&test);
 
             // This is in fact not formally unwind safe, but the code paths that
             // hold a lock of the hashes are quite short and shouldn't panic.
-            let closure = std::panic::AssertUnwindSafe(|| runner(test));
+            let closure = std::panic::AssertUnwindSafe(|| runner(&mut test));
             let result = std::panic::catch_unwind(closure);
             logger.lock().end(test, result);
         });
@@ -186,7 +188,7 @@ fn undangle() {
             for error in errors.iter() {
                 match &error.kind {
                     TestParseErrorKind::DanglingFile => {
-                        std::fs::remove_file(&error.pos.path).unwrap();
+                        std::fs::remove_file(&*error.pos.path).unwrap();
                         eprintln!("✅ deleted {}", error.pos.path.display());
                     }
                     TestParseErrorKind::DanglingHash(name) => {
@@ -212,6 +214,20 @@ fn undangle() {
     }
 }
 
+fn pdftags(command: &PdftagsCommand) {
+    let bytes = match std::fs::read(&command.path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return;
+        }
+    };
+    match pdftags::format(&bytes) {
+        Ok(tags) => println!("{tags}"),
+        Err(err) => eprintln!("error: {err}"),
+    }
+}
+
 fn create_syntax_store(ref_path: Option<PathBuf>) -> (&'static Path, Option<PathBuf>) {
     if ref_path.as_ref().is_some_and(|p| !p.exists()) {
         eprintln!("syntax reference path doesn't exist");
@@ -229,15 +245,10 @@ fn run_parser_test(
     live_path: &Path,
     ref_path: &Option<PathBuf>,
 ) -> TestResult {
-    let mut result = TestResult {
-        errors: String::new(),
-        infos: String::new(),
-        mismatched_output: false,
-        report: None,
-    };
+    let mut result = TestResult::default();
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
-    let tree = format!("{:#?}\n", test.source.root());
+    let tree = format!("{:#?}\n", test.body.source.root());
     std::fs::write(syntax_file, &tree).unwrap();
 
     let Some(ref_path) = ref_path else { return result };

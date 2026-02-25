@@ -53,12 +53,12 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+    /// Open the generated HTML test report in a browser when finished.
+    #[arg(long)]
+    pub open_report: bool,
     /// Don't generate a HTML test report.
     #[arg(long)]
     no_report: bool,
-    /// Don't generate a HTML test report.
-    #[arg(long)]
-    pub open_report: bool,
     /// The git base revision against which the tests will be run.
     ///
     /// If none is specified, it's compared against the current working tree.
@@ -142,6 +142,14 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+    /// Prints the tags from a PDF file.
+    Pdftags(PdftagsCommand),
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct PdftagsCommand {
+    /// The PDF file containing the tags.
+    pub path: PathBuf,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]

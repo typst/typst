@@ -259,8 +259,10 @@ const imageDiffs = []
 /**
  * @typedef ImageDiffState
  * @type {object}
- * @property dirty {bool} Whether the canvas should be (re-)drawn.
  * @property visible {bool} Whether the canvas is visible.
+ * @property imagesDecoded {bool} Whether the images have been decoded and their
+ *                                natural dimensions are known.
+ * @property dirty {bool} Whether the canvas should be (re-)drawn.
  * @property imageCanvas {HTMLCanvasElement}
  * @property images {HTMLImageElement[]}
  * @property imageModes {HTMLInputElement[]}
@@ -296,8 +298,9 @@ for (const imageDiff of document.getElementsByClassName("image-diff")) {
 
   /** @type {ImageDiffState} */
   const state = {
-    dirty: true,
     visible: false,
+    imagesLoaded: false,
+    dirty: true,
     imageCanvas,
     images,
     imageModes,
@@ -343,6 +346,19 @@ for (const imageDiff of document.getElementsByClassName("image-diff")) {
 
   // Initially enable/disable the image controls.
   disableImageControls(state, currentImageMode(state));
+
+  // Issue a lazy canvas redaw when the images have been decoded.
+  let numDecoded = 0;
+  for (const img of images) {
+    // Ignore invalid images.
+    img.decode().catch(() => {}).then(() => {
+      numDecoded += 1;
+      if (numDecoded == images.length) {
+        state.imagesDecoded = true;
+        redrawImageDiff(state);
+      }
+    })
+  }
 
   // Issue a lazy canvas redaw if the images become visible on screen.
   onViewportIntersectionChanged(imageWrapper, (visible) => {
@@ -444,7 +460,7 @@ function redrawImageDiff(state) {
   // In large test reports drawing only the image diffs that are on screen is
   // necessary to create a somewhat usable experience. It also dramatically
   // reduces loading time.
-  if (!state.dirty || !state.visible) return;
+  if (!(state.visible  && state.dirty && state.imagesDecoded)) return;
 
   state.dirty = false;
 

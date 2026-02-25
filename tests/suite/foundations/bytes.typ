@@ -26,7 +26,7 @@
   bytes("World")
 }), "Hello World")
 
---- bytes-bad-conversion-from-dict paged ---
+--- bytes-bad-conversion-from-dict eval ---
 // Error: 8-14 expected string, array, or bytes, found dictionary
 #bytes((a: 1))
 

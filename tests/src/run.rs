@@ -1,33 +1,30 @@
 use std::fmt::Write;
-use std::ops::Range;
 use std::path::Path;
-use std::sync::LazyLock;
 
 use parking_lot::RwLock;
-use regex::{Captures, Regex};
-use typst::WorldExt;
-use typst::diag::{SourceDiagnostic, Warned};
+use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::foundations::{Content, Repr};
 use typst::layout::PagedDocument;
 use typst_html::HtmlDocument;
-use typst_syntax::FileId;
+use typst_syntax::Spanned;
 
 use crate::collect::{
-    FileSize, NoteKind, Test, TestEval, TestOutput, TestOutputKind, TestStage,
-    TestStages, TestTarget,
+    FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
+    TestTarget,
 };
 use crate::logger::TestResult;
+use crate::notes::{Note, NoteKind, NoteStatus};
 use crate::output::{
     FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
 };
 use crate::report::{Old, ReportFile};
-use crate::world::{TestFiles, TestWorld};
+use crate::world::TestWorld;
 use crate::{ARGS, STORE_PATH, custom, git, output};
 
 /// Runs a single test.
 ///
 /// Returns whether the test passed.
-pub fn run(hashes: &[RwLock<HashedRefs>], test: &Test) -> TestResult {
+pub fn run(hashes: &[RwLock<HashedRefs>], test: &mut Test) -> TestResult {
     Runner::new(hashes, test).run()
 }
 
@@ -57,12 +54,9 @@ macro_rules! log {
 /// Runs a single test.
 pub struct Runner<'a> {
     hashes: &'a [RwLock<HashedRefs>],
-    test: &'a Test,
+    test: &'a mut Test,
     world: TestWorld,
-    /// In which targets the note has been seen.
-    seen: Vec<TestStages>,
     result: TestResult,
-    not_annotated: String,
     unexpected_empty: UnexpectedEmpty,
     unexpected_non_empty: UnexpectedNonEmpty,
 }
@@ -104,12 +98,12 @@ impl UnexpectedNonEmpty {
 enum UnexpectedEmpty {
     None,
     Output(TestStages),
-    Eval,
+    Eval { error: bool },
 }
 
 impl UnexpectedEmpty {
-    fn eval(&mut self) {
-        *self = Self::Eval;
+    fn eval(&mut self, error: bool) {
+        *self = Self::Eval { error };
     }
 
     fn output(&mut self, output: TestOutput) {
@@ -120,26 +114,20 @@ impl UnexpectedEmpty {
             Self::Output(stages) => {
                 *stages |= output.into();
             }
-            Self::Eval => (),
+            Self::Eval { .. } => (),
         }
     }
 }
 
 impl<'a> Runner<'a> {
     /// Create a new test runner.
-    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a Test) -> Self {
+    fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
+        let world = TestWorld::new(test.body.source.clone());
         Self {
             hashes,
             test,
-            world: TestWorld::new(test.source.clone()),
-            seen: vec![TestStages::empty(); test.notes.len()],
-            result: TestResult {
-                errors: String::new(),
-                infos: String::new(),
-                mismatched_output: false,
-                report: None,
-            },
-            not_annotated: String::new(),
+            world,
+            result: TestResult::default(),
             unexpected_empty: UnexpectedEmpty::None,
             unexpected_non_empty: UnexpectedNonEmpty::None,
         }
@@ -147,24 +135,37 @@ impl<'a> Runner<'a> {
 
     /// Run the test.
     fn run(mut self) -> TestResult {
-        if crate::ARGS.syntax {
-            log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
+        if ARGS.syntax {
+            log!(into: self.result.infos, "tree: {:#?}", self.test.body.source.root());
         }
 
-        if let Some(content) = self.eval() {
-            if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
-                if !output::is_empty_content(&content) {
-                    self.unexpected_non_empty.eval(content.clone());
-                }
-            } else if output::is_empty_content(&content) {
-                self.unexpected_empty.eval();
+        // Unconditionally eval the document to check for empty/non-empty
+        // content. This result is cached, so calling compile below won't
+        // duplicate any work.
+        let evaluated = self.eval();
+        if self.test.attrs.parsed_stages().contains(TestStages::EVAL) {
+            // Enforce that `eval` tests produce empty content. Otherwise there
+            // might be code inside the content that will only be executed
+            // during layout/realization.
+            if let Ok(content) = &evaluated.output
+                && !output::is_empty_content(content)
+            {
+                self.unexpected_non_empty.eval(content.clone());
+            }
+        } else {
+            // Enforce that tests which don't have the `eval` attribute produce
+            // non-empty content and don't error in the `eval` stage.
+            if evaluated.output.as_ref().is_ok_and(output::is_empty_content)
+                || evaluated.output.is_err()
+            {
+                self.unexpected_empty.eval(evaluated.output.is_err());
             }
         }
 
         // Only compile paged document when the paged target is explicitly
         // specified or required by paged outputs.
         if self.test.should_run(TestTarget::Paged) {
-            let mut doc = self.compile::<PagedDocument>();
+            let mut doc = self.compile::<PagedDocument>(evaluated.clone());
             let errors = custom::check(self.test, &self.world, doc.as_ref());
             if !errors.is_empty() {
                 log!(self, "custom check failed");
@@ -195,14 +196,12 @@ impl<'a> Runner<'a> {
 
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
-            let doc = self.compile::<HtmlDocument>();
+            let doc = self.compile::<HtmlDocument>(evaluated);
             self.run_file_test::<output::Html>(doc.as_ref());
         }
 
         self.handle_empty();
-
-        self.handle_not_emitted();
-        self.handle_not_annotated();
+        self.handle_annotations();
 
         self.result
     }
@@ -229,12 +228,20 @@ impl<'a> Runner<'a> {
 
         match self.unexpected_empty {
             UnexpectedEmpty::None => (),
-            UnexpectedEmpty::Eval => {
-                log!(
-                    self,
-                    "[{}] test produced empty content",
-                    self.test.attrs.implied_stages()
-                );
+            UnexpectedEmpty::Eval { error } => {
+                if error {
+                    log!(
+                        self,
+                        "[{}] test errored in the [eval] stage",
+                        self.test.attrs.implied_stages()
+                    );
+                } else {
+                    log!(
+                        self,
+                        "[{}] test produced empty content",
+                        self.test.attrs.implied_stages()
+                    );
+                }
                 log!(self, "  hint: consider making this an `eval` test");
             }
             UnexpectedEmpty::Output(stages) => {
@@ -248,86 +255,178 @@ impl<'a> Runner<'a> {
         }
     }
 
-    /// Handle errors that weren't annotated.
-    fn handle_not_annotated(&mut self) {
-        if !self.not_annotated.is_empty() {
-            log!(self, "not annotated");
-            self.result.errors.push_str(&self.not_annotated);
+    /// Handle error/warning annotation issues.
+    fn handle_annotations(&mut self) {
+        let mut needs_update = false;
+        let mut inconsistent_stages = false;
+        let mut consistent_set = TestStages::all();
+
+        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+            // Set `needs_update` in one place for clarity.
+            needs_update |= match &status {
+                NoteStatus::Annotated { .. } => seen.is_empty(),
+                NoteStatus::Updated { .. } => true,
+                NoteStatus::Emitted => true,
+            };
+
+            if seen.is_empty() {
+                let NoteStatus::Annotated { pos } = &status else { unreachable!() };
+                if !ARGS.update {
+                    log!(self, "not emitted");
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
+                continue;
+            }
+
+            // Even if a diagnostic is emitted and annotated, it may only have
+            // been emitted in a subset of the ran stages. This may be an error,
+            // but only if that subset isn't "covered" by each ran stage.
+            // For example, if we have a `paged html` test that sees an error
+            // only in `eval`, this is fine because `eval` is covered by both
+            // `paged` and `html`. But we do not support errors occuring in
+            // only one of `paged` or `html` when both are given.
+            let ran_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
+            // Whether the seen stages are implied by all ran stages.
+            let fully_covered =
+                ran_stages.iter().all(|s| s.with_required().intersects(*seen));
+            if !fully_covered {
+                consistent_set &= *seen;
+                inconsistent_stages = true;
+                let siblings = ran_stages & seen.with_siblings();
+                log!(self, "only emitted in [{seen}] but expected in [{siblings}]");
+            }
+
+            if ARGS.update && fully_covered {
+                continue;
+            }
+
+            // Log errors with the annotated vs. emitted diagnostics.
+            match &status {
+                NoteStatus::Emitted => {
+                    log!(self, "not annotated");
+                    // The `#` ensures the range includes line numbers.
+                    log!(self, "  {kind}: {range:#} {message}");
+                }
+                NoteStatus::Annotated { pos } | NoteStatus::Updated { pos, .. }
+                    if !fully_covered =>
+                {
+                    // Just print the annotation if not fully covered.
+                    log!(self, "  {kind}: {range} {message} ({pos})");
+                }
+                NoteStatus::Annotated { .. } => {} // Annotated and emitted!
+                NoteStatus::Updated { pos, annotated } => {
+                    let (anot_kind, anot_range, anot_message) = &**annotated;
+                    // Kind is wrong.
+                    if anot_kind != kind {
+                        log!(self, "mismatched error kind ({pos}):");
+                        log!(self, "  annotated | `{anot_kind}`");
+                        log!(self, "  emitted   | `{kind}`");
+                    }
+                    // Range is wrong.
+                    if let Some((anot_r, emit_r)) = anot_range.diff(range) {
+                        log!(self, "mismatched range ({pos}):");
+                        if anot_message == message {
+                            log!(self, "  message   | {anot_kind}: {anot_message}");
+                        }
+                        let pad = 10.max(anot_r.len()).max(emit_r.len());
+                        let anot_text = anot_range.text();
+                        log!(self, "  annotated | {anot_r:<pad$} | {}", anot_text);
+                        log!(self, "  emitted   | {emit_r:<pad$} | {}", range.text());
+                    }
+                    // Message is wrong.
+                    if anot_message != message {
+                        log!(self, "mismatched message ({pos}):");
+                        log!(self, "  annotated | {anot_message}");
+                        log!(self, "  emitted   | {message}");
+                    }
+                }
+            }
         }
-    }
 
-    /// Handle notes that weren't handled before.
-    fn handle_not_emitted(&mut self) {
-        for (note, &seen) in self.test.notes.iter().zip(&self.seen) {
-            let possible = self.test.attrs.implied_stages() & ARGS.required_stages();
-            if seen.is_empty() && !possible.is_empty() {
-                log!(self, "not emitted");
-                let note_range = self.format_range(note.file, &note.range);
-                log!(
-                    self,
-                    "  {}: {note_range} {} ({})",
-                    note.kind,
-                    note.message,
-                    note.pos
-                );
-                continue;
+        if needs_update {
+            if ARGS.update && inconsistent_stages {
+                // We can't update notes if they were emitted inconsistently.
+                log!(self, "unable to update test annotations");
+            } else if ARGS.update {
+                let (new_body, note_stats) = self.test.body.write_seen_annotations();
+                self.result.updated_body = Some(new_body);
+
+                let stats = note_stats
+                    .into_iter()
+                    .filter(|(_, count)| *count > 0)
+                    .map(|(verb, count)| format!("{verb} {count}"))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                // We won't actually update until we've finished running every
+                // test, but it's not really worth explaining.
+                log!(into: self.result.infos, "updated test annotations ({stats})");
+            } else {
+                self.result.mismatched_output = true;
             }
+        }
 
-            // Figure out if the diagnostic is only emitted in a specific in a
-            // specific output/target that isn't hit by all possible branches of
-            // the stage tree.
-            // See the doc comment on `TestStages` for an overview.
-            let attr_stages = self.test.attrs.implied_stages() & ARGS.required_stages();
-            let full_branch_coverage =
-                attr_stages.iter().all(|s| s.with_required().intersects(seen));
-            if full_branch_coverage {
-                continue;
+        if inconsistent_stages {
+            log!(self, "errors/warnings were emitted differently across multiple stages");
+            if consistent_set.is_empty() {
+                log!(self, "consider moving to multiple tests with different stages");
+            } else {
+                // This will probably be Eval if anything.
+                log!(self, "consider changing the test to only {consistent_set}");
             }
-
-            let siblings = seen.with_siblings()
-                & self.test.attrs.implied_stages()
-                & ARGS.required_stages();
-            log!(
-                self,
-                "only emitted in [{seen}] but expected in [{siblings}], \
-                 consider narrowing the test attributes",
-            );
-
-            let note_range = self.format_range(note.file, &note.range);
-            log!(self, "  {}: {note_range} {} ({})", note.kind, note.message, note.pos);
         }
     }
 
     /// Evaluate document content, this is the target agnostic part of compilation.
-    fn eval(&mut self) -> Option<Content> {
-        let Warned { output, warnings } = eval::eval(&self.world);
-        for warning in &warnings {
+    fn eval(&mut self) -> Warned<SourceResult<Content>> {
+        let evaluated = eval::eval(&self.world);
+
+        let Warned { output, warnings } = &evaluated;
+        for warning in warnings {
             self.check_diagnostic(NoteKind::Warning, warning, TestEval);
         }
 
-        if let Err(errors) = &output {
+        if let Err(errors) = output {
             for error in errors.iter() {
                 self.check_diagnostic(NoteKind::Error, error, TestEval);
             }
         }
 
-        output.ok()
+        evaluated
     }
 
     /// Compile a document with the specified target.
-    fn compile<D: TestDocument>(&mut self) -> Option<D> {
+    ///
+    /// Conceptually, this function takes the evaluated content as input and
+    /// produces a document. In practice it also re-evaluates the sources and
+    /// thus generates duplicate diagnostics for the eval stage, so we filter
+    /// those out.
+    fn compile<D: TestDocument>(
+        &mut self,
+        evaluated: Warned<SourceResult<Content>>,
+    ) -> Option<D> {
         let Warned { output, warnings } = typst::compile::<D>(&self.world);
-        for warning in &warnings {
+
+        let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
+        for warning in warnings.iter() {
             self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
         }
 
-        if let Err(errors) = &output {
-            for error in errors.iter() {
-                self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+        match output {
+            Ok(output) => Some(output),
+            Err(errors) => {
+                let eval_errors = (evaluated.output.as_ref().err())
+                    .map(|errors| errors.as_slice())
+                    .unwrap_or(&[]);
+                let errors = eval::deduplicate_with(errors, eval_errors);
+
+                for error in errors.iter() {
+                    self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+                }
+
+                None
             }
         }
-
-        output.ok()
     }
 
     /// Run test for an output format that produces a file reference.
@@ -464,7 +563,7 @@ impl<'a> Runner<'a> {
 
         let new_ref_data = T::save_ref(live);
         let new_ref_data = new_ref_data.as_ref();
-        if crate::ARGS.update {
+        if ARGS.update {
             if !self.test.attrs.large && new_ref_data.len() > crate::REF_LIMIT {
                 log!(self, "reference output would exceed maximum size");
                 log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
@@ -555,7 +654,7 @@ impl<'a> Runner<'a> {
             return;
         }
 
-        if crate::ARGS.update {
+        if ARGS.update {
             let mut hashed_refs = self.hashes[T::INDEX].write();
             let ref_path = T::OUTPUT.hash_refs_path();
             hashed_refs.update(self.test.name.clone(), new_hash);
@@ -600,7 +699,7 @@ impl<'a> Runner<'a> {
         output: &Option<(&T::Doc, &T::Live, impl AsRef<[u8]>)>,
     ) -> Result<Option<()>, ()> {
         let Some((doc, live, _)) = output else {
-            if !self.test.should_error() {
+            if !self.test.body.has_error() {
                 log!(self, "missing output [{}]", T::OUTPUT);
                 return Err(());
             }
@@ -648,136 +747,29 @@ impl<'a> Runner<'a> {
         if diag.message == "html export is under active development and incomplete" {
             return;
         }
+        let stage = stage.into();
 
-        let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range, &diag.message, stage);
+        let emitted_diag =
+            Note::emitted(kind, stage, &diag.message, diag.span, &self.world);
+        self.test.body.mark_seen_or_update(emitted_diag);
 
         // Check hints.
-        for hint in &diag.hints {
+        for Spanned { v: hint, span } in &diag.hints {
             // HACK: This hint only gets emitted in debug builds, so filter it
             // out to make the test suite also pass for release builds.
-            if hint.v == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
+            if hint == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
                 continue;
             }
 
-            let span = hint.span.or(diag.span);
-            let range = self.world.range(span);
-            self.validate_note(NoteKind::Hint, span.id(), range, &hint.v, stage);
+            let emitted_hint = Note::emitted(
+                NoteKind::Hint,
+                stage,
+                hint,
+                span.or(diag.span),
+                &self.world,
+            );
+            self.test.body.mark_seen_or_update(emitted_hint);
         }
-    }
-
-    /// Try to find a matching note for the given `kind`, `range`, and
-    /// `message`.
-    ///
-    /// - If found, marks it as seen and returns it.
-    /// - If none was found, emits a "Not annotated" error and returns nothing.
-    fn validate_note(
-        &mut self,
-        kind: NoteKind,
-        file: Option<FileId>,
-        range: Option<Range<usize>>,
-        message: &str,
-        stage: impl TestStage,
-    ) {
-        // HACK: Replace backslashes path sepators with slashes for cross
-        // platform reproducible error messages.
-        static RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new("\\((.*) (at|in) (.+)\\)").unwrap());
-        let message = RE.replace(message, |caps: &Captures| {
-            let path = caps[3].replace('\\', "/");
-            format!("({} {} {})", &caps[1], &caps[2], path)
-        });
-
-        // Try to find perfect match.
-        let file = file.unwrap_or(self.test.source.id());
-        if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
-                && note.kind == kind
-                && note.range == range
-                && note.message == message
-                && note.file == file
-        }) {
-            self.seen[i] |= stage.into();
-            return;
-        }
-
-        // Try to find closely matching annotation. If the note has the same
-        // range or message, it's most likely the one we're interested in.
-        let Some((i, note)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
-            !self.seen[i].contains(stage.into())
-                && note.kind == kind
-                && (note.range == range || note.message == message)
-        }) else {
-            // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(file, &range);
-            log!(into: self.not_annotated, "  {kind} [{stage}]: {diag_range} {}", message);
-            return;
-        };
-
-        // Mark this annotation as visited and return it.
-        self.seen[i] |= stage.into();
-
-        // Range is wrong.
-        if range != note.range {
-            let note_range = self.format_range(note.file, &note.range);
-            let note_text = self.text_for_range(note.file, &note.range);
-            let diag_range = self.format_range(file, &range);
-            let diag_text = self.text_for_range(file, &range);
-            log!(self, "mismatched range [{stage}] ({}):", note.pos);
-            log!(self, "  message   | {}", note.message);
-            log!(self, "  annotated | {note_range:<9} | {note_text}");
-            log!(self, "  emitted   | {diag_range:<9} | {diag_text}");
-        }
-
-        // Message is wrong.
-        if message != note.message {
-            log!(self, "mismatched message [{stage}] ({}):", note.pos);
-            log!(self, "  annotated | {}", note.message);
-            log!(self, "  emitted   | {message}");
-        }
-    }
-
-    /// Display the text for a range.
-    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No text".into() };
-        if range.is_empty() {
-            return "(empty)".into();
-        }
-
-        let lines = self.world.lines(file).unwrap();
-        lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
-    }
-
-    /// Display a byte range as a line:column range.
-    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
-        let Some(range) = range else { return "No range".into() };
-
-        let mut preamble = String::new();
-        if file != self.test.source.id() {
-            preamble = format!("\"{}\" ", TestFiles.resolve(file).display());
-        }
-
-        if range.start == range.end {
-            format!("{preamble}{}", self.format_pos(file, range.start))
-        } else {
-            format!(
-                "{preamble}{}-{}",
-                self.format_pos(file, range.start),
-                self.format_pos(file, range.end)
-            )
-        }
-    }
-
-    /// Display a position as a line:column pair.
-    fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.world.lines(file).unwrap();
-
-        let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
-        let Some((line, col)) = res else {
-            return "oob".into();
-        };
-
-        if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
     }
 }
 
@@ -844,12 +836,20 @@ mod eval {
     }
 
     /// Deduplicate diagnostics.
-    fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-        let mut unique = FxHashSet::default();
-        diags.retain(|diag| {
-            let hash = typst_utils::hash128(&(&diag.span, &diag.message));
-            unique.insert(hash)
-        });
+    pub fn deduplicate(diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
+        deduplicate_with(diags, [])
+    }
+
+    // Deduplicate diagnostics with a set of already existing ones.
+    pub fn deduplicate_with<'a>(
+        mut diags: EcoVec<SourceDiagnostic>,
+        existing: impl IntoIterator<Item = &'a SourceDiagnostic>,
+    ) -> EcoVec<SourceDiagnostic> {
+        let hash =
+            |diag: &SourceDiagnostic| typst_utils::hash128(&(&diag.span, &diag.message));
+
+        let mut unique = existing.into_iter().map(hash).collect::<FxHashSet<_>>();
+        diags.retain(|diag| unique.insert(hash(diag)));
         diags
     }
 }

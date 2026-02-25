@@ -3,16 +3,16 @@
 #test(type(ltr), direction)
 #test(type(10 / 3), float)
 
---- issue-3110-type-constructor paged ---
+--- issue-3110-type-constructor eval ---
 // Let the error message report the type name.
 // Error: 2-9 type content does not have a constructor
 #content()
 
---- issue-3110-associated-field paged ---
+--- issue-3110-associated-field eval ---
 // Error: 6-12 type integer does not contain field `MAXVAL`
 #int.MAXVAL
 
---- issue-3110-associated-function paged ---
+--- issue-3110-associated-function eval ---
 // Error: 6-18 type string does not contain field `from-unïcode`
 #str.from-unïcode(97)
 

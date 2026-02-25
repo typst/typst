@@ -40,38 +40,38 @@
 #test(hello == world, false)
 #test(hello == hello2, true)
 
---- plugin-wrong-number-of-arguments paged ---
+--- plugin-wrong-number-of-arguments eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 
 // Error: 2-20 plugin function takes 0 arguments, but 1 was given
 #p.hello(bytes(""))
 
---- plugin-wrong-argument-type paged ---
+--- plugin-wrong-argument-type eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 
 // Error: 10-14 expected bytes, found boolean
 // Error: 27-29 expected bytes, found integer
 #p.hello(true, bytes(()), 10)
 
---- plugin-error paged ---
+--- plugin-error eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 
 // Error: 2-17 plugin errored with: This is an `Err`
 #p.returns_err()
 
---- plugin-panic paged ---
+--- plugin-panic eval ---
 #let p = plugin("/assets/plugins/hello.wasm")
 
 // Error: 2-16 plugin panicked: wasm `unreachable` instruction executed
 #p.will_panic()
 
---- plugin-out-of-bounds-read paged ---
+--- plugin-out-of-bounds-read eval ---
 #let p = plugin("/assets/plugins/plugin-oob.wasm")
 
 // Error: 2-14 plugin tried to read out of bounds: pointer 0x40000000 is out of bounds for read of length 1
 #p.read_oob()
 
---- plugin-out-of-bounds-write paged ---
+--- plugin-out-of-bounds-write eval ---
 #let p = plugin("/assets/plugins/plugin-oob.wasm")
 
 // Error: 2-27 plugin tried to write out of bounds: pointer 0x40000000 is out of bounds for write of length 3

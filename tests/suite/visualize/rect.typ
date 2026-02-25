@@ -70,7 +70,7 @@
   left: (cap: "round", thickness: 5pt),
   top: (cap: "square", thickness: 7pt),
 ))
---- red-stroke-bad-type paged ---
+--- red-stroke-bad-type eval ---
 // Error: 15-21 expected length, color, gradient, tiling, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
 
@@ -99,7 +99,7 @@
   ..items,
 )
 
---- rect-radius-bad-key paged ---
+--- rect-radius-bad-key eval ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #rect(radius: (left: 10pt, cake: 5pt))
 
