@@ -94,8 +94,9 @@ impl SVGRenderer<'_> {
 
         // Use the rendered SVG and the tiling size as a key, since the `Tiling`
         // itself includes `Location`s which aren't stable.
-        let tiling_id =
-            self.tilings.insert_with((tiling_size, tiling_offset, rendered), || tiling.clone());
+        let tiling_id = self
+            .tilings
+            .insert_with((tiling_size, tiling_offset, rendered), || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
