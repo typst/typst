@@ -1723,6 +1723,9 @@ d93b798b29f5f7ad2867a2e2fe2bfddf text-tracking-mark-placement
 e32b5de91ea6f7180bd296449d6fac18 text-unknown-font-family-warning
 3da96a5509ee622543217458fae62d12 tiling-line
 1e4fe1ad64053dcd5699507ef01eeedb tiling-lines
+42499d9ac8399e69aece0af0f907d264 tiling-offset-negative
+f93bfffd6eae7f02079945f6c9d08256 tiling-offset-positive
+d1beea271ca0fdd53eb9980e286346b8 tiling-offset-zero
 3da96a5509ee622543217458fae62d12 tiling-pattern-compatibility
 346383c401114ed35345380f258a3ad6 tiling-relative-parent
 c8c2404d61e8d3b76fa6883ae166a179 tiling-relative-self
