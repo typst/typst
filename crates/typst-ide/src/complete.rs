@@ -11,8 +11,8 @@ use typst::foundations::{
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
-    is_ident,
+    FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
+    is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
@@ -51,15 +51,20 @@ pub fn autocomplete(
         explicit,
     )?;
 
-    let _ = complete_comments(&mut ctx)
-        || complete_field_accesses(&mut ctx)
+    // Getting the syntax mode also ensures we are not in a comment.
+    let mode = ctx.leaf.mode_after()?;
+
+    _ = complete_field_accesses(&mut ctx)
         || complete_open_labels(&mut ctx)
         || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
-        || complete_markup(&mut ctx)
-        || complete_math(&mut ctx)
-        || complete_code(&mut ctx);
+        // Only attempt the general completions after the more specific ones.
+        || match mode {
+            SyntaxMode::Markup => complete_markup(&mut ctx),
+            SyntaxMode::Math => complete_math(&mut ctx),
+            SyntaxMode::Code => complete_code(&mut ctx),
+        };
 
     Some((ctx.from, ctx.completions))
 }
@@ -106,34 +111,9 @@ pub enum CompletionKind {
     Symbol(EcoString),
 }
 
-/// Complete in comments. Or rather, don't!
-fn complete_comments(ctx: &mut CompletionContext) -> bool {
-    matches!(ctx.leaf.kind(), SyntaxKind::LineComment | SyntaxKind::BlockComment)
-}
-
 /// Complete in markup mode.
 fn complete_markup(ctx: &mut CompletionContext) -> bool {
-    // Bail if we aren't even in markup.
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
-    ) {
-        return false;
-    }
-
-    // Start of an interpolated identifier: "#|".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // An existing identifier: "#pa|".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
-    }
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Markup));
 
     // Start of a reference: "@|".
     if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
@@ -296,32 +276,7 @@ fn markup_completions(ctx: &mut CompletionContext) {
 
 /// Complete in math mode.
 fn complete_math(ctx: &mut CompletionContext) -> bool {
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathCall)
-            | Some(SyntaxKind::MathArgs)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathFieldAccess)
-    ) {
-        return false;
-    }
-
-    // Start of an interpolated identifier: "$#|$".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Behind existing interpolated identifier: "$#pa|$".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
-    }
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Math));
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
     if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
@@ -876,17 +831,15 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
 
 /// Complete in code mode.
 fn complete_code(ctx: &mut CompletionContext) -> bool {
-    debug_assert!(!matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathCall)
-            | Some(SyntaxKind::MathArgs)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathRoot)
-            | Some(SyntaxKind::MathFieldAccess)
-    ));
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Code));
+
+    // Start of embedded code in markup or math: "[#|]", "$#|$".
+    // (if not in markup or math, the kind would be an `Error`).
+    if ctx.leaf.kind() == SyntaxKind::Hash {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
 
     // An existing identifier: "{ pa| }".
     // Ignores named pair keys as they are not variables (as in "(pa|: 23)").
@@ -895,13 +848,6 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, false);
-        return true;
-    }
-
-    // A potential label (only at the start of an argument list): "(<|".
-    if ctx.before.ends_with("(<") {
-        ctx.from = ctx.cursor;
-        ctx.label_completions();
         return true;
     }
 
@@ -1748,9 +1694,8 @@ mod tests {
         test("$pi()$", -4).must_include(["pi"]).must_exclude(["box"]);
         test("$pi(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
         test("$vec(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
-        // TODO: Fix named/spread args:
-        // test("$vec(size:pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
-        // test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(size:pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
