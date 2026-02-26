@@ -300,6 +300,8 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         ctx.leaf.parent_kind(),
         Some(SyntaxKind::Equation)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathCall)
+            | Some(SyntaxKind::MathArgs)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
     ) {
@@ -321,10 +323,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(
-        ctx.leaf.kind(),
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
-    ) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -663,6 +662,11 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 }
 
 /// Complete call and set rule parameters.
+///
+/// FUTURE: Make this work math functions. This will require a much deeper
+/// refactoring of `param_completions` below, including handling 2d arguments
+/// correctly and ensuring we add a hash in math when suggesting to insert
+/// values that aren't strings.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
     let (callee, set, args, args_linked) = if let Some(parent) = ctx.leaf.parent()
@@ -868,16 +872,16 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
 
 /// Complete in code mode.
 fn complete_code(ctx: &mut CompletionContext) -> bool {
-    if matches!(
+    debug_assert!(!matches!(
         ctx.leaf.parent_kind(),
         None | Some(SyntaxKind::Markup)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathCall)
+            | Some(SyntaxKind::MathArgs)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
             | Some(SyntaxKind::MathRoot)
-    ) {
-        return false;
-    }
+    ));
 
     // An existing identifier: "{ pa| }".
     // Ignores named pair keys as they are not variables (as in "(pa|: 23)").
@@ -1680,7 +1684,10 @@ mod tests {
 
     #[test]
     fn test_autocomplete_hash_expr() {
+        test("#", -1).must_include(["int", "if conditional"]);
         test("#i", -1).must_include(["int", "if conditional"]);
+        test("$#$", -2).must_include(["int", "if conditional"]);
+        test("$#i$", -2).must_include(["int", "if conditional"]);
     }
 
     #[test]
@@ -1703,6 +1710,38 @@ mod tests {
     fn test_autocomplete_math_scope() {
         test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
         test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+        test("$(col)$", -3).must_include(["colon"]).must_exclude(["colbreak"]);
+        test("$1/col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
+    /// Basic tests for field access autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_field_access() {
+        test("#assert.", -1).must_include(["eq", "ne"]);
+        test("$#assert.$", -2).must_include(["eq", "ne"]);
+        // Note that we still include `ne` even though we've started typing.
+        test("#assert.e", -1).must_include(["eq", "ne"]);
+        test("#(assert.e)", -2).must_include(["eq", "ne"]);
+        test("$#assert.e$", -2).must_include(["eq", "ne"]);
+        test("$#std.assert.e$", -2)
+            .must_include(["eq", "ne"])
+            .must_exclude(["lt"]);
+        test("$std.assert.e$", -2)
+            .must_include(["eq", "ne"])
+            .must_exclude(["lt"]);
+    }
+
+    /// Test autocomplete inside math function call arguments.
+    #[test]
+    fn test_autocomplete_math_func_call() {
+        test("$f(#pi)$", -3).must_include(["box"]).must_exclude(["pi"]);
+        test("$f(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$pi()$", -4).must_include(["pi"]).must_exclude(["box"]);
+        test("$pi(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        // TODO: Fix named/spread args:
+        // test("$vec(size:pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        // test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
