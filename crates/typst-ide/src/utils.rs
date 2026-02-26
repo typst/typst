@@ -68,11 +68,12 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
         leaf.parent_kind(),
         Some(SyntaxKind::Equation)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathCall)
+            | Some(SyntaxKind::MathArgs)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
-    ) && leaf
-        .prev_leaf()
-        .is_none_or(|prev| !matches!(prev.kind(), SyntaxKind::Hash));
+    ) && leaf.kind() != SyntaxKind::Hash
+        && leaf.prev_leaf().is_none_or(|prev| prev.kind() != SyntaxKind::Hash);
 
     let library = world.library();
     if in_math { library.math.scope() } else { library.global.scope() }
