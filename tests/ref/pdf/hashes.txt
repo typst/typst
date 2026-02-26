@@ -1007,12 +1007,18 @@ e120f62f76c1a20a4f33805cfc842753 math-attach-prescripts
 e6d608b114c4bf5c5f33403eacd6c71b math-box-without-baseline
 16603a858b824dedb14d6c9404fdfb9c math-call-2d-semicolon-priority
 4ad5a4ae890e60d41f2e032be7c4e967 math-call-empty-args-non-func
+8a24451b2d7b3d8e49111b5af429b5c3 math-call-field-content
+42aa49a880f7c917ba1fa66ee50daee9 math-call-field-dict-non-func
+c4f626f839091c413c3ecffddd70d940 math-call-field-module
+e8411e2b0b0499f428e5862098d652a7 math-call-field-symbol
 e29c24c018e45a7fc748f291eb6079c1 math-call-named-args
-3d51926aca805c0a421ae9ee58e91e0c math-call-non-func
 4ca65014514dcf4f12b33ecdab0f3204 math-call-pass-to-box
 41e64d80f9be44e6db48744f9fae8809 math-call-shadowed-builtin
 beb172061810513475c0cc74d94b3f5c math-call-spread-shorthand-clash
 995f789515d7475a4276e0c91b008616 math-call-symbol
+c9dcf4f3bcc4dc7acc520c96e8220ba2 math-call-symbol-2d
+fcc75ad198f2fc422dc986fe4fac3468 math-call-symbol-spacing
+6144986f3fa7126fd61d68e3877ea4f9 math-call-value-non-func
 8d14c0e5bea574dcad99874588f23261 math-cancel-angle-absolute
 510ed43c47ee884fd2d8297c4ea089a4 math-cancel-angle-func
 c896f23dc54392d0281bcb4e2c6a7837 math-cancel-cross
@@ -1120,6 +1126,7 @@ c199b697f53a8aba29bbf7273eaf7f5e math-mat-align-implicit
 5c9ac506e79e1fc8834c00a7ab0dfc68 math-mat-align-signed-numbers
 d4cc5602bc2447c37fd2c47824fc5974 math-mat-augment
 59b64ff129858112c73f7d22d57f9eda math-mat-augment-set
+460e3ec44df973577177e4558e16afee math-mat-bad-comma
 4920de1ec8b0161cf4252d9cf1481b48 math-mat-baseline
 60ef4e1b9d22bb5dd079604b4d79c986 math-mat-delim-class
 40bc1dda0bc9872f2e0c12c7e188e611 math-mat-delim-direct

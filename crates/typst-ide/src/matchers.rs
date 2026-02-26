@@ -229,6 +229,7 @@ pub fn deref_target(node: LinkedNode<'_>) -> Option<DerefTarget<'_>> {
     Some(match expr {
         ast::Expr::Label(_) => DerefTarget::Label(expr_node),
         ast::Expr::Ref(_) => DerefTarget::Ref(expr_node),
+        // TODO: Add MathCall?
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
