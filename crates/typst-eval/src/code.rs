@@ -250,18 +250,20 @@ impl Eval for ast::Array<'_> {
                         if items_seen_are_spread_dicts
                         // Lookahead to see whether remaining items are spreads
                         // of dicts
-                        && items.all(|it| {
-                            let ast::ArrayItem::Spread(spd) = it else {
-                                return false;
-                            };
-                            spd.expr()
-                                .eval(vm)
-                                .is_ok_and(|spd| matches!(spd, Value::Dict(_)))
-                        }) =>
+                        && items.all(|item| matches!(
+                            item,
+                            ast::ArrayItem::Spread(spread) if matches!(
+                                spread.expr().eval(vm),
+                                Ok(Value::Dict(_)),
+                            ),
+                        )) =>
                     {
-                        bail!(spread.span(), "cannot spread {} into array",
-                            v.ty();
-                        hint: "add a colon to create a dictionary instead `(: ..dict)`")
+                        let fixed =
+                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        bail!(
+                            spread.span(), "cannot spread {} into array", v.ty();
+                            hint: "add a colon to create a dictionary instead `{fixed}`";
+                        )
                     }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
