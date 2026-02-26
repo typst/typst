@@ -1080,6 +1080,7 @@ ebc01fa6a9c2ef4948f8a23c37f662b6 math-frac-skewed
 2cc8793a09715eb304b6231de6eca12c math-frac-styles-inline
 3e2efc6be16f36d5d02216ffc6bdd631 math-frac-tan-sin-cos
 5b7596bfcd5305dd89ed5da56d7bfc4e math-glyph-show-rule
+47aab18179e84d33080b3ada03bc7ab2 math-linebreak-delimited
 2c33a33b49af236daa26d310c1ad6353 math-linebreaking-after-binop-and-rel
 8965c9f849747aafd295be43c66ec6be math-linebreaking-after-relation-without-space
 c1b94755e3276ef1917ab88730a4ac8a math-linebreaking-between-consecutive-relations
@@ -1106,7 +1107,6 @@ b130b1e38d4e152e01f88c68b7889acd math-lr-size
 568f9eeff4e4058c3feac51f9965228e math-lr-sym-call
 951e5ea6c30617e9cd5f6698873fc7c1 math-lr-sym-call-size
 196d5e08d02f3a0df3b6e5a1ac8873ee math-lr-symbol-unmatched
-a73a4149d28249ceb89431376363c683 math-lr-unbalanced
 3fb59135797fc261a9033f2013ccf106 math-lr-unmatched
 59ccf4b04d0db8dab2e82cba25f4d286 math-lr-unparen
 e6bc550db563cf9fce245f9512a588c7 math-lr-weak-spacing

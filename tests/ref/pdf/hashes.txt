@@ -1080,6 +1080,7 @@ c33982050654fcf183dc7e57b68de481 math-frac-paren-removal
 fc14ff186880725f41fa8ffe6a25e109 math-frac-styles-inline
 c979e14e67e308fd8615c8538d7df522 math-frac-tan-sin-cos
 70d74e557308cc51056df5e8fea8ff5b math-glyph-show-rule
+afd7395222985c885ca6c989e46cdf0e math-linebreak-delimited
 c1ce6c863795578cd7fab684dad17ccf math-linebreaking-after-binop-and-rel
 b52e99ee4a0065eac1f885e127257801 math-linebreaking-after-relation-without-space
 c2ef35eabba599c57feb5b04e65bce07 math-linebreaking-between-consecutive-relations
@@ -1106,7 +1107,6 @@ bfff37ad7896a46ea9807ba46061c9d4 math-lr-mid-size-nested-equation
 2fabbf8f043211a2b3a8557df2b86ec7 math-lr-sym-call
 03bf12b8ff11ff3ef8350abb9c626a9e math-lr-sym-call-size
 86bfa865271408764ca903e8fb79c2ea math-lr-symbol-unmatched
-a0584161f45f8da49ecbd08b03f4b9cd math-lr-unbalanced
 d2480b2d146b3a407307e3cbdca41f5f math-lr-unmatched
 c7feb90c4afe051cdf7bf54adee3cb4f math-lr-unparen
 59caa55b9dd0f6f5a6bc685d2fc3192b math-lr-weak-spacing
