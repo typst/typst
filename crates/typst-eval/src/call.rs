@@ -192,7 +192,7 @@ pub fn eval_closure(
             (closure.name(), closure.params(), closure.body())
         }
         ClosureNode::Context(ref node) => {
-            (None, ast::Params::default(), node.cast().unwrap())
+            (None, ast::Params::placeholder(), node.cast().unwrap())
         }
     };
 
