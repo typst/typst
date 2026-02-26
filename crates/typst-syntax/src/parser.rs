@@ -267,7 +267,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             // Parse a function call for an identifier or field access.
             if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
-                p.wrap(m, SyntaxKind::FuncCall);
+                p.wrap(m, SyntaxKind::MathCall);
                 continuable = false;
             }
         }
@@ -466,67 +466,33 @@ fn math_args(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::LeftParen);
 
-    let mut positional = true;
-    let mut has_arrays = false;
-
-    let mut maybe_array_start = p.marker();
     let mut seen = FxHashSet::default();
     while !p.at_set(syntax_set!(End, Dollar, RightParen)) {
-        positional = math_arg(p, &mut seen);
-
+        math_arg(p, &mut seen);
         match p.current() {
-            SyntaxKind::Comma => {
-                p.eat();
-                if !positional {
-                    maybe_array_start = p.marker();
-                }
-            }
-            SyntaxKind::Semicolon => {
-                if !positional {
-                    maybe_array_start = p.marker();
-                }
-
-                // Parses an array: `a, b, c;`.
-                // The semicolon merges preceding arguments separated by commas
-                // into an array argument.
-                p.wrap(maybe_array_start, SyntaxKind::Array);
-                p.eat();
-                maybe_array_start = p.marker();
-                has_arrays = true;
-            }
             SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {}
+            SyntaxKind::Semicolon | SyntaxKind::Comma => p.eat(),
             _ => p.expected("comma or semicolon"),
         }
     }
 
-    // Check if we need to wrap the preceding arguments in an array.
-    if maybe_array_start != p.marker() && has_arrays && positional {
-        p.wrap(maybe_array_start, SyntaxKind::Array);
-    }
-
     p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.wrap(m, SyntaxKind::Args);
+    p.wrap(m, SyntaxKind::MathArgs);
 }
 
 /// Parses a single argument in a math argument list.
-///
-/// Returns whether the parsed argument was positional or not.
-fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
+fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) {
     let m = p.marker();
     let start = p.current_start();
 
     let mut arg_kind = None;
 
-    if p.at(SyntaxKind::Dot)
-        && let Some(spread) = p.lexer.maybe_math_spread_arg(start)
-    {
+    if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
         // Parses a spread argument: `..args`.
         arg_kind = Some(SyntaxKind::Spread);
         p.token.node = spread;
         p.eat();
-    } else if p.at_set(syntax_set!(MathText, MathIdent, Underscore))
-        && let Some(named) = p.lexer.maybe_math_named_arg(start)
-    {
+    } else if let Some(named) = p.lexer.maybe_math_named_arg(start) {
         // Parses a named argument: `thickness: #12pt`.
         arg_kind = Some(SyntaxKind::Named);
         p.token.node = named;
@@ -550,15 +516,6 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
         if arg_kind == Some(SyntaxKind::Named) {
             p.expected("expression");
         }
-
-        // Flush trivia so that the new empty Math node will be wrapped _inside_
-        // any `SyntaxKind::Array` elements created in `math_args`.
-        // (And if we don't follow by wrapping in an array, it has no effect.)
-        // The difference in node layout without this would look like:
-        // - Expression: `$ mat( ;) $`
-        // - Correct:    [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
-        // - Incorrect:  [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
-        p.flush_trivia();
     }
 
     // Wrap math function arguments to join adjacent math content or create an
@@ -573,7 +530,6 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
     if let Some(kind) = arg_kind {
         p.wrap(m, kind);
     }
-    arg_kind != Some(SyntaxKind::Named)
 }
 
 /// Parses the contents of a code block.
@@ -624,6 +580,7 @@ fn embedded_code_expr(p: &mut Parser) {
             p.unexpected();
         }
 
+        // Note: 2d math arguments rely on the `directly_at` check.
         let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
             && p.eat_if(SyntaxKind::Semicolon);
 
