@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 
-use crate::{FileId, Span, SyntaxKind};
+use crate::kind::ModeSearch;
+use crate::{FileId, Span, SyntaxKind, SyntaxMode};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -750,6 +751,42 @@ impl<'a> LinkedNode<'a> {
         }
 
         None
+    }
+
+    /// Get the [`SyntaxMode`] of this node.
+    ///
+    /// Unlike some other `LinkedNode` methods, this does not treat all trivia
+    /// the same: it returns `None` for comments and returns `Some` for
+    /// whitespace (based on the parent's mode). The only other way this would
+    /// return `None` is when inside a partial tree, i.e. one not rooted in
+    /// `Markup`, `Math`, or `Code`.
+    ///
+    /// Also note that errors inherit the mode of their parent.
+    pub fn mode(&self) -> Option<SyntaxMode> {
+        match self.kind().mode_search() {
+            ModeSearch::Comment => None,
+            ModeSearch::Parent => self.parent_mode(),
+            ModeSearch::Known(mode) => Some(mode),
+            ModeSearch::Ident => match self.parent() {
+                Some(parent) if self.index == 0 && parent.kind() == SyntaxKind::Named => {
+                    parent.parent_mode()
+                }
+                _ => Some(SyntaxMode::Code),
+            },
+        }
+    }
+
+    /// Get the [`SyntaxMode`] of this node's parent.
+    ///
+    /// Unlike some other `LinkedNode` methods, this does not treat all trivia
+    /// the same: it returns `None` for comments and returns `Some` for
+    /// whitespace (based on the parent's mode). The only other way this would
+    /// return `None` is when inside a partial tree, i.e. one not rooted in
+    /// `Markup`, `Math`, or `Code`.
+    ///
+    /// Also note that errors inherit the mode of their parent.
+    pub fn parent_mode(&self) -> Option<SyntaxMode> {
+        self.parent().and_then(Self::mode)
     }
 }
 

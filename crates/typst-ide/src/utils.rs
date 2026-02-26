@@ -6,7 +6,7 @@ use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
 use typst::introspection::EmptyIntrospector;
-use typst::syntax::{LinkedNode, SyntaxKind};
+use typst::syntax::{LinkedNode, SyntaxMode};
 use typst::text::{FontInfo, FontStyle};
 use typst::utils::Protected;
 
@@ -64,20 +64,12 @@ pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
 
 /// The global definitions at the given node.
 pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
-    let in_math = matches!(
-        leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathCall)
-            | Some(SyntaxKind::MathArgs)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathFieldAccess)
-    ) && leaf.kind() != SyntaxKind::Hash
-        && leaf.prev_leaf().is_none_or(|prev| prev.kind() != SyntaxKind::Hash);
-
     let library = world.library();
-    if in_math { library.math.scope() } else { library.global.scope() }
+    if leaf.mode() == Some(SyntaxMode::Math) {
+        library.math.scope()
+    } else {
+        library.global.scope()
+    }
 }
 
 /// Checks whether the given value or any of its constituent parts satisfy the

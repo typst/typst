@@ -1,3 +1,5 @@
+use crate::SyntaxMode;
+
 /// A syntactical building block of a Typst file.
 ///
 /// Can be created by the lexer or by the parser.
@@ -70,9 +72,9 @@ pub enum SyntaxKind {
     TermItem,
     /// Introduces a term item: `/`.
     TermMarker,
+
     /// A mathematical equation: `$x$`, `$ x^2 $`.
     Equation,
-
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
@@ -521,5 +523,300 @@ impl SyntaxKind {
             Self::Destructuring => "destructuring pattern",
             Self::DestructAssignment => "destructuring assignment expression",
         }
+    }
+}
+
+/// How to determine the [`SyntaxMode`] for a syntax kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModeSearch {
+    /// Comments do not have a syntax mode, but whitespace inherits the syntax
+    /// mode of its parent.
+    Comment,
+    /// The mode is based on the parent's mode.
+    Parent,
+    /// The mode is always the same.
+    Known(SyntaxMode),
+    /// Normal identifiers are usually treated as code, but may be math if under
+    /// a `Named` as part of a `MathArgs`.
+    ///
+    /// Just checking the parent would be incorrect because these can be
+    /// directly embedded in math/markup with a hash as in `$#ident$`. This is
+    /// the only `SyntaxKind` which is both embeddable with a hash and used in
+    /// multiple modes.
+    Ident,
+}
+
+impl SyntaxKind {
+    /// How to determine the mode of this syntax kind.
+    ///
+    /// The high-level interface for this is [`crate::node::LinkedNode::mode`].
+    pub(crate) fn mode_search(self) -> ModeSearch {
+        match self {
+            SyntaxKind::End => ModeSearch::Comment,
+            SyntaxKind::Error => ModeSearch::Parent, // code | math | markup
+
+            SyntaxKind::Shebang => ModeSearch::Comment,
+            SyntaxKind::LineComment => ModeSearch::Comment,
+            SyntaxKind::BlockComment => ModeSearch::Comment,
+
+            SyntaxKind::Markup => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Text => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Space => ModeSearch::Parent, // code | math | markup
+            SyntaxKind::Linebreak => ModeSearch::Parent, // math | markup
+            SyntaxKind::Parbreak => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Escape => ModeSearch::Parent, // math | markup
+            SyntaxKind::Shorthand => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::SmartQuote => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Strong => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Emph => ModeSearch::Known(SyntaxMode::Markup),
+            // TODO: Should we treat raw as 'code | markup'?
+            SyntaxKind::Raw => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::RawLang => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::RawDelim => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::RawTrimmed => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Link => ModeSearch::Known(SyntaxMode::Markup),
+            // TODO: Should we treat labels as 'code | markup'?
+            SyntaxKind::Label => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Ref => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::RefMarker => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Heading => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::HeadingMarker => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::ListItem => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::ListMarker => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::EnumItem => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::EnumMarker => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::TermItem => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::TermMarker => ModeSearch::Known(SyntaxMode::Markup),
+
+            SyntaxKind::Equation => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::Math => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathText => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathIdent => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathFieldAccess => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathShorthand => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathAlignPoint => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathCall => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathArgs => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathDelimited => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathAttach => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathPrimes => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathFrac => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::MathRoot => ModeSearch::Known(SyntaxMode::Math),
+
+            SyntaxKind::Hash => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::LeftBrace => ModeSearch::Parent, // code | markup
+            SyntaxKind::RightBrace => ModeSearch::Parent, // code | markup
+            SyntaxKind::LeftBracket => ModeSearch::Parent, // code | markup
+            SyntaxKind::RightBracket => ModeSearch::Parent, // code | markup
+            SyntaxKind::LeftParen => ModeSearch::Parent, // code | math
+            SyntaxKind::RightParen => ModeSearch::Parent, // code | math
+            SyntaxKind::Comma => ModeSearch::Parent,     // code | math
+            // TODO: Semicolon after code is also embedded like a hash, so this
+            // is incorrect...
+            SyntaxKind::Semicolon => ModeSearch::Parent, // code | math
+            SyntaxKind::Colon => ModeSearch::Parent,     // code | math | markup
+            SyntaxKind::Star => ModeSearch::Parent,      // code | markup
+            SyntaxKind::Underscore => ModeSearch::Parent, // code | math
+            SyntaxKind::Dollar => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::Plus => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Minus => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Slash => ModeSearch::Parent, // code | math
+            SyntaxKind::Hat => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::Dot => ModeSearch::Parent, // code | math
+            SyntaxKind::Eq => ModeSearch::Parent,  // code | markup
+            SyntaxKind::EqEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ExclEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Lt => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::LtEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Gt => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::GtEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::PlusEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::HyphEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::StarEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::SlashEq => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Dots => ModeSearch::Parent, // code | math
+            SyntaxKind::Arrow => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Root => ModeSearch::Known(SyntaxMode::Math),
+            SyntaxKind::Bang => ModeSearch::Known(SyntaxMode::Math),
+
+            SyntaxKind::Not => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::And => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Or => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::None => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Auto => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Let => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Set => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Show => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Context => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::If => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Else => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::For => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::In => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::While => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Break => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Continue => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Return => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Import => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Include => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::As => ModeSearch::Known(SyntaxMode::Code),
+
+            SyntaxKind::Code => ModeSearch::Known(SyntaxMode::Code),
+            // Either in code, or in math under a `Named`.
+            SyntaxKind::Ident => ModeSearch::Ident, // code | math
+            SyntaxKind::Bool => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Int => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Float => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Numeric => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Str => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::CodeBlock => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ContentBlock => ModeSearch::Known(SyntaxMode::Markup),
+            SyntaxKind::Parenthesized => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Array => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Dict => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Named => ModeSearch::Parent, // code | math
+            SyntaxKind::Keyed => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Unary => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Binary => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::FieldAccess => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::FuncCall => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Args => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Spread => ModeSearch::Parent, // code | math
+            SyntaxKind::Closure => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Params => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::LetBinding => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::SetRule => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ShowRule => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Contextual => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Conditional => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::WhileLoop => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ForLoop => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ModuleImport => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ImportItems => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ImportItemPath => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::RenamedImportItem => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::ModuleInclude => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::LoopBreak => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::LoopContinue => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::FuncReturn => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::Destructuring => ModeSearch::Known(SyntaxMode::Code),
+            SyntaxKind::DestructAssignment => ModeSearch::Known(SyntaxMode::Code),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{LinkedNode, Side, Source};
+
+    #[track_caller]
+    fn test_mode(
+        text: &str,
+        cursors: impl IntoIterator<Item = usize>,
+        expected: Option<SyntaxMode>,
+    ) {
+        let source = Source::detached(text);
+        let root = LinkedNode::new(source.root());
+        for cursor in cursors {
+            let leaf = root.leaf_at(cursor, Side::After).unwrap();
+            assert_eq!(leaf.mode(), expected);
+        }
+    }
+
+    #[test]
+    fn test_linked_node_mode() {
+        // Trivia
+        test_mode("#! typ", [0], None);
+        test_mode("// xxx", [0], None);
+        test_mode("/* xxx */", [0], None);
+
+        // Errors
+        test_mode("*/", [0], Some(SyntaxMode::Markup));
+        test_mode("#{*/}", [2], Some(SyntaxMode::Code));
+        test_mode("$*/$", [1], Some(SyntaxMode::Math));
+
+        // Markup
+        test_mode("https://typst.org", [1], Some(SyntaxMode::Markup));
+        test_mode("a\\bcd", [0, 1], Some(SyntaxMode::Markup));
+        test_mode("a   c\n\n d\\\nef", [1, 5, 9], Some(SyntaxMode::Markup));
+        test_mode("\"abc\"", [0, 4], Some(SyntaxMode::Markup));
+        test_mode("a-?b", [1], Some(SyntaxMode::Markup));
+        test_mode("_abcd_", [0], Some(SyntaxMode::Markup));
+        test_mode("```typ {}   ```", [0, 3], Some(SyntaxMode::Markup));
+        test_mode("```  xx  ```", [3], Some(SyntaxMode::Markup));
+        test_mode("<label>", [0], Some(SyntaxMode::Markup));
+        test_mode("@label", [0], Some(SyntaxMode::Markup));
+        test_mode("= marker", [0], Some(SyntaxMode::Markup));
+        test_mode("- marker", [0], Some(SyntaxMode::Markup));
+        test_mode("+ marker", [0], Some(SyntaxMode::Markup));
+        test_mode("/ marker", [0], Some(SyntaxMode::Markup));
+
+        // Basic code
+        test_mode("#{x;1}", [0, 1, 2, 3, 4], Some(SyntaxMode::Code));
+        test_mode("#(x)", [1], Some(SyntaxMode::Code));
+        test_mode("#(1,2,x)", [1, 2], Some(SyntaxMode::Code));
+        test_mode("#(first:1, \"last\": 1)", [1, 7, 17], Some(SyntaxMode::Code));
+        test_mode("#{-x}", [2], Some(SyntaxMode::Code));
+        test_mode("#{a / b}", [4], Some(SyntaxMode::Code));
+        test_mode("#a.b", [2], Some(SyntaxMode::Code));
+        test_mode("#$$.at()", [3], Some(SyntaxMode::Code));
+        test_mode("#[].at()", [3], Some(SyntaxMode::Code));
+        test_mode("#f(x, ..y)", [2, 4, 6], Some(SyntaxMode::Code));
+        test_mode("#{(x) => {}}", [3, 6], Some(SyntaxMode::Code));
+        test_mode("#let x = 1", [1, 7], Some(SyntaxMode::Code));
+        test_mode("#set text()", [1, 4], Some(SyntaxMode::Code));
+        test_mode("#show text : it => it", [1, 11], Some(SyntaxMode::Code));
+        test_mode("#context 1", [1, 8], Some(SyntaxMode::Code));
+        test_mode("#while true {break;continue;}", [1, 13, 19], Some(SyntaxMode::Code));
+        test_mode("#for a in b {}", [1, 7], Some(SyntaxMode::Code));
+        test_mode("#if true {} else {}", [1, 12], Some(SyntaxMode::Code));
+        test_mode(
+            "#import \"lib.typ\" : a, b as d, e.f",
+            [2, 8, 21, 25, 32],
+            Some(SyntaxMode::Code),
+        );
+        test_mode("#include \"lib.typ\"", [1], Some(SyntaxMode::Code));
+        test_mode("#let f() = { return 1 }", [13], Some(SyntaxMode::Code));
+        test_mode("#{(x, _, ..y) = (1, 2, ..z)}", [2, 14], Some(SyntaxMode::Code));
+        test_mode("= #1.1", [3], Some(SyntaxMode::Code));
+
+        // Math
+        test_mode("$ $", [0], Some(SyntaxMode::Math));
+        test_mode("$arrow$", [1], Some(SyntaxMode::Math));
+        test_mode("$123.32$", [1], Some(SyntaxMode::Math));
+        test_mode("$1 2 3$", [2], Some(SyntaxMode::Math));
+        test_mode("$+12 * y!", [1, 5, 8], Some(SyntaxMode::Math));
+        test_mode("$1/2$", [2], Some(SyntaxMode::Math));
+        test_mode("$f''$", [2], Some(SyntaxMode::Math));
+        test_mode("$f_(x)^y$", [2, 3, 6, 7], Some(SyntaxMode::Math));
+        test_mode("$a>=b$", [2], Some(SyntaxMode::Math));
+        test_mode("$√x$", [1, 2], Some(SyntaxMode::Math));
+        test_mode("$&x$", [1], Some(SyntaxMode::Math));
+        test_mode("$\\#$", [1], Some(SyntaxMode::Math));
+        test_mode(
+            "$ff(x, sin(y), abs(z))$",
+            [3, 4, 5, 7, 10, 15, 18],
+            Some(SyntaxMode::Math),
+        );
+        test_mode("$ff(..args, named: key)$", [4, 6, 16, 17], Some(SyntaxMode::Math));
+        test_mode("$arrow.r$", [6], Some(SyntaxMode::Math));
+
+        // Nested math/code
+        test_mode("$#$", [1], Some(SyntaxMode::Code));
+        test_mode("$#pa$", [2], Some(SyntaxMode::Code));
+        test_mode("$#{x}$", [2], Some(SyntaxMode::Code));
+        test_mode(
+            "$#f(x, ..args, named: key)$",
+            [3, 4, 5, 7, 9, 19, 20],
+            Some(SyntaxMode::Code),
+        );
+        test_mode("$#$x$$", [2], Some(SyntaxMode::Math));
+        test_mode("$#context 1$", [10], Some(SyntaxMode::Code));
+        test_mode("$#context $", [9], Some(SyntaxMode::Code));
+        test_mode("$#std.align$", [5, 6], Some(SyntaxMode::Code));
+        test_mode("$ff(named: #ident)$", [12], Some(SyntaxMode::Code));
+
+        // Markup in code
+        test_mode("$#[x]$", [2], Some(SyntaxMode::Markup));
     }
 }
