@@ -490,6 +490,11 @@
 // Error: 3-8 cannot mutate a temporary value
 #(1 + 2 += 3)
 
+--- ops-assign-to-temporary-method eval ---
+#let numbers = (3, 2, 1)
+// Error: 3-19 cannot mutate a temporary value
+#(numbers.sorted() = (1, 2, 3))
+
 --- ops-assign-to-invalid-unary-op eval ---
 #let x = "Hey"
 // Error: 3-8 cannot apply 'not' to string
@@ -512,3 +517,11 @@
 // (since then it doesn't resolve to the standard library version anymore).
 #let rect = ""
 #(rect = "hi")
+
+--- ops-assign-shadow-eval-order eval ---
+// Test shadowing a variable while assigning to it and calling a method on it.
+#{
+  let var = "a"
+  var += var.at(0, default: let var = "b")
+  test(var, "ba")
+}

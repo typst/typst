@@ -2,6 +2,9 @@
 
 // Tests for two-dimensional arguments in matrices are in `mat.typ`.
 
+// Tests for method calls in math are in `../scripting/methods.typ` as
+// `math-field-call-*`.
+
 --- math-call-non-func paged ---
 // Using call syntax with a non-function in math renders the callee next to
 // parens by "unparsing" the arguments into content.
