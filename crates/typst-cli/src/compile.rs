@@ -54,7 +54,7 @@ pub struct CompileConfig {
     pub watching: bool,
     /// Path to input Typst file or stdin.
     pub input: Input,
-    /// Path to output file (PDF, PNG, SVG, or HTML).
+    /// Path to output file (PDF, PNG, SVG, or (X)HTML).
     pub output: Output,
     /// The format of the output file.
     pub output_format: OutputFormat,
@@ -115,6 +115,7 @@ impl CompileConfig {
                 Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
                 Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
                 Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
+                Some(ext) if ext.eq_ignore_ascii_case("xhtml") => OutputFormat::Xhtml,
                 _ => bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
@@ -136,6 +137,7 @@ impl CompileConfig {
                     OutputFormat::Svg => "svg",
                     OutputFormat::Html => "html",
                     OutputFormat::Bundle => "",
+                    OutputFormat::Xhtml => "xhtml",
                 },
             ))
         });
@@ -323,7 +325,7 @@ fn compile_and_export(
             let result = output.and_then(|document| export_paged(&document, config));
             Warned { output: result, warnings }
         }
-        OutputFormat::Html => {
+        OutputFormat::Html | OutputFormat::Xhtml => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
             let result = output.and_then(|document| export_html(&document, config));
             Warned {
@@ -341,7 +343,7 @@ fn compile_and_export(
 
 /// Export to HTML.
 fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<()> {
-    let options = HtmlOptions { pretty: config.pretty };
+    let options = html_options(config);
     let html = typst_html::html(document, &options)?;
     let result = config.output.write(html.as_bytes());
 
@@ -370,7 +372,7 @@ fn export_paged(
         OutputFormat::Svg => {
             export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
         }
-        OutputFormat::Html | OutputFormat::Bundle => unreachable!(),
+        OutputFormat::Html | OutputFormat::Bundle | OutputFormat::Xhtml => unreachable!(),
     }
 }
 
@@ -590,7 +592,14 @@ fn export_image_page(
 
 /// Creates options for HTML export.
 fn html_options(config: &CompileConfig) -> HtmlOptions {
-    HtmlOptions { pretty: config.pretty }
+    let mut options = HtmlOptions::default();
+    if config.pretty {
+        options = options.pretty();
+    }
+    if config.output_format == OutputFormat::Xhtml {
+        options = options.xhtml();
+    }
+    options
 }
 
 /// Creates options for PDF export.
