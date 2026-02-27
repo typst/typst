@@ -9,10 +9,12 @@ introduce more advanced features. This tutorial does not assume prior knowledge
 of Typst, other markup languages, or programming. We do assume that you know how
 to edit a text file.
 
-The best way to start is to sign up to the Typst app for free and follow along
-with the steps below. The app gives you instant preview, syntax highlighting and
-helpful autocompletions. Alternatively, you can follow along in your local text
-editor with the [open-source CLI](https://github.com/typst/typst).
+The best way to start is to [open Typst Playground](https://typst.app/play/) and
+then follow along with the steps below. If you want to save your work you can
+sign up for free once the app is open. The app gives you instant preview,
+syntax highlighting, and helpful autocompletions. Alternatively, you can follow
+along in your local text editor with the
+[open-source CLI](https://github.com/typst/typst).
 
 ## When to use Typst { #when-typst }
 Before we get started, let's check what Typst is and when to use it. Typst is a
