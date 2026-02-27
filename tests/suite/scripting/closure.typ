@@ -139,13 +139,22 @@
 }
 #f()
 
---- closure-capture-mutate eval ---
+--- closure-capture-mut-error eval ---
 #let x = ()
 #let f() = {
   // Error: 3-4 variables from outside the function are read-only and cannot be modified
   x.at(1) = 2
 }
 #f()
+
+--- closure-capture-mut-false-positive eval ---
+// Test the closure capture error on a non-mutating method call.
+#let sx = symbol("p", ("push", sym.tilde))
+#let f() = {
+  // Error: 3-5 variables from outside the function are read-only and cannot be modified
+  sx.push(none)
+}
+#test(f(), std.sym.tilde(none))
 
 --- closure-named-args-basic eval ---
 // Named arguments.
