@@ -28,6 +28,7 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 chrono = { workspace = true }
+time = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 codespan-reporting = { workspace = true }

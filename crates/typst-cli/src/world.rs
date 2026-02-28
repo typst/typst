@@ -5,6 +5,7 @@ use std::sync::{LazyLock, OnceLock};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{EcoString, eco_format};
+use time::Duration as TimeDuration;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue, Repr};
 use typst::syntax::{
@@ -118,6 +119,25 @@ impl SystemWorld {
     pub fn scan_fonts(&mut self) {
         LazyLock::force(&self.fonts);
     }
+
+    /// Return the current datetime, optionally shifted to local zone.
+    ///
+    /// `use_local` determines whether to convert the underlying UTC instant
+    /// into the local timezone before returning.
+    fn now_with_offset(&self, use_local: bool) -> chrono::DateTime<FixedOffset> {
+        match &self.now {
+            Now::Fixed(time) => time.fixed_offset(),
+            Now::System(time) => {
+                let now_utc = time.get_or_init(Utc::now);
+                if use_local {
+                    now_utc.with_timezone(&Local).fixed_offset()
+                } else {
+                    // Actual offset will be applied later.
+                    now_utc.fixed_offset()
+                }
+            }
+        }
+    }
 }
 
 impl World for SystemWorld {
@@ -146,18 +166,7 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        let now = match &self.now {
-            Now::Fixed(time) => time.fixed_offset(),
-            Now::System(time) => {
-                let now_utc = time.get_or_init(Utc::now);
-                if offset.is_some() {
-                    // Actual offset will be applied later.
-                    now_utc.fixed_offset()
-                } else {
-                    now_utc.with_timezone(&Local).fixed_offset()
-                }
-            }
-        };
+        let now = self.now_with_offset(offset.is_none());
 
         // The time with the specified UTC offset.
         let with_offset = match offset {
@@ -180,6 +189,12 @@ impl World for SystemWorld {
             with_offset.month().try_into().ok()?,
             with_offset.day().try_into().ok()?,
         )
+    }
+
+    fn local_offset(&self) -> Option<Duration> {
+        let dt = self.now_with_offset(true);
+        let secs = dt.offset().local_minus_utc();
+        Some(Duration::from(TimeDuration::seconds(i64::from(secs))))
     }
 }
 
