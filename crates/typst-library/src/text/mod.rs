@@ -838,6 +838,9 @@ impl PlainText for Packed<TextElem> {
 pub struct FontFamily {
     // The name of the font family
     name: EcoString,
+    /// The faces of the font.
+    /// This is only available if the family was created from a [`bytes`](Bytes) object.
+    faces: Option<Vec<Font>>,
     // A regex that defines the Unicode codepoints supported by the font.
     covers: Option<Covers>,
 }
@@ -850,7 +853,11 @@ impl FontFamily {
 
     /// Create a font family by name and optional Unicode coverage.
     pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
-        Self { name: string.to_lowercase().into(), covers }
+        Self {
+            name: string.to_lowercase().into(),
+            faces: None,
+            covers,
+        }
     }
 
     /// The lowercased family name.
@@ -868,6 +875,7 @@ impl FontFamily {
         variant: FontVariant,
         world: Tracked<'world, dyn World + 'world>,
     ) -> Option<Font> {
+        // TODO: Check the bytes.
         world
             .book()
             .select(self.as_str(), variant)
@@ -875,6 +883,7 @@ impl FontFamily {
     }
 }
 
+// TODO: Accept bytes.
 cast! {
     FontFamily,
     self => match self.covers {
@@ -1531,6 +1540,10 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
+        if family.faces.is_some() {
+            continue;
+        }
+
         match book.select_family(family.as_str()).next() {
             Some(index) => {
                 if book
