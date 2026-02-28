@@ -48,6 +48,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
+use crate::foundations::Bytes;
 use crate::foundations::{
     Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
     NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
@@ -860,6 +861,15 @@ impl FontFamily {
         }
     }
 
+    /// Create a font family by parsing bytes.
+    fn from_bytes(bytes: Bytes) -> Option<Self> {
+        let faces: Vec<_> = Font::iter(bytes).collect();
+
+        let name = EcoString::from(&faces.first()?.info().family);
+
+        Some(Self { name, faces: Some(faces), covers: None })
+    }
+
     /// The lowercased family name.
     pub fn as_str(&self) -> &str {
         &self.name
@@ -918,6 +928,12 @@ cast! {
         v.finish(&["name", "covers"])?;
         ret
     },
+    bytes: Bytes => {
+        match Self::from_bytes(bytes) {
+            Some(family) => family,
+            None => bail!("unable to parse font family from bytes"),
+        }
+    }
 }
 
 /// Defines which codepoints a font family will be used for.
