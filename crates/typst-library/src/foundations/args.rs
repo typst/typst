@@ -251,6 +251,18 @@ impl Args {
     /// argument.
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
+            // When the argument's span matches the args span, it means the
+            // argument was compiler-generated and has no real source location
+            // (its span defaulted to the function's span). In this case,
+            // produce a more descriptive error message instead of the
+            // confusing "unexpected argument" pointing at the function.
+            if arg.span == self.span {
+                bail!(
+                    arg.span,
+                    "function received more arguments than it expected";
+                    hint: "consider adding an argument sink to capture them"
+                )
+            }
             match &arg.name {
                 Some(name) => bail!(arg.span, "unexpected argument: {name}"),
                 _ => bail!(arg.span, "unexpected argument"),
