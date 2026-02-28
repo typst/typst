@@ -875,11 +875,27 @@ impl FontFamily {
         variant: FontVariant,
         world: Tracked<'world, dyn World + 'world>,
     ) -> Option<Font> {
-        // TODO: Check the bytes.
-        world
-            .book()
-            .select(self.as_str(), variant)
-            .and_then(|id| world.font(id))
+        self.faces
+            .as_ref()
+            .and_then(|faces| {
+                faces
+                    .iter()
+                    .min_by_key(|face| {
+                        let info = face.info();
+                        (
+                            info.variant.style.distance(variant.style),
+                            info.variant.stretch.distance(variant.stretch),
+                            info.variant.weight.distance(variant.weight),
+                        )
+                    })
+                    .cloned()
+            })
+            .or_else(|| {
+                world
+                    .book()
+                    .select(self.as_str(), variant)
+                    .and_then(|id| world.font(id))
+            })
     }
 }
 
