@@ -33,6 +33,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
+use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
@@ -860,6 +861,17 @@ impl FontFamily {
     /// The user-set coverage of the font family.
     pub fn covers(&self) -> Option<&Regex> {
         self.covers.as_ref().map(|covers| covers.as_regex())
+    }
+
+    pub fn font<'world>(
+        &self,
+        variant: FontVariant,
+        world: Tracked<'world, dyn World + 'world>,
+    ) -> Option<Font> {
+        world
+            .book()
+            .select(self.as_str(), variant)
+            .and_then(|id| world.font(id))
     }
 }
 

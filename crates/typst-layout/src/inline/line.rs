@@ -463,12 +463,7 @@ pub fn apply_shift<'a>(
         let font_metrics = styles
             .get_ref(TextElem::font)
             .into_iter()
-            .find_map(|family| {
-                world
-                    .book()
-                    .select(family.as_str(), variant(styles))
-                    .and_then(|id| world.font(id))
-            })
+            .find_map(|family| family.font(variant(styles), *world))
             .map_or(*scripts.kind.default_metrics(), |f| {
                 *scripts.kind.read_metrics(f.metrics())
             });

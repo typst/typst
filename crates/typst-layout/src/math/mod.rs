@@ -599,11 +599,7 @@ fn get_font(
     let variant = variant(styles);
     families(styles)
         .find_map(|family| {
-            world
-                .book()
-                .select(family.as_str(), variant)
-                .and_then(|id| world.font(id))
-                .filter(|_| family.covers().is_none())
+            family.font(variant, world).filter(|_| family.covers().is_none())
         })
         .ok_or("no font could be found")
         .at(span)

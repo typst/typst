@@ -489,11 +489,7 @@ impl<'a> ShapedText<'a> {
             // first available font.
             let world = engine.world;
             for family in families(self.styles) {
-                if let Some(font) = world
-                    .book()
-                    .select(family.as_str(), self.variant)
-                    .and_then(|id| world.font(id))
-                {
+                if let Some(font) = family.font(self.variant, world) {
                     expand(&font, TextEdgeBounds::Zero);
                     break;
                 }
@@ -589,18 +585,20 @@ impl<'a> ShapedText<'a> {
         let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
-            Some(|| book.select_fallback(None, base.variant, "-"))
+            Some(|| {
+                book.select_fallback(None, base.variant, "-")
+                    .and_then(|id| world.font(id))
+            })
         } else {
             None
         };
         let mut chain = families(base.styles)
             .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
-            .map(|family| book.select(family.as_str(), base.variant))
+            .map(|family| family.font(base.variant, world))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
-        chain.find_map(|id| {
-            let font = world.font(id)?;
+        chain.find_map(|font| {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -895,9 +893,8 @@ where
     let mut selection = None;
     let mut covers = None;
     for family in families.by_ref() {
-        selection = book
-            .select(family.as_str(), ctx.variant())
-            .and_then(|id| world.font(id))
+        selection = family
+            .font(ctx.variant(), world)
             .filter(|font| !ctx.used().contains(font));
         if selection.is_some() {
             covers = family.covers();
