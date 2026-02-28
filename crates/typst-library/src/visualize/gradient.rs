@@ -70,6 +70,27 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Stops can be specified in several ways:
+/// - As a color: `red` — The offset will be evenly distributed.
+/// - As a tuple of color and offset: `(red, 0%)` — The offset specifies the
+///   position of the stop.
+///
+/// You can mix these formats in a single gradient definition:
+/// ```example
+/// #rect(
+///   width: 100%,
+///   height: 20pt,
+///   fill: gradient.linear(
+///     (black, 0%),
+///     (black, 50%),
+///     (white, 50%),
+///     (white, 75%),
+///     (black, 75%),
+///     (black, 100%),
+///   ),
+/// )
+/// ```
+///
 /// Typst predefines color maps that you can use as stops. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.
 ///
