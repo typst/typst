@@ -1698,6 +1698,7 @@ c33d0a162adb3e8a3a32bf1f57664e6f text-font-covers-chinese
 996a57701ed675403e36395af280f0bb text-font-covers-numbers
 cdeceb987461c669fafd964519452102 text-font-covers-repeat
 acdb7b0c300d8ad0ddd213ccc37a1f78 text-font-covers-riffle
+ea80965a749f6a99815121b4720a3621 text-font-from-bytes
 30afaf568dbc9dbabd08b113815486be text-font-just-a-space
 18ae5b7d35d455cfbbebc34c43a85624 text-font-properties
 c1dfb2c93fdded43db71c246c8eab150 text-kerning

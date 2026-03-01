@@ -208,3 +208,9 @@ Hello
 --- empty-text-font-array eval ---
 // Error: 17-19 font fallback list must not be empty
 #set text(font: ())
+
+--- text-font-from-bytes paged ---
+
+#let font = read("/assets/fonts/IBMPlexSerif-Regular.ttf", encoding: none)
+
+#text(font: font)[IBM]

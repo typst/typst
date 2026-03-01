@@ -1698,6 +1698,7 @@ e5c9e41b6499e2d7f160a519b94f405d text-features
 ad928d511e2461cb05b89dc8a609a19e text-font-covers-numbers
 22800c66717a539245d6779a419171e5 text-font-covers-repeat
 cd7aa09bbcaa5651e5e6b1a839414e9a text-font-covers-riffle
+64c6204b299e74ba8370e62e7a7e30ce text-font-from-bytes
 c2cae9fa029bc3d2819e8fc05f66cec3 text-font-just-a-space
 874855a37929b88f1bb0bd9824ff2b07 text-font-properties
 bdd979413cdc42cae2e5495ffd435858 text-kerning
