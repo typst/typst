@@ -48,10 +48,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
-use crate::foundations::Bytes;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    Args, Array, Bytes, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement,
+    Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
@@ -862,12 +861,12 @@ impl FontFamily {
     }
 
     /// Create a font family by parsing bytes.
-    fn from_bytes(bytes: Bytes) -> Option<Self> {
+    fn from_bytes_with_coverage(bytes: Bytes, covers: Option<Covers>) -> Option<Self> {
         let faces: Vec<_> = Font::iter(bytes).collect();
 
         let name = EcoString::from(&faces.first()?.info().family);
 
-        Some(Self { name, faces: Some(faces), covers: None })
+        Some(Self { name, faces: Some(faces), covers })
     }
 
     /// The lowercased family name.
@@ -909,7 +908,6 @@ impl FontFamily {
     }
 }
 
-// TODO: Accept bytes.
 cast! {
     FontFamily,
     self => match self.covers {
@@ -921,15 +919,33 @@ cast! {
     },
     string: EcoString => Self::new(&string),
     mut v: Dict => {
-        let ret = Self::with_coverage(
-            &v.take("name")?.cast::<EcoString>()?,
-            v.take("covers").ok().map(|v| v.cast()).transpose()?
-        );
-        v.finish(&["name", "covers"])?;
+        if v.contains("name") && v.contains("bytes") {
+            bail!("`name` is mutually exclusive with `bytes`");
+        }
+
+        let ret = if let Ok(name) = v.take("name") {
+            Self::with_coverage(
+                &name.cast::<EcoString>()?,
+                v.take("covers").ok().map(|v| v.cast()).transpose()?
+            )
+        } else if let Ok(bytes) = v.take("bytes") {
+            match Self::from_bytes_with_coverage(
+                bytes.cast::<Bytes>()?,
+                v.take("covers").ok().map(|v| v.cast()).transpose()?
+            ) {
+                Some(family) => family,
+                None => bail!("unable to parse font family from bytes"),
+            }
+        } else {
+            bail!("dictionary contains neither key `name` nor `bytes`");
+        };
+
+        v.finish(&["name", "covers", "bytes"])?;
+
         ret
     },
     bytes: Bytes => {
-        match Self::from_bytes(bytes) {
+        match Self::from_bytes_with_coverage(bytes, None) {
             Some(family) => family,
             None => bail!("unable to parse font family from bytes"),
         }
