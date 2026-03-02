@@ -184,7 +184,7 @@ impl Logger {
             eprintln!(
                 "  pass '--update' to update error annotations or reference outputs"
             );
-            eprintln!("  for a rich diff, view tests/store/report.html");
+            eprintln!("  for a rich diff, view \x1B[4mtests/store/report.html\x1B[0m");
         }
 
         let mut prompt_regen = false;
