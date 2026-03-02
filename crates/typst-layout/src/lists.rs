@@ -1,6 +1,6 @@
 use comemo::Track;
 use smallvec::smallvec;
-use typst_library::diag::SourceResult;
+use typst_library::diag::{At, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
@@ -9,6 +9,7 @@ use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignm
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
+use typst_syntax::Span;
 
 use crate::grid::GridLayouter;
 
@@ -112,9 +113,9 @@ pub fn layout_enum(
             content
         } else {
             match numbering {
-                Numbering::Pattern(pattern) => {
-                    TextElem::packed(pattern.apply_kth(parents.len(), number))
-                }
+                Numbering::Pattern(pattern) => TextElem::packed(
+                    pattern.apply_kth(parents.len(), number).at(Span::detached())?,
+                ),
                 other => other.apply(engine, context.track(), &[number])?.display(),
             }
         };

@@ -3183,7 +3183,6 @@ dependencies = [
  "az",
  "bitflags 2.9.1",
  "bumpalo",
- "chinese-number",
  "ciborium",
  "codex",
  "comemo",
@@ -3259,6 +3258,7 @@ version = "0.14.2"
 dependencies = [
  "az",
  "bytemuck",
+ "codex",
  "comemo",
  "ecow",
  "image",
