@@ -385,7 +385,9 @@ impl FileOutputType for Pdftags {
     }
 
     fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
+        // We don't use `old == new.as_bytes()` to prevent issues with
+        // inconsistent line endings.
+        str::from_utf8(old).is_ok_and(|old| old.lines().eq(new.lines()))
     }
 }
 
