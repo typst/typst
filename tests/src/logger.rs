@@ -184,7 +184,13 @@ impl Logger {
             eprintln!(
                 "  pass '--update' to update error annotations or reference outputs"
             );
-            eprintln!("  for a rich diff, view \x1B[4mtests/store/report.html\x1B[0m");
+            if io::stderr().is_terminal() {
+                eprintln!(
+                    "  for a rich diff, view \x1B[4mtests/store/report.html\x1B[0m"
+                );
+            } else {
+                eprintln!("  for a rich diff, view tests/store/report.html");
+            }
         }
 
         let mut prompt_regen = false;
