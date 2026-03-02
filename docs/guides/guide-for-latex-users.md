@@ -531,7 +531,7 @@ Numbers and single characters are displayed verbatim, while multiple consecutive
 (non-number) characters will be interpreted as Typst variables.
 
 Typst pre-defines a lot of useful variables in math mode. All Greek (`alpha`,
-`beta`, ...) and some Hebrew letters (`alef`, `bet`, ...) are available through
+`beta`, ...) and some Hebrew letters (`aleph`, `beth`, ...) are available through
 their name. Some symbols are additionally available through shorthands, such as
 `<=`, `>=`, and `->`.
 
