@@ -18,23 +18,23 @@ $ sin(,x,y,,,) $
 $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 
 --- math-call-non-func-named eval ---
-// Error: 10-18 unexpected argument: alpha
+// Hint: 3-6 `phi` is not a function
+// Error: 10-18 named-argument syntax can only be used with functions
+// Hint: 10-18 to render the colon as text, escape it: `alpha\: y`
 $ phi(x, alpha: y) $
 
 --- math-call-non-func-spread eval ---
-// Error: 10-17 cannot spread symbol
+// Hint: 3-6 `phi` is not a function
+// Error: 10-17 spread-argument syntax can only be used with functions
+// Hint: 10-17 to render the dots as text, add a space: `.. alpha`
 $ phi(x, ..alpha) $
 
---- math-call-non-func-2d eval ---
-// Error: 6-7 expected content, found array
-// Error: 8-9 expected content, found array
+--- math-call-non-func-2d paged ---
 $ pi(a;b) quad gamma(;) quad eta(#"a";;, ; upright(b),) $
 
---- math-call-non-func-spacing eval ---
+--- math-call-non-func-spacing paged ---
 // Test that we keep the same spacing when unparsing.
 #show regex("[,;]"): math.class.with("fence")
-// Error: 7-12 expected content, found array
-// Error: 15-16 expected content, found array
 $ phi(| , | ; |) \
   phi/**/(| , | ; |) $
 #test($     phi(| , | ; |) $,
@@ -256,17 +256,21 @@ $func(a: #2, ..dict, a: #3)$
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a: b)$, "((), (a: [b]))")
 #check($args(a: b,)$, "((), (a: [b]))")
-// #check($args(a: b;)$, "(((),), (a: [b]))")
+#check($args(a: b;)$, "(((),), (a: [b]))")
 #check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
+
+// This set should all be the same.
 #check($args(a: b, 1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, a: b, 2; 3, 4)$, "(([1], ([2],), ([3], [4])), (a: [b]))")
-#check($args(1, 2, a: b; 3, 4)$, "(([1], [2], (), ([3], [4])), (a: [b]))")
+#check($args(1, a: b, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2, a: b; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
 #check($args(1, 2; a: b, 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), [3], ([4],)), (a: [b]))")
-#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), [3], [4]), (a: [b]))")
+#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, 4; a: b)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+
 #check($args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
 #check($args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
-#check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
+#check($args(a-b: a,, e:f;; d)$, "((([],), ([],), ([d],)), (a-b: [a], e: [f]))")
 #check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
 --- math-call-2d-spread-pos eval ---
@@ -294,7 +298,6 @@ $func(a: #2, ..dict, a: #3)$
 #let dict = (one: 1, two: 2)
 #let both = arguments(..nums, ..dict)
 #check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
-// Error: 14-20 cannot spread dictionary into array
 #check($args(..dict;)$, "arguments(one: 1, two: 2, ())") // Adds an empty array
 #check($args(1, ..dict;)$, "arguments(one: 1, two: 2, ([1],))")
 #check($args(1, ..dict, 2;)$, "arguments(one: 1, two: 2, ([1], [2]))")
@@ -328,7 +331,6 @@ $ mat(#1) $
 $ vec(#1) $
 
 --- math-call-value-non-func eval ---
-// Error: 23-24 expected content, found integer
 #test($sin(1)$, $sin(#1)$)
 
 --- issue-2885-math-var-only-in-global eval ---
@@ -353,7 +355,7 @@ $ func(a, b) $
 // Test the span of errors for 2d arguments.
 // The current range isn't the best, but it's hard to improve.
 #let func() = {}
-// Error: 8-12 unexpected argument
+// Error: 7-20 unexpected argument
 $ func(a, b; c, d;) $
 
 --- math-call-error-inside-func eval ---
