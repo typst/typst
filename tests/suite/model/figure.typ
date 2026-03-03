@@ -30,6 +30,8 @@ We can clearly see that @fig-cylinder and
   caption: [Start-aligned]
 )
 
+
+
 --- figure-table paged ---
 // Testing figures with tables.
 #figure(
@@ -308,3 +310,33 @@ HI#footnote.entry(clearance: 2.5em)[There]
 )
 
 #c
+
+
+--- issue-7754-figure-placement-alignment paged ---
+// Test that figure alignment works with floating placement.
+// Previously, figures with placement: auto/top/bottom were always centered,
+// ignoring explicit alignment settings.
+#show figure: set align(start)
+#set page(height: 200pt)
+= Auto placement
+#figure(
+  placement: auto,
+  caption: [Auto, left-aligned],
+  rect(width: 50%, height: 20pt, fill: blue)
+)
+#lorem(15)
+= Top placement
+#figure(
+  placement: top,
+  caption: [Top, left-aligned],
+  rect(width: 50%, height: 20pt, fill: green)
+)
+#lorem(15)
+= Bottom placement
+#figure(
+  placement: bottom,
+  caption: [Bottom, left-aligned],
+  rect(width: 50%, height: 20pt, fill: red)
+)
+#lorem(15)
+

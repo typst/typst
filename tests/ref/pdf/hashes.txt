@@ -788,6 +788,7 @@ e2f7ab5cb72d978205c900c2035f8194 issue-7103-wrong-state-calculation
 0b4e709ff148625438000ca7737ccfc2 issue-7428-heading-numbering-errors
 fc815e90340a2724adc27ab1c38bbf78 issue-7437-math-accent-text-presentation
 05ad3f9eed0c1435183fae4a491f06f4 issue-758-link-repeat
+fd31e8a9bd90b8d092305da5e5a48441 issue-7754-figure-placement-alignment
 d0920916e02cc6e4b6a3365f9b07daba issue-785-cite-locate
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
 21a423976fd0a8c6bb7eb3593b18e365 issue-852-mat-type

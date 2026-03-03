@@ -788,6 +788,7 @@ f39daa92c58402d9f88569c3300daa17 issue-7249-multiple-lookup-tables
 bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 2e23a826a914d869461b594a54ba8890 issue-7437-math-accent-text-presentation
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
+9faf4485eda50191004cd25f78b013cc issue-7754-figure-placement-alignment
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
 cdb9cb5e69f59e77d9640e7c9001f9d8 issue-852-mat-type
