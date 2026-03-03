@@ -75,7 +75,7 @@ jobs:
             tests/store/pdftags
             tests/store/html
           compression-level: 9
-          retention-days: 30
+          retention-days: 7
 
       - name: Upload test report
         # When the CI passes, only upload one test report, since all should be the same.
@@ -85,7 +85,6 @@ jobs:
           name: tests-report-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
           path: tests/store/report.html
           compression-level: 9
-          retention-days: 30
 
   checks:
     name: Check clippy, formatting, and documentation
