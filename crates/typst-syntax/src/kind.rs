@@ -77,8 +77,11 @@ pub enum SyntaxKind {
     Math,
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
     MathText,
-    /// An identifier in math: `pi`.
-    MathIdent,
+    /// A wrapper over identifiers and field accesses in math: `pi`, `pi.alt`.
+    ///
+    /// Wraps plain identifiers, entire field accesses, and the initial
+    /// identifier of a field access.
+    MathAccessWrapper,
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     MathShorthand,
     /// An alignment point in math: `&`.
@@ -415,7 +418,7 @@ impl SyntaxKind {
             Self::Equation => "equation",
             Self::Math => "math",
             Self::MathText => "math text",
-            Self::MathIdent => "math identifier",
+            Self::MathAccessWrapper => "math identifier or field access",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
             Self::MathCall => "math function call",

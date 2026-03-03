@@ -177,7 +177,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
 
         SyntaxKind::Math => None,
         SyntaxKind::MathText => None,
-        SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathAccessWrapper => None,
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
         SyntaxKind::MathCall => None,
@@ -332,7 +332,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     }
 
     // Are we in math?
-    if node.kind() == SyntaxKind::MathIdent {
+    if node.parent_kind() == Some(SyntaxKind::MathAccessWrapper) {
         return Some(Tag::Interpolated);
     }
 
@@ -379,7 +379,8 @@ fn highlight_hash(node: &LinkedNode) -> Option<Tag> {
 
 /// Whether the node is one of the two identifier nodes.
 fn is_ident(node: &LinkedNode) -> bool {
-    matches!(node.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
+    // TODO: Re-evaluate
+    matches!(node.kind(), SyntaxKind::Ident | SyntaxKind::MathAccessWrapper)
 }
 
 /// Highlight a node to an HTML `code` element.

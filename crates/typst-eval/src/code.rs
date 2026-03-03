@@ -100,7 +100,7 @@ impl Eval for ast::Expr<'_> {
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
-            Self::MathIdent(v) => v.eval(vm),
+            Self::MathAccessWrapper(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathCall(v) => v.eval(vm),
@@ -316,30 +316,37 @@ impl Eval for ast::FieldAccess<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
-        let field = self.field();
-        let field_span = field.span();
-
-        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
-            Err(err) => err,
-        };
-
-        // Check whether this is a get rule field access.
-        if let Value::Func(func) = &value
-            && let Some(element) = func.to_element()
-            && let Some(id) = element.field_id(&field)
-            && let styles = vm.context.styles().at(field.span())
-            && let Ok(value) = element
-                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
-        {
-            // Only validate the context once we know that this is indeed
-            // a field from the style chain.
-            let _ = styles?;
-            return Ok(value);
-        }
-
-        Err(err)
+        access_field(vm, value, self.field())
     }
+}
+
+/// Access a field on a target value.
+pub(crate) fn access_field(
+    vm: &mut Vm,
+    target: Value,
+    field: ast::Ident,
+) -> SourceResult<Value> {
+    let field_span = field.span();
+    let err = match target.field(&field, (&mut vm.engine, field_span)).at(field_span) {
+        Ok(value) => return Ok(value),
+        Err(err) => err,
+    };
+
+    // Check whether this is a get rule field access.
+    if let Value::Func(func) = &target
+        && let Some(element) = func.to_element()
+        && let Some(id) = element.field_id(&field)
+        && let styles = vm.context.styles().at(field.span())
+        && let Ok(value) =
+            element.field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+    {
+        // Only validate the context once we know that this is indeed
+        // a field from the style chain.
+        let _ = styles?;
+        return Ok(value);
+    }
+
+    Err(err)
 }
 
 impl Eval for ast::Contextual<'_> {

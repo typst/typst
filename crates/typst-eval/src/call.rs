@@ -91,18 +91,18 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
     vm.engine.route.check_call_depth().at(span)?;
 
     let math_call_result = match callee {
-        ast::MathCallee::MathIdent(ident) => {
-            let callee_value = ident.eval(vm)?;
+        ast::MathAccess::Ident(_) => {
+            let callee_value = crate::math::eval_math_access(vm, callee, true)?;
             match callee_value.clone().cast::<Func>() {
                 Ok(func) => FieldCallee::Func(func),
                 Err(err) => FieldCallee::NonFunc(callee_value, err),
             }
         }
-        ast::MathCallee::FieldAccess(access) => {
-            let target_expr = access.target();
+        ast::MathAccess::FieldAccess(access) => {
+            let target_expr = access.math_target();
             target_span = target_expr.span();
             let field = access.field();
-            let target = target_expr.eval(vm)?;
+            let target = crate::math::eval_math_access(vm, target_expr, true)?;
             if is_mutating_method(field.as_str())
                 && matches!(target, Value::Array(_) | Value::Dict(_))
             {
@@ -481,7 +481,7 @@ impl Eval for ast::MathArgs<'_> {
 fn unparse_math_args(
     vm: &mut Vm,
     args: ast::MathArgs,
-    callee: ast::MathCallee,
+    callee: ast::MathAccess,
 ) -> SourceResult<Content> {
     let mut body = Vec::new();
     let mut errors = EcoVec::new();
@@ -729,9 +729,14 @@ impl<'a> CapturesVisitor<'a> {
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
-            Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
-            }
+            Some(ast::Expr::MathAccessWrapper(wrapper)) => match wrapper.inner() {
+                ast::MathAccess::Ident(ident) => {
+                    self.capture(ident.get(), Scopes::get_in_math)
+                }
+                ast::MathAccess::FieldAccess(field_access) => {
+                    self.visit(field_access.target().to_untyped())
+                }
+            },
 
             // Code and content blocks create a scope.
             Some(ast::Expr::CodeBlock(_) | ast::Expr::ContentBlock(_)) => {
