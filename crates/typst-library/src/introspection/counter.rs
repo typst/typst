@@ -31,6 +31,27 @@ use crate::routines::Routines;
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
 ///
+/// # Countable elements { #countable }
+/// You can create a counter for any
+/// [locatable]($location/#locatable) element by passing the element
+/// function to `counter`. The following elements have _built-in_
+/// counters that are automatically stepped when the element appears:
+///
+/// - [`page`]: Stepped at each pagebreak.
+/// - [`heading`]: Stepped before each heading (with multi-level support).
+/// - [`figure`]: Stepped before each figure.
+/// - [`equation`]($math.equation): Stepped before each equation (when
+///   numbering is enabled).
+/// - [`footnote`]: Stepped before each footnote.
+///
+/// Beyond these, you can also create a counter for any other locatable
+/// element. For instance, `{counter(table)}` or `{counter(image)}` will
+/// give you a counter that you can [`step`]($counter.step) and
+/// [`display`]($counter.display) manually.
+///
+/// See the documentation on [locatable elements]($location/#locatable) for
+/// the full list of elements that can be used with `counter`.
+///
 /// Since counters change throughout the course of the document, their current
 /// value is _contextual._ It is recommended to read the chapter on [context]
 /// before continuing here.
