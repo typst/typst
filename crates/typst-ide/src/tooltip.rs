@@ -60,8 +60,13 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     let expr = ancestor.cast::<ast::Expr>()?;
     // We only analyze embeddable code expressions or math expressions that
     // access variables.
-    let analyze =
-        expr.hash() || matches!(expr, ast::Expr::MathIdent(_) | ast::Expr::MathCall(_));
+    let analyze = expr.hash()
+        || matches!(
+            expr,
+            ast::Expr::MathIdent(_)
+                | ast::Expr::MathFieldAccess(_)
+                | ast::Expr::MathCall(_)
+        );
     if !analyze {
         return None;
     }

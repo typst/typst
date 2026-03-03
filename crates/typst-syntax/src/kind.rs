@@ -79,6 +79,8 @@ pub enum SyntaxKind {
     MathText,
     /// An identifier in math: `pi`.
     MathIdent,
+    /// A field access in math: `arrow.r.long.double.bar`.
+    MathFieldAccess,
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     MathShorthand,
     /// An alignment point in math: `&`.
@@ -416,6 +418,7 @@ impl SyntaxKind {
             Self::Math => "math",
             Self::MathText => "math text",
             Self::MathIdent => "math identifier",
+            Self::MathFieldAccess => "math field access",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
             Self::MathCall => "math function call",
