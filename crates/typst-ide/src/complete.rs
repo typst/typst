@@ -304,6 +304,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
             | Some(SyntaxKind::MathArgs)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
+            | Some(SyntaxKind::MathFieldAccess)
     ) {
         return false;
     }
@@ -397,7 +398,10 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         && let Some((value, styles)) =
             analyze_expr(ctx.world, &prev_prev).into_iter().next()
     {
-        debug_assert_eq!(ctx.leaf.parent_kind(), Some(SyntaxKind::FieldAccess));
+        debug_assert!(matches!(
+            ctx.leaf.parent_kind(),
+            Some(SyntaxKind::FieldAccess | SyntaxKind::MathFieldAccess),
+        ));
         ctx.from = ctx.leaf.offset();
         field_access_completions(ctx, &value, &styles);
         return true;
@@ -881,6 +885,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
             | Some(SyntaxKind::MathRoot)
+            | Some(SyntaxKind::MathFieldAccess)
     ));
 
     // An existing identifier: "{ pa| }".
