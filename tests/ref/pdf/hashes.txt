@@ -1021,7 +1021,9 @@ e120f62f76c1a20a4f33805cfc842753 math-attach-prescripts
 837328965654a57b166eece55881fb7d math-box-with-baseline
 e6d608b114c4bf5c5f33403eacd6c71b math-box-without-baseline
 f57ad1fe359282b0d5d745c3586c8806 math-call-non-func
+be3be48b4ba1029d95f479e419665092 math-call-non-func-2d
 f509281f4ef2bd772bcd72b8b4d7718b math-call-non-func-empty-args
+1bfb085cc52f994001919a9576b541e7 math-call-non-func-spacing
 4ca65014514dcf4f12b33ecdab0f3204 math-call-pass-to-box
 41e64d80f9be44e6db48744f9fae8809 math-call-shadowed-builtin
 beb172061810513475c0cc74d94b3f5c math-call-spread-shorthand-clash
@@ -1136,6 +1138,7 @@ c199b697f53a8aba29bbf7273eaf7f5e math-mat-align-implicit
 5c9ac506e79e1fc8834c00a7ab0dfc68 math-mat-align-signed-numbers
 d4cc5602bc2447c37fd2c47824fc5974 math-mat-augment
 59b64ff129858112c73f7d22d57f9eda math-mat-augment-set
+460e3ec44df973577177e4558e16afee math-mat-bad-comma
 4920de1ec8b0161cf4252d9cf1481b48 math-mat-baseline
 60ef4e1b9d22bb5dd079604b4d79c986 math-mat-delim-class
 40bc1dda0bc9872f2e0c12c7e188e611 math-mat-delim-direct
