@@ -126,7 +126,8 @@ $ pi.alt() $
 #let array = (1, 2)
 #let dict = (one: 1)
 #let _ = $
-  // Error: 3-8 cannot mutate a temporary value
+  // Error: 3-20 cannot call mutating methods in math
+  // Hint: 3-20 try using code mode to call the method: `#array.push("two")`
   array.push("two")
   array.insert(#2, dict.remove("one"))
   dict.insert(array.pop(), array.remove(#1))
@@ -160,7 +161,8 @@ $
 
 --- math-method-dict-non-func-pop eval ---
 #let dict = (pop: none)
-// Error: 3-7 cannot mutate a temporary value
+// Error: 3-13 cannot call mutating methods in math
+// Hint: 3-13 try using code mode to call the method: `#dict.pop()`
 $ dict.pop() $
 
 --- method-dict-non-func-pop-arg eval ---
@@ -172,7 +174,8 @@ $ dict.pop() $
 
 --- math-method-dict-non-func-pop-arg eval ---
 #let dict = (pop: none)
-// Error: 3-7 cannot mutate a temporary value
+// Error: 3-29 cannot call mutating methods in math
+// Hint: 3-29 try using code mode to call the method: `#dict.pop(arg: "something")`
 $ dict.pop(arg: "something") $
 
 --- method-mut-access eval ---
@@ -193,11 +196,9 @@ $ dict.pop(arg: "something") $
 #test((module,).at(0).push(2), 3)
 
 --- math-method-mut-access-module-push eval ---
-// Edge case for module access that isn't fixed.
+// This used to error, but math now correctly ignores the mutable method name.
 #import "module.typ"
 #let indirect = (mod: module)
-// Doesn't work because of mutating method name.
-// Error: 8-16 cannot mutate a temporary value
 #test($indirect.mod.push(#2)$, $#3$)
 
 --- method-mut-eval-order eval ---
@@ -289,10 +290,9 @@ $ dict.pop(arg: "something") $
 }
 
 --- math-method-accent-eval-order-shadowed-push eval ---
-// This just errors like `math-method-mut`.
+// Math doesn't support mutable methods and always evaluates arguments second.
 #{
   let sp = symbol("p", ("push", sym.tilde))
-  // Error: 9-11 cannot mutate a temporary value
   test($sp.push(#let sp = false;)$, $#sym.tilde(none)$)
   test(sp, false)
 }
@@ -306,7 +306,7 @@ $ dict.pop(arg: "something") $
   let result = sp-dict
     .at(array.pop())
     .push(
-      sp-dict.at(array.pop()).push(none),
+      sp-dict.at(array.pop()).push(none)
     )
   test(result, sym.tilde(sym.tilde(none)))
   test(array, ())
