@@ -20,7 +20,8 @@ pub struct Vm<'a> {
     pub flow: Option<FlowEvent>,
     /// The stack of scopes.
     pub scopes: Scopes<'a>,
-    /// A span that is currently under inspection.
+    /// A span that is currently under inspection. If this is `Some`, we're in
+    /// tracing mode, and will record every value  the given span sees.
     pub inspected: Option<Span>,
     /// Data that is contextually made accessible to code behind the scenes.
     pub context: Tracked<'a, Context<'a>>,
@@ -55,9 +56,7 @@ impl<'a> Vm<'a> {
     /// This will insert the value into the top-most scope and make it available
     /// for dynamic tracing, assisting IDE functionality.
     pub fn bind(&mut self, var: ast::Ident, binding: Binding) {
-        if self.inspected == Some(var.span()) {
-            self.trace(binding.read().clone());
-        }
+        self.trace_at(var.span(), binding.read());
 
         // This will become an error in the parser if `is` becomes a keyword.
         if var.get() == "is" {
@@ -73,12 +72,22 @@ impl<'a> Vm<'a> {
         self.scopes.top.bind(var.get().clone(), binding);
     }
 
-    /// Trace a value.
+    /// Helper to only call [`Self::trace`] for a value if we're inspecting its
+    /// span. This method (or `trace`) should be called for every value produced
+    /// by an expression.
+    pub fn trace_at(&mut self, span: Span, value: &Value) {
+        if self.inspected == Some(span) {
+            self.trace(value.clone());
+        }
+    }
+
+    /// Trace a value. Tracing powers IDE tooltips and hover info. This method
+    /// should be called for every value produced by an expression.
     #[cold]
     pub fn trace(&mut self, value: Value) {
         self.engine
             .sink
-            .value(value.clone(), self.context.styles().ok().map(|s| s.to_map()));
+            .value(value, self.context.styles().ok().map(|s| s.to_map()));
     }
 }
 

@@ -68,7 +68,7 @@ pub fn eval(
     let root = source.root();
     let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
-    // Check for well-formedness unless we are in trace mode.
+    // Require the syntax to be well-formed unless we are tracing a span.
     let errors = root.errors();
     if !errors.is_empty() && vm.inspected.is_none() {
         return Err(errors.into_iter().map(Into::into).collect());
