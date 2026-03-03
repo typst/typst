@@ -921,13 +921,42 @@ impl<'a> Equation<'a> {
 
     /// Whether the equation should be displayed as a separate block.
     pub fn block(self) -> bool {
-        let is_space = |node: Option<&SyntaxNode>| {
-            matches!(
-                node.map(SyntaxNode::kind),
-                Some(SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline)
-            )
+        // The parser likes to group adjacent trivia, so if the equation's body
+        // is an empty `Math` node, e.g. in `$ /**/ $`, the CST will look like:
+        // `Equation [ Dollar Math(<empty>) Space BlockComment Space Dollar ]`.
+        // Yet we still want to treat this as a block, so we check the following
+        // node by skipping an empty math node at the start.
+        let (front, back) = match self.0.children().as_slice() {
+            [_ldollar, empty, rest @ .., back, _rdollar]
+                if empty.is_empty() && empty.kind() == SyntaxKind::Math =>
+            {
+                if let [front, ..] = rest {
+                    (front.kind(), back.kind())
+                } else {
+                    // The body is empty and there's exactly one trivia node
+                    // inside the dollar signs. We treat this as a block if that
+                    // node is a space with a newline or is a space without a
+                    // newline and has more than one character (`parse::<char>`
+                    // is `Ok` when there was exactly one char).
+                    return match back.kind() {
+                        SyntaxKind::SpaceWithNewline => true,
+                        SyntaxKind::SpaceNoNewline => {
+                            back.leaf_text().parse::<char>().is_err()
+                        }
+                        _ => false,
+                    };
+                }
+            }
+            [_ldollar, front, .., back, _rdollar] => (front.kind(), back.kind()),
+            _ => return false,
         };
-        is_space(self.0.children().nth(1)) && is_space(self.0.children().nth_back(1))
+
+        let front_space =
+            matches!(front, SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline);
+        let back_space =
+            matches!(back, SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline);
+
+        front_space && back_space
     }
 }
 
