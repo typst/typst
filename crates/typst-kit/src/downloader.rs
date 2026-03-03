@@ -22,6 +22,7 @@ use {
     native_tls::{Certificate, TlsConnector},
     once_cell::sync::OnceCell,
     std::path::PathBuf,
+    ureq::tls::TlsConfig,
 };
 
 /// Downloads resources from the network.
@@ -152,7 +153,6 @@ impl Downloader for SystemDownloader {
         _: &dyn Any,
         url: &str,
     ) -> io::Result<(Option<usize>, Box<dyn Read>)> {
-        let mut builder = ureq::AgentBuilder::new();
         let mut tls = TlsConnector::builder();
 
         // Set user agent.
