@@ -36,6 +36,7 @@ use std::sync::LazyLock;
 use ecow::{EcoString, eco_format};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
+use icu_provider::buf::DeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
 use rustybuzz::Feature;
 use smallvec::SmallVec;

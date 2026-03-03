@@ -5,6 +5,7 @@ use az::SaturatingAs;
 use icu_properties::LineBreak;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
+use icu_provider::buf::DeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
@@ -55,7 +56,9 @@ static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
 
 /// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| {
-    icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
+    icu_properties::maps::load_line_break(&blob().as_deserializing())
+        .unwrap()
+        .into_data()
 });
 
 // Zero width space.
