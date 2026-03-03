@@ -79,7 +79,7 @@ impl Eval for ast::Expr<'_> {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        let v = match self {
+        let value = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
@@ -143,11 +143,11 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.inspected == Some(span) {
-            vm.trace(v.clone());
-        }
+        // This satisfies the obligation to call `Vm::trace` for almost all
+        // value-producing expressions!
+        vm.trace_at(span, &value);
 
-        Ok(v)
+        Ok(value)
     }
 }
 

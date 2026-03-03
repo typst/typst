@@ -313,9 +313,7 @@ fn eval_field_callee<'a, 'b>(
         }
     };
 
-    if vm.inspected == Some(access.span()) {
-        vm.trace(callee_value.clone());
-    }
+    vm.trace_at(access.span(), &callee_value);
 
     match callee_value.clone().cast::<Func>() {
         Ok(func) if is_method_call => Ok(FieldCallee::Method(func, target)),
