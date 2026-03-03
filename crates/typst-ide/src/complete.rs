@@ -365,21 +365,20 @@ fn math_completions(ctx: &mut CompletionContext) {
 
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
-    // Used to determine whether trivia nodes are allowed before '.'.
-    // During an inline expression in markup mode trivia nodes exit the inline expression.
-    let in_markup: bool = matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
-    );
+    let (after_dot, textual_dot) = match ctx.leaf.kind() {
+        SyntaxKind::Dot => (true, false),
+        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.text() == "." => (true, true),
+        _ => (false, false),
+    };
 
-    // Behind an expression plus dot: "emoji.|".
-    if (ctx.leaf.kind() == SyntaxKind::Dot
-        || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
-            && ctx.leaf.text() == "."))
-        && ctx.leaf.range().end == ctx.cursor
+    // After an expression plus a dot: "emoji.|".
+    if after_dot
         && let Some(prev) = ctx.leaf.prev_sibling()
-        && (!in_markup || prev.range().end == ctx.leaf.range().start)
-        && prev.is::<ast::Expr>()
+        // We don't complete when we had trivia between the previous node
+        // and a textual dot: `[#x .|]`
+        && (!textual_dot || prev.range().end == ctx.leaf.range().start)
+        && prev.is::<ast::Expr>() // The dot must comes after an expression.
+        // And that expression must allow field access
         && (prev.parent_kind() != Some(SyntaxKind::Markup)
             || prev.prev_sibling_kind() == Some(SyntaxKind::Hash))
         && let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next()
@@ -389,8 +388,8 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Behind a started field access: "emoji.fa|".
-    if ctx.leaf.kind() == SyntaxKind::Ident
+    // After a started field access: "emoji.fa|".
+    if matches!(ctx.leaf.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
         && let Some(prev) = ctx.leaf.prev_sibling()
         && prev.kind() == SyntaxKind::Dot
         && let Some(prev_prev) = prev.prev_sibling()
@@ -398,6 +397,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         && let Some((value, styles)) =
             analyze_expr(ctx.world, &prev_prev).into_iter().next()
     {
+        debug_assert_eq!(ctx.leaf.parent_kind(), Some(SyntaxKind::FieldAccess));
         ctx.from = ctx.leaf.offset();
         field_access_completions(ctx, &value, &styles);
         return true;
@@ -1696,13 +1696,17 @@ mod tests {
         test("#{ let x = (1, 2, 3); x. }", -3).must_include(["at", "push", "pop"]);
     }
 
-    /// Test that extra space before '.' is handled correctly.
+    /// Test that extra spaces before a '.' don't cause autocompletion in markup
+    /// or math.
     #[test]
-    fn test_autocomplete_whitespace() {
+    fn test_autocomplete_dot_whitespace() {
         test("#() .", -1).must_exclude(["insert", "remove", "len", "all"]);
         test("#{() .}", -2).must_include(["insert", "remove", "len", "all"]);
+        test("$#() .$", -2).must_exclude(["insert", "remove", "len", "all"]);
+        test("$std.array .$", -2).must_exclude(["insert", "remove", "len", "all"]);
         test("#() .a", -1).must_exclude(["insert", "remove", "len", "all"]);
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
+        test("$std.array .a$", -2).must_exclude(["insert", "remove", "len", "all"]);
     }
 
     /// Test that autocomplete in math uses the correct global scope.
