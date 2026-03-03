@@ -130,7 +130,7 @@ thin-vec = "0.2.13"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
 tiny-skia = "0.11"
-toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
+toml = { version = "1.0.3", default-features = false, features = ["parse", "display"] }
 ttf-parser = "0.25.0"
 two-face = { version = "0.4.3", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
