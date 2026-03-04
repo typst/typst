@@ -236,8 +236,7 @@ pub struct RawElem {
     ///
     /// You can pass any of the following values:
     ///
-    /// - A path string to load a syntax file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
     ///
@@ -266,8 +265,7 @@ pub struct RawElem {
     ///
     /// - `{none}`: Disables syntax highlighting.
     /// - `{auto}`: Highlights with Typst's default theme.
-    /// - A path string to load a theme file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a theme file from.
     /// - Raw bytes from which the theme should be decoded.
     ///
     /// Applying a theme only affects the color of specifically highlighted
@@ -942,7 +940,7 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("markup.raw", Some("#6b6b6f"), None),
         item("string.other.math.typst", None, None),
         item("punctuation.definition.math", Some("#198810"), None),
-        item("keyword.operator.math", Some("#1d6c76"), None),
+        item("keyword.operator.math, punctuation.math.typst", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
             "markup.heading.typst",

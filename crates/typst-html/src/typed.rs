@@ -15,12 +15,14 @@ use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
-    FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NoneValue, ParamInfo,
+    FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NativeParamInfo, NoneValue,
     PositiveF64, Reflect, Scope, Str, Type, Value,
 };
 use typst_library::layout::{Axes, Axis, Dir, Length};
+use typst_library::text::TextElem;
 use typst_library::visualize::Color;
 use typst_macros::cast;
+use typst_syntax::Spanned;
 
 use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, css, tag};
 
@@ -66,10 +68,10 @@ fn create_func_data(
 }
 
 /// Creates parameter signature metadata for an element.
-fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
+fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
     let mut params = vec![];
     for attr in element.attributes() {
-        params.push(ParamInfo {
+        params.push(NativeParamInfo {
             name: attr.name,
             docs: attr.docs,
             input: AttrType::convert(attr.ty).input(),
@@ -83,10 +85,19 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<ParamInfo> {
     }
     let tag = HtmlTag::constant(element.name);
     if !tag::is_void(tag) {
-        params.push(ParamInfo {
+        let raw = tag::is_raw(tag);
+        params.push(NativeParamInfo {
             name: "body",
-            docs: "The contents of the HTML element.",
-            input: CastInfo::Type(Type::of::<Content>()),
+            docs: if raw {
+                "The text content of the HTML element."
+            } else {
+                "The contents of the HTML element."
+            },
+            input: CastInfo::Type(if raw {
+                Type::of::<Str>()
+            } else {
+                Type::of::<Content>()
+            }),
             default: None,
             positional: true,
             named: false,
@@ -130,7 +141,13 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
     }
 
     if !tag::is_void(tag) {
-        let body = args.eat::<Content>()?;
+        let body = if tag::is_raw(tag) {
+            let str = args.eat::<Spanned<Str>>()?;
+            str.map(|Spanned { v, span }| TextElem::packed(v).spanned(span))
+        } else {
+            args.eat::<Content>()?
+        };
+
         elem.body.set(body);
     }
 

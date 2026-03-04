@@ -122,7 +122,7 @@ fn realize_fragment<'a>(
         RealizationKind::HtmlFragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,
-            is_inline: HtmlElem::is_inline,
+            is_phrasing: HtmlElem::is_phrasing,
         },
         engine,
         locator,

@@ -58,17 +58,16 @@ impl FontBook {
         self.families.contains_key(family)
     }
 
-    /// An ordered iterator over all font families this book knows and details
-    /// about the fonts that are part of them.
+    /// An ordered iterator over all font families this book knows and the
+    /// font indices that belong to them.
     pub fn families(
         &self,
-    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FontInfo>)> + '_ {
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = usize>)> + '_ {
         // Since the keys are lowercased, we instead use the family field of the
         // first face's info.
         self.families.values().map(|ids| {
             let family = self.infos[ids[0]].family.as_str();
-            let infos = ids.iter().map(|&id| &self.infos[id]);
-            (family, infos)
+            (family, ids.iter().copied())
         })
     }
 

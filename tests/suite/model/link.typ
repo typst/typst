@@ -33,7 +33,7 @@ https://example.com/#(((nested))) \
 #[https://example.com/] \
 https://example.com/)
 
---- link-bracket-unbalanced-opening paged ---
+--- link-bracket-unbalanced-opening eval ---
 // Verify that opening brackets without closing brackets throw an error.
 // Error: 1-22 automatic links cannot contain unbalanced brackets, use the `link` function instead
 https://exam(ple.com/
@@ -189,7 +189,7 @@ Text <hey>
 // Error: 2-20 label `<hey>` occurs multiple times in the document
 #link(<hey>)[Nope.]
 
---- link-empty-url paged ---
+--- link-empty-url eval ---
 // Error: 7-9 URL must not be empty
 #link("")[Empty]
 

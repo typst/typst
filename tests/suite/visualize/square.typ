@@ -33,7 +33,7 @@
   But, soft! what light through yonder window breaks?
 ]
 
---- square-size-width-and-height paged ---
+--- square-size-width-and-height eval ---
 // Size wins over width and height.
 // Error: 09-20 unexpected argument: width
 #square(width: 10cm, height: 20cm, size: 1cm, fill: rgb("eb5278"))
@@ -97,7 +97,7 @@
 #square(height: 150%)
 #square(height: 150%)[Hello there]
 
---- square-size-relative-invalid paged ---
+--- square-size-relative-invalid eval ---
 // Size cannot be relative because we wouldn't know
 // relative to which axis.
 // Error: 15-18 expected length or auto, found ratio

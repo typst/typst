@@ -412,6 +412,7 @@ pub struct ParElem {
     ///
     /// Even the first one.
     /// ```
+    #[fold]
     pub first_line_indent: FirstLineIndent,
 
     /// The indent that all but the first line of a paragraph should have.
@@ -629,21 +630,29 @@ pub enum Linebreaks {
 }
 
 /// Configuration for first line indent.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+///
+/// Here `None` means unspecified and fields set to it are inherited.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct FirstLineIndent {
     /// The amount of indent.
-    pub amount: Length,
+    amount: Option<Length>,
     /// Whether to indent all paragraphs, not just consecutive ones.
-    pub all: bool,
+    all: Option<bool>,
 }
 
 cast! {
     FirstLineIndent,
     self => Value::Dict(self.into()),
-    amount: Length => Self { amount, all: false },
+    amount: Length => Self { amount: Some(amount), all: Default::default() },
     mut dict: Dict => {
-        let amount = dict.take("amount")?.cast()?;
-        let all = dict.take("all").ok().map(|v| v.cast()).transpose()?.unwrap_or(false);
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
+        }
+
+        let amount = take(&mut dict, "amount")?;
+        let all = take(&mut dict, "all")?;
         dict.finish(&["amount", "all"])?;
         Self { amount, all }
     },
@@ -651,9 +660,44 @@ cast! {
 
 impl From<FirstLineIndent> for Dict {
     fn from(indent: FirstLineIndent) -> Self {
-        dict! {
-            "amount" => indent.amount,
-            "all" => indent.all,
+        let mut dict = Dict::new();
+        if let Some(amount) = indent.amount {
+            dict.insert("amount".into(), amount.into_value());
+        }
+        if let Some(all) = indent.all {
+            dict.insert("all".into(), all.into_value());
+        }
+        dict
+    }
+}
+
+impl FirstLineIndent {
+    /// Amount of indent, with default resolved.
+    pub fn amount(&self) -> Length {
+        self.amount.unwrap_or_default()
+    }
+
+    /// Whether to indent all paragraphs, not just consecutive ones, with
+    /// default resolved.
+    pub fn all(&self) -> bool {
+        self.all.unwrap_or_default()
+    }
+}
+
+impl Default for FirstLineIndent {
+    fn default() -> Self {
+        Self {
+            amount: Some(Default::default()),
+            all: Some(Default::default()),
+        }
+    }
+}
+
+impl Fold for FirstLineIndent {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            amount: self.amount.or(outer.amount),
+            all: self.all.or(outer.all),
         }
     }
 }

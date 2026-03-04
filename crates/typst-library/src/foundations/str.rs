@@ -503,7 +503,8 @@ impl Str {
         /// The dictionary passed to the function has the same shape as the
         /// dictionary returned by [`match`]($str.match).
         replacement: Replacement,
-        ///  If given, only the first `count` matches of the pattern are placed.
+        ///  If given, only the first `count` matches of the pattern are
+        ///  replaced.
         #[named]
         count: Option<usize>,
     ) -> SourceResult<Str> {

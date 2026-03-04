@@ -43,8 +43,8 @@ jobs:
           cross: false
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.91.0
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: dtolnay/rust-toolchain@f941e41d00837ee686f9d4575861485df1f7a655 # Rust 1.91.0
       with:
         target: ${{ matrix.target }}
 
@@ -72,14 +72,14 @@ jobs:
           tar cJf $directory.tar.xz $directory
         fi
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       if: github.event_name == 'workflow_dispatch'
       with:
         name: typst-${{ matrix.target }}
         path: "typst-${{ matrix.target }}.*"
         retention-days: 3
 
-    - uses: ncipollo/release-action@v1.14.0
+    - uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
       if: github.event_name == 'release'
       with:
         artifacts: "typst-${{ matrix.target }}.*"

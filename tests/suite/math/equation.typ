@@ -13,7 +13,7 @@ $ F_n = round(1 / sqrt(5) phi.alt^n) $ <fib>
 
 --- math-equation-font paged ---
 // Test different font.
-#show math.equation: set text(font: "Fira Math")
+#show math.equation: set text(font: "Noto Sans Math")
 $ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $
 
 --- math-equation-show-rule paged ---
@@ -144,11 +144,11 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-center paged ---
+--- math-equation-number-align-center eval ---
 // Error: 52-58 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center)
 
---- math-equation-number-align-center-bottom paged ---
+--- math-equation-number-align-center-bottom eval ---
 // Error: 52-67 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center + bottom)
 

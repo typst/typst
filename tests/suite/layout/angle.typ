@@ -1,4 +1,4 @@
---- angle-to-unit paged ---
+--- angle-to-unit eval ---
 // Test angle methods.
 #test(1rad.rad(), 1.0)
 #test(1.23rad.rad(), 1.23)

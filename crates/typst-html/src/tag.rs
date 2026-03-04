@@ -499,50 +499,6 @@ pub fn is_block_by_default(tag: HtmlTag) -> bool {
     )
 }
 
-/// Whether the element is inline-level as opposed to being block-level.
-///
-/// Not sure whether this distinction really makes sense. But we somehow
-/// need to decide what to put into automatic paragraphs. A `<strong>`
-/// should merged into a paragraph created by realization, but a `<div>`
-/// shouldn't.
-///
-/// <https://www.w3.org/TR/html401/struct/global.html#block-inline>
-/// <https://developer.mozilla.org/en-US/docs/Glossary/Inline-level_content>
-/// <https://github.com/orgs/mdn/discussions/353>
-pub fn is_inline_by_default(tag: HtmlTag) -> bool {
-    matches!(
-        tag,
-        self::abbr
-            | self::a
-            | self::bdi
-            | self::b
-            | self::br
-            | self::bdo
-            | self::code
-            | self::cite
-            | self::dfn
-            | self::data
-            | self::i
-            | self::em
-            | self::mark
-            | self::kbd
-            | self::rp
-            | self::q
-            | self::ruby
-            | self::rt
-            | self::samp
-            | self::s
-            | self::span
-            | self::small
-            | self::sub
-            | self::strong
-            | self::time
-            | self::sup
-            | self::var
-            | self::u
-    )
-}
-
 /// Whether nodes with the tag have the CSS property `display: table(-.*)?`
 /// by default.
 pub fn is_tabular_by_default(tag: HtmlTag) -> bool {

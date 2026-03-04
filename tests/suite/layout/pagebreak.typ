@@ -143,7 +143,7 @@ Some text on page 2
 #set page(fill: orange) // This sets the color of the page starting from page 4
 Some text on page 4
 
---- issue-2591-single-weak-pagebreak paged ---
+--- issue-2591-single-weak-pagebreak paged empty ---
 #pagebreak(weak: true)
 
 --- issue-2841-pagebreak-to-weak paged ---

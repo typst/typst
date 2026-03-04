@@ -57,6 +57,11 @@ impl Abs {
         self.0.get()
     }
 
+    /// Get the value of this absolute length in raw units.
+    pub const fn scalar(self) -> Scalar {
+        self.0
+    }
+
     /// Get the value of this absolute length in a unit.
     pub fn to_unit(self, unit: AbsUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
