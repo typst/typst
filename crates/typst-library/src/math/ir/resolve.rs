@@ -87,7 +87,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         Ok(if len == 1 {
             self.items.pop().unwrap()
         } else {
-            GroupItem::create(self.items.drain(start..), false, styles, &self.arenas.bump)
+            GroupItem::create(self.items.drain(start..), false, styles)
         })
     }
 
@@ -230,13 +230,7 @@ fn resolve_text<'a, 'v, 'e>(
         .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
         .collect();
 
-    ctx.push(TextItem::create(
-        styled_text,
-        !multiline && !num,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    ));
+    ctx.push(TextItem::create(styled_text, !multiline && !num, styles, elem.span()));
     Ok(())
 }
 
@@ -261,7 +255,7 @@ fn resolve_symbol<'a, 'v, 'e>(
             .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
             .collect();
 
-        let item = GlyphItem::create(text, styles, elem.span(), &ctx.arenas.bump);
+        let item = GlyphItem::create(text, styles, elem.span());
 
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
             let target = Rel::new(Ratio::one(), Abs::zero());
@@ -302,7 +296,7 @@ fn resolve_accent<'a, 'v, 'e>(
     let width = elem.size.resolve(styles);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(width, ACCENT_SHORT_FALL)));
 
-    ctx.push(AccentItem::create(base, accent, position, false, styles, &ctx.arenas.bump));
+    ctx.push(AccentItem::create(base, accent, position, false, styles));
     Ok(())
 }
 
@@ -483,7 +477,6 @@ fn resolve_inner_attach<'a, 'v, 'e>(
         top_right,
         bottom_right,
         styles,
-        &ctx.arenas.bump,
     ))
 }
 
@@ -514,7 +507,7 @@ fn resolve_primes<'a, 'v, 'e>(
                 ctx.store(SymbolElem::packed('′').spanned(elem.span())),
                 styles,
             )?;
-            ctx.push(PrimesItem::create(prime, count, styles, &ctx.arenas.bump));
+            ctx.push(PrimesItem::create(prime, count, styles));
         }
     }
     Ok(())
@@ -586,7 +579,6 @@ fn resolve_cancel<'a, 'v, 'e>(
         angle.clone(),
         styles,
         elem.span(),
-        &ctx.arenas.bump,
     ));
     Ok(())
 }
@@ -656,15 +648,8 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
         bumped_styles.chain(denom_style),
     )?;
 
-    let frac = FractionItem::create(
-        numerator,
-        denominator,
-        !binom,
-        FRAC_PADDING,
-        styles,
-        span,
-        &ctx.arenas.bump,
-    );
+    let frac =
+        FractionItem::create(numerator, denominator, !binom, FRAC_PADDING, styles, span);
 
     if binom {
         let stretch =
@@ -679,15 +664,7 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
             styles,
         )?;
         close.set_stretch(stretch);
-        ctx.push(FencedItem::create(
-            Some(open),
-            Some(close),
-            frac,
-            false,
-            styles,
-            span,
-            &ctx.arenas.bump,
-        ));
+        ctx.push(FencedItem::create(Some(open), Some(close), frac, false, styles, span));
     } else {
         ctx.push(frac);
     }
@@ -765,13 +742,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
         Stretch::new().with_y(StretchInfo::new(Rel::one(), DELIM_SHORT_FALL)),
     );
 
-    ctx.push(SkewedFractionItem::create(
-        numerator,
-        denominator,
-        slash,
-        styles,
-        &ctx.arenas.bump,
-    ));
+    ctx.push(SkewedFractionItem::create(numerator, denominator, slash, styles));
 
     Ok(())
 }
@@ -880,11 +851,10 @@ fn resolve_lr<'a, 'v, 'e>(
     let item = FencedItem::create(
         open,
         close,
-        GroupItem::create(inner_items, closing_exists, styles, &ctx.arenas.bump),
+        GroupItem::create(inner_items, closing_exists, styles),
         true,
         styles,
         elem.span(),
-        &ctx.arenas.bump,
     );
 
     ctx.items.insert(start + start_idx, item);
@@ -1054,16 +1024,7 @@ fn resolve_cells<'a, 'v, 'e>(
         })
         .collect::<SourceResult<_>>();
 
-    Ok(TableItem::create(
-        cells?,
-        gap,
-        augment,
-        align,
-        alternator,
-        styles,
-        span,
-        &ctx.arenas.bump,
-    ))
+    Ok(TableItem::create(cells?, gap, augment, align, alternator, styles, span))
 }
 
 /// Resolves the delimiters around the body of a vector, matrix, or cases.
@@ -1090,15 +1051,7 @@ fn resolve_delimiters<'a, 'v, 'e>(
         .transpose()?
         .inspect(|x| x.set_stretch(stretch));
 
-    ctx.push(FencedItem::create(
-        open,
-        close,
-        cells,
-        false,
-        styles,
-        span,
-        &ctx.arenas.bump,
-    ));
+    ctx.push(FencedItem::create(open, close, cells, false, styles, span));
     Ok(())
 }
 
@@ -1162,14 +1115,7 @@ fn resolve_root<'a, 'v, 'e>(
         styles,
     )?;
     sqrt.set_stretch(Stretch::new().with_y(StretchInfo::new(Rel::one(), Em::zero())));
-    ctx.push(RadicalItem::create(
-        radicand,
-        index,
-        sqrt,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    ));
+    ctx.push(RadicalItem::create(radicand, index, sqrt, styles, elem.span()));
     Ok(())
 }
 
@@ -1180,13 +1126,7 @@ fn resolve_underline<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let base = ctx.resolve_into_item(&elem.body, styles)?;
-    ctx.push(LineItem::create(
-        base,
-        Position::Below,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    ));
+    ctx.push(LineItem::create(base, Position::Below, styles, elem.span()));
     Ok(())
 }
 
@@ -1200,13 +1140,7 @@ fn resolve_overline<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let cramped_styles = ctx.chain_styles(styles, style_cramped());
     let base = ctx.resolve_into_item(&elem.body, cramped_styles)?;
-    ctx.push(LineItem::create(
-        base,
-        Position::Above,
-        styles,
-        elem.span(),
-        &ctx.arenas.bump,
-    ));
+    ctx.push(LineItem::create(base, Position::Above, styles, elem.span()));
     Ok(())
 }
 
@@ -1366,7 +1300,7 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
     accent.set_class(MathClass::Diacritic);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(Rel::one(), Em::zero())));
 
-    let base = AccentItem::create(base, accent, position, true, styles, &ctx.arenas.bump);
+    let base = AccentItem::create(base, accent, position, true, styles);
 
     let Some(annotation) = annotation else {
         ctx.push(base);
@@ -1386,7 +1320,6 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
                 None,
                 None,
                 styles,
-                &ctx.arenas.bump,
             )
         }
         Position::Above => {
@@ -1401,7 +1334,6 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
                 None,
                 None,
                 styles,
-                &ctx.arenas.bump,
             )
         }
     };
