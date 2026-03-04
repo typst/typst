@@ -256,6 +256,11 @@ impl VirtualPath {
         self.0.get_without_slash()
     }
 
+    /// Whether this is the path `/`.
+    pub fn is_root(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns the file name portion of the path.
     pub fn file_name(&self) -> Option<&str> {
         self.0.last().map(Segment::get)
