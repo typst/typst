@@ -201,6 +201,19 @@ impl Gradient {
         args: &mut Args,
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be a color or an array of a color and an offset
+        /// (a [ratio] between `0%` and `100%` or an [angle] between `0deg` and
+        /// `360deg`). The offset determines how far along the gradient the stop is
+        /// located. If no offset is given for a stop, Typst will space all stops
+        /// evenly.
+        ///
+        /// # Example
+        /// ```example
+        /// #gradient.linear(red, blue) // Evenly spaced stops
+        /// #gradient.linear((red, 20%), (blue, 80%)) // Stops with explicit offsets
+        /// #gradient.linear(red, (orange, 50%), blue) // Mixed implicit and explicit
+        /// ```
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -290,6 +303,19 @@ impl Gradient {
     fn radial(
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be a color or an array of a color and an offset
+        /// (a [ratio] between `0%` and `100%` or an [angle] between `0deg` and
+        /// `360deg`). The offset determines how far along the gradient the stop is
+        /// located. If no offset is given for a stop, Typst will space all stops
+        /// evenly.
+        ///
+        /// # Example
+        /// ```example
+        /// #gradient.radial(red, blue) // Evenly spaced stops
+        /// #gradient.radial((red, 20%), (blue, 80%)) // Stops with explicit offsets
+        /// #gradient.radial(red, (orange, 50%), blue) // Mixed implicit and explicit
+        /// ```
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -406,6 +432,19 @@ impl Gradient {
     pub fn conic(
         span: Span,
         /// The color [stops](#stops) of the gradient.
+        ///
+        /// Each stop can be a color or an array of a color and an offset
+        /// (a [ratio] between `0%` and `100%` or an [angle] between `0deg` and
+        /// `360deg`). The offset determines how far along the gradient the stop is
+        /// located. If no offset is given for a stop, Typst will space all stops
+        /// evenly.
+        ///
+        /// # Example
+        /// ```example
+        /// #gradient.conic(red, blue) // Evenly spaced stops
+        /// #gradient.conic((red, 20%), (blue, 80%)) // Stops with explicit offsets
+        /// #gradient.conic(red, (orange, 50%), blue) // Mixed implicit and explicit
+        /// ```
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
