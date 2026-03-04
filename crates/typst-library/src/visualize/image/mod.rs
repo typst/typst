@@ -50,7 +50,26 @@ use crate::visualize::image::pdf::PdfDocument;
 ///     pipeline of our lab.
 ///   ],
 /// )
+///
+/// # Clipping
+/// You can wrap an image in a [`box`] or a [`block`] with a negative [`inset`]($box.inset)
+/// and `clip: true` to clip it. Note that clipping an image does not crop it.
+/// **The original image file will remain present.**
+///
+/// ```typst
+/// #let img = image("lynx.jpg", height: 3in, fit: "cover")
+/// #grid(columns: 2, column-gutter: 1em, img)[
+///   #stack(spacing: 5pt)[
+///     #box(img, stroke: red, clip: true, inset: (bottom: -1.54in))
+///   ][
+///     #box(img, stroke: red, clip: true, inset: (top: -1.54in))
+///   ] 
+/// ]
+/// // Via @ntjess: https://github.com/typst/typst/issues/3147
 /// ```
+///
+/// [`box`] and [`block`] can also be used to give an image a border (as above), or a background.
+/// The [`radius`]($box.radius) argument can also be provided to round a clipped image.
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
