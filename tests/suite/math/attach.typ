@@ -51,8 +51,11 @@ $ A_(2(z))          &quad A_2(z)          &quad A_2 (z) \
   e^(abs(gamma))    &quad e^abs(gamma)    &quad /*error, below*/
 $
 
-// --- math-attach-func-call-error-space eval ---
-// $ e^abs (gamma) $
+--- math-attach-func-call-error-space eval ---
+// Error: 5-8 cannot display a function
+// Hint: 5-8 this does not call the `abs` function
+// Hint: 5-8 to call the function, specify arguments in parentheses: `abs()`
+$ e^abs (gamma) $
 
 --- math-attach-non-func-prefix paged html ---
 $ integral(x+y)^2 $
