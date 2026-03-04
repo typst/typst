@@ -16,7 +16,7 @@ pub fn layout_fenced(
 ) -> SourceResult<()> {
     // Compute relative_to for delimiter sizing.
     let (relative_to, initial_body) = if let Some(sizing) = item.body.sizing() {
-        let relative_to = sizing.try_get_or_update(|items| {
+        let relative_to = sizing.try_get_or_update(|items, styles| {
             relative_to_from_sizing(items, ctx, styles, item.balanced)
         })?;
         (relative_to, None)

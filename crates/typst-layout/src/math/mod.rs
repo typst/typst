@@ -16,7 +16,7 @@ use typst_library::World;
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
-use typst_library::introspection::{Counter, Locator, SplitLocator};
+use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
     OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
@@ -62,12 +62,10 @@ pub fn layout_equation_inline(
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
     let arenas = Arenas::default();
-    let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
+    let item = resolve_equation(elem, engine, locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
+    let mut ctx = MathContext::new(engine, region, font.clone());
     let mut items = if !item.is_multiline() {
         ctx.layout_into_fragments(&item, styles)?.into_par_items()
     } else {
@@ -119,12 +117,10 @@ pub fn layout_equation_block(
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
     let arenas = Arenas::default();
-    let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
+    let item = resolve_equation(elem, engine, locator.relayout(), &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
+    let mut ctx = MathContext::new(engine, regions.base(), font.clone());
     let full_equation_builder = if let MathItem::Component(MathComponent {
         kind: MathKind::Multiline(multi),
         styles,
@@ -216,6 +212,7 @@ pub fn layout_equation_block(
     let counter = Counter::of(EquationElem::ELEM)
         .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
+    let mut locator = locator.split();
     let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
@@ -363,27 +360,20 @@ fn resize_equation(
 }
 
 /// The context for math layout.
-struct MathContext<'a, 'v, 'e> {
+struct MathContext<'v, 'e> {
     // External.
     engine: &'v mut Engine<'e>,
-    locator: &'v mut SplitLocator<'a>,
     region: Region,
     // Mutable.
     fonts_stack: Vec<Font>,
     fragments: MathRun,
 }
 
-impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
+impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
-    fn new(
-        engine: &'v mut Engine<'e>,
-        locator: &'v mut SplitLocator<'a>,
-        base: Size,
-        font: Font,
-    ) -> Self {
+    fn new(engine: &'v mut Engine<'e>, base: Size, font: Font) -> Self {
         Self {
             engine,
-            locator,
             region: Region::new(base, Axes::splat(false)),
             fonts_stack: vec![font],
             fragments: vec![],
@@ -556,7 +546,7 @@ fn layout_box(
     let frame = crate::inline::layout_box(
         item.elem,
         ctx.engine,
-        ctx.locator.next(&item.elem.span()),
+        item.locator.relayout(),
         styles,
         ctx.region.size,
     )?;
@@ -574,7 +564,7 @@ fn layout_external(
     let mut frame = crate::layout_frame(
         ctx.engine,
         item.content,
-        ctx.locator.next(&item.content.span()),
+        item.locator.relayout(),
         styles,
         ctx.region,
     )?;

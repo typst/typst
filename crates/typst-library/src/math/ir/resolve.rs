@@ -1,4 +1,4 @@
-use std::cell::{Cell, LazyCell};
+use std::cell::Cell;
 use std::sync::LazyLock;
 
 use codex::styling::{MathStyle, to_style};
@@ -15,7 +15,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Resolve, Style, StyleChain, Styles, SymbolElem,
 };
-use crate::introspection::{SplitLocator, TagElem};
+use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spacing};
 use crate::math::*;
 use crate::routines::{Arenas, RealizationKind};
@@ -40,7 +40,7 @@ pub(crate) struct MathResolver<'a, 'v, 'e> {
     /// External engine.
     engine: &'v mut Engine<'e>,
     /// External locator.
-    locator: &'v mut SplitLocator<'a>,
+    locator: SplitLocator<'a>,
     /// External arenas for bump allocation.
     arenas: &'a Arenas,
     /// The working buffer of resolved items.
@@ -51,10 +51,15 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
     /// Create a new math builder.
     pub(crate) fn new(
         engine: &'v mut Engine<'e>,
-        locator: &'v mut SplitLocator<'a>,
+        locator: Locator<'a>,
         arenas: &'a Arenas,
     ) -> Self {
-        Self { engine, locator, arenas, items: vec![] }
+        Self {
+            engine,
+            locator: locator.split(),
+            arenas,
+            items: vec![],
+        }
     }
 
     /// Lifetime-extends some styles.
@@ -70,6 +75,11 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
     ) -> StyleChain<'a> {
         let new = self.arenas.styles.alloc(new.into());
         self.arenas.bump.alloc(base).chain(new)
+    }
+
+    /// Lifetime-extends some style chain.
+    fn store_chain<'c>(&self, styles: StyleChain<'c>) -> &'a StyleChain<'c> {
+        self.arenas.bump.alloc(styles)
     }
 
     /// Lifetime-extends some content.
@@ -125,7 +135,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         let pairs = (self.engine.routines.realize)(
             RealizationKind::Math,
             self.engine,
-            self.locator,
+            &mut self.locator,
             self.arenas,
             content,
             styles,
@@ -182,7 +192,8 @@ fn resolve_realized<'a, 'v, 'e>(
     } else if let Some(elem) = elem.to_packed::<RootElem>() {
         resolve_root(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
-        ctx.push(BoxItem::create(elem, styles));
+        let locator = ctx.locator.next(&elem.span());
+        ctx.push(BoxItem::create(elem, styles, locator));
     } else if let Some(elem) = elem.to_packed::<MatElem>() {
         resolve_mat(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<MidElem>() {
@@ -216,7 +227,8 @@ fn resolve_realized<'a, 'v, 'e>(
     } else if let Some(elem) = elem.to_packed::<OvershellElem>() {
         resolve_overshell(elem, ctx, styles)?;
     } else {
-        ctx.push(ExternalItem::create(elem, styles));
+        let locator = ctx.locator.next(&elem.span());
+        ctx.push(ExternalItem::create(elem, styles, locator));
     }
     Ok(())
 }
@@ -247,9 +259,8 @@ fn resolve_text<'a, 'v, 'e>(
     let italic = styles.get(EquationElem::italic).or(Some(false));
 
     // Create item with correct styles and properties.
-    let local_styles =
-        LazyCell::new(|| ctx.chain_styles(styles, TEXT_BASE_LOCAL_STYLES.clone()));
-    let create_item = |text: &str| {
+    let local_styles = ctx.store_chain(styles).chain(&*TEXT_BASE_LOCAL_STYLES);
+    let mut create_item = |text: &str| {
         let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
         let styled_text: EcoString = text
             .chars()
@@ -258,7 +269,12 @@ fn resolve_text<'a, 'v, 'e>(
         if num {
             NumberItem::create(styled_text, styles, elem.span())
         } else {
-            TextItem::create(styled_text, *local_styles, elem.span())
+            TextItem::create(
+                styled_text,
+                local_styles,
+                elem.span(),
+                ctx.locator.next(&elem.span()),
+            )
         }
     };
 
@@ -933,7 +949,7 @@ fn expand_multiline_fence<'a>(
 
     let ncells: usize = row_lengths.iter().sum();
     let nrows = row_lengths.len();
-    let sizing = SharedFenceSizing::new(bodies);
+    let sizing = SharedFenceSizing::new(bodies, styles);
 
     // Build fenced items interleaved with alignment points and linebreaks.
     let mut result = Vec::with_capacity((2 * ncells).saturating_sub(1));

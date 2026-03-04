@@ -32,7 +32,7 @@ pub fn layout_text(
     let frame = crate::inline::layout_inline(
         ctx.engine,
         &[(&elem, styles)],
-        &mut ctx.locator.next(&span).split(),
+        &mut item.locator.relayout().split(),
         styles,
         Size::splat(Abs::inf()),
         false,

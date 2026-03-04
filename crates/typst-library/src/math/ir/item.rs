@@ -13,7 +13,7 @@ use super::multiline::build_multiline;
 use super::preprocess::{PreprocessMode, preprocess};
 use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
-use crate::introspection::Tag;
+use crate::introspection::{Locator, Tag};
 use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
@@ -361,7 +361,7 @@ pub enum MathKind<'a> {
     /// Grouped prime symbols.
     Primes(Box<PrimesItem<'a>>),
     /// A text string.
-    Text(TextItem),
+    Text(TextItem<'a>),
     /// A number.
     Number(NumberItem),
     /// A single glyph (grapheme cluster).
@@ -821,21 +821,24 @@ impl<'a> PrimesItem<'a> {
 
 /// A text string.
 #[derive(Debug)]
-pub struct TextItem {
+pub struct TextItem<'a> {
     /// The text content.
     pub text: EcoString,
+    /// The item's locator.
+    pub locator: Locator<'a>,
 }
 
-impl TextItem {
+impl<'a> TextItem<'a> {
     /// Creates a new text item.
     ///
     /// The resulting item is spaced and has alphabetic math class.
-    pub(crate) fn create<'a>(
+    pub(crate) fn create(
         text: EcoString,
         styles: StyleChain<'a>,
         span: Span,
+        locator: Locator<'a>,
     ) -> MathItem<'a> {
-        let kind = MathKind::Text(Self { text });
+        let kind = MathKind::Text(Self { text, locator });
         let props = MathProperties::new(styles, MathClass::Alphabetic)
             .with_spaced(true)
             .with_span(span);
@@ -914,6 +917,8 @@ impl GlyphItem {
 pub struct BoxItem<'a> {
     /// The [`BoxElem`] to layout.
     pub elem: &'a Packed<BoxElem>,
+    /// The item's locator.
+    pub locator: Locator<'a>,
 }
 
 impl<'a> BoxItem<'a> {
@@ -923,8 +928,9 @@ impl<'a> BoxItem<'a> {
     pub(crate) fn create(
         elem: &'a Packed<BoxElem>,
         styles: StyleChain<'a>,
+        locator: Locator<'a>,
     ) -> MathItem<'a> {
-        let kind = MathKind::Box(Self { elem });
+        let kind = MathKind::Box(Self { elem, locator });
         let props = MathProperties::default(styles).with_spaced(true);
         MathComponent { kind, props, styles }.into()
     }
@@ -935,6 +941,8 @@ impl<'a> BoxItem<'a> {
 pub struct ExternalItem<'a> {
     /// The content to layout externally.
     pub content: &'a Content,
+    /// The item's locator.
+    pub locator: Locator<'a>,
 }
 
 impl<'a> ExternalItem<'a> {
@@ -942,8 +950,12 @@ impl<'a> ExternalItem<'a> {
     ///
     /// The resulting item is spaced and, if the content is a [`PlaceElem`], is
     /// ignorant.
-    pub(crate) fn create(content: &'a Content, styles: StyleChain<'a>) -> MathItem<'a> {
-        let kind = MathKind::External(Self { content });
+    pub(crate) fn create(
+        content: &'a Content,
+        styles: StyleChain<'a>,
+        locator: Locator<'a>,
+    ) -> MathItem<'a> {
+        let kind = MathKind::External(Self { content, locator });
         let props = MathProperties::default(styles)
             .with_spaced(true)
             .with_ignorant(content.is::<PlaceElem>());
@@ -958,24 +970,26 @@ pub struct SharedFenceSizing<'a> {
     items: Vec<MathItem<'a>>,
     /// Relative to height for stretch size calculation.
     relative_to: Cell<Option<Abs>>,
+    /// The fence's styles.
+    styles: StyleChain<'a>,
 }
 
 impl<'a> SharedFenceSizing<'a> {
     /// Creates a new shared sizing information.
-    pub(crate) fn new(items: Vec<MathItem<'a>>) -> Rc<Self> {
-        Rc::new(Self { items, relative_to: Cell::new(None) })
+    pub(crate) fn new(items: Vec<MathItem<'a>>, styles: StyleChain<'a>) -> Rc<Self> {
+        Rc::new(Self { items, relative_to: Cell::new(None), styles })
     }
 
     /// Retrieves or sets the relative to height by applying `f` to the body
     /// items.
     pub fn try_get_or_update(
         &self,
-        f: impl FnOnce(&[MathItem<'a>]) -> SourceResult<Abs>,
+        f: impl FnOnce(&[MathItem<'a>], StyleChain<'a>) -> SourceResult<Abs>,
     ) -> SourceResult<Abs> {
         Ok(if let Some(relative_to) = self.relative_to.get() {
             relative_to
         } else {
-            let relative_to = f(&self.items)?;
+            let relative_to = f(&self.items, self.styles)?;
             self.relative_to.set(Some(relative_to));
             relative_to
         })
