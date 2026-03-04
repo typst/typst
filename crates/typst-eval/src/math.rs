@@ -1,11 +1,14 @@
-use ecow::eco_format;
-use typst_library::diag::{At, SourceResult, warning};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, error, warning};
+use typst_library::foundations::{
+    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
+use typst_syntax::{SyntaxKind, SyntaxNode};
 
 use crate::{Eval, Vm};
 
@@ -39,11 +42,27 @@ impl Eval for ast::Math<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::sequence(
-            self.exprs()
-                .map(|expr| expr.eval_display(vm))
-                .collect::<SourceResult<Vec<_>>>()?,
-        ))
+        let mut exprs = self.exprs();
+        let iter = std::iter::from_fn(move || {
+            let expr = exprs.next()?;
+            Some(expr.eval_display(vm).map_err(|math_error| {
+                match math_error {
+                    MathError::Normal(err) => err,
+                    MathError::FuncLiteral { node, name } => {
+                        // Add a custom hint if the error was due to a function
+                        // literal followed by delimiters.
+                        let delims = exprs
+                            .find(|expr| !matches!(expr, ast::Expr::Space(_)))
+                            .and_then(|non_space| match non_space {
+                                ast::Expr::MathDelimited(delims) => Some(delims),
+                                _ => None,
+                            });
+                        eco_vec![func_literal_error(node, name, delims)]
+                    }
+                }
+            }))
+        });
+        Ok(Content::sequence(iter.collect::<SourceResult<Vec<_>>>()?))
     }
 }
 
@@ -189,12 +208,117 @@ impl Eval for ast::MathRoot<'_> {
     }
 }
 
-trait ExprExt {
-    fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content>;
+trait ExprExt<'a> {
+    fn eval_display(self, vm: &mut Vm) -> Result<Content, MathError<'a>>;
 }
 
-impl ExprExt for ast::Expr<'_> {
-    fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content> {
-        Ok(self.eval(vm)?.display().spanned(self.span()))
+impl<'a> ExprExt<'a> for ast::Expr<'a> {
+    /// Evaluate the expression as content for math.
+    fn eval_display(self, vm: &mut Vm) -> Result<Content, MathError<'a>> {
+        let value = self.eval(vm)?;
+        // Symbols can cast to functions, but we don't error since they're also
+        // valid as content.
+        if !matches!(value, Value::Symbol(_))
+            && let Ok(func_value) = value.clone().cast::<Func>()
+        {
+            return Err(MathError::FuncLiteral {
+                node: self.to_untyped(),
+                name: func_value.name().map(|name| name.into()),
+            });
+        }
+        Ok(value.display().spanned(self.span()))
     }
+}
+
+/// An error wrapper that allows adding custom hints for function literals
+/// displayed in math.
+pub(crate) enum MathError<'a> {
+    /// A normal source error.
+    Normal(EcoVec<SourceDiagnostic>),
+    /// An attempt to display a function literal in math.
+    FuncLiteral { node: &'a SyntaxNode, name: Option<EcoString> },
+}
+
+impl From<EcoVec<SourceDiagnostic>> for MathError<'_> {
+    fn from(value: EcoVec<SourceDiagnostic>) -> Self {
+        Self::Normal(value)
+    }
+}
+
+impl From<MathError<'_>> for EcoVec<SourceDiagnostic> {
+    fn from(value: MathError) -> Self {
+        match value {
+            MathError::Normal(err) => err,
+            MathError::FuncLiteral { node, name } => {
+                eco_vec![func_literal_error(node, name, None)]
+            }
+        }
+    }
+}
+
+/// Error for a function literal in math, potentially with hints for following
+/// delimiters.
+#[cold]
+fn func_literal_error(
+    node: &SyntaxNode,
+    name: Option<EcoString>,
+    delims: Option<ast::MathDelimited>,
+) -> SourceDiagnostic {
+    let func;
+    let mut error;
+    match node.kind() {
+        // Identifier-like kinds that are reasonable to give custom hints.
+        // Normal field access isn't worth handling.
+        SyntaxKind::Ident | SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
+            func = node.full_text();
+            error = error!(node.span(), "this does not call the `{func}` function");
+        }
+        kind => {
+            error = error!(node.span(), "expected content, found function");
+            if let Some(name) = name {
+                error.hint(eco_format!("evaluated to the `{name}` function"));
+            }
+            if kind == SyntaxKind::MathCall {
+                // `MathCall` is the only kind that can produce a function
+                // literal but cannot be called by adding trailing parentheses
+                // (writing `$func()()$` doesn't work), so we just return
+                // without adding extra hints.
+                return error;
+            }
+            func = node.full_text();
+        }
+    }
+
+    match delims {
+        None => error.hint(eco_format!(
+            "to call the function, specify arguments in parentheses: `{func}()`"
+        )),
+        Some(delims) => {
+            if let ast::Expr::MathText(open) = delims.open()
+                && let ast::Expr::MathText(close) = delims.close()
+                && open.to_untyped().leaf_text() == "("
+                && close.to_untyped().leaf_text() == ")"
+            {
+                error.hint(eco_format!(
+                    "to call the function, write `{func}{}`",
+                    delims.to_untyped().full_text()
+                ));
+                error.spanned_hint(
+                    "the parentheses must directly follow the function",
+                    delims.span(),
+                );
+            } else {
+                error.hint(eco_format!(
+                    "to call the function, write `{func}({})`",
+                    delims.body().to_untyped().full_text()
+                ));
+                error.spanned_hint(
+                    "functions can only be called with matched parentheses",
+                    delims.span(),
+                );
+            }
+        }
+    }
+
+    error
 }
