@@ -47,67 +47,71 @@
 $ std.assert.noteq() $
 
 --- field-call-unknown-generic-type eval ---
-// Error: 5-8 type array has no method `fun`
+// Error: 2-8 type array has no method `fun`
 #().fun()
 
 --- math-field-call-unknown-generic-type eval ---
-// Error: 11-14 type color has no method `fun`
+// Error: 3-14 type color has no method `fun`
 $ std.red.fun() $
 
 --- field-call-unknown-content eval ---
-// Error: 5-8 element sequence has no method `fun`
+// Error: 2-8 element sequence has no method `fun`
 #[].fun()
 
 --- math-field-call-unknown-content eval ---
 #let pi = [pi]
-// Error: 6-9 element text has no method `fun`
+// Error: 3-9 element text has no method `fun`
 $ pi.fun() $
 
 --- field-call-invalid-content-field-func eval ---
 // This would be cursed to allow.
-// Error: 38-48 element heading has no method `supplement`
-// Hint: 38-48 did you mean to access the field `supplement`?
+// Error: 2-48 `supplement` is not a valid method for element `heading`
+// Hint: 2-48 to call the stored function, wrap the field access in parentheses: `(heading([], supplement: x => x + 1).supplement)(..)`
 #heading([], supplement: x => x + 1).supplement(2)
 
 --- math-field-call-invalid-content-field-func eval ---
 #let cancel = math.cancel($x$, angle: ang => ang + 90deg)
-// Error: 10-15 element cancel has no method `angle`
-// Hint: 10-15 did you mean to access the field `angle`?
+// Error: 3-15 `angle` is not a valid method for element `cancel`
+// Hint: 3-15 to call the stored function, use code mode and wrap the field access in parentheses: `#(cancel.angle)(..)`
 $ cancel.angle(#30deg) $
 
 --- field-call-invalid-non-func eval ---
-// Error: 20-26 element line has no method `stroke`
-// Hint: 20-26 did you mean to access the field `stroke`?
+// Error: 2-26 `stroke` is not a valid method for element `line`
+// Hint: 2-26 to access the `stroke` field, remove the function arguments: `line(stroke: red).stroke`
 #line(stroke: red).stroke()
 
 --- math-field-call-invalid-non-func eval ---
-// Error: 35-36 type alignment has no method `y`
-// Hint: 35-36 did you mean to access the field `y`?
+// Error: 27-36 `y` is not a valid method for type `alignment`
+// Hint: 27-36 try adding a space before the parentheses
 #test($std.top.y/**/()$, $std.top.y()$)
 // This is potentially worth allowing in the future.
 
 --- field-call-dict-invalid eval ---
 // Test attempting to call a function from a dictionary.
-// Error: 27-34 type dictionary has no method `call-me`
-// Hint: 27-34 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
+// Error: 2-34 cannot directly call dictionary keys as functions
+// Hint: 2-34 to call the stored function, wrap the field access in parentheses: `((call-me: () => "maybe").call-me)(..)`
+// Hint: 2-34 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
 #(call-me: () => "maybe").call-me()
 
 --- math-field-call-dict-invalid eval ---
 #let pi = (alt: _ => math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.alt)(..)`
+// Error: 3-9 cannot directly call dictionary keys as functions
+// Hint: 3-9 to call the stored function, use code mode and wrap the field access in parentheses: `#(pi.alt)(..)`
+// Hint: 3-9 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
 $ pi.alt() $
 
 --- field-call-dict-non-func eval ---
-// Error: 16-24 type dictionary has no method `non-func`
-// Hint: 16-24 did you mean to access the field `non-func`?
+// Error: 2-24 cannot directly call dictionary keys as functions
+// Hint: 2-24 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 2-24 to access the `non-func` key, remove the function arguments: `(non-func: 1).non-func`
 #(non-func: 1).non-func()
 
 --- math-field-call-dict-non-func eval ---
 // The hint should differ slightly to account for being in math mode.
 #let pi = (alt: math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 did you mean to access the field `alt`?
+// Error: 3-9 cannot directly call dictionary keys as functions
+// Hint: 3-9 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 3-9 try adding a space before the parentheses
 $ pi.alt() $
 
 --- field-call-mut-basic eval ---
@@ -237,7 +241,7 @@ $ dict.pop(arg: "something") $
 #{
   let sm = symbol("m", ("method", sym.tilde))
   let array = ()
-  // Error: 14-20 type array has no method `method`
+  // Error: 8-20 type array has no method `method`
   test(array.method(array = sm), sym.tilde(none))
   test(array, sm)
 }
@@ -247,7 +251,7 @@ $ dict.pop(arg: "something") $
 #{
   let sm = symbol("m", ("method", sym.tilde))
   let array = ()
-  // Error: 15-21 type array has no method `method`
+  // Error: 9-21 type array has no method `method`
   test($array.method(#{array = sm})$, $#sym.tilde(none)$)
   test(array, sm)
 }
@@ -273,7 +277,7 @@ $ dict.pop(arg: "something") $
 // on `sp` here isn't actually mutating.
 #{
   let sp = symbol("p", ("push", sym.tilde))
-  // Error: 11-15 type boolean has no method `push`
+  // Error: 8-15 type boolean has no method `push`
   test(sp.push(let sp = false), sym.tilde(none))
   test(sp, false)
 }

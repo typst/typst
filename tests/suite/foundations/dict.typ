@@ -225,7 +225,7 @@
 #((key: "val").other = "some")
 
 --- dict-method-typo eval ---
-// Error: 19-25 type dictionary has no method `rmeove`
+// Error: 2-25 type dictionary has no method `rmeove`
 #(typo: "rmeove").rmeove("typo")
 
 --- dict-dynamic-duplicate-key eval ---

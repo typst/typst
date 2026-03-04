@@ -2,7 +2,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::World;
 use typst_library::diag::{
-    At, HintedStrResult, SourceDiagnostic, SourceResult, Trace, Tracepoint, bail, error,
+    At, HintedStrResult, SourceResult, Trace, Tracepoint, bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -12,7 +12,7 @@ use typst_library::foundations::{
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
-use typst_syntax::ast::{self, AstNode, Ident};
+use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
@@ -34,16 +34,33 @@ impl Eval for ast::FuncCall<'_> {
 
         // Try to evaluate as a call to an associated function or field.
         let (callee_value, args_value) = if let ast::Expr::FieldAccess(access) = callee {
-            let target = access.target();
+            let target_expr = access.target();
             let field = access.field();
-            match eval_field_call(target, field, args, span, vm)? {
-                FieldCall::Normal(callee, args) => {
-                    if vm.inspected == Some(callee_span) {
-                        vm.trace(callee.clone());
-                    }
-                    (callee, args)
+            let (target, maybe_args) = if is_mutating_method(field.as_str()) {
+                match maybe_resolve_mutating(vm, target_expr, field, args, span)? {
+                    Ok(value) => return Ok(value),
+                    Err((target, args)) => (target, Some(args)),
                 }
-                FieldCall::Resolved(value) => return Ok(value),
+            } else {
+                (target_expr.eval(vm)?, None)
+            };
+            match eval_field_callee(vm, access, target)? {
+                FieldCallee::Func(func) => {
+                    let args = match maybe_args {
+                        Some(args) => args,
+                        None => args.eval(vm)?.spanned(span),
+                    };
+                    (func, args)
+                }
+                FieldCallee::Method(func, target) => {
+                    let mut args = match maybe_args {
+                        Some(args) => args,
+                        None => args.eval(vm)?.spanned(span),
+                    };
+                    // Method calls pass the target as the first argument.
+                    args.insert(0, target_expr.span(), target);
+                    (func, args)
+                }
             }
         } else {
             // Function call order: we evaluate the callee before the arguments.
@@ -83,121 +100,168 @@ impl Eval for ast::FuncCall<'_> {
     }
 }
 
-/// This used only as the return value of `eval_field_call`.
-/// - `Normal` means that we have a function to call and the arguments to call it with.
-/// - `Resolved` means that we have already resolved the call and have the value.
-enum FieldCall {
-    Normal(Value, Args),
-    Resolved(Value),
-}
-
-/// Evaluate a field call's callee and arguments.
+/// Attempt to resolve a mutating method call by evaluating args and then
+/// attempting to access the target mutably. If the target's type doesn't
+/// support mutating methods (only Array/Dict actually do), returns the
+/// evaluated value and arguments.
 ///
-/// This follows the normal function call order: we evaluate the callee before the
-/// arguments.
-///
-/// Prioritize associated functions on the value's type (e.g., methods) over its fields.
-/// A function call on a field is only allowed for functions, types, modules (because
-/// they are scopes), and symbols (because they have modifiers or associated functions).
-///
-/// For dictionaries, it is not allowed because it would be ambiguous - prioritizing
-/// associated functions would make an addition of a new associated function a breaking
-/// change and prioritizing fields would break associated functions for certain
-/// dictionaries.
-fn eval_field_call(
-    target_expr: ast::Expr,
-    field: Ident,
+/// This currently causes a number of bad errors due to limitations of the
+/// [`Access`] trait used for mutation.
+fn maybe_resolve_mutating(
+    vm: &mut Vm,
+    target: ast::Expr,
+    field: ast::Ident,
     args: ast::Args,
     span: Span,
-    vm: &mut Vm,
-) -> SourceResult<FieldCall> {
-    // Evaluate the field-call's target and overall arguments.
-    let (target, mut args) = if is_mutating_method(&field) {
-        // If `field` looks like a mutating method, we evaluate the arguments first,
-        // because `target_expr.access(vm)` mutably borrows the `vm`, so that we can't
-        // evaluate the arguments after it.
-        let args = args.eval(vm)?.spanned(span);
-        // However, this difference from the normal call order is not observable because
-        // expressions like `(1, arr.len(), 2, 3).push(arr.pop())` evaluate the target to
-        // a temporary which we disallow mutation on (returning an error).
-        // Theoretically this could be observed if a method matching `is_mutating_method`
-        // was added to some type in the future and we didn't update this function.
-        match target_expr.access(vm)? {
-            // Only arrays and dictionaries have mutable methods.
-            target @ (Value::Array(_) | Value::Dict(_)) => {
-                let value = call_method_mut(target, &field, args, span);
-                let point = || Tracepoint::Call(Some(field.get().clone()));
-                return Ok(FieldCall::Resolved(value.trace(vm.world(), point, span)?));
-            }
-            target => (target.clone(), args),
+) -> SourceResult<Result<Value, (Value, Args)>> {
+    // We evaluate the arguments first because `target_expr.access(vm)` mutably
+    // borrows `vm`, so we won't be able to call `args.eval(vm)` afterwards.
+    let args = args.eval(vm)?.spanned(span);
+    match target.access(vm)? {
+        // Only arrays and dictionaries have mutable methods.
+        target @ (Value::Array(_) | Value::Dict(_)) => {
+            let value = call_method_mut(target, &field, args, span);
+            let point = || Tracepoint::Call(Some(field.get().clone()));
+            Ok(Ok(value.trace(vm.world(), point, span)?))
         }
-    } else {
-        let target = target_expr.eval(vm)?;
-        let args = args.eval(vm)?.spanned(span);
-        (target, args)
-    };
+        target => Ok(Err((target.clone(), args))),
+    }
+}
 
-    let field_span = field.span();
+/// The kind of callee in a field-access function call.
+enum FieldCallee {
+    /// A method on a type or on content, with the target value to be added as
+    /// the first argument of the call.
+    Method(Value, Value),
+    /// A plain function to call.
+    Func(Value),
+}
+
+/// Evaluate a field-access callee, prioritizing associated functions of the
+/// value's type, "methods", over fields on the specific value.
+///
+/// Calls to fields of a value are only allowed for functions (`assert.eq`),
+/// types (`str.to-unicode`, `table.cell`), modules (`pdf.attach`), and symbols
+/// (`arrow.l`).
+///
+/// In particular, calls to a field function are not allowed for dictionaries
+/// because it would be ambiguous. If we did allow it, we would either have to
+/// prioritize methods or field functions, but both choices are bad:
+/// - Prioritizing methods would make all new method additions breaking changes.
+/// - Prioritizing field functions would break methods for certain dictionaries,
+///   e.g. `(at: x => ...).at(key)`.
+fn eval_field_callee<'a, 'b>(
+    vm: &'a mut Vm<'b>,
+    access: ast::FieldAccess,
+    target: Value,
+) -> SourceResult<FieldCallee> {
+    let field_node = access.field();
+    let field_span = field_node.span();
+    let field = field_node.as_str();
     let sink = (&mut vm.engine, field_span);
-    if let Some(callee) = target.ty().scope().get(&field) {
-        args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
-    } else if let Value::Content(content) = &target {
-        if let Some(callee) = content.elem().scope().get(&field) {
-            args.insert(0, target_expr.span(), target);
-            Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
-        } else {
-            bail!(missing_field_call_error(target, field))
-        }
+
+    let mut is_method_call = false;
+    let callee_value = if let Some(method) = target.ty().scope().get(field) {
+        is_method_call = true;
+        method.read_checked(sink).clone()
+    } else if let Value::Content(content) = &target
+        && let Some(method) = content.elem().scope().get(field)
+    {
+        is_method_call = true;
+        method.read_checked(sink).clone()
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
     ) {
-        // Certain value types may have their own ways to access method fields.
-        // e.g. `$arrow.r(v)$`, `table.cell[..]`
-        let value = target.field(&field, sink).at(field_span)?;
-        Ok(FieldCall::Normal(value, args))
+        // Only these types are allowed to use field call syntax on non-methods.
+        target.field(field, sink).at(field_span)?
     } else {
-        // Otherwise we cannot call this field.
-        bail!(missing_field_call_error(target, field))
+        // Otherwise we cannot call this field and produce an error.
+        let full_text = || access.to_untyped().clone().into_text();
+        match target.field(field, sink) {
+            // The field does exist.
+            Ok(callee_value) => {
+                // Aside from Dict and Content, only a few other types have
+                // accessible fields which could produce these errors. As of
+                // March 2026, they are:
+                // - Alignment (.x, .y)
+                // - Length (.abs, .em)
+                // - Relative Length (.ratio, .length)
+                // - Stroke (.cap, .dash, .join, .miter-limit, .paint, .thickness)
+                // - Version (.major, .minor, .patch)
+                // The other types with fields (Symbol, Func, Type, Module) are
+                // handled above.
+                let is_dict = matches!(target, Value::Dict(_));
+                let mut err = if is_dict {
+                    // Dictionaries get a specific error & hint because they're
+                    // the easiest to attempt this with, and users need to be
+                    // told directly why it's not allowed.
+                    error!(
+                        access.span(),
+                        "cannot directly call dictionary keys as functions";
+                    )
+                } else {
+                    let (kind, name) = element_or_type_with_name(&target);
+                    error!(
+                        access.span(),
+                        "`{field}` is not a valid method for {kind} `{name}`";
+                    )
+                };
+                let in_math = in_math(ast::Expr::FieldAccess(access));
+                if callee_value.clone().cast::<Func>().is_ok() {
+                    err.hint(eco_format!(
+                        "to call the stored function, {}wrap the field access \
+                            in parentheses: `{}({})(..)`",
+                        if in_math { "use code mode and " } else { "" },
+                        if in_math { "#" } else { "" },
+                        full_text()
+                    ));
+                } else if in_math {
+                    err.hint("try adding a space before the parentheses");
+                } else {
+                    err.hint(eco_format!(
+                        "to access the `{field}` {}, remove the function arguments: `{}`",
+                        if is_dict { "key" } else { "field" },
+                        full_text(),
+                    ));
+                }
+                if is_dict {
+                    err.hint(
+                        "dictionary keys cannot be used with method syntax as keys \
+                            could conflict with built-in method names",
+                    );
+                }
+
+                bail!(err)
+            }
+            // The field does not exist. We don't try as hard on the error here
+            // to avoid assuming the user's intent.
+            Err(_) => {
+                let (kind, name) = element_or_type_with_name(&target);
+                bail!(access.span(), "{kind} {name} has no method `{field}`")
+            }
+        }
+    };
+
+    if vm.inspected == Some(access.span()) {
+        vm.trace(callee_value.clone());
+    }
+
+    if is_method_call {
+        Ok(FieldCallee::Method(callee_value, target))
+    } else {
+        Ok(FieldCallee::Func(callee_value))
     }
 }
 
-/// Produce an error when we cannot call the field.
-fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
-    let mut error = match &target {
-        Value::Content(content) => error!(
-            field.span(),
-            "element {} has no method `{}`",
-            content.elem().name(),
-            field.as_str(),
-        ),
-        _ => error!(
-            field.span(),
-            "type {} has no method `{}`",
-            target.ty(),
-            field.as_str(),
-        ),
-    };
-
-    match target {
-        Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
-            error.hint(eco_format!(
-                "to call the function stored in the dictionary, surround \
-                the field access with parentheses, e.g. `(dict.{})(..)`",
-                field.as_str(),
-            ));
-        }
-        _ if target.field(&field, ()).is_ok() => {
-            error.hint(eco_format!(
-                "did you mean to access the field `{}`?",
-                field.as_str(),
-            ));
-        }
-        _ => {}
+/// If the value is content, the string "element" and the name of its element
+/// function, or the string "type" and the name of the value's type.
+fn element_or_type_with_name(value: &Value) -> (&'static str, &'static str) {
+    if let Value::Content(content) = value {
+        ("element", content.elem().name())
+    } else {
+        ("type", value.ty().long_name())
     }
-
-    error
 }
 
 impl Eval for ast::Args<'_> {
