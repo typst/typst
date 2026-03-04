@@ -188,7 +188,7 @@
 #test(calc.erf(0), 0)
 #test(calc.erf(1), 0.8427007929497149)
 #test(calc.erf(calc.inf), 1)
-#test(calc.erf(- 1), - calc.erf(1))
+#test(calc.erf(-1), -calc.erf(1))
 
 --- calc-bit-logical eval ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
