@@ -226,6 +226,7 @@ c7ea7cae4028da138bbbb857be8b928d math-frac-implicit-func
 f276fd69e166a905f6cc1e94262bfa71 math-frac-paren-removal
 71ff317515871c68e3f288ab38c1c4a3 math-frac-precedence
 8bbe7fd95e70ba8cfd3b792ef4d25200 math-frac-tan-sin-cos
+dfb97c7b4e6d90a5c7ab09ff11348795 math-func-literal-arg
 02d607967cc6a627fade68d9db59cfca math-glyph-show-rule
 62d9cd946ac479ecaef7526630a70179 math-linebreak-delimited
 8cc0df97235128caab4a1ffd573a152b math-linebreaking-empty
