@@ -47,67 +47,71 @@
 $ std.assert.noteq() $
 
 --- method-unknown-generic-type eval ---
-// Error: 5-8 type array has no method `fun`
+// Error: 2-8 type array has no method `fun`
 #().fun()
 
 --- math-method-unknown-generic-type eval ---
-// Error: 11-14 type color has no method `fun`
+// Error: 3-14 type color has no method `fun`
 $ std.red.fun() $
 
 --- method-unknown-content eval ---
-// Error: 5-8 element sequence has no method `fun`
+// Error: 2-8 element sequence has no method `fun`
 #[].fun()
 
 --- math-method-unknown-content eval ---
 #let pi = [pi]
-// Error: 6-9 element text has no method `fun`
+// Error: 3-9 element text has no method `fun`
 $ pi.fun() $
 
 --- method-invalid-content-field-func eval ---
 // This would be cursed to allow.
-// Error: 38-48 element heading has no method `supplement`
-// Hint: 38-48 did you mean to access the field `supplement`?
+// Error: 2-48 `supplement` is not a valid method for element `heading`
 #heading([], supplement: x => x + 1).supplement(2)
 
 --- math-method-invalid-content-field-func eval ---
 #let cancel = math.cancel($x$, angle: ang => ang + 90deg)
-// Error: 10-15 element cancel has no method `angle`
-// Hint: 10-15 did you mean to access the field `angle`?
+// Error: 3-15 `angle` is not a valid method for element `cancel`
 $ cancel.angle(#30deg) $
 
 --- method-invalid-non-func eval ---
-// Error: 20-26 element line has no method `stroke`
-// Hint: 20-26 did you mean to access the field `stroke`?
+// Error: 2-26 `stroke` is not a valid method for element `line`
+// Hint: 2-26 this looks like a method call, but `line(stroke: red).stroke` produced type `stroke`
 #line(stroke: red).stroke()
 
 --- math-method-invalid-non-func eval ---
-// Error: 35-36 type alignment has no method `y`
-// Hint: 35-36 did you mean to access the field `y`?
+// Error: 27-36 `y` is not a valid method for type `alignment`
+// Hint: 27-36 this looks like a method call, but `std.top.y` produced type `alignment`
+// Hint: 27-36 try adding a space before the parentheses
 #test($std.top.y/**/()$, $std.top.y()$)
 // This is potentially worth allowing in the future.
 
 --- method-dict-invalid eval ---
 // Test attempting to call a function from a dictionary.
-// Error: 27-34 type dictionary has no method `call-me`
-// Hint: 27-34 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
+// Error: 2-34 cannot directly call dictionary keys as methods
+// Hint: 2-34 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 2-34 to call the function, wrap the field access in parentheses: `((call-me: () => "maybe").call-me)(..)`
 #(call-me: () => "maybe").call-me()
 
 --- math-method-dict-invalid eval ---
 #let pi = (alt: _ => math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.alt)(..)`
+// Error: 3-9 cannot directly call dictionary keys as methods
+// Hint: 3-9 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 3-9 to call the function, use code mode and wrap the field access in parentheses: `#(pi.alt)(..)`
 $ pi.alt() $
 
 --- method-dict-non-func eval ---
-// Error: 16-24 type dictionary has no method `non-func`
-// Hint: 16-24 did you mean to access the field `non-func`?
+// Error: 2-24 cannot directly call dictionary keys as methods
+// Hint: 2-24 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 2-24 this looks like a method call, but `(non-func: 1).non-func` produced type `integer`
 #(non-func: 1).non-func()
 
 --- math-method-dict-non-func eval ---
 // The hint should differ slightly to account for being in math mode.
 #let pi = (alt: math.pi.alt)
-// Error: 6-9 type dictionary has no method `alt`
-// Hint: 6-9 did you mean to access the field `alt`?
+// Error: 3-9 cannot directly call dictionary keys as methods
+// Hint: 3-9 dictionaries cannot use method syntax with keys, as keys could conflict with built-in method names
+// Hint: 3-9 this looks like a method call, but `pi.alt` produced type `symbol`
+// Hint: 3-9 try adding a space before the parentheses
 $ pi.alt() $
 
 --- method-mut-basic eval ---
@@ -237,7 +241,7 @@ $ dict.pop(arg: "something") $
 #{
   let sm = symbol("m", ("method", sym.tilde))
   let array = ()
-  // Error: 14-20 type array has no method `method`
+  // Error: 8-20 type array has no method `method`
   test(array.method(array = sm), sym.tilde(none))
   test(array, sm)
 }
@@ -247,7 +251,7 @@ $ dict.pop(arg: "something") $
 #{
   let sm = symbol("m", ("method", sym.tilde))
   let array = ()
-  // Error: 15-21 type array has no method `method`
+  // Error: 9-21 type array has no method `method`
   test($array.method(#{array = sm})$, $#sym.tilde(none)$)
   test(array, sm)
 }
@@ -273,7 +277,7 @@ $ dict.pop(arg: "something") $
 // on `sp` here isn't actually mutating.
 #{
   let sp = symbol("p", ("push", sym.tilde))
-  // Error: 11-15 type boolean has no method `push`
+  // Error: 8-15 type boolean has no method `push`
   test(sp.push(let sp = false), sym.tilde(none))
   test(sp, false)
 }
