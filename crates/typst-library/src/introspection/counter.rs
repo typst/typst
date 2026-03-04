@@ -321,15 +321,14 @@ impl Counter {
     pub fn construct(
         /// The key that identifies this counter globally.
         ///
-        /// - If it is a string, creates a custom counter that is only affected
+    /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
-        /// - If it is the [`page`] function, counts through pages,
+        /// - If it is the [`page`]($page) function, counts through pages.
         /// - If it is a [selector], counts through elements that match the
-        ///   selector. For example,
-        ///   - provide an element function: counts elements of that type,
-        ///   - provide a [`where`]($function.where) selector:
-        ///     counts a type of element with specific fields,
-        ///   - provide a [`{<label>}`]($label): counts elements with that label.
+        ///   selector. For example:
+        ///   - an element function (e.g., [`heading`]($heading), [`figure`]($figure), [`equation`]($equation), [`footnote`]($footnote)),
+        ///   - a [`where`]($function.where) selector (e.g., `{figure.where(kind: image)}`), or
+        ///   - a [`{<label>}`]($label).
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
