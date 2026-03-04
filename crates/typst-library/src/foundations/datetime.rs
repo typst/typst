@@ -83,6 +83,8 @@ use crate::foundations::{
 /// follows:
 ///
 /// - `year`: Displays the year of the datetime.
+///   - `base`: Can be either `calendar` or `iso_week`. Specifies whether the
+///     year is based on the Gregorian calendar or the ISO week number.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     year is padded.
 ///   - `repr` Can be either `full` in which case the full year is displayed or
