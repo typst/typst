@@ -297,12 +297,14 @@ fn markup_completions(ctx: &mut CompletionContext) {
 
 /// Complete in math mode.
 fn complete_math(ctx: &mut CompletionContext) -> bool {
+    let Some(parent_kind) = ctx.leaf.parent_kind() else { return false };
     if !matches!(
-        ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
+        parent_kind,
+        SyntaxKind::Equation
+            | SyntaxKind::Math
+            | SyntaxKind::MathFrac
+            | SyntaxKind::MathAttach
+            | SyntaxKind::MathAccessWrapper
     ) {
         return false;
     }
@@ -315,17 +317,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind existing interpolated identifier: "$#pa|$".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
+    if ctx.leaf.kind() == SyntaxKind::Ident
+        && parent_kind != SyntaxKind::MathAccessWrapper
+    {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(
-        ctx.leaf.kind(),
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
-    ) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::Ident) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -876,6 +877,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
             | Some(SyntaxKind::MathRoot)
+            | Some(SyntaxKind::MathAccessWrapper)
     ) {
         return false;
     }

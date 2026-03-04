@@ -661,20 +661,28 @@ impl Lexer<'_> {
         (kind, None)
     }
 
-    /// Parse a single `MathIdent` or an entire `FieldAccess`.
+    /// Parse a single `Ident` or an entire `FieldAccess` and wrap in a
+    /// `MathAccessWrapper`.
+    ///
+    /// We also wrap the first ident of a field access in `MathAccessWrapper`.
     fn math_ident_or_field(&mut self, start: usize) -> (SyntaxKind, SyntaxNode) {
-        let mut kind = SyntaxKind::MathIdent;
-        let mut node = SyntaxNode::leaf(kind, self.s.from(start));
+        fn wrap(node: SyntaxNode) -> SyntaxNode {
+            SyntaxNode::inner(SyntaxKind::MathAccessWrapper, vec![node])
+        }
+        let mut node = wrap(SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start)));
         while let Some(ident) = self.maybe_dot_ident() {
-            kind = SyntaxKind::FieldAccess;
             let field_children = vec![
                 node,
                 SyntaxNode::leaf(SyntaxKind::Dot, '.'),
                 SyntaxNode::leaf(SyntaxKind::Ident, ident),
             ];
-            node = SyntaxNode::inner(kind, field_children);
+            node = SyntaxNode::inner(SyntaxKind::FieldAccess, field_children);
         }
-        (kind, node)
+        if node.kind() == SyntaxKind::FieldAccess {
+            (SyntaxKind::MathAccessWrapper, wrap(node))
+        } else {
+            (SyntaxKind::MathAccessWrapper, node)
+        }
     }
 
     /// If at a dot and a math identifier, eat and return the identifier.

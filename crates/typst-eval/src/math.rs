@@ -1,6 +1,8 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::diag::{At as _, SourceResult, bail};
+use typst_library::foundations::{
+    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
@@ -42,18 +44,45 @@ impl Eval for ast::MathText<'_> {
     }
 }
 
-impl Eval for ast::MathIdent<'_> {
+impl Eval for ast::MathAccessWrapper<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        Ok(vm
+        eval_math_access(vm, self.inner(), false)
+    }
+}
+
+pub(crate) fn eval_math_access(
+    vm: &mut Vm,
+    math_access: ast::MathAccess,
+    allow_func_literal: bool,
+) -> SourceResult<Value> {
+    let span = math_access.span();
+    let value = match math_access {
+        ast::MathAccess::Ident(ident) => vm
             .scopes
-            .get_in_math(&self)
+            .get_in_math(ident.as_str())
             .at(span)?
             .read_checked((&mut vm.engine, span))
-            .clone())
+            .clone(),
+        ast::MathAccess::FieldAccess(inner) => {
+            let target = eval_math_access(vm, inner.math_target(), true)?;
+            crate::code::access_field(vm, target, inner.field())?
+        }
+    };
+    if !allow_func_literal
+        && !matches!(value, Value::Symbol(_))
+        && value.clone().cast::<Func>().is_ok()
+    {
+        let func = math_access.to_untyped().clone().into_text();
+        bail!(
+            span,
+            "this does not call the `{func}` function";
+            hint: "to call the `{func}` function, write `{func}()`"
+            // TODO: Hint to remove a space if followed by non-direct parens: `abs ()`?
+        )
     }
+    Ok(value)
 }
 
 impl Eval for ast::MathShorthand<'_> {

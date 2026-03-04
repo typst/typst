@@ -227,7 +227,6 @@ impl Eval for ast::FuncReturn<'_> {
 fn is_invariant(expr: &SyntaxNode) -> bool {
     match expr.cast() {
         Some(ast::Expr::Ident(_)) => false,
-        Some(ast::Expr::MathIdent(_)) => false,
         Some(ast::Expr::FieldAccess(access)) => {
             is_invariant(access.target().to_untyped())
         }

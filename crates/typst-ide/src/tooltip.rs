@@ -57,7 +57,7 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     let expr = ancestor.cast::<ast::Expr>()?;
-    if !expr.hash() && !matches!(expr, ast::Expr::MathIdent(_)) {
+    if !expr.hash() && !matches!(expr, ast::Expr::MathAccessWrapper(_)) {
         return None;
     }
 
