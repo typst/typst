@@ -1,6 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use bumpalo::{Bump, boxed::Box as BumpBox, collections::Vec as BumpVec};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
@@ -19,11 +18,7 @@ use crate::math::{MEDIUM, MathSize, THICK, THIN};
 /// > point
 ///
 /// For now, it is up to each export target to ensure the above is followed.
-pub(crate) fn preprocess<'a, I>(
-    items: I,
-    bump: &'a Bump,
-    closing: bool,
-) -> BumpBox<'a, [MathItem<'a>]>
+pub(crate) fn preprocess<'a, I>(items: I, closing: bool) -> Vec<MathItem<'a>>
 where
     I: IntoIterator<Item = MathItem<'a>>,
     I::IntoIter: ExactSizeIterator,
@@ -128,7 +123,7 @@ where
         resolved.0.remove(idx);
     }
 
-    BumpVec::from_iter_in(resolved.0, bump).into_boxed_slice()
+    resolved.0.into_iter().collect()
 }
 
 /// Computes the spacing between two adjacent math items.
