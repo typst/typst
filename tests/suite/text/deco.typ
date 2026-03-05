@@ -85,6 +85,7 @@ We can also specify a customized value
 #highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
 
 --- html-deco html ---
+#set html(styling: "presentational")
 #strike[Struck]
 #highlight[Highlighted]
 #underline[Underlined]
