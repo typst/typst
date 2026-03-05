@@ -1,9 +1,9 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Axis};
-use typst_library::math::ir::{FencedItem, MathProperties};
+use typst_library::math::ir::{FencedItem, MathItem, MathProperties};
 
-use super::MathContext;
+use super::{MathContext, fragment::MathFragment};
 
 /// Lays out a [`FencedItem`].
 #[typst_macros::time(name = "math fenced layout", span = props.span)]
@@ -13,19 +13,18 @@ pub fn layout_fenced(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    // Layout the body to compute relative_to for delimiter sizing.
-    let body = ctx.layout_into_fragments(&item.body, styles)?;
-    let relative_to = if item.balanced {
-        let mut max_extent = Abs::zero();
-        for fragment in body.iter() {
-            let (font, size) = fragment.font(ctx, item.body.styles().unwrap_or(styles));
-            let axis = font.math().axis_height.at(size);
-            let extent = (fragment.ascent() - axis).max(fragment.descent() + axis);
-            max_extent = max_extent.max(extent);
-        }
-        2.0 * max_extent
+    // Compute relative_to for delimiter sizing.
+    let (relative_to, initial_body) = if let Some(sizing) = item.body.sizing() {
+        let relative_to = sizing.try_get_or_update(|items| {
+            relative_to_from_sizing(items, ctx, styles, item.balanced)
+        })?;
+        (relative_to, None)
     } else {
-        body.iter().map(|f| f.height()).max().unwrap_or_default()
+        let body = ctx.layout_into_fragments(&item.body, styles)?;
+        let body_styles = item.body.styles().unwrap_or(styles);
+        let relative_to =
+            relative_to_from_fragments(&body, ctx, body_styles, item.balanced);
+        (relative_to, Some(body))
     };
 
     // Set stretch info for stretched mid items.
@@ -44,14 +43,14 @@ pub fn layout_fenced(
         ctx.push(open);
     }
 
-    // Check if the body needs re-layout, since stretch info was updated after
-    // initial layout.
-    if has_mid_stretched {
-        let body = ctx.layout_into_fragments(&item.body, styles)?;
-        ctx.extend(body);
+    // Check if the body needs re-layout, since stretch info was updated or we
+    // deferred initial layout.
+    let body = if !has_mid_stretched && let Some(body) = initial_body {
+        body
     } else {
-        ctx.extend(body);
-    }
+        ctx.layout_into_fragments(&item.body, styles)?
+    };
+    ctx.extend(body);
 
     // Layout the closing delimiter if present.
     if let Some(close) = &item.close {
@@ -61,4 +60,43 @@ pub fn layout_fenced(
     }
 
     Ok(())
+}
+
+fn relative_to_from_sizing(
+    items: &[MathItem],
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    balanced: bool,
+) -> SourceResult<Abs> {
+    items.iter().try_fold(Abs::zero(), |max_abs, item| {
+        let fragments = ctx.layout_into_fragments(item, styles)?;
+        let item_styles = item.styles().unwrap_or(styles);
+        Ok(max_abs.max(relative_to_from_fragments(
+            &fragments,
+            ctx,
+            item_styles,
+            balanced,
+        )))
+    })
+}
+
+fn relative_to_from_fragments(
+    fragments: &[MathFragment],
+    ctx: &MathContext,
+    styles: StyleChain,
+    balanced: bool,
+) -> Abs {
+    fragments
+        .iter()
+        .map(|f| {
+            if balanced {
+                let (font, size) = f.font(ctx, styles);
+                let axis = font.math().axis_height.at(size);
+                2.0 * (f.ascent() - axis).max(f.descent() + axis)
+            } else {
+                f.height()
+            }
+        })
+        .max()
+        .unwrap_or_default()
 }

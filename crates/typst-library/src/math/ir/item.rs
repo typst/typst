@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 use std::cell::Cell;
-use std::ops::MulAssign;
+use std::ops::{Deref, MulAssign};
+use std::rc::Rc;
 
 use bumpalo::{Bump, boxed::Box as BumpBox, collections::Vec as BumpVec};
 use ecow::EcoString;
@@ -9,7 +10,9 @@ use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::preprocess::preprocess;
+use super::multiline::build_multiline;
+use super::preprocess::{PreprocessMode, preprocess};
+use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::Tag;
 use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
@@ -36,12 +39,49 @@ pub enum MathItem<'a> {
 }
 
 impl<'a> From<MathComponent<'a>> for MathItem<'a> {
-    fn from(comp: MathComponent<'a>) -> MathItem<'a> {
-        MathItem::Component(comp)
+    fn from(comp: MathComponent<'a>) -> Self {
+        Self::Component(comp)
     }
 }
 
 impl<'a> MathItem<'a> {
+    /// Groups the given items together, returning a multiline item if there
+    /// are linebreaks and a group item otherwise.
+    ///
+    /// The items are preprocessed to calculate spacing between them. The
+    /// `closing_exists` parameter indicates whether a closing delimiter
+    /// will follow the group of items.
+    pub(crate) fn group<I>(
+        items: I,
+        closing_exists: bool,
+        styles: StyleChain<'a>,
+        bump: &'a Bump,
+    ) -> MathItem<'a>
+    where
+        I: IntoIterator<Item = MathItem<'a>>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let preprocessed = preprocess(items, bump, closing_exists, PreprocessMode::Group);
+        if preprocessed.has_linebreaks {
+            build_multiline(preprocessed.items, styles, bump)
+        } else {
+            GroupItem::create(preprocessed.items.into_boxed_slice(), styles)
+        }
+    }
+
+    /// Wraps the given items into a group item, or returns the single item if
+    /// there is only one.
+    pub(crate) fn wrap(
+        mut items: BumpVec<'a, MathItem<'a>>,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        if items.len() == 1 {
+            items.pop().unwrap()
+        } else {
+            GroupItem::create(items.into_boxed_slice(), styles)
+        }
+    }
+
     /// Returns the limit placement configuration for this item.
     pub(crate) fn limits(&self) -> Limits {
         match self {
@@ -149,52 +189,12 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Whether this item contains multiple lines.
+    /// Whether this item is a multiline item.
     pub fn is_multiline(&self) -> bool {
-        let items = self.as_slice();
-        let len = items.len();
-        for (i, item) in items.iter().enumerate() {
-            let is_last = i == len - 1;
-
-            match item {
-                // If it's a linebreak and not the last item, it counts.
-                MathItem::Linebreak if !is_last => return true,
-                MathItem::Component(MathComponent {
-                    kind: MathKind::Fenced(fence),
-                    ..
-                }) => {
-                    // Check for linebreak in the middle of the body, e.g.
-                    // `(a \ b)`.
-                    if fence.body.is_multiline() {
-                        return true;
-                    }
-
-                    // The above check leaves out `(a \ )` and `(a \`, in the
-                    // former case it should always count, but in the latter
-                    // case it should only count if this isn't the last item.
-                    if fence.body.ends_with_linebreak()
-                        && (fence.close.is_some() || !is_last)
-                    {
-                        return true;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        false
-    }
-
-    /// Whether this item ends with a line break.
-    fn ends_with_linebreak(&self) -> bool {
-        match self.as_slice().last() {
-            Some(MathItem::Linebreak) => true,
-            Some(MathItem::Component(MathComponent {
-                kind: MathKind::Fenced(fence),
-                ..
-            })) if fence.close.is_none() => fence.body.ends_with_linebreak(),
-            _ => false,
-        }
+        matches!(
+            self,
+            MathItem::Component(MathComponent { kind: MathKind::Multiline(_), .. })
+        )
     }
 
     /// Returns the inner items if this is a group, or a slice containing
@@ -235,6 +235,16 @@ impl<'a> MathItem<'a> {
         if let Self::Component(comp) = self {
             comp.props.rspace = rspace;
         }
+    }
+
+    /// If this is a multiline item, sets the align field to true.
+    pub(crate) fn with_multiline_align(mut self) -> Self {
+        if let Self::Component(comp) = &mut self
+            && let MathKind::Multiline(multiline) = &mut comp.kind
+        {
+            multiline.align = true;
+        }
+        self
     }
 
     /// Sets whether this glyph has been stretched as a middle delimiter.
@@ -320,6 +330,8 @@ pub struct MathComponent<'a> {
 pub enum MathKind<'a> {
     /// A group of math items laid out horizontally.
     Group(GroupItem<'a>),
+    /// A multiline equation with items pre-split into rows and columns.
+    Multiline(MultilineItem<'a>),
     /// A radical (square root or nth root).
     Radical(BumpBox<'a, RadicalItem<'a>>),
     /// An item enclosed in delimiters.
@@ -360,7 +372,7 @@ pub struct MathProperties {
     /// The current math size.
     pub size: MathSize,
     /// Whether this item should be ignored for spacing calculations.
-    pub ignorant: bool,
+    pub(crate) ignorant: bool,
     /// Whether this item should have explicit spaces around it.
     pub(crate) spaced: bool,
     /// The amount of spacing to the left of this item.
@@ -372,52 +384,31 @@ pub struct MathProperties {
 }
 
 impl MathProperties {
+    /// Creates properties with an explicit class, avoiding the style lookup.
+    fn new(styles: StyleChain, class: MathClass) -> MathProperties {
+        Self {
+            limits: Limits::Never,
+            class,
+            size: styles.get(EquationElem::size),
+            ignorant: false,
+            spaced: false,
+            lspace: None,
+            rspace: None,
+            span: Span::detached(),
+        }
+    }
+
     /// Creates default properties from the given styles.
     ///
     /// This gets both the math class and size from the styles.
     pub fn default(styles: StyleChain) -> MathProperties {
-        Self {
-            limits: Limits::Never,
-            class: styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
+        Self::new(styles, styles.get(EquationElem::class).unwrap_or(MathClass::Normal))
     }
 
-    /// Creates properties with an explicit class, avoiding the style lookup.
-    fn with_explicit_class(styles: StyleChain, class: MathClass) -> MathProperties {
-        Self {
-            limits: Limits::Never,
-            class,
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
-    }
-
-    /// Creates properties with explicit limits and class, avoiding style lookups.
-    fn with_explicit_limits_and_class(
-        styles: StyleChain,
-        limits: Limits,
-        class: MathClass,
-    ) -> MathProperties {
-        Self {
-            limits,
-            class,
-            size: styles.get(EquationElem::size),
-            ignorant: false,
-            spaced: false,
-            lspace: None,
-            rspace: None,
-            span: Span::detached(),
-        }
+    /// Sets how attachments should be positioned for this item.
+    fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
     }
 
     /// Sets whether this item should be ignored for spacing calculations.
@@ -447,24 +438,43 @@ pub struct GroupItem<'a> {
 }
 
 impl<'a> GroupItem<'a> {
-    /// Creates a new group item from the given items.
-    ///
-    /// The items are preprocessed to calculate spacing between them. The
-    /// `closing_exists` parameter indicates whether a closing delimiter
-    /// will follow the group of items.
-    pub(crate) fn create<I>(
-        items: I,
-        closing_exists: bool,
+    /// Creates a new group item.
+    pub(crate) fn create(
+        items: BumpBox<'a, [MathItem<'a>]>,
         styles: StyleChain<'a>,
-        bump: &'a Bump,
-    ) -> MathItem<'a>
-    where
-        I: IntoIterator<Item = MathItem<'a>>,
-        I::IntoIter: ExactSizeIterator,
-    {
+    ) -> MathItem<'a> {
         let props = MathProperties::default(styles);
-        let kind =
-            MathKind::Group(Self { items: preprocess(items, bump, closing_exists) });
+        let kind = MathKind::Group(Self { items });
+        MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// A multiline equation with items pre-split into rows and columns.
+#[derive(Debug)]
+pub struct MultilineItem<'a> {
+    /// The cells, organized by row.
+    ///
+    /// Rows correspond to linebreaks in the source. Columns within each row
+    /// correspond to alignment points. All rows are padded to have the same
+    /// number of columns.
+    pub rows: BumpVec<'a, BumpVec<'a, MathItem<'a>>>,
+    /// The number of columns originally in each row before padding.
+    pub row_lengths: &'a [usize],
+    /// Whether the resulting frame should be aligned on the math axis.
+    ///
+    /// Only used in paged export.
+    pub align: bool,
+}
+
+impl<'a> MultilineItem<'a> {
+    /// Creates a new multiline item.
+    pub(crate) fn create(
+        rows: BumpVec<'a, BumpVec<'a, MathItem<'a>>>,
+        row_lengths: &'a [usize],
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        let kind = MathKind::Multiline(Self { rows, row_lengths, align: false });
+        let props = MathProperties::default(styles);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -507,7 +517,7 @@ pub struct FencedItem<'a> {
     /// The optional closing delimiter.
     pub close: Option<MathItem<'a>>,
     /// The item between the delimiters.
-    pub body: MathItem<'a>,
+    pub body: FencedBody<'a>,
     /// How the target height for the delimiters should be calculated.
     ///
     /// If true, the height for each body item is two times the maximum of its
@@ -523,14 +533,16 @@ impl<'a> FencedItem<'a> {
     pub(crate) fn create(
         open: Option<MathItem<'a>>,
         close: Option<MathItem<'a>>,
-        body: MathItem<'a>,
+        body: impl Into<FencedBody<'a>>,
         balanced: bool,
         styles: StyleChain<'a>,
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let kind =
-            MathKind::Fenced(BumpBox::new_in(Self { open, close, body, balanced }, bump));
+        let kind = MathKind::Fenced(BumpBox::new_in(
+            Self { open, close, body: body.into(), balanced },
+            bump,
+        ));
         let props = MathProperties::default(styles).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
@@ -602,9 +614,12 @@ impl<'a> SkewedFractionItem<'a> {
 
 /// A 2D collection of math items laid out as a table/matrix.
 #[derive(Debug)]
+#[allow(clippy::type_complexity)]
 pub struct TableItem<'a> {
     /// The cells of the table, organized by row.
-    pub cells: BumpBox<'a, [BumpBox<'a, [MathItem<'a>]>]>,
+    ///
+    /// Each cell is split at alignment points into sub-columns.
+    pub cells: BumpBox<'a, [BumpBox<'a, [BumpBox<'a, [MathItem<'a>]>]>]>,
     /// The gap between rows and columns.
     pub gap: Axes<Rel<Abs>>,
     /// Optional augmentation lines to draw.
@@ -617,8 +632,9 @@ pub struct TableItem<'a> {
 
 impl<'a> TableItem<'a> {
     /// Creates a new table item.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn create(
-        cells: Vec<Vec<MathItem<'a>>>,
+        cells: BumpBox<'a, [BumpBox<'a, [BumpBox<'a, [MathItem<'a>]>]>]>,
         gap: Axes<Rel<Abs>>,
         augment: Option<Augment<Abs>>,
         align: FixedAlignment,
@@ -627,13 +643,6 @@ impl<'a> TableItem<'a> {
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let cells = BumpVec::from_iter_in(
-            cells
-                .into_iter()
-                .map(|row| BumpVec::from_iter_in(row, bump).into_boxed_slice()),
-            bump,
-        )
-        .into_boxed_slice();
         let kind = MathKind::Table(BumpBox::new_in(
             Self { cells, gap, augment, align, alternator },
             bump,
@@ -677,7 +686,7 @@ impl<'a> ScriptsItem<'a> {
         styles: StyleChain<'a>,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let props = MathProperties::with_explicit_class(styles, base.class());
+        let props = MathProperties::new(styles, base.class());
         let kind = MathKind::Scripts(BumpBox::new_in(
             Self {
                 base,
@@ -721,7 +730,7 @@ impl<'a> AccentItem<'a> {
         styles: StyleChain<'a>,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let props = MathProperties::with_explicit_class(styles, base.class());
+        let props = MathProperties::new(styles, base.class());
         let kind = MathKind::Accent(BumpBox::new_in(
             Self { base, accent, position, exact_frame_width },
             bump,
@@ -762,8 +771,7 @@ impl<'a> CancelItem<'a> {
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let props =
-            MathProperties::with_explicit_class(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class()).with_span(span);
         let kind = MathKind::Cancel(BumpBox::new_in(
             Self {
                 base,
@@ -799,8 +807,7 @@ impl<'a> LineItem<'a> {
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
-        let props =
-            MathProperties::with_explicit_class(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class()).with_span(span);
         let kind = MathKind::Line(BumpBox::new_in(Self { base, position }, bump));
         MathComponent { kind, props, styles }.into()
     }
@@ -837,26 +844,26 @@ impl<'a> PrimesItem<'a> {
 pub struct TextItem<'a> {
     /// The text content.
     pub text: &'a str,
+    /// Whether the text is a number.
+    pub num: bool,
 }
 
 impl<'a> TextItem<'a> {
     /// Creates a new text item.
     ///
-    /// The `line` parameter indicates that the text does not contain a newline
-    /// and is not a number. If true, then the resulting item is spaced and has
-    /// alphabetic math class.
+    /// The `num` parameter indicates that the text is a number. If false, then
+    /// the resulting item is spaced and has alphabetic math class.
     pub(crate) fn create(
         text: EcoString,
-        line: bool,
+        num: bool,
         styles: StyleChain<'a>,
         span: Span,
         bump: &'a Bump,
     ) -> MathItem<'a> {
         let text = bump.alloc_str(&text);
-        let kind = MathKind::Text(Self { text });
-        let props = if line {
-            MathProperties::with_explicit_class(styles, MathClass::Alphabetic)
-                .with_spaced(true)
+        let kind = MathKind::Text(Self { text, num });
+        let props = if !num {
+            MathProperties::new(styles, MathClass::Alphabetic).with_spaced(true)
         } else {
             MathProperties::default(styles)
         }
@@ -909,8 +916,8 @@ impl GlyphItem {
             },
             bump,
         ));
-        let props = MathProperties::with_explicit_limits_and_class(styles, limits, class)
-            .with_span(span);
+        let props =
+            MathProperties::new(styles, class).with_limits(limits).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -954,6 +961,77 @@ impl<'a> ExternalItem<'a> {
             .with_spaced(true)
             .with_ignorant(content.is::<PlaceElem>());
         MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// Shared sizing information for split fence segments.
+#[derive(Debug)]
+pub struct SharedFenceSizing<'a> {
+    /// The body items of all fence segments.
+    items: BumpBox<'a, [MathItem<'a>]>,
+    /// Relative to height for stretch size calculation.
+    relative_to: Cell<Option<Abs>>,
+}
+
+impl<'a> SharedFenceSizing<'a> {
+    /// Creates a new shared sizing information.
+    pub(crate) fn new(items: BumpBox<'a, [MathItem<'a>]>) -> Rc<Self> {
+        Rc::new(Self { items, relative_to: Cell::new(None) })
+    }
+
+    /// Retrieves or sets the relative to height by applying `f` to the body
+    /// items.
+    pub fn try_get_or_update(
+        &self,
+        f: impl FnOnce(&[MathItem<'a>]) -> SourceResult<Abs>,
+    ) -> SourceResult<Abs> {
+        Ok(if let Some(relative_to) = self.relative_to.get() {
+            relative_to
+        } else {
+            let relative_to = f(&self.items)?;
+            self.relative_to.set(Some(relative_to));
+            relative_to
+        })
+    }
+}
+
+/// The body of a [`FencedItem`].
+#[derive(Debug)]
+pub enum FencedBody<'a> {
+    /// Owned body.
+    Owned(MathItem<'a>),
+    /// Shared body stored in [`SharedFenceSizing`].
+    Shared { index: usize, sizing: Rc<SharedFenceSizing<'a>> },
+}
+
+impl<'a> FencedBody<'a> {
+    pub(crate) fn shared(index: usize, sizing: Rc<SharedFenceSizing<'a>>) -> Self {
+        Self::Shared { index, sizing }
+    }
+
+    /// Shared sizing info for split fence segments.
+    pub fn sizing(&self) -> Option<&SharedFenceSizing<'a>> {
+        match self {
+            Self::Owned(_) => None,
+            Self::Shared { sizing, .. } => Some(sizing),
+        }
+    }
+}
+
+impl<'a> From<MathItem<'a>> for FencedBody<'a> {
+    fn from(item: MathItem<'a>) -> Self {
+        Self::Owned(item)
+    }
+}
+
+impl<'a> Deref for FencedBody<'a> {
+    type Target = MathItem<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(item) => item,
+            Self::Shared { index, sizing } => &sizing.items[*index],
+        }
     }
 }
 

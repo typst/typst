@@ -99,9 +99,13 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         }
     }
 
+    if tag::is_foreign_self_closing(element.tag) {
+        w.buf.push('/');
+    }
+
     w.buf.push('>');
 
-    if tag::is_void(element.tag) {
+    if tag::is_void(element.tag) || tag::is_foreign_self_closing(element.tag) {
         if !element.children.is_empty() {
             bail!(element.span, "HTML void elements must not have children");
         }
@@ -133,19 +137,20 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     let pretty = w.pretty;
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
-            HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            HtmlNode::Element(child) => wants_pretty_around(child),
             HtmlNode::Frame(_) => true,
             _ => false,
         });
 
     w.pretty &= pretty_inside;
+    w.pretty |= element.tag == tag::mathml::math;
     let mut indent = w.pretty;
 
     w.level += 1;
     for c in &element.children {
         let pretty_around = match c {
             HtmlNode::Tag(_) => continue,
-            HtmlNode::Element(child) => w.pretty && wants_pretty_around(child.tag),
+            HtmlNode::Element(child) => w.pretty && wants_pretty_around(child),
             HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
         };
 
@@ -300,6 +305,7 @@ impl RawMode {
 /// should also respect the `style` tag in the future.
 fn allows_pretty_inside(tag: HtmlTag) -> bool {
     (tag::is_block_by_default(tag) && tag != tag::pre)
+        || tag::is_foreign(tag)
         || tag::is_tabular_by_default(tag)
         || tag == tag::li
 }
@@ -309,8 +315,12 @@ fn allows_pretty_inside(tag: HtmlTag) -> bool {
 ///
 /// In contrast to `allows_pretty_inside`, which is purely spec-driven, this is
 /// more subjective and depends on preference.
-fn wants_pretty_around(tag: HtmlTag) -> bool {
-    allows_pretty_inside(tag) || tag::is_metadata_content(tag) || tag == tag::pre
+fn wants_pretty_around(element: &HtmlElement) -> bool {
+    (allows_pretty_inside(element.tag)
+        && (element.tag != tag::mathml::math
+            || element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")))
+        || tag::is_metadata_content(element.tag)
+        || element.tag == tag::pre
 }
 
 /// Escape a character.

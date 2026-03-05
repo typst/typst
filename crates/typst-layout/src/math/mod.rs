@@ -22,7 +22,8 @@ use typst_library::layout::{
     OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
 };
 use typst_library::math::ir::{
-    BoxItem, ExternalItem, MathItem, MathKind, MathProperties, resolve_equation,
+    BoxItem, ExternalItem, MathComponent, MathItem, MathKind, MathProperties,
+    resolve_equation,
 };
 use typst_library::math::{EquationElem, families};
 use typst_library::model::ParElem;
@@ -38,7 +39,7 @@ use self::fraction::{layout_fraction, layout_skewed_fraction};
 use self::fragment::{FrameFragment, MathFragment};
 use self::line::layout_line;
 use self::radical::layout_radical;
-use self::run::{MathFragmentsExt, MathRunFrameBuilder};
+use self::run::{MathFragmentsExt, MathRunFrameBuilder, layout_multiline};
 use self::scripts::{layout_primes, layout_scripts};
 use self::table::layout_table;
 use self::text::{layout_glyph, layout_text};
@@ -124,9 +125,15 @@ pub fn layout_equation_block(
     let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
 
     let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
-    let full_equation_builder = ctx
-        .layout_into_fragments(&item, styles)?
-        .multiline_frame_builder(styles);
+    let full_equation_builder = if let MathItem::Component(MathComponent {
+        kind: MathKind::Multiline(multi),
+        ..
+    }) = item
+    {
+        layout_multiline(&multi, &mut ctx, styles)?
+    } else {
+        ctx.layout_into_fragments(&item, styles)?.into_frame().into()
+    };
     let width = full_equation_builder.size.x;
 
     let equation_builders = if styles.get(BlockElem::breakable) {
@@ -430,7 +437,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
 
         let styles = item.styles().unwrap_or(styles);
         let props = MathProperties::default(styles);
-        let frame = fragments.into_frame(styles);
+        let frame = fragments.into_frame();
         Ok(FrameFragment::new(&props, styles, frame)
             .with_text_like(text_like)
             .into())
@@ -476,8 +483,6 @@ fn layout_realized(
             MathItem::Spacing(amount, _) => ctx.push(MathFragment::Space(*amount)),
             MathItem::Space => ctx
                 .push(MathFragment::Space(ctx.font().math().space_width.resolve(styles))),
-            MathItem::Linebreak => ctx.push(MathFragment::Linebreak),
-            MathItem::Align => ctx.push(MathFragment::Align),
             MathItem::Tag(tag) => ctx.push(MathFragment::Tag(tag.clone())),
             _ => unreachable!(),
         }
@@ -489,16 +494,7 @@ fn layout_realized(
     // Insert left spacing.
     if let Some(lspace) = props.lspace {
         let width = lspace.at(styles.resolve(TextElem::size));
-        let frag = MathFragment::Space(width);
-        if let Some(i) = ctx.fragments.iter().rposition(|f| !f.is_ignorant())
-            && matches!(ctx.fragments[i], MathFragment::Align)
-        {
-            // Skip a single alignment point (if one exists) when placing
-            // spacing on the left.
-            ctx.fragments.insert(i, frag);
-        } else {
-            ctx.push(frag);
-        }
+        ctx.push(MathFragment::Space(width));
     }
 
     // Dispatch based on item kind to the appropriate layout function.
@@ -519,6 +515,14 @@ fn layout_realized(
         }
         MathKind::Text(item) => layout_text(item, ctx, styles, props)?,
         MathKind::Fenced(item) => layout_fenced(item, ctx, styles, props)?,
+        MathKind::Multiline(item) => {
+            let mut frame = layout_multiline(item, ctx, styles)?.build();
+            if item.align {
+                let axis = ctx.font().math().axis_height.resolve(styles);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
+            ctx.push(FrameFragment::new(props, styles, frame));
+        }
         MathKind::Group(_) => {
             let fragment = ctx.layout_into_fragment(item, styles)?;
             let italics = fragment.italics_correction();
