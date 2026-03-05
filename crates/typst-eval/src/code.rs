@@ -262,7 +262,7 @@ impl Eval for ast::Array<'_> {
                             self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
                         bail!(
                             spread.span(), "cannot spread {} into array", v.ty();
-                            hint: "add a colon to create a dictionary instead `{fixed}`";
+                            hint: "add a colon to create a dictionary instead: `{fixed}`";
                         )
                     }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),

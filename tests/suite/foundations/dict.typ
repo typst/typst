@@ -66,7 +66,7 @@
   let x = (a: 1)
   let y = (b: 2)
   // Error: 4-7 cannot spread dictionary into array
-  // Hint: 4-7 add a colon to create a dictionary instead `(: ..x,..y)`
+  // Hint: 4-7 add a colon to create a dictionary instead: `(: ..x,..y)`
   (..x,..y)
 }
 
@@ -74,7 +74,7 @@
 #{
   let x = (a: 1)
   // Error: 4-7 cannot spread dictionary into array
-  // Hint: 4-7 add a colon to create a dictionary instead `(: ..x)`
+  // Hint: 4-7 add a colon to create a dictionary instead: `(: ..x)`
   (..x)
 }
 
@@ -101,7 +101,7 @@
 #{
   let x = (a: 1)
   // Error: 11-20 cannot spread dictionary into array
-  // Hint: 11-20 add a colon to create a dictionary instead `(: ..none,..(one:1))`
+  // Hint: 11-20 add a colon to create a dictionary instead: `(: ..none,..(one:1))`
   (..none,..(one:1))
 }
 
