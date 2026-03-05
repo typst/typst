@@ -1,12 +1,13 @@
 use std::num::NonZeroU32;
 
 use krilla::page::{NumberingStyle, PageLabel};
+use typst_library::diag::StrResult;
 use typst_library::model::Numbering;
 
 pub(crate) trait PageLabelExt {
     /// Create a new `PageLabel` from a `Numbering` applied to a page
     /// number.
-    fn generate(numbering: &Numbering, number: u64) -> Option<PageLabel>;
+    fn generate(numbering: &Numbering, number: u64) -> StrResult<Option<PageLabel>>;
 
     /// Creates an arabic page label with the specified page number.
     /// For example, this will display page label `11` when given the page
@@ -15,25 +16,27 @@ pub(crate) trait PageLabelExt {
 }
 
 impl PageLabelExt for PageLabel {
-    fn generate(numbering: &Numbering, number: u64) -> Option<PageLabel> {
+    fn generate(numbering: &Numbering, number: u64) -> StrResult<Option<PageLabel>> {
         {
             let Numbering::Pattern(pat) = numbering else {
-                return None;
+                return Ok(None);
             };
 
-            let (prefix, kind) = pat.pieces.first()?;
+            let Some((prefix, kind)) = pat.pieces.first() else {
+                return Ok(None);
+            };
 
             // If there is a suffix, we cannot use the common style optimization,
             // since PDF does not provide a suffix field.
             let style = if pat.suffix.is_empty() {
+                use codex::numeral_systems::NamedNumeralSystem as System;
                 use krilla::page::NumberingStyle as Style;
-                use typst_library::model::NumberingKind as Kind;
                 match kind {
-                    Kind::Arabic => Some(Style::Arabic),
-                    Kind::LowerRoman => Some(Style::LowerRoman),
-                    Kind::UpperRoman => Some(Style::UpperRoman),
-                    Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
-                    Kind::UpperLatin if number <= 26 => Some(Style::UpperAlpha),
+                    System::Arabic => Some(Style::Arabic),
+                    System::LowerRoman => Some(Style::LowerRoman),
+                    System::UpperRoman => Some(Style::UpperRoman),
+                    System::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
+                    System::UpperLatin if number <= 26 => Some(Style::UpperAlpha),
                     _ => None,
                 }
             } else {
@@ -44,13 +47,13 @@ impl PageLabelExt for PageLabel {
             // spec, we use the given prefix and an offset. Otherwise, everything
             // goes into prefix.
             let prefix = if style.is_none() {
-                Some(pat.apply(&[number]))
+                Some(pat.apply(&[number])?)
             } else {
                 (!prefix.is_empty()).then(|| prefix.clone())
             };
 
             let offset = style.and(number.try_into().ok().and_then(NonZeroU32::new));
-            Some(PageLabel::new(style, prefix.map(Into::into), offset))
+            Ok(Some(PageLabel::new(style, prefix.map(Into::into), offset)))
         }
     }
 
