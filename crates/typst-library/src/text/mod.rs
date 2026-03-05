@@ -52,7 +52,7 @@ use crate::foundations::{
     NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
-use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
+use crate::layout::{Abs, Alignment, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
@@ -357,9 +357,9 @@ pub struct TextElem {
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
-    #[default(true)]
+    #[default(Overhang::END)]
     #[ghost]
-    pub overhang: bool,
+    pub overhang: Overhang,
 
     /// The top end of the conceptual frame around the text used for layout and
     /// positioning. This affects the size of containers that hold text.
@@ -1050,6 +1050,153 @@ cast! {
     TextSize,
     self => self.0.into_value(),
     v: Length => Self(v),
+}
+
+/// Whether certain glyphs can hang over into the margin.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Overhang {
+    /// The per-glyph protrusion table.
+    pub table: ProtrusionTable,
+    /// The default behaviour for glyphs not in the map.
+    pub default: BuiltInOverhang,
+}
+
+/// A table mapping glyphs to their protrusion amounts (left and right).
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ProtrusionTable(pub Vec<(char, (Protrusion, Protrusion))>);
+
+impl Default for ProtrusionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ProtrusionTable {
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+}
+
+/// The amount of protrusion into the margin for the glyph, relative to its width.
+type Protrusion = Smart<Rel>;
+
+/// Overhang options for the built-in algorithm.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BuiltInOverhang {
+    /// Overhang specified per side.
+    Side { left: bool, right: bool },
+    /// Overhang specified by text direction.
+    Direction { start: bool },
+}
+
+impl Overhang {
+    pub const DISABLED: Overhang = Overhang {
+        table: ProtrusionTable::new(),
+        default: BuiltInOverhang::Side { left: false, right: false },
+    };
+    pub const END: Overhang = Overhang {
+        table: ProtrusionTable::new(),
+        default: BuiltInOverhang::Direction { start: false },
+    };
+}
+
+cast! {
+    BuiltInOverhang,
+    self => match self {
+        BuiltInOverhang::Side { left, right } => {
+            if left && right {
+                true.into_value()
+            } else if left {
+                Alignment::LEFT.into_value()
+            } else if right {
+                Alignment::RIGHT.into_value()
+            } else {
+                false.into_value()
+            }
+        },
+        BuiltInOverhang::Direction { start } => {
+            if start {
+                Alignment::START.into_value()
+            } else {
+                Alignment::END.into_value()
+            }
+        },
+    },
+    v: bool => BuiltInOverhang::Side { left: v, right: v },
+    v: Alignment => match v {
+        Alignment::LEFT => BuiltInOverhang::Side { left: true, right: false },
+        Alignment::RIGHT => BuiltInOverhang::Side { left: false, right: true },
+        Alignment::START => BuiltInOverhang::Direction { start: true },
+        Alignment::END => BuiltInOverhang::Direction { start: false },
+        _ => bail!("expected `left`, `right`, `start` or `end`"),
+    },
+}
+
+cast! {
+    ProtrusionTable,
+    self => {
+        self
+            .0
+            .into_iter()
+            .map(|(ch, protrusions)| {
+                (ch.into(), protrusions.into_value())
+            })
+            .collect::<Dict>()
+            .into_value()
+    },
+    v: Dict => {
+        let mut table = Vec::with_capacity(v.len());
+        for (key, value) in v.into_iter() {
+            let mut chars = key.chars();
+            let (Some(c), None) = (chars.next(), chars.next()) else {
+                bail!("protrusion table keys must be single characters");
+            };
+
+            let value = value.cast::<Array>()?;
+            if value.len() != 2 {
+                bail!("protrusion table values must be arrays of length 2");
+            }
+            let value = value.as_slice();
+            let left = value[0].clone().cast::<Protrusion>()?;
+            let right = value[1].clone().cast::<Protrusion>()?;
+
+            table.push((c, (left, right)));
+        }
+        ProtrusionTable(table)
+    },
+}
+
+cast! {
+    Overhang,
+    self => {
+        let mut dict = Dict::new();
+        dict.insert("default".into(), self.default.into_value());
+        dict.insert("map".into(), self.table.into_value());
+        dict.into_value()
+    },
+    v: BuiltInOverhang => Overhang {
+        table: ProtrusionTable::new(),
+        default: v,
+    },
+    mut v: Dict => {
+        let default = v
+            .take("default")
+            .ok()
+            .map(BuiltInOverhang::from_value)
+            .transpose()?
+            .unwrap_or(BuiltInOverhang::Side { left: false, right: false });
+
+        let table = v
+            .take("map")
+            .ok()
+            .map(ProtrusionTable::from_value)
+            .transpose()?
+            .unwrap_or(ProtrusionTable::new());
+
+        v.finish(&["default", "map"])?;
+
+        Overhang { table, default }
+    }
 }
 
 /// Specifies the top edge of text.
