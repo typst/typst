@@ -75,7 +75,7 @@ c647ccdd14a5dc2474da3e0b5864d253 cjk-punctuation-adjustment-1
 569d31944326e891adaede1d774f9357 cjk-punctuation-adjustment-2
 93b9f45b18013dd6d303e279e0371451 cjk-punctuation-adjustment-3
 2ab357cfe0d33fa0cc6c8e1c90c94640 closure-capture-in-lvalue
-8f35de8552d27ea411da0a61bd407cc5 closure-path-resolve-in-layout-phase
+18688f7342e22dac0bca222c6ed8382b closure-path-resolve-in-layout-phase
 f3235db90792c9e3a6a9fec9759f6d05 closure-without-params-non-atomic
 8672a5461594b45b8948f9985930dd9f code-block-basic-syntax
 1831504877ec5db02744ab4c2e681657 colbreak-weak
@@ -576,11 +576,12 @@ e66174704695ed5a7f878cb4436b6b6c hyphenate-shy
 c966db83171f169ad48b02efc8374998 if-condition-complex
 09cafb541fc19439bd59c8d5410d6a7a if-markup
 d46b5d7163d3adece9e897c5be776992 image-baseline-with-box
+880bac1affa47f57c9dd78551d89796d image-decode-bad-svg
 6ca8215af82d148a324565bce6dcbdb0 image-decode-detect-format
 7d19169f03251a4ce05a038e325d48f4 image-decode-specify-format
 ead49a7b6dc3ae7e62b8aa84011bfa72 image-decode-svg
 0bd369fe3c79ca6a982ad8402ac80a33 image-exif-rotation
-a90354f8aa010e77b69fdea42c07d1b4 image-fit
+7c91e34d84951edf6cddeea8be820b3c image-fit
 a7e811e958ef2be131db7ef57e91a63e image-jpg
 7245373055da8ed14a8a607029354318 image-jump-to-next-page
 90831d1dc02dec54ec9ce01e25925e7c image-natural-dpi-sizing
@@ -594,12 +595,12 @@ f36b228582290730cc74ab04bf54d965 image-pixmap-lumaa8
 8a88eeef12f441b9019d9ab13c24f8f5 image-pixmap-rgba8
 94a9e7e4d4e8e519eb6e61aa1a3b9e52 image-png
 7ea3751275309155f43d98d31c85626e image-scaling-methods
-d271d1dab0b84aa6a0e290f979e84c69 image-sizing
+1beb2cb1d1d3006e4475a5b2fbf354a5 image-sizing
 c51f38b22cede28386a45a72902dae7e image-svg-auto-detection
 d5a5a3f84211ba922d6e65414c20de31 image-svg-complex
 356ba2a648315e4bc2c056bc0ce682d4 image-svg-linked-jpg1
 062e8a8d8275975baf1c951e032d6a6b image-svg-linked-jpg2
-3f2901a49637cb23f516b5fa34623d1e image-svg-linked-many-formats
+743db6ae836d8f7472e3fe5d381ee5e9 image-svg-linked-many-formats
 68d359d3e09f5f9dfc1534955c971970 image-svg-text
 97640bb15a4527498f3fc4b7775ad555 image-svg-text-font
 1b6099c0b6541da7a91c389cd31f5be8 import-basic
@@ -1139,7 +1140,7 @@ f30b0f6e72b355809eb080a35c13b686 math-mat-vec-cases-unity
 3114f4d8fafb3ac2119838e145dfe639 math-multiline-multiple-trailing-linebreaks
 80e44cffb72879246d1e61890c5f1b4b math-multiline-no-trailing-linebreak
 e63edf4aedc334ef2fd8cdfc0fd0026b math-multiline-trailing-linebreak
-6e1145d9351138266f17ad85872cc2f8 math-nested-normal-layout
+92c1c899f3fbde0a345ed506bb87f8c3 math-nested-normal-layout
 99bfd7675f2023329ba54cb347e5ad2c math-non-math-content
 ad00a369d7cf5484a6dc0de50375d7fc math-op-call
 b3411b1d07d4a40fa5674bfcc272e401 math-op-custom
@@ -1689,7 +1690,7 @@ d0a62532907f7a901108b86e43c9f130 terms-syntax-edge-cases
 2d8f39340ebb5f023c12f9c1fc92f6af text-call-body
 4a91ac2173638bce918401a4e8fc8d90 text-chinese-basic
 1498fcd1012b6e2eed3ddf46b478b806 text-cjk-latin-spacing
-5078f66c87352b590176559ec77e65c8 text-colr-svg-glyphs-different-size
+6d2acb1328dca4c0799651e3e6cf7466 text-colr-svg-glyphs-different-size
 a956e278b672d613e0bc8934ab974de2 text-copy-paste-ligatures
 2fd76e548529b550e4f8cb06d6e9b0fc text-edge
 6f030f9a9853c3ba9bc7070c51f3dce1 text-features
@@ -1697,7 +1698,7 @@ a956e278b672d613e0bc8934ab974de2 text-copy-paste-ligatures
 c33d0a162adb3e8a3a32bf1f57664e6f text-font-covers-chinese
 996a57701ed675403e36395af280f0bb text-font-covers-numbers
 cdeceb987461c669fafd964519452102 text-font-covers-repeat
-acdb7b0c300d8ad0ddd213ccc37a1f78 text-font-covers-riffle
+5640ef16b0ac792245a1b5ca265471af text-font-covers-riffle
 30afaf568dbc9dbabd08b113815486be text-font-just-a-space
 18ae5b7d35d455cfbbebc34c43a85624 text-font-properties
 c1dfb2c93fdded43db71c246c8eab150 text-kerning

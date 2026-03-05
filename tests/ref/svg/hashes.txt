@@ -28,7 +28,7 @@ bdf79f230f173ac2f02ee4a7375401ec bidi-obj
 d4b08781a4c09711ac86c9096cc38b51 bidi-spacing
 bd517a70f29aa27f939f7d8b910e0238 bidi-whitespace-reset
 5646c2d6c4a79919722a48ff1e3323e6 block-box-fill
-52e8064c086fd92708f9bfb5e9020b8a block-clip-svg-glyphs
+f7559ce4437f678472e56afc132c18dc block-clip-svg-glyphs
 15c62a3cc0cd3e0ed7c0ed63213d4dda block-clip-text
 6937a215861d82e54839e2c42d2fc7e8 block-clipping-multiple-pages
 e1a6d6176e19da76fdc66f7a9dde1c53 block-consistent-width
@@ -183,8 +183,8 @@ dcbd9066852184b35f55ca7368de808c enum-numbering-reversed-overridden
 4dceb0a7d6b01ad950dd2ab4de474494 enum-syntax-at-start
 feaacf6adc7f48bc41901059d0d34485 enum-syntax-edge-cases
 29926d5b0e8d4ff06474a071e1e68d11 enum-syntax-number-length
-9866faacb8c42521a4c3529ca068be9b escape
-77e2b9f472b674143636c6126f482bc5 eval-in-show-rule
+950b612853ba4417dc928443fe2b9174 escape
+ad1e587c0d4f1210874c077ac8639ba7 eval-in-show-rule
 3dc275d0b20f0860e4989b24c957024c eval-mode
 8b3fe3d61e7f04682272804bb180f633 eval-path-resolve
 8b3fe3d61e7f04682272804bb180f633 eval-path-resolve-in-show-rule
@@ -542,7 +542,7 @@ fd179f17ade795e7388ee183001aec8d heading-hanging-indent-zero
 d79c3a2470bccf2601ae0b91a5f4a15c heading-offset
 24931ccecfd31f29a6e903de5f278b51 heading-offset-and-level
 d580c62fd1144191c641bbfefae60153 heading-par
-14b5eaed1a9bfd876257fe3caa2feb1a heading-show-where
+30290efad9e35d7076da2ddcab11f673 heading-show-where
 742a87eb65d785a75520fcefbf123ae3 heading-syntax-at-start
 bc1126b03e98c595c1cf877b5ea9d517 heading-syntax-edge-cases
 a71516505d48d0f2498357944cebee33 hide-image
@@ -576,6 +576,7 @@ bb1947df2d41feaa51f4226769ad7dca hyphenate-shy
 5be2a22349fdc24170704d0b1ac4514b if-condition-complex
 67e56e928f3b3f20073860f5e6d9aadd if-markup
 1159381e8df867a62047f2b3a95c4d0a image-baseline-with-box
+55dd1631294dcce605c303e3ae762b20 image-decode-bad-svg
 f84a90a3c38898ed90253f356fd88fc7 image-decode-detect-format
 f84a90a3c38898ed90253f356fd88fc7 image-decode-specify-format
 7f8fb74c199b29aa0a8023f60aad2b9f image-decode-svg
@@ -755,7 +756,7 @@ b8d74ba232642396a1952273d2295524 issue-5723-grid-heading-numbering
 3603154bea37b6f8d4bb323755e6eae2 issue-5760-disable-cjk-latin-spacing-in-raw
 6aa26aedaaef789dc3ac678698f44bc1 issue-5775-cite-order-rtl
 04591578b844b95a79bb590aaed7fd33 issue-5831-par-constructor-args
-4d951b1907258e18359d5c186bed1127 issue-5930-symbol-label
+293c9f7cc4f497f7c92ffc01a6b38404 issue-5930-symbol-label
 560cea9c10b192a718fee88624a974c5 issue-5940-text-negative-size-panic
 0feaf17125fd54917355888342459d97 issue-6062-justify-cjk-latin-spacing
 f8915e29d04b075620b2d6ff30b19c65 issue-6090-math-overhang
@@ -789,7 +790,7 @@ bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 2e23a826a914d869461b594a54ba8890 issue-7437-math-accent-text-presentation
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
-1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
+8cf00e734330bc7561fc7c13e2182419 issue-80-emoji-linebreak
 cdb9cb5e69f59e77d9640e7c9001f9d8 issue-852-mat-type
 421744506d29db117dff226731da1b04 issue-886-args-sink
 e3cda5cda8f3d5a0316e956c3f00757a issue-color-mix-luma
@@ -932,7 +933,7 @@ a40bccc4719a7f3e530ff7e520f136b2 locate-between-pages
 2c824bade1f2b5f7d78c2272545e529d logical-children-tags-underline-around-place
 5cb211b657cb3908f8fc75a2ac5eae21 long-scripts
 e9ad0e121da4a2922a3a6714761ca502 loop-break-join-in-first-arg
-a9ea1964ea50a5f99bb43b60052d92e2 loop-break-join-in-nested-blocks
+95934ceda186ca3bdc686312212ab2fa loop-break-join-in-nested-blocks
 6b7213ceb3cd4fa234dde226cdccd750 loop-break-join-in-set-rule-args
 2d558ee8ffea20567ff7f4badc79fbc9 loop-break-join-set-and-show
 98c6b600f777fa9134c585a790817772 lorem
@@ -1058,7 +1059,7 @@ ef4ffddaf8ad5c347e0ea5cd57d152cf math-equation-numbering
 39173e7adf27486cad321f536b5aa7ad math-equation-show-rule
 08157212b7e12a5552bd1d57b7777804 math-equation-tag-affects-row-height
 82804860b19bfaab5c9fbf80815e657d math-font-covers
-1f2a6f15bee8f9b8842eb329891e3395 math-font-fallback
+3c10a0d98ecd23203ce4d170425318f5 math-font-fallback
 c2b3afc9f54fdd8d4640ff6a35410b55 math-font-fallback-class
 fbba723fee95068d427ac3b0a1934ef7 math-font-features
 a165f07899762498751b03e85b208907 math-font-features-switch
@@ -1075,7 +1076,7 @@ ae87377a2b9af2f5daa7cf541a94117f math-frac-horizontal-explicit
 62f1e10f1ff86074036116249d6d410d math-frac-large
 ccf56353efd2a84667acbdfab4cecb8a math-frac-line-fill-stroke
 c9436edb47fbe228d183ee4c438d7847 math-frac-paren-removal
-83157c6986c21372f73998d535bde754 math-frac-precedence
+c4dd8621c34370fb92ac40f63bfa7559 math-frac-precedence
 ebc01fa6a9c2ef4948f8a23c37f662b6 math-frac-skewed
 2cc8793a09715eb304b6231de6eca12c math-frac-styles-inline
 3e2efc6be16f36d5d02216ffc6bdd631 math-frac-tan-sin-cos
@@ -1139,7 +1140,7 @@ c22f82156063456f6375cc7d867a0b78 math-mat-spread-2d
 ae3b440c89afe53e2bd0398acdc831c9 math-multiline-multiple-trailing-linebreaks
 1b7feb3eadd07aaafc6b03421f6ec234 math-multiline-no-trailing-linebreak
 ca38f19088793920cd0d995c9c3e089b math-multiline-trailing-linebreak
-346bad082800b1287a38a09cfc76e4b5 math-nested-normal-layout
+7081e98979732d0588eff767a75933fe math-nested-normal-layout
 acc8d43c8ee2474c2d4e7e3e44a0d21e math-non-math-content
 3b8c65947398e76ad7eeda0c64616f0e math-op-call
 77fd66930bcdad97323395027eace070 math-op-custom
@@ -1232,7 +1233,7 @@ c8253da297caf55130f6440cc6dc0a6a math-style-script
 5bcb4a9e649041a39c4cf6e592abf987 math-symbol-show-rule
 3dbfaa67288b58dc699583013cd02271 math-table
 a3140620bff78bc544eea5be763c173f math-text-color
-313d3f9324bdf2ff5bad9e42b7f300aa math-text-grapheme-cluster-fallback
+70e13469a89b12916f52d9c75d047fd4 math-text-grapheme-cluster-fallback
 3d0b2bb8b8d4677109893458cb791e7a math-text-single-grapheme-cluster
 4c57f19ffcf2340715014745ba0b4729 math-text-size
 5b0ed819bd81bc9b7f5a09a27cfe2388 math-underover-brace
@@ -1476,9 +1477,9 @@ d5f4a00c1b99fdd6cb54bbef28274a85 set-text-override
 626418ab22f956153b7475ec83b58a21 set-vs-construct-2
 e0d7a5dc4a0bc74775afcfd2037bb5d7 set-vs-construct-3
 43d3de7c84ee072582336e5873a96a1f set-vs-construct-4
-165ac24cc7845ccd0b07b5815cea87db shaping-emoji-bad-zwj
-7dbf9863f2624d318927d6fd6cd67ad4 shaping-emoji-basic
-d6dfae43769364e5ff874ffb9965ffc7 shaping-font-fallback
+6e9bd920595320593d7a3531baa61b6a shaping-emoji-bad-zwj
+10196a95a252c9c9688f2e11fe753a44 shaping-emoji-basic
+1e401a3ee41f00153ce59c335e7e76f9 shaping-font-fallback
 310f87a1b4b2f7b1a964d18c40571b53 shaping-forced-script-font-feature-enabled
 61ff222d8d637d72ee6586cee86d9502 shaping-forced-script-font-feature-inhibited
 ca4863891886a2e2981d9aa14b0af95a shaping-script-separation
@@ -1494,7 +1495,7 @@ f2c0ebb72193a501efcc2552816d6d55 shorthands-math
 5f3f08f12a5fe564327d7247bfb9126d show-bare-vs-set-text
 b7d6daab8cde4342347eccdb4b775eac show-function-order-with-set
 d580c62fd1144191c641bbfefae60153 show-function-set-on-it
-cb0a97452d3dc7bf7f867714674f0b21 show-in-show
+e0afd067c446d7e22c92e266d8d6ab15 show-in-show
 eb4d62a99215750302b8613740b94c23 show-multiple-rules
 65b4468dc286535d51e5890b4a41bce6 show-nested-scopes
 d580c62fd1144191c641bbfefae60153 show-recursive-identity
@@ -1504,7 +1505,7 @@ d580c62fd1144191c641bbfefae60153 show-recursive-identity
 47979aa9bf288cc5a8b619c38a7379bf show-selector-discard
 8cb466bcde8a2dac9222f6b713e8d008 show-selector-element-or-label
 cbbd48a6e5f52ef9139e42d3c39141f4 show-selector-or-elements-with-set
-b8b7b2a080610925385d87580f5cbe0c show-selector-realistic
+b128ae0ef97faec8b8c8d2f5e58f10d2 show-selector-realistic
 96b0f6c8deb0c30f02cb258ec5348a0d show-selector-replace
 258b8c0dffd975881d0a0a48566fdcb8 show-selector-replace-and-show-set
 6caf064e8715e4f969545eeec9ff34f2 show-selector-shadowed-builtin-with-std
@@ -1536,7 +1537,7 @@ bce9e527b76d30d09dd62e855d11fe81 show-text-citation-smartquote
 42774c51adb5a6198ad293f03894ff56 show-text-exactly-once
 86248aa70b1e8e27efdd2e93f65838f4 show-text-get-text-on-it
 61e3b763e5fac416637aab08668d5bb5 show-text-in-citation
-75c914d0d9513f4bba832695c3b57a79 show-text-in-other-show
+b2841ae2e08b634640671aac9b18a0cf show-text-in-other-show
 eda549e8ff2b0fdf23540f9c455dd1ae show-text-indirectly-cyclic
 fe514ec68ea2ff585adad29320fe9f0b show-text-line-wrapping
 f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
@@ -1544,9 +1545,9 @@ bf125910a7e03f556dc82768c65c0fa4 show-text-list
 17eacb93338ff5f7ba216be90d4d2f1b show-text-outer-space
 2a718c470e7876048c16d5a67f59af90 show-text-path-resolving
 b52757e62217615fa7d40b9d423670eb show-text-regex
-2aa60ecc7a52b54bb47e03d86bcd72a2 show-text-regex-case-insensitive
+104bb3e28060f95b9891dfe774a99d63 show-text-regex-case-insensitive
 03d8e1273001ff2f0275c364d3936a21 show-text-regex-character-class
-92ff9817e7d53e8b4ed844ca026265c5 show-text-regex-word-boundary
+7853ea38ce29d30ec8bf08643f122f16 show-text-regex-word-boundary
 3ab7d0ab87f95c28921803785efe65b1 show-text-smartquote
 4ae6ed29fb82924293c33dd605138878 show-text-space-collapsing
 b31fa2c14a0de1ec1b9e45ed3a573912 show-text-style-boundary
@@ -1627,7 +1628,7 @@ d1407e370bc29706b141c01d17605e81 square-overflow-forced-height
 f5cf9c78e575e43170e98a5fda06df74 square-relatively-sized-child
 c6dc189d760267cca321f44f005b1b85 square-size-beyond-default
 9212b8e0351a59015dbe8622886997bc stack-basic
-e34ef7d42455be6fea7f6ac06141d067 stack-fr
+aeef1fd68cd48365ba37a17e3773572f stack-fr
 9683149a9ef826b4dcdfdb938f930c22 stack-overflow
 10ef10d84a63214d5c2e27167f60b5c5 stack-rtl-align-and-fr
 f5f097518e2e51747941d06b1ed1660a stack-spacing
@@ -1649,7 +1650,7 @@ d73aa5b188f142f115213462e82a6021 sub-super-italic-compensation
 06a3961970d1b1694a6d9550cd38bc16 sub-super-typographic
 ed9ddc08b7d8663e65a855a94dbee529 super-highlight
 c205d134b783581691a3ba1a2c8eb79d super-underline
-207844d323a3335bbe72f2ec48fb87c0 symbol
+daaac7a8c594fc1fc8c67af1d161f263 symbol
 9e8a3bd3ba1db9e83274b665f54e6834 symbol-constructor
 eac40caac637e6e74f875b8d11d8a4fe symbol-modifier-deprecated
 7be5f27f829e545ef692014466f93a95 symbol-sect-deprecated
@@ -1689,17 +1690,17 @@ be867404d95f5a16469e3207a36e6341 terms-style-change-interrupted
 b1484cf83ad2b56e454835164c7680c5 text-call-body
 a5b9236e3916aac1afc0e7111d072a4a text-chinese-basic
 19b658e3d9e3c9962203bfab31680e20 text-cjk-latin-spacing
-c8a910dc08d85ccca92829c790a67579 text-colr-svg-glyphs-different-size
-25c6284041dd56cdbbaa0e21d12a8a54 text-copy-paste-ligatures
+d465bf456a3d632022bf1bbb6b796ba6 text-colr-svg-glyphs-different-size
+585ac3891740ab7de190aad9e7e97cb9 text-copy-paste-ligatures
 38fbad5d34541540a3ddfbe673f5ad6f text-edge
 e5c9e41b6499e2d7f160a519b94f405d text-features
 7bd270b4f58021e1d26448d46f062461 text-font-change-after-space
 7aebe7e68226fbac9a9a19b35e9876f4 text-font-covers-chinese
 ad928d511e2461cb05b89dc8a609a19e text-font-covers-numbers
 22800c66717a539245d6779a419171e5 text-font-covers-repeat
-cd7aa09bbcaa5651e5e6b1a839414e9a text-font-covers-riffle
+8f0e41a7fb7eafb49fee122a3e2239a2 text-font-covers-riffle
 c2cae9fa029bc3d2819e8fc05f66cec3 text-font-just-a-space
-874855a37929b88f1bb0bd9824ff2b07 text-font-properties
+dee1332bf9812cf35fb302a937f440d1 text-font-properties
 bdd979413cdc42cae2e5495ffd435858 text-kerning
 551d0703d8692cc4704dd9232aa862f8 text-lang
 bc26439a9e370455ab8424e809c59c2f text-lang-hyphenate
