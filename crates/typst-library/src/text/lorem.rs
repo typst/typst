@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+
+use lipsum::{LIBER_PRIMUS, LOREM_IPSUM, MarkovChain};
+
 use crate::foundations::{Str, func};
 
 /// Creates blind text.
@@ -20,5 +24,96 @@ pub fn lorem(
     /// The length of the blind text in words.
     words: usize,
 ) -> Str {
-    lipsum::lipsum(words).replace("--", "–").into()
+    generate_lorem(words).into()
+}
+
+// https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#403-413
+thread_local! {
+    static LOREM_CHAIN: RefCell<MarkovChain<'static>> = RefCell::new({
+        let mut chain = MarkovChain::new();
+        chain.learn(LOREM_IPSUM);
+        chain.learn(LIBER_PRIMUS);
+        chain
+    });
+}
+
+// https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
+/// Capitalize the first character in a string.
+fn capitalize(word: &str) -> String {
+    let idx = match word.chars().next() {
+        Some(c) => c.len_utf8(),
+        None => 0,
+    };
+    let mut result = String::with_capacity(word.len());
+    result.push_str(&word[..idx].to_uppercase());
+    result.push_str(&word[idx..]);
+    result
+}
+
+/// Generate `n` words of lorem ipsum text, treating `--` as a non-word
+/// separator that is replaced with an en-dash (`–`).
+///
+/// This reimplements the joining logic from lipsum's private `join_words`
+/// function, but skips `--` entries in the Markov chain output without
+/// counting them toward the requested word count.
+fn generate_lorem(n: usize) -> String {
+    if n == 0 {
+        return String::new();
+    }
+
+    // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#344-382
+    LOREM_CHAIN.with(|chain| {
+        let chain = chain.borrow();
+        let mut iter = chain.iter_from(("Lorem", "ipsum"));
+
+        // Punctuation characters which end a sentence.
+        let punctuation: &[char] = &['.', '!', '?'];
+
+        let mut sentence = String::new();
+        let mut word_count = 0;
+        let mut needs_cap = false;
+        let mut first = true;
+
+        while word_count < n {
+            let Some(word) = iter.next() else { break };
+
+            // Skip `--` without counting it as a word; append an en-dash
+            // to the output instead.
+            if word == "--" {
+                if !first {
+                    sentence.push(' ');
+                }
+                sentence.push('\u{2013}');
+                first = false;
+                continue;
+            }
+
+            word_count += 1;
+
+            if first {
+                sentence.push_str(&capitalize(word));
+                needs_cap = sentence.ends_with(punctuation);
+                first = false;
+            } else {
+                sentence.push(' ');
+                if needs_cap {
+                    sentence.push_str(&capitalize(word));
+                } else {
+                    sentence.push_str(word);
+                }
+                needs_cap = word.ends_with(punctuation);
+            }
+        }
+
+        // Ensure the sentence ends with either one of ".!?".
+        if !sentence.ends_with(punctuation) {
+            // Trim all trailing punctuation characters to avoid
+            // adding '.' after a ',' or similar.
+            let idx = sentence.trim_end_matches(|c: char| c.is_ascii_punctuation()).len();
+            sentence.truncate(idx);
+            sentence.push('.');
+        }
+
+        sentence
+    })
 }
