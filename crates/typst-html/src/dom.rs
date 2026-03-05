@@ -18,6 +18,10 @@ use crate::document::HtmlOutput;
 use crate::{HtmlIntrospector, attr, charsets, css};
 
 /// An HTML document.
+///
+/// Unlike the `PagedDocument`, this does not implement `Hash` because the HTML
+/// introspector is neither hashable nor guaranteed to be 100% derived from the
+/// output (due to the presence of `root_mut` which is used for cross-linking).
 #[derive(Debug, Clone)]
 pub struct HtmlDocument {
     output: HtmlOutput,

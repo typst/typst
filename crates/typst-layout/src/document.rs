@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::EcoVec;
@@ -41,6 +42,15 @@ impl PagedDocument {
     /// Provides the ability to execute queries on the document.
     pub fn introspector(&self) -> &Arc<PagedIntrospector> {
         &self.introspector
+    }
+}
+
+impl Hash for PagedDocument {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // The introspector is fully derived from the pages. Thus, there is
+        // no need to hash it.
+        self.pages.hash(state);
+        self.info.hash(state);
     }
 }
 
