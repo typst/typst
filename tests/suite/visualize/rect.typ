@@ -122,6 +122,13 @@
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
 
+--- issue-7901-rect-negative-dimensions-radius paged ---
+// Rects with negative dimensions should still have radius.
+#set rect(fill: red, radius: 25%)
+#rect(width: 2cm, height: 1cm)
+#v(1.5cm)
+#rect(width: 2cm, height: -1cm)
+
 --- rect-size-beyond-default paged ---
 // Test that setting a rectangle's height beyond its default sizes it correctly.
 #rect()

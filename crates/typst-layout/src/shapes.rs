@@ -625,7 +625,7 @@ pub fn clip_rect(
 
     let stroke_widths = stroke.as_ref().map(|s| s.as_ref().map(|s| s.thickness / 2.0));
 
-    let base_radius = size.x.min(size.y) / 2.0;
+    let base_radius = size.x.abs().min(size.y.abs()) / 2.0;
     let corner_max =
         stroke_widths.map_corners(|a, b| base_radius + a.min(b).unwrap_or(Abs::zero()));
 
@@ -762,7 +762,7 @@ fn segmented_rect(
     let mut res = vec![];
     let stroke_widths = strokes.as_ref().map(|s| s.as_ref().map(|s| s.thickness / 2.0));
 
-    let base_radius = size.x.min(size.y) / 2.0;
+    let base_radius = size.x.abs().min(size.y.abs()) / 2.0;
     let corner_max =
         stroke_widths.map_corners(|a, b| base_radius + a.min(b).unwrap_or(Abs::zero()));
 
