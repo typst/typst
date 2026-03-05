@@ -28,27 +28,27 @@ impl Abs {
     }
 
     /// Create an absolute length from a value in a unit.
-    pub fn with_unit(val: f64, unit: AbsUnit) -> Self {
+    pub const fn with_unit(val: f64, unit: AbsUnit) -> Self {
         Self(Scalar::new(val * unit.raw_scale()))
     }
 
     /// Create an absolute length from a number of points.
-    pub fn pt(pt: f64) -> Self {
+    pub const fn pt(pt: f64) -> Self {
         Self::with_unit(pt, AbsUnit::Pt)
     }
 
     /// Create an absolute length from a number of millimeters.
-    pub fn mm(mm: f64) -> Self {
+    pub const fn mm(mm: f64) -> Self {
         Self::with_unit(mm, AbsUnit::Mm)
     }
 
     /// Create an absolute length from a number of centimeters.
-    pub fn cm(cm: f64) -> Self {
+    pub const fn cm(cm: f64) -> Self {
         Self::with_unit(cm, AbsUnit::Cm)
     }
 
     /// Create an absolute length from a number of inches.
-    pub fn inches(inches: f64) -> Self {
+    pub const fn inches(inches: f64) -> Self {
         Self::with_unit(inches, AbsUnit::In)
     }
 
@@ -63,32 +63,32 @@ impl Abs {
     }
 
     /// Get the value of this absolute length in a unit.
-    pub fn to_unit(self, unit: AbsUnit) -> f64 {
+    pub const fn to_unit(self, unit: AbsUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }
 
     /// Convert this to a number of points.
-    pub fn to_pt(self) -> f64 {
+    pub const fn to_pt(self) -> f64 {
         self.to_unit(AbsUnit::Pt)
     }
 
     /// Convert this to a number of millimeters.
-    pub fn to_mm(self) -> f64 {
+    pub const fn to_mm(self) -> f64 {
         self.to_unit(AbsUnit::Mm)
     }
 
     /// Convert this to a number of centimeters.
-    pub fn to_cm(self) -> f64 {
+    pub const fn to_cm(self) -> f64 {
         self.to_unit(AbsUnit::Cm)
     }
 
     /// Convert this to a number of inches.
-    pub fn to_inches(self) -> f64 {
+    pub const fn to_inches(self) -> f64 {
         self.to_unit(AbsUnit::In)
     }
 
     /// The absolute value of this length.
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self::raw(self.to_raw().abs())
     }
 

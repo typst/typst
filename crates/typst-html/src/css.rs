@@ -5,7 +5,9 @@ use std::fmt::{Display, Write};
 use ecow::{EcoString, eco_format};
 use typst_library::diag::WarningSink;
 use typst_library::foundations::Smart;
-use typst_library::layout::{Abs, Angle, Axes, Corners, Em, Length, Ratio, Rel, Sides};
+use typst_library::layout::{
+    Abs, Angle, Axes, Corners, Em, Length, Ratio, Rel, Sides, Sizing,
+};
 use typst_library::visualize::{
     Color, ColorSpace, ConicGradient, DashPattern, Gradient, Hsl, LinearGradient,
     LinearRgb, Oklab, Oklch, Paint, RadialGradient, Rgb, Stroke, Tiling,
@@ -49,6 +51,11 @@ impl Properties {
         let buf = self.0.finish(sink);
         (!buf.is_empty()).then_some(buf)
     }
+
+    /// Warn that something was ignored during HTMl export.
+    pub fn ignored(&mut self, what: &str) {
+        self.0.ignored(what);
+    }
 }
 
 /// Low-level writer for CSS syntax.
@@ -74,6 +81,11 @@ impl CssWriter {
     /// Call a CSS function.
     fn call(&mut self, name: &str, separator: Separator) -> CallWriter<'_> {
         CallWriter::start(self, name, separator)
+    }
+
+    /// Start a `calc` call expression.
+    fn calc(&mut self) -> CalcWriter<'_> {
+        CalcWriter::start(self)
     }
 
     fn emit(&mut self, value: impl ToCss) {
@@ -199,14 +211,70 @@ impl<T: Into<f64> + Copy> ToCss for NumberWithPrecision<T> {
     }
 }
 
-/// Displays `A + B`.
-struct Sum<A, B>(A, B);
+/// Writes a lazy CSS `calc(<calc-sum>) expression`.
+/// If only a single operand is written, `calc(<calc-sum>)` is omitted.
+struct CalcWriter<'a> {
+    w: &'a mut CssWriter,
+    /// The byte-index in the [`CssWriter::buf`].
+    start_idx: usize,
+    count: usize,
+}
 
-impl<A: ToCss, B: ToCss> ToCss for Sum<A, B> {
-    fn emit(&self, w: &mut CssWriter) {
-        w.emit(&self.0);
-        w.write(" + ");
-        w.emit(&self.1);
+impl<'a> CalcWriter<'a> {
+    fn start(w: &'a mut CssWriter) -> Self {
+        let start_idx = w.buf.len();
+        Self { w, start_idx, count: 0 }
+    }
+
+    /// Add a value.
+    ///
+    /// - If it is zero, it will be omitted.
+    /// - If it is negative, it will be negated and subtracted. This makes the
+    ///   assumption that the formatted string `"+ {val}"` is equivalent to
+    ///   `"- {val.neg()}"`.
+    ///   This would for example not be the case if a value somehow implements
+    ///   [`Ord`] and would be formatted as a non-parenthesized binary operator
+    ///   with the same or lower precedence, e.g.
+    ///   `"+ -1pt + 2em"` != `"- 1pt - 2em"`.
+    fn sum<T>(&mut self, value: T) -> &mut CalcWriter<'a>
+    where
+        T: ToCss + Numeric + Ord,
+    {
+        if value == T::zero() {
+            return self;
+        }
+
+        if self.count == 0 {
+            self.w.emit(value);
+        } else {
+            // Negate the value and subtract it, in case it is negative.
+            if value < T::zero() {
+                self.w.write(" - ");
+                self.w.emit(value.neg());
+            } else {
+                self.w.write(" + ");
+                self.w.emit(value);
+            }
+        }
+        self.count += 1;
+        self
+    }
+}
+
+impl Drop for CalcWriter<'_> {
+    fn drop(&mut self) {
+        match self.count {
+            0 => {
+                // An empty `calc()` function call is invalid, so write a `0`, which is
+                // also valid for lengths.
+                self.w.write("0");
+            }
+            1 => (),
+            2.. => {
+                self.w.buf.insert_str(self.start_idx, "calc(");
+                self.w.write(")");
+            }
+        }
     }
 }
 
@@ -226,13 +294,7 @@ impl ToCss for Em {
 
 impl ToCss for Length {
     fn emit(&self, w: &mut CssWriter) {
-        match (self.abs.is_zero(), self.em.is_zero()) {
-            (false, false) => {
-                w.call("calc", Separator::Space).arg(Sum(self.em, self.abs));
-            }
-            (true, false) => w.emit(self.em),
-            (_, true) => w.emit(self.abs),
-        }
+        w.calc().sum(self.em).sum(self.abs);
     }
 }
 
@@ -252,13 +314,7 @@ impl ToCss for Ratio {
 
 impl ToCss for Rel {
     fn emit(&self, w: &mut CssWriter) {
-        match (self.abs.is_zero(), self.rel.is_zero()) {
-            (false, false) => {
-                w.call("calc", Separator::Space).arg(Sum(self.rel, self.abs));
-            }
-            (true, false) => w.emit(self.rel),
-            (_, true) => w.emit(self.abs),
-        }
+        w.calc().sum(self.rel).sum(self.abs.em).sum(self.abs.abs);
     }
 }
 
@@ -648,7 +704,7 @@ impl ToCss for Tiling {
     }
 }
 
-impl ToCss for Sides<Rel> {
+impl ToCss for Sides<Length> {
     fn emit(&self, w: &mut CssWriter) {
         if self.is_uniform() {
             w.emit(self.top);
@@ -675,16 +731,6 @@ impl ToCss for Sides<Rel> {
 }
 
 impl Properties {
-    pub fn push_margin_and_padding(&mut self, container: ContainerModel) {
-        if let Some(margin) = container.margin {
-            self.push("margin", margin);
-        }
-        if let Some(padding) = container.padding {
-            // FIXME: negative padding
-            self.push("padding", padding);
-        }
-    }
-
     pub fn push_border(&mut self, border: &Sides<Option<Border>>) {
         if border.is_uniform() {
             let border = border.as_ref().left;
@@ -704,40 +750,196 @@ impl Properties {
     }
 }
 
-pub struct ContainerModel {
-    margin: Option<Sides<Rel>>,
-    padding: Option<Sides<Rel>>,
+/// This is a helper type to aid the conversion from the Typst container model
+/// to the HTML container/box model [^1].
+///
+/// Here are the main differences between the two:
+/// 1. The `stroke` in Typst doesn't affect layout, while `border` in HTML does.
+///    The Typst stroke is drawn centered on top of the edge of the container.
+/// 2. Typst's `outset` is most closely modelled by a negative HTML `margin`,
+///    but the outset only affects the container itself, not its nested body.
+///    Meaning the size from which the inset is applied doesn't change with the
+///    outset.
+///    In HTML, a negative margin will increase the size of the whole container,
+///    and will thus also affect the size from which the padding is applied and
+///    the size of the body.
+/// 3. If a concrete size, such as `50pt` is specified for a Typst container,
+///    specifying any other property won't affect the surrounding layout; and
+///    only the inset will affect the layout of its body.
+///    HTML uses `box-sizing: content-box` by default. The `content-box` doesn't
+///    include the padding or border, and thus changing any of those properties
+///    will affect the surrounding layout. Inversely changing the padding
+///    doesn't change the layout of the body.
+///    When using `box-sizing: border-box` instead, changing the padding and
+///    border won't affect the outer layout. But in comparison to the Typst
+///    container changing the border will still affect the layout of the body.
+///
+/// __Typst container model__
+///
+/// ```txt
+/// ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+/// ┆ ┏━━━━━━━━━━━━━━━━━━━ ---
+/// ┆ ┃ ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄  |
+/// ┆ ┃ ┆                   | outset
+/// ┆ ┃ ┆    ┏━━━━━━━━━━━━ ---
+/// ┆ ┃ ┆    ┃              | inset
+/// ┆ ┃ ┆    ┃    ┏━━━━━━━ ---
+/// ┆ ┃ ┆    ┃    ┃         | body
+/// ┆ ┃ ┆    ┃    ┗━━━━━━━ ---
+/// ┆ ┃ ┆    ┃
+/// ┆ ┃ ┆    ┗━━━━━━━━━━━━
+/// ┆ ┃ ┆    |
+/// ┆ ┃ ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ ---
+/// ┆ ┗━━━━━━┿━━━━━━━━━━━━  | stroke
+/// ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ ---
+///          |
+///          |_ size
+/// ```
+///
+/// __HTML container/box model__
+///
+/// ```txt
+///  ┏━━━━━━━━━━━━━━━━━━━━━ ---
+///  ┃                       | margin
+///  ┃   ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ ---
+///  ┃   ┆                   | border
+///  ┃   ┆   ╭┄┄┄┄┄┄┄┄┄┄┄┄┄ ---
+///  ┃   ┆   ┆               | padding
+///  ┃   ┆   ┆    ┏━━━━━━━━ ---
+///  ┃   ┆   ┆    ┃          | body
+///  ┃   ┆   ┆    ┗━━━━━━━━ ---
+///  ┃   ┆   ┆    |
+///  ┃   ┆   ╰┄┄┄┄┄┄┄┄┄┄┄┄┄
+///  ┃   ┆        |
+///  ┃   ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+///  ┃   |        |
+///  ┗━━━━━━━━━━━━━━━━━━━━━
+///      |        |
+///      |        |_ content-box
+///      |
+///      |_ border-box
+///
+/// ```
+///
+/// [^1]: <https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Box_model/Introduction>
+pub struct BoxModel {
+    pub width: Sizing,
+    pub height: Sizing,
+    pub margin: Option<Sides<Length>>,
+    pub padding: Option<Sides<Length>>,
+    pub box_sizing: Option<BoxSizing>,
+    /// Margins in CSS are computed on the width of the containing block, which
+    /// is quite different from Typst.
+    pub ignored_relative_outset: bool,
+    /// Padding in CSS is computed on the width of the containing block, which
+    /// is quite different from Typst.
+    pub ignored_relative_inset: bool,
 }
 
-impl ContainerModel {
+impl BoxModel {
+    /// Computes parameters for an element using a `content-box` box-model.
     pub fn resolve(
+        width: Sizing,
+        height: Sizing,
         outset: Sides<Option<Rel>>,
         inset: Sides<Option<Rel>>,
         border: &Sides<Option<Border>>,
-    ) -> ContainerModel {
+        has_body: bool,
+    ) -> BoxModel {
+        let outset = outset.unwrap_or_default();
+        let inset = inset.unwrap_or_default();
+
+        // Ignore relative outset and inset.
+        let ignored_relative_outset = outset.iter().any(|rel| !rel.rel.is_zero());
+        let ignored_relative_inset =
+            has_body && inset.iter().any(|rel| !rel.rel.is_zero());
+        let outset = outset.map(|rel| rel.abs);
+        let inset = inset.map(|rel| rel.abs);
+
+        // Strokes in Typst don't affect layout, but they do in the HTML/CSS
+        // layout model. Try to replicate the Typst behavior by using negative
+        // margins and adjust the padding of the container.
         let border_widths = border
             .as_ref()
             .map(|s| s.as_ref().map(|s| s.width_or_default()))
             .unwrap_or_default();
 
+        // If the container isn't auto-sized, add the outset to the size.
+        let width = match width {
+            Sizing::Auto => Sizing::Auto,
+            Sizing::Rel(rel) => Sizing::Rel(
+                rel + outset.sum_by_axis().x + 0.5 * border_widths.sum_by_axis().x,
+            ),
+            // TODO: Once fractions are supported, handle the outset.
+            Sizing::Fr(fr) => Sizing::Fr(fr),
+        };
+        let height = match height {
+            Sizing::Auto => Sizing::Auto,
+            Sizing::Rel(rel) => Sizing::Rel(
+                rel + outset.sum_by_axis().y + 0.5 * border_widths.sum_by_axis().y,
+            ),
+            // TODO: Once fractions are supported, handle the outset.
+            Sizing::Fr(fr) => Sizing::Fr(fr),
+        };
+
         // Use negative margin to represent outset.
         let margin = outset
             .zip(border_widths)
-            .map(|(outset, stroke)| -(outset.unwrap_or_default() + 0.5 * stroke));
+            .map(|(outset, stroke)| -(outset + 0.5 * stroke));
 
-        let padding =
-            outset.zip(inset).zip(border_widths).map(|((outset, inset), stroke)| {
-                outset.unwrap_or_default() + inset.unwrap_or_default() - 0.5 * stroke
-            });
+        // This might compute a negative padding, which is invalid in CSS, that
+        // case is handled
+        let padding = outset
+            .zip(inset)
+            .zip(border_widths)
+            .map(|((outset, inset), stroke)| outset + inset - 0.5 * stroke);
 
-        let margin = margin.iter().any(|margin| !margin.is_zero()).then_some(margin);
-        let padding = padding.iter().any(|padding| !padding.is_zero()).then_some(padding);
+        let has_margin = margin.iter().any(|margin| !margin.is_zero());
+        let has_border = border_widths.iter().any(|l| !l.is_zero());
+        let has_padding = has_body && padding.iter().any(|l| !l.is_zero());
 
-        ContainerModel { margin, padding }
+        let is_fully_auto_sized = width.is_auto() && height.is_auto();
+        let box_sizing = if !is_fully_auto_sized && (has_border || has_padding) {
+            BoxSizing::BorderBox
+        } else {
+            BoxSizing::ContentBox
+        };
+
+        let margin = has_margin.then_some(margin);
+        let padding = has_padding.then_some(padding);
+        let box_sizing = box_sizing.is_border_box().then_some(box_sizing);
+
+        BoxModel {
+            width,
+            height,
+            margin,
+            padding,
+            box_sizing,
+            ignored_relative_outset,
+            ignored_relative_inset,
+        }
     }
+}
 
-    pub fn box_sizing(&self) -> Option<&'static str> {
-        self.padding.is_some().then_some("border-box")
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BoxSizing {
+    ContentBox,
+    BorderBox,
+}
+
+impl BoxSizing {
+    /// Returns `true` if the box sizing is `border-box`.
+    pub fn is_border_box(&self) -> bool {
+        matches!(self, Self::BorderBox)
+    }
+}
+
+impl ToCss for BoxSizing {
+    fn emit(&self, w: &mut CssWriter) {
+        w.write(match self {
+            BoxSizing::ContentBox => "content-box",
+            BoxSizing::BorderBox => "border-box",
+        });
     }
 }
 
@@ -759,8 +961,9 @@ impl<'a> Border<'a> {
         Some(Self { width, color, dash })
     }
 
+    /// Always write the border width, since the default in HTML is 3px compared
+    /// to 1pt for Typst.
     fn width_or_default(&self) -> Length {
-        // TODO: The default in HTML is 1px, but in Typst it's 1pt.
         self.width.unwrap_or(Abs::pt(1.0).into())
     }
 
@@ -771,10 +974,8 @@ impl<'a> Border<'a> {
 
 impl ToCss for Border<'_> {
     fn emit(&self, w: &mut CssWriter) {
-        if let Smart::Custom(length) = self.width {
-            w.emit(length);
-            w.write(" ");
-        }
+        w.emit(self.width_or_default());
+        w.write(" ");
 
         // Always write the style.
         w.write(self.style());

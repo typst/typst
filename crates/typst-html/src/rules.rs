@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, bail, warning};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
@@ -12,7 +12,8 @@ use typst_library::foundations::{
 use typst_library::introspection::{Counter, DocumentIntrospection, QueryIntrospection};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
-    BlockBody, BlockElem, BoxElem, Corners, HElem, OuterVAlignment, Rel, Sides, Sizing,
+    Abs, BlockBody, BlockElem, BoxElem, Corners, Em, HElem, Length, OuterVAlignment, Rel,
+    Sides, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
@@ -26,10 +27,15 @@ use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
-use typst_library::visualize::{Color, ImageElem, Paint, Stroke};
+use typst_library::visualize::{
+    CircleElem, Color, EllipseElem, ImageElem, Paint, RectElem, Shape, ShapeKind,
+    SquareElem, Stroke,
+};
 
 use crate::convert::EngineExt;
-use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
+use crate::{
+    FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlProfile, HtmlTag, attr, css, tag,
+};
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -81,6 +87,13 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // Visualize.
     rules.register(Html, IMAGE_RULE);
+    //rules.register(Html, LINE_RULE);
+    rules.register(Html, RECT_RULE);
+    rules.register(Html, SQUARE_RULE);
+    rules.register(Html, ELLIPSE_RULE);
+    rules.register(Html, CIRCLE_RULE);
+    // rules.register(Html, POLYGON_RULE);
+    // rules.register(Html, CURVE_RULE);
 
     // For the HTML target, `html.frame` is a primitive. In the laid-out target,
     // it should be a no-op so that nested frames don't break (things like `show
@@ -745,59 +758,61 @@ const BLOCK_RULE: ShowFn<BlockElem> = |elem, engine, styles| {
         None => None,
     };
 
-    let mut inline = css::Properties::new();
-
-    if styles.get(HtmlElem::profile).is_presentational() {
-        container_style(
+    match styles.get(HtmlElem::profile) {
+        HtmlProfile::Semantic => {
+            Ok(HtmlElem::new(tag::div).with_body(body).pack().spanned(elem.span()))
+        }
+        HtmlProfile::Presentational => styled_container(
             engine,
-            &mut inline,
-            ContainerLayout::Block,
             elem.pack_ref(),
-            elem.width.get(styles).into(),
-            elem.height.get(styles),
-            elem.outset.get(styles),
-            elem.inset.get(styles),
-            elem.stroke.get_cloned(styles).unwrap_or_default(),
-            elem.radius.get(styles),
-            elem.clip.get(styles),
-            elem.fill.get_ref(styles),
-        );
+            body,
+            ContainerParams {
+                kind: LayoutKind::Block,
+                shape: None,
+                width: elem.width.get(styles).into(),
+                height: elem.height.get(styles),
+                outset: elem.outset.get(styles),
+                inset: elem.inset.get(styles),
+                stroke: elem.stroke.get_cloned(styles).unwrap_or_default(),
+                radius: elem.radius.get(styles),
+                fill: elem.fill.get_cloned(styles),
+                clip: elem.clip.get(styles),
+            },
+        ),
     }
-
-    Ok(HtmlElem::new(tag::div)
-        .with_styles(inline, (engine, elem.span()))
-        .with_body(body)
-        .pack()
-        .spanned(elem.span()))
 };
 
 const BOX_RULE: ShowFn<BoxElem> = |elem, engine, styles| {
-    let mut inline = css::Properties::new();
+    let body = elem.body.get_cloned(styles);
 
-    inline.push("display", "inline-block");
-
-    if styles.get(HtmlElem::profile).is_presentational() {
-        container_style(
+    match styles.get(HtmlElem::profile) {
+        HtmlProfile::Semantic => {
+            Ok(HtmlElem::new(tag::span)
+                // TODO: Maybe even remove this and instead add a `typst-box`
+                // class or similar.
+                .with_styles(css::Properties::new().with("display", "inline-block"), ())
+                .with_body(body)
+                .pack()
+                .spanned(elem.span()))
+        }
+        HtmlProfile::Presentational => styled_container(
             engine,
-            &mut inline,
-            ContainerLayout::Inline,
             elem.pack_ref(),
-            elem.width.get(styles),
-            elem.height.get(styles).into(),
-            elem.outset.get(styles),
-            elem.inset.get(styles),
-            elem.stroke.get_cloned(styles).unwrap_or_default(),
-            elem.radius.get(styles),
-            elem.clip.get(styles),
-            elem.fill.get_ref(styles),
-        );
+            elem.body.get_cloned(styles),
+            ContainerParams {
+                kind: LayoutKind::Inline,
+                shape: None,
+                width: elem.width.get(styles),
+                height: elem.height.get(styles).into(),
+                outset: elem.outset.get(styles),
+                inset: elem.inset.get(styles),
+                stroke: elem.stroke.get_cloned(styles).unwrap_or_default(),
+                radius: elem.radius.get(styles),
+                fill: elem.fill.get_cloned(styles),
+                clip: elem.clip.get(styles),
+            },
+        ),
     }
-
-    Ok(HtmlElem::new(tag::span)
-        .with_styles(inline, (engine, elem.span()))
-        .with_body(elem.body.get_cloned(styles))
-        .pack()
-        .spanned(elem.span()))
 };
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
@@ -837,33 +852,294 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
         .spanned(elem.span()))
 };
 
-enum ContainerLayout {
-    Block,
-    Inline,
-}
+const RECT_RULE: ShowFn<RectElem> = |elem, engine, styles| {
+    let fill = elem.fill.get_ref(styles);
+    let stroke = match elem.stroke.get_cloned(styles) {
+        Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+        Smart::Auto => Sides::splat(None),
+        Smart::Custom(stroke) => stroke.unwrap_or_default(),
+    };
 
-impl ContainerLayout {
-    fn is_block(&self) -> bool {
-        matches!(self, Self::Block)
-    }
-}
+    styled_container(
+        engine,
+        elem.pack_ref(),
+        elem.body.get_cloned(styles),
+        ContainerParams {
+            kind: LayoutKind::Block,
+            shape: Some(ShapeKind::Rect),
+            width: elem.width.get(styles).into(),
+            height: elem.height.get(styles),
+            outset: elem.outset.get(styles),
+            inset: elem.inset.get(styles),
+            stroke,
+            radius: elem.radius.get(styles),
+            fill: elem.fill.get_cloned(styles),
+            clip: false,
+        },
+    )
+};
 
-#[allow(clippy::too_many_arguments)]
-fn container_style(
-    engine: &mut Engine,
-    inline: &mut css::Properties,
-    kind: ContainerLayout,
-    elem: &Content,
+const SQUARE_RULE: ShowFn<SquareElem> = |elem, engine, styles| {
+    let fill = elem.fill.get_ref(styles);
+    let stroke = match elem.stroke.get_cloned(styles) {
+        Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+        Smart::Auto => Sides::splat(None),
+        Smart::Custom(stroke) => stroke.unwrap_or_default(),
+    };
+
+    styled_container(
+        engine,
+        elem.pack_ref(),
+        elem.body.get_cloned(styles),
+        ContainerParams {
+            kind: LayoutKind::Block,
+            shape: Some(ShapeKind::Square),
+            width: elem.width.get(styles).into(),
+            height: elem.height.get(styles),
+            outset: elem.outset.get(styles),
+            inset: elem.inset.get(styles),
+            stroke,
+            radius: elem.radius.get(styles),
+            fill: elem.fill.get_cloned(styles),
+            clip: false,
+        },
+    )
+};
+
+const ELLIPSE_RULE: ShowFn<EllipseElem> = |elem, engine, styles| {
+    let fill = elem.fill.get_ref(styles);
+    let stroke = match elem.stroke.get_cloned(styles) {
+        Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+        Smart::Auto => Sides::splat(None),
+        Smart::Custom(stroke) => Sides::splat(stroke),
+    };
+
+    styled_container(
+        engine,
+        elem.pack_ref(),
+        elem.body.get_cloned(styles),
+        ContainerParams {
+            kind: LayoutKind::Block,
+            shape: Some(ShapeKind::Ellipse),
+            width: elem.width.get(styles).into(),
+            height: elem.height.get(styles),
+            outset: elem.outset.get(styles),
+            inset: elem.inset.get(styles),
+            stroke,
+            radius: Corners::splat(None),
+            fill: elem.fill.get_cloned(styles),
+            clip: false,
+        },
+    )
+};
+
+const CIRCLE_RULE: ShowFn<CircleElem> = |elem, engine, styles| {
+    let fill = elem.fill.get_ref(styles);
+    let stroke = match elem.stroke.get_cloned(styles) {
+        Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+        Smart::Auto => Sides::splat(None),
+        Smart::Custom(stroke) => Sides::splat(stroke),
+    };
+
+    styled_container(
+        engine,
+        elem.pack_ref(),
+        elem.body.get_cloned(styles),
+        ContainerParams {
+            kind: LayoutKind::Block,
+            shape: Some(ShapeKind::Circle),
+            width: elem.width.get(styles).into(),
+            height: elem.height.get(styles),
+            outset: elem.outset.get(styles),
+            inset: elem.inset.get(styles),
+            stroke,
+            radius: Corners::splat(None),
+            fill: elem.fill.get_cloned(styles),
+            clip: false,
+        },
+    )
+};
+
+struct ContainerParams {
+    /// How the element behaves within the outer layout context.
+    kind: LayoutKind,
+    shape: Option<ShapeKind>,
     width: Sizing,
     height: Sizing,
     outset: Sides<Option<Rel>>,
     inset: Sides<Option<Rel>>,
     stroke: Sides<Option<Stroke>>,
     radius: Corners<Option<Rel>>,
+    fill: Option<Paint>,
     clip: bool,
-    fill: &Option<Paint>,
-) {
-    match width {
+}
+
+#[derive(Copy, Clone)]
+enum LayoutKind {
+    Block,
+    Inline,
+}
+
+impl LayoutKind {
+    fn is_block(&self) -> bool {
+        matches!(self, Self::Block)
+    }
+
+    fn is_inline(&self) -> bool {
+        matches!(self, Self::Inline)
+    }
+}
+
+/// Ideally a container could just be represented as a single `div` or `span`
+/// element with CSS properties. Due to some fundamental differences between the
+/// Typst and HTML/CSS layout model, some combinations of styles cannot be
+/// represented with a single HTML element. Instead, we use a nested element to
+/// replicate the Typst layout behavior.
+fn styled_container(
+    engine: &mut Engine,
+    elem: &Content,
+    mut body: Option<Content>,
+    params: ContainerParams,
+) -> SourceResult<Content> {
+    let ContainerParams {
+        kind,
+        shape,
+        mut width,
+        mut height,
+        outset,
+        mut inset,
+        stroke,
+        radius,
+        fill,
+        clip,
+    } = params;
+
+    let container_tag = match kind {
+        LayoutKind::Inline => tag::span,
+        LayoutKind::Block => tag::div,
+    };
+
+    // Auto size shape if it has no body.
+    if body.is_none()
+        && let Some(shape) = shape
+    {
+        // TODO: This doesn't respect the size of the containing region/block.
+        // Conecptually it should use `min(100%, <default-size>)` to restrict
+        // the automatically sized element to its container, but that doesn't
+        // quite work.
+        if shape.is_quadratic() {
+            let size = Shape::DEFAULT_SIZE.min_by_side().into();
+            width = width.or(Sizing::Rel(size));
+            height = height.or(Sizing::Rel(size));
+        } else {
+            width = width.or(Sizing::Rel(Shape::DEFAULT_SIZE.x.into()));
+            height = height.or(Sizing::Rel(Shape::DEFAULT_SIZE.y.into()));
+        }
+    }
+
+    // Apply extra inset to round shapes.
+    if shape.is_some_and(ShapeKind::is_round) {
+        inset = inset.map(|v| Some(v.unwrap_or_default() + Shape::ROUND_SHAPE_INSET));
+    }
+
+    let border = stroke.as_ref().map(css::Border::resolve);
+
+    let model =
+        css::BoxModel::resolve(width, height, outset, inset, &border, body.is_some());
+    let (mut inline, body_wrapper) = write_container_model(engine, elem, kind, &model);
+
+    // FIXME: This is a preferred aspect-ratio that doesn't always take effect.
+    // If an intrinsic width or height is used, the container is only expanded
+    // in height to make a square, not in width.
+    if shape.is_some_and(ShapeKind::is_quadratic) {
+        inline.push("aspect-ratio", "1");
+    }
+
+    if shape.is_some_and(ShapeKind::is_round) {
+        // Percentage values produce elliptic radii in CSS.
+        inline.push("border-radius", "50%");
+    } else {
+        // FIXME: Percentages produce elliptic shapes, while absolute lengths
+        // will produce rounded rectangles (what we also want for percentages).
+        // Container query units (`cqmin`) also don't work, because the same
+        // element can't be resolve as the container.
+        if radius.iter().any(|radius| radius.is_some()) {
+            inline.push("border-radius", radius.unwrap_or_default());
+        }
+    }
+
+    if kind.is_inline() && (body.is_some() || !model.width.is_auto()) {
+        inline.push("display", "inline-block");
+    }
+
+    if clip {
+        // FIXME: The overflow still affects the layout/alignment.
+        inline.push("overflow", "hidden");
+    }
+
+    if let Some(fill) = fill {
+        inline.push("background", fill);
+    }
+
+    inline.push_border(&border);
+
+    // Create a nested element to replicate the layout behavior of Typst.
+    if let Some(body_wrapper) = body_wrapper {
+        let mut inline = css::Properties::new();
+
+        let tag = match kind {
+            LayoutKind::Block => tag::div,
+            LayoutKind::Inline => {
+                // TODO:
+                inline.push("display", "block");
+                tag::span
+            }
+        };
+
+        if let Some(margin) = body_wrapper.margin {
+            inline.push("margin", margin);
+        }
+
+        body = Some(
+            HtmlElem::new(tag)
+                .with_styles(inline, (&mut *engine, elem.span()))
+                .with_body(body)
+                .pack()
+                .spanned(elem.span()),
+        );
+    };
+
+    Ok(HtmlElem::new(container_tag)
+        .with_styles(inline, (engine, elem.span()))
+        .with_body(body)
+        .pack()
+        .spanned(elem.span()))
+}
+
+/// If the container would need to have negative padding, which isn't valid in
+/// HTML/CSS, a nested element with negative margin is written instead.
+#[derive(Default)]
+struct BodyWrapper {
+    margin: Option<Sides<Length>>,
+}
+
+fn write_container_model(
+    engine: &mut Engine,
+    elem: &Content,
+    kind: LayoutKind,
+    model: &css::BoxModel,
+) -> (css::Properties, Option<BodyWrapper>) {
+    let mut inline = css::Properties::new();
+    let mut body_wrapper: Option<BodyWrapper> = None;
+
+    if model.ignored_relative_outset {
+        inline.ignored("relative outset");
+    }
+    if model.ignored_relative_inset {
+        inline.ignored("relative inset");
+    }
+
+    match model.width {
         Sizing::Auto => {
             if kind.is_block() {
                 inline.push("width", "fit-content");
@@ -875,7 +1151,7 @@ fn container_style(
         Sizing::Fr(_) => engine.ignored(elem.span(), "fractional width"),
     }
 
-    match height {
+    match model.height {
         Sizing::Auto => {}
         Sizing::Rel(rel) => {
             inline.push("height", rel);
@@ -883,27 +1159,28 @@ fn container_style(
         Sizing::Fr(_) => engine.ignored(elem.span(), "fractional height"),
     }
 
-    let border = stroke.as_ref().map(css::Border::resolve);
-
-    let model = css::ContainerModel::resolve(outset, inset, &border);
-    if !(width.is_auto() && height.is_auto())
-        && let Some(sizing) = model.box_sizing()
-    {
+    if let Some(sizing) = model.box_sizing {
         inline.push("box-sizing", sizing);
     }
-    inline.push_margin_and_padding(model);
 
-    if radius.iter().any(|radius| radius.is_some()) {
-        inline.push("border-radius", radius.unwrap_or_default());
+    // FIXME: Percentage value for margin and padding will always be relative to
+    // the width of the container element.
+    if let Some(margin) = model.margin {
+        inline.push("margin", margin);
     }
 
-    if clip {
-        inline.push("overflow", "hidden");
+    if let Some(padding) = model.padding {
+        let all_positive =
+            padding.iter().all(|p| p.abs >= Abs::zero() && p.em >= Em::zero());
+
+        // If the padding is negative create a nested element and apply a
+        // negative margin to it instead.
+        if all_positive {
+            inline.push("padding", padding);
+        } else {
+            body_wrapper.get_or_insert_default().margin = Some(padding);
+        }
     }
 
-    if let Some(fill) = fill {
-        inline.push("background", fill);
-    }
-
-    inline.push_border(&border);
+    (inline, body_wrapper)
 }
