@@ -4,6 +4,7 @@ use std::path::Path;
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::foundations::{Content, Output, Repr};
+use typst::model::Document;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_syntax::Spanned;
@@ -173,9 +174,9 @@ impl<'a> Runner<'a> {
             }
 
             if let Some(doc) = &mut doc
-                && doc.info.title.is_none()
+                && doc.info().title.is_none()
             {
-                doc.info.title = Some(self.test.name.clone());
+                doc.info_mut().title = Some(self.test.name.clone());
             }
 
             if self.test.should_run(TestOutput::Render) {

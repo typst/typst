@@ -14,17 +14,58 @@ use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
+use crate::document::HtmlOutput;
 use crate::{HtmlIntrospector, attr, charsets, css};
 
 /// An HTML document.
 #[derive(Debug, Clone)]
 pub struct HtmlDocument {
+    output: HtmlOutput,
+    info: DocumentInfo,
+    introspector: Arc<HtmlIntrospector>,
+}
+
+impl HtmlDocument {
+    /// Creates a new paged document from its parts.
+    ///
+    /// Internally builds the introspector.
+    pub fn new(output: HtmlOutput, info: DocumentInfo) -> Self {
+        let introspector = HtmlIntrospector::new(output.nodes());
+        Self { output, info, introspector: Arc::new(introspector) }
+    }
+
     /// The document's root HTML element.
-    pub root: HtmlElement,
-    /// Details about the document.
-    pub info: DocumentInfo,
+    pub fn root(&self) -> &HtmlElement {
+        self.output.root()
+    }
+
+    /// The document's root HTML element, mutably.
+    ///
+    /// Technically, mutating the root can mess up the introspector. This should
+    /// be fixed at some point (<https://github.com/typst/typst/issues/7951>).
+    pub fn root_mut(&mut self) -> &mut HtmlElement {
+        self.output.root_mut()
+    }
+
+    /// The document's root HTML element, in its containing node wrapper.
+    pub fn root_node(&self) -> &HtmlNode {
+        self.output.root_node()
+    }
+
+    /// Details about the document, mutably.
+    pub fn info_mut(&mut self) -> &mut DocumentInfo {
+        &mut self.info
+    }
+
     /// Provides the ability to execute queries on the document.
-    pub introspector: Arc<HtmlIntrospector>,
+    pub fn introspector(&self) -> &Arc<HtmlIntrospector> {
+        &self.introspector
+    }
+
+    /// Provides the ability to execute queries on the document.
+    pub fn introspector_mut(&mut self) -> &mut HtmlIntrospector {
+        Arc::make_mut(&mut self.introspector)
+    }
 }
 
 impl Document for HtmlDocument {

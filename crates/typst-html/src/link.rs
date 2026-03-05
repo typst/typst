@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -9,15 +10,14 @@ use typst_library::introspection::{
 use typst_library::layout::{Frame, FrameItem, Point};
 use typst_utils::PicoStr;
 
-use crate::{HtmlElement, HtmlNode, attr, tag};
+use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, tag};
 
 /// Attaches IDs to nodes produced by link targets to make them linkable.
 ///
 /// May produce `<span>`s for link targets that turned into text nodes or no
 /// nodes at all. See the [`LinkElem`] documentation for more details.
 pub fn create_link_anchors(
-    root: &mut HtmlElement,
-    introspector: &dyn Introspector,
+    document: &mut HtmlDocument,
     targets: &FxHashSet<Location>,
 ) -> FxHashMap<Location, EcoString> {
     if targets.is_empty() {
@@ -27,11 +27,12 @@ pub fn create_link_anchors(
 
     // Assign IDs to all link targets.
     let mut work = Work::new();
+    let introspector = Arc::clone(document.introspector());
     traverse(
         &mut work,
         targets,
-        &mut Identificator::new(introspector),
-        &mut root.children,
+        &mut Identificator::new(introspector.as_ref()),
+        &mut document.root_mut().children,
     );
     work.ids
 }

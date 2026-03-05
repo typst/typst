@@ -508,7 +508,7 @@ fn file_report(
 
 /// Draw all frames into one image with padding in between.
 fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
-    for page in &document.pages {
+    for page in document.pages() {
         let limit = Abs::cm(100.0);
         if page.frame.width() > limit || page.frame.height() > limit {
             panic!("overlarge frame: {:?}", page.frame.size());
@@ -522,7 +522,7 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     let gap = (pixel_per_pt * gap.to_pt() as f32).round();
 
     let mut y = 0.0;
-    for page in &document.pages {
+    for page in document.pages() {
         let ts =
             sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(0.0, y);
         render_links(&mut pixmap, ts, &page.frame);
@@ -594,7 +594,7 @@ pub fn is_empty_paged_document(doc: &PagedDocument) -> bool {
         })
     }
 
-    match doc.pages.as_slice() {
+    match doc.pages() {
         [] => true,
         [page] => {
             page.frame.width().approx_eq(Abs::pt(120.0))

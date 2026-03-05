@@ -12,10 +12,10 @@ use crate::{
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer::new(&document.introspector, true);
+    let mut w = Writer::new(document.introspector(), true);
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
-    write_element(&mut w, &document.root)?;
+    write_element(&mut w, document.root())?;
     if w.pretty {
         w.buf.push('\n');
     }

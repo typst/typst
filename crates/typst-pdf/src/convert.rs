@@ -78,7 +78,7 @@ pub fn convert(
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
-    for (i, typst_page) in gc.document.pages.iter().enumerate() {
+    for (i, typst_page) in gc.document.pages().iter().enumerate() {
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
             continue;
@@ -700,7 +700,7 @@ fn collect_named_destinations(
     let matches: Vec<_> = {
         let mut seen = FxHashSet::default();
         typst_document
-            .introspector
+            .introspector()
             .query(&HeadingElem::ELEM.select())
             .iter()
             .filter_map(|elem| elem.location().zip(elem.label()))
@@ -711,7 +711,7 @@ fn collect_named_destinations(
     for (loc, label) in matches {
         // Only add named destination if page belonging to the position is exported.
         let pos = typst_document
-            .introspector
+            .introspector()
             .position(loc)
             .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
@@ -734,7 +734,7 @@ impl PageIndexConverter {
         let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
-        for i in 0..document.pages.len() {
+        for i in 0..document.pages().len() {
             if options
                 .page_ranges
                 .as_ref()

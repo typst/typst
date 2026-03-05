@@ -32,7 +32,7 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
     HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
     StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
@@ -76,7 +76,7 @@ pub struct TreeBuilder<'a> {
 
 impl<'a> TreeBuilder<'a> {
     pub fn new(document: &PagedDocument, options: &'a PdfOptions) -> Self {
-        let doc_lang = document.info.locale.custom();
+        let doc_lang = document.info().locale.custom();
         let mut groups = Groups::new();
         let doc = groups.new_virtual(
             GroupId::INVALID,
@@ -178,7 +178,7 @@ struct StackEntry {
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
     let mut tree = TreeBuilder::new(document, options);
-    for page in document.pages.iter() {
+    for page in document.pages() {
         visit_frame(&mut tree, &page.frame)?;
     }
 

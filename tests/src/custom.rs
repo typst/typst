@@ -4,7 +4,7 @@ use typst::World;
 use typst::foundations::Smart;
 use typst::introspection::{Location, Tag};
 use typst::layout::{Frame, FrameItem};
-use typst::model::DocumentInfo;
+use typst::model::{Document, DocumentInfo};
 use typst_layout::PagedDocument;
 
 use crate::collect::Test;
@@ -54,7 +54,7 @@ pub fn check(test: &Test, world: &TestWorld, doc: Option<&PagedDocument>) -> Str
 
 /// Extract the document information.
 fn info(doc: Option<&PagedDocument>) -> DocumentInfo {
-    doc.map(|doc| doc.info.clone()).unwrap_or_default()
+    doc.map(|doc| doc.info().clone()).unwrap_or_default()
 }
 
 /// Naive check for whether tags are balanced in the document.
@@ -91,5 +91,5 @@ fn check_balanced(doc: &PagedDocument) -> Result<(), &'static str> {
     }
 
     let mut stack = Vec::new();
-    doc.pages.iter().try_for_each(|page| visit(&mut stack, &page.frame))
+    doc.pages().iter().try_for_each(|page| visit(&mut stack, &page.frame))
 }

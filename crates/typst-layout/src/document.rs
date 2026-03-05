@@ -14,12 +14,34 @@ use crate::PagedIntrospector;
 /// A finished document with metadata and page frames.
 #[derive(Debug, Clone)]
 pub struct PagedDocument {
+    pages: EcoVec<Page>,
+    info: DocumentInfo,
+    introspector: Arc<PagedIntrospector>,
+}
+
+impl PagedDocument {
+    /// Creates a new paged document from its parts.
+    ///
+    /// Internally builds the introspector.
+    pub fn new(pages: EcoVec<Page>, info: DocumentInfo) -> Self {
+        let introspector = PagedIntrospector::new(&pages);
+        Self { pages, info, introspector: Arc::new(introspector) }
+    }
+
     /// The document's finished pages.
-    pub pages: EcoVec<Page>,
-    /// Details about the document.
-    pub info: DocumentInfo,
+    pub fn pages(&self) -> &[Page] {
+        &self.pages
+    }
+
+    /// Details about the document, mutably.
+    pub fn info_mut(&mut self) -> &mut DocumentInfo {
+        &mut self.info
+    }
+
     /// Provides the ability to execute queries on the document.
-    pub introspector: Arc<PagedIntrospector>,
+    pub fn introspector(&self) -> &Arc<PagedIntrospector> {
+        &self.introspector
+    }
 }
 
 impl Document for PagedDocument {

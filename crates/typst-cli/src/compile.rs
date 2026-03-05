@@ -424,7 +424,7 @@ fn export_image(
     };
 
     let exported_pages = document
-        .pages
+        .pages()
         .iter()
         .enumerate()
         .filter(|(i, _)| {
@@ -456,7 +456,7 @@ fn export_image(
                         storage = output_template::format(
                             path.to_str().unwrap_or_default(),
                             i + 1,
-                            document.pages.len(),
+                            document.pages().len(),
                         );
                         Path::new(&storage)
                     } else {

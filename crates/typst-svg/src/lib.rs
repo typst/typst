@@ -103,20 +103,20 @@ pub fn svg_html_frame(
 /// The gap will be added between the individual pages.
 pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
     let width = document
-        .pages
+        .pages()
         .iter()
         .map(|page| page.frame.width())
         .max()
         .unwrap_or_default();
-    let height = document.pages.len().saturating_sub(1) as f64 * gap
-        + document.pages.iter().map(|page| page.frame.height()).sum::<Abs>();
+    let height = document.pages().len().saturating_sub(1) as f64 * gap
+        + document.pages().iter().map(|page| page.frame.height()).sum::<Abs>();
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, Size::new(width, height));
 
     let mut y = Abs::zero();
-    for page in &document.pages {
+    for page in document.pages() {
         let state = State::new(page.frame.size());
         renderer.render_page(
             &mut svg,

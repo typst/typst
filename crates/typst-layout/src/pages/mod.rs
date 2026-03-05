@@ -4,8 +4,6 @@ mod collect;
 mod finalize;
 mod run;
 
-use std::sync::Arc;
-
 use comemo::{Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::World;
@@ -23,7 +21,7 @@ use typst_utils::Protected;
 use self::collect::{Item, collect};
 use self::finalize::finalize;
 use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
-use crate::{Page, PagedDocument, PagedIntrospector};
+use crate::{Page, PagedDocument};
 
 /// Layout content into a document.
 ///
@@ -90,9 +88,8 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
-    let introspector = PagedIntrospector::new(&pages);
 
-    Ok(PagedDocument { pages, info, introspector: Arc::new(introspector) })
+    Ok(PagedDocument::new(pages, info))
 }
 
 /// Layouts the document's pages.

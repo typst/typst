@@ -9,7 +9,7 @@ use typst_utils::NonZeroExt;
 use crate::convert::GlobalContext;
 
 pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
-    let elems = gc.document.introspector.query(&HeadingElem::ELEM.select());
+    let elems = gc.document.introspector().query(&HeadingElem::ELEM.select());
 
     let flat = elems
         .iter()
@@ -25,7 +25,7 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
             let visible = gc.options.page_ranges.as_ref().is_none_or(|ranges| {
                 !ranges.includes_page(
                     gc.document
-                        .introspector
+                        .introspector()
                         .page(elem.location().unwrap())
                         .unwrap_or(NonZeroUsize::ONE),
                 )
@@ -60,7 +60,7 @@ fn convert_node(
     let loc = node.entry.location().unwrap();
     let pos = gc
         .document
-        .introspector
+        .introspector()
         .position(loc)
         .unwrap_or(PagedPosition::ORIGIN);
 

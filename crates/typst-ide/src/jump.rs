@@ -74,7 +74,7 @@ mod jump_from_document_sealed {
             world: &dyn IdeWorld,
             position: &Self::Position,
         ) -> Option<Jump> {
-            let page = self.pages.get(position.page.get() - 1)?;
+            let page = self.pages().get(position.page.get() - 1)?;
             let click = position.point;
             jump_from_click_in_frame(world, self, &page.frame, click)
         }
@@ -88,7 +88,7 @@ mod jump_from_document_sealed {
             world: &dyn IdeWorld,
             position: &Self::Position,
         ) -> Option<Jump> {
-            let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
+            let mut current_node = self.root_node();
             let mut prefix_len = 0;
 
             let indices_count = position.element().count();
@@ -393,7 +393,7 @@ mod jump_in_document_sealed {
         type Position = PagedPosition;
 
         fn find_span(&self, span: Span) -> Vec<Self::Position> {
-            self.pages
+            self.pages()
                 .iter()
                 .enumerate()
                 .filter_map(|(i, page)| {
@@ -410,7 +410,7 @@ mod jump_in_document_sealed {
         type Position = HtmlPosition;
 
         fn find_span(&self, span: Span) -> Vec<Self::Position> {
-            find_in_elem(&self.root, span, &mut EcoVec::new())
+            find_in_elem(self.root(), span, &mut EcoVec::new())
         }
     }
 }

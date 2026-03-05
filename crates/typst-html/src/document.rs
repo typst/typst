@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::World;
@@ -14,7 +12,7 @@ use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::rules::FootnoteContainer;
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlIntrospector, HtmlNode, attr, tag};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -92,7 +90,7 @@ fn html_document_impl(
         Whitespace::Normal,
     )?;
 
-    let (mut tags_and_root, root_index) = finalize_dom(
+    let output = finalize_dom(
         &mut engine,
         nodes,
         &info,
@@ -100,18 +98,47 @@ fn html_document_impl(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    let mut introspector = HtmlIntrospector::new(&tags_and_root);
-    let HtmlNode::Element(mut root) = tags_and_root.remove(root_index) else {
-        panic!("expected HTML element")
-    };
+    let mut document = HtmlDocument::new(output, info);
+    let targets = document.introspector().link_targets();
+    let anchors = crate::link::create_link_anchors(&mut document, &targets);
+    document.introspector_mut().set_anchors(anchors);
 
-    introspector.set_anchors(crate::link::create_link_anchors(
-        &mut root,
-        &introspector,
-        &introspector.link_targets(),
-    ));
+    Ok(document)
+}
 
-    Ok(HtmlDocument { info, root, introspector: Arc::new(introspector) })
+/// The introspectible output of HTML compilation.
+#[derive(Debug, Clone)]
+pub struct HtmlOutput {
+    nodes: EcoVec<HtmlNode>,
+    root_index: usize,
+}
+
+impl HtmlOutput {
+    /// All nodes.
+    pub fn nodes(&self) -> &[HtmlNode] {
+        &self.nodes
+    }
+
+    /// The root note.
+    pub fn root(&self) -> &HtmlElement {
+        match &self.nodes[self.root_index] {
+            HtmlNode::Element(root) => root,
+            _ => panic!("expected HTML element"),
+        }
+    }
+
+    /// The root note, mutably.
+    pub fn root_mut(&mut self) -> &mut HtmlElement {
+        match &mut self.nodes.make_mut()[self.root_index] {
+            HtmlNode::Element(root) => root,
+            _ => panic!("expected HTML element"),
+        }
+    }
+
+    /// The document's root HTML element, in its containing node wrapper.
+    pub fn root_node(&self) -> &HtmlNode {
+        &self.nodes[self.root_index]
+    }
 }
 
 /// Wrap the user generated HTML in <html>, <body> or both if needed.
@@ -120,21 +147,21 @@ fn html_document_impl(
 /// A direct reference to the root element is also returned.
 fn finalize_dom(
     engine: &mut Engine,
-    output: EcoVec<HtmlNode>,
+    nodes: EcoVec<HtmlNode>,
     info: &DocumentInfo,
     footnote_locator: Locator<'_>,
     footnote_styles: StyleChain<'_>,
-) -> SourceResult<(EcoVec<HtmlNode>, usize)> {
-    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
+) -> SourceResult<HtmlOutput> {
+    let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
     let mut needs_body = true;
-    for (idx, node) in output.iter().enumerate() {
+    for (idx, node) in nodes.iter().enumerate() {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
                 FootnoteContainer::unsupported_with_custom_dom(engine)?;
-                return Ok((output, idx));
+                return Ok(HtmlOutput { nodes, root_index: idx });
             }
             (tag::body, 1) => {
                 FootnoteContainer::unsupported_with_custom_dom(engine)?;
@@ -150,7 +177,7 @@ fn finalize_dom(
     }
 
     let body = if needs_body {
-        let mut body = HtmlElement::new(tag::body).with_children(output);
+        let mut body = HtmlElement::new(tag::body).with_children(nodes);
         let footnotes = crate::fragment::html_block_fragment(
             engine,
             FootnoteContainer::shared(),
@@ -161,7 +188,7 @@ fn finalize_dom(
         body.children.extend(footnotes);
         eco_vec![body.into()]
     } else {
-        output
+        nodes
     };
 
     let mut html = HtmlElement::new(tag::html)
@@ -169,7 +196,7 @@ fn finalize_dom(
     let head = head_element(info);
     html.children.push(head.into());
     html.children.extend(body);
-    Ok((eco_vec![html.into()], 0))
+    Ok(HtmlOutput { nodes: eco_vec![html.into()], root_index: 0 })
 }
 
 /// Generate a `<head>` element.

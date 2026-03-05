@@ -51,7 +51,7 @@ pub(crate) fn handle_link(
             } else {
                 let pos = gc
                     .document
-                    .introspector
+                    .introspector()
                     .position(*loc)
                     .unwrap_or(PagedPosition::ORIGIN);
                 let Some(dest) = pos_to_xyz(&gc.page_index_converter, pos) else {

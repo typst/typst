@@ -36,7 +36,7 @@ impl Resolver for CliResolver<'_> {
 
         fs::create_dir_all(self.assets_dir).expect("create dir");
 
-        let pages = match &document.pages[..] {
+        let pages = match document.pages() {
             [page] => vec![(page, format!("{hash:x}.png"), "Preview".to_string())],
             pages => pages
                 .iter()

@@ -48,8 +48,11 @@ pub fn render_merged(
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> =
-        document.pages.iter().map(|page| render(page, pixel_per_pt)).collect();
+    let pixmaps: Vec<_> = document
+        .pages()
+        .iter()
+        .map(|page| render(page, pixel_per_pt))
+        .collect();
 
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();

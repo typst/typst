@@ -14,7 +14,7 @@ pub(crate) fn attach_files(
     gc: &GlobalContext,
     document: &mut Document,
 ) -> SourceResult<()> {
-    let elements = gc.document.introspector.query(&AttachElem::ELEM.select());
+    let elements = gc.document.introspector().query(&AttachElem::ELEM.select());
 
     for elem in &elements {
         let elem = elem.to_packed::<AttachElem>().unwrap();
