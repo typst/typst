@@ -330,6 +330,33 @@ impl Introspect for PathIntrospection {
     }
 }
 
+/// Retrieves the location of the document in which an element is located.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct DocumentIntrospection(pub Location, pub Span);
+
+impl Introspect for DocumentIntrospection {
+    type Output = Option<Location>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Self::Output {
+        introspector.document(self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "path",
+            |element| eco_format!("document in which the {element} is located"),
+            |_loc| eco_format!("TODO"),
+        )
+    }
+}
+
 /// The warning when an introspection on a [`Location`] did not converge.
 fn format_convergence_warning<T>(
     loc: Location,

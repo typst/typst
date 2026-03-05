@@ -1,13 +1,14 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
-use typst_library::engine::Engine;
+use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
+    Target,
 };
-use typst_library::introspection::{Counter, QueryIntrospection};
+use typst_library::introspection::{Counter, DocumentIntrospection, QueryIntrospection};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
@@ -15,18 +16,16 @@ use typst_library::layout::{
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EarlyLinkResolver, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem,
-    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry, FootnoteMarker,
+    HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
+    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
+    TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
-use typst_macros::elem;
-use typst_syntax::Span;
-use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -315,54 +314,23 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     Ok(HElem::hole().clone() + sup + marker)
 };
 
-/// This is inserted at the end of the body to display footnotes. In the future,
-/// we can expose this to allow customizing where the footnotes appear. It could
-/// also be exposed for paged export.
-#[elem]
-pub struct FootnoteContainer {}
-
-impl FootnoteContainer {
-    /// Get the globally shared footnote container element.
-    pub fn shared() -> &'static Content {
-        singleton!(Content, FootnoteContainer::new().pack())
-    }
-
-    /// Fails with an error if there are footnotes.
-    pub fn unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
-        let markers = engine.introspect(QueryIntrospection(
-            FootnoteMarker::ELEM.select(),
-            Span::detached(),
-        ));
-
-        if markers.is_empty() {
-            return Ok(());
-        }
-
-        Err(markers
-            .iter()
-            .map(|marker| {
-                error!(
-                    marker.span(),
-                    "footnotes are not currently supported in combination \
-                     with a custom `<html>` or `<body>` element";
-                    hint: "you can still use footnotes with a custom footnote show rule";
-                )
-            })
-            .collect())
-    }
-}
-
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
 const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
-    let notes =
-        engine.introspect(QueryIntrospection(FootnoteElem::ELEM.select(), elem.span()));
+    let mut selector = FootnoteElem::ELEM.select();
 
-    if notes.is_empty() {
-        return Ok(Content::empty());
+    // In bundle export, we only want the footnotes in the current document.
+    if let Some(doc_location) =
+        engine.introspect(DocumentIntrospection(elem.location().unwrap(), elem.span()))
+    {
+        selector = Selector::Within {
+            selector: Arc::new(FootnoteElem::ELEM.select()),
+            ancestor: Arc::new(doc_location.into()),
+        };
     }
 
     // Create entries for all footnotes in the document.
+    let notes = engine.introspect(QueryIntrospection(selector, elem.span()));
     let items = notes.into_iter().filter_map(|note| {
         let note = note.into_packed::<FootnoteElem>().unwrap();
         if note.is_ref() {
@@ -380,6 +348,12 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
                 .spanned(span),
         )
     });
+
+    // Don't create a container if we filtered out all notes.
+    let mut items = items.peekable();
+    if items.peek().is_none() {
+        return Ok(Content::empty());
+    }
 
     // There can be multiple footnotes in a container, so they semantically
     // represent an ordered list. However, the list is already numbered with the

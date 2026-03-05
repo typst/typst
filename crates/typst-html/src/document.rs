@@ -1,17 +1,18 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, StyleChain, Styles};
-use typst_library::introspection::{Introspector, Locator, LocatorLink};
-use typst_library::model::DocumentInfo;
+use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
+use typst_library::introspection::{
+    Introspector, Locator, LocatorLink, QueryIntrospection,
+};
+use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
 use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::rules::FootnoteContainer;
 use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
@@ -242,11 +243,11 @@ fn finalize_dom(
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
-                FootnoteContainer::unsupported_with_custom_dom(engine)?;
+                footnotes_unsupported_with_custom_dom(engine)?;
                 return Ok(HtmlOutput { nodes, root_index: idx });
             }
             (tag::body, 1) => {
-                FootnoteContainer::unsupported_with_custom_dom(engine)?;
+                footnotes_unsupported_with_custom_dom(engine)?;
                 needs_body = false;
             }
             (tag::html | tag::body, _) => bail!(
@@ -330,4 +331,26 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     }
 
     HtmlElement::new(tag::head).with_children(children)
+}
+
+/// Fails with an error if there are footnotes.
+fn footnotes_unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
+    let markers = engine
+        .introspect(QueryIntrospection(FootnoteMarker::ELEM.select(), Span::detached()));
+
+    if markers.is_empty() {
+        return Ok(());
+    }
+
+    Err(markers
+        .iter()
+        .map(|marker| {
+            error!(
+                marker.span(),
+                "footnotes are not currently supported in combination \
+                 with a custom `<html>` or `<body>` element";
+                hint: "you can still use footnotes with a custom footnote show rule";
+            )
+        })
+        .collect())
 }
