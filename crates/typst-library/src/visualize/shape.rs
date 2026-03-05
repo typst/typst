@@ -1,5 +1,7 @@
+use std::f64::consts::SQRT_2;
+
 use crate::foundations::{Cast, Content, Smart, elem};
-use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
+use crate::layout::{Abs, Corners, Length, Point, Ratio, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 use kurbo::{PathEl, Shape as _};
 
@@ -343,11 +345,43 @@ pub struct Shape {
 }
 
 impl Shape {
+    /// The default size that a shape takes on if it has no child and no
+    /// explicit forced sizes.
+    pub const DEFAULT_SIZE: Size = Size::new(Abs::pt(45.0), Abs::pt(30.0));
+
+    /// The additional inset applied to round shapes.
+    pub const ROUND_SHAPE_INSET: Ratio = Ratio::new(0.5 - SQRT_2 / 4.0);
+
     /// The bounding box of the shape,
     /// optionally taking the stroke into account
     pub fn bbox(&self, include_stroke: bool) -> Rect {
         self.geometry
             .bbox(if include_stroke { self.stroke.as_ref() } else { None })
+    }
+}
+
+/// A category of shape.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ShapeKind {
+    /// A rectangle with equal side lengths.
+    Square,
+    /// A quadrilateral with four right angles.
+    Rect,
+    /// An ellipse with coinciding foci.
+    Circle,
+    /// A curve around two focal points.
+    Ellipse,
+}
+
+impl ShapeKind {
+    /// Whether this shape kind is curvy.
+    pub fn is_round(self) -> bool {
+        matches!(self, Self::Circle | Self::Ellipse)
+    }
+
+    /// Whether this shape kind has equal side length.
+    pub fn is_quadratic(self) -> bool {
+        matches!(self, Self::Square | Self::Circle)
     }
 }
 

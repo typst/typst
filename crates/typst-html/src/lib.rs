@@ -20,6 +20,7 @@ pub use self::encode::{html, html_in_bundle};
 pub use self::introspect::HtmlIntrospector;
 pub use self::link::create_link_anchors;
 pub use self::rules::{html_span_filled, register};
+pub use css::BoxModel;
 
 use ecow::EcoString;
 use typst_library::Category;

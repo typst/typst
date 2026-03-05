@@ -1,17 +1,15 @@
-use std::f64::consts::SQRT_2;
-
 use kurbo::{CubicBez, ParamCurveExtrema};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, Corner, Corners, Frame, FrameItem, Point, Ratio, Region, Rel, Sides, Size,
+    Abs, Axes, Corner, Corners, Frame, FrameItem, Point, Region, Rel, Sides, Size,
 };
 use typst_library::visualize::{
     CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
     FixedStroke, Geometry, LineCap, LineElem, Paint, PolygonElem, RectElem, Shape,
-    SquareElem, Stroke,
+    ShapeKind, SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -457,31 +455,6 @@ pub fn layout_circle(
     )
 }
 
-/// A category of shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum ShapeKind {
-    /// A rectangle with equal side lengths.
-    Square,
-    /// A quadrilateral with four right angles.
-    Rect,
-    /// An ellipse with coinciding foci.
-    Circle,
-    /// A curve around two focal points.
-    Ellipse,
-}
-
-impl ShapeKind {
-    /// Whether this shape kind is curvy.
-    fn is_round(self) -> bool {
-        matches!(self, Self::Circle | Self::Ellipse)
-    }
-
-    /// Whether this shape kind has equal side length.
-    fn is_quadratic(self) -> bool {
-        matches!(self, Self::Square | Self::Circle)
-    }
-}
-
 /// Layout a shape.
 #[allow(clippy::too_many_arguments)]
 fn layout_shape(
@@ -503,7 +476,7 @@ fn layout_shape(
         let mut inset = inset.unwrap_or_default();
         if kind.is_round() {
             // Apply extra inset to round shapes.
-            inset = inset.map(|v| v + Ratio::new(0.5 - SQRT_2 / 4.0));
+            inset = inset.map(|v| v + Shape::ROUND_SHAPE_INSET);
         }
         let has_inset = !inset.is_zero();
 
@@ -541,7 +514,7 @@ fn layout_shape(
     } else {
         // The default size that a shape takes on if it has no child and no
         // forced sizes.
-        let default = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(region.size);
+        let default = Shape::DEFAULT_SIZE.min(region.size);
 
         let size = if kind.is_quadratic() {
             Size::splat(match quadratic_size(region) {

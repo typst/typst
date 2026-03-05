@@ -702,13 +702,13 @@ impl Display for Str {
 
 impl Repr for Str {
     fn repr(&self) -> EcoString {
-        self.as_ref().repr()
+        self.as_str().repr()
     }
 }
 
 impl Repr for EcoString {
     fn repr(&self) -> EcoString {
-        self.as_ref().repr()
+        self.as_str().repr()
     }
 }
 
