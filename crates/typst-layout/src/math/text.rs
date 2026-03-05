@@ -67,7 +67,9 @@ fn layout_inline_text(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<FrameFragment> {
-    if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
+    if text.chars().all(|c| c.is_ascii_digit() || c == '.')
+        && styles.get_ref(TextElem::shift_settings).is_none()
+    {
         // Small optimization for numbers. Note that this lays out slightly
         // differently to normal text and is worth re-evaluating in the future.
         let mut fragments = vec![];

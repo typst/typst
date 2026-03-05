@@ -390,6 +390,11 @@ C
 
 #footnote[]
 
+--- issue-7574-footnote-in-math paged ---
+// Footnote markers in math should be superscript.
+#set page(height: 5cm, width: 5cm)
+$ "Math text" #footnote[Footnote] $
+
 --- footnote-custom-head-html html ---
 #html.html({
   html.head()
