@@ -152,8 +152,8 @@ impl HtmlPosition {
     /// this position.
     ///
     /// See [`HtmlPosition::new`] for more details.
-    pub fn element(&self) -> impl Iterator<Item = &usize> {
-        self.element.iter()
+    pub fn element(&self) -> impl Iterator<Item = usize> {
+        self.element.iter().copied()
     }
 }
 

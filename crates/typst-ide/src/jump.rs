@@ -100,7 +100,7 @@ mod jump_from_document_sealed {
                             .children
                             .iter_with_dom_indices()
                             .enumerate()
-                            .find(|(_, (child, dom_index))| {
+                            .find(|&(_, (child, dom_index))| {
                                 !matches!(child, HtmlNode::Tag(_)) && dom_index == index
                             })?;
 
