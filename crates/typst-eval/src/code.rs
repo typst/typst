@@ -232,22 +232,22 @@ impl Eval for ast::Array<'_> {
         // dictionary. If _all_ of the array items are spreads of dictionaries,
         // the user probably wanted to write `(: ..dict_a, ..dict_b)` instead
         // to create a dictionary, not an array.
-        let mut items_seen_are_spread_dicts = true;
+        let mut all_dict_spreads = true;
 
         while let Some(item) = items.next() {
             match item {
                 ast::ArrayItem::Pos(expr) => {
-                    items_seen_are_spread_dicts = false;
+                    all_dict_spreads = false;
                     vec.push(expr.eval(vm)?)
                 }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
-                        items_seen_are_spread_dicts = false;
+                        all_dict_spreads = false;
                         vec.extend(array.into_iter())
                     }
                     v @ Value::Dict(_)
-                        if items_seen_are_spread_dicts
+                        if all_dict_spreads
                         // Lookahead to see whether remaining items are spreads
                         // of dicts
                         && items.all(|item| matches!(
