@@ -787,6 +787,7 @@ f39daa92c58402d9f88569c3300daa17 issue-7249-multiple-lookup-tables
 62fd68f4bd3db538d980abcfe71c23da issue-7398-grid-line-end-oob
 bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 2e23a826a914d869461b594a54ba8890 issue-7437-math-accent-text-presentation
+3ebeceb7e41e87f3aa851beda1e37977 issue-7574-footnote-in-math
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak

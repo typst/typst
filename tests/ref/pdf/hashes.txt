@@ -787,6 +787,7 @@ f420fcaa78fa27566a8b2fde93343cc8 issue-6539-cjk-latin-spacing-at-manual-linebrea
 7d13106f58a4cd6baa092579f40f4ddf issue-7398-grid-line-end-oob
 0b4e709ff148625438000ca7737ccfc2 issue-7428-heading-numbering-errors
 fc815e90340a2724adc27ab1c38bbf78 issue-7437-math-accent-text-presentation
+64d26fe12dd359371a961ef3bed30585 issue-7574-footnote-in-math
 05ad3f9eed0c1435183fae4a491f06f4 issue-758-link-repeat
 a975b02164c8d48dbded119de6d1b7db issue-785-cite-locate
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
