@@ -6,6 +6,8 @@ use typst_library::layout::HElem;
 use typst_library::routines::Pair;
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
+use super::is_inlinable_block;
+
 /// State kept for space collapsing.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum SpaceState {
@@ -83,7 +85,7 @@ pub(crate) fn collapse_state(content: &Content, styles: StyleChain) -> SpaceStat
         } else {
             SpaceState::Invisible
         }
-    } else if content.is::<LinebreakElem>() {
+    } else if content.is::<LinebreakElem>() || is_inlinable_block(content) {
         SpaceState::Destructive
     } else if content.is::<SpaceElem>() {
         SpaceState::Space

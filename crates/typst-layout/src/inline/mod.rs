@@ -9,6 +9,7 @@ mod prepare;
 mod shaping;
 
 pub use self::box_::layout_box;
+pub use self::line::ParChild;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 use comemo::{Track, Tracked, TrackedMut};
@@ -49,7 +50,7 @@ pub fn layout_par(
     region: Size,
     expand: bool,
     situation: ParSituation,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Vec<ParChild>> {
     layout_par_impl(
         elem,
         engine.routines,
@@ -82,7 +83,7 @@ fn layout_par_impl(
     region: Size,
     expand: bool,
     situation: ParSituation,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Vec<ParChild>> {
     let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
@@ -131,7 +132,7 @@ pub fn layout_inline<'a>(
     region: Size,
     expand: bool,
 ) -> SourceResult<Fragment> {
-    layout_inline_impl(
+    let children = layout_inline_impl(
         engine,
         children,
         locator,
@@ -145,7 +146,20 @@ pub fn layout_inline<'a>(
             first_line_indent: shared.get(ParElem::first_line_indent),
             hanging_indent: shared.resolve(ParElem::hanging_indent),
         },
-    )
+    )?;
+    Ok(Fragment::frames(
+        children
+            .into_iter()
+            .map(|child| match child {
+                ParChild::Frame(frame) => frame,
+                // This is unreachable as during realization we always ensure
+                // an inlinable `BlockElem` either (1) is alone and treated as
+                // block-level or (2) is together with other inline-level
+                // content and wrapped in a paragraph.
+                ParChild::Block { .. } => unreachable!(),
+            })
+            .collect(),
+    ))
 }
 
 /// The internal implementation of [`layout_inline`].
@@ -159,7 +173,7 @@ fn layout_inline_impl<'a>(
     expand: bool,
     par: Option<ParSituation>,
     base: &ConfigBase,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Vec<ParChild>> {
     // Prepare configuration that is shared across the whole inline layout.
     let config = configuration(base, children, shared, par);
 
@@ -173,7 +187,7 @@ fn layout_inline_impl<'a>(
     // Break the text into lines.
     let lines = linebreak(engine, &p, region.x - config.hanging_indent);
 
-    // Turn the selected lines into frames.
+    // Turn the selected lines into frames or inline blocks.
     finalize(engine, &p, &lines, region, expand, locator)
 }
 

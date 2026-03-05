@@ -722,40 +722,41 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         // Find out whether the last break was mandatory by checking against
         // rules LB4 and LB5, special-casing the end of text according to LB3.
         // See also: https://docs.rs/icu_segmenter/latest/icu_segmenter/struct.LineSegmenter.html
-        let breakpoint = if point == text.len() {
-            Breakpoint::Mandatory
-        } else {
-            const OBJ_REPLACE: char = '\u{FFFC}';
-            match lb.get(c) {
-                LineBreak::MandatoryBreak
-                | LineBreak::CarriageReturn
-                | LineBreak::LineFeed
-                | LineBreak::NextLine => Breakpoint::Mandatory,
+        let breakpoint =
+            if point == text.len() || matches!(p.get(point).1, Item::Block(_, _)) {
+                Breakpoint::Mandatory
+            } else {
+                const OBJ_REPLACE: char = '\u{FFFC}';
+                match lb.get(c) {
+                    LineBreak::MandatoryBreak
+                    | LineBreak::CarriageReturn
+                    | LineBreak::LineFeed
+                    | LineBreak::NextLine => Breakpoint::Mandatory,
 
-                // https://github.com/typst/typst/issues/5489
-                //
-                // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
-                // opportunities before and after by default. This behaviour
-                // is however tailorable, see:
-                // https://www.unicode.org/reports/tr14/#CB
-                // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
-                // https://www.unicode.org/reports/tr14/#LB20
-                //
-                // Don't provide a line breaking opportunity between a LTR-
-                // ISOLATE (or any other Combining Mark) and an OBJECT-
-                // REPLACEMENT-CHARACTER representing an inline item, if the
-                // LTR-ISOLATE could end up as the only character on the
-                // previous line.
-                LineBreak::CombiningMark
-                    if text[point..].starts_with(OBJ_REPLACE)
-                        && last + c.len_utf8() == point =>
-                {
-                    continue;
+                    // https://github.com/typst/typst/issues/5489
+                    //
+                    // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
+                    // opportunities before and after by default. This behaviour
+                    // is however tailorable, see:
+                    // https://www.unicode.org/reports/tr14/#CB
+                    // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
+                    // https://www.unicode.org/reports/tr14/#LB20
+                    //
+                    // Don't provide a line breaking opportunity between a LTR-
+                    // ISOLATE (or any other Combining Mark) and an OBJECT-
+                    // REPLACEMENT-CHARACTER representing an inline item, if the
+                    // LTR-ISOLATE could end up as the only character on the
+                    // previous line.
+                    LineBreak::CombiningMark
+                        if text[point..].starts_with(OBJ_REPLACE)
+                            && last + c.len_utf8() == point =>
+                    {
+                        continue;
+                    }
+
+                    _ => Breakpoint::Normal,
                 }
-
-                _ => Breakpoint::Normal,
-            }
-        };
+            };
 
         // Hyphenate between the last and current breakpoint.
         if hyphenate && last < point {

@@ -298,7 +298,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes an unbreakable block.
     fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
         // Lay out the block.
-        let frame = single.layout(
+        let mut frame = single.layout(
             self.composer.engine,
             Region::new(self.regions.base(), self.regions.expand),
         )?;
@@ -318,6 +318,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
+        // Push tags around an inline block to the frame.
+        if let Some((_, tags, tags_before)) = &single.inline {
+            push_tags(&mut frame, tags, *tags_before);
+        }
+
         self.frame(frame, single.align, single.sticky, false)
     }
 
@@ -330,7 +335,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Lay out the block.
-        let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        let (mut frame, spill) = multi.layout(self.composer.engine, self.regions)?;
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -339,6 +344,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // the spill, the whole child should be put in the next region to
             // avoid any invisible orphans at the end of this region.
             return Err(Stop::Finish(false));
+        }
+
+        // Push tags around an inline block to the frame.
+        if let Some((_, tags, tags_before)) = &multi.inline {
+            push_tags(&mut frame, tags, *tags_before);
         }
 
         self.frame(frame, multi.align, multi.sticky, true)?;
@@ -623,4 +633,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         *self.composer.work = snapshot.work;
         self.items.truncate(snapshot.items);
     }
+}
+
+/// Prepend and push tags in order to the frame.
+fn push_tags(frame: &mut Frame, tags: &[Tag], tags_before: usize) {
+    let (before, after) = tags.split_at(tags_before);
+    frame.prepend_multiple(
+        before.iter().map(|tag| (Point::zero(), FrameItem::Tag(tag.clone()))),
+    );
+    frame.push_multiple(
+        after.iter().map(|tag| (Point::zero(), FrameItem::Tag(tag.clone()))),
+    );
 }
