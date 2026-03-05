@@ -248,6 +248,7 @@ fdacac3583b252e6d9fa9330a95237ee for-loop-basic
 c74b8868d000fa2ec368f4598b169d70 gradient-angle-rotation-aspect
 c6170e6f11695bda78e4332de93c893e gradient-conic
 a66907816415e182548c9ce6b4c5fc6f gradient-conic-angled
+26349bc5927b1c8b1879ea6c1a9a78f9 gradient-conic-angled-aspect-ratio
 dd67671a641c13b86dca4a890782a581 gradient-conic-center-shifted-1
 e0e147ad5baf79010ababebc298a1ba3 gradient-conic-center-shifted-2
 6434406918b964115d54a11693356b74 gradient-conic-hsl
@@ -260,6 +261,7 @@ ec07b72a1b374308fe58f87c6b2d800e gradient-conic-relative-self
 1f54dde37c2342787f712088722adf45 gradient-conic-text
 77241bb987f1ae9f1b3e5148ecbe6ec9 gradient-fill-and-stroke
 fb26ede30bbebf76a288188c27a2bb70 gradient-linear-angled
+9aff05c6ee34193b3253c1a618bd4e8e gradient-linear-angled-aspect-ratio
 db0989426b5200e53a76f71de2f91bb7 gradient-linear-hsl
 515ece6ff67a7d8a8eb7269af9c4a39e gradient-linear-hsv
 6c2ffe561d904f2aa762b3bca7fb4b9c gradient-linear-line
@@ -288,6 +290,7 @@ d37ef81cb70183eed6a75169008a582a gradient-math-dir
 641f1baa27603f0b3f907bf9257b654c gradient-math-underover
 73b0b723d7ab521ba8c3d72431f9667e gradient-negative-square-angles
 6bf078df5186b9ac155818dc6753b316 gradient-presets
+b5b04247b0ab50d6cf151d11fa9e43a0 gradient-radial-aspect-ratio
 7686015f639fd0a80d23f7648bfc8119 gradient-radial-center
 4f50914ce63397b7305daa85cab07cc1 gradient-radial-focal-center-and-radius
 86522eea49aa4159d8d41e9026082fb1 gradient-radial-hsl
