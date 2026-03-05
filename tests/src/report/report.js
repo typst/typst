@@ -276,7 +276,7 @@ const imageDiffs = []
  */
 
 /**
- * @typedef {"side-by-side" | "blend" | "difference"} ImageViewMode
+ * @typedef {"side-by-side" | "swipe" | "blend" | "difference"} ImageViewMode
  */
 
 for (const imageDiff of document.getElementsByClassName("image-diff")) {
@@ -381,7 +381,7 @@ function onViewportIntersectionChanged(element, callback) {
   observer.observe(element);
 }
 
-let imageModes = ["side-by-side", "blend", "difference"]
+let imageModes = ["side-by-side", "swipe", "blend", "difference"]
 for (const mode of imageModes) {
   document.getElementById(`global-image-view-mode-${mode}`)
     .addEventListener("click", () => changeGlobalImageMode(mode));
@@ -421,6 +421,11 @@ function disableImageControls(state, mode) {
       state.imageBlendControl.disabled = true;
       break;
     }
+    case "swipe": {
+      state.imageAlignXControl.disabled = false;
+      state.imageBlendControl.disabled = false;
+      break;
+    }
     case "blend": {
       state.imageAlignXControl.disabled = false;
       state.imageBlendControl.disabled = false;
@@ -442,6 +447,7 @@ function disableImageControls(state, mode) {
  * @property y {number}
  * @property w {number}
  * @property h {number}
+ * @property clip {Path2D?}
  * @property opacity {number}
  */
 
@@ -469,8 +475,9 @@ function redrawImageDiff(state) {
   const mode = currentImageMode(state)
   const alignX = currentImageAlignX(state);
   const alignY = currentImageAlignY(state);
-  const blend = state.imageBlend.value
+  const blend = Number(state.imageBlend.value);
 
+  /** @type {ImageParams} */
   const a = {
     x: 0,
     y: 0,
@@ -478,6 +485,7 @@ function redrawImageDiff(state) {
     h: scale * state.images[0].naturalHeight,
     opacity: 1,
   };
+  /** @type {ImageParams} */
   const b = {
     x: 0,
     y: 0,
@@ -491,14 +499,18 @@ function redrawImageDiff(state) {
 
   const sideBySideGap = 1;
 
+  const swipeYPadding = scale * 8;
+  const swipeXPadding = 2;
+  const swipeDividerWidth = 1;
+
   let canvasSize = { w: maxWidth, h: maxHeight };
   let compositeMode;
+  let swipeDividerPos = null;
   switch (mode) {
     case "side-by-side": {
       compositeMode = "source-over";
 
-      const maxWidth = Math.max(a.w, b.w);
-      canvasSize = { w: 2 * maxWidth + sideBySideGap, h: Math.max(a.h, b.h) };
+      canvasSize = { w: 2 * maxWidth + sideBySideGap, h: maxHeight };
 
       // Center align images
       a.x = maxWidth - a.w;
@@ -506,6 +518,29 @@ function redrawImageDiff(state) {
 
       a.y = verticalAlignImage(a, canvasSize, alignY);
       b.y = verticalAlignImage(b, canvasSize, alignY);
+
+      break;
+    }
+    case "swipe": {
+      compositeMode = "source-over";
+
+      const logicalCanvasSize = canvasSize;
+      canvasSize = { w: maxWidth + 2 * swipeXPadding, h: maxHeight + 2 * swipeYPadding };
+
+      a.x = horizontalAlignImage(a, logicalCanvasSize, alignX) + swipeXPadding;
+      b.x = horizontalAlignImage(b, logicalCanvasSize, alignX) + swipeXPadding;
+      a.y = verticalAlignImage(a, logicalCanvasSize, alignY) + swipeYPadding;
+      b.y = verticalAlignImage(b, logicalCanvasSize, alignY) + swipeYPadding;
+
+      swipeDividerPos = Math.round(blend * (canvasSize.w - swipeDividerWidth));
+
+      // Use clip paths instead of the `drawImage` source paramters to avoid
+      // wobble of the images when moving the slider.
+      a.clip = new Path2D();
+      a.clip.rect(0, 0, swipeDividerPos, canvasSize.h);
+
+      b.clip = new Path2D();
+      b.clip.rect(swipeDividerPos, 0, canvasSize.w - swipeDividerPos, canvasSize.h);
 
       break;
     }
@@ -544,6 +579,7 @@ function redrawImageDiff(state) {
     default: throw `unknown mode ${mode}`
   }
 
+  // Computation is done, do the actual drawing.
   state.imageCanvas.width = canvasSize.w;
   state.imageCanvas.height = canvasSize.h;
 
@@ -553,11 +589,32 @@ function redrawImageDiff(state) {
   ctx.imageSmoothingEnabled = antialiased;
   ctx.globalCompositeOperation = compositeMode;
 
-  ctx.globalAlpha = a.opacity;
-  ctx.drawImage(state.images[0], a.x, a.y, a.w, a.h);
+  drawImage(ctx, state.images[0], a);
+  drawImage(ctx, state.images[1], b);
 
-  ctx.globalAlpha = b.opacity;
-  ctx.drawImage(state.images[1], b.x, b.y, b.w, b.h);
+  // Divider.
+  if (swipeDividerPos != null) {
+    ctx.lineWidth = swipeDividerWidth;
+    ctx.strokeStyle = "red";
+    const divider = new Path2D();
+    console.log(swipeDividerPos);
+    divider.moveTo(swipeDividerPos, 0);
+    divider.lineTo(swipeDividerPos, canvasSize.h);
+    ctx.stroke(divider);
+  }
+}
+
+/**
+ * @param ctx {CanvasRenderingContext2D}
+ * @param img {HTMLImageElement}
+ * @param p {ImageParams}
+ */
+function drawImage(ctx, img, p) {
+  ctx.save();
+  ctx.globalAlpha = p.opacity;
+  if (p.clip != null) ctx.clip(p.clip);
+  ctx.drawImage(img, p.x, p.y, p.w, p.h);
+  ctx.restore();
 }
 
 /**

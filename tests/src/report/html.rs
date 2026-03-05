@@ -628,6 +628,13 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
             );
             icon_button(
                 fieldset,
+                "global-image-view-mode-swipe",
+                "Show Image View Mode swipe",
+                icons::VIEW_SWIPE,
+                false,
+            );
+            icon_button(
+                fieldset,
                 "global-image-view-mode-blend",
                 "Show Image View Mode blend",
                 icons::VIEW_BLEND,
@@ -1086,6 +1093,14 @@ fn image_diff(
                 radio_icon_button(
                     fieldset,
                     "image-view-mode",
+                    "swipe",
+                    "View Mode swipe",
+                    icons::VIEW_SWIPE,
+                    false,
+                );
+                radio_icon_button(
+                    fieldset,
+                    "image-view-mode",
                     "blend",
                     "View Mode blend",
                     icons::VIEW_BLEND,
@@ -1274,6 +1289,7 @@ mod icons {
     pub static SEARCH: SvgIcon = SvgIcon("M6.781 2a4.781 4.781 0 1 0 2.91 8.576l3.422 3.42.883-.883-3.42-3.422A4.781 4.781 0 0 0 6.781 2m0 1.25a3.531 3.531 0 1 1 0 7.062 3.531 3.531 0 0 1 0-7.062");
 
     pub static VIEW_SIDE_BY_SIDE: SvgIcon = SvgIcon("M7.43 5.438v6.568h1.25V5.438ZM3.744 3.047a1 1 0 0 0-1 1v7.92a1 1 0 0 0 1 1h8.512a1 1 0 0 0 1-1v-7.92a1 1 0 0 0-1-1H3.869zm.942.857a.685.685 0 1 1 0 1.371.685.685 0 0 1 0-1.37M7.43 5.438h1.25v.609h3.326v5.67H8.68v.289H7.43v-.29H3.994v-5.67H7.43z");
+    pub static VIEW_SWIPE: SvgIcon  = SvgIcon("m5.559 4.559-3 3L2.115 8l.444.441 3 3 .882-.882-1.957-1.96h7.032l-1.957 1.96.882.882 3-3L13.885 8l-.444-.441-3-3-.882.882 1.957 1.96H4.484l1.957-1.96Z");
     pub static VIEW_BLEND: SvgIcon = SvgIcon("M4.086 8.12 1.158 9.183a.2.2 0 0 0-.025.365l6.805 3.617c.25.133.544.153.81.057l5.533-2.012a.199.199 0 0 0 .026-.363l-2.952-1.57-2.503.91a1.25 1.25 0 0 1-1.014-.073zm3.203-5.403a1 1 0 0 0-.307.06L1.027 4.941l7.2 3.83a1 1 0 0 0 .812.057l5.953-2.166-7.199-3.83a1 1 0 0 0-.504-.115m.02 1.217 4.744 2.523-3.34 1.215L3.97 5.148Z");
     pub static VIEW_DIFFERENCE: SvgIcon  = SvgIcon("M5 4a4 4 0 1 0 1.693 7.625c.14-.065.142-.258.016-.346A4 4 0 0 1 5 8c0-1.357.676-2.556 1.709-3.28.126-.088.124-.28-.016-.345A4 4 0 0 0 5 4m6 0a4.01 4.01 0 0 0-4 4c0 2.202 1.798 4 4 4s4-1.798 4-4-1.798-4-4-4m0 1.2c1.554 0 2.8 1.246 2.8 2.8s-1.246 2.8-2.8 2.8A2.79 2.79 0 0 1 8.2 8c0-1.554 1.246-2.8 2.8-2.8");
 
