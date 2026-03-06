@@ -2,7 +2,7 @@ use crate::path::SvgPathBuilder;
 use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
 use crate::{SVGRenderer, State};
 use ecow::EcoString;
-use typst_library::layout::{Abs, Point, Ratio, Rect, Size, Transform};
+use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
@@ -54,27 +54,28 @@ impl SVGRenderer<'_> {
         paint: &Paint,
         shape: &Shape,
     ) -> Transform {
-        let mut bbox = if matches!(shape.geometry, Geometry::Rect(..)) {
+        let (offset, mut size) = if matches!(shape.geometry, Geometry::Rect(..)) {
             // Special handling for fill of rectangles (mirrors gradients for negative sizes)
-            Rect::from_pos_size(Point::zero(), shape.geometry.bbox_size())
+            (Point::zero(), shape.geometry.bbox_size())
         } else {
-            shape.geometry.bbox(shape.stroke.as_ref())
+            let bbox = shape.geometry.bbox(shape.stroke.as_ref());
+            (bbox.min, bbox.size())
         };
 
-        if bbox.size().x.is_zero() {
-            bbox.max.x = bbox.min.x + Abs::pt(1.0);
+        if size.x.is_zero() {
+            size.x = Abs::pt(1.0);
         }
-        if bbox.size().y.is_zero() {
-            bbox.max.y = bbox.min.y + Abs::pt(1.0);
+        if size.y.is_zero() {
+            size.y = Abs::pt(1.0);
         }
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
                 RelativeTo::Self_ => Transform::scale(
-                    Ratio::new(bbox.size().x.to_pt()),
-                    Ratio::new(bbox.size().y.to_pt()),
+                    Ratio::new(size.x.to_pt()),
+                    Ratio::new(size.y.to_pt()),
                 )
-                .post_concat(Transform::translate(bbox.min.x, bbox.min.y)),
+                .post_concat(Transform::translate(offset.x, offset.y)),
                 RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
