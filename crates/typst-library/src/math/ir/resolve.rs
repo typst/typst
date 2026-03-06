@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
-use typst_syntax::{Span, is_newline};
+use typst_syntax::{Span, split_newlines};
 use typst_utils::{LazyHash, SliceExt};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -278,14 +278,18 @@ fn resolve_text<'a, 'v, 'e>(
         }
     };
 
-    let text = elem.text.strip_suffix(is_newline).unwrap_or(&elem.text);
-    let item = if !text.contains(is_newline) {
+    // Strip a single trailing newline.
+    let mut lines = split_newlines(&elem.text);
+    lines.pop_if(|x| x.is_empty());
+
+    let item = if let [text] = lines.as_slice() {
         create_item(text)
     } else {
         let rows: Vec<_> =
-            text.split(is_newline).map(|line| vec![create_item(line)]).collect();
+            lines.into_iter().map(|line| vec![create_item(line)]).collect();
         MultilineItem::create(rows, styles).with_multiline_centering()
     };
+
     ctx.push(item);
     Ok(())
 }
