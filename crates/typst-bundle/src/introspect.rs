@@ -109,8 +109,8 @@ impl Introspector for BundleIntrospector {
         self.elements.locator(key, base)
     }
 
-    fn pages(&self) -> Option<NonZeroUsize> {
-        None
+    fn pages(&self, location: Location) -> Option<NonZeroUsize> {
+        self.child(location)?.pages(location)
     }
 
     fn page(&self, location: Location) -> Option<NonZeroUsize> {

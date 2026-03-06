@@ -107,7 +107,7 @@ impl Introspector for PagedIntrospector {
         self.elements.locator(key, base)
     }
 
-    fn pages(&self) -> Option<NonZeroUsize> {
+    fn pages(&self, _: Location) -> Option<NonZeroUsize> {
         Some(self.pages)
     }
 

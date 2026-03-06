@@ -57,8 +57,9 @@ pub trait Introspector: Send + Sync {
     /// [`Locator`](crate::introspection::Locator) docs for more details.
     fn locator(&self, key: u128, base: Location) -> Option<Location>;
 
-    /// Returns the total number pages in the document.
-    fn pages(&self) -> Option<NonZeroUsize>;
+    /// Returns the total number of pages in the document that contains the
+    /// given location.
+    fn pages(&self, location: Location) -> Option<NonZeroUsize>;
 
     /// Returns the page number for the given location.
     fn page(&self, location: Location) -> Option<NonZeroUsize>;
@@ -129,7 +130,7 @@ impl Introspector for EmptyIntrospector {
         None
     }
 
-    fn pages(&self) -> Option<NonZeroUsize> {
+    fn pages(&self, _: Location) -> Option<NonZeroUsize> {
         None
     }
 

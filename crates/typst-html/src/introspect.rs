@@ -100,7 +100,7 @@ impl Introspector for HtmlIntrospector {
         self.elements.locator(key, base)
     }
 
-    fn pages(&self) -> Option<NonZeroUsize> {
+    fn pages(&self, _: Location) -> Option<NonZeroUsize> {
         None
     }
 
