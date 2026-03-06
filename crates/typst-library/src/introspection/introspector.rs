@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::sync::RwLock;
 
 use comemo::{Track, Tracked};
@@ -172,7 +173,12 @@ pub struct ElementIntrospector<P> {
     /// introspector-assisted location assignment during measurement.
     keys: MultiMap<u128, Location>,
     /// Accelerates lookup of elements by location.
-    locations: FxHashMap<Location, usize>,
+    ///
+    /// Holds a range pointing into `elements` that covers the element and all
+    /// its conceptual descendants. The first element in the range (i.e.
+    /// `elems[range.start]` is the element with the location itself while the
+    /// last element is its right-most descendants).
+    locations: FxHashMap<Location, Range<usize>>,
     /// Accelerates lookup of elements by label.
     labels: MultiMap<Label, usize>,
     /// Caches queries done on the introspector. This is important because
@@ -264,6 +270,60 @@ impl<P> ElementIntrospector<P> {
                 }
                 list
             }
+            Selector::Within { selector, ancestor } => {
+                let list = self.query(selector);
+                let ancestors = self.query(ancestor);
+
+                let mut out = EcoVec::new();
+                let mut visited = 0;
+
+                // Walk the ancestors in order, collecting all elements in
+                // `list` that are descendants of them. Elements in the list
+                // that are descendants of multiple ancestors are yielded only
+                // once by virtue of `visited`.
+                for ancestor in &ancestors {
+                    let loc = ancestor.location().unwrap();
+                    let Range { start, end } = self.loc_range(&loc);
+
+                    let start_in_list = match list
+                        .binary_search_by_key(&start, |elem| self.elem_index(elem))
+                    {
+                        // The element and the ancestor start at the same index.
+                        // This means they are one and the same. The within
+                        // selector is not inclusive, so we exclude it.
+                        Ok(i) => i + 1,
+                        // The ancestor's insertion index would be at `i`, so
+                        // the element currently at `i` is later than it and
+                        // should be included.
+                        Err(i) => i,
+                    };
+
+                    let end_in_list = match list.binary_search_by_key(&end, |elem| {
+                        self.loc_range(&elem.location().unwrap()).end
+                    }) {
+                        // The element and the ancestor end in the same place.
+                        // They might be the same, but it's equally possible for
+                        // the element to be a rightmost leaf of the ancestor.
+                        // If it's the same, we already exclude it via `start`
+                        // above and if it's a rightmost leaf, we want to
+                        // include it.
+                        Ok(i) => i + 1,
+                        // The ancestor's end index would be at `i`, so the
+                        // element right before `i` is earlier than it and
+                        // should be included.
+                        Err(i) => i,
+                    };
+
+                    // Clamp at `visited` to ensure we don't yield elements
+                    // twice.
+                    let start_in_list = start_in_list.max(visited);
+                    let end_in_list = end_in_list.max(visited);
+                    out.extend(list[start_in_list..end_in_list].iter().cloned());
+                    visited = end_in_list;
+                }
+
+                out
+            }
             // Not supported here.
             Selector::Can(_) | Selector::Regex(_) => EcoVec::new(),
         };
@@ -354,7 +414,7 @@ impl<P> ElementIntrospector<P> {
     /// Returns the target-specific position of the element at the given
     /// location.
     pub fn position(&self, location: Location) -> Option<&P> {
-        self.locations.get(&location).map(|&idx| self.get_pos_by_idx(idx))
+        self.locations.get(&location).map(|r| self.get_pos_by_idx(r.start))
     }
 
     /// Iterates over all locatable elements.
@@ -376,7 +436,7 @@ impl<P> ElementIntrospector<P> {
 
     /// Retrieves an element by its location.
     pub fn get_by_loc(&self, location: &Location) -> Option<&Content> {
-        self.locations.get(location).map(|&idx| self.get_by_idx(idx))
+        self.locations.get(location).map(|r| self.get_by_idx(r.start))
     }
 
     /// Performs a binary search for `elem` among the `list`.
@@ -395,19 +455,35 @@ impl<P> ElementIntrospector<P> {
 
     /// Gets the index of the element with this location among all.
     pub fn loc_index(&self, location: &Location) -> usize {
-        self.locations.get(location).copied().unwrap_or(usize::MAX)
+        self.locations.get(location).map(|r| r.start).unwrap_or(usize::MAX)
+    }
+
+    /// Gets the range of the element with this location among all.
+    pub fn loc_range(&self, location: &Location) -> Range<usize> {
+        self.locations
+            .get(location)
+            .cloned()
+            .unwrap_or(usize::MAX..usize::MAX)
     }
 }
 
 /// Constructs the [`ElementIntrospector`].
 pub struct ElementIntrospectorBuilder<P> {
-    stack: Vec<Vec<(Content, P)>>,
-    sink: Vec<(Content, P)>,
+    stack: Vec<Vec<BuilderItem<P>>>,
+    sink: Vec<BuilderItem<P>>,
     seen: FxHashSet<Location>,
-    insertions: MultiMap<Location, Vec<(Content, P)>>,
+    insertions: MultiMap<Location, Vec<BuilderItem<P>>>,
     keys: MultiMap<u128, Location>,
-    locations: FxHashMap<Location, usize>,
+    locations: FxHashMap<Location, Range<usize>>,
     labels: MultiMap<Label, usize>,
+}
+
+/// An item in the builder's sink.
+enum BuilderItem<P> {
+    /// Indicates the start of the given element. Also holds its position.
+    Start(Content, P),
+    /// Indicates the end of the element with the given location.
+    End(Location),
 }
 
 impl<P> ElementIntrospectorBuilder<P> {
@@ -431,13 +507,14 @@ impl<P> ElementIntrospectorBuilder<P> {
                 if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
-                        self.sink.push((elem.clone(), position));
+                        self.sink.push(BuilderItem::Start(elem.clone(), position));
                     }
                 }
             }
             Tag::End(loc, key, flags) => {
                 if flags.introspectable {
                     self.keys.insert(*key, *loc);
+                    self.sink.push(BuilderItem::End(*loc));
                 }
             }
         }
@@ -449,12 +526,23 @@ impl<P> ElementIntrospectorBuilder<P> {
         elements: &ElementIntrospector<Q>,
         map_position: impl Fn(&Q) -> P,
     ) {
-        self.sink.reserve(elements.elems.len());
-        for (elem, q) in elements.elems.iter() {
+        // Because `elements` is already fully built, we need to basically
+        // reverse the already built location ranges back to start/end events.
+        // We do this by queueing end events for positions as we visit elements
+        // and dequeueing them at the end of the relevant element.
+        self.sink.reserve(2 * elements.elems.len());
+        let mut queued = MultiMap::default();
+        for (i, (elem, q)) in elements.elems.iter().enumerate() {
             let loc = elem.location().unwrap();
             if self.seen.insert(loc) {
+                let range = elements.locations.get(&loc).unwrap();
                 let position = map_position(q);
-                self.sink.push((elem.clone(), position));
+                self.sink.push(BuilderItem::Start(elem.clone(), position));
+                debug_assert_eq!(range.start, i);
+                queued.insert(range.end, loc);
+            }
+            for &end in queued.get(&(i + 1)).iter().rev() {
+                self.sink.push(BuilderItem::End(end));
             }
         }
         self.keys.extend(&elements.keys);
@@ -483,8 +571,8 @@ impl<P> ElementIntrospectorBuilder<P> {
 
         // Save all pairs and their descendants in the correct order.
         let mut elems = Vec::with_capacity(self.seen.len());
-        for pair in std::mem::take(&mut self.sink) {
-            self.visit(&mut elems, pair);
+        for item in std::mem::take(&mut self.sink) {
+            self.visit(&mut elems, item);
         }
 
         ElementIntrospector {
@@ -498,26 +586,37 @@ impl<P> ElementIntrospectorBuilder<P> {
 
     /// Saves a pair and all its descendants into `elems` and populates the
     /// acceleration structures.
-    fn visit(&mut self, elems: &mut Vec<(Content, P)>, pair: (Content, P)) {
-        let elem = &pair.0;
-        let loc = elem.location().unwrap();
-        let idx = elems.len();
+    fn visit(&mut self, elems: &mut Vec<(Content, P)>, item: BuilderItem<P>) {
+        match item {
+            BuilderItem::Start(elem, pos) => {
+                let loc = elem.location().unwrap();
+                let idx = elems.len();
 
-        // Populate the location acceleration map.
-        self.locations.insert(loc, idx);
+                // Populate the location acceleration map. Initially, we insert
+                // with a range covering just the element itself. Once we visit
+                // the end tag, we update this information.
+                self.locations.insert(loc, idx..idx + 1);
 
-        // Populate the label acceleration map.
-        if let Some(label) = elem.label() {
-            self.labels.insert(label, idx);
-        }
+                // Populate the label acceleration map.
+                if let Some(label) = elem.label() {
+                    self.labels.insert(label, idx);
+                }
 
-        // Save the element.
-        elems.push(pair);
+                // Save the element.
+                elems.push((elem, pos));
 
-        // Process potential descendants.
-        if let Some(insertions) = self.insertions.take(&loc) {
-            for pair in insertions.flatten() {
-                self.visit(elems, pair);
+                // Process potential descendants.
+                if let Some(insertions) = self.insertions.take(&loc) {
+                    for pair in insertions.flatten() {
+                        self.visit(elems, pair);
+                    }
+                }
+            }
+            BuilderItem::End(loc) => {
+                // Update the end of the element's range.
+                if let Some(entry) = self.locations.get_mut(&loc) {
+                    entry.end = elems.len();
+                }
             }
         }
     }

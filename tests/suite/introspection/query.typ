@@ -201,6 +201,95 @@
   ([Frog], [GiraffeCat], [Iguana])
 )
 
+--- query-within paged html bundle ---
+// The within selector is not yet publicly exposed, but already used internally,
+// so it's good to have some tests. Since it's not yet in the public API, we
+// have a test-runner specific `selector-within` "polyfill" instead.
+
+// We also want to test in bundle mode to ensure the inner introspector
+// correctly forwards the stuff.
+#show: it => context if target() == "bundle" {
+  document("main.pdf", it)
+} else {
+  it
+}
+
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
+
+= #emph[Hi *there*]
+
+What's *up* with *you?*
+
+#figure([Empty], caption: [A *nice* *rect*])
+
+// Test that the within query gracefully handles a case where an insertion
+// immediately precedes the end tag.
+#quote(footnote[_Hello_])
+
+#context [
+  #let loc = here()
+  *Local* bold *text*
+  #test-selector(
+    selector-within(strong, loc),
+    ([Local], [text]),
+  )
+]
+
+#test-selector(
+  selector-within(strong, par),
+  ([up], [you?], [Local], [text]),
+)
+
+#test-selector(
+  selector-within(strong, selector.or(heading, emph, figure)),
+  ([there], [nice], [rect]),
+)
+
+#test-selector(
+  selector-within(selector-within(strong, emph), heading),
+  ([there],),
+)
+
+#test-selector(
+  selector-within(selector-within(strong, heading), emph),
+  ([there],),
+)
+
+#test-selector(
+  selector-within(strong, selector-within(heading, emph)),
+  (),
+)
+
+#test-selector(
+  selector-within(emph, quote),
+  ([Hello],),
+)
+
+--- query-within-document bundle ---
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
+
+#document("a.html")[
+  = 1
+  #table[
+    = 2
+  ][
+    = 3
+  ]
+] <a>
+
+#document("b.html")[
+  = 4
+  = 5
+] <b>
+
+#test-selector(selector-within(heading, table), ([2], [3]))
+#test-selector(selector-within(heading, <a>), ([1], [2], [3]))
+#test-selector(selector-within(heading, <b>), ([4], [5]))
+
 --- query-bundle-logical-order bundle ---
 #let m(s) = [#metadata(s) <hi>]
 

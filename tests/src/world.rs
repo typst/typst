@@ -2,14 +2,15 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use chrono::{Datelike, FixedOffset, TimeZone, Utc};
 use comemo::Tracked;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Context, Datetime, Duration, IntoValue, NoneValue, Repr, Smart, Value,
-    func,
+    Array, Bytes, Context, Datetime, Duration, IntoValue, LocatableSelector, NoneValue,
+    Repr, Selector, Smart, Value, func,
 };
 use typst::layout::{Abs, Margin, PageElem};
 use typst::model::{Numbering, NumberingPattern};
@@ -200,6 +201,7 @@ fn library() -> Library {
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
     lib.global.scope_mut().define_func::<lines>();
+    lib.global.scope_mut().define_func::<selector_within>();
     lib.global
         .scope_mut()
         .define("conifer", Color::from_u8(0x9f, 0xEB, 0x52, 0xFF));
@@ -262,4 +264,14 @@ fn lines(
         .collect::<SourceResult<Array>>()?
         .join(Some('\n'.into_value()), None, None)
         .at(span)
+}
+
+/// This exists just to test `within` selectors (which are already used
+/// internally) while they are not yet publicly exposed.
+#[func]
+fn selector_within(selector: LocatableSelector, ancestor: LocatableSelector) -> Selector {
+    Selector::Within {
+        selector: Arc::new(selector.0),
+        ancestor: Arc::new(ancestor.0),
+    }
 }
