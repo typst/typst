@@ -751,7 +751,7 @@ ba108fda893311c130709cb93dbb59cc issue-5499-text-fill-in-clip-block
 b7245650773c0bfe5d7d6c1e5f7c04bb issue-5503-list-in-align
 7e474ea9b9d4e75c0ca28dbe33b4cf3e issue-5503-terms-in-align
 a7bb358c848c9763ed37daeb03cacd41 issue-5536-quote-inline-quotes-false
-222fd10d5683ff1e05f78b34093740b1 issue-5705-gradient-border-stroke
+cf923aec0f11da2bf7deafbe3be66d5f issue-5705-gradient-border-stroke
 0d428391db33766772da06299ddb227e issue-5719-enum-nested
 3a2770f92771bd5bfed2e802af4138ac issue-5719-heading-nested
 192bb4bd7982d859d48a7223cb1cbe0f issue-5719-list-nested

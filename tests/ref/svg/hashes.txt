@@ -751,7 +751,7 @@ f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
 0721121d9b144c95f5e202934f8687de issue-5503-list-in-align
 6ff61038758d79b6dc0dda70db5745aa issue-5503-terms-in-align
 7a22880d4e2cd0fa9de0746f50598c27 issue-5536-quote-inline-quotes-false
-f710eb5e47e56189edaa0a6aff1e84b0 issue-5705-gradient-border-stroke
+d1e56905df5f4aebea7c99131338feba issue-5705-gradient-border-stroke
 b7fa7f5a5ef1fcdc0acaffec5d6b35ef issue-5719-enum-nested
 a1a4c1ba094a741cb00677a6a6975083 issue-5719-heading-nested
 b0f751c80c588d891f3172c008db4401 issue-5719-list-nested

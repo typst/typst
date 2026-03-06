@@ -36,16 +36,31 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
         Geometry::Curve(curve) => convert_curve(curve)?,
     };
 
+    let bbox = shape.geometry.bbox(shape.stroke.as_ref());
+    let fill_transform =
+        sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
+    let gradient_map = match shape.geometry {
+        // Special handling for fill of rectangles (mirrors gradients for negative sizes)
+        Geometry::Rect(rect) => Some((
+            bbox.min * state.pixel_per_pt as f64,
+            Axes::new(
+                Ratio::new(bbox.size().x / rect.x),
+                Ratio::new(bbox.size().y / rect.y),
+            ),
+        )),
+        _ => None,
+    };
+
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint = paint::to_sk_paint(
             fill,
             state,
-            shape.geometry.bbox_size(),
+            bbox.size(),
             false,
-            None,
+            Some(fill_transform),
             &mut pixmap,
-            None,
+            gradient_map,
         );
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
@@ -67,21 +82,6 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
         // Don't draw zero-pt stroke.
         if width > 0.0 {
             let dash = dash.as_ref().and_then(to_sk_dash_pattern);
-            let bbox = shape.geometry.bbox(shape.stroke.as_ref());
-            let fill_transform =
-                sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
-            let gradient_map = match shape.geometry {
-                // Special handling for fill of rectangles (mirrors gradients for negative sizes)
-                Geometry::Rect(rect) => Some((
-                    bbox.min * state.pixel_per_pt as f64,
-                    Axes::new(
-                        Ratio::new(bbox.size().x / rect.x),
-                        Ratio::new(bbox.size().y / rect.y),
-                    ),
-                )),
-                _ => None,
-            };
-
             let mut pixmap = None;
             let paint = paint::to_sk_paint(
                 paint,
