@@ -124,6 +124,10 @@ impl Introspector for HtmlIntrospector {
         self.anchors.get(&location)
     }
 
+    fn document(&self, _: Location) -> Option<Location> {
+        None
+    }
+
     fn path(&self, _: Location) -> Option<&VirtualPath> {
         None
     }

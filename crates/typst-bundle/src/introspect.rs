@@ -133,6 +133,18 @@ impl Introspector for BundleIntrospector {
         self.anchors.get(&location)
     }
 
+    fn document(&self, location: Location) -> Option<Location> {
+        let index = *self.elements.position(location)?;
+        if let Some(index) = index {
+            return Some(self.children[index.get() - 1].2);
+        }
+
+        self.elements
+            .get_by_loc(&location)?
+            .to_packed::<DocumentElem>()
+            .map(|doc| doc.location().unwrap())
+    }
+
     fn path(&self, location: Location) -> Option<&VirtualPath> {
         // Check whether the location is that of an element within one of the
         // bundle documents.

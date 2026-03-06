@@ -74,6 +74,10 @@ pub trait Introspector: Send + Sync {
     /// Retrieves the anchor to link to for this location in HTML export.
     fn anchor(&self, location: Location) -> Option<&EcoString>;
 
+    /// Returns the location of the document which has/contains the given
+    /// location.
+    fn document(&self, location: Location) -> Option<Location>;
+
     /// Returns the file path of the document/asset which has or contains the
     /// given location.
     ///
@@ -145,6 +149,10 @@ impl Introspector for EmptyIntrospector {
     }
 
     fn anchor(&self, _: Location) -> Option<&EcoString> {
+        None
+    }
+
+    fn document(&self, _: Location) -> Option<Location> {
         None
     }
 

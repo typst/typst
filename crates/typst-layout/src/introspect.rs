@@ -135,6 +135,10 @@ impl Introspector for PagedIntrospector {
         None
     }
 
+    fn document(&self, _: Location) -> Option<Location> {
+        None
+    }
+
     fn path(&self, _: Location) -> Option<&VirtualPath> {
         None
     }
