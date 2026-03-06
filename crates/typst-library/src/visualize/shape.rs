@@ -1,6 +1,7 @@
 use crate::foundations::{Cast, Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
+use kurbo::{PathEl, Shape as _};
 
 /// A rectangle with optional content.
 ///
@@ -397,25 +398,31 @@ impl Geometry {
         }
     }
 
-    /// The bounding box of the geometry.
-    pub fn bbox(&self) -> Rect {
+    /// The bounding box of the geometry,
+    /// optionally taking the stroke width of the shape into account
+    pub fn bbox(&self, stroke: Option<&FixedStroke>) -> Rect {
         match self {
             Self::Line(end) => {
-                let min = end.min(Point::zero());
-                let max = end.max(Point::zero());
-                Rect::new(min, max)
+                if let Some(stroke) = stroke {
+                    bbox_of_stroked_line(end, stroke)
+                } else {
+                    Rect::new(end.min(Point::zero()), end.max(Point::zero()))
+                }
             }
             Self::Rect(size) => {
-                let p = size.to_point();
-                let min = p.min(Point::zero());
-                let max = p.max(Point::zero());
-                Rect::new(min, max)
+                let min = size.to_point().min(Point::zero());
+                let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
+                Rect::from_pos_size(
+                    min.map(|i| i - stroke_width),
+                    size.map(|i| i.abs() + 2.0 * stroke_width),
+                )
             }
-            Self::Curve(curve) => curve.bbox(),
+            Self::Curve(curve) => curve.bbox(stroke),
         }
     }
 
-    /// The bounding box of the geometry.
+    /// The bounding box size of the geometry
+    /// Unlike bbox, this may be negative!
     pub fn bbox_size(&self) -> Size {
         match self {
             Self::Line(line) => Size::new(line.x, line.y),
@@ -423,4 +430,27 @@ impl Geometry {
             Self::Curve(curve) => curve.bbox_size(),
         }
     }
+}
+
+/// The bounding box of a line including the stroke
+fn bbox_of_stroked_line(end: &Point, stroke: &FixedStroke) -> Rect {
+    let cap = match stroke.cap {
+        super::LineCap::Butt => kurbo::Cap::Butt,
+        super::LineCap::Round => kurbo::Cap::Round,
+        super::LineCap::Square => kurbo::Cap::Square,
+    };
+    let style = kurbo::Stroke::new(stroke.thickness.to_raw()).with_caps(cap);
+    let opts = kurbo::StrokeOpts::default();
+    let tolerance = 0.01;
+    let bbox = kurbo::stroke(
+        [PathEl::LineTo(kurbo::Point::new(end.x.to_raw(), end.y.to_raw()))],
+        &style,
+        &opts,
+        tolerance,
+    )
+    .bounding_box();
+    Rect::new(
+        Point::new(Abs::raw(bbox.x0), Abs::raw(bbox.y0)),
+        Point::new(Abs::raw(bbox.x1), Abs::raw(bbox.y1)),
+    )
 }

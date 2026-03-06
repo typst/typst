@@ -241,7 +241,7 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || shape.geometry.bbox());
+    update_bbox(gc, fc, || shape.geometry.bbox(None));
 
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
