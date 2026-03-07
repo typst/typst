@@ -13,6 +13,7 @@ use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
+use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -631,7 +632,7 @@ fn raw_cost(
         // If the line shall be justified or needs shrinking, it has normal
         // badness with cost 100|ratio|^3. We limit the ratio to 10 as to not
         // get to close to our maximum cost.
-        100.0 * ratio.abs().powi(3)
+        100.0 * Scalar::new(ratio.abs()).powi(3).get()
     } else {
         // If the line shouldn't be justified and doesn't need shrink, we don't
         // pay any cost.
@@ -668,7 +669,7 @@ fn raw_cost(
     //
     // We add one to minimize the number of lines when everything else is more
     // or less equal.
-    (1.0 + badness + penalty).powi(2)
+    Scalar::new(1.0 + badness + penalty).powi(2).get()
 }
 
 /// Calls `f` for all possible points in the text where lines can broken.

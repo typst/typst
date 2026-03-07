@@ -195,11 +195,11 @@ $
 --- math-lr-sym-call-size paged ---
 $ bracket.l(x, size: #400%) $
 
---- math-lr-sym-call-extra-arg paged ---
+--- math-lr-sym-call-extra-arg eval ---
 // Error: 16-28 unexpected argument: nope
 $ bracket.l(x, nope: "nope") $
 
---- math-lr-sym-func-repr paged ---
+--- math-lr-sym-func-repr eval ---
 // The outline thing is just a roundabout way to force a cast from symbol to
 // function...
 #test(repr(outline(indent: sym.chevron.l.curly).indent), "(..) => ..")

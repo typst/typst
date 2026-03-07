@@ -9,7 +9,7 @@
 #let data-from-path = csv(path("/assets/data/zoo.csv"))
 #test(data-from-path, data)
 
---- csv-row-type-dict paged ---
+--- csv-row-type-dict eval ---
 // Test reading CSV data with dictionary rows enabled.
 #let data = csv("/assets/data/zoo.csv", row-type: dictionary)
 #test(data.len(), 3)
@@ -17,24 +17,24 @@
 #test(data.at(2).Weight, "150kg")
 #test(data.at(1).Species, "Tiger")
 
---- csv-file-not-found paged ---
+--- csv-file-not-found eval ---
 // Error: 6-16 file not found (searched at tests/suite/loading/nope.csv)
 #csv("nope.csv")
 
---- csv-invalid paged ---
+--- csv-invalid eval ---
 // Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv")
 
---- csv-invalid-row-type-dict paged ---
+--- csv-invalid-row-type-dict eval ---
 // Test error numbering with dictionary rows.
 // Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv", row-type: dictionary)
 
---- csv-invalid-delimiter paged ---
+--- csv-invalid-delimiter eval ---
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
 
---- csv-decode-deprecated paged ---
+--- csv-decode-deprecated eval ---
 // Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
 // Hint: 14-20 it will be removed in Typst 0.15.0
 #let _ = csv.decode

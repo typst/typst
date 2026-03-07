@@ -1,3 +1,7 @@
+//! A minimal hot-reloading HTTP server.
+
+#![cfg(feature = "http-server")]
+
 use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 use std::sync::Arc;
@@ -5,29 +9,26 @@ use std::sync::Arc;
 use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
-use typst::diag::{StrResult, bail};
-
-use crate::args::{Input, ServerArgs};
+use typst_library::diag::{StrResult, bail};
 
 /// Serves HTML with live reload.
-pub struct HtmlServer {
+pub struct HttpServer {
     addr: SocketAddr,
     bucket: Arc<Bucket<String>>,
 }
 
-impl HtmlServer {
+impl HttpServer {
     /// Create a new HTTP server that serves live HTML.
-    pub fn new(input: &Input, args: &ServerArgs) -> StrResult<Self> {
-        let reload = !args.no_reload;
-        let (addr, server) = start_server(args.port)?;
+    pub fn new(title: &str, port: Option<u16>, live: bool) -> StrResult<Self> {
+        let (addr, server) = start_server(port)?;
 
-        let placeholder = PLACEHOLDER_HTML.replace("{INPUT}", &input.to_string());
+        let placeholder = PLACEHOLDER_HTML.replace("{INPUT}", title);
         let bucket = Arc::new(Bucket::new(placeholder));
         let bucket2 = bucket.clone();
 
         std::thread::spawn(move || {
             for req in server.incoming_requests() {
-                let _ = handle(req, reload, &bucket2);
+                let _ = handle(req, live, &bucket2);
             }
         });
 
@@ -39,8 +40,9 @@ impl HtmlServer {
         self.addr
     }
 
-    /// Updates the HTML, triggering a reload all connected browsers.
-    pub fn update(&self, html: String) {
+    /// Updates the HTML served on `/`, triggering a reload in all connected
+    /// browsers.
+    pub fn set_html(&self, html: String) {
         self.bucket.put(html);
     }
 }
@@ -145,7 +147,7 @@ fn handle_events_blocking(req: Request, bucket: &Bucket<String>) -> io::Result<(
 
 /// Injects the live reload script into a string of HTML.
 fn inject_live_reload_script(html: &mut String) {
-    let pos = html.rfind("</html>").unwrap_or(html.len());
+    let pos = html.rfind("</body>").unwrap_or(html.len());
     html.insert_str(pos, LIVE_RELOAD_SCRIPT);
 }
 

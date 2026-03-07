@@ -125,7 +125,7 @@
 // Hint: 2-28 the following numberings were observed:\n- run 1: `none`\n- run 2: `"1"`\n- run 3: `"1"`\n- run 4: `"1"`\n- run 5: `"I"`\n- final: `"1"`
 #ref(<hello>, form: "page")
 
---- convergence-state paged ---
+--- convergence-state paged empty ---
 // Warning: document did not converge within five attempts
 // Hint: see 2 additional warnings for more details
 // Hint: see https://typst.app/help/convergence for help
@@ -149,7 +149,7 @@
 // Hint: 19-28 see https://typst.app/help/state-convergence for help
 #context s.update(s.final() + 1)
 
---- convergence-state-errored paged ---
+--- convergence-state-errored paged empty ---
 // Warning: document did not converge within five attempts
 // Hint: see 1 additional warning for more details
 // Hint: see https://typst.app/help/convergence for help
@@ -162,7 +162,7 @@
 // Hint: 16-23 see https://typst.app/help/state-convergence for help
 #context { _ = s.get() }
 
---- convergence-counter paged ---
+--- convergence-counter paged empty ---
 // Warning: document did not converge within five attempts
 // Hint: see 2 additional warnings for more details
 // Hint: see https://typst.app/help/convergence for help
@@ -209,7 +209,7 @@
 // Hint: 1-8 this can happen if the citations and bibliographies in the document did not stabilize by the end of the third layout iteration
 @netwok
 
---- convergence-measure paged ---
+--- convergence-measure paged empty ---
 // Warning: document did not converge within five attempts
 // Hint: see 1 additional warning for more details
 // Hint: see https://typst.app/help/convergence for help
@@ -238,7 +238,7 @@
 // Hint: 10-55 the following IDs were observed:\n- run 1: (no ID)\n- run 2: (no ID)\n- run 3: (no ID)\n- run 4: (no ID)\n- run 5: (no ID)\n- final: a-1
 #context link(query(heading).last().location())[Hello]
 
---- convergence-state-converged-but-not-query paged ---
+--- convergence-state-converged-but-not-query paged empty ---
 // In this example, the "high-level" state introspection yielded the same
 // value in iteration 4 and 5, but the "low-level" state query yielded a
 // different sequence. It also converged, but we don't know that until one

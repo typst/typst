@@ -1,6 +1,6 @@
 // Test creating a header with the query function.
 
---- query-here paged ---
+--- query-here paged empty ---
 // Test that `here()` yields the context element's location.
 #context test(query(here()).first().func(), (context none).func())
 
@@ -233,7 +233,7 @@
 
 #context query(<nop>).first()
 
---- issue-5117-query-order-place paged ---
+--- issue-5117-query-order-place paged empty ---
 #let t(expected) = context {
   let elems = query(selector(metadata).after(here()))
   let val = elems.first().value

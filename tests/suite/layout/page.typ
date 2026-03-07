@@ -1,6 +1,6 @@
 // Test the page class.
 
---- page-call-empty paged ---
+--- page-call-empty paged empty ---
 // Just empty page.
 // Should result in auto-sized page, just like nothing.
 #page[]
@@ -129,11 +129,11 @@
 #pagebreak()
 #rect(width: 100%)[Right]
 
---- page-margin-left-and-outside paged ---
+--- page-margin-left-and-outside eval ---
 // Error: 19-44 `inside` and `outside` are mutually exclusive with `left` and `right`
 #set page(margin: (left: 1cm, outside: 2cm))
 
---- page-margin-binding-bad paged ---
+--- page-margin-binding-bad eval ---
 // Error: 20-23 must be `left` or `right`
 #set page(binding: top)
 
@@ -177,7 +177,7 @@ Z
 
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
---- page-number-align-left-horizon paged ---
+--- page-number-align-left-horizon eval ---
 // Error: 25-39 expected `top` or `bottom`, found horizon
 #set page(number-align: left + horizon)
 
@@ -348,7 +348,7 @@ A
   A
 ]
 
---- page-show-warning paged ---
+--- page-show-warning paged empty ---
 // Warning: 2-17 `show page` is not supported and has no effect
 // Hint: 2-17 customize pages with `set page(..)` instead
 #show page: none
@@ -392,7 +392,7 @@ text
   On page #here().page()
 ]
 
---- issue-3671-get-from-page-call paged ---
+--- issue-3671-get-from-page-call paged empty ---
 #set page(margin: 5pt)
 #context test(page.margin, 5pt)
 #page(margin: 10pt, context test(page.margin, 10pt))

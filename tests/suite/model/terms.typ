@@ -55,7 +55,7 @@
 Not in list
 /Nope
 
---- terms-missing-colon paged ---
+--- terms-missing-colon eval ---
 // Error: 8 expected colon
 / Hello
 

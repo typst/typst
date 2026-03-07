@@ -1,0 +1,20 @@
+- Tag: Span
+  /Placement: Block
+  /K:
+    - Content: page=0 mcid=0
+- Tag: Strong
+  /Placement: Block
+  /K:
+    - Content: page=0 mcid=1
+      /Lang: "en"
+- Tag: Span
+  /Placement: Block
+  /K:
+    - Content: page=0 mcid=2
+- Tag: Em
+  /Placement: Block
+  /K:
+    - Content: page=0 mcid=3
+      /Lang: "en"
+    - Content: page=0 mcid=4
+      /Lang: "en"

@@ -185,6 +185,17 @@ fn test_path_to_package() {
     output.stderr.must_contain("error: panicked with: (7, 42)");
 }
 
+#[test]
+fn test_network_access_hint() {
+    // Using a CLI test because the error message differs across operating
+    // systems. If the test runner could handle that, we could migrate to a
+    // normal test.
+    let project = tempfs();
+    let main = project.write("main.typ", "#image(\"https://example.org/image.png\")");
+    let output = exec().arg("compile").arg(main).must_fail();
+    output.stderr.must_contain("hint: network access is not supported");
+}
+
 /// Executes a command with the Typst CLI.
 fn exec() -> Command {
     Command::new(env!("CARGO_BIN_EXE_typst"))

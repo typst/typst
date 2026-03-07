@@ -10,12 +10,11 @@ use typst::syntax::package::{
 };
 
 use crate::args::InitCommand;
-use crate::download::PrintDownload;
-use crate::package;
+use crate::packages;
 
 /// Execute an initialization command.
 pub fn init(command: &InitCommand) -> StrResult<()> {
-    let package_storage = package::storage(&command.package);
+    let packages = packages::system(&command.package);
 
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index
@@ -24,16 +23,16 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         // Try to parse without version, but prefer the error message of the
         // normal package spec parsing if it fails.
         let spec: VersionlessPackageSpec = command.template.parse().map_err(|_| err)?;
-        let version = package_storage.determine_latest_version(&spec)?;
+        let version = packages.latest_version(&spec)?;
         StrResult::Ok(spec.at(version))
     })?;
 
     // Find or download the package.
-    let package_path =
-        package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
+    let root = packages.obtain(&spec)?;
+    let package_path = root.path();
 
     // Parse the manifest.
-    let manifest = parse_manifest(&package_path)?;
+    let manifest = parse_manifest(package_path)?;
     manifest.validate(&spec)?;
 
     // Ensure that it is indeed a template.
@@ -45,7 +44,7 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
     let project_dir = Path::new(command.dir.as_deref().unwrap_or(&manifest.package.name));
 
     // Set up the project.
-    scaffold_project(project_dir, &package_path, template)?;
+    scaffold_project(project_dir, package_path, template)?;
 
     // Print the summary.
     print_summary(spec, project_dir, template).unwrap();

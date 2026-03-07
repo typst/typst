@@ -4,7 +4,9 @@ use typst_library::foundations::Repr;
 use typst_library::layout::{
     Abs, Angle, Axes, Frame, Point, Quadrant, Ratio, Size, Transform,
 };
-use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
+use typst_library::visualize::{
+    Color, FillRule, Gradient, GradientStop, Paint, RatioOrAngle, Tiling,
+};
 use xmlwriter::XmlWriter;
 
 use crate::path::SvgPathBuilder;
@@ -89,9 +91,10 @@ impl SVGRenderer<'_> {
         // that it needs and once to actually render it.
         let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        // Use the rendered SVG as a key, since the `Tiling` itself includes
-        // `Location`s which aren't stable.
-        let tiling_id = self.tilings.insert_with(rendered, || tiling.clone());
+        // Use the rendered SVG and the tiling size as a key, since the `Tiling`
+        // itself includes `Location`s which aren't stable.
+        let tiling_id =
+            self.tilings.insert_with((tiling_size, rendered), || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
@@ -118,15 +121,18 @@ impl SVGRenderer<'_> {
 
                     let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
-                    let length = sin.abs() + cos.abs();
-                    let (x1, y1, x2, y2) = match angle.quadrant() {
-                        Quadrant::First => (0.0, 0.0, cos * length, sin * length),
-                        Quadrant::Second => (1.0, 0.0, cos * length + 1.0, sin * length),
-                        Quadrant::Third => {
-                            (1.0, 1.0, cos * length + 1.0, sin * length + 1.0)
-                        }
-                        Quadrant::Fourth => (0.0, 1.0, cos * length, sin * length + 1.0),
+
+                    // Scale to edges of unit square.
+                    let factor = sin.abs() + cos.abs();
+
+                    let (x1, y1) = match angle.quadrant() {
+                        Quadrant::First => (0.0, 0.0),
+                        Quadrant::Second => (1.0, 0.0),
+                        Quadrant::Third => (1.0, 1.0),
+                        Quadrant::Fourth => (0.0, 1.0),
                     };
+                    let x2 = x1 + (cos * factor);
+                    let y2 = y1 + (sin * factor);
 
                     gradient.attr("x1", x1);
                     gradient.attr("y1", y1);
@@ -225,30 +231,26 @@ impl SVGRenderer<'_> {
                     .attr("offset", start_t.repr())
                     .attr("stop-color", start_c.to_hex());
 
-                // Generate (256 / len) stops between the two stops.
+                // Generate intermediate stops between the two stops.
                 // This is a workaround for a bug in many readers:
                 // They tend to just ignore the color space of the gradient.
-                // The goal is to have smooth gradients but not to balloon the file size
-                // too much if there are already a lot of stops as in most presets.
-                let len = if gradient.anti_alias() {
-                    (256 / gradient.stops_ref().len() as u32).max(2)
-                } else {
-                    2
-                };
-
-                for i in 1..(len - 1) {
-                    let t0 = i as f64 / (len - 1) as f64;
-                    let t = start_t + (end_t - start_t) * t0;
-                    let c = gradient.sample(RatioOrAngle::Ratio(t));
-
-                    svg.elem("stop")
-                        .attr("offset", t.repr())
-                        .attr("stop-color", c.to_hex());
+                if end_t > start_t && gradient.anti_alias() {
+                    let start = GradientStop::new(start_c, start_t);
+                    let end = GradientStop::new(end_c, end_t);
+                    gradient
+                        .generate_intermediate_stops_for_rgb_interpolation(start, end)
+                        .for_each(|(c, t)| {
+                            svg.elem("stop")
+                                .attr("offset", t.repr())
+                                .attr("stop-color", c.to_hex());
+                        });
                 }
+            }
 
+            if let Some((last_c, last_t)) = gradient.stops_ref().last() {
                 svg.elem("stop")
-                    .attr("offset", end_t.repr())
-                    .attr("stop-color", end_c.to_hex());
+                    .attr("offset", last_t.repr())
+                    .attr("stop-color", last_c.to_hex());
             }
         }
     }

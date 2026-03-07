@@ -1,7 +1,6 @@
 //! Source file management.
 
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -19,15 +18,15 @@ use crate::{
 /// user-facing display, you should add 1 to them.
 ///
 /// Values of this type are cheap to clone and hash.
-#[derive(Clone)]
-pub struct Source(Arc<SourceInner>);
+#[derive(Clone, Hash)]
+pub struct Source(Arc<LazyHash<SourceInner>>);
 
 /// The internal representation of a [`Source`].
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 struct SourceInner {
     id: FileId,
-    root: LazyHash<SyntaxNode>,
-    lines: LazyHash<Lines<String>>,
+    root: SyntaxNode,
+    lines: Lines<String>,
 }
 
 impl Source {
@@ -36,11 +35,7 @@ impl Source {
         let _scope = typst_timing::TimingScope::new("create source");
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
-        Self(Arc::new(SourceInner {
-            id,
-            lines: LazyHash::new(Lines::new(text)),
-            root: LazyHash::new(root),
-        }))
+        Self(Arc::new(LazyHash::new(SourceInner { id, lines: Lines::new(text), root })))
     }
 
     /// Create a source file without a real id and path, usually for testing.
@@ -100,7 +95,7 @@ impl Source {
     /// The method panics if the `replace` range is out of bounds.
     #[track_caller]
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
-        let inner = Arc::make_mut(&mut self.0);
+        let inner = &mut **Arc::make_mut(&mut self.0);
 
         // Update the text and lines.
         inner.lines.edit(replace.clone(), with);
@@ -129,14 +124,6 @@ impl Source {
 impl Debug for Source {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Source({:?})", self.id().vpath())
-    }
-}
-
-impl Hash for Source {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.id.hash(state);
-        self.0.lines.hash(state);
-        self.0.root.hash(state);
     }
 }
 

@@ -8,14 +8,14 @@
 // Should output `x => y`.
 #x => y
 
---- closure-without-captures paged ---
+--- closure-without-captures eval ---
 // Basic closure without captures.
 #{
   let adder = (x, y) => x + y
   test(adder(2, 3), 5)
 }
 
---- closure-as-arg paged ---
+--- closure-as-arg eval ---
 // Pass closure as argument and return closure.
 // Also uses shorthand syntax for a single argument.
 #{
@@ -26,7 +26,7 @@
   test(h(2), 5)
 }
 
---- closure-capture-from-popped-stack-frame paged ---
+--- closure-capture-from-popped-stack-frame eval ---
 // Capture environment.
 #{
   let mark = "!"
@@ -44,7 +44,7 @@
   test(greet("Typst"), "Hi, Typst!")
 }
 
---- closure-shadows-outer-var paged ---
+--- closure-shadows-outer-var eval ---
 // Redefined variable.
 #{
   let x = 1
@@ -55,7 +55,7 @@
   test(f(), 3)
 }
 
---- closure-shadows-outer-var-import paged ---
+--- closure-shadows-outer-var-import eval ---
 // Import bindings.
 #{
   let b = "module.typ"
@@ -66,7 +66,7 @@
   test(f(), 1)
 }
 
---- closure-shadows-outer-var-for-loop paged ---
+--- closure-shadows-outer-var-for-loop eval ---
 // For loop bindings.
 #{
   let v = (1, 2, 3)
@@ -78,7 +78,7 @@
   test(f(), 6)
 }
 
---- closure-let-basic paged ---
+--- closure-let-basic eval ---
 // Let + closure bindings.
 #{
   let g = "hi"
@@ -89,7 +89,7 @@
   test(f(), "bye")
 }
 
---- closure-let-args paged ---
+--- closure-let-args eval ---
 // Parameter bindings.
 #{
   let x = 5
@@ -101,7 +101,7 @@
   test(g()(8), 13)
 }
 
---- closure-bad-capture paged ---
+--- closure-bad-capture eval ---
 // Don't leak environment.
 #{
   // Error: 16-17 unknown variable: x
@@ -110,7 +110,7 @@
   func()
 }
 
---- closure-missing-arg-positional paged ---
+--- closure-missing-arg-positional eval ---
 // Too few arguments.
 #{
   let types(x, y) = "[" + str(type(x)) + ", " + str(type(y)) + "]"
@@ -120,7 +120,7 @@
   test(types("nope"), "[string, none]")
 }
 
---- closure-too-many-args-positional paged ---
+--- closure-too-many-args-positional eval ---
 // Too many arguments.
 #{
   let f(x) = x + 1
@@ -139,7 +139,7 @@
 }
 #f()
 
---- closure-capture-mutate paged ---
+--- closure-capture-mutate eval ---
 #let x = ()
 #let f() = {
   // Error: 3-4 variables from outside the function are read-only and cannot be modified
@@ -147,7 +147,7 @@
 }
 #f()
 
---- closure-named-args-basic paged ---
+--- closure-named-args-basic eval ---
 // Named arguments.
 #{
   let greet(name, birthday: false) = {
@@ -161,7 +161,7 @@
   test(greet("Typst", whatever: 10))
 }
 
---- closure-args-sink paged ---
+--- closure-args-sink eval ---
 // Parameter unpacking.
 #let f((a, b), ..c) = (a, b, c)
 #test(f((1, 2), 3, 4), (1, 2, (3, 4)))
@@ -178,41 +178,41 @@
 // Error: 10-16 expected pattern, found array
 #let f(..(a, b)) = none
 
---- closure-param-duplicate-positional paged ---
+--- closure-param-duplicate-positional eval ---
 // Error: 11-12 duplicate parameter: x
 #let f(x, x) = none
 
---- closure-body-multiple-expressions paged ---
+--- closure-body-multiple-expressions eval ---
 // Error: 21 expected comma
 // Error: 22-23 expected pattern, found integer
 // Error: 24-25 unexpected plus
 // Error: 26-27 expected pattern, found integer
 #let f = (x: () => 1 2 + 3) => 4
 
---- closure-param-duplicate-mixed paged ---
+--- closure-param-duplicate-mixed eval ---
 // Error: 14-15 duplicate parameter: a
 // Error: 23-24 duplicate parameter: b
 // Error: 35-36 duplicate parameter: b
 #let f(a, b, a: none, b: none, c, b) = none
 
---- closure-param-duplicate-spread paged ---
+--- closure-param-duplicate-spread eval ---
 // Error: 13-14 duplicate parameter: a
 #let f(a, ..a) = none
 
---- closure-pattern-bad-string paged ---
+--- closure-pattern-bad-string eval ---
 // Error: 7-14 expected pattern, found string
 #((a, "named": b) => none)
 
---- closure-let-pattern-bad-string paged ---
+--- closure-let-pattern-bad-string eval ---
 // Error: 10-15 expected pattern, found string
 #let foo("key": b) = key
 
---- closure-param-keyword paged ---
+--- closure-param-keyword eval ---
 // Error: 10-14 expected pattern, found `none`
 // Hint: 10-14 keyword `none` is not allowed as an identifier; try `none_` instead
 #let foo(none: b) = key
 
---- closure-param-named-underscore paged ---
+--- closure-param-named-underscore eval ---
 // Error: 10-11 expected identifier, found underscore
 #let foo(_: 3) = none
 

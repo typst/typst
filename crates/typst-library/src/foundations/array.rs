@@ -805,7 +805,7 @@ impl Array {
         self,
         /// How many elements each chunk may at most contain.
         chunk_size: NonZeroUsize,
-        /// Whether to keep the remainder if its size is less than `chunk-size`.
+        /// Whether to discard the remainder if its size is less than `chunk-size`.
         #[named]
         #[default(false)]
         exact: bool,

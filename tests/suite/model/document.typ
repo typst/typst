@@ -4,14 +4,14 @@
 #set document(title: [Hello])
 What's up?
 
---- document-set-author-date paged ---
+--- document-set-author-date paged empty ---
 #set document(author: ("A", "B"), date: datetime.today())
 
---- document-date-bad paged ---
+--- document-date-bad eval ---
 // Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
 
---- document-author-bad paged ---
+--- document-author-bad eval ---
 // Error: 23-29 expected string, found integer
 #set document(author: (123,))
 What's up?
@@ -22,7 +22,7 @@ What's up?
 Hello
 #set document(title: [Hello])
 
---- document-constructor paged ---
+--- document-constructor eval ---
 // Error: 2-12 can only be used in set rules
 #document()
 
@@ -32,7 +32,7 @@ Hello
   #set document(title: [Hello])
 ]
 
---- issue-4065-document-context paged ---
+--- issue-4065-document-context paged empty ---
 // Test that we can set document properties based on context.
 #show: body => context {
   let all = query(heading)
@@ -44,7 +44,7 @@ Hello
 #show heading: none
 = Top level
 
---- issue-4769-document-context-conditional paged ---
+--- issue-4769-document-context-conditional paged empty ---
 // Test that document set rule can be conditional on document information
 // itself.
 #set document(author: "Normal", title: "Alternative")

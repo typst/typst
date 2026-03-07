@@ -18,8 +18,8 @@ use std::sync::LazyLock;
 use typst::diag::{StrResult, bail};
 use typst::foundations::Deprecation;
 use typst::foundations::{
-    AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
-    Smart, Type, Value,
+    AutoValue, Binding, Bytes, CastInfo, Func, Module, NativeParamInfo, NoneValue, Repr,
+    Scope, Smart, Type, Value,
 };
 use typst::layout::{Abs, Margin, PageElem, PagedDocument};
 use typst::text::{Font, FontBook};
@@ -448,12 +448,24 @@ fn func_model(
     let scope = func.scope().unwrap();
     let docs = func.docs().unwrap();
 
+    let typed_html = func.keywords().contains(&"typed-html");
+
     let mut self_ = false;
-    let mut params = func.params().unwrap();
-    if params.first().is_some_and(|first| first.name == "self") {
-        self_ = true;
-        params = &params[1..];
-    }
+    let params = func
+        .params()
+        .enumerate()
+        .filter_map(|(i, param)| {
+            let param = param.to_native()?;
+            if i == 0 && param.name == "self" {
+                self_ = true;
+                return None;
+            }
+            if typed_html && is_global_html_attr(param.name) {
+                return None;
+            }
+            Some(param_model(resolver, param))
+        })
+        .collect();
 
     let mut returns = vec![];
     let mut strings = vec![];
@@ -476,11 +488,6 @@ fn func_model(
         panic!("function lacks any details")
     };
 
-    let mut params = params.to_vec();
-    if func.keywords().contains(&"typed-html") {
-        params.retain(|param| !is_global_html_attr(param.name));
-    }
-
     FuncModel {
         path: path.iter().copied().map(Into::into).collect(),
         name: name.into(),
@@ -496,14 +503,14 @@ fn func_model(
             .map(|proto| proto.into_model(resolver, nesting))
             .collect(),
         self_,
-        params: params.iter().map(|param| param_model(resolver, param)).collect(),
+        params,
         returns,
         scope: scope_models(resolver, name, scope),
     }
 }
 
 /// Produce a parameter's model.
-fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
+fn param_model(resolver: &dyn Resolver, info: &NativeParamInfo) -> ParamModel {
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
@@ -759,8 +766,7 @@ fn group_page(
         let div = group.module().scope().get("div").unwrap();
         let func = div.read().clone().cast::<Func>().unwrap();
         func.params()
-            .unwrap()
-            .iter()
+            .filter_map(|param| param.to_native())
             .filter(|param| is_global_html_attr(param.name))
             .map(|info| param_model(resolver, info))
             .collect()

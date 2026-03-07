@@ -708,7 +708,7 @@ fn load_err_in_text(
     // This also does UTF-8 validation. Only report an error in an external
     // file if it is human readable (valid UTF-8), otherwise fall back to
     // `load_err_in_invalid_text`.
-    let lines = Lines::try_from(&loaded.data);
+    let lines = loaded.data.lines();
     match (loaded.source.v, lines) {
         (LoadSource::Path(file_id), Ok(lines)) => {
             if let Some(range) = pos.range(&lines) {

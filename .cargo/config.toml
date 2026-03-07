@@ -1,2 +1,2 @@
 [alias]
-testit = "test --workspace --test tests --"
+testit = "run --quiet --package=test-wrapper --"

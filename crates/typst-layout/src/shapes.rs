@@ -1175,13 +1175,13 @@ impl ControlPoints {
 
         // https://math.stackexchange.com/a/311956
         // intersection between the line from inner center to outside and the outer arc
-        let a = (o.x - c_i.x).to_raw().powi(2) + (o.y - c_i.y).to_raw().powi(2);
-        let b = 2.0 * (o.x - c_i.x).to_raw() * (c_i.x - c_o.x).to_raw()
-            + 2.0 * (o.y - c_i.y).to_raw() * (c_i.y - c_o.y).to_raw();
-        let c = (c_i.x - c_o.x).to_raw().powi(2) + (c_i.y - c_o.y).to_raw().powi(2)
-            - r.to_raw().powi(2);
-        let t = (-b + (b * b - 4.0 * a * c).max(0.0).sqrt()) / (2.0 * a);
-        c_i + t * (o - c_i)
+        let a = (o.x - c_i.x).scalar().powi(2) + (o.y - c_i.y).scalar().powi(2);
+        let b = 2.0 * (o.x - c_i.x).scalar() * (c_i.x - c_o.x).scalar()
+            + 2.0 * (o.y - c_i.y).scalar() * (c_i.y - c_o.y).scalar();
+        let c = (c_i.x - c_o.x).scalar().powi(2) + (c_i.y - c_o.y).scalar().powi(2)
+            - r.scalar().powi(2);
+        let t = (-b + (b * b - 4.0 * a * c).max(0.0.into()).sqrt()) / (2.0 * a);
+        c_i + t.get() * (o - c_i)
     }
 
     /// Middle of the corner in the middle of the stroke.

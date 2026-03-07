@@ -46,7 +46,9 @@ pub fn layout_list(
         let body = body.set(ListElem::depth, Depth(1));
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
+        let mut label_cell = Cell::new(PdfMarkerTag::ListItemLabel(marker.clone()));
+        label_cell.breakable = false;
+        cells.push(label_cell);
         cells.push(Cell::new(Content::empty()));
         cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
     }
@@ -130,7 +132,9 @@ pub fn layout_enum(
         let body = body.set(EnumElem::parents, smallvec![number]);
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
+        let mut label_cell = Cell::new(PdfMarkerTag::ListItemLabel(resolved));
+        label_cell.breakable = false;
+        cells.push(label_cell);
         cells.push(Cell::new(Content::empty()));
         cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
         number =

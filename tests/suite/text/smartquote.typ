@@ -30,6 +30,10 @@
 #set text(lang: "fi")
 "Hevonen ei syö kurkkusalaattia" oli ensimmäinen koskaan 'puhelimessa' lausuttu lause.
 
+--- smartquote-gl paged ---
+#set text(lang: "gl")
+"O cabalo non come ensalada de cogombro" foi a primeira frase pronunciada por 'teléfono'.
+
 --- smartquote-el paged ---
 #set text(lang: "el")
 "Το άλογο δεν τρώει αγγουροσαλάτα" ήταν η πρώτη πρόταση που ειπώθηκε στο 'τηλέφωνο'.
@@ -144,15 +148,15 @@ Does not apply across #html.div["block-level] elements".
 #set smartquote(quotes: (single: "a\u{0301}a\u{0301}"))
 "Double and 'Single' Quotes"
 
---- smartquote-custom-bad-string paged ---
+--- smartquote-custom-bad-string eval ---
 // Error: 25-28 expected 2 characters, found 1 character
 #set smartquote(quotes: "'")
 
---- smartquote-custom-bad-array paged ---
+--- smartquote-custom-bad-array eval ---
 // Error: 25-35 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: ("'",) * 4)
 
---- smartquote-custom-bad-dict paged ---
+--- smartquote-custom-bad-dict eval ---
 // Error: 25-45 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: (single: ("'",) * 4))
 

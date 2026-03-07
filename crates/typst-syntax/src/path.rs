@@ -92,7 +92,7 @@ struct Interner {
 /// An interned version of [`RootedPath`].
 ///
 /// This type is globally interned and thus cheap to copy, compare, and hash.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FileId(NonZeroU16);
 
 impl FileId {
