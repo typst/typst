@@ -115,6 +115,18 @@ impl Dict {
         self.0.contains_key(key)
     }
 
+    /// Get the given key's corresponding entry in the dictionary for insertion
+    /// and/or in-place manipulation.
+    pub fn entry(&mut self, key: Str) -> indexmap::map::Entry<'_, Str, Value> {
+        Arc::make_mut(&mut self.0).entry(key)
+    }
+
+    /// Iterate over mutable references to the values of the dictionary, in
+    /// their order
+    pub fn values_mut(&mut self) -> indexmap::map::ValuesMut<'_, Str, Value> {
+        Arc::make_mut(&mut self.0).values_mut()
+    }
+
     /// Clear the dictionary.
     pub fn clear(&mut self) {
         if Arc::strong_count(&self.0) == 1 {
