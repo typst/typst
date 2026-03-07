@@ -28,14 +28,14 @@
 #try(4pt, -2pt)
 #try(1pt + 0.3em, -0.15em)
 
---- text-edge-bad-type paged ---
+--- text-edge-bad-type eval ---
 // Error: 21-23 expected "ascender", "cap-height", "x-height", "baseline", "bounds", or length, found array
 #set text(top-edge: ())
 
---- text-edge-bad-value paged ---
+--- text-edge-bad-value eval ---
 // Error: 24-26 expected "baseline", "descender", "bounds", or length
 #set text(bottom-edge: "")
 
---- text-edge-wrong-edge paged ---
+--- text-edge-wrong-edge eval ---
 // Error: 24-36 expected "baseline", "descender", "bounds", or length
 #set text(bottom-edge: "cap-height")

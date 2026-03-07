@@ -181,3 +181,28 @@
     [Ending], [Table],
   ),
 )
+
+--- issue-7751-table-cell-show-rules html ---
+#show table.cell.where(x: 0): [0]
+#show table.cell.where(x: 1): [1]
+#show table.cell.where(x: 2): [2]
+
+#table(
+  columns: 3,
+  rows: 3,
+
+  table.header(
+    [Text], [Text], [Text],
+    table.hline(stroke: red)
+  ),
+
+  [Text],
+  [Text],
+  [Text],
+
+  table.footer(
+    [Text],
+    [Text],
+    [Text],
+  ),
+)

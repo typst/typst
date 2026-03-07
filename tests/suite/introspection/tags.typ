@@ -1,4 +1,4 @@
---- tags-grouping paged ---
+--- tags-grouping paged empty ---
 // Test how grouping rules handle tags at their edges. To observe this scenario,
 // we have a link at the start or end of a paragraph and see whether the two
 // nest correctly.

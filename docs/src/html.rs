@@ -7,9 +7,9 @@ use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime};
+use typst::foundations::{Bytes, Datetime, Duration};
 use typst::layout::{Abs, PagedDocument, Point, Size};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
@@ -458,7 +458,8 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
         highlighted = Some(html);
     }
 
-    let id = FileId::new(None, VirtualPath::new("main.typ"));
+    let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+        .intern();
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
@@ -523,17 +524,15 @@ impl World for DocWorld {
         if id == self.0.id() {
             Ok(self.0.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            Err(FileError::NotFound(id.vpath().get_without_slash().into()))
         }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        assert!(id.package().is_none());
+        assert_eq!(*id.root(), VirtualRoot::Project);
         Ok(Bytes::new(
-            typst_dev_assets::get_by_name(
-                &id.vpath().as_rootless_path().to_string_lossy(),
-            )
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),
+            typst_dev_assets::get_by_name(id.vpath().get_without_slash())
+                .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),
         ))
     }
 
@@ -541,7 +540,7 @@ impl World for DocWorld {
         FONTS.1.get(index).cloned()
     }
 
-    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }

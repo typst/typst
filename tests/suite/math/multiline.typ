@@ -196,7 +196,7 @@ $ a + b $
 Shouldn't overflow:
 $ a + b $
 
---- issue-5113-pagebreaking-empty paged ---
+--- issue-5113-pagebreaking-empty paged empty ---
 // Test empty breakable equations.
 #show math.equation: set block(breakable: true)
 #math.equation(block: true, [])

@@ -531,7 +531,7 @@ Numbers and single characters are displayed verbatim, while multiple consecutive
 (non-number) characters will be interpreted as Typst variables.
 
 Typst pre-defines a lot of useful variables in math mode. All Greek (`alpha`,
-`beta`, ...) and some Hebrew letters (`alef`, `bet`, ...) are available through
+`beta`, ...) and some Hebrew letters (`aleph`, `beth`, ...) are available through
 their name. Some symbols are additionally available through shorthands, such as
 `<=`, `>=`, and `->`.
 
@@ -627,6 +627,7 @@ The example below
   [first-line-indent]($par.first-line-indent)
 - [sets the font]($text.font) to "New Computer Modern", an OpenType derivative of
   Computer Modern for both text and [code blocks]($raw)
+- decreases the [font weight]($text.weight) in math mode
 - disables paragraph [spacing]($block.spacing)
 - increases [spacing]($block.spacing) around [headings]($heading)
 
@@ -635,6 +636,7 @@ The example below
 #set par(leading: 0.55em, spacing: 0.55em, first-line-indent: 1.8em, justify: true)
 #set text(font: "New Computer Modern")
 #show raw: set text(font: "New Computer Modern Mono")
+#show math.equation: set text(weight: "regular")
 #show heading: set block(above: 1.4em, below: 1em)
 ```
 

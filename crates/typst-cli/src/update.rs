@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Write};
 use std::path::PathBuf;
 use std::{env, fs};
 
@@ -7,12 +7,12 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{StrResult, bail};
-use typst_kit::download::Downloader;
+use typst_kit::downloader::Downloader;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::{self, PrintDownload};
+use crate::download;
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -133,7 +133,7 @@ impl Release {
     /// Typst repository.
     pub fn from_tag(
         tag: Option<&Version>,
-        downloader: &Downloader,
+        downloader: &dyn Downloader,
     ) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
@@ -144,11 +144,11 @@ impl Release {
             ),
         };
 
-        match downloader.download(&url) {
-            Ok(response) => response.into_json().map_err(|err| {
+        match downloader.download(&"release information", &url) {
+            Ok(data) => serde_json::from_slice(&data).map_err(|err| {
                 eco_format!("failed to parse release information ({err})")
             }),
-            Err(ureq::Error::Status(404, _)) => {
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 bail!("release not found (searched at {url})")
             }
             Err(err) => bail!("failed to download release ({err})"),
@@ -161,7 +161,7 @@ impl Release {
     pub fn download_binary(
         &self,
         asset_name: &str,
-        downloader: &Downloader,
+        downloader: &dyn Downloader,
     ) -> StrResult<Vec<u8>> {
         let asset = self.assets.iter().find(|a| a.name.starts_with(asset_name)).ok_or(
             eco_format!(
@@ -170,12 +170,9 @@ impl Release {
             ),
         )?;
 
-        let data = match downloader.download_with_progress(
-            &asset.browser_download_url,
-            &mut PrintDownload("release"),
-        ) {
+        let data = match downloader.download(&"release", &asset.browser_download_url) {
             Ok(data) => data,
-            Err(ureq::Error::Status(404, _)) => {
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 bail!("asset not found (searched for {})", asset.name);
             }
             Err(err) => bail!("failed to download asset ({err})"),

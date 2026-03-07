@@ -33,7 +33,9 @@ use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
-use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
+use crate::foundations::{
+    Array, Binding, Bytes, Datetime, Dict, Duration, Module, Scope, Styles,
+};
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
 use crate::text::{Font, FontBook};
@@ -67,23 +69,32 @@ pub trait World: Send + Sync {
     /// Get the file id of the main source file.
     fn main(&self) -> FileId;
 
-    /// Try to access the specified source file.
+    /// Try to access the specified file location as a source file.
     fn source(&self, id: FileId) -> FileResult<Source>;
 
     /// Try to access the specified file.
+    ///
+    /// For file locations for which [`source`](Self::source) succeeds, this
+    /// should also succeed. The [`Bytes`] can be cheaply created as a view into
+    /// an existing [`Source`] through [`Bytes::from_string`].
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
     /// Try to access the font with the given index in the font book.
+    ///
+    /// Note that the index is not guaranteed to be in bounds of the font book
+    /// returned by this world's `book()` function. This is the case because
+    /// this function may be invoked with indices from an outdated or different
+    /// font book during incremental compilation validation.
     fn font(&self, index: usize) -> Option<Font>;
 
     /// Get the current date.
     ///
     /// If no offset is specified, the local date should be chosen. Otherwise,
-    /// the UTC date should be chosen with the corresponding offset in hours.
+    /// the UTC date should be chosen with the corresponding offset.
     ///
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
-    fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
 }
 
 macro_rules! world_impl {
@@ -113,7 +124,7 @@ macro_rules! world_impl {
                 self.deref().font(index)
             }
 
-            fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+            fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
                 self.deref().today(offset)
             }
         }

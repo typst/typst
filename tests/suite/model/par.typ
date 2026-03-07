@@ -125,7 +125,7 @@ But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
---- par-spacing-context paged ---
+--- par-spacing-context paged empty ---
 #set par(spacing: 10pt)
 #context test(par.spacing, 10pt)
 
@@ -155,6 +155,52 @@ starts a paragraph, also with indent.
 دع النص يمطر عليك
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
+
+--- par-first-line-indent-folding paged empty ---
+#let check(expected) = context assert.eq(par.first-line-indent, expected)
+
+// To be intuitive, values from context should never contain `none`.
+#check((amount: 0pt, all: false))
+
+#set par(first-line-indent: 2em)
+#check((amount: 2em, all: false))
+
+#set par(first-line-indent: (all: true))
+#check((amount: 2em, all: true))
+
+/// The following two ways should be the same.
+#set par(first-line-indent: 7em)
+#check((amount: 7em, all: true))
+#set par(first-line-indent: (amount: 1em))
+#check((amount: 1em, all: true))
+
+#set par(first-line-indent: (all: false))
+#check((amount: 1em, all: false))
+
+#set par(first-line-indent: (amount: 8em, all: true))
+#check((amount: 8em, all: true))
+
+--- par-first-line-indent-forbid-all-none eval ---
+// Error: 29-53 expected boolean, found none
+#set par(first-line-indent: (amount: 2em, all: none))
+
+--- par-first-line-indent-forbid-amount-none eval ---
+// Error: 29-54 expected length, found none
+#set par(first-line-indent: (amount: none, all: true))
+
+--- par-first-line-indent-columns paged ---
+#set par(first-line-indent: (amount: 1em, all: false))
+
+A \ B
+
+C \ D
+
+#colbreak()
+
+// No first line indent after column break
+E \ F
+
+G \ H
 
 --- par-first-line-indent-all paged ---
 #set par(
@@ -255,7 +301,7 @@ Welcome \ here. Does this work well?
   World
 ]
 
---- par-empty-metadata paged ---
+--- par-empty-metadata paged empty ---
 // Check that metadata still works in a zero length paragraph.
 #block(height: 0pt)[#""#metadata(false)<hi>]
 #context test(query(<hi>).first().value, false)
@@ -317,7 +363,7 @@ A
 #set par(justify: true)
 #box($k in NN_0$)
 
---- issue-4770-par-tag-at-start paged ---
+--- issue-4770-par-tag-at-start paged empty ---
 #h(0pt) #box[] <a>
 
 #context test(query(<a>).len(), 1)
@@ -336,7 +382,7 @@ A
   The par function has a constructor and justification.
 ]
 
---- show-par-set-block-hint paged ---
+--- show-par-set-block-hint paged empty ---
 // Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
 // Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
 // Hint: 2-36 write `set par(spacing: ..)` instead

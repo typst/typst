@@ -15,7 +15,7 @@ Second: #context mine.display("I")
 #mine.update(n => n * 2)
 #mine.step()
 
---- counter-basic-2 paged ---
+--- counter-basic-2 paged empty ---
 // Test `counter`.
 #let c = counter("heading")
 #c.update(2)
@@ -195,7 +195,7 @@ $ 1 + 2 $ <eq>
 #counter(figure.where(kind: image)).update(n => n + 3)
 #figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]
 
---- counter-at-no-context paged ---
+--- counter-at-no-context eval ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
 // Hint: 2-28 try wrapping this in a `context` expression
@@ -230,7 +230,7 @@ $ 1 + 2 $ <eq>
 #block(foo())
 #foo()
 
---- issue-4626-counter-depth-skip paged ---
+--- issue-4626-counter-depth-skip paged empty ---
 // When we step and skip a level, the levels should be filled with zeros, not
 // with ones.
 #let c = counter("c")
@@ -242,7 +242,7 @@ $ 1 + 2 $ <eq>
 #c.step(level: 3)
 #context test(c.get(), (1, 0, 1))
 
---- counter-huge paged ---
+--- counter-huge paged empty ---
 // Test values greater than 32-bits
 #let c = counter("c")
 #c.update(100000000001)

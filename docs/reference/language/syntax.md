@@ -50,7 +50,7 @@ more about their syntax and usage.
 | Math               | `[$x^2$]`                    | [Math]($category/math)   |
 | Line break         | `[\]`                        | [`linebreak`]            |
 | Smart quote        | `['single' or "double"]`     | [`smartquote`]           |
-| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/sym) |
+| Symbol shorthand   | `[~]`, `[---]`               | [Symbols]($category/symbols/) |
 | Code expression    | `[#rect(width: 1cm)]`        | [Scripting]($scripting/#expressions) |
 | Character escape   | `[Tweet at us \#ad]`         | [Below](#escapes)        |
 | Comment            | `[/* block */]`, `[// line]` | [Below](#comments)       |
@@ -75,7 +75,7 @@ syntax specific to math mode follows:
 | Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
-| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/sym) |
+| Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/) |
 | Text/string in math    | `[$a "is natural"$]`     | [Math]($category/math)   |
 | Math function call     | `[$floor(x)$]`           | [Math]($category/math)   |
 | Code expression        | `[$#rect(width: 1cm)$]`  | [Scripting]($scripting/#expressions) |
@@ -115,7 +115,7 @@ a table listing all syntax that is available in code mode:
 | Method call              | `{x.flatten()}`               | [Scripting]($scripting/#methods)   |
 | Function call            | `{min(x, y)}`                 | [Function]($function)              |
 | Argument spreading       | `{min(..nums)}`               | [Arguments]($arguments)            |
-| Unnamed function         | `{(x, y) => x + y}`           | [Function]($function)              |
+| Unnamed function         | `{(x, y) => x + y}`           | [Function]($function/#unnamed)     |
 | Let binding              | `{let x = 1}`                 | [Scripting]($scripting/#bindings)  |
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($function)              |
 | Set rule                 | `{set text(14pt)}`            | [Styling]($styling/#set-rules)     |
@@ -195,49 +195,3 @@ for others to use, as it keeps things predictable.
 // -π means -1 * π,
 // so it's not a valid identifier
 ```
-
-## Paths
-Typst has various features that require a file path to reference external
-resources such as images, Typst files, or data files. Paths are represented as
-[strings]($str). There are two kinds of paths: Relative and absolute.
-
-- A **relative path** searches from the location of the Typst file where the
-  feature is invoked. It is the default:
-  ```typ
-  #image("images/logo.png")
-  ```
-
-- An **absolute path** searches from the _root_ of the project. It starts with a
-  leading `/`:
-  ```typ
-  #image("/assets/logo.png")
-  ```
-
-### Project root
-By default, the project root is the parent directory of the main Typst file.
-For security reasons, you cannot read any files outside of the root directory.
-
-If you want to set a specific folder as the root of your project, you can use
-the CLI's `--root` flag. Make sure that the main file is contained in the
-folder's subtree!
-```bash
-typst compile --root .. file.typ
-```
-
-In the web app, the project itself is the root directory. You can always read
-all files within it, no matter which one is previewed (via the eye toggle next
-to each Typst file in the file panel).
-
-### Paths and packages
-A package can only load files from its own directory. Within it, absolute paths
-point to the package root, rather than the project root. For this reason, it
-cannot directly load files from the project directory. If a package needs
-resources from the project (such as a logo image), you must pass the already
-loaded image, e.g. as a named parameter `{logo: image("mylogo.svg")}`. Note that
-you can then still customize the image's appearance with a set rule within the
-package.
-
-In the future, paths might become a
-[distinct type from strings](https://github.com/typst/typst/issues/971), so that
-they can retain knowledge of where they were constructed. This way, resources
-could be loaded from a different root.

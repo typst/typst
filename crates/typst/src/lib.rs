@@ -210,19 +210,14 @@ fn hint_invalid_main_file(
     // mistyped the filename. For example, they could have written "file.pdf"
     // instead of "file.typ".
     if is_utf8_error {
-        let path = input.vpath();
-        let extension = path.as_rootless_path().extension();
-        if extension.is_some_and(|extension| extension == "typ") {
-            // No hints if the file is already a .typ file.
-            // The file is indeed just invalid.
-            return eco_vec![diagnostic];
-        }
+        match input.vpath().extension() {
+            // No hints if the file is already a .typ file. The file is indeed
+            // just invalid.
+            Some("typ") => return eco_vec![diagnostic],
 
-        match extension {
-            Some(extension) => {
+            Some(ext) => {
                 diagnostic.hint(eco_format!(
-                    "a file with the `.{}` extension is not usually a Typst file",
-                    extension.to_string_lossy()
+                    "a file with the `.{ext}` extension is not usually a Typst file",
                 ));
             }
 
@@ -232,7 +227,7 @@ fn hint_invalid_main_file(
             }
         };
 
-        if world.source(input.with_extension("typ")).is_ok() {
+        if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
     }

@@ -1,4 +1,4 @@
---- measure paged ---
+--- measure paged empty ---
 // Test `measure`.
 #let f(lo, hi) = context {
   let h = measure[Hello].height
@@ -8,7 +8,7 @@
 #text(10pt, f(6pt, 8pt))
 #text(20pt, f(13pt, 14pt))
 
---- measure-given-area paged ---
+--- measure-given-area paged empty ---
 // Test `measure` given an area.
 #let text = lorem(100)
 
@@ -93,14 +93,14 @@
   [#size.width] // 17pt
 }
 
---- issue-5180-measure-inline-math-bounds paged ---
+--- issue-5180-measure-inline-math-bounds paged empty ---
 #context {
   let height = measure(text(top-edge: "bounds", $x$)).height
   assert(height > 4pt)
   assert(height < 5pt)
 }
 
---- measure-html html ---
+--- measure-html html empty ---
 #context {
   let (width, height) = measure(image("/assets/images/monkey.svg"))
   test(width, 36pt)
