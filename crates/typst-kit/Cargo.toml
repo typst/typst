@@ -48,7 +48,7 @@ embedded-fonts = ["dep:typst-assets", "typst-assets/fonts"]
 
 # Enables font discovery at paths and from the system via `fonts::scan` and
 # `fonts::system`.
-scan-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
+scan-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig", "dep:dirs"]
 
 # Enables loading of files from standard locations via `files::SystemFiles`.
 system-files = ["system-packages"]

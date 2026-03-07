@@ -145,13 +145,55 @@ impl Stroke {
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
         ///
-        /// ```example
+        /// ```example:"Usage"
         /// #set line(length: 100%, stroke: 2pt)
         /// #stack(
         ///   spacing: 1em,
         ///   line(stroke: (dash: "dashed")),
         ///   line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
         ///   line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
+        /// )
+        /// ```
+        ///
+        /// ```example:"Inspect a predefined pattern"
+        /// #stroke(dash: "loosely-dashed").dash
+        /// ```
+        ///
+        /// ```preview:"Predefined patterns"
+        /// #set page(width: auto, height: auto)
+        ///
+        /// #let patterns = (
+        ///   ("dotted", "dashed", "dash-dotted").map(d => (
+        ///     "loosely-" + d,
+        ///     d,
+        ///     "densely-" + d,
+        ///   ))
+        /// ).flatten()
+        ///
+        ///
+        /// #let display(dash) = {
+        ///   set par(spacing: 0.3em)
+        ///
+        ///   show "loosely": set text(eastern.darken(17%))
+        ///   show "densely": set text(purple)
+        ///
+        ///   let derived = dash.starts-with("loosely-") or dash.starts-with("densely-")
+        ///   if derived { dash } else { strong(dash) }
+        ///
+        ///   rect(
+        ///     line(stroke: (dash: dash), length: 100%),
+        ///     stroke: none,
+        ///     fill: yellow.transparentize(80%),
+        ///   )
+        /// }
+        ///
+        /// #table(
+        ///   columns: 3,
+        ///   stroke: none,
+        ///   align: (left, center, left),
+        ///
+        ///   table.cell(colspan: 3, align: center, display("solid")),
+        ///   ..patterns.map(display),
         /// )
         /// ```
         #[external]

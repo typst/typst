@@ -52,16 +52,16 @@
 // Error: 18-22 function `heading` does not contain field `body`
 #context heading.body
 
---- get-rule-missing-context-no-context paged ---
+--- get-rule-missing-context-no-context eval ---
 // Error: 7-11 can only be used when context is known
 // Hint: 7-11 try wrapping this in a `context` expression
 // Hint: 7-11 the `context` expression should wrap everything that depends on this function
 #text.lang
 
---- get-rule-unknown-field-no-context paged ---
+--- get-rule-unknown-field-no-context eval ---
 // Error: 7-12 function `text` does not contain field `langs`
 #text.langs
 
---- get-rule-inherent-field-no-context paged ---
+--- get-rule-inherent-field-no-context eval ---
 // Error: 10-14 function `heading` does not contain field `body`
 #heading.body

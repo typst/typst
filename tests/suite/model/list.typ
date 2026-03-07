@@ -171,7 +171,7 @@ Not in list
 - Bare hyphen is
 - a bad marker
 
---- list-marker-array-empty paged ---
+--- list-marker-array-empty eval ---
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
 

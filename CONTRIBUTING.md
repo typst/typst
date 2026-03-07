@@ -29,22 +29,35 @@ vision _after_ you have already implemented something.
    codebase, reach out to a maintainer or a more experienced contributor. Also
    have a look at the [`architecture.md`][architecture] file. It gives a rough
    overview over how the compiler works.
-2. Create a pull request (PR) in the Typst repository, outlining your
+
+2. Implement your change. **Do not vibecode the change! Contributions that were
+   implemented by an AI model will not be accepted.** There is very limited
+   value in having an external contributor as an intermediary between a
+   maintainer and an AI model. It's also worth emphasizing that all
+   contributions to Typst are reviewed by humans with limited available time.
+   AI-driven contributions can easily create a dangerous imbalance where a
+   maintainer invests more time into a PR than the contributor themselves.
+
+3. Create a pull request (PR) in the Typst repository, outlining your
    contribution, the **technical rationale** behind it, and, if it includes a
    new feature, **how users will use it.** Best to link to an existing issue
    with this information here. **Do not use AI to write the description.** It's
    important that you describe your ideas in your own words. It helps you with
    organizing your thoughts as much as it helps us with seeing the human thought
-   process behind a particular change.
-3. When you send a PR, automated CI checks will run. Your PR can only be merged
+   process behind a particular change. If you have trouble expressing your
+   thoughts in English, you can of course use translation tools.
+
+4. When you send a PR, automated CI checks will run. Your PR can only be merged
    if CI passes and **will often also only get its first review round once it
    has the green checkmark.** You can leave a comment on your PR if you need
    guidance with failing CI (or anything else).
-4. A maintainer will review your PR. In this review, we check code quality,
+
+5. A maintainer will review your PR. In this review, we check code quality,
    bugs, and whether the contribution aligns with what was previously discussed.
    If you think that a review comment misses something or is not quite right,
    please challenge it!
-5. If the review passes, your PR will be merged and ship in the next version of
+
+6. If the review passes, your PR will be merged and ship in the next version of
    Typst. You will appear as one of the contributors in the [changelog].
    Thank you!
 

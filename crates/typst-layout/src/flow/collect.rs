@@ -90,6 +90,7 @@ impl<'a> Collector<'a, '_, '_> {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
                 self.output.push(Child::Break(elem.weak.get(styles)));
+                self.par_situation = ParSituation::First;
             } else if child.is::<PagebreakElem>() {
                 bail!(
                     child.span(), "pagebreaks are not allowed inside of containers";

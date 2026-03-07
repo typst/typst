@@ -47,7 +47,7 @@ Was: #context {
 #trait[Fear]
 #trait[Anger]
 
---- state-at-no-context paged ---
+--- state-at-no-context eval ---
 // Test `state.at` outside of context.
 // Error: 2-26 can only be used when context is known
 // Hint: 2-26 try wrapping this in a `context` expression

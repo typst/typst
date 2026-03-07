@@ -147,7 +147,7 @@ fn handle_events_blocking(req: Request, bucket: &Bucket<String>) -> io::Result<(
 
 /// Injects the live reload script into a string of HTML.
 fn inject_live_reload_script(html: &mut String) {
-    let pos = html.rfind("</html>").unwrap_or(html.len());
+    let pos = html.rfind("</body>").unwrap_or(html.len());
     html.insert_str(pos, LIVE_RELOAD_SCRIPT);
 }
 

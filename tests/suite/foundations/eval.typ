@@ -10,7 +10,7 @@
 #eval("_Hello" + " World!_", mode: "markup") \
 #eval("RR_1^NN", mode: "math", scope: (RR: math.NN, NN: math.RR))
 
---- eval-syntax-error-1 paged ---
+--- eval-syntax-error-1 eval ---
 // Error: 7-12 expected pattern
 #eval("let")
 
@@ -23,11 +23,11 @@ Interacting
 Blue #move(dy: -0.15em)[🌊]
 ```
 
---- eval-runtime-error paged ---
+--- eval-runtime-error eval ---
 // Error: 7-17 cannot continue outside of loop
 #eval("continue")
 
---- eval-syntax-error-2 paged ---
+--- eval-syntax-error-2 eval ---
 // Error: 7-12 expected semicolon or line break
 #eval("1 2")
 

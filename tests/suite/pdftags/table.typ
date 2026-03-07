@@ -112,14 +112,14 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- table-tags-private-table-summary pdftags pdfstandard(ua-1) ---
+--- table-tags-private-table-summary eval pdfstandard(ua-1) ---
 // Error: 2:3-2:18 unexpected argument: summary
 #table(
   summary: "nope",
   [A],
 )
 
---- table-tags-private-cell-kind pdftags pdfstandard(ua-1) ---
+--- table-tags-private-cell-kind eval pdfstandard(ua-1) ---
 // Error: 13-25 unexpected argument: kind
 #table.cell(kind: "nope")[A]
 

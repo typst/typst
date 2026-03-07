@@ -100,12 +100,12 @@ impl Lexer<'_> {
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
-                let kind = self.error("unexpected end of block comment");
+                let error = self.error("unexpected end of block comment");
                 self.hint(
                     "consider escaping the `*` with a backslash or \
                      opening the block comment with `/*`",
                 );
-                kind
+                error
             }
             Some('`') if self.mode != SyntaxMode::Math => return self.raw(),
             Some(c) => match self.mode {
@@ -792,8 +792,53 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            c => self.error(eco_format!("the character `{c}` is not valid in code")),
+            c => self.invalid_char_in_code(c),
         }
+    }
+
+    /// Error for an invalid character in code, but try to give good hints for
+    /// commonly confusing operators.
+    fn invalid_char_in_code(&mut self, c: char) -> SyntaxKind {
+        let invalid_char = || eco_format!("the character `{c}` is not valid in code");
+        let invalid_str = |s: &str| eco_format!("`{s}` is not valid in code");
+        match c {
+            // Give a custom hint if we immediately follow a hash.
+            _ if self.s.scout(-2) == Some('#') => {
+                self.error(invalid_char());
+                // This is only an accurate hint if we just came from markup or
+                // math, but `#!` or `##` in code should be rare enough that
+                // it's fine (and the first hash will produce its own error).
+                self.hint("the preceding hash is causing this to parse in code mode");
+                self.hint("try escaping the preceding hash: `\\#`");
+                // The span for these hints isn't great, but it's hard to fix.
+            }
+            '#' => {
+                self.error(invalid_char());
+                self.hint("you are already in code mode");
+                self.hint("try removing the `#`");
+            }
+            '&' if self.s.eat_if('&') => {
+                self.error(invalid_str("&&"));
+                self.hint("in Typst, `and` is used for logical AND");
+            }
+            '|' if self.s.eat_if('|') => {
+                self.error(invalid_str("||"));
+                self.hint("in Typst, `or` is used for logical OR");
+            }
+            '!' => {
+                self.error(invalid_char());
+                self.hint("in Typst, `not` is used for negation");
+                self.hint("or did you mean to write `!=` for not-equal?");
+            }
+            '~' if self.s.eat_if('=') => {
+                self.error(invalid_str("~="));
+                self.hint("in Typst, `!=` is used for not-equal");
+            }
+            _ => {
+                self.error(invalid_char());
+            }
+        }
+        SyntaxKind::Error
     }
 
     fn ident(&mut self, start: usize) -> SyntaxKind {
@@ -904,9 +949,9 @@ impl Lexer<'_> {
             (Ok(()), Ok(Some(()))) => SyntaxKind::Numeric,
             // Invalid numbers :(
             (Err(number_err), Err(suffix_err)) => {
-                let err = self.error(number_err);
+                let error = self.error(number_err);
                 self.hint(suffix_err);
-                err
+                error
             }
             (Ok(()), Err(msg)) | (Err(msg), Ok(_)) => self.error(msg),
         }

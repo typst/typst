@@ -46,16 +46,16 @@ AA (8)
 
 Treeworld, the World of worlds, is a world.
 
---- show-text-empty paged ---
+--- show-text-empty eval ---
 // Test there is no crashing on empty strings
 // Error: 1:7-1:9 text selector is empty
 #show "": []
 
---- show-text-regex-empty paged ---
+--- show-text-regex-empty eval ---
 // Error: 1:7-1:16 regex selector is empty
 #show regex(""): [AA]
 
---- show-text-regex-matches-empty paged ---
+--- show-text-regex-matches-empty eval ---
 // Error: 1:7-1:42 regex matches empty text
 #show regex("(VAR_GLOBAL|END_VAR||BOOL)") : []
 
