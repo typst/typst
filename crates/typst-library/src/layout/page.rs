@@ -969,7 +969,7 @@ papers! {
     (US_LETTER:         215.9,  279.4, "us-letter")
     (US_LEGAL:          215.9,  355.6, "us-legal")
     (US_TABLOID:        279.4,  431.8, "us-tabloid")
-    (US_EXECUTIVE:      84.15,  266.7, "us-executive")
+    (US_EXECUTIVE:      184.15, 266.7, "us-executive")
     (US_FOOLSCAP_FOLIO: 215.9,  342.9, "us-foolscap-folio")
     (US_STATEMENT:      139.7,  215.9, "us-statement")
     (US_LEDGER:         431.8,  279.4, "us-ledger")

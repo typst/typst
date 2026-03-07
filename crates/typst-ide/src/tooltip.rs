@@ -3,14 +3,16 @@ use std::fmt::Write;
 use ecow::{EcoString, eco_format};
 use typst::AsDocument;
 use typst::engine::Sink;
-use typst::foundations::{Binding, Capturer, CastInfo, Repr, Value, repr};
+use typst::foundations::{Capturer, CastInfo, Func, ParamInfo, Repr, Value, repr};
 use typst::layout::Length;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{LinkedNode, Side, Source, SyntaxKind, ast};
 use typst::utils::{Numeric, round_with_precision};
 use typst_eval::CapturesVisitor;
 
-use crate::utils::{plain_docs_sentence, summarize_font_family};
+use crate::analyze::analyze_expr_with_fallback;
+use crate::docs::{find_param_docs, find_value_docs};
+use crate::utils::summarize_font_family;
 use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 
 /// Describe the item under the cursor.
@@ -61,9 +63,11 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
     let values = analyze_expr(world, ancestor);
 
-    if let [(value, _)] = values.as_slice() {
-        if let Some(docs) = value.docs() {
-            return Some(Tooltip::Text(plain_docs_sentence(docs)));
+    if let [(value, _), rest @ ..] = values.as_slice()
+        && rest.iter().all(|(v, _)| value == v)
+    {
+        if let Some(docs) = find_value_docs(world, value) {
+            return Some(Tooltip::Text(docs.summary()));
         }
 
         if let &Value::Length(length) = value
@@ -197,19 +201,16 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
         && matches!(grand.kind(), SyntaxKind::Args)
         && let Some(grand_grand) = grand.parent()
         && let Some(expr) = grand_grand.cast::<ast::Expr>()
-        && let Some(ast::Expr::Ident(callee)) = match expr {
+        && let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
         }
+        && let Some(callee) = grand_grand.find(callee.span())
 
         // Find metadata about the function.
-        && let Some(Value::Func(func)) = world
-            .library()
-            .global
-            .scope()
-            .get(&callee)
-            .map(Binding::read)
+        && let Some(value) = analyze_expr_with_fallback(world, &callee)
+        && let Ok(func) = value.cast::<Func>()
          { (func, named) }
         else { return None; };
 
@@ -217,13 +218,15 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
     if leaf.index() == 0
         && let Some(ident) = leaf.cast::<ast::Ident>()
         && let Some(param) = func.param(&ident)
+        && let Some(docs) = find_param_docs(world, &param)
     {
-        return Some(Tooltip::Text(plain_docs_sentence(param.docs)));
+        return Some(Tooltip::Text(docs.summary()));
     }
 
     // Hovering over a string parameter value.
     if let Some(string) = leaf.cast::<ast::Str>()
         && let Some(param) = func.param(&named.name())
+        && let ParamInfo::Native(param) = param
         && let Some(docs) = find_string_doc(&param.input, &string.get())
     {
         return Some(Tooltip::Text(docs.into()));
@@ -373,5 +376,15 @@ mod tests {
     #[test]
     fn test_tooltip_reference() {
         test("#figure(caption: [Hi])[]<f> @f", -1, Side::Before).must_be_text("Hi");
+    }
+
+    #[test]
+    fn test_tooltip_user_function() {
+        let world = TestWorld::new("#import \"lib.typ\"\n#lib.foo(none, tree: 2)")
+            .with_source("lib.typ", crate::tests::EXAMPLE_CLOSURE);
+        // Function itself.
+        test(&world, -17, Side::After).must_be_text("A useful function.");
+        // Named parameter.
+        test(&world, -7, Side::After).must_be_text("Tree with three slashes.");
     }
 }

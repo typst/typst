@@ -29,6 +29,9 @@ pub fn module() -> Module {
     scope.define_func::<sinh>();
     scope.define_func::<cosh>();
     scope.define_func::<tanh>();
+    scope.define_func::<asinh>();
+    scope.define_func::<acosh>();
+    scope.define_func::<atanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
     scope.define_func::<fact>();
@@ -399,6 +402,58 @@ pub fn tanh(
     value: f64,
 ) -> f64 {
     libm::tanh(value)
+}
+
+/// Calculates the inverse hyperbolic sine of a number.
+///
+/// ```example
+/// #calc.asinh(0) \
+/// #calc.asinh(1)
+/// ```
+#[func(title = "Inverse Hyperbolic Sine")]
+pub fn asinh(
+    /// The number whose inverse hyperbolic sine to calculate.
+    value: f64,
+) -> f64 {
+    libm::asinh(value)
+}
+
+/// Calculates the inverse hyperbolic cosine of a number.
+///
+/// ```example
+/// #calc.acosh(1) \
+/// #calc.acosh(2.5)
+/// ```
+#[func(title = "Inverse Hyperbolic Cosine")]
+pub fn acosh(
+    /// The number whose inverse hyperbolic cosine to calculate. Must be greater
+    /// than or equal to 1.
+    value: Spanned<f64>,
+) -> SourceResult<f64> {
+    let val = value.v;
+    if val < 1.0 {
+        bail!(value.span, "value must be greater than or equal to 1");
+    }
+    Ok(libm::acosh(val))
+}
+
+/// Calculates the inverse hyperbolic tangent of a number.
+///
+/// ```example
+/// #calc.atanh(0) \
+/// #calc.atanh(0.5)
+/// ```
+#[func(title = "Inverse Hyperbolic Tangent")]
+pub fn atanh(
+    /// The number whose inverse hyperbolic tangent to calculate. Must be
+    /// between -1 and 1 (exclusive).
+    value: Spanned<f64>,
+) -> SourceResult<f64> {
+    let val = value.v;
+    if val <= -1.0 || val >= 1.0 {
+        bail!(value.span, "value must be between -1 and 1 (exclusive)");
+    }
+    Ok(libm::atanh(val))
 }
 
 /// Calculates the logarithm of a number.

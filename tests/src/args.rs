@@ -53,6 +53,22 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+    /// Open the generated HTML test report in a browser when finished.
+    #[arg(long)]
+    pub open_report: bool,
+    /// Don't generate a HTML test report.
+    #[arg(long)]
+    no_report: bool,
+    /// The git base revision against which the tests will be run.
+    ///
+    /// If none is specified, it's compared against the current working tree.
+    #[arg(long, conflicts_with = "update")]
+    pub base_revision: Option<String>,
+    /// Print errors in a format that github actions can pick up to generate
+    /// annotations that will be displayed on PR files:
+    /// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message
+    #[arg(long, env = "USE_GITHUB_ANNOTATIONS")]
+    pub use_github_annotations: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a
@@ -80,7 +96,7 @@ pub struct CliArguments {
 
 impl CliArguments {
     /// The stages which should be run depending on the `--stages` flag.
-    pub fn stages(&self) -> TestStages {
+    fn stages(&self) -> TestStages {
         thread_local! {
             static CACHED: OnceCell<TestStages> = const { OnceCell::new() };
         }
@@ -94,18 +110,27 @@ impl CliArguments {
                     for &s in self.stages.iter() {
                         stages |= s.into();
                     }
-
-                    // Must be in this order, otherwise any paged output target
-                    // would enable all others.
-                    stages.with_implied().with_required()
+                    stages
                 }
             })
         })
     }
 
-    /// Whether the stage should be run depending on the `--stages` flag.
-    pub fn should_run(&self, stage: TestStages) -> bool {
-        self.stages().intersects(stage)
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages().with_implied()
+    }
+
+    /// [Self::implied_stages] and the ones that are required.
+    pub fn required_stages(&self) -> TestStages {
+        // Must be in this order, otherwise any paged output target
+        // would enable all others.
+        self.stages().with_implied().with_required()
+    }
+
+    /// Whether a HTML test report should be generated.
+    pub fn gen_report(&self) -> bool {
+        !self.no_report && !self.update
     }
 }
 
@@ -117,10 +142,19 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+    /// Prints the tags from a PDF file.
+    Pdftags(PdftagsCommand),
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct PdftagsCommand {
+    /// The PDF file containing the tags.
+    pub path: PathBuf,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum TestStage {
+    Eval,
     Paged,
     Render,
     Pdf,
@@ -132,6 +166,7 @@ pub enum TestStage {
 impl From<TestStage> for TestStages {
     fn from(value: TestStage) -> Self {
         match value {
+            TestStage::Eval => TestStages::EVAL,
             TestStage::Paged => TestStages::PAGED,
             TestStage::Render => TestStages::RENDER,
             TestStage::Pdf => TestStages::PDF,

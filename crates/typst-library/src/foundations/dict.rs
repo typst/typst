@@ -176,6 +176,7 @@ impl Dict {
     /// Note that this function is only intended for conversion of a
     /// dictionary-like value to a dictionary, not for creation of a dictionary
     /// from individual pairs. Use the dictionary syntax `(key: value)` instead.
+    /// Also see [`array.to-dict`] for converting arrays to dictionaries.
     ///
     /// ```example
     /// #dictionary(sys).at("version")

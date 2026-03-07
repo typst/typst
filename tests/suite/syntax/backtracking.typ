@@ -3,7 +3,7 @@
 // unfortunate compared to a good error, but at least we know something is up.
 //
 
---- parser-backtracking-param-default-value paged ---
+--- parser-backtracking-param-default-value eval ---
 #{
   let s = "(x: 1) => x"
   let pat = "(x: {}) => 1 + x()"
@@ -13,7 +13,7 @@
   test(eval(s)(), 51)
 }
 
---- parser-backtracking-destructuring-assignment paged ---
+--- parser-backtracking-destructuring-assignment eval ---
 #{
   let s = "(x) = 1"
   let pat = "(x: {_}) = 1"

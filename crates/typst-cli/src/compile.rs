@@ -20,9 +20,9 @@ use crate::args::{
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
-#[cfg(feature = "http-server")]
-use crate::server::HtmlServer;
 use crate::timings::Timer;
+#[cfg(feature = "http-server")]
+use typst_kit::server::HttpServer;
 
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -79,7 +79,7 @@ pub struct CompileConfig {
     pub export_cache: ExportCache,
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
-    pub server: Option<HtmlServer>,
+    pub server: Option<HttpServer>,
 }
 
 impl CompileConfig {
@@ -179,7 +179,11 @@ impl CompileConfig {
             Some(command)
                 if output_format == OutputFormat::Html && !command.server.no_serve =>
             {
-                Some(HtmlServer::new(&input, &command.server)?)
+                Some(HttpServer::new(
+                    &eco_format!("{input}"),
+                    command.server.port,
+                    !command.server.no_reload,
+                )?)
             }
             _ => None,
         };
@@ -323,7 +327,7 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 
     #[cfg(feature = "http-server")]
     if let Some(server) = &config.server {
-        server.update(html);
+        server.set_html(html);
     }
 
     result

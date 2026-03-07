@@ -83,7 +83,7 @@ use crate::loading::{DataSource, Load};
 /// their only option (e.g. emscripten), which allows printing, reading files,
 /// etc. This ABI will not directly work with Typst. You will either need to
 /// compile to a different target or [stub all
-/// functions](https://github.com/astrale-sharp/wasm-minimal-protocol/tree/master/crates/wasi-stub).
+/// functions](https://github.com/typst-community/wasm-minimal-protocol/tree/main/crates/wasi-stub).
 ///
 /// # Protocol
 /// To be used as a plugin, a WebAssembly module must conform to the following
@@ -139,13 +139,12 @@ use crate::loading::{DataSource, Load};
 ///
 /// # Resources
 /// For more resources, check out the [wasm-minimal-protocol
-/// repository](https://github.com/astrale-sharp/wasm-minimal-protocol). It
+/// repository](https://github.com/typst-community/wasm-minimal-protocol). It
 /// contains:
 ///
 /// - A list of example plugin implementations and a test runner for these
 ///   examples
-/// - Wrappers to help you write your plugin in Rust (Zig wrapper in
-///   development)
+/// - Wrappers to help you write your plugin in Rust
 /// - A stubber for WASI
 #[func(scope)]
 pub fn plugin(

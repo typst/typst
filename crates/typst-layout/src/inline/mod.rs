@@ -195,7 +195,8 @@ fn configuration(
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
         first_line_indent: {
-            let FirstLineIndent { amount, all } = base.first_line_indent;
+            let amount = base.first_line_indent.amount();
+            let all = base.first_line_indent.all();
             if !amount.is_zero()
                 && match situation {
                     // First-line indent for the first paragraph after a list
@@ -246,7 +247,9 @@ fn configuration(
 /// inline layout that isn't a semantic paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ParSituation {
-    /// The paragraph is the first thing in the flow.
+    /// The paragraph is the first child in the flow (i.e. in the container or
+    /// page run) or right after a column break. For such paragraphs, we may
+    /// want to avoid applying first line indent (depending on configuration).
     First,
     /// The paragraph follows another paragraph.
     Consecutive,

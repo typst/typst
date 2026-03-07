@@ -7,8 +7,8 @@ use comemo::Tracked;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFunc,
-    NativeFuncData, NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, elem,
-    func,
+    NativeFuncData, NativeFuncPtr, NativeParamInfo, Reflect, Scope, SymbolElem, Type,
+    elem, func,
 };
 use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;
@@ -231,9 +231,9 @@ fn create_lr_func_data(left: char, right: char, bump: &'static Bump) -> NativeFu
 }
 
 /// Creates parameter signature metadata for an L/R function.
-fn create_lr_param_info() -> Vec<ParamInfo> {
+fn create_lr_param_info() -> Vec<NativeParamInfo> {
     vec![
-        ParamInfo {
+        NativeParamInfo {
             name: "size",
             docs: "\
             The size of the brackets, relative to the height of the wrapped content.\n\
@@ -247,7 +247,7 @@ fn create_lr_param_info() -> Vec<ParamInfo> {
             required: false,
             settable: false,
         },
-        ParamInfo {
+        NativeParamInfo {
             name: "body",
             docs: "The expression to wrap.",
             input: Content::input(),

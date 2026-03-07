@@ -102,16 +102,16 @@ pub trait SvgWrite: Sized {
     fn push_num(&mut self, num: f64) {
         const ROUNDING_FACTOR: f64 = 10_u32.pow(9) as f64;
 
+        // Round numbers to the specified precision to make them more
+        // deterministic and to reduce the file size.
+        let num = (ROUNDING_FACTOR * num).round() / ROUNDING_FACTOR;
+
         // If the number is an integer, format it using `itoa`. This should be
         // faster and avoids the `.0`.
         if num == num as i64 as f64 {
             self.push_int(num as i64);
             return;
         }
-
-        // Round numbers to the specified precision to make them more
-        // deterministic and to reduce the file size.
-        let num = (ROUNDING_FACTOR * num).round() / ROUNDING_FACTOR;
 
         let mut buf = ryu::Buffer::new();
         self.push_str(buf.format(num));

@@ -23,7 +23,7 @@ impl PageLabelExt for PageLabel {
 
             let (prefix, kind) = pat.pieces.first()?;
 
-            // If there is a suffix, we cannot use the common style optimisation,
+            // If there is a suffix, we cannot use the common style optimization,
             // since PDF does not provide a suffix field.
             let style = if pat.suffix.is_empty() {
                 use krilla::page::NumberingStyle as Style;
@@ -33,7 +33,7 @@ impl PageLabelExt for PageLabel {
                     Kind::LowerRoman => Some(Style::LowerRoman),
                     Kind::UpperRoman => Some(Style::UpperRoman),
                     Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
-                    Kind::LowerLatin if number <= 26 => Some(Style::UpperAlpha),
+                    Kind::UpperLatin if number <= 26 => Some(Style::UpperAlpha),
                     _ => None,
                 }
             } else {

@@ -49,19 +49,19 @@ Emoji: 🐪, 🌋, 🏞
 #text([Text], teal, font: "IBM Plex Serif") \
 #text(forest, font: "New Computer Modern", [Text]) \
 
---- text-bad-argument paged ---
+--- text-bad-argument eval ---
 // Error: 11-16 unexpected argument
 #set text(false)
 
---- text-style-bad paged ---
+--- text-style-bad eval ---
 // Error: 18-24 expected "normal", "italic", or "oblique"
 #set text(style: "bold", weight: "thin")
 
---- text-bad-extra-argument paged ---
+--- text-bad-extra-argument eval ---
 // Error: 23-27 unexpected argument
 #set text(size: 10pt, 12pt)
 
---- text-bad-named-argument paged ---
+--- text-bad-named-argument eval ---
 // Error: 11-31 unexpected argument: something
 #set text(something: "invalid")
 
@@ -108,7 +108,7 @@ I
   text(fill: t, "Hello")
 })
 
---- text-font-types paged ---
+--- text-font-types paged empty ---
 #let ubuntu = (name: "Ubuntu", covers: regex("[\u{20}-\u{FFFF}]"))
 #set text(font: ubuntu)
 #set text(font: (ubuntu, "Ubuntu"))
@@ -172,17 +172,17 @@ The number 123.
 #text(font: "Noto Color Emoji", "🔗⛓‍💥🖥️🔑") \
 #text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑") \
 
---- text-font-covers-bad-1 paged ---
+--- text-font-covers-bad-1 eval ---
 // Error: 17-59 coverage regex may only use dot, letters, and character classes
 // Hint: 17-59 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("20-FFFF")))
 
---- text-font-covers-bad-2 paged ---
+--- text-font-covers-bad-2 eval ---
 // Error: 17-65 coverage regex may only use dot, letters, and character classes
 // Hint: 17-65 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))
 
---- text-font-covers-reflection paged ---
+--- text-font-covers-reflection paged empty ---
 // reflect "latin-in-cjk" covers
 #set text(font: (name: "Ubuntu", covers: "latin-in-cjk"))
 #context test(text.font, (name: "ubuntu", covers: "latin-in-cjk"))
@@ -205,6 +205,6 @@ a
 #set text(-10pt)
 Hello
 
---- empty-text-font-array paged ---
+--- empty-text-font-array eval ---
 // Error: 17-19 font fallback list must not be empty
 #set text(font: ())

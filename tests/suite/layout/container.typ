@@ -87,7 +87,7 @@ There
 
 #block(spacing: 20pt)[Further down]
 
---- block-above-below-context paged ---
+--- block-above-below-context paged empty ---
 #context test(block.above, auto)
 #set block(spacing: 20pt)
 #context test(block.above, 20pt)
@@ -158,7 +158,7 @@ Paragraph
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- box-inset-ratio paged ---
+--- box-inset-ratio paged empty ---
 #let body-width = 10pt
 #context for inset in range(10).map(n => n / 10) {
   // If there's infinite available space, then:
