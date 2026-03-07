@@ -289,7 +289,7 @@ pub fn build_table(tree: &mut Tree, table_id: TableId) {
     if table_ctx.row_kinds.is_empty() {
         return;
     }
-    
+
     let mut chunk_kind = table_ctx.row_kinds[0];
     let mut chunk_id = GroupId::INVALID;
     for (row, y) in table_ctx.cells.rows_mut().zip(0..) {
