@@ -342,6 +342,15 @@ pub struct Shape {
     pub stroke: Option<FixedStroke>,
 }
 
+impl Shape {
+    /// The bounding box of the shape,
+    /// optionally taking the stroke into account
+    pub fn bbox(&self, include_stroke: bool) -> Rect {
+        self.geometry
+            .bbox(if include_stroke { self.stroke.as_ref() } else { None })
+    }
+}
+
 /// A fill rule for curve drawing.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FillRule {
@@ -413,21 +422,11 @@ impl Geometry {
                 let min = size.to_point().min(Point::zero());
                 let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
                 Rect::from_pos_size(
-                    min.map(|i| i - stroke_width),
-                    size.map(|i| i.abs() + 2.0 * stroke_width),
+                    min.map(|i| i - 0.5 * stroke_width),
+                    size.map(|i| i.abs() + stroke_width),
                 )
             }
             Self::Curve(curve) => curve.bbox(stroke),
-        }
-    }
-
-    /// The bounding box size of the geometry
-    /// Unlike bbox, this may be negative!
-    pub fn bbox_size(&self) -> Size {
-        match self {
-            Self::Line(line) => Size::new(line.x, line.y),
-            Self::Rect(rect) => *rect,
-            Self::Curve(curve) => curve.bbox_size(),
         }
     }
 }

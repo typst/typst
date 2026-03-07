@@ -24,7 +24,7 @@ impl SVGRenderer<'_> {
                 paint,
                 shape.fill_rule,
                 self.shape_fill_size(state, paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, paint, shape),
+                self.shape_paint_transform(state, paint, shape, false),
             );
         } else {
             svg.attr("fill", "none");
@@ -35,7 +35,7 @@ impl SVGRenderer<'_> {
                 svg,
                 stroke,
                 self.shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, &stroke.paint, shape),
+                self.shape_paint_transform(state, &stroke.paint, shape, true),
             );
         }
 
@@ -53,14 +53,24 @@ impl SVGRenderer<'_> {
         state: &State,
         paint: &Paint,
         shape: &Shape,
+        include_stroke_in_bbox: bool,
     ) -> Transform {
-        let (offset, mut size) = if matches!(shape.geometry, Geometry::Rect(..)) {
-            // Special handling for fill of rectangles (mirrors gradients for negative sizes)
-            (Point::zero(), shape.geometry.bbox_size())
-        } else {
-            let bbox = shape.geometry.bbox(shape.stroke.as_ref());
+        let (mut offset, mut size) = {
+            let bbox = shape.bbox(include_stroke_in_bbox);
             (bbox.min, bbox.size())
         };
+
+        // Special handling for rectangles (mirrors gradients for negative sizes)
+        if let Geometry::Rect(rect) = shape.geometry {
+            if rect.x.signum() < 1.0 {
+                offset.x += size.x;
+                size.x *= -1.0;
+            }
+            if rect.y.signum() < 1.0 {
+                offset.y += size.y;
+                size.y *= -1.0;
+            }
+        }
 
         if size.x.is_zero() {
             size.x = Abs::pt(1.0);
@@ -94,7 +104,7 @@ impl SVGRenderer<'_> {
 
     /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
-        let mut shape_size = shape.geometry.bbox(shape.stroke.as_ref()).size();
+        let mut shape_size = shape.bbox(true).size();
         // Edge cases for strokes.
         if shape_size.x.is_zero() {
             shape_size.x = Abs::pt(1.0);

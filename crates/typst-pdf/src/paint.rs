@@ -28,7 +28,8 @@ pub(crate) fn convert_fill(
     state: &State,
     shape: Option<&Shape>,
 ) -> SourceResult<Fill> {
-    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, shape)?;
+    let (paint, opacity) =
+        convert_paint(gc, paint_, on_text, surface, state, shape, false)?;
 
     Ok(Fill {
         paint,
@@ -46,7 +47,7 @@ pub(crate) fn convert_stroke(
     shape: Option<&Shape>,
 ) -> SourceResult<Stroke> {
     let (paint, opacity) =
-        convert_paint(fc, &stroke.paint, on_text, surface, state, shape)?;
+        convert_paint(fc, &stroke.paint, on_text, surface, state, shape, true)?;
 
     Ok(Stroke {
         paint,
@@ -66,16 +67,23 @@ fn convert_paint(
     surface: &mut Surface,
     state: &State,
     shape: Option<&Shape>,
+    include_stroke_in_bbox: bool,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
     let (offset, mut size) = if let Some(s) = shape {
-        match s.geometry {
-            Geometry::Line(_) | Geometry::Curve(_) => {
-                let bbox = s.geometry.bbox(s.stroke.as_ref());
-                (bbox.min, bbox.size())
+        let bbox = s.bbox(include_stroke_in_bbox);
+        let (mut offset, mut size) = (bbox.min, bbox.size());
+        // Special handling for rectangles (mirrors gradients for negative sizes)
+        if let Geometry::Rect(rect) = s.geometry {
+            if rect.x.signum() < 1.0 {
+                offset.x += size.x;
+                size.x *= -1.0;
             }
-            // Special handling for fill of rectangles (mirrors gradients for negative sizes)
-            Geometry::Rect(_) => (Point::zero(), s.geometry.bbox_size()),
+            if rect.y.signum() < 1.0 {
+                offset.y += size.y;
+                size.y *= -1.0;
+            }
         }
+        (offset, size)
     } else {
         (Point::zero(), Size::zero())
     };

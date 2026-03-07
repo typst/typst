@@ -256,11 +256,11 @@ f6ec20ca77d59b7f426fccc2f308ce58 gradient-conic-oklab
 5d9716a1849f2e1242b151a860e23c27 gradient-conic-oklch
 0c180564688519ff0fca6fb3e7e40621 gradient-conic-relative-parent
 ec07b72a1b374308fe58f87c6b2d800e gradient-conic-relative-self
-8777614934f36959f5c67985bee4f381 gradient-conic-stroke
+8d649dfb08439ad8fb07c1fca962ef0b gradient-conic-stroke
 1f54dde37c2342787f712088722adf45 gradient-conic-text
 a13dac8757c1695cecd937b289670593 gradient-curve-stroke
 118d128b9c58f4860b57b4dddb7048ca gradient-curve-stroke-quad
-77241bb987f1ae9f1b3e5148ecbe6ec9 gradient-fill-and-stroke
+560a5cb278d38d32db44f582603edd33 gradient-fill-and-stroke
 8d5a34c731a71df9c568309c8a55d93d gradient-line-cap
 03337be61584e9900db190fb4dce879c gradient-line-stroke
 fb26ede30bbebf76a288188c27a2bb70 gradient-linear-angled
@@ -279,7 +279,7 @@ ae2dbee9c4cb5caf2f72784599d65b1e gradient-linear-sharp
 b43423dfef163ec12c37f0fc2ad4e108 gradient-linear-sharp-and-repeat
 3fca14a9bbb978eff7a910d52d31f6f9 gradient-linear-sharp-and-smooth
 3d22de16bc236c0ccaab5b50973cf0fd gradient-linear-sharp-repeat-and-mirror
-5c39605718e838aa8e3b6db4abea39bc gradient-linear-stroke
+c32391dd49b0b61ee166980feb9e468a gradient-linear-stroke
 972598107ae230f03df24f5c5718aef0 gradient-linear-stroke-relative-parent
 349bb526be098103cedf394f88dfdb6e gradient-math-cancel
 e63bd6681ec52ebf8ec73295dd092319 gradient-math-conic

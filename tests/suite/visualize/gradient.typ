@@ -166,13 +166,20 @@
 #align(center + top, square(size: 50pt, fill: black, stroke: 5pt + gradient.linear(red, blue)))
 
 --- gradient-fill-and-stroke paged ---
-#align(
-  center + bottom,
-  square(
-    size: 50pt,
-    fill: gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%)),
-    stroke: 10pt + gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%))
-  )
+#set page(width: auto)
+#let stroke = 10pt + gradient.linear(green, yellow, blue).sharp(5)
+#let fill = gradient.linear(lime, yellow.lighten(60%), aqua).sharp(5)
+#let scale = gradient.linear(black, white, black, white, black).sharp(5)
+#let marked = (shape) => {
+  shape
+  place(center + top, line(length: 60pt, stroke: scale))
+  place(center + horizon, line(length: 50pt, stroke: scale))
+}
+#grid(columns: 2, gutter: 15pt,
+  marked(rect(width: 50pt, height: 50pt, radius: 0pt, stroke: stroke, fill: fill)),
+  marked(rect(width: 50pt, height: 50pt, radius: 20pt, stroke: stroke, fill: fill)),
+  marked(curve(stroke: stroke, fill: fill, curve.line((50pt, 0pt)), curve.line((50pt, 50pt)), curve.line((0pt, 50pt)), curve.close())),
+  marked(circle(radius: 25pt, stroke: stroke, fill: fill)),
 )
 
 --- gradient-linear-stroke-relative-parent paged ---
