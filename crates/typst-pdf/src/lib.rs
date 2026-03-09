@@ -16,6 +16,7 @@ mod util;
 pub use self::metadata::{Timestamp, Timezone};
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 
 use ecow::eco_format;
 use krilla::configure::Validator;
@@ -33,7 +34,7 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
 }
 
 /// Settings for PDF export.
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub struct PdfOptions<'a> {
     /// If not `Smart::Auto`, shall be a string that uniquely and stably
     /// identifies the document. It should not change between compilations of
@@ -169,6 +170,15 @@ impl Default for PdfStandards {
         Self {
             config: Configuration::new_with_version(PdfVersion::Pdf17),
         }
+    }
+}
+
+// Could be turned into a derive if krilla's `Configuration` ever implements
+// `Hash`.
+impl Hash for PdfStandards {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.config.version() as usize).hash(state);
+        (self.config.validator() as usize).hash(state);
     }
 }
 
