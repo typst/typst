@@ -3,8 +3,8 @@ use ecow::EcoString;
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Value,
-    cast, elem,
+    Args, Array, Cast, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain,
+    Target, Value, cast, elem,
 };
 use crate::text::{Locale, TextElem};
 
@@ -69,6 +69,53 @@ impl Construct for DocumentElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
     }
+}
+
+/// Supported export formats for bundle documents.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum DocumentFormat {
+    /// One of the page formats.
+    Paged(PagedFormat),
+    /// The document format of the web.
+    Html,
+}
+
+impl DocumentFormat {
+    pub fn target(self) -> Target {
+        match self {
+            Self::Paged(_) => Target::Paged,
+            Self::Html => Target::Html,
+        }
+    }
+}
+
+impl From<PagedFormat> for DocumentFormat {
+    fn from(format: PagedFormat) -> Self {
+        Self::Paged(format)
+    }
+}
+
+cast! {
+    DocumentFormat,
+    self => match self {
+        Self::Paged(v) => v.into_value(),
+        Self::Html => "html".into_value(),
+    },
+    v: PagedFormat => Self::Paged(v),
+    /// The document format of the web.
+    "html" => Self::Html,
+}
+
+/// Supported paged export formats for bundle documents.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum PagedFormat {
+    /// High-fidelity document and graphics format, with focus on exact
+    /// reproduction in print.
+    Pdf,
+    /// Raster format for illustrations and transparent graphics.
+    Png,
+    /// The vector graphics format of the web.
+    Svg,
 }
 
 /// A list of authors.
