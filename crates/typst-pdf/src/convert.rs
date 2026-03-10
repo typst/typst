@@ -506,6 +506,9 @@ fn convert_error(
             "{prefix} the PDF is missing a CMYK profile";
             hint: "CMYK colors are not yet supported in this export mode";
         ),
+        ValidationError::InconsistentSeparationFallback(_) => {
+            unreachable!("separation color spaces are not currently used")
+        }
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
             "{prefix} the text `{}` could not be displayed with {}",
