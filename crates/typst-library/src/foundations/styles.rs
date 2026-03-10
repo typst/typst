@@ -1001,36 +1001,30 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
+        fn empty<T: NativeElement>() -> ShowFn<T> {
+            |_, _, _| Ok(Content::empty())
+        }
+
         let mut rules = Self { rules: FxHashMap::default() };
 
-        // ContextElem is as special as SequenceElem and StyledElem and could,
-        // in theory, also be special cased in realization.
-        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+        for target in [Target::Paged, Target::Html, Target::Bundle] {
+            // ContextElem is as special as SequenceElem and StyledElem and
+            // could, in theory, also be special cased in realization.
+            rules.register(target, crate::foundations::CONTEXT_RULE);
 
-        // CounterDisplayElem only exists because the compiler can't currently
-        // express the equivalent of `context counter(..).display(..)` in native
-        // code (no native closures).
-        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+            // CounterDisplayElem only exists because the compiler can't
+            // currently express the equivalent of `context
+            // counter(..).display(..)` in native code (no native closures).
+            rules.register(target, crate::introspection::COUNTER_DISPLAY_RULE);
 
-        // These are all only for introspection and empty on all targets.
-        rules.register_empty::<crate::introspection::CounterUpdateElem>();
-        rules.register_empty::<crate::introspection::StateUpdateElem>();
-        rules.register_empty::<crate::introspection::MetadataElem>();
-        rules.register_empty::<crate::model::PrefixInfo>();
+            // These are all only for introspection and empty on all targets.
+            rules.register(target, empty::<crate::introspection::CounterUpdateElem>());
+            rules.register(target, empty::<crate::introspection::StateUpdateElem>());
+            rules.register(target, empty::<crate::introspection::MetadataElem>());
+            rules.register(target, empty::<crate::model::PrefixInfo>());
+        }
 
         rules
-    }
-
-    /// Registers a rule for all targets.
-    fn register_empty<T: NativeElement>(&mut self) {
-        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
-    }
-
-    /// Registers a rule for all targets.
-    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
-        self.register(Target::Paged, f);
-        self.register(Target::Html, f);
-        self.register(Target::Bundle, f);
     }
 
     /// Registers a rule for a target.
