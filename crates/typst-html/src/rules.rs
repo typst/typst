@@ -5,26 +5,26 @@ use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, SequenceElem, ShowFn,
+    Smart, StyleChain, Target,
 };
 use typst_library::introspection::{
     Counter, History, Introspect, Introspector, Location, QueryIntrospection,
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
-    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+    BlockBody, BlockElem, BoxElem, Dir, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem, LinkTarget,
-    ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, FootnoteMarker, HeadingElem, LinkElem,
+    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
@@ -51,7 +51,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
-    rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_GROUP_RULE);
     rules.register(Html, FOOTNOTE_MARKER_RULE);
     rules.register(Html, FOOTNOTE_CONTAINER_RULE);
     rules.register(Html, FOOTNOTE_ENTRY_RULE);
@@ -335,21 +335,39 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
+const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
+    let sep = elem
+        .get_separator(
+            // This unwrap() is safe, as there's at least one footnote.
+            elem.children.first().unwrap().numbering.get_cloned(styles),
+            styles,
+        )
+        .map(|c| SuperElem::new(c).pack());
+    let mut sups = Vec::<Content>::new();
+    for (i, note) in elem.children.iter().enumerate() {
+        if let Some(sep) = &sep
+            && i != 0
+        {
+            // TODO: Use `Iterator::intersperse` when stabilized.
+            sups.push(sep.clone());
+        }
+        let span = note.span();
+        let link = note.realize(engine, styles)?;
+        let sup = SuperElem::new(link)
+            .pack()
+            .styled(HtmlElem::role.set(Some("doc-noteref".into())))
+            .spanned(span);
 
-    // The footnote number that links to the footnote entry.
-    let link = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(link)
-        .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
-        .spanned(span);
-
-    // Indicates the presence of a default footnote rule to emit an error when
-    // no footnote container is available.
-    let marker = FootnoteMarker::new().pack().spanned(span);
-
-    Ok(HElem::hole().clone() + sup + marker)
+        // Indicates the presence of a default footnote rule to emit an error
+        // when no footnote container is available.
+        let marker = FootnoteMarker::new().pack().spanned(span);
+        sups.push(sup + marker);
+    }
+    if styles.resolve(TextElem::dir) == Dir::RTL {
+        sups.reverse();
+    }
+    let content = SequenceElem::new(sups).pack().spanned(elem.span());
+    Ok(HElem::hole().clone() + content)
 };
 
 /// This is inserted at the end of the body to display footnotes. In the future,
