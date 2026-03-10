@@ -119,10 +119,10 @@ impl HtmlElem {
         }
     }
 
-    /// Checks whether the given element is an inline-level HTML element.
-    fn is_inline(elem: &Content) -> bool {
+    /// Checks whether the given element is "phrasing content" in HTML.
+    fn is_phrasing(elem: &Content) -> bool {
         elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
+            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
     }
 }
 

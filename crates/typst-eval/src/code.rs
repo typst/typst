@@ -325,7 +325,7 @@ impl Eval for ast::FieldAccess<'_> {
 
         // Check whether this is a get rule field access.
         if let Value::Func(func) = &value
-            && let Some(element) = func.element()
+            && let Some(element) = func.to_element()
             && let Some(id) = element.field_id(&field)
             && let styles = vm.context.styles().at(field.span())
             && let Ok(value) = element
@@ -380,7 +380,7 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     let mut warning = warning!(
         *span,
         "this return unconditionally discards the content before it";
-        hint: "try omitting the `return` to automatically join all values"
+        hint: "try omitting the `return` to automatically join all values";
     );
 
     if tree.query_first_naive(selector).is_some() {

@@ -21,12 +21,12 @@ doc = false
 typst = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
-typst-kit = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
@@ -36,13 +36,10 @@ comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 fs_extra = { workspace = true }
-notify = { workspace = true }
 open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
-rustc-hash = { workspace = true }
-same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }
 serde = { workspace = true }
@@ -52,11 +49,26 @@ shell-escape = { workspace = true }
 sigpipe = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
-tiny_http = { workspace = true, optional = true }
 toml = { workspace = true }
-ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+
+[dependencies.typst-kit]
+workspace = true
+features = [
+    "embedded-fonts",
+    "scan-fonts",
+    "system-packages",
+    "universe-packages",
+    "emit-diagnostics",
+    "system-downloader",
+    "watcher",
+]
+
+[dev-dependencies]
+typst-dev-assets = { workspace = true }
+memchr = { workspace = true }
+tempfile = { workspace = true }
 
 [build-dependencies]
 chrono = { workspace = true }
@@ -66,15 +78,16 @@ clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
+typst-utils = { workspace = true }
 
 [features]
-default = ["embed-fonts", "http-server"]
+default = ["embedded-fonts", "http-server"]
 
 # Embeds some fonts into the binary, see typst-kit
-embed-fonts = ["typst-kit/embed-fonts"]
+embedded-fonts = ["typst-kit/embedded-fonts"]
 
 # Enables the built-in HTTP server for `typst watch` and HTML export.
-http-server = ["dep:tiny_http"]
+http-server = ["typst-kit/http-server"]
 
 # Permits the CLI to update itself without a package manager.
 self-update = ["dep:self-replace", "dep:xz2", "dep:zip"]

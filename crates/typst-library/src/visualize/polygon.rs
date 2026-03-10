@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use typst_syntax::Span;
 
 use crate::foundations::{Content, NativeElement, Smart, elem, func, scope};
-use crate::layout::{Axes, Em, Length, Rel};
+use crate::layout::{Angle, Axes, Em, Length, Ratio, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
 /// A closed polygon.
@@ -87,7 +87,9 @@ impl PolygonElem {
     ) -> Content {
         let radius = size / 2.0;
         let angle = |i: f64| {
-            2.0 * PI * i / (vertices as f64) + PI * (1.0 / 2.0 - 1.0 / vertices as f64)
+            let offset = Angle::rad(PI * (1.0 / 2.0 - 1.0 / vertices as f64));
+            let rotation = Angle::from_ratio(Ratio::new(i / vertices as f64));
+            offset + rotation
         };
         let (horizontal_offset, vertical_offset) = (0..=vertices)
             .map(|v| {

@@ -1,6 +1,6 @@
 // Test stack layouts.
 
---- stack-basic ---
+--- stack-basic paged ---
 // Test stacks with different directions.
 #let widths = (
   30pt, 20pt, 40pt, 15pt,
@@ -19,7 +19,7 @@
 #set page(width: 50pt, margin: 0pt)
 #stack(dir: btt, ..items)
 
---- stack-spacing ---
+--- stack-spacing paged ---
 // Test spacing.
 #set page(width: 50pt, margin: 0pt)
 
@@ -31,7 +31,7 @@
   stack(dir: ltr, spacing: 5pt, x, x, 7pt, 3pt, x),
 )
 
---- stack-overflow ---
+--- stack-overflow paged ---
 // Test overflow.
 #set page(width: 50pt, height: 30pt, margin: 0pt)
 #box(stack(
@@ -39,7 +39,7 @@
   rect(width: 30pt, height: 13pt, fill: forest),
 ))
 
---- stack-fr ---
+--- stack-fr paged ---
 #set page(height: 3.5cm)
 #stack(
   dir: ltr,
@@ -53,7 +53,7 @@ from #h(1fr) the #h(1fr) wonderful
 #v(1fr)
 World! 🌍
 
---- stack-rtl-align-and-fr ---
+--- stack-rtl-align-and-fr paged ---
 // Test aligning things in RTL stack with align function & fr units.
 #set page(width: 50pt, margin: 5pt)
 #set block(spacing: 5pt)
@@ -65,14 +65,14 @@ World! 🌍
   [C],
 )
 
---- issue-1240-stack-h-fr ---
+--- issue-1240-stack-h-fr paged ---
 // This issue is sort of horrible: When you write `h(1fr)` in a `stack` instead
 // of directly `1fr`, things go awry. To fix this, we now transparently detect
 // h/v children.
 #stack(dir: ltr, [a], 1fr, [b], 1fr, [c])
 #stack(dir: ltr, [a], h(1fr), [b], h(1fr), [c])
 
---- issue-1240-stack-v-fr ---
+--- issue-1240-stack-v-fr paged ---
 #set page(height: 60pt)
 #stack(
   dir: ltr,
@@ -81,7 +81,7 @@ World! 🌍
   stack([a], v(1fr), [b]),
 )
 
---- issue-1918-stack-with-infinite-spacing ---
+--- issue-1918-stack-with-infinite-spacing paged ---
 // https://github.com/typst/typst/issues/1918
 #set page(width: auto)
 #context layout(available => {

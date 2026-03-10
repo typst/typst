@@ -18,7 +18,7 @@ use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, Protected};
 
 use crate::flow::{FlowMode, layout_flow};
 
@@ -61,7 +61,7 @@ pub fn layout_page_run(
     layout_page_run_impl(
         engine.routines,
         engine.world,
-        engine.introspector,
+        engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),
@@ -85,6 +85,7 @@ fn layout_page_run_impl(
     locator: Tracked<Locator>,
     initial: StyleChain,
 ) -> SourceResult<Vec<LayoutedPage>> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {

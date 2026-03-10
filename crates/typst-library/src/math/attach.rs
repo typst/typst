@@ -1,6 +1,9 @@
-use crate::foundations::{Content, Packed, elem};
+use typst_utils::default_math_class;
+use unicode_math_class::MathClass;
+
+use crate::foundations::{Content, StyleChain, elem};
 use crate::layout::{Length, Rel};
-use crate::math::{EquationElem, Mathy};
+use crate::math::{EquationElem, MathSize, Mathy};
 
 /// A base with optional attachments.
 ///
@@ -10,6 +13,9 @@ use crate::math::{EquationElem, Mathy};
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
+///
+/// If you want to add accents (hats, tildes, arrows, etc.) instead of scripts
+/// or corner attachments, use the [`accent`]($math.accent) function instead.
 #[elem(Mathy)]
 pub struct AttachElem {
     /// The base to which things are attached.
@@ -40,45 +46,6 @@ pub struct AttachElem {
 
     /// The bottom-right attachment (after the base).
     pub br: Option<Content>,
-}
-
-impl Packed<AttachElem> {
-    /// If an AttachElem's base is also an AttachElem, merge attachments into the
-    /// base AttachElem where possible.
-    pub fn merge_base(&self) -> Option<Self> {
-        // Extract from an EquationElem.
-        let mut base = &self.base;
-        while let Some(equation) = base.to_packed::<EquationElem>() {
-            base = &equation.body;
-        }
-
-        // Move attachments from elem into base where possible.
-        if let Some(base) = base.to_packed::<AttachElem>() {
-            let mut elem = self.clone();
-            let mut base = base.clone();
-
-            macro_rules! merge {
-                ($content:ident) => {
-                    if !base.$content.is_set() && elem.$content.is_set() {
-                        base.$content = elem.$content.clone();
-                        elem.$content.unset();
-                    }
-                };
-            }
-
-            merge!(t);
-            merge!(b);
-            merge!(tl);
-            merge!(tr);
-            merge!(bl);
-            merge!(br);
-
-            elem.base = base.pack();
-            return Some(elem);
-        }
-
-        None
-    }
 }
 
 /// Grouped primes.
@@ -154,4 +121,60 @@ pub struct StretchElem {
     /// its attachments.
     #[default(Rel::one())]
     pub size: Rel<Length>,
+}
+
+/// Describes in which situation a frame should use limits for attachments.
+#[derive(Debug, Copy, Clone)]
+pub enum Limits {
+    /// Always scripts.
+    Never,
+    /// Display limits only in `display` math.
+    Display,
+    /// Always limits.
+    Always,
+}
+
+impl Limits {
+    /// The default limit configuration if the given character is the base.
+    pub fn for_char(c: char) -> Self {
+        Self::for_char_with_class(c, default_math_class(c))
+    }
+
+    /// The default limit configuration for a character with a known default class.
+    pub fn for_char_with_class(c: char, class: Option<MathClass>) -> Self {
+        match class {
+            Some(MathClass::Large) => {
+                if is_integral_char(c) {
+                    Limits::Never
+                } else {
+                    Limits::Display
+                }
+            }
+            Some(MathClass::Relation) => Limits::Always,
+            _ => Limits::Never,
+        }
+    }
+
+    /// The default limit configuration for a math class.
+    pub fn for_class(class: MathClass) -> Self {
+        match class {
+            MathClass::Large => Self::Display,
+            MathClass::Relation => Self::Always,
+            _ => Self::Never,
+        }
+    }
+
+    /// Whether limits should be displayed in this context.
+    pub fn active(&self, styles: StyleChain) -> bool {
+        match self {
+            Self::Always => true,
+            Self::Display => styles.get(EquationElem::size) == MathSize::Display,
+            Self::Never => false,
+        }
+    }
+}
+
+/// Determines if the character is one of a variety of integral signs.
+fn is_integral_char(c: char) -> bool {
+    ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }

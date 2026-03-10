@@ -20,7 +20,7 @@ use typst_library::layout::{
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
-use typst_utils::SliceExt;
+use typst_utils::{Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
@@ -90,16 +90,17 @@ impl<'a> Collector<'a, '_, '_> {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
                 self.output.push(Child::Break(elem.weak.get(styles)));
+                self.par_situation = ParSituation::First;
             } else if child.is::<PagebreakElem>() {
                 bail!(
                     child.span(), "pagebreaks are not allowed inside of containers";
-                    hint: "try using a `#colbreak()` instead",
+                    hint: "try using a `#colbreak()` instead";
                 );
             } else {
                 self.engine.sink.warn(warning!(
                     child.span(),
                     "{} was ignored during paged export",
-                    child.func().name()
+                    child.func().name(),
                 ));
             }
         }
@@ -149,7 +150,7 @@ impl<'a> Collector<'a, '_, '_> {
             Spacing::Rel(rel) => {
                 Child::Rel(rel.resolve(styles), elem.weak.get(styles) as u8)
             }
-            Spacing::Fr(fr) => Child::Fr(fr),
+            Spacing::Fr(fr) => Child::Fr(fr, elem.weak.get(styles) as u8),
         });
     }
 
@@ -246,7 +247,7 @@ impl<'a> Collector<'a, '_, '_> {
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
-            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
+            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr, 2),
         };
 
         self.output.push(spacing(elem.above.get(styles)));
@@ -300,7 +301,7 @@ impl<'a> Collector<'a, '_, '_> {
             (false, Smart::Auto) => bail!(
                 elem.span(),
                 "automatic positioning is only available for floating placement";
-                hint: "you can enable floating placement with `place(float: true, ..)`"
+                hint: "you can enable floating placement with `place(float: true, ..)`";
             ),
             _ => {}
         }
@@ -309,7 +310,7 @@ impl<'a> Collector<'a, '_, '_> {
             bail!(
                 elem.span(),
                 "parent-scoped positioning is currently only available for floating placement";
-                hint: "you can enable floating placement with `place(float: true, ..)`"
+                hint: "you can enable floating placement with `place(float: true, ..)`";
             );
         }
 
@@ -349,8 +350,8 @@ pub enum Child<'a> {
     Tag(&'a Tag),
     /// Relative spacing with a specific weakness level.
     Rel(Rel<Abs>, u8),
-    /// Fractional spacing.
-    Fr(Fr),
+    /// Fractional spacing with a specific weakness level.
+    Fr(Fr, u8),
     /// An already layouted line of a paragraph.
     Line(BumpBox<'a, LineChild>),
     /// An unbreakable block.
@@ -395,7 +396,7 @@ impl SingleChild<'_> {
             layout_single_impl(
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
@@ -423,6 +424,7 @@ fn layout_single_impl(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {
@@ -494,7 +496,7 @@ impl<'a> MultiChild<'a> {
             layout_multi_impl(
                 engine.routines,
                 engine.world,
-                engine.introspector,
+                engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
                 engine.route.track(),
@@ -522,6 +524,7 @@ fn layout_multi_impl(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {

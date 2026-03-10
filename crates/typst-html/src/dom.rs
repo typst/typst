@@ -71,6 +71,41 @@ impl From<HtmlFrame> for HtmlNode {
     }
 }
 
+/// An extension trait for `[HtmlNode]`.
+pub trait HtmlSliceExt {
+    /// Iterates over nodes alongside the indices as they would be observed in
+    /// the final DOM.
+    ///
+    /// - Tags receive the index of the preceding node and don't advance the
+    ///   cursor.
+    ///
+    /// - For indexing purposes, consecutive text nodes are considered as
+    ///   groups. They receive the same index as they are not distinguishable on
+    ///   the DOM level.
+    fn iter_with_dom_indices(&self) -> impl Iterator<Item = (&HtmlNode, usize)>;
+}
+
+impl HtmlSliceExt for [HtmlNode] {
+    fn iter_with_dom_indices(&self) -> impl Iterator<Item = (&HtmlNode, usize)> {
+        let mut cursor = 0;
+        let mut was_text = false;
+        self.iter().map(move |child| {
+            let mut i = cursor;
+            match child {
+                HtmlNode::Tag(_) => {}
+                HtmlNode::Text(..) => was_text = true,
+                _ => {
+                    cursor += usize::from(was_text);
+                    i = cursor;
+                    cursor += 1;
+                    was_text = false;
+                }
+            }
+            (child, i)
+        })
+    }
+}
+
 /// An HTML element.
 #[derive(Debug, Clone, Hash)]
 pub struct HtmlElement {
@@ -396,5 +431,38 @@ impl HtmlFrame {
             link_points: EcoVec::new(),
             span,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use typst_library::foundations::Content;
+    use typst_library::introspection::TagFlags;
+
+    use super::*;
+    use crate::tag;
+
+    #[test]
+    fn test_iter_with_dom_indices() {
+        let text = |s| HtmlNode::text(s, Span::detached());
+        let nodes = [
+            text("A"),
+            HtmlElement::new(tag::span).into(),
+            text("hi"),
+            text(" you"),
+            HtmlNode::Tag(Tag::Start(
+                Content::default(),
+                TagFlags { introspectable: true, tagged: true },
+            )),
+            text(" there"),
+            HtmlElement::new(tag::span).into(),
+            text(" my"),
+            text(" friend!"),
+        ];
+
+        assert_eq!(
+            nodes.iter_with_dom_indices().map(|(_, i)| i).collect::<Vec<_>>(),
+            [0, 1, 2, 2, 2, 2, 3, 4, 4]
+        );
     }
 }

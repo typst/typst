@@ -55,4 +55,21 @@ macro_rules! assign_impl {
             }
         }
     };
+
+    ($a:ident %= $b:ident) => {
+        impl ::core::ops::RemAssign<$b> for $a {
+            fn rem_assign(&mut self, other: $b) {
+                *self = *self % other;
+            }
+        }
+    };
+}
+
+/// Accecpts the same arguments as the [format!](format!) macro and forwards them to
+/// [`crate::display()`].
+#[macro_export]
+macro_rules! display {
+    ($($arg:tt)*) => {
+        $crate::display(|f| write!(f, $($arg)*))
+    };
 }

@@ -8,7 +8,7 @@ use crate::foundations::{
     AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
     StyleChain, Value, cast,
 };
-use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Rel, Size};
+use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Corners, Rel, Size};
 
 /// A container with left, top, right and bottom components.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
@@ -78,6 +78,20 @@ impl<T> Sides<T> {
     /// An iterator over the sides, starting with the left side, clockwise.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()
+    }
+
+    /// Map two adjacent sides into a corner `f`.
+    pub fn map_corners<F, U>(self, mut f: F) -> Corners<U>
+    where
+        F: FnMut(T, T) -> U,
+        T: Copy,
+    {
+        Corners {
+            top_left: f(self.left, self.top),
+            top_right: f(self.top, self.right),
+            bottom_right: f(self.right, self.bottom),
+            bottom_left: f(self.bottom, self.left),
+        }
     }
 
     /// Whether all sides are equal.

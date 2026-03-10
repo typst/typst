@@ -3,20 +3,26 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=0
-        - Annotation: page=0 index=0
+        - Annotation: page=0 subtype=Link
+          /Contents: "https://example.com/"
+          /URI: "https://example.com/"
 - Tag: P
   /K:
     - Tag: Link
       /K:
         - Content: page=0 mcid=1
-        - Annotation: page=0 index=1
+        - Annotation: page=0 subtype=Link
+          /Contents: "https://typst.org/"
+          /URI: "https://typst.org/"
 - Tag: P
   /K:
     - Content: page=0 mcid=2
     - Tag: Link
       /K:
         - Content: page=0 mcid=3
-        - Annotation: page=0 index=2
+        - Annotation: page=0 subtype=Link
+          /Contents: "https://google.com/"
+          /URI: "https://google.com/"
         - Content: page=0 mcid=4
     - Content: page=0 mcid=5
 - Tag: P
@@ -25,12 +31,16 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=7
-        - Annotation: page=0 index=3
+        - Annotation: page=0 subtype=Link
+          /Contents: "Email hi@typst.app"
+          /URI: "mailto:hi@typst.app"
     - Content: page=0 mcid=8
     - Content: page=0 mcid=9
     - Tag: Link
       /K:
         - Content: page=0 mcid=10
-        - Annotation: page=0 index=4
+        - Annotation: page=0 subtype=Link
+          /Contents: "Telephone 123"
+          /URI: "tel:123"
     - Content: page=0 mcid=11
     - Content: page=0 mcid=12

@@ -5,9 +5,11 @@
       /LineHeight:   6.000
       /K:
         - Content: page=0 mcid=0
+          /Lang: "en"
     - Content: page=0 mcid=1
     - Tag: Span
       /BaselineShift:   9.500
       /LineHeight:   6.000
       /K:
         - Content: page=0 mcid=2
+          /Lang: "en"

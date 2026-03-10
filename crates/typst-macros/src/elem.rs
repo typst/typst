@@ -178,7 +178,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     {
         bail!(
             body.ident,
-            "cannot have public ghost fields and an auto-generated constructor"
+            "cannot have public ghost fields and an auto-generated constructor",
         );
     }
 
@@ -297,7 +297,6 @@ fn create_struct(element: &Elem) -> TokenStream {
     quote! {
         #[doc = #docs]
         #[derive(Hash, #debug Clone)]
-        #[allow(clippy::derived_hash_with_manual_eq)]
         #[allow(rustdoc::broken_intra_doc_links)]
         #vis struct #ident {
             #(#fields,)*

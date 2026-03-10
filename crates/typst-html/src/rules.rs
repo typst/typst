@@ -1,14 +1,17 @@
 use std::num::NonZeroUsize;
 
-use comemo::Track;
-use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
+use comemo::{Track, Tracked};
+use ecow::{EcoString, EcoVec, eco_format};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
+    Target,
 };
-use typst_library::introspection::Counter;
-use typst_library::layout::resolve::{Cell, CellGrid, Entry};
+use typst_library::introspection::{
+    Counter, History, Introspect, Introspector, Location, QueryIntrospection,
+};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
@@ -25,6 +28,7 @@ use typst_library::text::{
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
+use typst_syntax::Span;
 use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
@@ -59,6 +63,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, CSL_LIGHT_RULE);
     rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
+    rules.register(Html, TABLE_CELL_RULE);
 
     // Text.
     rules.register(Html, SUB_RULE);
@@ -160,24 +165,22 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 };
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
-    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+    let span = elem.span();
+    let dest = elem.dest.resolve(engine, span)?;
 
     let href = match dest {
         Destination::Url(url) => Some(url.clone().into_inner()),
         Destination::Location(location) => {
             let id = engine
-                .introspector
-                .html_id(location)
-                .cloned()
+                .introspect(HtmlIdIntrospection(location, span))
                 .ok_or("failed to determine link anchor")
-                .at(elem.span())?;
+                .at(span)?;
             Some(eco_format!("#{id}"))
         }
         Destination::Position(_) => {
-            engine.sink.warn(warning!(
-                elem.span(),
-                "positional link was ignored during HTML export"
-            ));
+            engine
+                .sink
+                .warn(warning!(span, "positional link was ignored during HTML export"));
             None
         }
     };
@@ -187,6 +190,39 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .with_body(Some(elem.body.clone()))
         .pack())
 };
+
+/// Resolves the DOM element ID assigned to the linked-to element with the given
+/// location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct HtmlIdIntrospection(Location, Span);
+
+impl Introspect for HtmlIdIntrospection {
+    type Output = Option<EcoString>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.html_id(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        let introspector = history.final_introspector();
+        let what = match introspector.query_first(&Selector::Location(self.0)) {
+            Some(content) => content.elem().name(),
+            None => "element",
+        };
+        warning!(
+            self.1,
+            "HTML element ID assigned to the destination {what} did not stabilize",
+        )
+        .with_hint(history.hint("IDs", |id| match id {
+            Some(id) => id.clone(),
+            None => "(no ID)".into(),
+        }))
+    }
+}
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     Ok(LinkElem::new(
@@ -209,7 +245,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     if let Some(numbering) = elem.numbering.get_ref(styles).as_ref() {
         let location = elem.location().unwrap();
         let numbering = Counter::of(HeadingElem::ELEM)
-            .display_at_loc(engine, location, styles, numbering)?
+            .display_at(engine, location, styles, numbering, span)?
             .spanned(span);
         realized = numbering + SpaceElem::shared().clone() + realized;
     }
@@ -228,7 +264,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             level, level + 1;
             hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
             hint: "you may want to restructure your document so that \
-                   it doesn't contain deep headings"
+                   it doesn't contain deep headings";
         ));
         HtmlElem::new(tag::div)
             .with_body(Some(realized))
@@ -301,19 +337,19 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
 
-    // Link to the footnote entry.
-    let link = LinkElem::new(dest.into(), sup)
+    // The footnote number that links to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(link)
         .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
+        .spanned(span);
 
     // Indicates the presence of a default footnote rule to emit an error when
     // no footnote container is available.
     let marker = FootnoteMarker::new().pack().spanned(span);
 
-    Ok(HElem::hole().clone() + link + marker)
+    Ok(HElem::hole().clone() + sup + marker)
 };
 
 /// This is inserted at the end of the body to display footnotes. In the future,
@@ -329,8 +365,12 @@ impl FootnoteContainer {
     }
 
     /// Fails with an error if there are footnotes.
-    pub fn unsupported_with_custom_dom(engine: &Engine) -> SourceResult<()> {
-        let markers = engine.introspector.query(&FootnoteMarker::ELEM.select());
+    pub fn unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
+        let markers = engine.introspect(QueryIntrospection(
+            FootnoteMarker::ELEM.select(),
+            Span::detached(),
+        ));
+
         if markers.is_empty() {
             return Ok(());
         }
@@ -342,7 +382,7 @@ impl FootnoteContainer {
                     marker.span(),
                     "footnotes are not currently supported in combination \
                      with a custom `<html>` or `<body>` element";
-                    hint: "you can still use footnotes with a custom footnote show rule"
+                    hint: "you can still use footnotes with a custom footnote show rule";
                 )
             })
             .collect())
@@ -351,8 +391,10 @@ impl FootnoteContainer {
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
-const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
-    let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
+    let notes =
+        engine.introspect(QueryIntrospection(FootnoteElem::ELEM.select(), elem.span()));
+
     if notes.is_empty() {
         return Ok(Content::empty());
     }
@@ -394,18 +436,20 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
+    let prefix = sup
+        .styled(HtmlElem::role.set(Some("doc-backlink".into())))
+        .spanned(elem.span());
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see
     // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
     // appropriately modelled as ARIA endnotes. This is also in line with how
     // Pandoc handles footnotes.
-    Ok(backlink + body)
+    Ok(prefix + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
@@ -485,7 +529,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
-    let works = Works::generate(engine).at(span)?;
+    let works = Works::with_bibliography(engine, elem.clone())?;
     let references = works.references(elem, styles)?;
 
     let items = references.iter().map(|(prefix, reference, loc)| {
@@ -563,9 +607,24 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     // TODO(subfooters): similarly to headers, take consecutive footers from
     // the end for 'tfoot'.
     let footer = grid.footer.as_ref().map(|ft| {
-        let rows = rows.drain(ft.start..);
+        // Convert from gutter to non-gutter coordinates. Use ceil as it might
+        // include the previous gutter row
+        // (cf. typst-library/layout/grid/resolve.rs).
+        let footer_start = if grid.has_gutter { ft.start.div_ceil(2) } else { ft.start };
+        let rows = rows.drain(footer_start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
+
+    // Header range converting from gutter (doubled) to non-gutter coordinates.
+    let header_range = |hd: &Header| {
+        if grid.has_gutter {
+            // Use ceil as it might be `2 * row_amount - 1` if the header is at
+            // the end (cf. typst-library/layout/grid/resolve.rs).
+            hd.range.start / 2..hd.range.end.div_ceil(2)
+        } else {
+            hd.range.clone()
+        }
+    };
 
     // Store all consecutive headers at the start in 'thead'. All remaining
     // headers are just 'th' rows across the table body.
@@ -574,15 +633,16 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
         .headers
         .iter()
         .take_while(|hd| {
-            let is_consecutive = hd.range.start == consecutive_header_end;
-            consecutive_header_end = hd.range.end;
+            let range = header_range(hd);
+            let is_consecutive = range.start == consecutive_header_end;
+            consecutive_header_end = range.end;
             is_consecutive
         })
         .count();
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            grid.headers.get(first_mid_table_header - 1).unwrap().range.end;
+            header_range(grid.headers.get(first_mid_table_header - 1).unwrap()).end;
         let rows = rows.drain(..removed_header_rows);
 
         (
@@ -601,10 +661,11 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     let mut body =
         Content::sequence(rows.into_iter().enumerate().map(|(relative_y, row)| {
             let y = relative_y + y_offset;
-            if let Some(current_header) =
-                grid.headers.get(next_header).filter(|h| h.range.contains(&y))
+            if let Some(current_header_range) =
+                grid.headers.get(next_header).map(|h| header_range(h))
+                && current_header_range.contains(&y)
             {
-                if y + 1 == current_header.range.end {
+                if y + 1 == current_header_range.end {
                     next_header += 1;
                 }
 
@@ -634,11 +695,13 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
         attrs.push(attr::rowspan, rowspan);
     }
     HtmlElem::new(tag)
-        .with_body(Some(cell.body.clone()))
+        .with_body(Some(cell.clone().pack()))
         .with_attrs(attrs)
         .pack()
         .spanned(cell.span())
 }
+
+const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, _| Ok(elem.body.clone());
 
 const SUB_RULE: ShowFn<SubElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
@@ -735,7 +798,7 @@ const BLOCK_RULE: ShowFn<BlockElem> = |elem, _, styles| {
             bail!(
                 elem.span(),
                 "blocks with layout routines should not occur in \
-                 HTML export – this is a bug"
+                 HTML export – this is a bug";
             )
         }
     };

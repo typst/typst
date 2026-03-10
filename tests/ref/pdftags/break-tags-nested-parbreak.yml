@@ -5,11 +5,19 @@
 - Tag: Link
   /Placement: Block
   /K:
-    - Annotation: page=0 index=0
-    - Annotation: page=0 index=1
-    - Annotation: page=0 index=2
-    - Annotation: page=0 index=3
-    - Tag: InlineQuote
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Tag: Quote
       /K:
         - Tag: P
           /K:
@@ -24,6 +32,8 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=6
-        - Annotation: page=0 index=4
+        - Annotation: page=0 subtype=Link
+          /Contents: "Telephone 123"
+          /URI: "tel:123"
     - Content: page=0 mcid=7
     - Content: page=0 mcid=8

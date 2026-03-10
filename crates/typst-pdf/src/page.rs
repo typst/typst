@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::num::NonZeroU32;
 
 use krilla::page::{NumberingStyle, PageLabel};
 use typst_library::model::Numbering;
@@ -23,7 +23,7 @@ impl PageLabelExt for PageLabel {
 
             let (prefix, kind) = pat.pieces.first()?;
 
-            // If there is a suffix, we cannot use the common style optimisation,
+            // If there is a suffix, we cannot use the common style optimization,
             // since PDF does not provide a suffix field.
             let style = if pat.suffix.is_empty() {
                 use krilla::page::NumberingStyle as Style;
@@ -33,7 +33,7 @@ impl PageLabelExt for PageLabel {
                     Kind::LowerRoman => Some(Style::LowerRoman),
                     Kind::UpperRoman => Some(Style::UpperRoman),
                     Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
-                    Kind::LowerLatin if number <= 26 => Some(Style::UpperAlpha),
+                    Kind::UpperLatin if number <= 26 => Some(Style::UpperAlpha),
                     _ => None,
                 }
             } else {
@@ -49,7 +49,7 @@ impl PageLabelExt for PageLabel {
                 (!prefix.is_empty()).then(|| prefix.clone())
             };
 
-            let offset = style.and(number.try_into().ok().and_then(NonZeroUsize::new));
+            let offset = style.and(number.try_into().ok().and_then(NonZeroU32::new));
             Some(PageLabel::new(style, prefix.map(Into::into), offset))
         }
     }
@@ -58,7 +58,7 @@ impl PageLabelExt for PageLabel {
         PageLabel::new(
             Some(NumberingStyle::Arabic),
             None,
-            number.try_into().ok().and_then(NonZeroUsize::new),
+            number.try_into().ok().and_then(NonZeroU32::new),
         )
     }
 }

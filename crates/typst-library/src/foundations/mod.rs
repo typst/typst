@@ -24,6 +24,7 @@ mod int;
 mod label;
 mod module;
 mod none;
+mod path;
 #[path = "plugin.rs"]
 mod plugin_;
 mod scope;
@@ -55,6 +56,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
+pub use self::path::*;
 pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;
@@ -67,7 +69,6 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
-use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -77,12 +78,13 @@ pub use {
     smallvec::SmallVec,
 };
 
-use comemo::TrackedMut;
+use comemo::{Track, TrackedMut};
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{RootedPath, Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
+use crate::introspection::Introspector;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -108,6 +110,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Symbol>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
+    global.define_type::<RootedPath>();
     global.define_func::<repr::repr>();
     global.define_func::<panic>();
     global.define_func::<assert>();
@@ -208,7 +211,7 @@ impl assert {
                 bail!(
                     "equality assertion failed: value {} was not equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }
@@ -241,7 +244,7 @@ impl assert {
                 bail!(
                     "inequality assertion failed: value {} was equal to {}",
                     left.repr(),
-                    right.repr()
+                    right.repr(),
                 );
             }
         }
@@ -302,6 +305,14 @@ pub fn eval(
         engine.routines,
         engine.world,
         TrackedMut::reborrow_mut(&mut engine.sink),
+        // We create a new, detached introspector for string evaluation. Passing
+        // the real introspector should not have any consequences with
+        // `Context::none`, but also no benefits. We might want to pass through
+        // the context and introspector in the future, to allow introspection
+        // when calling `eval` from within a context expression, but this should
+        // be well-considered.
+        Introspector::default().track(),
+        Context::none().track(),
         &text,
         span,
         mode,

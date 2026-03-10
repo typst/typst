@@ -13,8 +13,8 @@ use crate::foundations::{
     Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
 };
 use crate::introspection::{
-    Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink, Tagged,
-    Unqueriable,
+    Counter, CounterKey, Locatable, Location, Locator, LocatorLink,
+    PageNumberingIntrospection, QueryIntrospection, Tagged, Unqueriable,
 };
 use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
@@ -303,7 +303,8 @@ impl Packed<OutlineElem> {
     ) -> impl Iterator<Item = SourceResult<(Packed<OutlineEntry>, NonZeroUsize, bool)>>
     {
         let span = self.span();
-        let elems = engine.introspector.query(&self.target.get_ref(styles).0);
+        let elems =
+            engine.introspect(QueryIntrospection(self.target.get_cloned(styles).0, span));
         let depth = self.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
         elems.into_iter().map(move |elem| {
             let Some(outlinable) = elem.with::<dyn Outlinable>() else {
@@ -561,18 +562,19 @@ impl OutlineEntry {
 
         let prefix_width = prefix
             .as_ref()
-            .map(|prefix| measure_prefix(engine, prefix, outline_loc, styles))
+            .map(|prefix| measure_prefix(engine, prefix, outline_loc, styles, span))
             .transpose()?;
         let prefix_inset = prefix_width.map(|w| w + gap.resolve(styles));
 
         let indent = outline.indent.get_ref(styles);
         let (base_indent, hanging_indent) = match &indent {
             Smart::Auto => compute_auto_indents(
-                engine.introspector,
+                engine,
                 outline_loc,
                 styles,
                 self.level,
                 prefix_inset,
+                span,
             ),
             Smart::Custom(amount) => {
                 let base = amount.resolve(engine, context, self.level, span)?;
@@ -636,8 +638,9 @@ impl OutlineEntry {
         let Some(numbering) = outlinable.numbering() else { return Ok(None) };
         let loc = self.element_location().at(span)?;
         let styles = context.styles().at(span)?;
-        let numbers =
-            outlinable.counter().display_at_loc(engine, loc, styles, numbering)?;
+        let numbers = outlinable
+            .counter()
+            .display_at(engine, loc, styles, numbering, span)?;
         Ok(Some(outlinable.prefix(numbers)))
     }
 
@@ -677,11 +680,9 @@ impl OutlineEntry {
         let loc = self.element_location().at(span)?;
         let styles = context.styles().at(span)?;
         let numbering = engine
-            .introspector
-            .page_numbering(loc)
-            .cloned()
+            .introspect(PageNumberingIntrospection(loc, span))
             .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
-        Counter::new(CounterKey::Page).display_at_loc(engine, loc, styles, &numbering)
+        Counter::new(CounterKey::Page).display_at(engine, loc, styles, &numbering, span)
     }
 }
 
@@ -755,7 +756,7 @@ impl OutlineEntry {
             if elem.can::<dyn Outlinable>() {
                 error!(
                     "{} must have a location", elem.func().name();
-                    hint: "try using a show rule to customize the outline.entry instead",
+                    hint: "try using a show rule to customize the outline.entry instead";
                 )
             } else {
                 error!("cannot outline {}", elem.func().name())
@@ -775,9 +776,10 @@ fn measure_prefix(
     prefix: &Content,
     loc: Location,
     styles: StyleChain,
+    span: Span,
 ) -> SourceResult<Abs> {
     let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
-    let link = LocatorLink::measure(loc);
+    let link = LocatorLink::measure(loc, span);
     Ok((engine.routines.layout_frame)(engine, prefix, Locator::link(&link), styles, pod)?
         .width())
 }
@@ -785,13 +787,18 @@ fn measure_prefix(
 /// Compute the base indent and hanging indent for an auto-indented outline
 /// entry of the given level, with the given prefix inset.
 fn compute_auto_indents(
-    introspector: Tracked<Introspector>,
+    engine: &mut Engine,
     outline_loc: Location,
     styles: StyleChain,
     level: NonZeroUsize,
     prefix_inset: Option<Abs>,
+    span: Span,
 ) -> (Rel, Option<Abs>) {
-    let indents = query_prefix_widths(introspector, outline_loc);
+    let elems = engine.introspect(QueryIntrospection(
+        select_where!(PrefixInfo, key => outline_loc),
+        span,
+    ));
+    let indents = determine_prefix_widths(&elems);
 
     let fallback = Em::new(1.2).resolve(styles);
     let get = |i: usize| indents.get(i).copied().flatten().unwrap_or(fallback);
@@ -807,13 +814,9 @@ fn compute_auto_indents(
 /// level, for the outline with the given `loc`. Levels for which there is no
 /// information available yield `None`.
 #[comemo::memoize]
-fn query_prefix_widths(
-    introspector: Tracked<Introspector>,
-    outline_loc: Location,
-) -> SmallVec<[Option<Abs>; 4]> {
+fn determine_prefix_widths(elems: &[Content]) -> SmallVec<[Option<Abs>; 4]> {
     let mut widths = SmallVec::<[Option<Abs>; 4]>::new();
-    let elems = introspector.query(&select_where!(PrefixInfo, key => outline_loc));
-    for elem in &elems {
+    for elem in elems {
         let info = elem.to_packed::<PrefixInfo>().unwrap();
         let level = info.level.get();
         if widths.len() < level {

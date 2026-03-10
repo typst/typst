@@ -21,7 +21,9 @@
           /Placement: Block
           /K:
             - Content: page=0 mcid=5
+              /Lang: "en"
             - Content: page=0 mcid=6
+              /Lang: "en"
     - Tag: Div
       /K:
         - Tag: Span

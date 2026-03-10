@@ -1,6 +1,6 @@
 // Test grid styling options.
 
---- grid-fill-func ---
+--- grid-fill-func paged ---
 #set page(height: 70pt)
 #set grid(fill: (x, y) => if calc.even(x + y) { rgb("aaa") })
 
@@ -10,10 +10,10 @@
   [A], [B], [C], [], [], [D \ E \ F \ \ \ G], [H],
 )
 
---- grid-stroke-none ---
+--- grid-stroke-none paged ---
 #grid(columns: 3, stroke: none, fill: green, [A], [B], [C])
 
---- grid-align ---
+--- grid-align paged ---
 // Test general alignment.
 #grid(
   columns: 3,
@@ -47,7 +47,7 @@
 
 a
 
---- grid-inset ---
+--- grid-inset paged ---
 // Test inset.
 #grid(
   columns: (1fr,) * 3,
@@ -103,7 +103,7 @@ a
   [A], [B], [C],
 )
 
---- grid-inset-folding ---
+--- grid-inset-folding paged ---
 // Test inset folding
 #set grid(inset: 10pt)
 #set grid(inset: (left: 0pt))
@@ -114,7 +114,7 @@ a
   grid.cell(inset: (top: 0pt))[a]
 )
 
---- grid-funcs-gutter ---
+--- grid-funcs-gutter paged ---
 // Test interaction with gutters.
 #grid(
   columns: (3em, 3em),

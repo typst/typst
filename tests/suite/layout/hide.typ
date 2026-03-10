@@ -1,20 +1,20 @@
 // Test the `hide` function.
 
---- hide-text ---
+--- hide-text paged ---
 AB #h(1fr) CD \
 #hide[A]B #h(1fr) C#hide[D]
 
---- hide-line ---
+--- hide-line paged ---
 Hidden:
 #hide[#line(length: 100%)]
 #line(length: 100%)
 
---- hide-table ---
+--- hide-table paged ---
 Hidden:
 #hide(table(rows: 2, columns: 2)[a][b][c][d])
 #table(rows: 2, columns: 2)[a][b][c][d]
 
---- hide-polygon ---
+--- hide-polygon paged ---
 Hidden:
 #hide[
   #polygon((20%, 0pt),
@@ -27,7 +27,7 @@ Hidden:
   (80%, 2cm),
   (0%,  2cm),)
 
---- hide-rect ---
+--- hide-rect paged ---
 #set rect(
   inset: 8pt,
   fill: rgb("e4e5ea"),
@@ -56,7 +56,7 @@ Hidden:
   rect(height: 100%)[D],
 )
 
---- hide-list ---
+--- hide-list paged ---
 Hidden:
 #hide[
 - 1
@@ -73,13 +73,13 @@ Hidden:
   2. B
 - 3
 
---- hide-image ---
+--- hide-image paged ---
 Hidden:
 #hide(image("/assets/images/tiger.jpg", width: 5cm, height: 1cm,))
 
 #image("/assets/images/tiger.jpg", width: 5cm, height: 1cm,)
 
---- issue-622-hide-meta-cite ---
+--- issue-622-hide-meta-cite paged ---
 // Test that metadata of hidden stuff stays available.
 #set cite(style: "chicago-shortened-notes")
 
@@ -90,7 +90,7 @@ A pirate. @arrgh \
   #bibliography("/assets/bib/works.bib")
 ]
 
---- issue-622-hide-meta-outline ---
+--- issue-622-hide-meta-outline paged ---
 #set text(8pt)
 #outline()
 #set text(2pt)

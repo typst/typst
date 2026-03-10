@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -21,16 +20,18 @@ use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
-    StrResult, bail, error, warning,
+    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value, elem,
+    Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
+    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, Value, elem,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{
+    History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
+};
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
@@ -88,8 +89,7 @@ pub struct BibliographyElem {
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
-    /// - A path string to load a bibliography file from the given path. For
-    ///   more details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a bibliography file from.
     /// - Raw bytes from which the bibliography should be decoded.
     /// - An array where each item is one of the above.
     #[required]
@@ -125,8 +125,7 @@ pub struct BibliographyElem {
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string to a [CSL file](https://citationstyles.org/). For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
         Some(source) => Some(CslStyle::load(engine, source)?),
@@ -151,9 +150,10 @@ pub struct BibliographyElem {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Packed<Self>> {
-        let query = introspector.query(&Self::ELEM.select());
-        let mut iter = query.iter();
+    pub fn find(engine: &mut Engine, span: Span) -> StrResult<Packed<Self>> {
+        let elems = engine.introspect(QueryIntrospection(Self::ELEM.select(), span));
+
+        let mut iter = elems.iter();
         let Some(elem) = iter.next() else {
             bail!("the document does not contain a bibliography");
         };
@@ -166,10 +166,9 @@ impl BibliographyElem {
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(engine: &Engine, key: Label) -> bool {
+    pub fn has(engine: &mut Engine, key: Label, span: Span) -> bool {
         engine
-            .introspector
-            .query(&Self::ELEM.select())
+            .introspect(QueryIntrospection(Self::ELEM.select(), span))
             .iter()
             .any(|elem| elem.to_packed::<Self>().unwrap().sources.derived.has(key))
     }
@@ -308,13 +307,7 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
     if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
-        let ext = file_id
-            .vpath()
-            .as_rooted_path()
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default();
-
+        let ext = file_id.vpath().extension().unwrap_or_default();
         match ext.to_lowercase().as_str() {
             "yml" | "yaml" => hayagriva::io::from_yaml_str(data)
                 .map_err(format_yaml_error)
@@ -421,7 +414,7 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependant styles"),
+            _ => unreachable!("archive should not contain dependent styles"),
         }
     }
 
@@ -556,8 +549,21 @@ pub struct Works {
 
 impl Works {
     /// Generate all citations and the whole bibliography.
-    pub fn generate(engine: &Engine) -> StrResult<Arc<Works>> {
-        Self::generate_impl(engine.routines, engine.world, engine.introspector)
+    pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
+        let bibliography = BibliographyElem::find(engine, span).at(span)?;
+        let groups = engine.introspect(CiteGroupIntrospection(span));
+        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+    }
+
+    /// Generate all citations and the whole bibliography, given an existing
+    /// bibliography (no need to query it).
+    pub fn with_bibliography(
+        engine: &mut Engine,
+        bibliography: Packed<BibliographyElem>,
+    ) -> SourceResult<Arc<Works>> {
+        let span = bibliography.span();
+        let groups = engine.introspect(CiteGroupIntrospection(span));
+        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
@@ -565,9 +571,10 @@ impl Works {
     fn generate_impl(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
+        bibliography: Packed<BibliographyElem>,
+        groups: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, introspector)?;
+        let mut generator = Generator::new(routines, world, bibliography, groups)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -592,6 +599,34 @@ impl Works {
                 }
             })
             .at(elem.span())
+    }
+}
+
+/// Retrieves all citation groups in the document.
+///
+/// This is separate from `QueryIntrospection` so that we can customize the
+/// diagnostic as the `CiteGroup` is internal. The default query message is also
+/// not that helpful in this case.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CiteGroupIntrospection(Span);
+
+impl Introspect for CiteGroupIntrospection {
+    type Output = EcoVec<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query(&CiteGroup::ELEM.select())
+    }
+
+    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
+        warning!(
+            self.0, "citation grouping did not stabilize";
+            hint: "this can happen if the citations and bibliographies in the \
+                   document did not stabilize by the end of the third layout iteration";
+        )
     }
 }
 
@@ -641,10 +676,9 @@ impl<'a> Generator<'a> {
     fn new(
         routines: &'a Routines,
         world: Tracked<'a, dyn World + 'a>,
-        introspector: Tracked<Introspector>,
+        bibliography: Packed<BibliographyElem>,
+        groups: EcoVec<Content>,
     ) -> StrResult<Self> {
-        let bibliography = BibliographyElem::find(introspector)?;
-        let groups = introspector.query(&CiteGroup::ELEM.select());
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
             routines,
@@ -686,7 +720,7 @@ impl<'a> Generator<'a> {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        child.key.resolve()
+                        child.key.resolve(),
                     ));
                     continue;
                 };
@@ -1021,6 +1055,8 @@ impl ElemRenderer<'_> {
             self.world,
             // TODO: propagate warnings
             Sink::new().track_mut(),
+            Introspector::default().track(),
+            Context::none().track(),
             math,
             self.span,
             SyntaxMode::Math,

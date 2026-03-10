@@ -1,8 +1,14 @@
 use comemo::Tracked;
+use ecow::{EcoString, EcoVec, eco_format};
+use typst_syntax::Span;
 
-use crate::diag::HintedStrResult;
+use super::{History, Introspect};
+use crate::diag::{HintedStrResult, SourceDiagnostic, StrResult, warning};
 use crate::engine::Engine;
-use crate::foundations::{Array, Context, LocatableSelector, Value, func};
+use crate::foundations::{
+    Array, Content, Context, Label, LocatableSelector, Repr, Selector, Value, func,
+};
+use crate::introspection::Introspector;
 
 /// Finds elements in the document.
 ///
@@ -43,10 +49,7 @@ use crate::foundations::{Array, Context, LocatableSelector, Value, func};
 ///   )
 ///   for chapter in chapters {
 ///     let loc = chapter.location()
-///     let nr = numbering(
-///       loc.page-numbering(),
-///       ..counter(page).at(loc),
-///     )
+///     let nr = counter(page).display(at: loc)
 ///     [#chapter.body #h(1fr) #nr \ ]
 ///   }
 /// }
@@ -146,6 +149,7 @@ use crate::foundations::{Array, Context, LocatableSelector, Value, func};
 pub fn query(
     engine: &mut Engine,
     context: Tracked<Context>,
+    span: Span,
     /// Can be
     /// - an element function like a `heading` or `figure`,
     /// - a `{<label>}`,
@@ -156,6 +160,126 @@ pub fn query(
     target: LocatableSelector,
 ) -> HintedStrResult<Array> {
     context.introspect()?;
-    let vec = engine.introspector.query(&target.0);
+    let vec = engine.introspect(QueryIntrospection(target.0, span));
     Ok(vec.into_iter().map(Value::Content).collect())
+}
+
+/// Retrieves all matches of a selector in the document.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct QueryIntrospection(pub Selector, pub Span);
+
+impl Introspect for QueryIntrospection {
+    type Output = EcoVec<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query(&self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        let lengths = history.as_ref().map(|vec| vec.len());
+        let things = format_selector(&self.0, "elements");
+        let what = if !lengths.converged() {
+            eco_format!("number of {things}")
+        } else {
+            eco_format!("query for {things}")
+        };
+        format_convergence_warning(self.1, &lengths, &what)
+    }
+}
+
+/// Retrieves the first match of a selector in the document.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct QueryFirstIntrospection(pub Selector, pub Span);
+
+impl Introspect for QueryFirstIntrospection {
+    type Output = Option<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query_first(&self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        let lengths = history.as_ref().map(|vec| vec.is_some() as usize);
+        let thing = format_selector(&self.0, "element");
+        let what = eco_format!("query for the first {thing}");
+        format_convergence_warning(self.1, &lengths, &what)
+    }
+}
+
+/// Retrieves the only match of a selector in the document.
+///
+/// Fails if there are multiple occurrences.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct QueryUniqueIntrospection(pub Selector, pub Span);
+
+impl Introspect for QueryUniqueIntrospection {
+    type Output = StrResult<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query_unique(&self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        let lengths = history.as_ref().map(|vec| vec.is_ok() as usize);
+        let thing = format_selector(&self.0, "element");
+        let what = eco_format!("query for a unique {thing}");
+        format_convergence_warning(self.1, &lengths, &what)
+    }
+}
+
+/// Retrieves the only occurrence of a label in the document.
+///
+/// Fails if there are multiple occurrences.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct QueryLabelIntrospection(pub Label, pub Span);
+
+impl Introspect for QueryLabelIntrospection {
+    type Output = StrResult<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<Introspector>,
+    ) -> Self::Output {
+        introspector.query_label(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        QueryUniqueIntrospection(Selector::Label(self.0), self.1).diagnose(history)
+    }
+}
+
+/// The warning when an introspection on a [`Location`] did not converge.
+fn format_convergence_warning(
+    span: Span,
+    lengths: &History<usize>,
+    what: &str,
+) -> SourceDiagnostic {
+    let mut diag = warning!(span, "{what} did not stabilize");
+    if !lengths.converged() {
+        diag.hint(lengths.hint("numbers of elements", |c| eco_format!("{c}")));
+    }
+    diag
+}
+
+/// Formats a selector human-readably.
+fn format_selector(selector: &Selector, kind: &str) -> EcoString {
+    match selector {
+        Selector::Elem(elem, None) => eco_format!("{} {kind}", elem.name()),
+        Selector::Elem(elem, _) => eco_format!("matching {} {kind}", elem.name()),
+        Selector::Label(label) => eco_format!("{kind} labelled `{}`", label.repr()),
+        other => eco_format!("{kind} matching `{}`", other.repr()),
+    }
 }

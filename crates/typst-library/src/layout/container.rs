@@ -316,8 +316,8 @@ pub struct BlockElem {
     /// A second paragraph.
     /// ```
     #[external]
-    #[default(Em::new(1.2).into())]
-    pub spacing: Spacing,
+    #[default(Smart::Custom(Em::new(1.2).into()))]
+    pub spacing: Smart<Spacing>,
 
     /// The spacing between this block and its predecessor.
     #[parse(
@@ -500,7 +500,6 @@ mod callbacks {
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
             #[derive(Debug, Clone, Hash)]
-            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,

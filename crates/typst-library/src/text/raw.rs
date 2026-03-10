@@ -75,12 +75,11 @@ use crate::visualize::Color;
 /// Within raw blocks, everything (except for the language tag, if applicable)
 /// is rendered as is, in particular, there are no escape sequences.
 ///
-/// The language tag is an identifier that directly follows the opening
-/// backticks only if there are three or more backticks. If your text starts
-/// with something that looks like an identifier, but no syntax highlighting is
-/// needed, start the text with a single space (which will be trimmed) or use
-/// the single backtick syntax. If your text should start or end with a
-/// backtick, put a space before or after it (it will be trimmed).
+/// The language tag ends at the first whitespace or backtick. If your text
+/// starts with something that looks like an identifier, but no syntax
+/// highlighting is needed, start the text with a single space (which will be
+/// trimmed) or use the single backtick syntax. If your text should start or end
+/// with a backtick, put a space before or after it (it will be trimmed).
 ///
 /// If no syntax highlighting is available by default for your specified
 /// language tag (or if you want to override the built-in definition), you may
@@ -237,8 +236,7 @@ pub struct RawElem {
     ///
     /// You can pass any of the following values:
     ///
-    /// - A path string to load a syntax file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
     ///
@@ -267,8 +265,7 @@ pub struct RawElem {
     ///
     /// - `{none}`: Disables syntax highlighting.
     /// - `{auto}`: Highlights with Typst's default theme.
-    /// - A path string to load a theme file from the given path. For more
-    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path string or [`path`] to load a theme file from.
     /// - Raw bytes from which the theme should be decoded.
     ///
     /// Applying a theme only affects the color of specifically highlighted
@@ -525,10 +522,6 @@ impl PlainText for Packed<RawElem> {
 
 /// The content of the raw text.
 #[derive(Debug, Clone, Hash)]
-#[allow(
-    clippy::derived_hash_with_manual_eq,
-    reason = "https://github.com/typst/typst/pull/6560#issuecomment-3045393640"
-)]
 pub enum RawContent {
     /// From a string.
     Text(EcoString),
@@ -947,7 +940,7 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("markup.raw", Some("#6b6b6f"), None),
         item("string.other.math.typst", None, None),
         item("punctuation.definition.math", Some("#198810"), None),
-        item("keyword.operator.math", Some("#1d6c76"), None),
+        item("keyword.operator.math, punctuation.math.typst", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
             "markup.heading.typst",

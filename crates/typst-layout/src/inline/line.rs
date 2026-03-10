@@ -222,9 +222,9 @@ fn collect_items<'a>(
 
     // Add fallback text to expand the line height, if necessary.
     if !items.iter().any(|item| matches!(item, Item::Text(_)))
-        && let Some(fallback) = fallback
+        && let Some((idx, fallback)) = fallback
     {
-        items.push(fallback, LogicalIndex::FALLBACK_TEXT);
+        items.push(fallback, idx);
     }
 }
 
@@ -287,7 +287,7 @@ fn collect_range<'a>(
     range: Range,
     trim: &Trim,
     items: &mut Items<'a>,
-    fallback: &mut Option<ItemEntry<'a>>,
+    fallback: &mut Option<(LogicalIndex, ItemEntry<'a>)>,
 ) {
     for (i, (subrange, item)) in p.slice(range.clone()) {
         let idx = LogicalIndex::from_item_index(i);
@@ -310,7 +310,7 @@ fn collect_range<'a>(
             // When there is no text, still keep this as a fallback item, which
             // we can use to force a non-zero line-height when the line doesn't
             // contain any other text.
-            *fallback = Some(ItemEntry::from(Item::Text(shaped.empty())));
+            *fallback = Some((idx, ItemEntry::from(Item::Text(shaped.empty()))));
             continue;
         }
 
@@ -653,7 +653,7 @@ fn add_par_line_marker(
     // and to be valid (to have a location).
     let mut marker = marker.clone();
     let key = typst_utils::hash128(&marker);
-    let loc = locator.next_location(engine.introspector, key);
+    let loc = locator.next_location(engine, key, marker.span());
     marker.set_location(loc);
 
     // Create start and end tags through which we can search for this line's
@@ -782,7 +782,6 @@ pub struct LogicalIndex(usize);
 
 impl LogicalIndex {
     const START_HYPHEN: Self = Self(0);
-    const FALLBACK_TEXT: Self = Self(usize::MAX - 1);
     const END_HYPHEN: Self = Self(usize::MAX);
 
     /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).

@@ -1,7 +1,10 @@
+use std::cell::OnceCell;
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
+
+use crate::collect::TestStages;
 
 /// Typst's test runner.
 #[derive(Debug, Clone, Parser)]
@@ -26,23 +29,16 @@ pub struct CliArguments {
     /// Updates the reference output of non-passing tests.
     #[arg(short, long, group = "action")]
     pub update: bool,
+    /// Specify which test targets/outputs to run.
+    ///
+    /// This is useful to only update specific reference outputs of a test.
+    #[arg(long, value_delimiter = ',')]
+    pub stages: Vec<TestStage>,
     /// The scaling factor to render the output image with.
     ///
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
     pub scale: f32,
-    /// Whether to run the tests in extended mode, including PDF and SVG
-    /// export.
-    ///
-    /// This is used in CI.
-    #[arg(long, env = "TYPST_TESTS_EXTENDED")]
-    pub extended: bool,
-    /// Runs PDF export.
-    #[arg(long)]
-    pub pdf: bool,
-    /// Runs SVG export.
-    #[arg(long)]
-    pub svg: bool,
     /// Displays the syntax tree before running tests.
     ///
     /// Note: This is ignored if using '--syntax-compare'.
@@ -57,6 +53,22 @@ pub struct CliArguments {
     /// How many threads to spawn when running the tests.
     #[arg(short = 'j', long)]
     pub num_threads: Option<usize>,
+    /// Open the generated HTML test report in a browser when finished.
+    #[arg(long)]
+    pub open_report: bool,
+    /// Don't generate a HTML test report.
+    #[arg(long)]
+    no_report: bool,
+    /// The git base revision against which the tests will be run.
+    ///
+    /// If none is specified, it's compared against the current working tree.
+    #[arg(long, conflicts_with = "update")]
+    pub base_revision: Option<String>,
+    /// Print errors in a format that github actions can pick up to generate
+    /// annotations that will be displayed on PR files:
+    /// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message
+    #[arg(long, env = "USE_GITHUB_ANNOTATIONS")]
+    pub use_github_annotations: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
     /// outputs the concrete syntax trees of tests as files in
     /// 'tests/store/syntax/'. With a directory as argument, will treat it as a
@@ -83,14 +95,42 @@ pub struct CliArguments {
 }
 
 impl CliArguments {
-    /// Whether to run PDF export.
-    pub fn pdf(&self) -> bool {
-        self.pdf || self.extended
+    /// The stages which should be run depending on the `--stages` flag.
+    fn stages(&self) -> TestStages {
+        thread_local! {
+            static CACHED: OnceCell<TestStages> = const { OnceCell::new() };
+        }
+
+        CACHED.with(|cell| {
+            *cell.get_or_init(|| {
+                if self.stages.is_empty() {
+                    TestStages::all()
+                } else {
+                    let mut stages = TestStages::empty();
+                    for &s in self.stages.iter() {
+                        stages |= s.into();
+                    }
+                    stages
+                }
+            })
+        })
     }
 
-    /// Whether to run SVG export.
-    pub fn svg(&self) -> bool {
-        self.svg || self.extended
+    /// The stages that were parsed and the ones that are implied.
+    pub fn implied_stages(&self) -> TestStages {
+        self.stages().with_implied()
+    }
+
+    /// [Self::implied_stages] and the ones that are required.
+    pub fn required_stages(&self) -> TestStages {
+        // Must be in this order, otherwise any paged output target
+        // would enable all others.
+        self.stages().with_implied().with_required()
+    }
+
+    /// Whether a HTML test report should be generated.
+    pub fn gen_report(&self) -> bool {
+        !self.no_report && !self.update
     }
 }
 
@@ -102,4 +142,37 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+    /// Prints the tags from a PDF file.
+    Pdftags(PdftagsCommand),
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct PdftagsCommand {
+    /// The PDF file containing the tags.
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum TestStage {
+    Eval,
+    Paged,
+    Render,
+    Pdf,
+    Pdftags,
+    Svg,
+    Html,
+}
+
+impl From<TestStage> for TestStages {
+    fn from(value: TestStage) -> Self {
+        match value {
+            TestStage::Eval => TestStages::EVAL,
+            TestStage::Paged => TestStages::PAGED,
+            TestStage::Render => TestStages::RENDER,
+            TestStage::Pdf => TestStages::PDF,
+            TestStage::Pdftags => TestStages::PDFTAGS,
+            TestStage::Svg => TestStages::SVG,
+            TestStage::Html => TestStages::HTML,
+        }
+    }
 }

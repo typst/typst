@@ -1,4 +1,4 @@
---- grid-subheaders-demo ---
+--- grid-subheaders-demo paged ---
 #set page(height: 15.2em)
 #table(
   columns: 2,
@@ -27,7 +27,7 @@
   [bigfan55], [2022]
 )
 
---- grid-subheaders-colorful ---
+--- grid-subheaders-colorful paged ---
 #set page(width: auto, height: 12em)
 #let rows(n) = {
   range(n).map(i => ([John \##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
@@ -52,14 +52,14 @@
   ..rows(3)
 )
 
---- grid-subheaders-basic ---
+--- grid-subheaders-basic paged ---
 #grid(
   grid.header([a]),
   grid.header(level: 2, [b]),
   [c]
 )
 
---- grid-subheaders-basic-non-consecutive ---
+--- grid-subheaders-basic-non-consecutive paged ---
 #grid(
   grid.header([a]),
   [x],
@@ -67,7 +67,7 @@
   [y],
 )
 
---- grid-subheaders-basic-replace ---
+--- grid-subheaders-basic-replace paged ---
 #grid(
   grid.header([a]),
   [x],
@@ -77,7 +77,7 @@
   [z],
 )
 
---- grid-subheaders-basic-with-footer ---
+--- grid-subheaders-basic-with-footer paged ---
 #grid(
   grid.header([a]),
   grid.header(level: 2, [b]),
@@ -85,7 +85,7 @@
   grid.footer([d])
 )
 
---- grid-subheaders-basic-non-consecutive-with-footer ---
+--- grid-subheaders-basic-non-consecutive-with-footer paged ---
 #grid(
   grid.header([a]),
   [x],
@@ -94,7 +94,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-repeat ---
+--- grid-subheaders-repeat paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -102,7 +102,7 @@
   ..([c],) * 10,
 )
 
---- grid-subheaders-repeat-non-consecutive ---
+--- grid-subheaders-repeat-non-consecutive paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -111,7 +111,7 @@
   ..([y],) * 10,
 )
 
---- grid-subheaders-repeat-with-footer ---
+--- grid-subheaders-repeat-with-footer paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -121,7 +121,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-repeat-gutter ---
+--- grid-subheaders-repeat-gutter paged ---
 // Gutter below the header is also repeated
 #set page(height: 8em)
 #grid(
@@ -133,7 +133,7 @@
   ..([c],) * 10,
 )
 
---- grid-subheaders-repeat-replace ---
+--- grid-subheaders-repeat-replace paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -144,7 +144,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-repeat-replace-multiple-levels ---
+--- grid-subheaders-repeat-replace-multiple-levels paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -156,7 +156,7 @@
   ..([z],) * 6,
 )
 
---- grid-subheaders-repeat-replace-gutter ---
+--- grid-subheaders-repeat-replace-gutter paged ---
 #set page(height: 8em)
 #grid(
   gutter: 3pt,
@@ -168,7 +168,7 @@
   ..([z],) * 4,
 )
 
---- grid-subheaders-repeat-replace-orphan ---
+--- grid-subheaders-repeat-replace-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -179,7 +179,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-repeat-replace-double-orphan ---
+--- grid-subheaders-repeat-replace-double-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -191,7 +191,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-repeat-replace-gutter-orphan-at-child ---
+--- grid-subheaders-repeat-replace-gutter-orphan-at-child paged ---
 #set page(height: 8em)
 #grid(
   gutter: 3pt,
@@ -204,7 +204,7 @@
   ..([z],) * 3,
 )
 
---- grid-subheaders-repeat-replace-gutter-orphan-at-gutter ---
+--- grid-subheaders-repeat-replace-gutter-orphan-at-gutter paged ---
 #set page(height: 8em)
 #grid(
   gutter: 3pt,
@@ -217,7 +217,7 @@
   ..([z],) * 4,
 )
 
---- grid-subheaders-repeat-replace-didnt-fit-once ---
+--- grid-subheaders-repeat-replace-didnt-fit-once paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -228,7 +228,7 @@
   ..([z],) * 4,
 )
 
---- grid-subheaders-repeat-replace-with-footer ---
+--- grid-subheaders-repeat-replace-with-footer paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -241,7 +241,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-repeat-replace-with-footer-orphan ---
+--- grid-subheaders-repeat-replace-with-footer-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -253,7 +253,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-repeat-replace-short-lived ---
+--- grid-subheaders-repeat-replace-short-lived paged ---
 // No orphan prevention for short-lived headers
 // (followed by replacing headers).
 #set page(height: 8em)
@@ -272,7 +272,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-repeat-short-lived-also-replaces ---
+--- grid-subheaders-repeat-short-lived-also-replaces paged ---
 // Short-lived subheaders must still replace their conflicting predecessors.
 #set page(height: 8em)
 #grid(
@@ -292,7 +292,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-multi-page-row ---
+--- grid-subheaders-multi-page-row paged ---
 #set page(height: 8em)
 #grid(
   columns: 2,
@@ -309,7 +309,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-non-repeat ---
+--- grid-subheaders-non-repeat paged ---
 #set page(height: 8em)
 #grid(
   grid.header(repeat: false, [a]),
@@ -318,7 +318,7 @@
   ..([y],) * 10,
 )
 
---- grid-subheaders-non-repeat-replace ---
+--- grid-subheaders-non-repeat-replace paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -330,7 +330,7 @@
   ..([z],) * 6,
 )
 
---- grid-subheaders-non-repeating-replace-orphan ---
+--- grid-subheaders-non-repeating-replace-orphan paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -341,7 +341,7 @@
   ..([z],) * 10,
 )
 
---- grid-subheaders-non-repeating-replace-didnt-fit-once ---
+--- grid-subheaders-non-repeating-replace-didnt-fit-once paged ---
 #set page(height: 8em)
 #grid(
   grid.header([a]),
@@ -352,7 +352,7 @@
   ..([z],) * 4,
 )
 
---- grid-subheaders-multi-page-rowspan ---
+--- grid-subheaders-multi-page-rowspan paged ---
 #set page(height: 8em)
 #grid(
   columns: 2,
@@ -370,7 +370,7 @@
   [cell]
 )
 
---- grid-subheaders-multi-page-row-right-after ---
+--- grid-subheaders-multi-page-row-right-after paged ---
 #set page(height: 8em)
 #grid(
   columns: 1,
@@ -385,7 +385,7 @@
   [done.]
 )
 
---- grid-subheaders-multi-page-rowspan-right-after ---
+--- grid-subheaders-multi-page-rowspan-right-after paged ---
 #set page(height: 8em)
 #grid(
   columns: 2,
@@ -403,7 +403,7 @@
   grid.cell(x: 0)[done.]
 )
 
---- grid-subheaders-multi-page-row-with-footer ---
+--- grid-subheaders-multi-page-row-with-footer paged ---
 #set page(height: 8em)
 #grid(
   columns: 2,
@@ -421,7 +421,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-multi-page-rowspan-with-footer ---
+--- grid-subheaders-multi-page-rowspan-with-footer paged ---
 #set page(height: 8em)
 #grid(
   columns: 2,
@@ -440,7 +440,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-multi-page-row-right-after-with-footer ---
+--- grid-subheaders-multi-page-row-right-after-with-footer paged ---
 #set page(height: 8em)
 #grid(
   columns: 1,
@@ -456,7 +456,7 @@
   grid.footer([f])
 )
 
---- grid-subheaders-multi-page-rowspan-gutter ---
+--- grid-subheaders-multi-page-rowspan-gutter paged ---
 #set page(height: 9em)
 #grid(
   columns: 2,
@@ -480,7 +480,7 @@
   grid.cell(x: 0)[end],
 )
 
---- grid-subheaders-non-repeating-header-before-multi-page-row ---
+--- grid-subheaders-non-repeating-header-before-multi-page-row paged ---
 #set page(height: 6em)
 #grid(
   grid.header(repeat: false, [h]),
@@ -488,7 +488,7 @@
 )
 
 
---- grid-subheaders-short-lived-no-orphan-prevention ---
+--- grid-subheaders-short-lived-no-orphan-prevention paged ---
 // No orphan prevention for short-lived headers.
 #set page(height: 8em)
 #v(5em)
@@ -498,7 +498,7 @@
   [d]
 )
 
---- grid-subheaders-repeating-orphan-prevention ---
+--- grid-subheaders-repeating-orphan-prevention paged ---
 #set page(height: 8em)
 #v(4.5em)
 #grid(
@@ -507,7 +507,7 @@
   [a]
 )
 
---- grid-subheaders-non-repeating-orphan-prevention ---
+--- grid-subheaders-non-repeating-orphan-prevention paged ---
 #set page(height: 8em)
 #v(4.5em)
 #grid(
@@ -516,13 +516,13 @@
   [a]
 )
 
---- grid-subheaders-alone ---
+--- grid-subheaders-alone paged ---
 #table(
   table.header([a]),
   table.header(level: 2, [b]),
 )
 
---- grid-subheaders-alone-no-orphan-prevention ---
+--- grid-subheaders-alone-no-orphan-prevention paged ---
 #set page(height: 5.3em)
 #v(2em)
 #grid(
@@ -530,7 +530,7 @@
   grid.header(level: 2, [L2]),
 )
 
---- grid-subheaders-alone-with-gutter-no-orphan-prevention ---
+--- grid-subheaders-alone-with-gutter-no-orphan-prevention paged ---
 #set page(height: 5.3em)
 #v(2em)
 #grid(
@@ -539,14 +539,14 @@
   grid.header(level: 2, [L2]),
 )
 
---- grid-subheaders-alone-with-footer ---
+--- grid-subheaders-alone-with-footer paged ---
 #table(
   table.header([a]),
   table.header(level: 2, [b]),
   table.footer([c])
 )
 
---- grid-subheaders-alone-with-footer-no-orphan-prevention ---
+--- grid-subheaders-alone-with-footer-no-orphan-prevention paged ---
 #set page(height: 5.3em)
 #table(
   table.header([L1]),
@@ -554,7 +554,7 @@
   table.footer([a])
 )
 
---- grid-subheaders-alone-with-gutter-and-footer-no-orphan-prevention ---
+--- grid-subheaders-alone-with-gutter-and-footer-no-orphan-prevention paged ---
 #set page(height: 5.5em)
 #table(
   gutter: 4pt,
@@ -563,7 +563,7 @@
   table.footer([a])
 )
 
---- grid-subheaders-too-large-non-repeating-orphan-before-auto ---
+--- grid-subheaders-too-large-non-repeating-orphan-before-auto paged ---
 #set page(height: 8em)
 #grid(
   grid.header([1]),
@@ -572,7 +572,7 @@
   [b\ b\ b],
 )
 
---- grid-subheaders-too-large-repeating-orphan-before-auto ---
+--- grid-subheaders-too-large-repeating-orphan-before-auto paged ---
 #set page(height: 8em)
 #grid(
   grid.header([1]),
@@ -581,7 +581,7 @@
   rect(width: 10pt, height: 3em, fill: red),
 )
 
---- grid-subheaders-too-large-repeating-orphan-before-relative ---
+--- grid-subheaders-too-large-repeating-orphan-before-relative paged ---
 #set page(height: 8em)
 #grid(
   rows: (auto, auto, auto, 3em),
@@ -591,7 +591,7 @@
   rect(width: 10pt, height: 3em, fill: red),
 )
 
---- grid-subheaders-too-large-non-repeating-orphan-before-relative ---
+--- grid-subheaders-too-large-non-repeating-orphan-before-relative paged ---
 #set page(height: 8em)
 #grid(
   rows: (auto, auto, auto, 3em),

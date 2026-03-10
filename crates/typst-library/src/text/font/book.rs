@@ -58,17 +58,16 @@ impl FontBook {
         self.families.contains_key(family)
     }
 
-    /// An ordered iterator over all font families this book knows and details
-    /// about the fonts that are part of them.
+    /// An ordered iterator over all font families this book knows and the
+    /// font indices that belong to them.
     pub fn families(
         &self,
-    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FontInfo>)> + '_ {
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = usize>)> + '_ {
         // Since the keys are lowercased, we instead use the family field of the
         // first face's info.
         self.families.values().map(|ids| {
             let family = self.infos[ids[0]].family.as_str();
-            let infos = ids.iter().map(|&id| &self.infos[id]);
-            (family, infos)
+            (family, ids.iter().copied())
         })
     }
 
@@ -248,7 +247,14 @@ impl FontInfo {
 
                 // Some fonts miss the relevant bits for italic or oblique, so
                 // we also try to infer that from the full name.
-                let italic = ttf.is_italic() || full.contains("italic");
+                //
+                // We do not use `ttf.is_italic()` because that also checks the
+                // italic angle which leads to false positives for some oblique
+                // fonts.
+                //
+                // See <https://github.com/typst/typst/issues/7479>.
+                let italic =
+                    ttf.style() == ttf_parser::Style::Italic || full.contains("italic");
                 let oblique = ttf.is_oblique()
                     || full.contains("oblique")
                     || full.contains("slanted");

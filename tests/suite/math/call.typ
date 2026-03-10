@@ -2,22 +2,22 @@
 
 // Note: 2d argument calls are tested for matrices in `mat.typ`
 
---- math-call-non-func ---
+--- math-call-non-func paged ---
 $ pi(a) $
 $ pi(a,) $
 $ pi(a,b) $
 $ pi(a,b,) $
 
---- math-call-unclosed-func ---
+--- math-call-unclosed-func eval ---
 #let func(x) = x
 // Error: 6-7 unclosed delimiter
 $func(a$
 
---- math-call-unclosed-non-func ---
+--- math-call-unclosed-non-func eval ---
 // Error: 5-6 unclosed delimiter
 $sin(x$
 
---- math-call-named-args ---
+--- math-call-named-args paged ---
 #let func1(my: none) = my
 #let func2(_my: none) = _my
 #let func3(my-body: none) = my-body
@@ -31,37 +31,37 @@ $ func5(m: a) $
 $ func5(m: sigma : f) $
 $ func5(m: sigma:pi) $
 
---- math-call-named-args-no-expr ---
+--- math-call-named-args-no-expr eval ---
 #let func(m: none) = m
 // Error: 10 expected expression
 $ func(m: ) $
 
---- math-call-named-args-duplicate ---
+--- math-call-named-args-duplicate eval ---
 #let func(my: none) = my
 // Error: 15-17 duplicate argument: my
 $ func(my: a, my: b) $
 
---- math-call-named-args-shorthand-clash-1 ---
+--- math-call-named-args-shorthand-clash-1 eval ---
 #let func(m: none) = m
 // Error: 18-21 unexpected argument
 $func(m: =) func(m:=)$
 
---- math-call-named-args-shorthand-clash-2 ---
+--- math-call-named-args-shorthand-clash-2 eval ---
 #let func(m: none) = m
 // Error: 41-45 unexpected argument
 $func(m::) func(m: :=) func(m:: =) func(m::=)$
 
---- math-call-named-single-underscore ---
+--- math-call-named-single-underscore eval ---
 #let func(x) = x
 // Error: 8-9 expected identifier, found underscore
 $ func(_: a) $
 
---- math-call-named-single-char-error ---
+--- math-call-named-single-char-error eval ---
 #let func(m: none) = m
 // Error: 8-13 unexpected argument
 $ func(m : a) $
 
---- math-call-named-args-repr ---
+--- math-call-named-args-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(_a: a)$, "arguments(_a: [a])")
@@ -73,22 +73,22 @@ $ func(m : a) $
 #check($args(a-b: a-b)$, "arguments(a-b: sequence([a], [−], [b]))")
 #check($args(a-b)$, "arguments(sequence([a], [−], [b]))")
 
---- math-call-spread-content-error ---
+--- math-call-spread-content-error eval ---
 #let args(..body) = body
 // Error: 7-16 cannot spread content
 $args(..(a + b))$
 
---- math-call-spread-multiple-exprs ---
+--- math-call-spread-multiple-exprs eval ---
 #let args(..body) = body
 // Error: 7-14 cannot spread content
 $args(..a + b)$
 
---- math-call-spread-unexpected-dots ---
+--- math-call-spread-unexpected-dots eval ---
 #let args(..body) = body
 // Error: 8-10 unexpected dots
 $args(#..range(1, 5).chunks(2))$
 
---- math-call-spread-unexpected-binary ---
+--- math-call-spread-unexpected-binary eval ---
 // Test spread operators followed by binary math operators with and without
 // right operands. These errors aren't great, but they can be silenced with a
 // space and no one would actually write this.
@@ -103,17 +103,17 @@ $
   vec(../)  vec(..^)  vec(.._)
 $
 
---- math-call-spread-shorthand-clash ---
+--- math-call-spread-shorthand-clash paged ---
 #let func(body) = body
 $func(...)$
 
---- math-call-spread-empty ---
+--- math-call-spread-empty eval ---
 // Test that a spread operator followed by nothing generates two dots.
 #let args(..body) = body
 #test-repr($args(..)$.body.text, "arguments(sequence([.], [.]))")
 #test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
 
---- math-call-named-spread-override ---
+--- math-call-named-spread-override eval ---
 // Test named argument overriding with the spread operator.
 #let check(it, s) = test(it.body.text, repr(s))
 #let func(a: 1, b: 1) = (a: a, b: b)
@@ -125,7 +125,7 @@ $func(...)$
 #check($func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
 #check($func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
 
---- math-call-named-spread-duplicate ---
+--- math-call-named-spread-duplicate eval ---
 // Test duplicate named args with the spread operator.
 // The error should only happen for manually added args.
 #let func(..) = none
@@ -133,7 +133,7 @@ $func(...)$
 // Error: 22-23 duplicate argument: a
 $func(a: #2, ..dict, a: #3)$
 
---- math-call-spread-repr ---
+--- math-call-spread-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(..#range(0, 4).chunks(2))$, "arguments((0, 1), (2, 3))")
@@ -155,7 +155,7 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 #check($args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 
---- math-call-repr ---
+--- math-call-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a)$, "arguments([a])")
@@ -164,25 +164,25 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(a,b,)$, "arguments([a], [b])")
 #check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
---- math-call-2d-non-func ---
+--- math-call-2d-non-func eval ---
 // Error: 6-7 expected content, found array
 // Error: 8-9 expected content, found array
 $ pi(a;b) $
 
---- math-call-2d-semicolon-priority ---
+--- math-call-2d-semicolon-priority paged ---
 // If the semicolon directly follows a hash expression, it terminates that
 // instead of indicating 2d arguments.
 $ mat(#"math" ; "wins") $
 $ mat(#"code"; "wins") $
 
---- math-call-2d-repr ---
+--- math-call-2d-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a;b)$, "arguments(([a],), ([b],))")
 #check($args(a,b;c)$, "arguments(([a], [b]), ([c],))")
 #check($args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
 
---- math-call-2d-named-repr ---
+--- math-call-2d-named-repr eval ---
 #let args(..body) = (body.pos(), body.named())
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a: b)$, "((), (a: [b]))")
@@ -198,7 +198,7 @@ $ mat(#"code"; "wins") $
 #check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
 #check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
---- math-call-2d-escape-repr ---
+--- math-call-2d-escape-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(a\;b)$, "arguments(sequence([a], [;], [b]))")
@@ -210,7 +210,7 @@ $ mat(#"code"; "wins") $
 #check($args(.. a)$, "arguments(sequence([.], [.], [ ], [a]))")
 #check($args(a..b)$, "arguments(sequence([a], [.], [.], [b]))")
 
---- math-call-2d-repr-structure ---
+--- math-call-2d-repr-structure eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args( a; b; )$, "arguments(([a],), ([b],))")
@@ -222,25 +222,25 @@ $ mat(#"code"; "wins") $
 #check($args(/**/; // funky whitespace/trivia
     ,   /**/  ;/**/)$, "arguments(([],), ([], []))")
 
---- math-call-empty-args-non-func ---
+--- math-call-empty-args-non-func paged ---
 // Trailing commas and empty args introduce blank content in math
 $ sin(,x,y,,,) $
 // with whitespace/trivia:
 $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 
---- math-call-empty-args-repr ---
+--- math-call-empty-args-repr eval ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
 #check($args(,x,,y,,)$, "arguments([], [x], [], [y], [])")
 // with whitespace/trivia:
 #check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
 
---- math-call-value-non-func ---
+--- math-call-value-non-func eval ---
 $ sin(1) $
 // Error: 8-9 expected content, found integer
 $ sin(#1) $
 
---- math-call-pass-to-box ---
+--- math-call-pass-to-box paged ---
 // When passing to a function, we lose the italic styling if we wrap the content
 // in a non-math function unless it's already nested in some math element (lr,
 // attach, etc.)
@@ -256,22 +256,22 @@ $
   bx(x y)  &&quad  bx(x (y z))  &quad  bx(x y^z) \
 $
 
---- math-call-unknown-var-hint ---
+--- math-call-unknown-var-hint eval ---
 // Error: 4-6 unknown variable: ab
 // Hint: 4-6 if you meant to display multiple letters as is, try adding spaces between each letter: `a b`
 // Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
 $ 5ab $
 
---- math-call-symbol ---
+--- math-call-symbol paged ---
 $ phi(x) $
 $ phi(x, y) $
 $ phi(1,2,,3,) $
 
---- math-call-symbol-named-argument ---
+--- math-call-symbol-named-argument eval ---
 // Error: 10-18 unexpected argument: alpha
 $ phi(x, alpha: y) $
 
---- issue-3774-math-call-empty-2d-args ---
+--- issue-3774-math-call-empty-2d-args paged ---
 $ mat(;,) $
 // Add some whitespace/trivia:
 $ mat(; ,) $
@@ -286,18 +286,25 @@ $ mat(
    , ,1;
 ) $
 
---- issue-2885-math-var-only-in-global ---
+--- issue-2885-math-var-only-in-global eval ---
 // Error: 7-10 unknown variable: rgb
-// Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
+// Hint: 7-10 `rgb` is not available directly in math, but is in the standard library
+// Hint: 7-10 to access `rgb` in code mode you can add a hash: `#rgb`
+// Hint: 7-10 or access `rgb` in math mode by using the `std` module: `std.rgb`
 $text(rgb(0, 0, 0), "foo")$
 
---- math-call-error ---
+--- math-call-shadowed-builtin paged ---
+// We don't error if we try to call a shadowed standard library function.
+#let box = "box"
+$ box() $
+
+--- math-call-error eval ---
 // Test the span of errors when calling a function.
 #let func(a, b, c) = {}
 // Error: 3-13 missing argument: c
 $ func(a, b) $
 
---- math-call-error-inside-func ---
+--- math-call-error-inside-func eval ---
 // Test whether errors inside function calls produce further errors.
 #let int = int
 $ int(

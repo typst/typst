@@ -10,9 +10,11 @@ use crate::foundations::{
     Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
     elem, scope,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location, Tagged};
+use crate::introspection::{
+    Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
+};
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
+use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -133,24 +135,29 @@ impl FootnoteElem {
 }
 
 impl Packed<FootnoteElem> {
-    /// Returns the linking location and the resolved numbers.
+    /// Returns the content that holds the number and links to the
+    /// footnote entry.
     pub fn realize(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Destination, Content)> {
-        let loc = self.declaration_location(engine).at(self.span())?;
+    ) -> SourceResult<Content> {
+        let span = self.span();
+        let loc = self.declaration_location(engine).at(span)?;
         let numbering = self.numbering.get_ref(styles);
         let counter = Counter::of(FootnoteElem::ELEM);
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-        Ok((Destination::Location(loc.variant(1)), num))
+        let num = counter.display_at(engine, loc, styles, numbering, span)?;
+        let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+        let dest = loc.variant(1);
+        Ok(DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span))
     }
 
     /// Returns the location of the definition of this footnote.
-    pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
+    pub fn declaration_location(&self, engine: &mut Engine) -> StrResult<Location> {
         match self.body {
             FootnoteBody::Reference(label) => {
-                let element = engine.introspector.query_label(label)?;
+                let element =
+                    engine.introspect(QueryLabelIntrospection(label, self.span()))?;
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
@@ -213,10 +220,7 @@ pub struct FootnoteEntry {
     /// ```example
     /// #show footnote.entry: it => {
     ///   let loc = it.note.location()
-    ///   numbering(
-    ///     "1: ",
-    ///     ..counter(footnote).at(loc),
-    ///   )
+    ///   counter(footnote).display(at: loc, "1: ")
     ///   it.note.body
     /// }
     ///
@@ -289,8 +293,8 @@ pub struct FootnoteEntry {
 }
 
 impl Packed<FootnoteEntry> {
-    /// Returns the location which should be attached to the entry, the linking
-    /// destination, the resolved numbers, and the body content.
+    /// Returns the content of the superscript that holds the number and links
+    /// back to the footnote, and the entry body.
     pub fn realize(
         &self,
         engine: &mut Engine,
@@ -300,20 +304,20 @@ impl Packed<FootnoteEntry> {
         let default = StyleChain::default();
         let numbering = self.note.numbering.get_ref(default);
         let counter = Counter::of(FootnoteElem::ELEM);
-        let Some(loc) = self.note.location() else {
+        let Some(dest) = self.note.location() else {
             bail!(
                 self.span(), "footnote entry must have a location";
-                hint: "try using a query or a show rule to customize the footnote instead"
+                hint: "try using a query or a show rule to customize the footnote instead";
             );
         };
 
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let num = counter.display_at(engine, dest, styles, numbering, span)?;
         let alt = num.plain_text();
-        let sup = SuperElem::new(num).pack().spanned(span);
-        let prefix = DirectLinkElem::new(loc, sup, Some(alt)).pack().spanned(span);
+        let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
+        let sup = SuperElem::new(link).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
 
-        Ok((prefix, body))
+        Ok((sup, body))
     }
 }
 

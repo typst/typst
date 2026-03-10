@@ -49,7 +49,7 @@ pub struct Introspector {
 }
 
 /// A pair of content and its position.
-type Pair = (Content, Position);
+type Pair = (Content, DocumentPosition);
 
 impl Introspector {
     /// Iterates over all locatable elements.
@@ -76,8 +76,8 @@ impl Introspector {
 
     /// Retrieves the position of the element with the given index.
     #[track_caller]
-    fn get_pos_by_idx(&self, idx: usize) -> Position {
-        self.elems[idx].1
+    fn get_pos_by_idx(&self, idx: usize) -> DocumentPosition {
+        self.elems[idx].1.clone()
     }
 
     /// Retrieves an element by its location.
@@ -86,7 +86,7 @@ impl Introspector {
     }
 
     /// Retrieves the position of the element with the given index.
-    fn get_pos_by_loc(&self, location: &Location) -> Option<Position> {
+    fn get_pos_by_loc(&self, location: &Location) -> Option<DocumentPosition> {
         self.locations.get(location).map(|&idx| self.get_pos_by_idx(idx))
     }
 
@@ -262,13 +262,19 @@ impl Introspector {
 
     /// Find the page number for the given location.
     pub fn page(&self, location: Location) -> NonZeroUsize {
-        self.position(location).page
+        match self.position(location) {
+            DocumentPosition::Paged(position) => position.page,
+            _ => NonZeroUsize::ONE,
+        }
     }
 
     /// Find the position for the given location.
-    pub fn position(&self, location: Location) -> Position {
+    pub fn position(&self, location: Location) -> DocumentPosition {
         self.get_pos_by_loc(&location)
-            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+            .unwrap_or(DocumentPosition::Paged(Position {
+                page: NonZeroUsize::ONE,
+                point: Point::zero(),
+            }))
     }
 
     /// Gets the page numbering for the given location, if any.
@@ -380,13 +386,15 @@ impl IntrospectorBuilder {
     }
 
     /// Processes the tags in the frame.
-    pub fn discover_in_frame(
+    pub fn discover_in_frame<F>(
         &mut self,
         sink: &mut Vec<Pair>,
         frame: &Frame,
-        page: NonZeroUsize,
         ts: Transform,
-    ) {
+        to_pos: &mut F,
+    ) where
+        F: FnMut(Point) -> DocumentPosition,
+    {
         for (pos, item) in frame.items() {
             match item {
                 FrameItem::Group(group) => {
@@ -396,18 +404,14 @@ impl IntrospectorBuilder {
 
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
-                        self.discover_in_frame(&mut nested, &group.frame, page, ts);
+                        self.discover_in_frame(&mut nested, &group.frame, ts, to_pos);
                         self.register_insertion(parent.location, nested);
                     } else {
-                        self.discover_in_frame(sink, &group.frame, page, ts);
+                        self.discover_in_frame(sink, &group.frame, ts, to_pos);
                     }
                 }
                 FrameItem::Tag(tag) => {
-                    self.discover_in_tag(
-                        sink,
-                        tag,
-                        Position { page, point: pos.transform(ts) },
-                    );
+                    self.discover_in_tag(sink, tag, to_pos(pos.transform(ts)));
                 }
                 _ => {}
             }
@@ -419,7 +423,7 @@ impl IntrospectorBuilder {
         &mut self,
         sink: &mut Vec<Pair>,
         tag: &Tag,
-        position: Position,
+        position: DocumentPosition,
     ) {
         match tag {
             Tag::Start(elem, flags) => {
@@ -491,5 +495,130 @@ impl IntrospectorBuilder {
                 self.visit(elems, pair);
             }
         }
+    }
+}
+
+/// A position in an HTML tree.
+#[derive(Clone, Debug, Hash)]
+pub struct HtmlPosition {
+    /// Indices that can be used to traverse the tree from the root.
+    element: EcoVec<usize>,
+    /// The precise position inside of the specified element.
+    inner: Option<InnerHtmlPosition>,
+}
+
+impl HtmlPosition {
+    /// A position in an HTML document pointing to a specific node as a whole.
+    ///
+    /// The items of the vector corresponds to indices that can be used to
+    /// traverse the DOM tree from the root to reach the node. In practice, this
+    /// means that the first item of the vector will often be `1` for the
+    /// `<body>` tag (`0` being the `<head>` tag in a typical HTML document).
+    ///
+    /// Consecutive text nodes in Typst's HTML representation are grouped for
+    /// the purpose of this indexing as the segmentation is not observable in
+    /// the resulting DOM.
+    pub fn new(element: EcoVec<usize>) -> Self {
+        Self { element, inner: None }
+    }
+
+    /// Specifies a character offset inside of the node, to build a position
+    /// pointing to a specific point in text.
+    ///
+    /// This only makes sense if the node is a text node, not an element or a
+    /// frame.
+    ///
+    /// The offset is expressed in codepoints, not in bytes, to be
+    /// encoding-independent.
+    pub fn at_char(self, offset: usize) -> Self {
+        Self {
+            element: self.element,
+            inner: Some(InnerHtmlPosition::Character(offset)),
+        }
+    }
+
+    /// Specifies a point in a frame, to build a more precise position.
+    ///
+    /// This only makes sense if the node is a frame.
+    pub fn in_frame(self, point: Point) -> Self {
+        Self {
+            element: self.element,
+            inner: Some(InnerHtmlPosition::Frame(point)),
+        }
+    }
+
+    /// Extra-information for a more precise location inside of the node
+    /// designated by [`HtmlPosition::element`].
+    pub fn details(&self) -> Option<&InnerHtmlPosition> {
+        self.inner.as_ref()
+    }
+
+    /// Indices for traversing an HTML tree to reach the node corresponding to
+    /// this position.
+    ///
+    /// See [`HtmlPosition::new`] for more details.
+    pub fn element(&self) -> impl Iterator<Item = &usize> {
+        self.element.iter()
+    }
+}
+
+/// A precise position inside of an HTML node.
+#[derive(Clone, Debug, Hash)]
+pub enum InnerHtmlPosition {
+    /// If the node is a frame, the coordinates of the position.
+    Frame(Point),
+    /// If the node is a text node, the index of the codepoint at the position.
+    Character(usize),
+}
+
+/// Physical position in a document, be it paged or HTML.
+///
+/// Only one variant should be used for all positions in a same document. This
+/// type exists to make it possible to write functions that are generic over the
+/// document target.
+#[derive(Clone, Debug, Hash)]
+pub enum DocumentPosition {
+    /// If the document is paged, the position is expressed as coordinates
+    /// inside of a page.
+    Paged(Position),
+    /// If the document is an HTML document, the position points to a specific
+    /// node in the DOM tree.
+    Html(HtmlPosition),
+}
+
+impl DocumentPosition {
+    /// Returns the paged [`Position`] if this is one.
+    pub fn as_paged(self) -> Option<Position> {
+        match self {
+            DocumentPosition::Paged(position) => Some(position),
+            _ => None,
+        }
+    }
+
+    /// Returns the paged [`Position`] or a position at page 1, point `(0, 0)`
+    /// if this is not a paged position.
+    pub fn as_paged_or_default(self) -> Position {
+        self.as_paged()
+            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+    }
+
+    /// Returns the [`HtmlPosition`] if available.
+    pub fn as_html(self) -> Option<HtmlPosition> {
+        match self {
+            DocumentPosition::Html(position) => Some(position),
+            _ => None,
+        }
+    }
+}
+
+impl From<Position> for DocumentPosition {
+    fn from(value: Position) -> Self {
+        Self::Paged(value)
+    }
+}
+
+impl From<HtmlPosition> for DocumentPosition {
+    fn from(value: HtmlPosition) -> Self {
+        Self::Html(value)
     }
 }

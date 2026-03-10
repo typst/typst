@@ -15,9 +15,9 @@ readme = { workspace = true }
 [dependencies]
 typst = { workspace = true }
 typst-eval = { workspace = true }
+typst-html = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-pathdiff = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true }
 unscanny = { workspace = true }

@@ -64,7 +64,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "TOML")]
 pub fn toml(
     engine: &mut Engine,
-    /// A [path]($syntax/#paths) to a TOML file or raw TOML bytes.
+    /// A path to a TOML file or raw TOML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Dict> {
     let loaded = source.load(engine.world)?;

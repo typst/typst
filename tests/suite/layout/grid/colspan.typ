@@ -1,4 +1,4 @@
---- grid-colspan ---
+--- grid-colspan paged ---
 #grid(
   columns: 4,
   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
@@ -29,7 +29,7 @@
   [10], table.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
 
---- grid-colspan-gutter ---
+--- grid-colspan-gutter paged ---
 #grid(
   columns: 4,
   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
@@ -62,7 +62,7 @@
   [10], table.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
 
---- grid-colspan-thick-stroke ---
+--- grid-colspan-thick-stroke paged ---
 #set page(width: 300pt)
 #table(
   columns: (2em, 2em, auto, auto),
@@ -72,7 +72,7 @@
   [A], table.cell(colspan: 2)[BCBCBCBC], [D]
 )
 
---- grid-colspan-out-of-bounds ---
+--- grid-colspan-out-of-bounds paged ---
 // Error: 3:8-3:32 cell's colspan would cause it to exceed the available column(s)
 // Hint: 3:8-3:32 try placing the cell in another position or reducing its colspan
 #grid(
@@ -80,7 +80,7 @@
   [a], grid.cell(colspan: 3)[b]
 )
 
---- grid-colspan-overlap ---
+--- grid-colspan-overlap paged ---
 // Error: 4:8-4:32 cell would span a previously placed cell at column 2, row 0
 // Hint: 4:8-4:32 try specifying your cells in a different order or reducing the cell's rowspan or colspan
 #grid(
@@ -89,7 +89,7 @@
   [a], grid.cell(colspan: 2)[b]
 )
 
---- grid-colspan-over-all-fr-columns ---
+--- grid-colspan-over-all-fr-columns paged ---
 // Colspan over all fractional columns shouldn't expand auto columns on finite pages
 #table(
   columns: (1fr, 1fr, auto),
@@ -103,7 +103,7 @@
   [D], [E], [F]
 )
 
---- grid-colspan-over-some-fr-columns ---
+--- grid-colspan-over-some-fr-columns paged ---
 // Colspan over only some fractional columns will not trigger the heuristic, and
 // the auto column will expand more than it should. The table looks off, as a result.
 #table(
@@ -113,7 +113,7 @@
   [D], [E], [F]
 )
 
---- grid-colspan-over-all-fr-columns-page-width-auto ---
+--- grid-colspan-over-all-fr-columns-page-width-auto paged ---
 // On infinite pages, colspan over all fractional columns SHOULD expand auto columns
 #set page(width: auto)
 #table(
@@ -128,7 +128,7 @@
   [D], [E], [F]
 )
 
---- grid-colspan-multiple-regions ---
+--- grid-colspan-multiple-regions paged ---
 // Test multiple regions
 #set page(height: 5em)
 #grid(
@@ -141,6 +141,6 @@
   grid.cell(colspan: 4)[eeee e e e]
 )
 
---- issue-6399-grid-cell-colspan-set-rule ---
+--- issue-6399-grid-cell-colspan-set-rule paged ---
 #set grid.cell(colspan: 2)
 #grid(columns: 3, [hehe])

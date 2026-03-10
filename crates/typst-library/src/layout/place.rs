@@ -145,9 +145,14 @@ pub struct PlaceElem {
     ///
     /// ```example
     /// #set page(height: 100pt)
-    /// #for i in range(16) {
-    ///   let amount = i * 4pt
-    ///   place(center, dx: amount - 32pt, dy: amount)[A]
+    /// #for x in range(-8, 8) {
+    ///   place(center + horizon,
+    ///     dx: x * 8pt, dy: x * 4pt,
+    ///     text(
+    ///       size: calc.root(x + 10, 3) * 6pt,
+    ///       fill: color.mix((green, 8 - x), (blue, 8 + x)),
+    ///     )[T]
+    ///   )
     /// }
     /// ```
     ///

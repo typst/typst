@@ -13,26 +13,6 @@ pub fn out() -> TermOut {
     }
 }
 
-/// The stuff that has to be shared between instances of [`TermOut`].
-struct TermOutInner {
-    stream: termcolor::StandardStream,
-}
-
-impl TermOutInner {
-    fn new() -> Self {
-        let color_choice = match ARGS.color {
-            clap::ColorChoice::Auto if std::io::stderr().is_terminal() => {
-                ColorChoice::Auto
-            }
-            clap::ColorChoice::Always => ColorChoice::Always,
-            _ => ColorChoice::Never,
-        };
-
-        let stream = termcolor::StandardStream::stderr(color_choice);
-        TermOutInner { stream }
-    }
-}
-
 /// A utility that allows users to write colored terminal output.
 /// If colors are not supported by the terminal, they are disabled.
 /// This type also allows for deletion of previously written lines.
@@ -89,5 +69,25 @@ impl WriteColor for TermOut {
 
     fn reset(&mut self) -> io::Result<()> {
         self.inner.stream.lock().reset()
+    }
+}
+
+/// The stuff that has to be shared between instances of [`TermOut`].
+struct TermOutInner {
+    stream: termcolor::StandardStream,
+}
+
+impl TermOutInner {
+    fn new() -> Self {
+        let color_choice = match ARGS.color {
+            clap::ColorChoice::Auto if std::io::stderr().is_terminal() => {
+                ColorChoice::Auto
+            }
+            clap::ColorChoice::Always => ColorChoice::Always,
+            _ => ColorChoice::Never,
+        };
+
+        let stream = termcolor::StandardStream::stderr(color_choice);
+        TermOutInner { stream }
     }
 }

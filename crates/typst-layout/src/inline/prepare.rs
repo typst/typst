@@ -167,6 +167,7 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
+                prev_glyph.is_justifiable = true;
             }
         }
         prev = item;

@@ -2,8 +2,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
 
-use ecow::EcoString;
-
 use crate::FileId;
 
 /// Defines a range in a file.
@@ -164,14 +162,6 @@ impl Span {
             .find(|span| !span.is_detached())
             .unwrap_or(Span::detached())
     }
-
-    /// Resolve a file location relative to this span's source.
-    pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
-        let Some(file) = self.id() else {
-            return Err("cannot access file system from here".into());
-        };
-        Ok(file.join(path))
-    }
 }
 
 /// A value with a span locating it in the source code.
@@ -185,12 +175,17 @@ pub struct Spanned<T> {
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
-    pub fn new(v: T, span: Span) -> Self {
+    pub const fn new(v: T, span: Span) -> Self {
         Self { v, span }
     }
 
+    /// Create a new instance with a span that does not point into any file.
+    pub const fn detached(v: T) -> Self {
+        Self { v, span: Span::detached() }
+    }
+
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
-    pub fn as_ref(&self) -> Spanned<&T> {
+    pub const fn as_ref(&self) -> Spanned<&T> {
         Spanned { v: &self.v, span: self.span }
     }
 

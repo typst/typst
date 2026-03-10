@@ -9,8 +9,8 @@ use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlig
 ///
 /// # Example
 /// ```example
-/// #rect(inset: 0pt, move(
-///   dx: 6pt, dy: 6pt,
+/// #rect(inset: 0pt, fill: gray, move(
+///   dx: 4pt, dy: 6pt,
 ///   rect(
 ///     inset: 8pt,
 ///     fill: white,
@@ -311,6 +311,22 @@ impl Transform {
     /// Whether this is the identity transformation.
     pub fn is_identity(self) -> bool {
         self == Self::identity()
+    }
+
+    /// Whether this transformation only scales along the X and Y axis.
+    pub fn is_only_scale(self) -> bool {
+        self.ky == Ratio::zero()
+            && self.kx == Ratio::zero()
+            && self.tx == Abs::zero()
+            && self.ty == Abs::zero()
+    }
+
+    /// Whether this transformation only translates along the X and Y axis.
+    pub fn is_only_translate(self) -> bool {
+        self.sx == Ratio::one()
+            && self.sy == Ratio::one()
+            && self.ky == Ratio::zero()
+            && self.kx == Ratio::zero()
     }
 
     /// Pre-concatenate another transformation.

@@ -5,9 +5,15 @@
 - Tag: Link
   /Placement: Block
   /K:
-    - Annotation: page=0 index=0
-    - Annotation: page=0 index=1
-    - Annotation: page=0 index=2
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
     - Tag: P
       /K:
         - Tag: Code
@@ -15,14 +21,28 @@
             - Content: page=0 mcid=2
             - Content: page=0 mcid=3
         - Content: page=0 mcid=4
-    - Annotation: page=0 index=3
-    - Annotation: page=0 index=4
-    - Annotation: page=0 index=5
-    - Annotation: page=0 index=6
-    - Annotation: page=0 index=7
-    - Annotation: page=0 index=8
-    - Annotation: page=0 index=9
-    - Tag: InlineQuote
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Annotation: page=0 subtype=Link
+      /Contents: "Telephone 123"
+      /URI: "tel:123"
+    - Tag: Quote
       /K:
         - Tag: P
           /K:
@@ -42,6 +62,8 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=12
-        - Annotation: page=0 index=10
+        - Annotation: page=0 subtype=Link
+          /Contents: "Telephone 123"
+          /URI: "tel:123"
     - Content: page=0 mcid=13
     - Content: page=0 mcid=14

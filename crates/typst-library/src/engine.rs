@@ -7,11 +7,12 @@ use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
+use typst_utils::Protected;
 
 use crate::World;
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::foundations::{Styles, Value};
-use crate::introspection::Introspector;
+use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::routines::Routines;
 
 /// Holds all data needed during compilation.
@@ -22,7 +23,7 @@ pub struct Engine<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,
     /// Provides access to information about the document.
-    pub introspector: Tracked<'a, Introspector>,
+    pub introspector: Protected<Tracked<'a, Introspector>>,
     /// May hold a span that is currently under inspection.
     pub traced: Tracked<'a, Traced>,
     /// A pure sink for warnings, delayed errors, and spans under inspection.
@@ -87,10 +88,30 @@ impl Engine<'_> {
         // Apply the subsinks to the outer sink.
         for (_, sink) in &mut pairs {
             let sink = std::mem::take(sink);
-            self.sink.extend(sink.delayed, sink.warnings, sink.values);
+            self.sink.extend(
+                sink.introspections,
+                sink.delayed,
+                sink.warnings,
+                sink.values,
+            );
         }
 
         pairs.into_iter().map(|(output, _)| output)
+    }
+
+    /// Performs an introspection on the introspector and returns its result.
+    ///
+    /// As a side effect, the introspection is stored in the sink. If the
+    /// document does not converge, the recorded introspections are used to
+    /// determine the cause of non-convergence.
+    pub fn introspect<I>(&mut self, introspection: I) -> I::Output
+    where
+        I: Introspect,
+    {
+        let introspector = *self.introspector.access("is okay since we're recording it");
+        let output = introspection.introspect(self, introspector);
+        self.sink.introspection(Introspection::new(introspection));
+        output
     }
 }
 
@@ -119,13 +140,16 @@ impl Traced {
     }
 }
 
-/// A push-only sink for delayed errors, warnings, and traced values.
+/// A push-only sink for recorded introspections, delayed errors, warnings, and
+/// traced values.
 ///
 /// All tracked methods of this type are of the form `(&mut self, ..) -> ()`, so
 /// in principle they do not need validation (though that optimization is not
 /// yet implemented in comemo).
 #[derive(Default, Clone)]
 pub struct Sink {
+    /// Introspections that were performed during compilation.
+    introspections: EcoVec<Introspection>,
     /// Delayed errors: Those are errors that we can ignore until the last
     /// iteration. For instance, show rules may throw during earlier iterations
     /// because the introspector is not yet ready. We first ignore that and
@@ -149,6 +173,11 @@ impl Sink {
         Self::default()
     }
 
+    /// Get the introspections.
+    pub fn introspections(&self) -> &[Introspection] {
+        &self.introspections
+    }
+
     /// Get the stored delayed errors.
     pub fn delayed(&mut self) -> EcoVec<SourceDiagnostic> {
         std::mem::take(&mut self.delayed)
@@ -166,12 +195,17 @@ impl Sink {
 
     /// Extend from another sink.
     pub fn extend_from_sink(&mut self, other: Sink) {
-        self.extend(other.delayed, other.warnings, other.values);
+        self.extend(other.introspections, other.delayed, other.warnings, other.values);
     }
 }
 
 #[comemo::track]
 impl Sink {
+    /// Trace an introspection.
+    pub fn introspection(&mut self, introspection: Introspection) {
+        self.introspections.push(introspection);
+    }
+
     /// Push delayed errors.
     pub fn delay(&mut self, errors: EcoVec<SourceDiagnostic>) {
         self.delayed.extend(errors);
@@ -196,10 +230,12 @@ impl Sink {
     /// Extend from parts of another sink.
     fn extend(
         &mut self,
+        introspections: EcoVec<Introspection>,
         delayed: EcoVec<SourceDiagnostic>,
         warnings: EcoVec<SourceDiagnostic>,
         values: EcoVec<(Value, Option<Styles>)>,
     ) {
+        self.introspections.extend(introspections);
         self.delayed.extend(delayed);
         for warning in warnings {
             self.warn(warning);
@@ -313,7 +349,7 @@ impl Route<'_> {
             bail!(
                 "maximum show rule depth exceeded";
                 hint: "maybe a show rule matches its own output";
-                hint: "maybe there are too deeply nested elements"
+                hint: "maybe there are too deeply nested elements";
             );
         }
         Ok(())
@@ -324,7 +360,7 @@ impl Route<'_> {
         if !self.within(Route::MAX_LAYOUT_DEPTH) {
             bail!(
                 "maximum layout depth exceeded";
-                hint: "try to reduce the amount of nesting in your layout",
+                hint: "try to reduce the amount of nesting in your layout";
             );
         }
         Ok(())
@@ -335,7 +371,7 @@ impl Route<'_> {
         if !self.within(Route::MAX_HTML_DEPTH) {
             bail!(
                 "maximum HTML depth exceeded";
-                hint: "try to reduce the amount of nesting of your HTML",
+                hint: "try to reduce the amount of nesting of your HTML";
             );
         }
         Ok(())

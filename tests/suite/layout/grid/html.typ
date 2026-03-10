@@ -35,7 +35,7 @@
 #table(
   columns: 3,
   column-gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
 )
@@ -44,7 +44,7 @@
 #table(
   columns: 3,
   row-gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
 )
@@ -53,15 +53,64 @@
 #table(
   columns: 3,
   gutter: 3pt,
-  [a], [b], [c],
+  table.header([a], [b], [c]),
   [d], [e], [f],
   [g], [h], [i]
+)
+
+--- table-wide-header-table html ---
+#table(
+  columns: 3,
+  table.header(
+    [a], [b], [c],
+    [d], [e], [f],
+    [g], [h], [i]
+  )
+)
+
+--- table-wide-header-gutter-table html ---
+#table(
+  columns: 3,
+  gutter: 3pt,
+  table.header(
+    [a], [b], [c],
+    [d], [e], [f],
+    [g], [h], [i]
+  )
 )
 
 --- multi-header-table html ---
 #table(
   columns: 2,
 
+  table.header(
+    [First], [Header]
+  ),
+  table.header(
+    [Second], [Header]
+  ),
+  table.header(
+    [Level 2], [Header],
+    level: 2,
+  ),
+  table.header(
+    [Level 3], [Header],
+    level: 3,
+  ),
+
+  [Body], [Cells],
+  [Yet], [More],
+
+  table.footer(
+    [Footer], [Row],
+    [Ending], [Table],
+  ),
+)
+
+--- multi-header-table-gutter html ---
+#table(
+  columns: 2,
+  gutter: 3pt,
   table.header(
     [First], [Header]
   ),
@@ -130,5 +179,30 @@
   table.footer(
     [Footer], [Row],
     [Ending], [Table],
+  ),
+)
+
+--- issue-7751-table-cell-show-rules html ---
+#show table.cell.where(x: 0): [0]
+#show table.cell.where(x: 1): [1]
+#show table.cell.where(x: 2): [2]
+
+#table(
+  columns: 3,
+  rows: 3,
+
+  table.header(
+    [Text], [Text], [Text],
+    table.hline(stroke: red)
+  ),
+
+  [Text],
+  [Text],
+  [Text],
+
+  table.footer(
+    [Text],
+    [Text],
+    [Text],
   ),
 )

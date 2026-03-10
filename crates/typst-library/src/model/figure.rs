@@ -578,7 +578,7 @@ pub struct FigureCaption {
     pub figure_location: Option<Location>,
 }
 
-impl FigureCaption {
+impl Packed<FigureCaption> {
     /// Realizes the textual caption content.
     pub fn realize(
         &self,
@@ -598,7 +598,8 @@ impl FigureCaption {
             &self.counter,
             &self.figure_location,
         ) {
-            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
+            let numbers =
+                counter.display_at(engine, *location, styles, numbering, self.span())?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
@@ -612,13 +613,15 @@ impl FigureCaption {
     fn resolve_separator(&self, styles: StyleChain) -> Content {
         self.separator
             .get_cloned(styles)
-            .unwrap_or_else(|| Self::local_separator_in(styles))
+            .unwrap_or_else(|| FigureCaption::local_separator_in(styles))
     }
+}
 
+impl FigureCaption {
     /// Gets the default separator in the given language and (optionally)
     /// region.
     fn local_separator_in(styles: StyleChain) -> Content {
-        styles.get_cloned(Self::separator).unwrap_or_else(|| {
+        styles.get_cloned(FigureCaption::separator).unwrap_or_else(|| {
             TextElem::packed(match styles.get(TextElem::lang) {
                 Lang::CHINESE => "\u{2003}",
                 Lang::FRENCH => ".\u{a0}– ",
@@ -631,8 +634,8 @@ impl FigureCaption {
 
 impl Synthesize for Packed<FigureCaption> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let elem = self.as_mut();
-        elem.separator.set(Smart::Custom(elem.resolve_separator(styles)));
+        let separator = self.resolve_separator(styles);
+        self.separator.set(Smart::Custom(separator));
         Ok(())
     }
 }

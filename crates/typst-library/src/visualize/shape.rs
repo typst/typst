@@ -49,8 +49,8 @@ pub struct RectElem {
     ///   - `right`: The right stroke.
     ///   - `bottom`: The bottom stroke.
     ///   - `left`: The left stroke.
-    ///   - `x`: The horizontal stroke.
-    ///   - `y`: The vertical stroke.
+    ///   - `x`: The left and right stroke.
+    ///   - `y`: The top and bottom stroke.
     ///   - `rest`: The stroke on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
@@ -378,6 +378,20 @@ impl Geometry {
         Shape {
             geometry: self,
             fill: None,
+            fill_rule: FillRule::default(),
+            stroke: Some(stroke),
+        }
+    }
+
+    /// Set the geometry's background fill and stroke.
+    pub fn filled_and_stroked(
+        self,
+        fill: impl Into<Paint>,
+        stroke: FixedStroke,
+    ) -> Shape {
+        Shape {
+            geometry: self,
+            fill: Some(fill.into()),
             fill_rule: FillRule::default(),
             stroke: Some(stroke),
         }

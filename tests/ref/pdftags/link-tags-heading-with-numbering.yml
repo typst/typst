@@ -8,4 +8,5 @@
     - Tag: Link
       /K:
         - Content: page=0 mcid=2
-        - Annotation: page=0 index=0
+        - Annotation: page=0 subtype=Link
+          /Contents: "Section 1"

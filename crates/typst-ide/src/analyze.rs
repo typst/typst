@@ -1,6 +1,7 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
+use typst::AsDocument;
 use typst::foundations::{Label, Styles, Value};
 use typst::layout::PagedDocument;
 use typst::model::{BibliographyElem, FigureElem};
@@ -46,6 +47,33 @@ pub fn analyze_expr(
     eco_vec![(val, None)]
 }
 
+/// Tries to determine a single value for an expression with tracing, falling
+/// back to a standard library definition, if applicable.
+///
+/// This gives us best-effort results in dead code.
+pub fn analyze_expr_with_fallback(
+    world: &dyn IdeWorld,
+    node: &LinkedNode,
+) -> Option<Value> {
+    if let Some((value, _)) = analyze_expr(world, node).into_iter().next() {
+        return Some(value);
+    }
+
+    let globals = crate::utils::globals(world, node);
+    let value = match node.cast::<ast::Expr>()? {
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
+        ast::Expr::FieldAccess(access) => match access.target() {
+            ast::Expr::Ident(target) => {
+                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
+            }
+            _ => return None,
+        },
+        _ => return None,
+    };
+
+    Some(value.clone())
+}
+
 /// Tries to load a module from the given `source` node.
 pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value> {
     // Use span in the node for resolving imports with relative paths.
@@ -72,13 +100,15 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 /// Note: When multiple labels in the document have the same identifier,
 /// this only returns the first one.
 pub fn analyze_labels(
-    document: &PagedDocument,
+    document: impl AsDocument,
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
+    let introspector = document.as_document().introspector();
+
     let mut output = vec![];
     let mut seen_labels = FxHashSet::default();
 
     // Labels in the document.
-    for elem in document.introspector.all() {
+    for elem in introspector.all() {
         let Some(label) = elem.label() else { continue };
         if !seen_labels.insert(label) {
             continue;
@@ -106,7 +136,7 @@ pub fn analyze_labels(
     let split = output.len();
 
     // Bibliography keys.
-    output.extend(BibliographyElem::keys(document.introspector.track()));
+    output.extend(BibliographyElem::keys(introspector.track()));
 
     (output, split)
 }

@@ -89,7 +89,7 @@ pub fn measure(
     // the "Dealing with measurement" section of the [`Locator`] docs for more
     // details.
     let here = context.location().at(span)?;
-    let link = LocatorLink::measure(here);
+    let link = LocatorLink::measure(here, span);
     let locator = Locator::link(&link);
     let style = TargetElem::target.set(Target::Paged).wrap();
 

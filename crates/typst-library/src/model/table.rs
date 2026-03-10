@@ -357,13 +357,13 @@ impl TryFrom<Content> for TableChild {
         if value.is::<GridHeader>() {
             bail!(
                 "cannot use `grid.header` as a table header";
-                hint: "use `table.header` instead"
+                hint: "use `table.header` instead";
             )
         }
         if value.is::<GridFooter>() {
             bail!(
                 "cannot use `grid.footer` as a table footer";
-                hint: "use `table.footer` instead"
+                hint: "use `table.footer` instead";
             )
         }
 
@@ -414,19 +414,19 @@ impl TryFrom<Content> for TableItem {
         if value.is::<GridCell>() {
             bail!(
                 "cannot use `grid.cell` as a table cell";
-                hint: "use `table.cell` instead"
+                hint: "use `table.cell` instead";
             );
         }
         if value.is::<GridHLine>() {
             bail!(
                 "cannot use `grid.hline` as a table line";
-                hint: "use `table.hline` instead"
+                hint: "use `table.hline` instead";
             );
         }
         if value.is::<GridVLine>() {
             bail!(
                 "cannot use `grid.vline` as a table line";
-                hint: "use `table.vline` instead"
+                hint: "use `table.vline` instead";
             );
         }
 

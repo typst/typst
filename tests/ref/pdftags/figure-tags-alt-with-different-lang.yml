@@ -7,11 +7,7 @@ lang: "de"
   /Lang: "en-UK"
   /Alt: "A tiger"
   /Placement: Block
-  /BBox:
-    page: 0
-    left:    10.000
-    top:     28.580
-    right:  110.000
-    bottom:  94.010
+  /BBox: [ 10.000,  10.000, 110.000,  75.430]
   /K:
     - Content: page=0 mcid=1
+      /Alt: "A tiger"

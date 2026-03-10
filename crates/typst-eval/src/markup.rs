@@ -57,7 +57,7 @@ fn eval_markup<'a>(
                         if elem.label().is_some() {
                             vm.engine.sink.warn(warning!(
                                 elem.span(), "content labelled multiple times";
-                                hint: "only the last label is used, the rest are ignored",
+                                hint: "only the last label is used, the rest are ignored";
                             ));
                         }
 
@@ -66,7 +66,7 @@ fn eval_markup<'a>(
                         vm.engine.sink.warn(warning!(
                             expr.span(),
                             "label `{}` is not attached to anything",
-                            label.repr()
+                            label.repr(),
                         ));
                     }
                 }
@@ -148,12 +148,10 @@ impl Eval for ast::Strong<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
         if body.exprs().next().is_none() {
-            vm.engine
-                .sink
-                .warn(warning!(
-                    self.span(), "no text within stars";
-                    hint: "using multiple consecutive stars (e.g. **) has no additional effect",
-                ));
+            vm.engine.sink.warn(warning!(
+                self.span(), "no text within stars";
+                hint: "using multiple consecutive stars (e.g. **) has no additional effect";
+            ));
         }
 
         Ok(StrongElem::new(body.eval(vm)?).pack())
@@ -166,12 +164,11 @@ impl Eval for ast::Emph<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
         if body.exprs().next().is_none() {
-            vm.engine
-                .sink
-                .warn(warning!(
-                    self.span(), "no text within underscores";
-                    hint: "using multiple consecutive underscores (e.g. __) has no additional effect"
-                ));
+            vm.engine.sink.warn(warning!(
+                self.span(), "no text within underscores";
+                hint: "using multiple consecutive underscores (e.g. __) has no \
+                       additional effect";
+            ));
         }
 
         Ok(EmphElem::new(body.eval(vm)?).pack())
