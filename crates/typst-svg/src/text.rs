@@ -82,8 +82,8 @@ impl SVGRenderer<'_> {
                 .attr("y", item.y_offset.to_pt())
                 .attr("textLength", item.x_advance.to_pt())
                 .attr("lengthAdjust", "spacingAndGlyphs")
-                .attr("style", "user-select: all");
-            // todo: insert the actual text
+                .attr("style", "user-select: all")
+                .with_preserving_whitespace(|el| { el.text(item.text); });
         }
     }
 
