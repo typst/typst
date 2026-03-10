@@ -253,6 +253,17 @@ function currentFileDiffTab(state) {
   }
 }
 
+for (const htmlDiff of document.getElementsByClassName("html-diff")) {
+  /** @type {HTMLIFrameElement[]} */
+  const iframes = htmlDiff.querySelectorAll(".html-frame");
+
+  // Iframes aren't reloaded when refreshing the page, which can lead to some
+  // confusing situations. Force the reload here.
+  for (const iframe of iframes) {
+    iframe.src = iframe.src;
+  }
+}
+
 /** @type {ImageDiffState} */
 const imageDiffs = []
 
