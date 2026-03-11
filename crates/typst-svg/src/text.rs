@@ -73,18 +73,17 @@ impl SVGRenderer<'_> {
             y += glyph.y_advance.at(text.size);
         }
 
-        let text = &mut svg.elem("text");
-        text.attr("fill", "transparent")
+        let text_el = &mut svg.elem("text");
+        text_el.attr("fill", "transparent")
             .attr("style", "font-variant-ligatures: none")
             .attr("transform", "scale(1,-1)");
 
-        text.with_preserving_whitespace(|text| {
+        text_el.with_preserving_whitespace(|text_el| {
             for item in span_items {
-                text.elem("tspan")
+                text_el.elem("tspan")
                     .attr("x", item.x_offset.to_pt())
                     .attr("y", item.y_offset.to_pt())
-                    .attr("textLength", item.x_advance.to_pt())
-                    .attr("lengthAdjust", "spacingAndGlyphs")
+                    .attr("font-size", text.size.to_pt())
                     .attr("style", "user-select: all")
                     .text(item.text);
             }
