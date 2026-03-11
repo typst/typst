@@ -7,6 +7,7 @@ mod shape;
 mod text;
 mod write;
 
+use std::collections::HashMap;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -22,7 +23,7 @@ use typst_library::layout::{
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
-
+use typst_library::text::Font;
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
@@ -137,6 +138,8 @@ struct SVGRenderer<'a> {
     introspector: Option<&'a Introspector>,
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
+    /// Glyphs used in the text items, separated by font. Used for subsetting.
+    fonts_for_subset: HashMap<Font, Vec<u32>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
@@ -220,6 +223,7 @@ impl<'a> SVGRenderer<'a> {
         SVGRenderer {
             introspector,
             glyphs: Deduplicator::new('g'),
+            fonts_for_subset: HashMap::new(),
             clip_paths: Deduplicator::new('c'),
             gradients: Deduplicator::new('f'),
             gradient_refs: Deduplicator::new('r'),
@@ -359,6 +363,7 @@ impl<'a> SVGRenderer<'a> {
         self.write_subgradients(&mut svg);
         self.write_tilings(&mut svg);
         self.write_tiling_refs(&mut svg);
+        self.write_text_metrics(&mut svg);
     }
 
     /// Build the clip path definitions.
@@ -373,6 +378,15 @@ impl<'a> SVGRenderer<'a> {
                 svg.elem("path").attr("d", path);
             });
         }
+    }
+
+    /// Build the stub fonts for text metrics / correct text selection.
+    fn write_text_metrics(&self, svg: &mut SvgElem) {
+    }
+
+    /// Save the glyph ID & font for later subsetting in [`SVGRenderer::write_text_metrics`].
+    fn save_glyph_for_subset(&mut self, font: Font, glyph_id: u32) {
+        self.fonts_for_subset.entry(font).or_default().push(glyph_id);
     }
 }
 

@@ -57,7 +57,7 @@ impl SVGRenderer<'_> {
             let id = GlyphId(glyph.id);
             let x_offset = x + glyph.x_offset.at(text.size);
             let y_offset = y + glyph.y_offset.at(text.size);
-            
+
             span_items.push(SpanItem {
                 x_offset,
                 y_offset,
@@ -66,6 +66,7 @@ impl SVGRenderer<'_> {
             });
 
             self.render_glyph(svg, &state, text, id, x_offset, y_offset);
+            self.save_glyph_for_subset(text.font.clone(), glyph.id as u32);
 
             x += glyph.x_advance.at(text.size);
             y += glyph.y_advance.at(text.size);
