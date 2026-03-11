@@ -33,7 +33,7 @@ const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
     attributes_indent: xmlwriter::Indent::None,
 };
 
-/// Export a frame into a SVG file.
+/// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
 pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
