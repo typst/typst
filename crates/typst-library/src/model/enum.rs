@@ -7,7 +7,7 @@ use crate::foundations::{
     Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
 use crate::introspection::{Locatable, Tagged};
-use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
+use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
 /// A numbered list.
@@ -187,7 +187,7 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlignment::End + VAlignment::Top)]
+    #[default(Alignment::H(HAlignment::End))]
     pub number_align: Alignment,
 
     /// The numbered list's items.
