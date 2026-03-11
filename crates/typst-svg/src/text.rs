@@ -8,7 +8,7 @@ use typst_library::text::color::{
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
 
 use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgIdRef, SvgTransform};
+use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
 use crate::{DedupId, SVGRenderer, State};
 
 /// Represents a glyph to be rendered.
@@ -40,6 +40,7 @@ impl SVGRenderer<'_> {
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
+        svg.attr("font-family", format!("typst-embedded-font-{}", text.font.index()).as_str());
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);

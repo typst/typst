@@ -32,5 +32,7 @@ ryu = { workspace = true }
 ttf-parser = { workspace = true }
 xmlwriter = { workspace = true }
 
+write-fonts = { version = "0.45.0", features = ["read"] }
+
 [lints]
 workspace = true
