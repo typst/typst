@@ -8,21 +8,29 @@ mod shape;
 mod text;
 mod write;
 
-use std::collections::HashMap;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
+use std::collections::HashMap;
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
-use std::hash::Hash;
+use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
+use crate::text::RenderedGlyph;
+use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
 use base64::Engine;
 use ecow::EcoString;
-use write_fonts::{dump_table, FontBuilder};
+use std::hash::Hash;
+use typst_library::layout::{
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
+    Transform,
+};
+use typst_library::text::Font;
+use typst_library::visualize::{Geometry, Gradient, Tiling};
 use write_fonts::from_obj::ToOwnedTable;
-use write_fonts::read::{FontRef, TableProvider};
 use write_fonts::read::tables::cmap::CmapSubtable;
 use write_fonts::read::tables::glyf::CurvePoint;
+use write_fonts::read::{FontRef, TableProvider};
 use write_fonts::tables::cmap::Cmap;
 use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, SimpleGlyph};
 use write_fonts::tables::head::Head;
@@ -32,16 +40,8 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
-    Transform,
-};
-use typst_library::visualize::{Geometry, Gradient, Tiling};
+use write_fonts::{FontBuilder, dump_table};
 use xmlwriter::XmlWriter;
-use typst_library::text::Font;
-use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
-use crate::text::RenderedGlyph;
-use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
 
 const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
     use_single_quote: false,
@@ -399,7 +399,9 @@ impl<'a> SVGRenderer<'a> {
     fn write_text_metrics(&self, svg: &mut SvgElem) {
         use base64::engine::general_purpose::STANDARD as B64_STANDARD;
 
-        if self.fonts_for_subset.is_empty() { return; }
+        if self.fonts_for_subset.is_empty() {
+            return;
+        }
 
         let mut style = String::new();
         for (font, glyphs) in &self.fonts_for_subset {
@@ -421,13 +423,12 @@ impl<'a> SVGRenderer<'a> {
                 glyf.add_glyph(&SimpleGlyph {
                     bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
                     contours: vec![
-                        vec![
-                            CurvePoint::on_curve(0, 0),
-                            CurvePoint::on_curve(0, 0),
-                        ].into()
+                        vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
+                            .into(),
                     ],
                     instructions: Vec::new(),
-                }).unwrap();
+                })
+                .unwrap();
             }
 
             let (glyf, loca, loca_fmt) = glyf.build();
@@ -437,27 +438,42 @@ impl<'a> SVGRenderer<'a> {
             hmtx.h_metrics.truncate((max_gid + 1) as usize);
             hmtx.left_side_bearings.clear();
 
-            println!("max_gid: {max_gid}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}", dump_table(&glyf), dump_table(&loca), font.index());
+            println!(
+                "max_gid: {max_gid}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}",
+                dump_table(&glyf),
+                dump_table(&loca),
+                font.index()
+            );
 
-            let Some(cmap12) = cmap.encoding_records().iter()
+            let Some(cmap12) = cmap
+                .encoding_records()
+                .iter()
                 .map(|r| r.subtable(cmap.offset_data()))
                 .flat_map(|s| match s {
                     Ok(CmapSubtable::Format12(cmap12)) => Some(cmap12),
-                    _ => None
+                    _ => None,
                 })
-                .nth(0) else { panic!("font does not contain a format 12 cmap subtable") };
+                .nth(0)
+            else {
+                panic!("font does not contain a format 12 cmap subtable")
+            };
 
-            let needed_pairs = cmap12.iter()
+            let needed_pairs = cmap12
+                .iter()
                 .filter(|(_, gid)| glyphs.contains(&gid.to_u32()))
                 .map(|(cp, gid)| (unsafe { char::from_u32_unchecked(cp) }, gid))
                 .collect::<Vec<_>>();
             let cmap = Cmap::from_mappings(needed_pairs).unwrap();
 
             let new_font = FontBuilder::new()
-                .add_table(&head).unwrap()
-                .add_table(&hhea).unwrap()
-                .add_table(&cmap).unwrap()
-                .add_table(&hmtx).unwrap()
+                .add_table(&head)
+                .unwrap()
+                .add_table(&hhea)
+                .unwrap()
+                .add_table(&cmap)
+                .unwrap()
+                .add_table(&hmtx)
+                .unwrap()
                 .add_table(&Maxp {
                     num_glyphs: (max_gid + 1) as u16,
                     max_points: Some(2),
@@ -472,13 +488,19 @@ impl<'a> SVGRenderer<'a> {
                     max_stack_elements: Some(0),
                     max_size_of_instructions: Some(0),
                     max_component_elements: Some(0),
-                    max_component_depth: Some(1)
-                }).unwrap()
-                .add_table(&os2).unwrap()
-                .add_table(&name).unwrap()
-                .add_table(&post).unwrap()
-                .add_table(&glyf).unwrap()
-                .add_table(&loca).unwrap()
+                    max_component_depth: Some(1),
+                })
+                .unwrap()
+                .add_table(&os2)
+                .unwrap()
+                .add_table(&name)
+                .unwrap()
+                .add_table(&post)
+                .unwrap()
+                .add_table(&glyf)
+                .unwrap()
+                .add_table(&loca)
+                .unwrap()
                 .build();
 
             let b64 = B64_STANDARD.encode(&new_font);
@@ -490,8 +512,7 @@ impl<'a> SVGRenderer<'a> {
             ).unwrap();
         }
 
-        svg.elem("style")
-            .text(&style);
+        svg.elem("style").text(&style);
     }
 
     /// Save the glyph ID & font for later subsetting in [`SVGRenderer::write_text_metrics`].

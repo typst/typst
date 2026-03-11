@@ -40,7 +40,10 @@ impl SVGRenderer<'_> {
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
-        svg.attr("font-family", format!("typst-embedded-font-{}", text.font.index()).as_str());
+        svg.attr(
+            "font-family",
+            format!("typst-embedded-font-{}", text.font.index()).as_str(),
+        );
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
@@ -63,7 +66,7 @@ impl SVGRenderer<'_> {
                 x_offset,
                 y_offset,
                 x_advance: glyph.x_advance.at(text.size),
-                text: &text.text.as_str()[glyph.range()]
+                text: &text.text.as_str()[glyph.range()],
             });
 
             self.render_glyph(svg, &state, text, id, x_offset, y_offset);
@@ -74,13 +77,15 @@ impl SVGRenderer<'_> {
         }
 
         let text_el = &mut svg.elem("text");
-        text_el.attr("fill", "transparent")
+        text_el
+            .attr("fill", "transparent")
             .attr("style", "font-variant-ligatures: none")
             .attr("transform", "scale(1,-1)");
 
         text_el.with_preserving_whitespace(|text_el| {
             for item in span_items {
-                text_el.elem("tspan")
+                text_el
+                    .elem("tspan")
                     .attr("x", item.x_offset.to_pt())
                     .attr("y", item.y_offset.to_pt())
                     .attr("font-size", text.size.to_pt())
