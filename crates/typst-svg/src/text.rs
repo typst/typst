@@ -76,15 +76,17 @@ impl SVGRenderer<'_> {
             .attr("style", "font-variant-ligatures: none")
             .attr("transform", "scale(1,-1)");
 
-        for item in span_items {
-            text.elem("tspan")
-                .attr("x", item.x_offset.to_pt())
-                .attr("y", item.y_offset.to_pt())
-                .attr("textLength", item.x_advance.to_pt())
-                .attr("lengthAdjust", "spacingAndGlyphs")
-                .attr("style", "user-select: all")
-                .with_preserving_whitespace(|el| { el.text(item.text); });
-        }
+        text.with_preserving_whitespace(|text| {
+            for item in span_items {
+                text.elem("tspan")
+                    .attr("x", item.x_offset.to_pt())
+                    .attr("y", item.y_offset.to_pt())
+                    .attr("textLength", item.x_advance.to_pt())
+                    .attr("lengthAdjust", "spacingAndGlyphs")
+                    .attr("style", "user-select: all")
+                    .text(item.text);
+            }
+        });
     }
 
     fn render_glyph(
