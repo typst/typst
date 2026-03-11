@@ -113,7 +113,7 @@ ins {
 
 .sidebar {
   flex: 1;
-  min-width: 260px;
+  min-width: 300px;
   height: calc(100% - 2 * var(--size-xxxsmall));
   box-sizing: border-box;
   margin: var(--size-xxxsmall) 0;
@@ -494,6 +494,24 @@ tr {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+/* ========== HTML diff ========== */
+
+.html-diff {
+  height: 400px;
+  width: 100%;
+  min-height: 100px;
+  max-height: 100vh;
+  resize: vertical;
+  overflow: hidden;
+
+  display: flex;
+}
+
+.html-frame {
+  flex: 1;
+  width: 100%;
 }
 
 /* ========== Control group ========== */

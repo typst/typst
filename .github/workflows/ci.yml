@@ -74,15 +74,17 @@ jobs:
             tests/store/render
             tests/store/pdftags
             tests/store/html
-          retention-days: 3
+          compression-level: 9
+          retention-days: 7
 
       - name: Upload test report
-        if: failure() || (success() && github.event_name == 'pull_request')
+        # When the CI passes, only upload one test report, since all should be the same.
+        if: failure() || (success() && github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-') && matrix.bits == 64)
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: tests-report-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
           path: tests/store/report.html
-          retention-days: 3
+          compression-level: 9
 
   checks:
     name: Check clippy, formatting, and documentation

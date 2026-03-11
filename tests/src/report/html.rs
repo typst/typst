@@ -4,20 +4,17 @@ use std::fmt::Write as _;
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
+use typst_utils::display;
 
 use crate::collect::{FileSize, TestOutput};
-use crate::report::diff::{FileDiff, Image, Line, LineKind, Lines, TextSpan};
+use crate::report::diff::{
+    self, DiffMode, FileDiff, Image, Line, LineKind, Lines, TextSpan,
+};
 use crate::report::html::icons::SvgIcon;
-use crate::report::{DiffKind, ReportFile, TestReport};
+use crate::report::{Diff, ReportFile, TestReport};
 
 static REPORT_STYLE: &str = include_str!("report.css");
 static REPORT_SCRIPT: &str = include_str!("report.js");
-
-macro_rules! display {
-    ($($arg:tt)*) => {
-        ::typst_utils::display(move |f| write!(f, $($arg)*))
-    }
-}
 
 /// A HTML writer.
 struct Html {
@@ -62,6 +59,12 @@ impl Html {
 
         let val = EscFmt::new(val, escape_attr);
         write!(self.buf, r#" {name}="{val}""#).ok();
+    }
+
+    fn write_bool_attr(&mut self, name: &str) {
+        assert!(self.in_attribute_list);
+
+        write!(self.buf, r" {name}").ok();
     }
 
     fn write_text(&mut self, text: impl Display) {
@@ -209,6 +212,13 @@ impl<'a> HtmlElem<'a> {
         self
     }
 
+    fn bool_attr(&mut self, name: &str, val: bool) -> &mut Self {
+        if val {
+            self.html.write_bool_attr(name);
+        }
+        self
+    }
+
     fn text(&mut self, text: impl Display) -> &mut Self {
         self.html.write_text(text);
         self
@@ -267,11 +277,11 @@ macro_rules! attr_methods {
     };
 }
 
-macro_rules! flag_attr_methods {
+macro_rules! bool_attr_methods {
     ($(fn $name:ident();)+) => {
         $(
             fn $name(&mut self, $name: bool) -> &mut Self {
-                self.opt_attr(stringify!($name), $name.then_some(stringify!($name)))
+                self.bool_attr(stringify!($name), $name)
             }
         )+
     };
@@ -289,6 +299,7 @@ impl HtmlElem<'_> {
         fn a();
 
         fn canvas();
+        fn iframe();
 
         fn ul();
         fn li();
@@ -333,10 +344,11 @@ impl HtmlElem<'_> {
         fn tabindex(i32);
     }
 
-    flag_attr_methods! {
+    bool_attr_methods! {
         fn disabled();
         fn checked();
         fn hidden();
+        fn sandbox();
     }
 
     fn type_(&mut self, ty: &str) -> &mut Self {
@@ -470,8 +482,8 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                 let close = (test_report.files.first())
                     .and_then(|report_file| report_file.diffs.first())
                     .is_some_and(|diff| match diff {
-                        DiffKind::Text(diff) => is_large_text_diff(diff),
-                        DiffKind::Image(_) => false,
+                        Diff::Text(diff) => is_large_text_diff(diff),
+                        Diff::Image(_) | Diff::Html(_) => false,
                     });
 
                 div.div()
@@ -535,6 +547,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
                 TestOutput::Pdftags => ("Filter PDF tags", icons::PDFTAGS),
                 TestOutput::Svg => ("Filter SVG", icons::SVG),
                 TestOutput::Html => ("Filter HTML", icons::HTML),
+                TestOutput::Bundle => ("Filter bundle", icons::BUNDLE),
             };
             parent.label().class("icon-toggle-button").with(|label| {
                 label
@@ -573,6 +586,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
                     TestOutput::Pdftags => ("Show PDF tags diffs", icons::PDFTAGS),
                     TestOutput::Svg => ("Show SVG diffs", icons::SVG),
                     TestOutput::Html => ("Show HTML diffs", icons::HTML),
+                    TestOutput::Bundle => ("Show bundle diffs", icons::BUNDLE),
                 };
 
                 let enabled = (reports.iter())
@@ -589,9 +603,9 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
         div.fieldset().class("control-group").with(|fieldset| {
             icon_button(
                 fieldset,
-                "global-diff-mode-image",
-                "Show image diffs",
-                icons::IMAGE,
+                "global-diff-mode-visual",
+                "Show visual diffs",
+                icons::VISUAL,
                 false,
             );
             icon_button(
@@ -612,6 +626,13 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
                 "global-image-view-mode-side-by-side",
                 "Show Image View Mode side by side",
                 icons::VIEW_SIDE_BY_SIDE,
+                false,
+            );
+            icon_button(
+                fieldset,
+                "global-image-view-mode-swipe",
+                "Show Image View Mode swipe",
+                icons::VIEW_SWIPE,
                 false,
             );
             icon_button(
@@ -695,6 +716,7 @@ fn test_report_header(
                     TestOutput::Pdftags => ("View PDF tags", icons::PDFTAGS),
                     TestOutput::Svg => ("View SVG", icons::SVG),
                     TestOutput::Html => ("View HTML", icons::HTML),
+                    TestOutput::Bundle => ("View bundle", icons::BUNDLE),
                 };
                 let report_file_tab = |parent: &mut HtmlElem| {
                     tab_icon_button(
@@ -736,15 +758,15 @@ fn file_diff_tabs(
         .class("file-diff-tab-group control-group")
         .with(|fieldset| {
             for (diff_idx, diff) in report_file.diffs.iter().enumerate() {
-                let (title, icon) = match diff {
-                    DiffKind::Image(_) => ("View image diff", icons::IMAGE),
-                    DiffKind::Text(_) => ("View text diff", icons::TEXT),
+                let (title, icon) = match diff.mode() {
+                    DiffMode::Text => ("View text diff", icons::TEXT),
+                    DiffMode::Visual => ("View visual diff", icons::VISUAL),
                 };
                 tab_icon_button(
                     fieldset,
                     "file-diff-tab",
                     n,
-                    diff.kind_str(),
+                    diff.mode(),
                     title,
                     icon,
                     diff_idx == 0,
@@ -887,7 +909,7 @@ fn report_file_tab_panel(
 fn file_diff_tabpanel(
     parent: &mut HtmlElem,
     report_file: &ReportFile,
-    diff: &DiffKind,
+    diff: &Diff,
     test_idx: usize,
     file_idx: usize,
     diff_idx: usize,
@@ -896,12 +918,13 @@ fn file_diff_tabpanel(
     parent
         .div()
         .aria_role("tabpanel")
-        .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.kind_str()))
+        .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.mode()))
         .hidden(diff_idx != 0)
         .class("file-diff")
         .with(|div| match diff {
-            DiffKind::Text(diff) => text_diff(div, diff),
-            DiffKind::Image(diff) => image_diff(div, report_file.output, diff, n),
+            Diff::Text(diff) => text_diff(div, diff),
+            Diff::Image(diff) => image_diff(div, report_file.output, diff, n),
+            Diff::Html(diff) => html_diff(div, diff),
         });
 }
 
@@ -1073,6 +1096,14 @@ fn image_diff(
                 radio_icon_button(
                     fieldset,
                     "image-view-mode",
+                    "swipe",
+                    "View Mode swipe",
+                    icons::VIEW_SWIPE,
+                    false,
+                );
+                radio_icon_button(
+                    fieldset,
+                    "image-view-mode",
                     "blend",
                     "View Mode blend",
                     icons::VIEW_BLEND,
@@ -1210,6 +1241,31 @@ fn image_diff(
     });
 }
 
+fn html_diff(parent: &mut HtmlElem, diff: &FileDiff<diff::Html>) {
+    let iframe = |parent: &mut HtmlElem<'_>, data_url: &str| {
+        parent
+            .iframe()
+            .class("html-frame")
+            .src(data_url)
+            .sandbox(true) // Apply all restrictions to the sandbox.
+            .opt_attr("style", data_url.is_empty().then_some("visibility: hidden"));
+    };
+
+    parent.div().class("html-diff").with(|div| {
+        let data_url = (diff.left())
+            .and_then(|old| old.data())
+            .map(|html| html.data_url.as_str())
+            .unwrap_or("");
+        iframe(div, data_url);
+
+        let data_url = (diff.right())
+            .and_then(|res| res.as_ref().ok())
+            .map(|html| html.data_url.as_str())
+            .unwrap_or("");
+        iframe(div, data_url);
+    });
+}
+
 #[rustfmt::skip]
 mod icons {
     #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -1226,8 +1282,9 @@ mod icons {
     pub static PDFTAGS: SvgIcon = SvgIcon("m2.732.732.084.747.051.458 1.227.168-.002-.013 3.287.365a3.4 3.4 0 0 1 2.03.975l4.01 4.011-.32.32.85.848.744-.744.424-.424-.424-.423-4.435-4.436a4.6 4.6 0 0 0-2.746-1.32L3.479.816Zm-2 2 .084.747.448 4.033a4.6 4.6 0 0 0 1.32 2.746l4.436 4.435.423.424.424-.424 4.826-4.826.424-.424-.424-.423-4.435-4.436a4.6 4.6 0 0 0-2.746-1.32l-4.033-.448Zm1.36 1.36 3.287.365a3.4 3.4 0 0 1 2.03.975l4.01 4.011-3.976 3.977-4.011-4.012a3.4 3.4 0 0 1-.975-2.03ZM5 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2");
     pub static SVG: SvgIcon = SvgIcon("M2.93 12v2h2v-2zm0-10v2h2V2Zm.46 2v8h1.2V4Zm9.68 0c-1.46 0-3.741-.01-5.726.438-.993.223-1.922.557-2.647 1.12l-.107.088v4.708q.052.046.107.087c.725.564 1.654.898 2.647 1.121 1.985.447 4.266.438 5.726.438v-1.2c-1.461 0-3.678-.006-5.463-.407-.892-.201-1.666-.506-2.171-.899-.506-.393-.764-.82-.764-1.494 0-.673.258-1.101.764-1.494.505-.393 1.28-.698 2.171-.899C9.392 5.206 11.61 5.2 13.07 5.2Z");
     pub static HTML: SvgIcon = SvgIcon("M8 1.4A6.61 6.61 0 0 0 1.4 8c0 3.638 2.962 6.6 6.6 6.6s6.6-2.962 6.6-6.6S11.638 1.4 8 1.4m1.824.883c-.106.149-.2.31-.285.47-.166.316-.281.63-.281.84 0 .287.21.594.37.772a.3.3 0 0 0 .224.094.33.33 0 0 0 .332-.332v-.1c0-.182.086-.373.189-.533a.35.35 0 0 1 .37-.15q.137.08.27.17l.003.002a.46.46 0 0 1 .093.279v.121c0 .323-.21.609-.52.705l-.868.272-.496.23c-.286.133-.565.302-.729.57-.093.152-.166.328-.166.496 0 .433.465.866.928.866.2 0 .409-.17.584-.371.253-.291.548-.56.916-.674.504-.157 1.145-.052 1.262.463q.016.075.017.148c0 .216-.117.217-.232.217-.116 0-.23 0-.23.217 0 .456.668.285 1.04.021.193-.137.348-.282.348-.455 0-.12.105-.199.209-.187a5.4 5.4 0 0 1 .201 2.119 2.7 2.7 0 0 0-1.146-.475c-.563-.089-1.133-.158-1.53-.158-.26 0-.553-.03-.845-.059a8 8 0 0 0-.942-.054c-.472.014-.816.142-.816.572 0 .325-.085.695-.166 1.043-.148.634-.279 1.193.166 1.252 1.216.161 1.96 1.033 2.31 2.164-.723.36-1.54.562-2.404.562a5.4 5.4 0 0 1-2.084-.414l-.014.035q.029-.079.05-.162c.04-.171.075-.3.1-.367.065-.164.208-.297.376-.453.237-.22.524-.486.705-.95.15-.383-.487-.76-1.229-1.048a2.1 2.1 0 0 0-.818-.146c-.598.015-1.157.297-1.47.843q-.07.121-.128.235a5.4 5.4 0 0 1-.767-1.825l.736.49A.35.35 0 0 0 4 9.349c0-.193.159-.341.34-.276.194.07.432.2.66.428q.121.119.244.17c.417.18.495-.431.174-.752a.77.77 0 0 1-.133-.938c.203-.34.466-.73.715-.98.32-.32-.195-1.092-.67-1.643a2.4 2.4 0 0 0-.766-.574l-.222-.113a3 3 0 0 0-.45-.182A5.4 5.4 0 0 1 5 3.506C5.005 4.29 5.15 5 5.627 5c.206 0 .395-.023.564-.059.636-.134.84-.827.682-1.457l-.125-.494a1 1 0 0 0-.088-.224A5.4 5.4 0 0 1 8 2.6c.522 0 1.027.073 1.504.21.01-.019.025-.037.035-.056.085-.161.178-.322.285-.47M8.415 3.967a.25.25 0 0 0-.233.32l.138.47a.418.418 0 1 0 .645-.456l-.4-.285a.25.25 0 0 0-.15-.05m2.503 2.756a.4.4 0 0 0-.145.039c-.36.18-.233.724.17.724a.383.383 0 1 0-.025-.764m-5.102 6.502-.035.066z");
+    pub static BUNDLE: SvgIcon = SvgIcon("M1.898 2.592v10.816h12.204V5.592H9.31l.046.146a4.605 4.605 0 0 0-4.363-3.146ZM3.1 3.793h1.894c1.466 0 2.763.934 3.227 2.324l.224.676H12.9v5.414H3.1Z");
 
-    pub static IMAGE: SvgIcon = SvgIcon("M1 3v10h14V3Zm1.2 1.2h11.6v5.2H9.567a.4.4 0 0 1-.343-.195L7.45 6.254a1.58 1.58 0 0 0-1.431-.756c-.553.021-1.096.313-1.372.863L2.2 11.26Zm9.3.8A1.5 1.5 0 0 0 10 6.5 1.5 1.5 0 0 0 11.5 8 1.5 1.5 0 0 0 13 6.5 1.5 1.5 0 0 0 11.5 5M6.064 6.656c.133-.005.268.066.358.215l1.771 2.951c.29.481.812.778 1.373.778h4.235v1.2H3.27l2.452-4.902c.077-.155.208-.237.341-.242");
+    pub static VISUAL: SvgIcon = SvgIcon("m13.152 3.152-1.586 1.586C10.606 4.242 9.416 3.9 8 3.9c-1.93 0-3.44.634-4.52 1.43-1.078.797-1.73 1.73-2.03 2.434l-.12.275.149.258c.384.673 1.127 1.593 2.222 2.379C4.797 11.46 6.254 12.1 8 12.1s3.203-.639 4.299-1.424c1.095-.786 1.838-1.706 2.222-2.38l.149-.257-.12-.275c-.292-.685-.917-1.587-1.945-2.37L14 4ZM8 5.1c1.67 0 2.91.533 3.807 1.195.774.572 1.164 1.202 1.418 1.678-.33.498-.814 1.144-1.625 1.726-.938.673-2.146 1.201-3.6 1.201s-2.662-.528-3.6-1.2c-.81-.583-1.294-1.23-1.625-1.727.254-.476.644-1.106 1.418-1.678C5.09 5.633 6.33 5.1 8 5.1M8 6a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2 2 2 0 0 0-2-2");
     pub static TEXT: SvgIcon = SvgIcon("M11.291 5.555a2 2 0 0 0-1.117.316q-.493.314-.776.904-.279.591-.279 1.418 0 .826.283 1.393.287.564.776.853.493.288 1.107.288.475 0 .772-.149a1.4 1.4 0 0 0 .466-.351 2.3 2.3 0 0 0 .262-.368h.065v1.02q0 .607-.373.883-.375.28-.95.281-.418 0-.683-.12a1.3 1.3 0 0 1-.42-.286 2 2 0 0 1-.242-.313l-.868.358q.14.316.418.582.28.266.723.43.445.16 1.063.161.66 0 1.187-.207.53-.205.84-.632.31-.43.31-1.098V5.621h-.988v.842h-.074a3 3 0 0 0-.26-.375 1.4 1.4 0 0 0-.463-.371q-.297-.162-.779-.162m.217.857q.441 0 .742.225.3.222.455.62.155.4.154.923 0 .535-.158.92-.154.381-.459.588-.3.2-.734.2-.45.001-.756-.214a1.33 1.33 0 0 1-.459-.602 2.4 2.4 0 0 1-.154-.892q0-.496.15-.899a1.4 1.4 0 0 1 .459-.633q.304-.236.76-.236M4.39 3.895l-2.487 6.91h1.108l.633-1.83h2.697l.633 1.83h1.107l-2.486-6.91Zm.578 1.255h.052L6.04 8.098H3.95Z");
 
     pub static COPY: SvgIcon = SvgIcon("M6.727 2c-.545 0-1 .455-1 1v7c0 .545.455 1 1 1H12c.545 0 1-.455 1-1V3c0-.545-.455-1-1-1Zm.25 1.25h4.773v6.5H6.977ZM4 5c-.545 0-1 .455-1 1v7c0 .545.455 1 1 1h5.273c.545 0 1-.455 1-1v-1h-1.25v.75H4.25v-6.5h.568V5Z");
@@ -1236,6 +1293,7 @@ mod icons {
     pub static SEARCH: SvgIcon = SvgIcon("M6.781 2a4.781 4.781 0 1 0 2.91 8.576l3.422 3.42.883-.883-3.42-3.422A4.781 4.781 0 0 0 6.781 2m0 1.25a3.531 3.531 0 1 1 0 7.062 3.531 3.531 0 0 1 0-7.062");
 
     pub static VIEW_SIDE_BY_SIDE: SvgIcon = SvgIcon("M7.43 5.438v6.568h1.25V5.438ZM3.744 3.047a1 1 0 0 0-1 1v7.92a1 1 0 0 0 1 1h8.512a1 1 0 0 0 1-1v-7.92a1 1 0 0 0-1-1H3.869zm.942.857a.685.685 0 1 1 0 1.371.685.685 0 0 1 0-1.37M7.43 5.438h1.25v.609h3.326v5.67H8.68v.289H7.43v-.29H3.994v-5.67H7.43z");
+    pub static VIEW_SWIPE: SvgIcon  = SvgIcon("m5.559 4.559-3 3L2.115 8l.444.441 3 3 .882-.882-1.957-1.96h7.032l-1.957 1.96.882.882 3-3L13.885 8l-.444-.441-3-3-.882.882 1.957 1.96H4.484l1.957-1.96Z");
     pub static VIEW_BLEND: SvgIcon = SvgIcon("M4.086 8.12 1.158 9.183a.2.2 0 0 0-.025.365l6.805 3.617c.25.133.544.153.81.057l5.533-2.012a.199.199 0 0 0 .026-.363l-2.952-1.57-2.503.91a1.25 1.25 0 0 1-1.014-.073zm3.203-5.403a1 1 0 0 0-.307.06L1.027 4.941l7.2 3.83a1 1 0 0 0 .812.057l5.953-2.166-7.199-3.83a1 1 0 0 0-.504-.115m.02 1.217 4.744 2.523-3.34 1.215L3.97 5.148Z");
     pub static VIEW_DIFFERENCE: SvgIcon  = SvgIcon("M5 4a4 4 0 1 0 1.693 7.625c.14-.065.142-.258.016-.346A4 4 0 0 1 5 8c0-1.357.676-2.556 1.709-3.28.126-.088.124-.28-.016-.345A4 4 0 0 0 5 4m6 0a4.01 4.01 0 0 0-4 4c0 2.202 1.798 4 4 4s4-1.798 4-4-1.798-4-4-4m0 1.2c1.554 0 2.8 1.246 2.8 2.8s-1.246 2.8-2.8 2.8A2.79 2.79 0 0 1 8.2 8c0-1.554 1.246-2.8 2.8-2.8");
 

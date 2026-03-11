@@ -1,26 +1,99 @@
 use std::fmt::{self, Debug, Display, Formatter};
+use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
-use typst_library::diag::{HintedStrResult, StrResult, bail};
-use typst_library::foundations::{Dict, Repr, Str, StyleChain, cast};
+use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
+use typst_library::engine::Engine;
+use typst_library::foundations::{
+    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+};
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
-use typst_library::model::DocumentInfo;
+use typst_library::model::{Document, DocumentInfo};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::{attr, charsets, css};
+use crate::document::HtmlOutput;
+use crate::{HtmlIntrospector, attr, charsets, css};
 
 /// An HTML document.
+///
+/// Unlike the `PagedDocument`, this does not implement `Hash` because the HTML
+/// introspector is neither hashable nor guaranteed to be 100% derived from the
+/// output (due to the presence of `root_mut` which is used for cross-linking).
 #[derive(Debug, Clone)]
 pub struct HtmlDocument {
+    output: HtmlOutput,
+    info: DocumentInfo,
+    introspector: Arc<HtmlIntrospector>,
+}
+
+impl HtmlDocument {
+    /// Creates a new paged document from its parts.
+    ///
+    /// Internally builds the introspector.
+    pub fn new(output: HtmlOutput, info: DocumentInfo) -> Self {
+        let introspector = HtmlIntrospector::new(output.nodes());
+        Self { output, info, introspector: Arc::new(introspector) }
+    }
+
     /// The document's root HTML element.
-    pub root: HtmlElement,
-    /// Details about the document.
-    pub info: DocumentInfo,
+    pub fn root(&self) -> &HtmlElement {
+        self.output.root()
+    }
+
+    /// The document's root HTML element, mutably.
+    ///
+    /// Technically, mutating the root can mess up the introspector. This should
+    /// be fixed at some point (<https://github.com/typst/typst/issues/7951>).
+    pub fn root_mut(&mut self) -> &mut HtmlElement {
+        self.output.root_mut()
+    }
+
+    /// The document's root HTML element, in its containing node wrapper.
+    pub fn root_node(&self) -> &HtmlNode {
+        self.output.root_node()
+    }
+
+    /// Details about the document, mutably.
+    pub fn info_mut(&mut self) -> &mut DocumentInfo {
+        &mut self.info
+    }
+
     /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
+    pub fn introspector(&self) -> &Arc<HtmlIntrospector> {
+        &self.introspector
+    }
+
+    /// Provides the ability to execute queries on the document.
+    pub fn introspector_mut(&mut self) -> &mut HtmlIntrospector {
+        Arc::make_mut(&mut self.introspector)
+    }
+}
+
+impl Document for HtmlDocument {
+    fn info(&self) -> &DocumentInfo {
+        &self.info
+    }
+}
+
+impl Output for HtmlDocument {
+    fn introspector(&self) -> &dyn Introspector {
+        self.introspector.as_ref()
+    }
+
+    fn target() -> Target {
+        Target::Html
+    }
+
+    fn create(
+        engine: &mut Engine,
+        content: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Self> {
+        crate::html_document(engine, content, styles)
+    }
 }
 
 /// A child of an HTML element.
@@ -416,7 +489,7 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// IDs to assign to destination jump points within the SVG.
-    pub link_points: EcoVec<(Point, EcoString)>,
+    pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
     pub span: Span,
 }
@@ -428,7 +501,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            link_points: EcoVec::new(),
+            anchors: EcoVec::new(),
             span,
         }
     }

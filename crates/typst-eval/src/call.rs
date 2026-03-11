@@ -178,7 +178,7 @@ pub fn eval_closure(
     closure: &LazyHash<Closure>,
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -192,7 +192,7 @@ pub fn eval_closure(
             (closure.name(), closure.params(), closure.body())
         }
         ClosureNode::Context(ref node) => {
-            (None, ast::Params::default(), node.cast().unwrap())
+            (None, ast::Params::placeholder(), node.cast().unwrap())
         }
     };
 

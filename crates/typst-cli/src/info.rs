@@ -109,16 +109,17 @@ impl Settings {
 #[serde(rename_all = "kebab-case")]
 struct Features {
     html: bool,
+    bundle: bool,
     a11y_extras: bool,
 }
 
 impl Features {
     /// Return the runtime features with human readable information.
     fn features(&self) -> impl Iterator<Item = KeyValDesc<'_>> {
-        let Self { html, a11y_extras } = self;
-
+        let Self { html, bundle, a11y_extras } = self;
         [
-            ("html", html, "Experimental HTML support"),
+            ("html", html, "Experimental HTML export"),
+            ("bundle", bundle, "Experimental bundle export"),
             ("a11y-extras", a11y_extras, "Experimental accessibility additions"),
         ]
         .into_iter()
@@ -417,12 +418,13 @@ fn get_vars() -> StrResult<Environment> {
 /// Turns a comma separated list of feature names into a well typed struct of
 /// feature flags.
 fn parse_features(feature_list: &str) -> StrResult<Features> {
-    let mut features = Features { html: false, a11y_extras: false };
+    let mut features = Features { html: false, bundle: false, a11y_extras: false };
 
     for feature in feature_list.split(',').filter(|s| !s.is_empty()) {
         match Feature::from_str(feature, true) {
             Ok(feature) => match feature {
                 Feature::Html => features.html = true,
+                Feature::Bundle => features.bundle = true,
                 Feature::A11yExtras => features.a11y_extras = true,
             },
             Err(_) => {

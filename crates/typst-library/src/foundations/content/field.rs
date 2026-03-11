@@ -7,7 +7,7 @@ use ecow::{EcoString, eco_format};
 
 use crate::foundations::{
     Container, Content, FieldVtable, Fold, FoldFn, IntoValue, NativeElement, Packed,
-    Property, Reflect, Repr, Resolve, StyleChain,
+    Property, Reflect, Repr, Resolve, StyleChain, Styles,
 };
 
 /// An accessor for the `I`-th field of the element `E`. Values of this type are
@@ -498,6 +498,16 @@ where
         E::Type: Resolve,
     {
         self.get_cloned(styles).resolve(styles)
+    }
+
+    /// Copies the field (if any) into the given styles.
+    pub fn copy_into(&self, styles: &mut Styles)
+    where
+        E::Type: Debug + Hash + Send + Sync + 'static,
+    {
+        if let Some(value) = &self.0 {
+            styles.set(Field::<E, I>::new(), value.clone());
+        }
     }
 }
 

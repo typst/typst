@@ -4,18 +4,16 @@ mod collect;
 mod finalize;
 mod run;
 
-use std::num::NonZeroUsize;
-
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
+use ecow::EcoVec;
 use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
-    DocumentPosition, Introspector, IntrospectorBuilder, Locator, ManualPageCounter,
-    SplitLocator, TagElem,
+    Introspector, Locator, LocatorLink, ManualPageCounter, SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Position, Transform};
+use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_utils::Protected;
@@ -23,6 +21,7 @@ use typst_utils::Protected;
 use self::collect::{Item, collect};
 use self::finalize::finalize;
 use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
+use crate::{Page, PagedDocument};
 
 /// Layout content into a document.
 ///
@@ -54,15 +53,91 @@ pub fn layout_document(
 fn layout_document_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
+    layout_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::root(),
+        styles,
+    )
+}
+
+/// Layout content into a document, as part of a bundle compilation process.
+#[typst_macros::time(name = "layout document")]
+pub fn layout_document_for_bundle(
+    engine: &mut Engine,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
+    layout_document_for_bundle_impl(
+        engine.routines,
+        engine.world,
+        engine.introspector.into_raw(),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        locator.track(),
+        styles,
+    )
+}
+
+/// The internal implementation of `layout_document_for_bundle`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn layout_document_for_bundle_impl(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
+    let link = LocatorLink::new(locator);
+    layout_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::link(&link),
+        styles,
+    )
+}
+
+/// The shared, unmemoized implementation of `layout_document` and
+/// `layout_document_for_bundle`.
+#[allow(clippy::too_many_arguments)]
+fn layout_document_common(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<PagedDocument> {
     let introspector = Protected::from_raw(introspector);
-    let mut locator = Locator::root().split();
+    let mut locator = locator.split();
     let mut engine = Engine {
         routines,
         world,
@@ -76,9 +151,12 @@ fn layout_document_impl(
     // level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
-
     let arenas = Arenas::default();
+
     let mut info = DocumentInfo::default();
+    info.populate(styles);
+    info.populate_locale(styles);
+
     let mut children = (engine.routines.realize)(
         RealizationKind::LayoutDocument { info: &mut info },
         &mut engine,
@@ -89,9 +167,8 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
-    let introspector = introspect_pages(&pages);
 
-    Ok(PagedDocument { pages, info, introspector })
+    Ok(PagedDocument::new(pages, info))
 }
 
 /// Layouts the document's pages.
@@ -100,7 +177,7 @@ fn layout_pages<'a>(
     children: &'a mut [Pair<'a>],
     locator: &mut SplitLocator<'a>,
     styles: StyleChain<'a>,
-) -> SourceResult<Vec<Page>> {
+) -> SourceResult<EcoVec<Page>> {
     // Slice up the children into logical parts.
     let items = collect(children, locator, styles);
 
@@ -117,7 +194,7 @@ fn layout_pages<'a>(
         },
     );
 
-    let mut pages = vec![];
+    let mut pages = EcoVec::new();
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
 
@@ -154,36 +231,11 @@ fn layout_pages<'a>(
 
     // Add the remaining tags to the very end of the last page.
     if !tags.is_empty() {
-        let last = pages.last_mut().unwrap();
+        let last = pages.make_mut().last_mut().unwrap();
         let pos = Point::with_y(last.frame.height());
         last.frame
             .push_multiple(tags.into_iter().map(|tag| (pos, FrameItem::Tag(tag))));
     }
 
     Ok(pages)
-}
-
-/// Introspects pages.
-#[typst_macros::time(name = "introspect pages")]
-fn introspect_pages(pages: &[Page]) -> Introspector {
-    let mut builder = IntrospectorBuilder::new();
-    builder.pages = pages.len();
-    builder.page_numberings.reserve(pages.len());
-    builder.page_supplements.reserve(pages.len());
-
-    // Discover all elements.
-    let mut elems = Vec::new();
-    for (i, page) in pages.iter().enumerate() {
-        let nr = NonZeroUsize::new(1 + i).unwrap();
-        builder.page_numberings.push(page.numbering.clone());
-        builder.page_supplements.push(page.supplement.clone());
-        builder.discover_in_frame(
-            &mut elems,
-            &page.frame,
-            Transform::identity(),
-            &mut |point| DocumentPosition::Paged(Position { page: nr, point }),
-        );
-    }
-
-    builder.finalize(elems)
 }

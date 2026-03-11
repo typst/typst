@@ -3,8 +3,9 @@ use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
+use typst_layout::PagedDocument;
 use typst_library::diag::{SourceResult, bail};
-use typst_library::layout::{FrameParent, PagedDocument, Point, Rect, Size};
+use typst_library::layout::{FrameParent, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
 use typst_syntax::Span;
@@ -268,7 +269,10 @@ fn update_bbox(
 mod tests {
     use std::num::NonZeroUsize;
 
+    use ecow::EcoVec;
+    use typst_layout::PagedDocument;
     use typst_library::layout::PageRanges;
+    use typst_library::model::DocumentInfo;
     use typst_utils::NonZeroExt;
 
     use crate::tags;
@@ -279,7 +283,8 @@ mod tests {
             page_ranges: Some(PageRanges::new(vec![Some(NonZeroUsize::ONE)..=None])),
             ..Default::default()
         };
-        let res = tags::init(&typst_library::layout::PagedDocument::default(), &options);
+        let document = PagedDocument::new(EcoVec::new(), DocumentInfo::default());
+        let res = tags::init(&document, &options);
 
         assert_eq!(
             res.err().unwrap().first().unwrap().message,
