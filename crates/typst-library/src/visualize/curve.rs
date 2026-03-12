@@ -487,11 +487,6 @@ impl Curve {
             Point::new(Abs::raw(bbox.x1), Abs::raw(bbox.y1)),
         )
     }
-
-    /// Computes the size of the bounding box of this curve.
-    pub fn bbox_size(&self) -> Size {
-        self.bbox(None).size()
-    }
 }
 
 impl Curve {
