@@ -84,7 +84,7 @@ use typst_syntax::{RootedPath, Spanned, SyntaxMode};
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
-use crate::introspection::Introspector;
+use crate::introspection::EmptyIntrospector;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -116,7 +116,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_func::<assert>();
     global.define_func::<eval>();
     global.define_func::<plugin>();
-    if features.is_enabled(Feature::Html) {
+    if features.is_enabled(Feature::Html) || features.is_enabled(Feature::Bundle) {
         global.define_func::<target>();
     }
     global.define("calc", calc::module());
@@ -311,7 +311,7 @@ pub fn eval(
         // the context and introspector in the future, to allow introspection
         // when calling `eval` from within a context expression, but this should
         // be well-considered.
-        Introspector::default().track(),
+        EmptyIntrospector.track(),
         Context::none().track(),
         &text,
         span,

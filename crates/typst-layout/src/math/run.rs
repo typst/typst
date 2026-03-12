@@ -1,149 +1,147 @@
-use std::iter::once;
-
+use typst_library::diag::SourceResult;
 use typst_library::foundations::{Resolve, StyleChain};
-use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
+use typst_library::layout::{
+    Abs, AlignElem, Em, FixedAlignment, Frame, InlineItem, Point, Size,
+};
+use typst_library::math::ir::MultilineItem;
 use typst_library::math::{EquationElem, LeftRightAlternator, MathSize};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
+use super::MathContext;
 use super::fragment::MathFragment;
 
 /// Leading between rows in script and scriptscript size.
 const TIGHT_LEADING: Em = Em::new(0.25);
 
-pub trait MathFragmentsExt {
-    fn rows(&self) -> Vec<Vec<MathFragment>>;
-    fn ascent(&self) -> Abs;
-    fn descent(&self) -> Abs;
-    fn into_frame(self, styles: StyleChain) -> Frame;
-    fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder;
-    fn into_line_frame(self, points: &[Abs], alternator: LeftRightAlternator) -> Frame;
-    fn into_par_items(self) -> Vec<InlineItem>;
-    fn is_multiline(&self) -> bool;
+/// A list of math fragments between alignment points and/or linebreaks.
+///
+/// For multiline equations this represents a distinct "cell", the list of
+/// fragments at a specific row and column. For tables, this represents a
+/// "sub-column", one of the parts that make up a cell in a table since
+/// alignment points can be used to align fragments within a cell for an
+/// individual column.
+pub type MathRun = Vec<MathFragment>;
+
+/// Layout a [`MultilineItem`] into a [`MathRunFrameBuilder`].
+pub fn layout_multiline(
+    item: &MultilineItem,
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) -> SourceResult<MathRunFrameBuilder> {
+    let nrows = item.rows.len();
+    let ncols = item.rows.first().map_or(0, |r| r.len());
+
+    if nrows == 0 || ncols == 0 {
+        return Ok(MathRunFrameBuilder::default());
+    }
+
+    let mut col_widths = vec![Abs::zero(); ncols];
+    let mut rows: Vec<Vec<MathRun>> = Vec::with_capacity(nrows);
+    for row in item.rows.iter() {
+        let mut cells = Vec::with_capacity(ncols);
+        for (c, cell) in row.iter().enumerate() {
+            let frags = ctx.layout_into_fragments(cell, styles)?;
+            col_widths[c].set_max(frags.iter().map(|f| f.width()).sum());
+            cells.push(frags);
+        }
+        rows.push(cells);
+    }
+
+    let leading = if styles.get(EquationElem::size) >= MathSize::Text {
+        styles.resolve(ParElem::leading)
+    } else {
+        TIGHT_LEADING.resolve(styles)
+    };
+
+    let align = styles.resolve(AlignElem::alignment).x;
+    let rows = rows.into_iter().map(|cells| {
+        let height = measure_row(&cells);
+        RowLayout { cells, frame_height: height, row_height: None }
+    });
+
+    Ok(stack_rows(
+        rows,
+        &col_widths,
+        LeftRightAlternator::Right,
+        align,
+        leading,
+        Abs::zero(),
+    ))
 }
 
-impl MathFragmentsExt for Vec<MathFragment> {
-    /// Split by linebreaks, and copy [`MathFragment`]s into rows.
-    fn rows(&self) -> Vec<Self> {
-        self.split(|frag| matches!(frag, MathFragment::Linebreak))
-            .map(|slice| slice.to_vec())
-            .collect()
-    }
+/// A single row to be laid out in multiline math.
+pub struct RowLayout {
+    /// The row's content, split by alignment points.
+    pub cells: Vec<MathRun>,
+    /// The ascent and descent that the row's final frame should have.
+    pub frame_height: (Abs, Abs),
+    /// The ascent and descent that should be used for this row when stacking
+    /// rows together. If not specified,
+    /// [`frame_height`](RowLayout::frame_height) is used instead.
+    ///
+    /// This is used in table layout, where within each column there are rows
+    /// which need to be alignment. But when positioning rows together we need
+    /// to align them based on the sizes of all columns of the table.
+    pub row_height: Option<(Abs, Abs)>,
+}
 
-    fn ascent(&self) -> Abs {
-        self.iter()
-            .filter(|e| affects_row_height(e))
-            .map(|e| e.ascent())
-            .max()
-            .unwrap_or_default()
-    }
+/// Build and stack line frames for rows with aligned columns.
+pub fn stack_rows(
+    rows: impl IntoIterator<Item = RowLayout>,
+    widths: &[Abs],
+    alternator: LeftRightAlternator,
+    align: FixedAlignment,
+    leading: Abs,
+    start_y: Abs,
+) -> MathRunFrameBuilder {
+    let (points, total_width) = cumulative_alignment_points(widths);
+    let has_alignment = !points.is_empty();
 
-    fn descent(&self) -> Abs {
-        self.iter()
-            .filter(|e| affects_row_height(e))
-            .map(|e| e.descent())
-            .max()
-            .unwrap_or_default()
-    }
+    let rows = rows.into_iter().map(|row| {
+        let frame =
+            row_into_line_frame(row.cells, &points, alternator, Some(row.frame_height));
+        (frame, row.row_height.unwrap_or(row.frame_height))
+    });
 
-    fn into_frame(self, styles: StyleChain) -> Frame {
-        if !self.is_multiline() {
-            self.into_line_frame(&[], LeftRightAlternator::Right)
-        } else {
-            self.multiline_frame_builder(styles).build()
+    let mut frames = Vec::new();
+    let mut size = Size::new(Abs::zero(), start_y);
+
+    for (i, (sub, (row_ascent, row_descent))) in rows.into_iter().enumerate() {
+        if i > 0 {
+            size.y += leading;
         }
+        let mut pos = Point::with_y(size.y + row_ascent - sub.ascent());
+        if !has_alignment {
+            pos.x = align.position(total_width - sub.width());
+        }
+        size.x.set_max(sub.width());
+        size.y += row_ascent + row_descent;
+        frames.push((sub, pos));
     }
 
-    /// Returns a builder that lays out the [`MathFragment`]s into a possibly
-    /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
-    /// points computed from them as a whole.
-    fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
-        let rows: Vec<_> = self.rows();
-        let row_count = rows.len();
-        let alignments = alignments(&rows);
+    MathRunFrameBuilder { size, frames }
+}
 
-        let leading = if styles.get(EquationElem::size) >= MathSize::Text {
-            styles.resolve(ParElem::leading)
-        } else {
-            TIGHT_LEADING.resolve(styles)
-        };
+/// Measure the ascent and descent of a row.
+pub fn measure_row(cells: &[MathRun]) -> (Abs, Abs) {
+    cells
+        .iter()
+        .flat_map(|sc| sc.iter())
+        .filter(|f| !matches!(f, MathFragment::Tag(_)))
+        .map(|f| (f.ascent(), f.descent()))
+        .reduce(|(a1, d1), (a2, d2)| (a1.max(a2), d1.max(d2)))
+        .unwrap_or_default()
+}
 
-        let align = styles.resolve(AlignElem::alignment).x;
-        let mut frames: Vec<(Frame, Point)> = vec![];
-        let mut size = Size::zero();
-        for (i, row) in rows.into_iter().enumerate() {
-            if i == row_count - 1 && row.is_empty() {
-                continue;
-            }
+pub trait MathFragmentsExt {
+    fn into_frame(self) -> Frame;
+    fn into_par_items(self) -> Vec<InlineItem>;
+}
 
-            let sub = row.into_line_frame(&alignments.points, LeftRightAlternator::Right);
-            if i > 0 {
-                size.y += leading;
-            }
-
-            let mut pos = Point::with_y(size.y);
-            if alignments.points.is_empty() {
-                pos.x = align.position(alignments.width - sub.width());
-            }
-            size.x.set_max(sub.width());
-            size.y += sub.height();
-            frames.push((sub, pos));
-        }
-
-        MathRunFrameBuilder { size, frames }
-    }
-
-    /// Lay out [`MathFragment`]s into a one-row [`Frame`], using the
-    /// caller-provided alignment points.
-    fn into_line_frame(
-        self,
-        points: &[Abs],
-        mut alternator: LeftRightAlternator,
-    ) -> Frame {
-        let ascent = self.ascent();
-        let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
-        frame.set_baseline(ascent);
-
-        let mut next_x = {
-            let widths: Vec<Abs> = if points.is_empty() {
-                vec![]
-            } else {
-                self.iter()
-                    .as_slice()
-                    .split(|e| matches!(e, MathFragment::Align))
-                    .map(|chunk| chunk.iter().map(|e| e.width()).sum())
-                    .collect()
-            };
-
-            let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
-            let mut point_widths = points.iter().copied().zip(widths);
-            move || {
-                point_widths
-                    .next()
-                    .zip(prev_points.next())
-                    .zip(alternator.next())
-                    .map(|(((point, width), prev_point), alternator)| match alternator {
-                        LeftRightAlternator::Right => point - width,
-                        _ => prev_point,
-                    })
-            }
-        };
-        let mut x = next_x().unwrap_or_default();
-
-        for fragment in self.into_iter() {
-            if matches!(fragment, MathFragment::Align) {
-                x = next_x().unwrap_or(x);
-                continue;
-            }
-
-            let y = ascent - fragment.ascent();
-            let pos = Point::new(x, y);
-            x += fragment.width();
-            frame.push_frame(pos, fragment.into_frame());
-        }
-
-        frame.size_mut().x = x;
-        frame
+impl MathFragmentsExt for MathRun {
+    fn into_frame(self) -> Frame {
+        row_into_line_frame(vec![self], &[], LeftRightAlternator::Right, None)
     }
 
     /// Convert this run of math fragments into a vector of inline items for
@@ -229,13 +227,10 @@ impl MathFragmentsExt for Vec<MathFragment> {
 
         items
     }
-
-    fn is_multiline(&self) -> bool {
-        self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
-    }
 }
 
 /// How the rows from the [`MathRun`] should be aligned and merged into a [`Frame`].
+#[derive(Default)]
 pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
     pub size: Size,
@@ -255,56 +250,71 @@ impl MathRunFrameBuilder {
     }
 }
 
-/// Determine the positions of the alignment points, according to the input rows combined.
-pub fn alignments(rows: &[Vec<MathFragment>]) -> AlignmentResult {
-    let mut widths = Vec::<Abs>::new();
-
-    let mut pending_width = Abs::zero();
-    for row in rows {
-        let mut width = Abs::zero();
-        let mut alignment_index = 0;
-
-        for fragment in row.iter() {
-            if matches!(fragment, MathFragment::Align) {
-                if alignment_index < widths.len() {
-                    widths[alignment_index].set_max(width);
-                } else {
-                    widths.push(width.max(pending_width));
-                }
-                width = Abs::zero();
-                alignment_index += 1;
-            } else {
-                width += fragment.width();
-            }
+impl From<Frame> for MathRunFrameBuilder {
+    fn from(frame: Frame) -> Self {
+        Self {
+            size: frame.size(),
+            frames: vec![(frame, Point::zero())],
         }
-        if widths.is_empty() {
-            pending_width.set_max(width);
-        } else if alignment_index < widths.len() {
-            widths[alignment_index].set_max(width);
+    }
+}
+
+/// Build a frame from a row's cell fragments positioned at alignment points.
+fn row_into_line_frame(
+    cells: Vec<MathRun>,
+    points: &[Abs],
+    mut alternator: LeftRightAlternator,
+    height: Option<(Abs, Abs)>,
+) -> Frame {
+    let (ascent, descent) = height.unwrap_or_else(|| measure_row(&cells));
+
+    let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + descent));
+    frame.set_baseline(ascent);
+
+    let mut prev_point = Abs::zero();
+    let mut point_iter = points.iter().copied();
+    let mut x_end = Abs::zero();
+
+    for cell in cells {
+        let width = cell.iter().map(|f| f.width()).sum();
+
+        let cell_x = if let Some(point) = point_iter.next()
+            && let Some(alt) = alternator.next()
+        {
+            let x = match alt {
+                LeftRightAlternator::Right => point - width,
+                _ => prev_point,
+            };
+            prev_point = point;
+            x
         } else {
-            widths.push(width.max(pending_width));
+            prev_point
+        };
+
+        let mut x = cell_x;
+        for frag in cell {
+            let y = ascent - frag.ascent();
+            let w = frag.width();
+            frame.push_frame(Point::new(x, y), frag.into_frame());
+            x += w;
         }
+        x_end = x;
     }
 
-    let mut points = widths;
-    for i in 1..points.len() {
-        let prev = points[i - 1];
-        points[i] += prev;
-    }
-    AlignmentResult {
-        width: points.last().copied().unwrap_or(pending_width),
-        points,
-    }
+    frame.size_mut().x = x_end;
+    frame
 }
 
-pub struct AlignmentResult {
-    pub points: Vec<Abs>,
-    pub width: Abs,
-}
-
-fn affects_row_height(fragment: &MathFragment) -> bool {
-    !matches!(
-        fragment,
-        MathFragment::Align | MathFragment::Linebreak | MathFragment::Tag(_)
-    )
+/// Compute cumulative alignment points from column widths.
+fn cumulative_alignment_points(widths: &[Abs]) -> (Vec<Abs>, Abs) {
+    if widths.len() <= 1 {
+        return (Vec::new(), widths.first().copied().unwrap_or_default());
+    }
+    let mut points = Vec::with_capacity(widths.len());
+    let mut cumulative = Abs::zero();
+    for &w in widths {
+        cumulative += w;
+        points.push(cumulative);
+    }
+    (points, cumulative)
 }

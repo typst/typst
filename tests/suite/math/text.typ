@@ -28,6 +28,12 @@ $bird "or" 🐦‍⬛$
 // Hint: 1-16 to use it only for specific characters, specify the covers
 $bird "or" 🐦‍⬛$
 
+--- math-text-styled-num paged ---
+// Test that styled numbers are treated the same as unstyled ones.
+$ a"123.4"b quad a "123.4" b $
+#show text: math.bold
+$ a"123.4"b quad a "123.4" b $
+
 --- math-font-features paged ---
 $ nothing $
 $ "hi ∅ hey" $

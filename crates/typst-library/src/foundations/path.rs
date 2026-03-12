@@ -1,7 +1,9 @@
 use ecow::{EcoString, eco_format};
-use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualRoot};
+use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualPath, VirtualRoot};
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, error};
+use crate::diag::{
+    At, HintedStrResult, HintedString, SourceResult, StrResult, bail, error,
+};
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 
 /// A file system path.
@@ -196,7 +198,7 @@ impl PathOrStr {
                     Some(parent) => parent.join(v),
                     None => base.join(v),
                 }
-                .map_err(|err| format_path_error(err, root, v))?;
+                .map_err(|err| format_resolve_error(err, root, v))?;
                 RootedPath::new(root.clone(), resolved)
             }
         })
@@ -219,8 +221,8 @@ cast! {
     v: Str => Self::Str(v),
 }
 
-/// Format the user-facing path error message.
-fn format_path_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedString {
+/// Format the user-facing error message for path resolving.
+fn format_resolve_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedString {
     match err {
         PathError::Escapes => {
             let kind = match root {
@@ -242,6 +244,57 @@ fn format_path_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedSt
             path.replace("\\", "/").repr();
             hint: "in earlier Typst versions, backslashes indicated path separators on Windows";
             hint: "this behavior is no longer supported as it is not portable";
+        ),
+    }
+}
+
+/// A path in bundle output.
+///
+/// Unlike `PathOrStr`, a string cast through this is always an absolute path
+/// instead of being resolve relative to a file. This is not used for normal
+/// paths in Typst files, but rather for output file paths in bundle mode.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BundlePath(VirtualPath);
+
+impl BundlePath {
+    /// Wraps a virtual path, ensuring it has at least one component.
+    pub fn new(path: VirtualPath) -> StrResult<Self> {
+        if path.is_root() {
+            bail!("path must have at least one component");
+        }
+        Ok(Self(path))
+    }
+
+    /// Extracts the contained virtual path.
+    pub fn into_inner(self) -> VirtualPath {
+        self.0
+    }
+}
+
+impl AsRef<VirtualPath> for BundlePath {
+    fn as_ref(&self) -> &VirtualPath {
+        &self.0
+    }
+}
+
+cast! {
+    BundlePath,
+    self => self.0.into_with_slash().into_value(),
+    v: Str => Self::new(
+        VirtualPath::new(&v).map_err(|err| format_bundle_error(err, &v))?
+    )?
+}
+
+/// Format the user-facing error message for virtual path casts.
+fn format_bundle_error(err: PathError, path: &str) -> HintedString {
+    match err {
+        PathError::Escapes => {
+            error!("path `{}` would escape the bundle root", path.repr())
+        }
+        PathError::Backslash => error!(
+            "path must not contain a backslash";
+            hint: "use forward slashes instead: `{}`",
+            path.replace("\\", "/").repr();
         ),
     }
 }

@@ -1,0 +1,2 @@
+aef42cd0b9dce2c60bc801297fc77914 content/chapter.html
+b22816c047180fe4786fc871c92af3d1 data.json
