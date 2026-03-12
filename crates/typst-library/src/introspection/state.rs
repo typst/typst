@@ -415,7 +415,7 @@ impl Introspect for StateAtIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(state, loc, _) = self;
         let sequence = sequence(state, engine, introspector)?;
@@ -438,7 +438,7 @@ impl Introspect for StateFinalIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let sequence = sequence(&self.0, engine, introspector)?;
         Ok(sequence.last().unwrap().clone())
@@ -457,7 +457,7 @@ impl Introspect for StateFinalIntrospection {
 fn sequence(
     state: &State,
     engine: &mut Engine,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
 ) -> SourceResult<EcoVec<Value>> {
     sequence_impl(
         state,
@@ -476,7 +476,7 @@ fn sequence_impl(
     state: &State,
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,

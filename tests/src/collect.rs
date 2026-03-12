@@ -7,6 +7,7 @@ use std::sync::{Arc, LazyLock};
 use bitflags::{Flags, bitflags};
 use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
+use typst::foundations::Target;
 use typst_pdf::PdfStandard;
 use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
@@ -124,7 +125,8 @@ bitflags! {
     ///                  ╭─> render
     ///       ╭─> paged ─┼─> pdf ───> pdftags
     /// eval ─┤          ╰─> svg
-    ///       ╰─> html  ───> html
+    ///       ├─> html -───> html
+    ///       ╰─> bundle ──> bundle
     /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct TestStages: u8 {
@@ -135,6 +137,7 @@ bitflags! {
         const PDFTAGS = 1 << 4;
         const SVG = 1 << 5;
         const HTML = 1 << 6;
+        const BUNDLE = 1 << 7;
     }
 }
 
@@ -153,6 +156,7 @@ impl TestStages {
                 TestStages::PDFTAGS => TestStages::empty(),
                 TestStages::SVG => TestStages::empty(),
                 TestStages::HTML => TestStages::empty(),
+                TestStages::BUNDLE => TestStages::empty(),
                 _ => unreachable!(),
             });
         }
@@ -174,6 +178,7 @@ impl TestStages {
                 TestStages::PDFTAGS => TestStages::EVAL | TestStages::PAGED | TestStages::PDF,
                 TestStages::SVG => TestStages::EVAL | TestStages::PAGED,
                 TestStages::HTML => TestStages::EVAL,
+                TestStages::BUNDLE => TestStages::EVAL,
                 _ => unreachable!(),
             });
         }
@@ -187,8 +192,9 @@ impl TestStages {
         let mut res = *self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
-                TestStages::PAGED => TestStages::PAGED | TestStages::HTML,
-                TestStages::HTML => TestStages::PAGED | TestStages::HTML,
+                TestStages::PAGED => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
+                TestStages::HTML => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
+                TestStages::BUNDLE => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
 
                 TestStages::RENDER => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
                 TestStages::PDF => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
@@ -216,6 +222,7 @@ impl Display for TestStages {
                 TestStages::PDFTAGS => Display::fmt(&TestOutput::Pdftags, f),
                 TestStages::SVG => Display::fmt(&TestOutput::Svg, f),
                 TestStages::HTML => Display::fmt(&TestTarget::Html, f),
+                TestStages::BUNDLE => Display::fmt(&TestTarget::Bundle, f),
                 _ => unreachable!(),
             })?;
         }
@@ -246,6 +253,7 @@ impl Display for TestEval {
 pub enum TestTarget {
     Paged = TestStages::PAGED.bits(),
     Html = TestStages::HTML.bits(),
+    Bundle = TestStages::BUNDLE.bits(),
 }
 
 impl TestStage for TestTarget {}
@@ -263,6 +271,7 @@ impl FromStr for TestTarget {
         match s {
             "paged" => Ok(Self::Paged),
             "html" => Ok(Self::Html),
+            "bundle" => Ok(Self::Bundle),
             _ => Err(()),
         }
     }
@@ -273,7 +282,18 @@ impl Display for TestTarget {
         f.write_str(match self {
             TestTarget::Paged => "paged",
             TestTarget::Html => "html",
+            TestTarget::Bundle => "bundle",
         })
+    }
+}
+
+impl From<Target> for TestTarget {
+    fn from(target: Target) -> Self {
+        match target {
+            Target::Paged => TestTarget::Paged,
+            Target::Html => TestTarget::Html,
+            Target::Bundle => TestTarget::Bundle,
+        }
     }
 }
 
@@ -286,11 +306,12 @@ pub enum TestOutput {
     Pdftags = TestStages::PDFTAGS.bits(),
     Svg = TestStages::SVG.bits(),
     Html = TestStages::HTML.bits(),
+    Bundle = TestStages::BUNDLE.bits(),
 }
 
 impl TestOutput {
-    pub const ALL: [Self; 5] =
-        [Self::Render, Self::Svg, Self::Pdf, Self::Pdftags, Self::Html];
+    pub const ALL: [Self; 6] =
+        [Self::Render, Self::Svg, Self::Pdf, Self::Pdftags, Self::Html, Self::Bundle];
 
     fn from_sub_dir(dir: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|o| o.sub_dir() == dir)
@@ -304,23 +325,33 @@ impl TestOutput {
             Self::Pdftags => "pdftags",
             Self::Svg => "svg",
             Self::Html => "html",
+            Self::Bundle => "bundle",
         }
     }
 
-    /// The file extension used for live output and file references.
-    pub const fn extension(&self) -> &'static str {
+    /// The file extension used for live output.
+    pub const fn live_extension(&self) -> &'static str {
         match self {
             Self::Render => "png",
             Self::Pdf => "pdf",
             Self::Pdftags => "yml",
             Self::Svg => "svg",
             Self::Html => "html",
+            Self::Bundle => "tar",
+        }
+    }
+
+    /// The file extension used for file references.
+    pub const fn ref_extension(&self) -> &'static str {
+        match self {
+            Self::Bundle => "txt",
+            _ => self.live_extension(),
         }
     }
 
     /// The path at which the live output will be stored.
     pub fn hash_path(&self, hash: HashedRef, name: &str) -> PathBuf {
-        let ext = self.extension();
+        let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
     }
 
@@ -328,14 +359,14 @@ impl TestOutput {
     /// for inspection.
     pub fn live_path(&self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
-        let ext = self.extension();
+        let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/{dir}/{name}.{ext}"))
     }
 
     /// The path at which file references will be saved.
     pub fn file_ref_path(&self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
-        let ext = self.extension();
+        let ext = self.ref_extension();
         PathBuf::from(format!("{REF_PATH}/{dir}/{name}.{ext}"))
     }
 
@@ -348,9 +379,10 @@ impl TestOutput {
     /// The output kind.
     pub fn kind(&self) -> TestOutputKind {
         match self {
-            TestOutput::Render | TestOutput::Pdftags | TestOutput::Html => {
-                TestOutputKind::File
-            }
+            TestOutput::Render
+            | TestOutput::Pdftags
+            | TestOutput::Html
+            | TestOutput::Bundle => TestOutputKind::File,
             TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),
             TestOutput::Svg => TestOutputKind::Hash(output::Svg::INDEX),
         }
@@ -685,6 +717,7 @@ impl<'a> Parser<'a> {
                         .ok();
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
+                "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
                 "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),
 

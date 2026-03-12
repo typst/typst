@@ -1,6 +1,7 @@
 use std::fmt::Write;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
@@ -226,11 +227,28 @@ impl Counter {
     }
 
     /// The selector relevant for this counter's updates.
-    pub fn select(&self) -> Selector {
+    pub fn select(
+        &self,
+        introspector: Tracked<dyn Introspector + '_>,
+        loc: Location,
+    ) -> Selector {
         let mut selector = select_where!(CounterUpdateElem, key => self.0.clone());
 
-        if let CounterKey::Selector(key) = &self.0 {
-            selector = Selector::Or(eco_vec![selector, key.clone()]);
+        match &self.0 {
+            CounterKey::Page => {
+                // In bundle export, we only want the page counter updates in
+                // the current document.
+                if let Some(doc_location) = introspector.document(loc) {
+                    selector = Selector::Within {
+                        selector: Arc::new(selector),
+                        ancestor: Arc::new(doc_location.into()),
+                    };
+                }
+            }
+            CounterKey::Selector(key) => {
+                selector = Selector::Or(eco_vec![selector, key.clone()]);
+            }
+            CounterKey::Str(_) => {}
         }
 
         selector
@@ -453,8 +471,8 @@ impl Counter {
         context: Tracked<Context>,
         span: Span,
     ) -> SourceResult<CounterState> {
-        context.introspect().at(span)?;
-        engine.introspect(CounterFinalIntrospection(self.clone(), span))
+        let loc = context.location().at(span)?;
+        engine.introspect(CounterFinalIntrospection(self.clone(), loc, span))
     }
 
     /// Increases the value of the counter by one.
@@ -699,7 +717,7 @@ pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styl
         .display())
 };
 
-/// An specialized handler of the page counter that tracks both the physical
+/// A specialized handler of the page counter that tracks both the physical
 /// and the logical page counter.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ManualPageCounter {
@@ -768,14 +786,19 @@ impl Introspect for CounterAtIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(counter, loc, _) = self;
-        let sequence = sequence(counter, engine, introspector)?;
-        let offset = introspector.query_count_before(&counter.select(), *loc);
+        let selector = counter.select(introspector, *loc);
+        let sequence = sequence(counter, &selector, engine, introspector)?;
+        let offset = introspector.query_count_before(&selector, *loc);
         let (mut state, page) = sequence[offset].clone();
         if counter.is_page() {
-            let delta = introspector.page(*loc).get().saturating_sub(page.get());
+            let delta = introspector
+                .page(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
@@ -797,17 +820,26 @@ impl Introspect for CounterBothIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         let Self(counter, loc, _) = self;
-        let sequence = sequence(counter, engine, introspector)?;
-        let offset = introspector.query_count_before(&counter.select(), *loc);
+        let selector = counter.select(introspector, *loc);
+        let sequence = sequence(counter, &selector, engine, introspector)?;
+        let offset = introspector.query_count_before(&selector, *loc);
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if counter.is_page() {
-            let at_delta = introspector.page(*loc).get().saturating_sub(at_page.get());
+            let at_delta = introspector
+                .page(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(at_page.get());
             at_state.step(NonZeroUsize::ONE, at_delta as u64);
-            let final_delta = introspector.pages().get().saturating_sub(final_page.get());
+            let final_delta = introspector
+                .pages(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(final_page.get());
             final_state.step(NonZeroUsize::ONE, final_delta as u64);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
@@ -820,7 +852,7 @@ impl Introspect for CounterBothIntrospection {
 
 /// Retrieves the final state of a counter.
 #[derive(Debug, Clone, PartialEq, Hash)]
-struct CounterFinalIntrospection(Counter, Span);
+struct CounterFinalIntrospection(Counter, Location, Span);
 
 impl Introspect for CounterFinalIntrospection {
     type Output = SourceResult<CounterState>;
@@ -828,20 +860,25 @@ impl Introspect for CounterFinalIntrospection {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        let Self(counter, _) = self;
-        let sequence = sequence(counter, engine, introspector)?;
+        let Self(counter, loc, _) = self;
+        let selector = counter.select(introspector, *loc);
+        let sequence = sequence(counter, &selector, engine, introspector)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if counter.is_page() {
-            let delta = introspector.pages().get().saturating_sub(page.get());
+            let delta = introspector
+                .pages(*loc)
+                .unwrap_or(NonZeroUsize::ONE)
+                .get()
+                .saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
-        format_convergence_warning(&self.0, self.1, history)
+        format_convergence_warning(&self.0, self.2, history)
     }
 }
 
@@ -852,11 +889,13 @@ impl Introspect for CounterFinalIntrospection {
 /// linear.
 fn sequence(
     counter: &Counter,
+    selector: &Selector,
     engine: &mut Engine,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
 ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
     sequence_impl(
         counter,
+        selector,
         engine.routines,
         engine.world,
         introspector,
@@ -868,11 +907,13 @@ fn sequence(
 
 /// Memoized implementation of `sequence`.
 #[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
 fn sequence_impl(
     counter: &Counter,
+    selector: &Selector,
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -890,10 +931,12 @@ fn sequence_impl(
     let mut page = NonZeroUsize::ONE;
     let mut stops = eco_vec![(current.clone(), page)];
 
-    for elem in introspector.query(&counter.select()) {
+    for elem in introspector.query(selector) {
         if counter.is_page() {
             let prev = page;
-            page = introspector.page(elem.location().unwrap());
+            page = introspector
+                .page(elem.location().unwrap())
+                .unwrap_or(NonZeroUsize::ONE);
 
             let delta = page.get() - prev.get();
             if delta > 0 {

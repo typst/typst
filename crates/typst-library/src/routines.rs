@@ -55,7 +55,7 @@ routines! {
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         sink: TrackedMut<Sink>,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
         context: Tracked<Context>,
         string: &str,
         span: Span,
@@ -69,7 +69,7 @@ routines! {
         closure: &LazyHash<Closure>,
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
         traced: Tracked<Traced>,
         sink: TrackedMut<Sink>,
         route: Tracked<Route>,
@@ -108,6 +108,9 @@ routines! {
 
 /// Defines what kind of realization we are performing.
 pub enum RealizationKind<'a> {
+    /// The realization for bundles. The content is realized into documents and
+    /// assets.
+    Bundle,
     /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
     LayoutDocument { info: &'a mut DocumentInfo },

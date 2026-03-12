@@ -75,7 +75,7 @@ c647ccdd14a5dc2474da3e0b5864d253 cjk-punctuation-adjustment-1
 569d31944326e891adaede1d774f9357 cjk-punctuation-adjustment-2
 93b9f45b18013dd6d303e279e0371451 cjk-punctuation-adjustment-3
 2ab357cfe0d33fa0cc6c8e1c90c94640 closure-capture-in-lvalue
-8f35de8552d27ea411da0a61bd407cc5 closure-path-resolve-in-layout-phase
+18688f7342e22dac0bca222c6ed8382b closure-path-resolve-in-layout-phase
 f3235db90792c9e3a6a9fec9759f6d05 closure-without-params-non-atomic
 8672a5461594b45b8948f9985930dd9f code-block-basic-syntax
 1831504877ec5db02744ab4c2e681657 colbreak-weak
@@ -104,14 +104,14 @@ d941ba29e5d00bc0a2443f70a0df0e02 container-layoutable-child
 2440fb263b5b17846cfe9a470f7a28d6 content-field-materialized-query
 f7d40ffdc7a5a9eab221e75636c3f5c2 content-field-materialized-table
 e3bc79f6274c3ff9ab2a98808e3a9b48 content-fields-complex
-9c8a862f06a474fe13172f082a71b819 content-label-field-access
-f98fee6ff06d72e0b919b40f41d26d32 content-label-fields-method
-f95cb5d88c30ae9f31f4fe165eaad284 content-label-has-method
+b8f13808bd680ca54c3de7fe4d5cd3e4 content-label-field-access
+df3d81e5305756e329dc86e463ff0f0a content-label-fields-method
+dc201205063f98ced3b5c0882dc5ba7b content-label-has-method
 f3be532cc5af1450a424f921d60cbf83 context-body-is-closure
 ebaad583154d94d11ddd8619229fb35a convergence-page
 3f65f8a0b915c7bc4e357105d010c140 convergence-page-supplement
 0e5e32b5d953bad790ea690f4541c98d convergence-position
-f3671783440da6a1b0bdefa8a33fceb3 convergence-query
+6c10cf3a8408c5a04c8526fb1371f2f9 convergence-query
 08be56a35aec48c7a51cef3314f6dab9 convergence-query-first-and-unique
 033ff0014652b37917ee772f23204c99 costs-hyphenation-avoid
 252a24ada4226b067e9f5b76a1748cf5 costs-runt-allow
@@ -580,7 +580,7 @@ d46b5d7163d3adece9e897c5be776992 image-baseline-with-box
 7d19169f03251a4ce05a038e325d48f4 image-decode-specify-format
 ead49a7b6dc3ae7e62b8aa84011bfa72 image-decode-svg
 0bd369fe3c79ca6a982ad8402ac80a33 image-exif-rotation
-a90354f8aa010e77b69fdea42c07d1b4 image-fit
+7c91e34d84951edf6cddeea8be820b3c image-fit
 a7e811e958ef2be131db7ef57e91a63e image-jpg
 7245373055da8ed14a8a607029354318 image-jump-to-next-page
 90831d1dc02dec54ec9ce01e25925e7c image-natural-dpi-sizing
@@ -594,7 +594,7 @@ f36b228582290730cc74ab04bf54d965 image-pixmap-lumaa8
 8a88eeef12f441b9019d9ab13c24f8f5 image-pixmap-rgba8
 94a9e7e4d4e8e519eb6e61aa1a3b9e52 image-png
 7ea3751275309155f43d98d31c85626e image-scaling-methods
-d271d1dab0b84aa6a0e290f979e84c69 image-sizing
+1beb2cb1d1d3006e4475a5b2fbf354a5 image-sizing
 c51f38b22cede28386a45a72902dae7e image-svg-auto-detection
 d5a5a3f84211ba922d6e65414c20de31 image-svg-complex
 356ba2a648315e4bc2c056bc0ce682d4 image-svg-linked-jpg1
@@ -627,7 +627,7 @@ f1da86e7c210c334818f9e680de7b96f issue-1825-rect-overflow
 981285e49b4bcd1584e4d4ceaf5802c9 issue-183-table-lines
 aa425b48cc7798fd3bcea9efabfdb79d issue-1833-locate-place
 16f744f7088a640f787ae1b75afab698 issue-1850-list-attach-spacing
-238ee0a30306f4e976676551454c2505 issue-1886-locate-after-metadata
+56278088f383522a43cc7b486577e677 issue-1886-locate-after-metadata
 8fe44e909c7d18dd5a14aba7ce7dde35 issue-1948-math-text-break
 02522902501ce245bad0ab7aaa051f51 issue-2044-invalid-parsed-ident
 b5312a34d5b793b4c28f5288e01665dd issue-2048-outline-multiline
@@ -839,7 +839,7 @@ fa6a0513e2a097c4e0e623f9aacbf79e label-after-expression
 ee87935d072db11e99b5e4afcf5c5e74 label-after-parbreak
 f4eeb0952d2baa129c2d9e29830bbb68 label-dynamic-show-set
 a68f626c9e2b895b316b893ddf4fa253 label-in-block
-10f6ece7e7967f52964445c97e08db27 label-show-where-selector
+f926c59761c8ec817853a20fdc20ac7d label-show-where-selector
 dd36eaa0a5c38b1039b7c5ebd14f9a6f label-unclosed-is-text
 fdd523f130c0a60a0564040bcac0a861 layout-in-fixed-size-block
 6dc2b28ee65a9f072428c965f1e0e1a0 layout-in-page-call
@@ -924,9 +924,9 @@ c33d3ae9ca3a66c4f706fe411698a0d4 list-tight-non-attached-tight
 7e1b8f49fc18a8fd83ff5ee480431944 list-wide-cannot-attach
 5483c8f4b0254010cb42edb50dffc4ba list-wide-really-cannot-attach
 0d36c82a0c48bcc32b6e2eec1cfb6bab locate-between-pages
-8136ee463b3060dd66193c9ad93bc57a locate-element-selector
+c6ec5deab8d7d3456cc7f6fcee460bab locate-element-selector
 6651b49f0d1c5319357a659ad38d62ea locate-migrated-breakable
-61a710aaa8c9f0903669ae4de262ddb4 locate-position
+0d6e52048f803d176f3dc3af00a0334f locate-position
 1e0604f94ab6816da81f594cdba23b32 locate-position-trailing-tag
 d3905bbf66c760f77c8d0749e87ea686 locate-start-of-par
 88c9cbbc1a3f1e9189d60cfe787581dd logical-children-tags-underline-around-place
@@ -1025,6 +1025,7 @@ cd32284a5a99d00a1ef691034be27d81 math-cases
 1710666db244498892c7811ba98d1155 math-cases-delim-class
 042ba7ca57b82346820dffe667b77002 math-cases-gap
 f6b8349e25dedf9a411c96137f78e9d8 math-cases-linebreaks
+ce527459e71d783cecd02badf9028fd7 math-cases-linebreaks-trailing
 b82a3c6926b08fdfe9cad4f46b186798 math-class-chars
 c315421b122a71c88d4ccbc8dd2aae77 math-class-content
 b6431e94bafbfa1ec9841dbdf3fd2a99 math-class-exceptions
@@ -1098,6 +1099,9 @@ f543d4cbc16dd406fc6f292f7fdc176c math-lr-call
 916a241f9c514588350bbd0f0d5bf12e math-lr-mid-class
 f608f04127240b70b6ca8c2e9b796c20 math-lr-mid-size
 bfff37ad7896a46ea9807ba46061c9d4 math-lr-mid-size-nested-equation
+efd500ae2c5de38549e6689f25b2d7c6 math-lr-multiline
+24fb2d6cbcc50b259b2af6bd0865fe98 math-lr-multiline-align
+ec3cbf95077dd153ad611fed3d195d3e math-lr-multiline-trailing
 89efd4cdbe157293af9132bb5441803b math-lr-nested
 4a0b9a186252d5ec2de3990d71e8dcb0 math-lr-nested-mid
 0dd849c7769922d43d103492b24c9788 math-lr-scripts
@@ -1114,7 +1118,7 @@ c7feb90c4afe051cdf7bf54adee3cb4f math-lr-unparen
 776945df394d82df68bc71845b2d4d08 math-mat-align-complex
 7a510a37f62c07205c961a99a66e560e math-mat-align-explicit-alternating
 278fd43b952c3d1802018da1a7ded959 math-mat-align-explicit-left
-d2e7675cadb5ce9fbdd70c7db606d674 math-mat-align-explicit-mixed
+f6ee1753d5fed46e3680ef1f6194e934 math-mat-align-explicit-mixed
 3c41fe78a876dccbc6667af39ea2e12a math-mat-align-explicit-right
 c199b697f53a8aba29bbf7273eaf7f5e math-mat-align-implicit
 5c9ac506e79e1fc8834c00a7ab0dfc68 math-mat-align-signed-numbers
@@ -1130,6 +1134,7 @@ f86e6e9a2ffef31835cdfedd640560bb math-mat-delim-set
 65b4ff8af65a56430c219749c638f99b math-mat-gap
 5f4d9fb0c05646d2bf80336a9a312b19 math-mat-gaps
 01a71d45098992e86bc46eb22eeafa98 math-mat-linebreaks
+959e4d22574b5e5b4c933197c598a557 math-mat-linebreaks-trailing
 4635b8779a8992ce84954cf86f946f61 math-mat-semicolon
 54a931fc6f404915437c7a5b51e71e03 math-mat-sparse
 55f6a39001bfcce0df5bfa808cd288e1 math-mat-spread
@@ -1138,8 +1143,10 @@ a3e3e90e2c5c96eeec447ce6d1f33a34 math-mat-spread-2d
 f30b0f6e72b355809eb080a35c13b686 math-mat-vec-cases-unity
 3114f4d8fafb3ac2119838e145dfe639 math-multiline-multiple-trailing-linebreaks
 80e44cffb72879246d1e61890c5f1b4b math-multiline-no-trailing-linebreak
+bafcf2d33b940d930334fbe31579d1b1 math-multiline-string
+feaaf7d0befbc1780b00ff5ce9a67b85 math-multiline-string-alignment
 e63edf4aedc334ef2fd8cdfc0fd0026b math-multiline-trailing-linebreak
-6e1145d9351138266f17ad85872cc2f8 math-nested-normal-layout
+92c1c899f3fbde0a345ed506bb87f8c3 math-nested-normal-layout
 99bfd7675f2023329ba54cb347e5ad2c math-non-math-content
 ad00a369d7cf5484a6dc0de50375d7fc math-op-call
 b3411b1d07d4a40fa5674bfcc272e401 math-op-custom
@@ -1219,7 +1226,7 @@ cb770b0275b8af4253d6b578b94d8d1f math-stretch-shorthand
 7dd24d787c4357b19a38722c2383b9cd math-stretch-vertical-attach
 c113f8791cf1d538ca3a5f2d33b54944 math-stretch-vertical-large-class
 595c703d9e102fc27435077b51c706a3 math-stretch-vertical-scripts
-f2796fce601c2cd7f6dbd9a6cd2fe294 math-style
+7f05d553e1ae544a8b37e32a937a6543 math-style
 5e49aebf39b2f693bd468e802bac872c math-style-cluster
 f0d14edcd0ad04c1e1b4642c64b53bb0 math-style-dotless
 0c034af715a84f3236aaf6c3b168e655 math-style-exceptions
@@ -1235,6 +1242,7 @@ fbe502242790ab7865b48df081cc37e9 math-table
 b9a4d2fbd7041c8f6c57f97743fd0e8a math-text-grapheme-cluster-fallback
 58c356a6e9a866764e375f4d269ccbbe math-text-single-grapheme-cluster
 6b9548f07d2c67ba7b140329ce77e3a3 math-text-size
+4b56eedcb3e41bfa1e8f4d1be4e6c0ab math-text-styled-num
 564399b1434cf0cecaca692717fc64f9 math-underover-brace
 d6ea68e508e04be17c17ada53f68d7b6 math-underover-brackets
 9864ccc32d6669d0277679e290151214 math-underover-line-bracket
@@ -1252,10 +1260,10 @@ fbd076015563e8815d56297b170a9167 math-vec-align
 40ef57e71cf08e67ab7c331097348464 math-vec-delim-set
 571d90717481d8b5a31da67114c69530 math-vec-gap
 5194633f212b3fcbee95045d99892b18 math-vec-linebreaks
+1f318b24e82172b2f326bb3001ab09aa math-vec-linebreaks-trailing
 7aa1c8a713bff31540b76c4343a03bb3 math-vec-wide
 c4ca2a90c7bb91cbacb46e1992a85b50 measure-citation-deeply-nested
 e68948494a551019df89456db7586fb8 measure-citation-in-flow
-f620bf7e4333dd8a0f72f9f0625a9858 measure-counter-multiple-times
 9cfe6a06921b318f704ac6620110b52e measure-counter-width
 686af9a8e5ab98357f0295ba6f6b32d8 newline-continuation-code
 6dbf4cb3db7f8cd2845d8e13ecfbb027 newline-continuation-markup
@@ -1387,10 +1395,11 @@ da3570eb617075e2ccaffac03f6bed2a place-top-left-in-box
 6d41d3576ff4bf6b47f729440a634c70 polygon
 5bd6adb8506cf3258be24853c956b29b polygon-line-join
 fb7aa86cce688da544a008d25608376d presentation-selectors
-8d72b2fae2dcd2bed1f2b2321f559a82 query-complex
+a538f9aa211c1f9d769a1b6b2e9889fd query-complex
 a73c5ae7bf9137fd77916bdaef8d5932 query-list-of-figures
 01ba1a9730dfcee2f58dd087a70ec4e4 query-quote
 f71e1054af1d2c76e088378164f8917f query-running-header
+75b27c935e4cfd8688852429579f9e22 query-within
 be8e726e6582368794e432b11252a9e4 quote-block-spacing
 db24533a420ba49c5f20e50d017f1dc4 quote-cite-format-author-date
 0d1a203ce78c9077788a270d4af87e11 quote-cite-format-label-or-numeric
@@ -1451,7 +1460,7 @@ e75104b5e31202852b02163c3b93120e rect-stroke
 b981ba6171831e8e5855f1821d100872 rect-stroke-variations-with-radius-and-adjacent-thin-stroke
 1c1799b28849a971593f79469b09590e rect-stroke-variations-with-radius-and-adjacent-zero-width-stroke
 45399b7330732a28538e3600898117e6 rect-stroke-variations-without-radius
-2295e940da82a1fb29f4e6dee6145f80 ref-basic
+de6ecb1367fd28963521e29988061013 ref-basic
 89208b49db41af7be75526700d0d64fc ref-form-page
 e210dea9040abf567b95059322568b4e ref-form-page-unambiguous
 7a8df47c3bec8afdd4b7c5de802a57eb ref-supplements
@@ -1689,7 +1698,7 @@ d0a62532907f7a901108b86e43c9f130 terms-syntax-edge-cases
 2d8f39340ebb5f023c12f9c1fc92f6af text-call-body
 4a91ac2173638bce918401a4e8fc8d90 text-chinese-basic
 1498fcd1012b6e2eed3ddf46b478b806 text-cjk-latin-spacing
-5078f66c87352b590176559ec77e65c8 text-colr-svg-glyphs-different-size
+6d2acb1328dca4c0799651e3e6cf7466 text-colr-svg-glyphs-different-size
 a956e278b672d613e0bc8934ab974de2 text-copy-paste-ligatures
 2fd76e548529b550e4f8cb06d6e9b0fc text-edge
 6f030f9a9853c3ba9bc7070c51f3dce1 text-features
@@ -1697,7 +1706,7 @@ a956e278b672d613e0bc8934ab974de2 text-copy-paste-ligatures
 c33d0a162adb3e8a3a32bf1f57664e6f text-font-covers-chinese
 996a57701ed675403e36395af280f0bb text-font-covers-numbers
 cdeceb987461c669fafd964519452102 text-font-covers-repeat
-acdb7b0c300d8ad0ddd213ccc37a1f78 text-font-covers-riffle
+5640ef16b0ac792245a1b5ca265471af text-font-covers-riffle
 30afaf568dbc9dbabd08b113815486be text-font-just-a-space
 18ae5b7d35d455cfbbebc34c43a85624 text-font-properties
 c1dfb2c93fdded43db71c246c8eab150 text-kerning

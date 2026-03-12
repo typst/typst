@@ -174,7 +174,7 @@ impl Introspect for QueryIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query(&self.0)
     }
@@ -201,7 +201,7 @@ impl Introspect for QueryFirstIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_first(&self.0)
     }
@@ -226,7 +226,7 @@ impl Introspect for QueryUniqueIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_unique(&self.0)
     }
@@ -251,7 +251,7 @@ impl Introspect for QueryLabelIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_label(self.0).cloned()
     }
