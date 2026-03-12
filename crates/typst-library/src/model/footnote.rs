@@ -13,7 +13,7 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
-use crate::layout::{Abs, Em, Length, Ratio};
+use crate::layout::{Em, Length, Ratio};
 use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
@@ -247,7 +247,7 @@ pub struct FootnoteEntry {
         LineElem::new()
             .with_length(Ratio::new(0.3).into())
             .with_stroke(Stroke {
-                thickness: Smart::Custom(Abs::pt(0.5).into()),
+                thickness: Smart::Custom(Em::new(0.05).into()),
                 ..Default::default()
             })
             .pack()
