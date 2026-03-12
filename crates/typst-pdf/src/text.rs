@@ -5,7 +5,6 @@ use bytemuck::TransparentWrapper;
 use krilla::surface::{Location, Surface};
 use krilla::text::GlyphId;
 use typst_library::diag::{SourceResult, bail};
-use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
@@ -33,16 +32,13 @@ pub(crate) fn handle_text(
         true,
         surface,
         fc.state(),
-        Size::zero(),
+        None,
     )?;
-    let stroke =
-        if let Some(stroke) = t.stroke.as_ref().map(|s| {
-            paint::convert_stroke(gc, s, true, surface, fc.state(), Size::zero())
-        }) {
-            Some(stroke?)
-        } else {
-            None
-        };
+    let stroke = if let Some(stroke) = t.stroke.as_ref() {
+        Some(paint::convert_stroke(gc, stroke, true, surface, fc.state(), None)?)
+    } else {
+        None
+    };
     let text = t.text.as_str();
     let size = t.size;
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
