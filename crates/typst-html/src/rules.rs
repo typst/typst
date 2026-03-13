@@ -766,22 +766,22 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
 
     let mut inline = css::Properties::new();
 
-    // TODO: Exclude in semantic profile.
-    if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
-        inline.push("image-rendering", value);
-    }
+    // TODO: Should all of these be excluded in the semantic profile?
+    if styles.get(HtmlElem::profile).is_presentational() {
+        if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
+            inline.push("image-rendering", value);
+        }
 
-    // TODO: Exclude in semantic profile?
-    match elem.width.get(styles) {
-        Smart::Auto => {}
-        Smart::Custom(rel) => inline.push("width", css::rel(rel)),
-    }
+        match elem.width.get(styles) {
+            Smart::Auto => {}
+            Smart::Custom(rel) => inline.push("width", css::rel(rel)),
+        }
 
-    // TODO: Exclude in semantic profile?
-    match elem.height.get(styles) {
-        Sizing::Auto => {}
-        Sizing::Rel(rel) => inline.push("height", css::rel(rel)),
-        Sizing::Fr(_) => {}
+        match elem.height.get(styles) {
+            Sizing::Auto => {}
+            Sizing::Rel(rel) => inline.push("height", css::rel(rel)),
+            Sizing::Fr(_) => {}
+        }
     }
 
     Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
