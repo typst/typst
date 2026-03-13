@@ -91,20 +91,27 @@ impl SVGRenderer<'_> {
             y += glyph.y_advance.at(text.size);
         }
 
-        let text_el = &mut svg.elem("text");
-        text_el
-            .attr("fill", "transparent")
-            .attr("style", "font-variant-ligatures: none")
-            .attr("transform", "scale(1,-1)");
+        svg.with_preserving_whitespace(|svg| {
+            let text_el = &mut svg.elem("text");
+            text_el
+                .attr("fill", "transparent")
+                .attr("style", "font-variant-ligatures: none")
+                .attr("transform", "scale(1,-1)");
 
-        text_el.with_preserving_whitespace(|text_el| {
             for item in span_items {
+                let mut text_el = text_el
+                    .elem("tspan");
+
                 text_el
-                    .elem("tspan")
                     .attr("x", item.x_offset.to_pt())
-                    .attr("y", item.y_offset.to_pt())
-                    .attr("style", "user-select: all")
-                    .text(item.text);
+                    .attr("y", item.y_offset.to_pt());
+
+                // check if all whitespace
+                if let None = item.text.split_whitespace().next() {
+                    text_el.attr("style", "white-space: pre");
+                }
+
+                text_el.text(item.text);
             }
         });
     }
