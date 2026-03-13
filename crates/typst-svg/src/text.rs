@@ -12,7 +12,7 @@ use write_fonts::tables::cmap::Cmap;
 use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph};
 use write_fonts::tables::head::Head;
 use write_fonts::tables::hhea::Hhea;
-use write_fonts::tables::hmtx::Hmtx;
+use write_fonts::tables::hmtx::{Hmtx, LongMetric};
 use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
@@ -301,37 +301,6 @@ impl SVGRenderer<'_> {
 
             let cmap = fr.cmap().unwrap();
 
-            let mut glyf = GlyfLocaBuilder::new();
-
-            glyf.add_glyph(&SimpleGlyph {
-                bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
-                contours: vec![
-                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
-                        .into(),
-                ],
-                instructions: Vec::new(),
-            })
-                .unwrap();
-
-            let max_gid = glyphs.iter().copied().max().unwrap_or(0);
-            for _ in 1..=max_gid {
-                glyf.add_glyph(&Glyph::Empty).unwrap();
-            }
-
-            let (glyf, loca, loca_fmt) = glyf.build();
-            head.index_to_loc_format = loca_fmt as i16;
-
-            hhea.number_of_h_metrics = (max_gid + 1) as u16;
-            hmtx.h_metrics.truncate((max_gid + 1) as usize);
-            hmtx.left_side_bearings.clear();
-
-            println!(
-                "max_gid: {max_gid}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}",
-                dump_table(&glyf),
-                dump_table(&loca),
-                font.index()
-            );
-
             let Some(cmap12) = cmap
                 .encoding_records()
                 .iter()
@@ -345,11 +314,61 @@ impl SVGRenderer<'_> {
                 panic!("font does not contain a format 12 cmap subtable")
             };
 
-            let needed_pairs = cmap12
+            let mut needed_pairs = cmap12
                 .iter()
                 .filter(|(_, gid)| glyphs.contains(&gid.to_u32()))
                 .map(|(cp, gid)| (unsafe { char::from_u32_unchecked(cp) }, gid))
                 .collect::<Vec<_>>();
+            let n_glyphs = needed_pairs.len() + 1;
+
+            let mut glyf = GlyfLocaBuilder::new();
+
+            glyf.add_glyph(&SimpleGlyph {
+                bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
+                contours: vec![
+                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
+                        .into(),
+                ],
+                instructions: Vec::new(),
+            })
+                .unwrap();
+
+            let old_metrics = hmtx.h_metrics.clone();
+            hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
+            hhea.number_of_h_metrics = n_glyphs as u16;
+
+            for i in 0..needed_pairs.len() {
+                glyf.add_glyph(&Glyph::Empty).unwrap();
+
+                let orig_gid = needed_pairs[i].1.to_u32() as usize;
+                let metric = if orig_gid < old_metrics.len() {
+                    old_metrics[orig_gid].clone()
+                } else { // if orig_gid >= metrics.len(), uses side_bearing from left_side_bearings
+                    let old_last = old_metrics.last().unwrap();
+                    LongMetric {
+                        advance: old_last.advance,
+                        side_bearing: *hmtx.left_side_bearings
+                            .get(orig_gid - old_metrics.len())
+                            .unwrap_or(&old_last.side_bearing)
+                    }
+                };
+
+                hmtx.h_metrics[i + 1] = metric;
+                needed_pairs[i].1 = (i as u16 + 1).into();
+            }
+
+            hmtx.left_side_bearings.clear(); // only clear() after the loop above
+
+            let (glyf, loca, loca_fmt) = glyf.build();
+            head.index_to_loc_format = loca_fmt as i16;
+
+            println!(
+                "n_glyphs: {n_glyphs}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}",
+                dump_table(&glyf),
+                dump_table(&loca),
+                font.index()
+            );
+
             let cmap = Cmap::from_mappings(needed_pairs).unwrap();
 
             let new_font = FontBuilder::new()
@@ -362,7 +381,7 @@ impl SVGRenderer<'_> {
                 .add_table(&hmtx)
                 .unwrap()
                 .add_table(&Maxp {
-                    num_glyphs: (max_gid + 1) as u16,
+                    num_glyphs: n_glyphs as u16,
                     max_points: Some(2),
                     max_contours: Some(1),
                     max_composite_points: Some(0),
