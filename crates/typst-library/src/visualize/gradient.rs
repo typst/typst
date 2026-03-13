@@ -938,12 +938,13 @@ impl Gradient {
 
                 // Transform the angle computed from the ratio positions back
                 // into the screen space, to correct for the aspect ratio.
-                let sample_angle = -Gradient::correct_aspect_ratio(
+                let sample_angle = Gradient::correct_aspect_ratio(
                     Angle::atan2(y, x),
                     Ratio::new((width / height) as f64),
                 );
 
-                (sample_angle + Angle::rad(PI) + conic.angle).normalized().to_rad() / TAU
+                // Negate conic angle for clockwise rotation.
+                (Angle::rad(PI) + sample_angle - conic.angle).normalized().to_rad() / TAU
             }
         };
 

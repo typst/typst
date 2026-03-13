@@ -167,24 +167,24 @@ impl SVGRenderer<'_> {
                     pattern.attr("x", "-0.5");
                     pattern.attr("y", "-0.5");
 
-                    // The rotation angle, negated to match rotation in PNG.
-                    let angle = -conic.angle;
                     let center = conic.center;
 
-                    // The aspect-ratio for angle correction needs to be
-                    // inverted for conic gradients.
-                    let correct_ratio = aspect_ratio.recip();
+                    // Correct the angles with the inverse aspect-ratio, to
+                    // compensate for the transformation that is applied later
+                    // on to the gradient fill.
+                    let inverse_ratio = aspect_ratio.recip();
 
                     // We build an arg segment for each segment of a circle.
                     let dtheta = Angle::rad(TAU / NUM_CONIC_SEGMENTS as f64);
                     for i in 0..NUM_CONIC_SEGMENTS {
-                        let theta1 = Gradient::correct_aspect_ratio(
-                            angle + (dtheta * i as f64),
-                            correct_ratio,
+                        // Negate the angle for clockwise gradient rotation.
+                        let theta1 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * i as f64),
+                            inverse_ratio,
                         );
-                        let theta2 = Gradient::correct_aspect_ratio(
-                            angle + (dtheta * (i + 1) as f64),
-                            correct_ratio,
+                        let theta2 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * (i + 1) as f64),
+                            inverse_ratio,
                         );
 
                         // Create the path for the segment.

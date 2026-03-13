@@ -1,5 +1,7 @@
 //! Convert paint types from Typst to krilla.
 
+use std::f64::consts::PI;
+
 use krilla::color::{self, cmyk, luma, rgb};
 use krilla::num::NormalizedF32;
 use krilla::paint::{
@@ -244,19 +246,11 @@ fn convert_gradient(
             let actual_transform = base_transform
                 // Adjust for the angle.
                 .pre_concat(Transform::rotate_at(
-                    angle,
+                    angle + Angle::rad(PI),
                     Abs::pt(cx as f64),
                     Abs::pt(cy as f64),
                 ))
-                .pre_concat(Transform::translate(offset.x, offset.y))
-                // Default start point in krilla and Typst are at the opposite side, so we need
-                // to flip it horizontally.
-                .pre_concat(Transform::scale_at(
-                    -Ratio::one(),
-                    Ratio::one(),
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ));
+                .pre_concat(Transform::translate(offset.x, offset.y));
 
             let sweep = SweepGradient {
                 cx,
