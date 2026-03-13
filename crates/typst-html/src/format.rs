@@ -3,9 +3,10 @@ use typst_library::Feature;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
-use typst_library::foundations::{Args, Construct, Content, Scope, StyleChain};
+use typst_library::foundations::{
+    Args, Cast, Construct, Content, Scope, StyleChain, elem, scope,
+};
 use typst_library::introspection::Location;
-use typst_macros::{elem, scope};
 use typst_syntax::Spanned;
 
 use crate::{HtmlAttr, HtmlAttrs, HtmlTag, css};
@@ -132,6 +133,12 @@ pub struct HtmlFormat {
     /// space-efficient way.
     #[default(false)]
     pub pretty: bool,
+
+    /// The HTML profile controls how elements are styled in HTML.
+    ///
+    /// The DOM structure will remain exactly the same.
+    #[default(Some(HtmlStyleProfile::Semantic))]
+    pub styles: Option<HtmlStyleProfile>,
 }
 
 impl Construct for HtmlFormat {
@@ -162,12 +169,14 @@ impl HtmlFormat {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlFormatOptions<F: Fields = Complete> {
     pub pretty: F::Value<HtmlFormat, { HtmlFormat::pretty.index() }>,
+    pub styles: F::Value<HtmlFormat, { HtmlFormat::styles.index() }>,
 }
 
 impl Populate for HtmlFormatOptions {
     fn populate(&mut self, styles: Spanned<StyleChain>) {
         // VOLATILE: This must be updated when adding more fields.
         self.pretty.populate(styles);
+        self.styles.populate(styles);
     }
 }
 
@@ -176,8 +185,23 @@ impl HtmlFormatOptions<Partial> {
     pub fn resolve(&self, default: &HtmlFormatOptions) -> HtmlFormatOptions {
         HtmlFormatOptions {
             pretty: Partial::resolve(self.pretty, default.pretty),
+            styles: Partial::resolve(self.styles, default.styles),
         }
     }
+}
+
+/// The HTML styling profile.
+///
+/// By default Typst tries to produce semantic HTML with limited styles.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Cast)]
+pub enum HtmlStyleProfile {
+    /// The semantic profile tries to produce most closely represent the
+    /// semantic structure of the Typst document in HTML.
+    #[default]
+    Semantic,
+    /// The presentational profile tries to closely resemble the paged output by
+    /// writing additional inline style properties and nested elements.
+    Presentational,
 }
 
 /// An HTML element that can contain Typst content.

@@ -532,7 +532,7 @@ fn handle_realized(
         .then(|| eco_format!("{}", target.math_style == MathStyle::Normal));
     let mut properties = css::Properties::new();
     if target.math_shift != ctx.css.math_shift {
-        properties.push("math-shift", target.math_shift.to_string());
+        properties.push_presentational("math-shift", target.math_shift.to_string());
     }
 
     // Push explicit lspace if it won't be added to the attributes of an `mo`.

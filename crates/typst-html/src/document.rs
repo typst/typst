@@ -16,7 +16,9 @@ use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::mathml::EQUATION_CSS_STYLES;
-use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
+use crate::{
+    HtmlDocument, HtmlElement, HtmlFormat, HtmlNode, HtmlStyleProfile, attr, css, tag,
+};
 
 /// Produce an HTML document from content.
 ///
@@ -172,12 +174,18 @@ fn html_document_common(
         styles,
     )?;
 
+    // Generate styles after `finalize_dom`, since it might have inserted more
+    // DOM nodes that have styles.
+    let html_options = options.get::<HtmlFormat>();
+    let profile = html_options.styles.v;
+
     let nodes = crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
         children.iter().copied(),
         ConversionLevel::Block,
         Whitespace::Normal,
+        profile,
     )?;
 
     let mut output = finalize_dom(
@@ -186,6 +194,7 @@ fn html_document_common(
         &info,
         footnote_locator,
         StyleChain::new(&Styles::root(&children, styles)),
+        profile,
     )?;
 
     // Since `finalize_dom` might have inserted more DOM nodes that have styles,
@@ -265,6 +274,7 @@ fn finalize_dom(
     info: &DocumentInfo,
     footnote_locator: Locator<'_>,
     footnote_styles: StyleChain<'_>,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<HtmlOutput> {
     let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
@@ -298,6 +308,7 @@ fn finalize_dom(
             footnote_locator,
             footnote_styles,
             Whitespace::Normal,
+            profile,
         )?;
         body.children.extend(footnotes);
         eco_vec![body.into()]
