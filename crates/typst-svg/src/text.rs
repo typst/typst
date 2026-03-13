@@ -1,7 +1,8 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
 use ecow::EcoString;
 use ttf_parser::GlyphId;
 use typst_library::layout::{Abs, Ratio, Size, Transform};
-use typst_library::text::TextItem;
+use typst_library::text::{Font, TextItem};
 use typst_library::text::color::{
     GlyphFrame, GlyphFrameItem, glyph_frame, should_outline,
 };
@@ -40,10 +41,7 @@ impl SVGRenderer<'_> {
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
-        svg.attr(
-            "font-family",
-            format!("typst-embedded-font-{}", text.font.index()).as_str(),
-        );
+        svg.attr("font-family", text.font.svg_font_family());
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
@@ -257,5 +255,21 @@ impl SVGRenderer<'_> {
         // The glyphs have been taken above, there shouldn't be any new glyphs
         // produced from writing the glyph definitions.
         assert!(self.glyphs.is_empty());
+    }
+}
+
+pub(crate) trait FontExt {
+    fn svg_font_family(&self) -> EcoString;
+}
+
+impl FontExt for Font {
+
+    #[comemo::memoize]
+    fn svg_font_family(&self) -> EcoString {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        format!("typst-embedded-font-{hash}").into()
     }
 }

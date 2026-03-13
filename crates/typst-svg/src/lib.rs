@@ -16,7 +16,7 @@ use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
-use crate::text::RenderedGlyph;
+use crate::text::{FontExt, RenderedGlyph};
 use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
 use base64::Engine;
 use ecow::EcoString;
@@ -506,9 +506,8 @@ impl<'a> SVGRenderer<'a> {
             let b64 = B64_STANDARD.encode(&new_font);
             write!(
                 &mut style,
-                "@font-face {{ font-family: 'typst-embedded-font-{}'; src: url('data:font/ttf;base64,{}') format('truetype'); }}",
-                font.index(),
-                b64,
+                "@font-face {{ font-family: '{}'; src: url('data:font/ttf;base64,{b64}') format('truetype'); }}",
+                font.svg_font_family(),
             ).unwrap();
         }
 
