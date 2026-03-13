@@ -130,8 +130,8 @@ use crate::foundations::{
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
 ///
-/// See https://time-rs.github.io/book/api/format-description.html for the
-/// complete list of supported syntax.
+/// [See here](https://time-rs.github.io/book/api/format-description.html#components)
+/// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
 /// create a new datetime with `{datetime(year: 2023, month: 10, day: 13)}`, it
