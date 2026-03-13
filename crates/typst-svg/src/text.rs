@@ -58,6 +58,7 @@ impl SVGRenderer<'_> {
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
         svg.attr("font-family", text.font.svg_font_family());
+        svg.attr("font-size", text.size.to_pt());
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
@@ -102,7 +103,6 @@ impl SVGRenderer<'_> {
                     .elem("tspan")
                     .attr("x", item.x_offset.to_pt())
                     .attr("y", item.y_offset.to_pt())
-                    .attr("font-size", text.size.to_pt())
                     .attr("style", "user-select: all")
                     .text(item.text);
             }
