@@ -25,7 +25,7 @@ use ecow::EcoString;
 use typst_library::Category;
 use typst_library::foundations::{Content, Module, Scope};
 use typst_library::introspection::Location;
-use typst_macros::elem;
+use typst_macros::{Cast, elem};
 
 /// Creates the module with all HTML definitions.
 pub fn module() -> Module {
@@ -92,6 +92,11 @@ pub struct HtmlElem {
     #[internal]
     #[ghost]
     pub role: Option<EcoString>,
+
+    /// The HTML profile controls how elements are represented in HTML.
+    // TODO: Maybe make this ghost? Currently requires a manual Construct impl.
+    #[default(HtmlProfile::Semantic)]
+    pub profile: HtmlProfile,
 }
 
 impl HtmlElem {
@@ -126,6 +131,36 @@ impl HtmlElem {
     fn is_phrasing(elem: &Content) -> bool {
         elem.to_packed::<HtmlElem>()
             .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
+    }
+}
+
+/// The HTML export mode.
+///
+/// By default Typst tries to produce semantic HTML with limited styling.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum HtmlProfile {
+    /// The semantic profile tries to produce most closely represent the
+    /// semantic structure of the Typst document in HTML.
+    #[default]
+    Semantic,
+    /// The presentational profile tries to closely resemble the paged output by
+    /// writing additional inline style properties and nested elements.
+    Presentational,
+}
+
+impl HtmlProfile {
+    /// Whether this is the [`Semantic`] mode.
+    ///
+    /// [`Semantic`]: HtmlMode::Semantic
+    pub fn is_semantic(&self) -> bool {
+        matches!(self, Self::Semantic)
+    }
+
+    /// Whether this is the [`Presentational`] mode.
+    ///
+    /// [`Presentational`]: HtmlMode::Presentational
+    pub fn is_presentational(&self) -> bool {
+        matches!(self, Self::Presentational)
     }
 }
 

@@ -13,6 +13,7 @@
 #image("/assets/images/f2t.jpg", alt: "The letter F")
 
 --- image-sizing-html-css html ---
+#set html.elem(profile: "presentational")
 #image("/assets/images/f2t.jpg", width: 50%, alt: "width: 50%")
 #image("/assets/images/f2t.jpg", width: 100pt, alt: "width: 100pt")
 #image("/assets/images/f2t.jpg", width: 30% + 50pt, alt: "width: calc(30% + 50pt)")
@@ -227,6 +228,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-scaling-methods paged html ---
+#set html.elem(profile: "presentational")
 #let img(scaling) = image(
   bytes((
     0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
