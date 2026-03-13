@@ -94,6 +94,16 @@ impl Ratio {
     }
 }
 
+impl Numeric for Ratio {
+    fn zero() -> Self {
+        Ratio::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
+    }
+}
+
 impl Debug for Ratio {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:?}%", self.get() * 100.0)
