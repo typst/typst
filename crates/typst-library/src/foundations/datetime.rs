@@ -380,6 +380,19 @@ impl Datetime {
         Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
     }
 
+    /// Return the local timezone offset relative to UTC.
+    ///
+    /// The value is expressed as a duration where positive for zones east of
+    /// UTC and negative for zones west of UTC. The offset may include minutes
+    /// or seconds to correctly handle non-hourly timezones.
+    #[func]
+    pub fn local_offset(engine: &mut Engine) -> StrResult<Duration> {
+        engine
+            .world
+            .local_offset()
+            .ok_or("unable to determine local timezone offset".into())
+    }
+
     /// Displays the datetime in a specified format.
     ///
     /// Depending on whether you have defined just a date, a time or both, the

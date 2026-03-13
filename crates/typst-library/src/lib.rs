@@ -95,6 +95,19 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
+
+    /// Get the local timezone offset from UTC.
+    ///
+    /// This value is used when Typst's `datetime.today` function is invoked
+    /// with `offset: auto`. It is positive for zones east of UTC and negative
+    /// for zones west of UTC. The offset may include minutes or seconds to
+    /// correctly handle non-hourly timezones.
+    ///
+    /// If the world cannot determine the offset, it should return `None`.
+    /// The default implementation simply returns zero (UTC).
+    fn local_offset(&self) -> Option<Duration> {
+        Some(Duration::from(time::Duration::ZERO))
+    }
 }
 
 macro_rules! world_impl {

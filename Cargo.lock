@@ -3014,6 +3014,7 @@ dependencies = [
  "sigpipe",
  "tar",
  "tempfile",
+ "time",
  "toml",
  "typst",
  "typst-bundle",
