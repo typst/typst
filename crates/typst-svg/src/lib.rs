@@ -1,6 +1,5 @@
 //! Rendering of Typst documents into SVG images.
 
-use std::fmt::Write;
 mod image;
 mod paint;
 mod path;
@@ -16,9 +15,8 @@ use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
-use crate::text::{FontExt, RenderedGlyph};
+use crate::text::{RenderedGlyph};
 use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
-use base64::Engine;
 use ecow::EcoString;
 use std::hash::Hash;
 use typst_library::layout::{
@@ -27,20 +25,7 @@ use typst_library::layout::{
 };
 use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Gradient, Tiling};
-use write_fonts::from_obj::ToOwnedTable;
-use write_fonts::read::tables::cmap::CmapSubtable;
-use write_fonts::read::tables::glyf::CurvePoint;
-use write_fonts::read::{FontRef, TableProvider};
-use write_fonts::tables::cmap::Cmap;
-use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph};
-use write_fonts::tables::head::Head;
-use write_fonts::tables::hhea::Hhea;
-use write_fonts::tables::hmtx::Hmtx;
-use write_fonts::tables::maxp::Maxp;
-use write_fonts::tables::name::Name;
-use write_fonts::tables::os2::Os2;
-use write_fonts::tables::post::Post;
-use write_fonts::{FontBuilder, dump_table};
+use write_fonts::read::TableProvider;
 use xmlwriter::XmlWriter;
 
 const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
@@ -393,132 +378,6 @@ impl<'a> SVGRenderer<'a> {
                 svg.elem("path").attr("d", path);
             });
         }
-    }
-
-    /// Build the stub fonts for text metrics / correct text selection.
-    fn write_text_metrics(&self, svg: &mut SvgElem) {
-        use base64::engine::general_purpose::STANDARD as B64_STANDARD;
-
-        if self.fonts_for_subset.is_empty() {
-            return;
-        }
-
-        let mut style = String::new();
-        for (font, glyphs) in &self.fonts_for_subset {
-            let fr = FontRef::new(font.data().as_slice()).unwrap();
-
-            let mut head: Head = fr.head().unwrap().to_owned_table();
-            let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
-            let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
-            let os2: Os2 = fr.os2().unwrap().to_owned_table();
-            let name: Name = fr.name().unwrap().to_owned_table();
-            let post: Post = fr.post().unwrap().to_owned_table();
-
-            let cmap = fr.cmap().unwrap();
-
-            let mut glyf = GlyfLocaBuilder::new();
-
-            glyf.add_glyph(&SimpleGlyph {
-                bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
-                contours: vec![
-                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
-                        .into(),
-                ],
-                instructions: Vec::new(),
-            })
-                .unwrap();
-
-            let max_gid = glyphs.iter().copied().max().unwrap_or(0);
-            for _ in 1..=max_gid {
-                glyf.add_glyph(&Glyph::Empty).unwrap();
-            }
-
-            let (glyf, loca, loca_fmt) = glyf.build();
-            head.index_to_loc_format = loca_fmt as i16;
-
-            hhea.number_of_h_metrics = (max_gid + 1) as u16;
-            hmtx.h_metrics.truncate((max_gid + 1) as usize);
-            hmtx.left_side_bearings.clear();
-
-            println!(
-                "max_gid: {max_gid}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}",
-                dump_table(&glyf),
-                dump_table(&loca),
-                font.index()
-            );
-
-            let Some(cmap12) = cmap
-                .encoding_records()
-                .iter()
-                .map(|r| r.subtable(cmap.offset_data()))
-                .flat_map(|s| match s {
-                    Ok(CmapSubtable::Format12(cmap12)) => Some(cmap12),
-                    _ => None,
-                })
-                .nth(0)
-            else {
-                panic!("font does not contain a format 12 cmap subtable")
-            };
-
-            let needed_pairs = cmap12
-                .iter()
-                .filter(|(_, gid)| glyphs.contains(&gid.to_u32()))
-                .map(|(cp, gid)| (unsafe { char::from_u32_unchecked(cp) }, gid))
-                .collect::<Vec<_>>();
-            let cmap = Cmap::from_mappings(needed_pairs).unwrap();
-
-            let new_font = FontBuilder::new()
-                .add_table(&head)
-                .unwrap()
-                .add_table(&hhea)
-                .unwrap()
-                .add_table(&cmap)
-                .unwrap()
-                .add_table(&hmtx)
-                .unwrap()
-                .add_table(&Maxp {
-                    num_glyphs: (max_gid + 1) as u16,
-                    max_points: Some(2),
-                    max_contours: Some(1),
-                    max_composite_points: Some(0),
-                    max_composite_contours: Some(0),
-                    max_zones: Some(1),
-                    max_twilight_points: Some(0),
-                    max_storage: Some(0),
-                    max_function_defs: Some(0),
-                    max_instruction_defs: Some(0),
-                    max_stack_elements: Some(0),
-                    max_size_of_instructions: Some(0),
-                    max_component_elements: Some(0),
-                    max_component_depth: Some(1),
-                })
-                .unwrap()
-                .add_table(&os2)
-                .unwrap()
-                .add_table(&name)
-                .unwrap()
-                .add_table(&post)
-                .unwrap()
-                .add_table(&glyf)
-                .unwrap()
-                .add_table(&loca)
-                .unwrap()
-                .build();
-
-            let b64 = B64_STANDARD.encode(&new_font);
-            write!(
-                &mut style,
-                "@font-face {{ font-family: '{}'; src: url('data:font/ttf;base64,{b64}') format('truetype'); }}",
-                font.svg_font_family(),
-            ).unwrap();
-        }
-
-        svg.elem("style").text(&style);
-    }
-
-    /// Save the glyph ID & font for later subsetting in [`SVGRenderer::write_text_metrics`].
-    fn save_glyph_for_subset(&mut self, font: Font, glyph_id: u32) {
-        self.fonts_for_subset.entry(font).or_default().push(glyph_id);
     }
 }
 
