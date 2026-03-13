@@ -134,6 +134,8 @@ hi:
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
 
 --- bibliography-csl-display paged html ---
+#set html(styles: "presentational")
+
 // Test a combination of CSL `display` attributes. Most of the display
 // attributes are barely used by any styles, so we have a custom style here.
 

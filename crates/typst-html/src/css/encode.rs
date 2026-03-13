@@ -51,6 +51,19 @@ impl Properties {
         self
     }
 
+    /// Adds a new, already serialized property in builder style, if the
+    /// `condition` is true.
+    pub fn with_opt(
+        mut self,
+        property: &'static str,
+        value: Option<impl Into<EcoString>>,
+    ) -> Self {
+        if let Some(value) = value {
+            self.push(property, value);
+        }
+        self
+    }
+
     /// Converts the CSS properties into an inline style.
     pub fn to_inline(&self) -> impl Display + use<'_> {
         typst_utils::display(move |f| {
@@ -105,6 +118,20 @@ impl<S: WarningSink> PropertiesBuilder<S> {
     pub fn with(mut self, property: &'static str, value: impl ToCss) -> Self {
         self.push(property, value);
         self
+    }
+
+    /// Serializes a new property and adds it to the property list in builder
+    /// style, if the `condition` is true..
+    pub fn with_opt(mut self, property: &'static str, value: Option<impl ToCss>) -> Self {
+        if let Some(value) = value {
+            self.push(property, value);
+        }
+        self
+    }
+
+    pub fn ignored(&mut self, what: &str) {
+        self.sink
+            .emit(eco_format!("{what} was ignored during HTML export").into());
     }
 
     /// Finish building the properties and propagate warnings.

@@ -3,9 +3,10 @@ use typst_library::Feature;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
-use typst_library::foundations::{Args, Construct, Content, Scope, StyleChain};
+use typst_library::foundations::{
+    Args, Cast, Construct, Content, Scope, StyleChain, elem, scope,
+};
 use typst_library::introspection::Location;
-use typst_macros::{elem, scope};
 use typst_syntax::Spanned;
 
 use crate::{HtmlAttr, HtmlAttrs, HtmlTag, css};
@@ -132,6 +133,12 @@ pub struct HtmlFormat {
     /// space-efficient way.
     #[default(false)]
     pub pretty: bool,
+
+    /// The HTML profile controls how elements are styled in HTML.
+    ///
+    /// The DOM structure will remains exactly the same.
+    #[default(Some(HtmlStyles::Semantic))]
+    pub styles: Option<HtmlStyles>,
 }
 
 impl Construct for HtmlFormat {
@@ -177,6 +184,70 @@ impl HtmlFormatOptions<Partial> {
         HtmlFormatOptions {
             pretty: Partial::resolve(self.pretty, default.pretty),
         }
+    }
+}
+
+/// The HTML styling profile.
+///
+/// By default Typst tries to produce semantic HTML with limited styles.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum HtmlStyles {
+    /// The semantic profile tries to produce most closely represent the
+    /// semantic structure of the Typst document in HTML.
+    #[default]
+    Semantic,
+    /// The presentational profile tries to closely resemble the paged output by
+    /// writing additional inline style properties and nested elements.
+    Presentational,
+}
+
+impl HtmlStyles {
+    /// Whether this is the [`Semantic`] mode.
+    ///
+    /// [`Semantic`]: Self::Semantic
+    pub fn is_semantic(self) -> bool {
+        matches!(self, Self::Semantic)
+    }
+
+    /// Whether this is the [`Presentational`] mode.
+    ///
+    /// [`Presentational`]: Self::Presentational
+    pub fn is_presentational(self) -> bool {
+        matches!(self, Self::Presentational)
+    }
+}
+
+/// Helper methods to read [`HtmlFormat::styles`].
+pub(crate) trait HtmlStylechain {
+    /// Whether [`HtmlFormat::styles`] is [`HtmlStyles::Semantic`] or
+    /// [`HtmlStyles::Presentational`].
+    fn use_semantic(&self) -> bool;
+
+    /// Whether [`HtmlFormat::styles`] is [`HtmlStyles::Presentational`].
+    fn use_presentational(&self) -> bool;
+
+    /// Returns an `Option` containing the value, if [`Self::is_semantic()`]
+    /// returns true.
+    /// [`HtmlStyles::Presentational`].
+    fn semantic_style<T>(&self, val: T) -> Option<T> {
+        self.use_semantic().then_some(val)
+    }
+
+    /// Returns an `Option` containing the value, if
+    /// [`Self::is_presentational()`] returns true.
+    fn presentational_style<T>(&self, val: T) -> Option<T> {
+        self.use_presentational().then_some(val)
+    }
+}
+
+impl HtmlStylechain for StyleChain<'_> {
+    fn use_semantic(&self) -> bool {
+        self.get(HtmlFormat::styles).is_some()
+    }
+
+    fn use_presentational(&self) -> bool {
+        self.get(HtmlFormat::styles)
+            .is_some_and(HtmlStyles::is_presentational)
     }
 }
 
