@@ -174,7 +174,7 @@ pub struct EnumElem {
     /// text instead of towards it, avoiding certain visual issues. This option
     /// lets you override this behaviour, however. (Also to note is that the
     /// [unordered list]($list) uses a different method for this, by giving the
-    /// `marker` content an alignment directly.).
+    /// `marker` content an alignment directly.)
     ///
     /// ````example
     /// #set enum(number-align: start + bottom)
