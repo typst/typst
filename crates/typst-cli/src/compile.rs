@@ -640,7 +640,8 @@ mod output_template {
 /// Creates options for HTML export.
 fn html_options(config: &CompileConfig) -> HtmlOptions {
     HtmlOptions {
-        format: HtmlFormatOptions { pretty: config.pretty },
+        // TODO: Add CLI flag for HTML style profile/location?
+        format: HtmlFormatOptions { pretty: config.pretty, styles: None },
     }
 }
 

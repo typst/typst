@@ -467,7 +467,9 @@ impl OutputType for Html {
     }
 
     fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
-        let options = HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } };
+        let options = HtmlOptions {
+            format: HtmlFormatOptions { pretty: Some(true), styles: None },
+        };
         typst_html::html(doc, &options).into()
     }
 
@@ -506,7 +508,9 @@ impl OutputType for Bundle {
 
     fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
         let options = BundleOptions {
-            html: HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } },
+            html: HtmlOptions {
+                format: HtmlFormatOptions { pretty: Some(true), styles: None },
+            },
             pdf: pdf_options(None),
             png: RenderOptions {
                 format: PngFormatOptions { pixel_per_pt: Some(Scalar::new(1.0)) },
