@@ -202,7 +202,7 @@ pub struct HtmlElement {
     /// The element's attributes.
     pub attrs: HtmlAttrs,
     /// The element's CSS properties. Currently only used for generated styles.
-    pub css: css::Properties,
+    pub css: css::FilteredProperties,
     /// The element's children.
     pub children: EcoVec<HtmlNode>,
     /// The element's logical parent. For introspection purposes, this element
@@ -226,7 +226,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
-            css: css::Properties::default(),
+            css: css::FilteredProperties::new(),
             children: EcoVec::new(),
             parent: None,
             span: Span::detached(),
@@ -249,7 +249,7 @@ impl HtmlElement {
     }
 
     /// Adds CSS styles to an element.
-    pub(crate) fn with_css(mut self, css: css::Properties) -> Self {
+    pub(crate) fn with_css(mut self, css: css::FilteredProperties) -> Self {
         self.css = css;
         self
     }
@@ -528,7 +528,7 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// The element's CSS properties.
-    pub css: css::Properties,
+    pub css: css::FilteredProperties,
     /// IDs to assign to destination jump points within the SVG.
     pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
@@ -542,7 +542,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            css: css::Properties::new(),
+            css: css::FilteredProperties::new(),
             anchors: EcoVec::new(),
             span,
         }
