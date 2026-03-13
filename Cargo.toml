@@ -41,14 +41,13 @@ base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
 bumpalo = { version = "3.15.4", features = ["boxed", "collections"] }
 bytemuck = "1"
-chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.2.0"
+codex = { git = "https://github.com/MDLC01/codex/", rev = "29ec220" }
 color-print = "0.3.6"
 comemo = "0.5.1"
 csv = "1"

@@ -1284,7 +1284,7 @@ e68948494a551019df89456db7586fb8 measure-citation-in-flow
 0f03569f53987ada347a279a6f5a117f outline-entry-complex
 446f0949e6b7af300a93047d27bc30a8 outline-entry-inner
 d9895a6a90d44d6ee010ac12a9a5e182 outline-first-line-indent
-f4f14258af604034df2c26905ae7500f outline-heading-start-of-page
+b2544534bae1c492e704adddd0aba611 outline-heading-start-of-page
 549f0aa4abb5a3a6faa615f3c2e199ed outline-indent-auto
 e276bf5c83b20cb80f1db9bd235acfbb outline-indent-auto-mixed-prefix
 7f1a032c826d7b9b5c0ec0cd2f0bf96b outline-indent-auto-mixed-prefix-short
@@ -1669,8 +1669,7 @@ b7c450607c1d14c99170e5916d879690 sub-super-typographic
 9bbcfca44efa0d7683d7f2bc1c6f2a74 super-underline
 3130718791dfe1abb1a258775d5a8e80 symbol
 24df57e69e4dc2581f072e6e8814263d symbol-constructor
-03191732d23872636dc6fac6c3b0e59c symbol-modifier-deprecated
-64d47e398e18becb236761623fb03690 symbol-sect-deprecated
+c08b76370fc7e53d43212136c36210bf symbol-modifier-deprecated
 386d0fc11d233b76136875a4d5e83337 table-align-array
 b5b5e27ae0c7b9b01ba40d1ca1941a6a table-cell-align-override
 1824188fb9c5904e88e6136f4d6a7a11 table-cell-folding

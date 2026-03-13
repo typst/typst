@@ -126,8 +126,8 @@ $integral.inter_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator paged ---
 // Test default of limit attachments on large operators at display size only.
-$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
-$tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad bowtie.big_0^1 $
+$tack.t.big_0^1 quad \u{02A0A}_0^1 quad bowtie.big_0^1$
 
 --- math-attach-limit-long paged ---
 // Test long limit attachments.

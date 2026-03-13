@@ -425,8 +425,10 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9589e1effc5cacbea347899645c654158b03b2053d24bb426fd3128ced6e423c"
+source = "git+https://github.com/MDLC01/codex/?rev=29ec220#29ec220953c5fdd0b3f71e24f5d49698020537ac"
+dependencies = [
+ "chinese-number",
+]
 
 [[package]]
 name = "color-print"
@@ -3208,7 +3210,6 @@ dependencies = [
  "az",
  "bitflags 2.9.1",
  "bumpalo",
- "chinese-number",
  "ciborium",
  "codex",
  "comemo",
@@ -3284,6 +3285,7 @@ version = "0.14.2"
 dependencies = [
  "az",
  "bytemuck",
+ "codex",
  "comemo",
  "ecow",
  "image",
