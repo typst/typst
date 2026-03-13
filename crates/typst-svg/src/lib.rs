@@ -32,7 +32,7 @@ use write_fonts::read::tables::cmap::CmapSubtable;
 use write_fonts::read::tables::glyf::CurvePoint;
 use write_fonts::read::{FontRef, TableProvider};
 use write_fonts::tables::cmap::Cmap;
-use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, SimpleGlyph};
+use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph};
 use write_fonts::tables::head::Head;
 use write_fonts::tables::hhea::Hhea;
 use write_fonts::tables::hmtx::Hmtx;
@@ -418,17 +418,19 @@ impl<'a> SVGRenderer<'a> {
 
             let mut glyf = GlyfLocaBuilder::new();
 
-            let max_gid = glyphs.iter().copied().max().unwrap_or(0);
-            for _ in 0..=max_gid {
-                glyf.add_glyph(&SimpleGlyph {
-                    bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
-                    contours: vec![
-                        vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
-                            .into(),
-                    ],
-                    instructions: Vec::new(),
-                })
+            glyf.add_glyph(&SimpleGlyph {
+                bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
+                contours: vec![
+                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
+                        .into(),
+                ],
+                instructions: Vec::new(),
+            })
                 .unwrap();
+
+            let max_gid = glyphs.iter().copied().max().unwrap_or(0);
+            for _ in 1..=max_gid {
+                glyf.add_glyph(&Glyph::Empty).unwrap();
             }
 
             let (glyf, loca, loca_fmt) = glyf.build();
