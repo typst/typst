@@ -16,7 +16,7 @@
 
 --- arguments-at-invalid-index eval ---
 #let args = arguments(0, 1, a: 2, 3)
-// Error: 2-12 no named argument 4 and no default value was specified
+// Error: 2-12 no positional argument at index 4 and no default value was specified
 #args.at(4)
 
 --- arguments-name-access eval ---

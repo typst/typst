@@ -564,11 +564,14 @@ where
 /// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
-    eco_format!(
-        "no named argument {} and no default value was specified",
-        match key {
-            ArgumentKey::Index(i) => i.repr(),
-            ArgumentKey::Name(name) => name.repr(),
-        }
-    )
+    match key {
+        ArgumentKey::Index(i) => eco_format!(
+            "no positional argument at index {} and no default value was specified",
+            i.repr()
+        ),
+        ArgumentKey::Name(name) => eco_format!(
+            "no named argument {} and no default value was specified",
+            name.repr()
+        ),
+    }
 }
