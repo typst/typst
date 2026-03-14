@@ -306,7 +306,6 @@ impl HtmlElem<'_> {
 
         fn table();
         fn colgroup();
-        fn col();
         fn tr();
         fn td();
 
@@ -320,6 +319,7 @@ impl HtmlElem<'_> {
         fn meta();
         fn input();
         fn img();
+        fn col();
     }
 
     attr_methods! {
