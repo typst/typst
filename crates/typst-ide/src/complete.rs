@@ -859,6 +859,7 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("cite"), "style") => &["csl"],
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
+        (Some("read"), "path") => &[],
         (Some("embed"), "path") => &[],
         (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
         (None, "path") => &[],
@@ -1816,6 +1817,7 @@ mod tests {
             .with_source("content/c.typ", "#include \"\"")
             .with_source("content/d.typ", "#pdf.attach(\"\")")
             .with_source("content/e.typ", "#math.attach(\"\")")
+            .with_source("content/f.typ", "#read(\"\")")
             .with_asset_at("assets/tiger.jpg", "tiger.jpg")
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
@@ -1838,6 +1840,10 @@ mod tests {
             .must_include([q!("../assets/tiger.jpg"), q!("../data/example.csv")]);
 
         test(&world, ("content/e.typ", -2)).must_exclude([q!("data/example.csv")]);
+
+        // `read` should offer completions for all file types.
+        test(&world, ("content/f.typ", -2))
+            .must_include([q!("../assets/tiger.jpg"), q!("../data/example.csv")]);
     }
 
     #[test]
