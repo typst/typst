@@ -323,6 +323,7 @@ impl HtmlElem<'_> {
     }
 
     attr_methods! {
+        fn role(&str);
         fn id(impl Display);
         fn name(impl Display);
         fn class(impl Display);
@@ -360,16 +361,12 @@ impl HtmlElem<'_> {
         self.attr(&name, value)
     }
 
-    fn aria_role(&mut self, role: &str) -> &mut Self {
-        self.attr("aria-role", role)
-    }
-
-    /// The corresponding tab of a `aria-role="tabpanel"`.
+    /// The corresponding tab of a `role="tabpanel"`.
     fn aria_labelledby(&mut self, tab_id: impl Display) -> &mut Self {
         self.attr("aria-labelledby", tab_id)
     }
 
-    /// Set for `aria-role="tab"` when the tab is selected.
+    /// Set for `role="tab"` when the tab is selected.
     fn aria_selected(&mut self, selected: bool) -> &mut Self {
         self.attr("aria-selected", selected)
     }
@@ -458,7 +455,7 @@ fn tab_icon_button(
             .input()
             .id(display!("{class}-{disambiguator}-{value}"))
             .type_("radio")
-            .aria_role("tab")
+            .role("tab")
             .class(class)
             .name(display!("{class}-{disambiguator}"))
             .title(title)
@@ -724,7 +721,7 @@ fn test_report_header(
 
     parent
         .fieldset()
-        .aria_role("tablist")
+        .role("tablist")
         .class("report-file-tab-group control-group")
         .with(|fieldset| {
             for (file_idx, report_file) in test_report.files.iter().enumerate() {
@@ -809,7 +806,7 @@ fn file_diff_tabs(
     let n = test_idx * TestOutput::ALL.len() + file_idx;
     parent
         .fieldset()
-        .aria_role("tablist")
+        .role("tablist")
         .class("file-diff-tab-group control-group")
         .with(|fieldset| {
             for (diff_idx, diff) in report_file.diffs.iter().enumerate() {
@@ -950,7 +947,7 @@ fn report_file_tab_panel(
 ) {
     parent
         .div()
-        .aria_role("tabpanel")
+        .role("tabpanel")
         .aria_labelledby(display!("report-file-tab-{test_idx}-{}", report_file.output))
         .hidden(file_idx != 0)
         .class("report-file")
@@ -972,7 +969,7 @@ fn file_diff_tabpanel(
     let n = test_idx * TestOutput::ALL.len() + file_idx;
     parent
         .div()
-        .aria_role("tabpanel")
+        .role("tabpanel")
         .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.mode()))
         .hidden(diff_idx != 0)
         .class("file-diff")
