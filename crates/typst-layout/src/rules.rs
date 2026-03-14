@@ -11,14 +11,14 @@ use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
     FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
     InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
-    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
-    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    PlaceElem, PlacementScope, Ratio, Region, Rel, RepeatElem, RotateElem, ScaleElem,
+    Sides, Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
+    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
+    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
     OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
 };
@@ -48,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
     rules.register(Paged, DIRECT_LINK_RULE);
+    rules.register(Paged, DIVIDER_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -234,6 +235,23 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     let dest = Destination::Location(elem.loc);
     Ok(elem.body.clone().linked(dest, elem.alt.clone()))
+};
+
+const DIVIDER_RULE: ShowFn<DividerElem> = |elem, _, _| {
+    let span = elem.span();
+    let line = LineElem::new()
+        .with_length(Ratio::one().into())
+        .with_stroke(Stroke {
+            thickness: Smart::Custom(Em::new(0.05).into()),
+            ..Default::default()
+        })
+        .pack()
+        .spanned(span);
+
+    Ok(BlockElem::new()
+        .with_body(Some(BlockBody::Content(line)))
+        .pack()
+        .spanned(span))
 };
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
