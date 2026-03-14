@@ -3,6 +3,7 @@
 mod asset;
 mod bibliography;
 mod cite;
+mod divider;
 mod document;
 mod emph;
 #[path = "enum.rs"]
@@ -26,6 +27,7 @@ mod title;
 pub use self::asset::*;
 pub use self::bibliography::*;
 pub use self::cite::*;
+pub use self::divider::*;
 pub use self::document::*;
 pub use self::emph::*;
 pub use self::enum_::*;
@@ -64,6 +66,7 @@ pub fn define(global: &mut Scope, features: &Features) {
     global.define_elem::<LinkElem>();
     global.define_elem::<TitleElem>();
     global.define_elem::<HeadingElem>();
+    global.define_elem::<DividerElem>();
     global.define_elem::<FigureElem>();
     global.define_elem::<QuoteElem>();
     global.define_elem::<FootnoteElem>();
