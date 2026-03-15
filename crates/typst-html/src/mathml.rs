@@ -132,7 +132,7 @@ fn handle_realized(
 ) -> SourceResult<()> {
     let MathItem::Component(comp) = item else {
         match item {
-            MathItem::Spacing(amount, _) => ctx.push(
+            MathItem::Spacing(amount, _, _) => ctx.push(
                 HtmlElement::new(tag::mspace)
                     .with_attr(attr::width, eco_format!("{}", css::length(*amount))),
             ),

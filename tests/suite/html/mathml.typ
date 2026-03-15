@@ -10,3 +10,10 @@ $ op("custom", limits: #true)_(n -> oo) n $
 
 --- mathml-lr html ---
 $ (x/2 + z) $
+
+--- mathml-spacing-resolve html ---
+$
+  a #h(1em + 10pt) b \
+  c #h(2em) d \
+  e #h(1em) #h(10pt, weak: true) e
+$
