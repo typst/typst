@@ -15,16 +15,18 @@ use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
+use typst::Features;
 use typst::diag::{StrResult, bail};
 use typst::foundations::Deprecation;
 use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NativeParamInfo, NoneValue, Repr,
     Scope, Smart, Type, Value,
 };
-use typst::layout::{Abs, Margin, PageElem, PagedDocument};
+use typst::layout::{Abs, Margin, PageElem};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Category, Feature, Library, LibraryExt};
+use typst::{Category, Library, LibraryExt};
+use typst_layout::PagedDocument;
 use unicode_math_class::MathClass;
 
 macro_rules! load {
@@ -57,9 +59,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::builder()
-        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
-        .build();
+    let mut lib = Library::builder().with_features(Features::all()).build();
     let scope = lib.global.scope_mut();
 
     // Add those types, so that they show up in the docs.
@@ -182,6 +182,7 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, Category::Html),
         category_page(resolver, Category::Png),
         category_page(resolver, Category::Svg),
+        category_page(resolver, Category::Bundle),
     ];
     page
 }
@@ -410,8 +411,9 @@ fn category_docs(category: Category) -> &'static str {
         Category::Visualize => load!("reference/library/visualize.md"),
         Category::Pdf => load!("reference/export/pdf.md"),
         Category::Html => load!("reference/export/html.md"),
-        Category::Svg => load!("reference/export/svg.md"),
         Category::Png => load!("reference/export/png.md"),
+        Category::Svg => load!("reference/export/svg.md"),
+        Category::Bundle => load!("reference/export/bundle.md"),
     }
 }
 

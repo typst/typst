@@ -170,6 +170,7 @@ impl Groups {
                 TagKind::Annot(_) => Never,
                 TagKind::Figure(_) => Never,
                 TagKind::Formula(_) => Never,
+                TagKind::Form(_) => Never,
                 TagKind::NonStruct(_) => Never,
                 TagKind::Datetime(_) => Never,
                 TagKind::Terms(_) => Never,

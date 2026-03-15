@@ -848,7 +848,7 @@ fn styled(
         let color = to_typst(style.foreground);
         body = match target {
             Target::Html => (routines.html_span_filled)(body, color),
-            Target::Paged => body.set(TextElem::fill, color.into()),
+            _ => body.set(TextElem::fill, color.into()),
         };
     }
 

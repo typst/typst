@@ -7,25 +7,25 @@ mod shape;
 mod text;
 mod write;
 
+use comemo::Tracked;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
-use typst_library::introspection::Introspector;
-use typst_library::model::Destination;
+use typst_library::model::{Destination, LateLinkResolver};
 
 use std::hash::Hash;
 
 use ecow::EcoString;
+use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
-    Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
-use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
+use crate::write::{SvgDisplay, SvgElem, SvgTransform, SvgUrl, SvgWrite};
 
 const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
     use_single_quote: false,
@@ -33,7 +33,7 @@ const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
     attributes_indent: xmlwriter::Indent::None,
 };
 
-/// Export a frame into a SVG file.
+/// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
 pub fn svg(page: &Page) -> String {
     let mut renderer = SVGRenderer::new();
@@ -46,29 +46,48 @@ pub fn svg(page: &Page) -> String {
     xml.end_document()
 }
 
-/// Export a frame into a SVG file.
-#[typst_macros::time(name = "svg frame")]
-pub fn svg_frame(frame: &Frame) -> String {
-    let mut renderer = SVGRenderer::new();
+/// Export a page into an SVG file as part of a bundle.
+///
+/// Takes additional `anchor` locations that will be serialized as linkable
+/// points. This enables other documents in the bundle to link into the
+/// resulting SVG. Also takes a `link_resolver` for resolving cross-document
+/// links.
+#[typst_macros::time(name = "svg in bundle")]
+pub fn svg_in_bundle(
+    page: &Page,
+    anchors: &[(Point, EcoString)],
+    link_resolver: Tracked<LateLinkResolver>,
+) -> String {
+    let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
-    let mut svg = svg_header(&mut xml, frame.size());
+    let mut svg = svg_header(&mut xml, page.frame.size());
 
-    let state = State::new(frame.size());
-    renderer.render_frame(&mut svg, &state, frame);
+    let state = State::new(page.frame.size());
+    renderer.render_page(&mut svg, &state, Transform::identity(), page);
+
+    for (pos, id) in anchors {
+        renderer.render_anchor(&mut svg, *pos, id);
+    }
+
     renderer.finalize(svg);
     xml.end_document()
 }
 
 /// Export a frame into an SVG suitable for embedding into HTML.
-#[typst_macros::time(name = "svg html frame")]
-pub fn svg_html_frame(
+///
+/// Takes additional `anchor` locations that will be serialized as linkable
+/// points. This enables other documents in the bundle to link into the
+/// resulting SVG. Also takes a `link_resolver` for resolving links between the
+/// frame and remaining document.
+#[typst_macros::time(name = "svg in html")]
+pub fn svg_in_html(
     frame: &Frame,
     text_size: Abs,
     id: Option<&str>,
-    link_points: &[(Point, EcoString)],
-    introspector: &Introspector,
+    anchors: &[(Point, EcoString)],
+    link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
-    let mut renderer = SVGRenderer::with_options(Some(introspector));
+    let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(xmlwriter::Options {
         indent: xmlwriter::Indent::None,
         ..XML_WRITE_OPTIONS
@@ -90,8 +109,8 @@ pub fn svg_html_frame(
     let state = State::new(frame.size());
     renderer.render_frame(&mut svg, &state, frame);
 
-    for (pos, id) in link_points {
-        renderer.render_link_point(&mut svg, *pos, id);
+    for (pos, id) in anchors {
+        renderer.render_anchor(&mut svg, *pos, id);
     }
 
     renderer.finalize(svg);
@@ -103,20 +122,20 @@ pub fn svg_html_frame(
 /// The gap will be added between the individual pages.
 pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
     let width = document
-        .pages
+        .pages()
         .iter()
         .map(|page| page.frame.width())
         .max()
         .unwrap_or_default();
-    let height = document.pages.len().saturating_sub(1) as f64 * gap
-        + document.pages.iter().map(|page| page.frame.height()).sum::<Abs>();
+    let height = document.pages().len().saturating_sub(1) as f64 * gap
+        + document.pages().iter().map(|page| page.frame.height()).sum::<Abs>();
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, Size::new(width, height));
 
     let mut y = Abs::zero();
-    for page in &document.pages {
+    for page in document.pages() {
         let state = State::new(page.frame.size());
         renderer.render_page(
             &mut svg,
@@ -134,7 +153,7 @@ pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
 /// Renders one or multiple frames to an SVG file.
 struct SVGRenderer<'a> {
     /// The document's introspector, if we're writing an HTML frame.
-    introspector: Option<&'a Introspector>,
+    link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
@@ -216,9 +235,9 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Create a new SVG renderer with the given configuration.
-    fn with_options(introspector: Option<&'a Introspector>) -> Self {
+    fn with_options(link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>) -> Self {
         SVGRenderer {
-            introspector,
+            link_resolver,
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
             gradients: Deduplicator::new('f'),
@@ -317,22 +336,23 @@ impl<'a> SVGRenderer<'a> {
         }
 
         match dest {
-            Destination::Location(loc) => {
-                // TODO: Location links on the same page could also be supported
-                // outside of HTML.
-                if let Some(introspector) = self.introspector
-                    && let Some(id) = introspector.html_id(*loc)
-                {
-                    a.attr("href", SvgIdRef(id));
-                    a.attr("xlink:href", SvgIdRef(id));
-                }
+            Destination::Url(url) => {
+                a.attr("href", url.as_str());
+                a.attr("xlink:href", url.as_str());
             }
             Destination::Position(_) => {
                 // TODO: Links on the same page could be supported.
             }
-            Destination::Url(url) => {
-                a.attr("href", url.as_str());
-                a.attr("xlink:href", url.as_str());
+            Destination::Location(loc) => {
+                // TODO: Location links on the same page could also be supported
+                // outside of HTML.
+                if let Some(resolver) = self.link_resolver
+                    && let Some(link) = resolver.resolve(*loc)
+                {
+                    let uri = link.into_uri();
+                    a.attr("href", &uri);
+                    a.attr("xlink:href", &uri);
+                }
             }
         }
 
@@ -344,7 +364,7 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Renders a linkable point that can be used to link into an HTML frame.
-    fn render_link_point(&mut self, svg: &mut SvgElem, pos: Point, id: &str) {
+    fn render_anchor(&mut self, svg: &mut SvgElem, pos: Point, id: &str) {
         svg.elem("g")
             .attr("id", id)
             .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));

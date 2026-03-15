@@ -27,10 +27,13 @@ templates and show rules. This way, the document's contents can be fully
 agnostic to the export target and content can be shared between PDF and HTML
 export.
 
-Currently, Typst will always output a single HTML file. Support for outputting
-directories with multiple HTML documents and assets, as well as support for
-outputting fragments that can be integrated into other HTML documents is
-planned.
+In the `html` export format, Typst will output a single HTML file. You can also
+use Typst to create a web site comprising multiple HTML documents and additional
+assets. Typst calls such a collection a _bundle_ and supports this use case with
+the dedicated [`bundle` target]($bundle). Refer to its documentation to learn
+more. Note that both in the `html` and the `bundle` target, Typst will currently
+always emit a standalone HTML file. Support for emitting fragments that can be
+integrated into other HTML documents is planned for the future.
 
 Typst currently does not output CSS style sheets, instead focussing on emitting
 semantic markup. You can of course write your own CSS styles and still benefit
@@ -44,7 +47,7 @@ Pass `--format html` to the `compile` or `watch` subcommand or provide an output
 file name that ends with `.html`. Note that you must also pass `--features html`
 or set `TYPST_FEATURES=html` to enable this experimental export target.
 
-When using `typst watch`, Typst will spin up a live-reloading HTTP server. You
+When using `typst watch`, Typst will launch a live-reloading HTTP server. You
 can configure it as follows:
 
 - Pass `--port` to change the port. (Defaults to the first free port in the
