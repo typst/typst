@@ -471,8 +471,8 @@ fn layout_realized(
     // Handle non-component items first.
     let comp = match item {
         MathItem::Component(comp) => comp,
-        MathItem::Spacing(amount, _) => {
-            ctx.push(MathFragment::Space(*amount));
+        MathItem::Spacing(amount, font_size, _) => {
+            ctx.push(MathFragment::Space(amount.at(*font_size)));
             return Ok(());
         }
         MathItem::Space => {
