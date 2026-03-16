@@ -25,32 +25,31 @@ Section 3
   Content after
 ]
 
---- divider-show-custom-line paged ---
-// Test custom line styling
+--- divider-show-set-line paged ---
+// Test customizing line via set rule.
 #set page(width: 200pt)
-#show divider: block[#line(length: 100%, stroke: 2pt + red)]
+#show divider: set line(stroke: 2pt + red)
 Before
 #divider()
 After
 
 --- divider-show-centered paged ---
-// Test centered, shorter divider via show rule.
+// Test centered, shorter divider.
 #set page(width: 200pt)
-#show divider: block(width: 100%, spacing: 1em)[
-  #align(center)[
-    #line(length: 80%, stroke: 0.05em)
-  ]
-]
+#show divider: block(
+  width: 100%,
+  spacing: 1em,
+  align(center, line(length: 50%)),
+)
 Before
 #divider()
 After
 
 --- divider-show-decorative paged ---
-// Test non-line content (asterism style).
+// Test replacing with custom content (asterism).
 #set page(width: 200pt)
-#show divider: block(spacing: 2em)[
-  #align(center)[∗ ∗ ∗]
-]
+#show divider: set align(center)
+#show divider: block[∗ ∗ ∗]
 Chapter 1
 #divider()
 Chapter 2
