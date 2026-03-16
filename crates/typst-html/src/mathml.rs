@@ -171,15 +171,9 @@ fn handle_realized(
         MathKind::Text(item) => handle_text(item, ctx, props)?,
         MathKind::Number(item) => handle_number(item, ctx, props)?,
         MathKind::Fenced(item) => handle_fenced(item, ctx, props)?,
-        MathKind::Group(_item) => {
-            // let fragment = ctx.handle_into_fragment(&item.items)?;
-            // let italics = fragment.italics_correction();
-            // let accent_attach = fragment.accent_attach();
-            // ctx.push(
-            //     FrameFragment::new(props, fragment.into_frame())
-            //         .with_italics_correction(italics)
-            //         .with_accent_attach(accent_attach),
-            // );
+        MathKind::Group(_) => {
+            let node = ctx.handle_into_node(item)?;
+            ctx.push(node);
         }
         MathKind::Multiline(item) => handle_multiline(item, ctx, props)?,
 
