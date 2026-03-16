@@ -487,8 +487,11 @@ fn layout_realized(
 
     let props = &comp.props;
 
-    // Insert left spacing.
-    if let Some(lspace) = props.lspace {
+    // Insert left spacing. Items with an alignment form get their spacing
+    // handled by the multiline layout instead.
+    if let Some(lspace) = props.lspace
+        && !props.align_form_infix
+    {
         let width = lspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }
