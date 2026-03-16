@@ -362,6 +362,10 @@ fn handle_glyph(
         }
     };
 
+    if props.align_form_infix {
+        form = Some(Form::Infix);
+    }
+
     let initial_form = position.get_form();
     let info = OperatorInfo::of(
         text,

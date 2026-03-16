@@ -17,3 +17,9 @@ $
   c #h(2em) d \
   e #h(1em) #h(10pt, weak: true) e
 $
+
+--- mathml-equation-alignment-spacing html ---
+$
+    a & = b + c \
+  d + & - f
+$

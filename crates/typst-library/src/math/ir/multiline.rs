@@ -4,7 +4,6 @@ use typst_syntax::Span;
 
 use super::item::{FencedBody, FencedItem, MathItem, RawMathItem, SharedFenceSizing};
 use crate::foundations::StyleChain;
-use crate::text::TextElem;
 
 /// A row split at alignment points into grouped (single-item) columns.
 #[derive(Debug)]
@@ -102,9 +101,9 @@ pub(super) fn expand_multiline_fence<'a>(
     result
 }
 
-/// Splits preprocessed items at alignment point markers into columns, moving
-/// spacing between items in different columns of a (right-aligned,
-/// left-aligned) pair to the right-aligned column.
+/// Splits preprocessed items at alignment point markers into columns, marking
+/// items which should have their spacing moved in different columns of a
+/// (right-aligned, left-aligned) pair to the right-aligned column.
 pub(crate) fn split_at_align<'a, I>(items: I, styles: StyleChain<'a>) -> AlignedRow<'a>
 where
     I: IntoIterator<Item = RawMathItem<'a>>,
@@ -121,18 +120,13 @@ where
             RawMathItem::Linebreak => unreachable!(),
             RawMathItem::Item(mut item) => {
                 // If we just passed an alignment point, check if this item has
-                // lspace that should be moved to the previous column.
+                // lspace that indicates it is semantically infix.
                 if at_boundary && !item.is_ignorant() {
                     if cols.len().is_multiple_of(2)
                         && let MathItem::Component(ref mut comp) = item
-                        && let Some(lspace) = comp.props.lspace.take()
+                        && comp.props.lspace.is_some()
                     {
-                        let idx = cols.len() - 2;
-                        cols[idx].push(MathItem::Spacing(
-                            lspace.into(),
-                            comp.styles.resolve(TextElem::size),
-                            false,
-                        ));
+                        comp.props.align_form_infix = true;
                     }
 
                     at_boundary = false;
