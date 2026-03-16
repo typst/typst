@@ -77,7 +77,7 @@ $ (#v(2em)) / n $
 #set math.frac(style: "skewed")
 $ a / b,  a / (b / c) $
 
---- math-frac-horizontal-explicit paged ---
+--- math-frac-horizontal-explicit paged html ---
 // Test that explicit fractions don't change parentheses
 #set math.frac(style: "horizontal")
 $ frac(a, (b + c)), frac(a, b + c) $
