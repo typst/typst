@@ -533,7 +533,7 @@ fn parse_note_range(
 ///
 /// Note that columns are character indices, not byte indices.
 ///
-/// For an internal file, the line is an offset from the the next non-annotation
+/// For an internal file, the line is an offset from the next non-annotation
 /// line in the test body. For an external annotation, both line and column are
 /// required.
 ///
