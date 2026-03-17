@@ -380,12 +380,16 @@ fn handle_glyph(
         Form::Postfix => "postfix",
     });
 
-    let lspace = (props.lspace.unwrap_or_default().get() != info.lspace
-        && !matches!(position, NodePosition::Only(_)))
-    .then(|| eco_format!("{}em", props.lspace.unwrap_or_default().get()));
-    let rspace = (props.rspace.unwrap_or_default().get() != info.rspace
-        && !matches!(position, NodePosition::Only(_)))
-    .then(|| eco_format!("{}em", props.rspace.unwrap_or_default().get()));
+    let lspace = props
+        .lspace
+        .filter(|l| l.get() != info.lspace)
+        .filter(|_| !matches!(position, NodePosition::Only(_)))
+        .map(|l| eco_format!("{}em", l.get()));
+    let rspace = props
+        .rspace
+        .filter(|r| r.get() != info.rspace)
+        .filter(|_| !matches!(position, NodePosition::Only(_)))
+        .map(|r| eco_format!("{}em", r.get()));
 
     let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
     let separator =
