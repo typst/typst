@@ -13,6 +13,27 @@ use crate::tag::mathml as tag;
 use crate::{HtmlElement, HtmlNode};
 use crate::{attr::mathml as attr, css};
 
+pub(crate) const MULTILINE_EQUATION_CLASS: &str = "multiline-equation";
+pub(crate) const ALIGNED_EQUATION_CLASS: &str = "multiline-equation aligned-equation";
+
+// TODO: vertical spacing between rows.
+pub(crate) const EQUATION_CSS_STYLES: &str = "\
+mtable.multiline-equation {
+  math-style: unset;
+}
+
+mtable.multiline-equation mtd {
+  padding: 0;
+}
+
+mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+  text-align: -webkit-right;
+}
+
+mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+  text-align: -webkit-left;
+}";
+
 pub(crate) fn convert_math_to_nodes(
     item: MathItem,
     engine: &mut Engine,
@@ -216,32 +237,16 @@ fn handle_multiline(
     ctx: &mut MathContext,
     _props: &MathProperties,
 ) -> SourceResult<()> {
-    let props = css::Properties::new().with("padding", "0em");
-    let has_alignments = item.rows.first().is_some_and(|row| row.len() > 1);
+    let aligned = item.rows.first().is_some_and(|row| row.len() > 1);
     let cells = item
         .rows
         .iter()
         .map(|row| {
             let cell_nodes = row
                 .iter()
-                .enumerate()
-                .map(|(i, cell)| {
-                    let mut props = props.clone();
-                    if has_alignments {
-                        // https://github.com/w3c/mathml-core/issues/156
-                        props.push(
-                            "text-align", // "justify-items",
-                            if i.is_multiple_of(2) {
-                                "-webkit-right"
-                            } else {
-                                "-webkit-left"
-                            },
-                        );
-                    }
-
+                .map(|cell| {
                     Ok(HtmlElement::new(tag::mtd)
                         .with_children(ctx.handle_into_nodes(cell)?)
-                        .with_styles(props)
                         .into())
                 })
                 .collect::<SourceResult<EcoVec<HtmlNode>>>();
@@ -251,8 +256,11 @@ fn handle_multiline(
         .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
     ctx.push(
         HtmlElement::new(tag::mtable)
-            .with_children(cells)
-            .with_styles(css::Properties::new().with("math-style", "normal")),
+            .with_attr(
+                crate::attr::class,
+                if aligned { ALIGNED_EQUATION_CLASS } else { MULTILINE_EQUATION_CLASS },
+            )
+            .with_children(cells),
     );
     Ok(())
 }

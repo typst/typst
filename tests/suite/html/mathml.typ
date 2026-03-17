@@ -23,3 +23,10 @@ $
     a & = b + c \
   d + & - f
 $
+
+--- mathml-equation-alignment html ---
+$
+  a & = b + c \
+    & = d + e \
+    & = f + g
+$
