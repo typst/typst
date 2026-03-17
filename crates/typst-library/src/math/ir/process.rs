@@ -7,6 +7,7 @@ use unicode_math_class::MathClass;
 use super::item::{MathItem, RawMathItem};
 use super::multiline::{AlignedRow, split_at_align};
 use crate::foundations::StyleChain;
+use crate::layout::Em;
 use crate::math::{MEDIUM, MathSize, THICK, THIN};
 
 /// The result of processing items for grouping.
@@ -279,6 +280,9 @@ fn spacing<'a>(
     use MathClass::*;
 
     let script = |f: &MathItem| f.size().is_some_and(|s| s <= MathSize::Script);
+
+    l.set_rspace(Some(Em::zero()));
+    r.set_lspace(Some(Em::zero()));
 
     match (l.rclass(), r.lclass()) {
         // No spacing before punctuation; thin spacing after punctuation, unless

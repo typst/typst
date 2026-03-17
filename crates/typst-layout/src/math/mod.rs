@@ -491,6 +491,7 @@ fn layout_realized(
     // handled by the multiline layout instead.
     if let Some(lspace) = props.lspace
         && !props.align_form_infix
+        && !lspace.is_zero()
     {
         let width = lspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
@@ -536,7 +537,9 @@ fn layout_realized(
     }
 
     // Insert right spacing.
-    if let Some(rspace) = props.rspace {
+    if let Some(rspace) = props.rspace
+        && !rspace.is_zero()
+    {
         let width = rspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }

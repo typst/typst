@@ -1,6 +1,7 @@
 use std::vec;
 
 use typst_syntax::Span;
+use typst_utils::Numeric;
 
 use super::item::{FencedBody, FencedItem, MathItem, RawMathItem, SharedFenceSizing};
 use crate::foundations::StyleChain;
@@ -124,7 +125,7 @@ where
                 if at_boundary && !item.is_ignorant() {
                     if cols.len().is_multiple_of(2)
                         && let MathItem::Component(ref mut comp) = item
-                        && comp.props.lspace.is_some()
+                        && comp.props.lspace.is_some_and(|l| !l.is_zero())
                     {
                         comp.props.align_form_infix = true;
                     }
