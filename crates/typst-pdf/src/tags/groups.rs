@@ -439,7 +439,7 @@ pub enum GroupKind {
     Figure(FigureId, BBoxId, Option<Locale>),
     /// The figure caption has a bbox so marked content sequences won't expand
     /// the bbox of the parent figure group kind. The caption might be moved
-    /// into table, or next to to the figure tag.
+    /// into table, or next to the figure tag.
     FigureCaption(BBoxId, Option<Locale>),
     Image(Packed<ImageElem>, BBoxId, Option<Locale>),
     Formula(Packed<EquationElem>, BBoxId, Option<Locale>),
