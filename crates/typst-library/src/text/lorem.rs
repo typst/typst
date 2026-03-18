@@ -27,14 +27,10 @@ pub fn lorem(
     generate_lorem(words).into()
 }
 
-// https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#403-413
-static LOREM_CHAIN: LazyLock<MarkovChain<'static>> = LazyLock::new(|| {
-    let mut chain = MarkovChain::new();
-    chain.learn(LOREM_IPSUM);
-    chain.learn(LIBER_PRIMUS);
-    chain
-});
-
+// Ported from https://github.com/mgeisler/lipsum/blob/0.9.1/src/lib.rs
+// MIT License
+// Copyright (c) 2017 Martin Geisler
+// See NOTICE for full attribution.
 /// Generate `n` words of lorem ipsum text, treating `--` as a non-word
 /// separator that is replaced with an en-dash (`–`).
 ///
@@ -46,7 +42,13 @@ fn generate_lorem(n: usize) -> String {
         return String::new();
     }
 
-    // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#344-382
+    static LOREM_CHAIN: LazyLock<MarkovChain<'static>> = LazyLock::new(|| {
+        let mut chain = MarkovChain::new();
+        chain.learn(LOREM_IPSUM);
+        chain.learn(LIBER_PRIMUS);
+        chain
+    });
+
     let chain = &*LOREM_CHAIN;
     let mut iter = chain.iter_from(("Lorem", "ipsum"));
 
@@ -75,7 +77,6 @@ fn generate_lorem(n: usize) -> String {
         }
 
         if needs_cap {
-            // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
             // Capitalize the first character in a string.
             let idx = match word.chars().next() {
                 Some(c) => c.len_utf8(),
