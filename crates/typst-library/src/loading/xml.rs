@@ -99,17 +99,17 @@ fn convert_xml(node: roxmltree::Node) -> Value {
         return Value::Array(children);
     }
 
+    let namespace = node.tag_name().namespace();
     let tag: Str = node.tag_name().name().into();
     let attrs: Dict = node
         .attributes()
         .map(|attr| (attr.name().into(), attr.value().into_value()))
         .collect();
-    let namespace = node.tag_name().namespace();
 
     Value::Dict(dict! {
+        "namespace" => namespace,
         "tag" => tag,
         "attrs" => attrs,
-        "namespace" => namespace,
         "children" => children,
     })
 }
