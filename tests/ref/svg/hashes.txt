@@ -153,6 +153,12 @@ d2a84fa39321a7917bfb6240158f7fd9 curve-stroke-gradient-sharp
 89bc5763db531cc778e48ff0073255d3 decimal-display-round
 28b487f5bdae455056d3b7fa51b46eb2 destructuring-during-loop-continue
 304edaa6a0463c5ba8dd08db4f6272ef dict-basic-syntax
+959d08f7017eb673df63ca56c1df21ba divider-basic
+8de05a1c908820ac0e9a4828730b4299 divider-in-container
+f48a61ffd0b566403c732c91da8f2bd5 divider-multiple
+a7d3f4cf5773e211753146690faddfb9 divider-show-centered
+ee643683de1c8ebacc87aace3fe5fd96 divider-show-decorative
+f376d2ac46a255f41b717f16e5284dfd divider-show-set-line
 6b7213ceb3cd4fa234dde226cdccd750 document-set-after-content
 e82d8b40d11e85c1d1616833e423d12b document-set-title
 6a8fea5387650f78d54b4619261a3594 ellipse

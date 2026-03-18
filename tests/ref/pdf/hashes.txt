@@ -153,6 +153,12 @@ d71f57e00e621814fb22eb71b4efe75a decimal-display
 157dbfdd85fe9e6f2089489754087e4e decimal-display-round
 301e8f8e5e6d2e85080a397ab88003ba destructuring-during-loop-continue
 6906ed884ec1f1b257598b42ab56f31c dict-basic-syntax
+595ad7e6d01cee39f0df5c82f3210bbe divider-basic
+5e25228f27764053b24c0810f1ff24c3 divider-in-container
+101074b807389b3ec02875c987492090 divider-multiple
+4bc8cd2c44a48608c84ac631eb4583cd divider-show-centered
+fcba49d92b74b3cd2c64184801818cfb divider-show-decorative
+6d8b4348659b309fb0b9af99a3435a22 divider-show-set-line
 d34423ef6ec20761a5cc6a01891d6ea3 document-set-after-content
 1489c7d9a1fd174ff3cd773518133d88 document-set-title
 ef07b5977f41aaeeffc2e0ef8b6f17d7 ellipse

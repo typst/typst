@@ -15,11 +15,11 @@ use typst_library::layout::{
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EarlyLinkResolver, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry, FootnoteMarker,
-    HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
-    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
-    TermsElem, TitleElem, Works,
+    Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
+    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
+    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -42,6 +42,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
     rules.register(Html, DIRECT_LINK_RULE);
+    rules.register(Html, DIVIDER_RULE);
     rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
@@ -193,6 +194,8 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     )
     .pack())
 };
+
+const DIVIDER_RULE: ShowFn<DividerElem> = |_elem, _, _| Ok(HtmlElem::new(tag::hr).pack());
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::h1)
