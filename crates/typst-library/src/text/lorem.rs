@@ -37,19 +37,6 @@ thread_local! {
     });
 }
 
-// https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
-/// Capitalize the first character in a string.
-fn capitalize(word: &str) -> String {
-    let idx = match word.chars().next() {
-        Some(c) => c.len_utf8(),
-        None => 0,
-    };
-    let mut result = String::with_capacity(word.len());
-    result.push_str(&word[..idx].to_uppercase());
-    result.push_str(&word[idx..]);
-    result
-}
-
 /// Generate `n` words of lorem ipsum text, treating `--` as a non-word
 /// separator that is replaced with an en-dash (`–`).
 ///
@@ -67,12 +54,11 @@ fn generate_lorem(n: usize) -> String {
         let mut iter = chain.iter_from(("Lorem", "ipsum"));
 
         // Punctuation characters which end a sentence.
-        let punctuation: &[char] = &['.', '!', '?'];
+        const PUNCTUATION: [char; 3] = ['.', '!', '?'];
 
         let mut sentence = String::new();
         let mut word_count = 0;
         let mut needs_cap = false;
-        let mut first = true;
 
         while word_count < n {
             let Some(word) = iter.next() else { break };
@@ -80,33 +66,36 @@ fn generate_lorem(n: usize) -> String {
             // Skip `--` without counting it as a word; append an en-dash
             // to the output instead.
             if word == "--" {
-                if !first {
+                if word_count > 0 {
                     sentence.push(' ');
                 }
                 sentence.push('\u{2013}');
-                first = false;
                 continue;
             }
 
-            word_count += 1;
-
-            if first {
-                sentence.push_str(&capitalize(word));
-                needs_cap = sentence.ends_with(punctuation);
-                first = false;
-            } else {
+            if word_count > 0 {
                 sentence.push(' ');
-                if needs_cap {
-                    sentence.push_str(&capitalize(word));
-                } else {
-                    sentence.push_str(word);
-                }
-                needs_cap = word.ends_with(punctuation);
             }
+
+            if needs_cap {
+                // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
+                // Capitalize the first character in a string.
+                let idx = match word.chars().next() {
+                    Some(c) => c.len_utf8(),
+                    None => 0,
+                };
+                sentence.push_str(&word[..idx].to_uppercase());
+                sentence.push_str(&word[idx..]);
+            } else {
+                sentence.push_str(word);
+            }
+
+            needs_cap = sentence.ends_with(&PUNCTUATION);
+            word_count += 1;
         }
 
         // Ensure the sentence ends with either one of ".!?".
-        if !sentence.ends_with(punctuation) {
+        if !sentence.ends_with(&PUNCTUATION) {
             // Trim all trailing punctuation characters to avoid
             // adding '.' after a ',' or similar.
             let idx = sentence.trim_end_matches(|c: char| c.is_ascii_punctuation()).len();
