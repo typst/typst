@@ -88,12 +88,12 @@ fn generate_lorem(n: usize) -> String {
             sentence.push_str(word);
         }
 
-        needs_cap = sentence.ends_with(&PUNCTUATION);
+        needs_cap = sentence.ends_with(PUNCTUATION);
         word_count += 1;
     }
 
     // Ensure the sentence ends with either one of ".!?".
-    if !sentence.ends_with(&PUNCTUATION) {
+    if !sentence.ends_with(PUNCTUATION) {
         // Trim all trailing punctuation characters to avoid
         // adding '.' after a ',' or similar.
         let idx = sentence.trim_end_matches(|c: char| c.is_ascii_punctuation()).len();
