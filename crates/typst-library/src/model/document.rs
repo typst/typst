@@ -146,7 +146,7 @@ pub struct DocumentElem {
     /// window or the browser tab of the page.
     ///
     /// By default, the configured title is not visibly rendered in the
-    /// document. You can add the title to the document's contents by using the
+    /// document. You can add the title to the document's contents by using
     /// the [`title`] element. It will automatically pick up the title
     /// configured here.
     ///

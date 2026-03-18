@@ -263,7 +263,7 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 /// can have children set by this mechanism must be handled in [`handle_start`]
 /// and must produce a located [`Group`], so the children can be inserted there.
 ///
-/// Currently the the frame parent is only set for:
+/// Currently the frame parent is only set for:
 /// - place elements [`PlaceElem`]
 /// - footnote entries [`FootnoteEntry`]
 /// - broken table/grid cells [`TableCell`]/[`GridCell`]
