@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::sync::LazyLock;
 
 use lipsum::{LIBER_PRIMUS, LOREM_IPSUM, MarkovChain};
 
@@ -28,14 +28,12 @@ pub fn lorem(
 }
 
 // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#403-413
-thread_local! {
-    static LOREM_CHAIN: RefCell<MarkovChain<'static>> = RefCell::new({
-        let mut chain = MarkovChain::new();
-        chain.learn(LOREM_IPSUM);
-        chain.learn(LIBER_PRIMUS);
-        chain
-    });
-}
+static LOREM_CHAIN: LazyLock<MarkovChain<'static>> = LazyLock::new(|| {
+    let mut chain = MarkovChain::new();
+    chain.learn(LOREM_IPSUM);
+    chain.learn(LIBER_PRIMUS);
+    chain
+});
 
 /// Generate `n` words of lorem ipsum text, treating `--` as a non-word
 /// separator that is replaced with an en-dash (`–`).
@@ -49,60 +47,58 @@ fn generate_lorem(n: usize) -> String {
     }
 
     // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#344-382
-    LOREM_CHAIN.with(|chain| {
-        let chain = chain.borrow();
-        let mut iter = chain.iter_from(("Lorem", "ipsum"));
+    let chain = &*LOREM_CHAIN;
+    let mut iter = chain.iter_from(("Lorem", "ipsum"));
 
-        // Punctuation characters which end a sentence.
-        const PUNCTUATION: [char; 3] = ['.', '!', '?'];
+    // Punctuation characters which end a sentence.
+    const PUNCTUATION: [char; 3] = ['.', '!', '?'];
 
-        let mut sentence = String::new();
-        let mut word_count = 0;
-        let mut needs_cap = false;
+    let mut sentence = String::new();
+    let mut word_count = 0;
+    let mut needs_cap = false;
 
-        while word_count < n {
-            let Some(word) = iter.next() else { break };
+    while word_count < n {
+        let Some(word) = iter.next() else { break };
 
-            // Skip `--` without counting it as a word; append an en-dash
-            // to the output instead.
-            if word == "--" {
-                if word_count > 0 {
-                    sentence.push(' ');
-                }
-                sentence.push('\u{2013}');
-                continue;
-            }
-
+        // Skip `--` without counting it as a word; append an en-dash
+        // to the output instead.
+        if word == "--" {
             if word_count > 0 {
                 sentence.push(' ');
             }
-
-            if needs_cap {
-                // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
-                // Capitalize the first character in a string.
-                let idx = match word.chars().next() {
-                    Some(c) => c.len_utf8(),
-                    None => 0,
-                };
-                sentence.push_str(&word[..idx].to_uppercase());
-                sentence.push_str(&word[idx..]);
-            } else {
-                sentence.push_str(word);
-            }
-
-            needs_cap = sentence.ends_with(&PUNCTUATION);
-            word_count += 1;
+            sentence.push('\u{2013}');
+            continue;
         }
 
-        // Ensure the sentence ends with either one of ".!?".
-        if !sentence.ends_with(&PUNCTUATION) {
-            // Trim all trailing punctuation characters to avoid
-            // adding '.' after a ',' or similar.
-            let idx = sentence.trim_end_matches(|c: char| c.is_ascii_punctuation()).len();
-            sentence.truncate(idx);
-            sentence.push('.');
+        if word_count > 0 {
+            sentence.push(' ');
         }
 
-        sentence
-    })
+        if needs_cap {
+            // https://docs.rs/lipsum/0.9.1/src/lipsum/lib.rs.html#331-342
+            // Capitalize the first character in a string.
+            let idx = match word.chars().next() {
+                Some(c) => c.len_utf8(),
+                None => 0,
+            };
+            sentence.push_str(&word[..idx].to_uppercase());
+            sentence.push_str(&word[idx..]);
+        } else {
+            sentence.push_str(word);
+        }
+
+        needs_cap = sentence.ends_with(&PUNCTUATION);
+        word_count += 1;
+    }
+
+    // Ensure the sentence ends with either one of ".!?".
+    if !sentence.ends_with(&PUNCTUATION) {
+        // Trim all trailing punctuation characters to avoid
+        // adding '.' after a ',' or similar.
+        let idx = sentence.trim_end_matches(|c: char| c.is_ascii_punctuation()).len();
+        sentence.truncate(idx);
+        sentence.push('.');
+    }
+
+    sentence
 }
