@@ -33,7 +33,7 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem}
 /// Then, we know that:
 /// $ a^2 + b^2 = c^2 $
 ///
-/// Proof by induction:
+/// Prove by induction:
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
