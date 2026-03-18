@@ -31,12 +31,21 @@ impl Eval for ast::ModuleImport<'_> {
             Value::Type(_) => {}
             Value::Module(_) => {}
             Value::Str(path) => {
-                source = Value::Module(import(&mut vm.engine, path, source_span)?);
+                source = Value::Module(import(&mut vm.engine, path, source_span).trace(
+                    vm.engine.world,
+                    || Tracepoint::Import(path.clone().into()),
+                    self.span(),
+                )?);
                 replaced_source = true;
             }
             v if RootedPath::castable(v) => {
                 let id = v.clone().cast::<RootedPath>().at(source_span)?.intern();
-                source = Value::Module(import_file(&mut vm.engine, id, source_span)?);
+                source =
+                    Value::Module(import_file(&mut vm.engine, id, source_span).trace(
+                        vm.engine.world,
+                        || Tracepoint::Import(id.get().vpath().get_with_slash().into()),
+                        self.span(),
+                    )?);
                 replaced_source = true;
             }
             v => {
@@ -176,16 +185,24 @@ impl Eval for ast::ModuleInclude<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.source().span();
+        let source_span = self.source().span();
         let source = self.source().eval(vm)?;
         let module = match source {
-            Value::Str(path) => import(&mut vm.engine, &path, span)?,
+            Value::Str(path) => import(&mut vm.engine, &path, source_span).trace(
+                vm.engine.world,
+                || Tracepoint::Include(path.clone().into()),
+                self.span(),
+            )?,
             Value::Module(module) => module,
             v if RootedPath::castable(&v) => {
-                let id = v.cast::<RootedPath>().at(span)?.intern();
-                import_file(&mut vm.engine, id, span)?
+                let id = v.cast::<RootedPath>().at(source_span)?.intern();
+                import_file(&mut vm.engine, id, source_span).trace(
+                    vm.engine.world,
+                    || Tracepoint::Include(id.get().vpath().get_with_slash().into()),
+                    self.span(),
+                )?
             }
-            v => bail!(span, "expected path or module, found {}", v.ty()),
+            v => bail!(source_span, "expected path or module, found {}", v.ty()),
         };
         Ok(module.content())
     }
@@ -217,7 +234,6 @@ fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Modu
     }
 
     // Evaluate the file.
-    let point = || Tracepoint::Import;
     eval(
         engine.routines,
         engine.world,
@@ -226,7 +242,6 @@ fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Modu
         engine.route.track(),
         &source,
     )
-    .trace(engine.world, point, span)
 }
 
 /// Import an external package.

@@ -380,24 +380,19 @@ pub enum Tracepoint {
     /// A show rule application.
     Show(EcoString),
     /// A module import.
-    Import,
+    Import(EcoString),
+    /// A module include.
+    Include(EcoString),
 }
 
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{name}`")
-            }
-            Tracepoint::Call(None) => {
-                write!(f, "error occurred in this function call")
-            }
-            Tracepoint::Show(name) => {
-                write!(f, "error occurred while applying show rule to this {name}")
-            }
-            Tracepoint::Import => {
-                write!(f, "error occurred while importing this module")
-            }
+            Tracepoint::Call(Some(name)) => write!(f, "while calling `{name}`"),
+            Tracepoint::Call(None) => write!(f, "while calling function"),
+            Tracepoint::Show(name) => write!(f, "while showing {name} element"),
+            Tracepoint::Import(name) => write!(f, "while importing `{name}`"),
+            Tracepoint::Include(name) => write!(f, "while including `{name}`"),
         }
     }
 }
