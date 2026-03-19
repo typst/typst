@@ -62,28 +62,23 @@ fn generate_lorem(n: usize) -> String {
     while word_count < n {
         let Some(word) = iter.next() else { break };
 
-        // Skip `--` without counting it as a word; append an en-dash
-        // to the output instead.
-        if word == "--" {
-            if word_count > 0 {
-                sentence.push(' ');
-            }
-            sentence.push('\u{2013}');
-            continue;
-        }
-
         if word_count > 0 {
             sentence.push(' ');
         }
 
+        // Skip `--` without counting it as a word; append an en-dash
+        // to the output instead.
+        if word == "--" {
+            sentence.push('\u{2013}');
+            continue;
+        }
+
         if needs_cap {
-            // Capitalize the first character in a string.
-            let idx = match word.chars().next() {
-                Some(c) => c.len_utf8(),
-                None => 0,
-            };
-            sentence.push_str(&word[..idx].to_uppercase());
-            sentence.push_str(&word[idx..]);
+            // Capitalize the first character of the word.
+            if let Some(c) = word.chars().next() {
+                sentence.extend(c.to_uppercase());
+                sentence.push_str(&word[c.len_utf8()..]);
+            }
         } else {
             sentence.push_str(word);
         }
