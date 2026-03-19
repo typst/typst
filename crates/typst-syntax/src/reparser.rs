@@ -28,7 +28,30 @@ pub fn reparse(
     })
 }
 
-/// Try to reparse inside the given node.
+/// Try to reparse inside the given node, returning the range that was
+/// ultimately reparsed.
+///
+/// We start by doing a depth-first search for the innermost node or nodes which
+/// fully surround the replaced range. This can be a single node that is a
+/// code/content block or one or more nodes that are markup expressions and are
+/// directly inside a markup block or the top-level markup. In either case, we
+/// call the parser and succeed only if the parsed text has balanced delimiters
+/// with the same delimiter nesting level as before. Otherwise, we expand the
+/// set of markup expressions outwards or return upwards until we either get a
+/// parse that does succeed or we parse the entire text.
+///
+/// Note that we currently only reparse markup expressions at the top-level or
+/// directly inside a markup block. E.g. we don't reparse markup expressions
+/// inside lists or headings, etc. In the past we did reparse those, but the
+/// implementation was very buggy due to edge cases surrounding indentation and
+/// newlines, and was eventually removed without much performance impact. It's
+/// still potentially desireable to handle some of those cases (individual list
+/// items can get quite long in practice), but only if the implementation can be
+/// easily reasoned as correct and shows a measured performance improvement.
+///
+/// We also do not currently reparse math in any capacity, but it would not be
+/// too difficult to include equations as another kind of block, or reparse math
+/// expressions similarly to markup expressions.
 fn try_reparse(
     text: &str,
     replaced: Range<usize>,
@@ -37,75 +60,83 @@ fn try_reparse(
     node: &mut SyntaxNode,
     offset: usize,
 ) -> Option<Range<usize>> {
-    // The range of children which overlap with the edit.
-    #[allow(clippy::reversed_empty_ranges)]
-    let mut overlap = usize::MAX..0;
-    let mut cursor = offset;
-    let node_kind = node.kind();
+    let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
-    for (i, child) in node.children_mut().iter_mut().enumerate() {
-        let prev_range = cursor..cursor + child.len();
+    let node_kind = node.kind();
+    let children = node.children_mut();
+
+    if let [child] = &mut children[overlap.clone()]
+        && start_offset < replaced.start
+        && replaced.end < start_offset + child.len()
+        child.is_inner()
+    {
+        // A single child fully surrounds the edit. We either reparse within the
+        // child, or reparse the child itself (if the child is a block).
         let prev_len = child.len();
         let prev_desc = child.descendants();
+        let new_len = prev_len + replacement_len - replaced.len();
+        let new_range = start_offset..start_offset + new_len;
 
-        // Does the child surround the edit?
-        // If so, try to reparse within it or itself.
-        if !child.is_leaf() && includes(&prev_range, &replaced) {
-            let new_len = prev_len + replacement_len - replaced.len();
-            let new_range = cursor..cursor + new_len;
-
-            // Try to reparse within the child.
-            if let Some(range) = try_reparse(
-                text,
-                replaced.clone(),
-                replacement_len,
-                Some(node_kind),
-                child,
-                cursor,
-            ) {
-                assert_eq!(child.len(), new_len);
-                let new_desc = child.descendants();
-                node.update_parent(prev_len, new_len, prev_desc, new_desc);
-                return Some(range);
-            }
-
-            // If the child is a block, try to reparse the block.
-            if child.kind().is_block()
-                && let Some(newborn) = reparse_block(text, new_range.clone())
-            {
-                return node
-                    .replace_children(i..i + 1, vec![newborn])
-                    .is_ok()
-                    .then_some(new_range);
-            }
+        // Recursively descend and try to reparse at a lower level.
+        if let Some(range) = try_reparse(
+            text,
+            replaced.clone(),
+            replacement_len,
+            Some(node_kind),
+            child,
+            start_offset,
+        ) {
+            // A lower level reparse succeeded! Update this node and return the
+            // reparsed range.
+            assert_eq!(child.len(), new_len);
+            let new_desc = child.descendants();
+            node.update_parent(prev_len, new_len, prev_desc, new_desc);
+            return Some(range);
         }
 
-        // Does the child overlap with the edit?
-        if overlaps(&prev_range, &replaced) {
-            overlap.start = overlap.start.min(i);
-            overlap.end = i + 1;
+        // This is the innermost block which fully surrounds the text (and
+        // hasn't failed at reparsing yet), reparse!
+        if child.kind().is_block()
+            && let Some(reparsed) = reparse_block(text, new_range.clone())
+        {
+            // Reparsing succeeded, but we can still fail if we're out of span
+            // numbers to assign to nodes (this is rare).
+            return node
+                .replace_children(overlap, vec![reparsed])
+                .is_ok()
+                .then_some(new_range);
         }
-
-        // Is the child beyond the edit?
-        if replaced.end < cursor {
-            break;
-        }
-
-        cursor += child.len();
     }
 
-    // Try to reparse a range of markup expressions within markup. This is only
-    // possible if the markup is top-level or contained in a block, not if it is
-    // contained in things like headings or lists because too much can go wrong
-    // with indent and line breaks.
-    if overlap.is_empty()
-        || node.kind() != SyntaxKind::Markup
-        || !matches!(parent_kind, None | Some(SyntaxKind::ContentBlock))
+    if node_kind == SyntaxKind::Markup
+        && matches!(parent_kind, None | Some(SyntaxKind::ContentBlock))
     {
-        return None;
+        expand_and_reparse_markup(
+            text,
+            replaced,
+            replacement_len,
+            node,
+            overlap,
+            offset,
+            parent_kind.is_none(),
+        )
+    } else {
+        None
     }
+}
 
-    let children = node.children_mut();
+/// Reparse a range of markup expressions, expanding the range exponentially on
+/// each iteration.
+fn expand_and_reparse_markup(
+    text: &str,
+    replaced: Range<usize>,
+    replacement_len: usize,
+    node: &mut SyntaxNode,
+    overlap: Range<usize>,
+    offset: usize,
+    top_level: bool,
+) -> Option<Range<usize>> {
+    let children = node.children().as_slice();
 
     // Reparse a segment. Retries until it works, taking exponentially more
     // children into account.
@@ -163,7 +194,7 @@ fn try_reparse(
             new_range.clone(),
             &mut at_start,
             &mut nesting,
-            parent_kind.is_none(),
+            top_level,
         );
 
         if let Some(newborns) = reparsed {
@@ -171,8 +202,10 @@ fn try_reparse(
             // Similarly, if we children follow or we not top-level the nesting
             // must match its previous value.
             if (at_end || at_start == prev_at_start_after)
-                && ((at_end && parent_kind.is_none()) || nesting == prev_nesting_after)
+                && ((at_end && top_level) || nesting == prev_nesting_after)
             {
+                // Reparsing succeeded, but we can still fail if we're out of
+                // span numbers to assign to nodes (this is rare).
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
@@ -192,15 +225,36 @@ fn try_reparse(
     None
 }
 
-/// Whether the inner range is fully contained in the outer one (no touching).
-fn includes(outer: &Range<usize>, inner: &Range<usize>) -> bool {
-    outer.start < inner.start && outer.end > inner.end
-}
-
-/// Whether the first and second range overlap or touch.
-fn overlaps(first: &Range<usize>, second: &Range<usize>) -> bool {
-    (first.start <= second.start && second.start <= first.end)
-        || (second.start <= first.start && first.start <= second.end)
+/// The indices and start offset of the children which overlap a replaced range.
+/// Returns `None` if the children don't fully cover the range.
+fn overlapping_children(
+    node: &SyntaxNode,
+    range: Range<usize>,
+    mut offset: usize,
+) -> Option<(Range<usize>, usize)> {
+    if !node.is_inner() // Only inner nodes have children.
+        || !(offset <= range.start && range.end <= offset + node.len())
+    {
+        // No set of children will fully cover the range, no need to search.
+        return None;
+    }
+    let mut index = 0;
+    let mut start = 0;
+    let mut start_offset = offset;
+    for child in node.children() {
+        if offset < range.start {
+            start = index;
+            start_offset = offset;
+        }
+        offset += child.len();
+        index += 1;
+        if range.end < offset {
+            break;
+        }
+    }
+    debug_assert!(start_offset <= range.start);
+    debug_assert!(range.end <= offset);
+    Some((start..index, start_offset))
 }
 
 /// Whether the selection should be expanded beyond a node of this kind.
