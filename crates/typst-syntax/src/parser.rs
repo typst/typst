@@ -572,13 +572,7 @@ fn embedded_code_expr(p: &mut Parser) {
         }
 
         let stmt = p.at_set(set::STMT);
-        let at = p.at_set(set::ATOMIC_CODE_EXPR);
         code_expr_prec(p, true, 0);
-
-        // Consume error for things like `#12p` or `#"abc\"`.#
-        if !at {
-            p.unexpected();
-        }
 
         // Note: 2d math arguments rely on the `directly_at` check.
         let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
@@ -592,7 +586,7 @@ fn embedded_code_expr(p: &mut Parser) {
 
 /// Parses a single code expression.
 fn code_expr(p: &mut Parser) {
-    code_expr_prec(p, false, 0)
+    code_expr_prec(p, false, 0);
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -722,6 +716,9 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Numeric
         | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
+
+        // Consume erroneous tokens for things like `#12p`, `#]`, or `#"abc\"`.
+        _ if atomic => p.unexpected(),
 
         _ => p.expected("expression"),
     }
@@ -1984,9 +1981,24 @@ impl Parser<'_> {
         }
     }
 
-    /// Produce an error that the given `thing` was expected.
+    /// Produce an error that the given `thing` was expected. If the parser is
+    /// at an erroneous token, this will instead eat that token and continue.
     fn expected(&mut self, thing: &str) {
-        if !self.after_error() {
+        if self.token.kind.is_error() {
+            // If we encounter an erroneous token when something was expected,
+            // we need to actually consume the token. If we don't, and we then
+            // proceed to exit our current lexing mode, future incremental
+            // reparsing could fail to lex the token in the correct mode.
+            //
+            // Example: When parsing an unclosed string in `#import "str`,
+            // we need to make sure the string is lexed as code, because if
+            // it were lexed as markup, a future insert of a closing quote
+            // would only be adjacent to markup text, and wouldn't lex as a
+            // string when reparsing, causing a difference between the full
+            // parse and the incremental parse.
+            self.trim_errors();
+            self.eat();
+        } else if !self.after_error() {
             self.expected_at(self.before_trivia(), thing);
         }
     }

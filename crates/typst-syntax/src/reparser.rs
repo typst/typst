@@ -392,4 +392,24 @@ mod tests {
         );
         test("a#[]b", Edit::After("["), "[hey]", Incr("[[hey]]"));
     }
+
+    /// Test unclosed strings/blocks in embedded code.
+    #[test]
+    fn test_reparse_unclosed_embedded() {
+        use Reparse::*;
+        test("#\"a\nb\nc", Edit::End, "\"", All);
+        test("#return \"a\nb\nc", Edit::End, "\"", All);
+        test("#import \"@preview/pkg", Edit::End, "\"", All);
+        test("#import [a\nb\nc", Edit::End, "]", All);
+        test("#import $a\nb\nc", Edit::End, "$", All);
+        test("#set thing\"a\n", Edit::End, "\"", All);
+        test("#let x = \"a\nb\nc", Edit::End, "\"", All);
+        test("#let x = {\"a\nb\nc}", Edit::After("c"), "\"", Incr("{\"a\nb\nc\"}"));
+        test("#if x {\"a\nb\nc", Edit::End, "\"", All);
+        test("#if x \"a\nb\nc", Edit::End, "\"", All);
+        test("#if x \"a\nb\nc", Edit::After("x "), "{}", All);
+        test("#if x $a\nb\nc", Edit::End, "$", All);
+        test("#for x in \"a\nb\nc", Edit::End, "\"", All);
+        test("#for x \"a\nb\nc", Edit::After("x "), "in ", All);
+    }
 }
