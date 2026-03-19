@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use ecow::EcoString;
 use lipsum::{LIBER_PRIMUS, LOREM_IPSUM, MarkovChain};
 
 use crate::foundations::{Str, func};
@@ -24,22 +25,21 @@ pub fn lorem(
     /// The length of the blind text in words.
     words: usize,
 ) -> Str {
-    generate_lorem(words).into()
+    lorem_impl(words).into()
 }
 
-/// Generate `n` words of lorem ipsum text, treating `--` as a non-word
+/// Generates `n` words of Lorem Ipsum text, treating `--` as a non-word
 /// separator that is replaced with an en-dash (`–`).
 ///
 /// This reimplements the joining logic from lipsum's private `join_words`
 /// function, but skips `--` entries in the Markov chain output without
 /// counting them toward the requested word count.
-fn generate_lorem(n: usize) -> String {
-    // Ported from https://github.com/mgeisler/lipsum/blob/0.9.1/src/lib.rs
-    // MIT License
-    // Copyright (c) 2017 Martin Geisler
+fn lorem_impl(n: usize) -> EcoString {
+    // Based on the `lipsum` crate (MIT).
+    // Copyright (c) 2017 Martin Geisler.
     // See NOTICE for full attribution.
     if n == 0 {
-        return String::new();
+        return EcoString::new();
     }
 
     static LOREM_CHAIN: LazyLock<MarkovChain<'static>> = LazyLock::new(|| {
@@ -55,7 +55,7 @@ fn generate_lorem(n: usize) -> String {
     // Punctuation characters which end a sentence.
     const PUNCTUATION: [char; 3] = ['.', '!', '?'];
 
-    let mut sentence = String::new();
+    let mut sentence = EcoString::new();
     let mut word_count = 0;
     let mut needs_cap = false;
 
