@@ -27,10 +27,6 @@ pub fn lorem(
     generate_lorem(words).into()
 }
 
-// Ported from https://github.com/mgeisler/lipsum/blob/0.9.1/src/lib.rs
-// MIT License
-// Copyright (c) 2017 Martin Geisler
-// See NOTICE for full attribution.
 /// Generate `n` words of lorem ipsum text, treating `--` as a non-word
 /// separator that is replaced with an en-dash (`–`).
 ///
@@ -38,6 +34,10 @@ pub fn lorem(
 /// function, but skips `--` entries in the Markov chain output without
 /// counting them toward the requested word count.
 fn generate_lorem(n: usize) -> String {
+    // Ported from https://github.com/mgeisler/lipsum/blob/0.9.1/src/lib.rs
+    // MIT License
+    // Copyright (c) 2017 Martin Geisler
+    // See NOTICE for full attribution.
     if n == 0 {
         return String::new();
     }
