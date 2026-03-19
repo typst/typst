@@ -724,7 +724,8 @@ fn code_primary(p: &mut Parser, atomic: bool) {
     }
 }
 
-/// Reparses a full content or code block.
+/// Reparses a full content or code block. This only succeeds if the new block
+/// contains balanced delimiters.
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
     let mut p = Parser::new(text, range.start, SyntaxMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
