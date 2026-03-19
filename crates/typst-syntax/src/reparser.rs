@@ -242,79 +242,154 @@ mod tests {
 
     use crate::{Source, Span, parse};
 
-    #[track_caller]
-    fn test(prev: &str, range: Range<usize>, with: &str, incremental: bool) {
-        let mut source = Source::detached(prev);
-        let prev = source.root().clone();
-        let range = source.edit(range, with);
-        let mut found = source.root().clone();
-        let mut expected = parse(source.text());
-        found.synthesize(Span::detached());
-        expected.synthesize(Span::detached());
-        if found != expected {
-            eprintln!("source:   {:?}", source.text());
-            eprintln!("previous: {prev:#?}");
-            eprintln!("expected: {expected:#?}");
-            eprintln!("found:    {found:#?}");
-            panic!("test failed");
-        }
-        if incremental {
-            assert_ne!(source.text().len(), range.len(), "should have been incremental");
-        } else {
-            assert_eq!(
-                source.text().len(),
-                range.len(),
-                "shouldn't have been incremental"
-            );
+    /// How to replace text in the test string.
+    enum Edit {
+        /// Insert at the end.
+        End,
+        /// Insert at an index.
+        At(usize),
+        /// Replace the given range.
+        Range(Range<usize>),
+        /// Replace the first match in the original.
+        Match(&'static str),
+        /// Replace at the index after the first match of this string.
+        After(&'static str),
+    }
+
+    impl Edit {
+        #[track_caller]
+        fn into_range(self, text: &str) -> Range<usize> {
+            match self {
+                Self::End => text.len()..text.len(),
+                Self::At(index) => {
+                    assert!(text.len() >= index, "index is out of bounds");
+                    index..index
+                }
+                Self::Range(range) => {
+                    assert!(text.len() >= range.end, "range is out of bounds");
+                    range
+                }
+                Self::Match(pat) => {
+                    let start = text.find(pat).expect("pattern must exist in original");
+                    start..start + pat.len()
+                }
+                Self::After(pat) => {
+                    let start = text.find(pat).expect("pattern must exist in original");
+                    let end = start + pat.len();
+                    end..end
+                }
+            }
         }
     }
 
+    /// What kind of reparsing happened.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    enum Reparse<'a> {
+        /// The whole text was reparsed.
+        All,
+        /// The text was parsed incrementally matching this string.
+        Incr(&'a str),
+    }
+
+    #[track_caller]
+    fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
+        let mut source = Source::detached(text);
+        let orig_tree = source.root().clone();
+        // `Source::edit()` is the public interface for reparsing.
+        let replaced_range = source.edit(edit.into_range(text), with);
+        let mut reparsed_tree = source.root().clone();
+        let mut normal_parse = parse(source.text());
+        reparsed_tree.synthesize(Span::detached());
+        normal_parse.synthesize(Span::detached());
+        if reparsed_tree != normal_parse {
+            eprintln!("Original source text: {text:?}");
+            eprintln!("Original tree:\n{orig_tree:#?}");
+            eprintln!("New source text: {:?}", source.text());
+            eprintln!("Reparsed tree:\n{reparsed_tree:#?}");
+            eprintln!("Normal parse tree:\n{normal_parse:#?}");
+            panic!("Reparsed tree did not match normal parse");
+        }
+        let actual = if replaced_range == (0..source.text().len()) {
+            Reparse::All
+        } else {
+            Reparse::Incr(&source.text()[replaced_range])
+        };
+        assert_eq!(actual, expected);
+    }
+
+    /// Basic tests for the reparsing algorithm and the testing framework.
+    #[test]
+    fn test_reparse_basic() {
+        use Reparse::*;
+        // Replace everything with something else:
+        test("some content", Edit::Match("some content"), "do it", All);
+        test("some content", Edit::Range(0..12), "", All);
+        test("", Edit::At(0), "do it", All);
+        test("", Edit::End, "do it", All);
+        // Add something at the end:
+        test("some content", Edit::After("some content"), " do it", All);
+    }
+
+    /// Test incremental reparsing of markup expressions.
     #[test]
     fn test_reparse_markup() {
-        test("abc~def~gh~", 5..6, "+", true);
-        test("~~~~~~~", 3..4, "A", true);
-        test("abc~~", 1..2, "", true);
-        test("#var. hello", 5..6, " ", false);
-        test("#var;hello", 9..10, "a", false);
-        test("https:/world", 7..7, "/", false);
-        test("hello  world", 7..12, "walkers", false);
-        test("some content", 0..12, "", false);
-        test("", 0..0, "do it", false);
-        test("a d e", 1..3, " b c d", false);
-        test("~*~*~", 2..2, "*", false);
-        test("::1\n2. a\n3", 7..7, "4", true);
-        test("* #{1+2} *", 6..7, "3", true);
-        test("#{(0, 1, 2)}", 6..7, "11pt", true);
-        test("\n= A heading", 4..4, "n evocative", false);
-        test("#call() abc~d", 7..7, "[]", true);
-        test("a your thing a", 6..7, "a", false);
-        test("#grid(columns: (auto, 1fr, 40%))", 16..20, "4pt", false);
-        test("abc\n= a heading\njoke", 3..4, "\nmore\n\n", true);
-        test("#show f: a => b..", 16..16, "c", false);
-        test("#for", 4..4, "//", false);
-        test("a\n#let \nb", 7..7, "i", true);
-        test(r"#{{let x = z}; a = 1} b", 7..7, "//", false);
-        test(r#"a ```typst hello```"#, 16..17, "", false);
-        test("a{b}c", 1..1, "#", false);
-        test("a#{b}c", 1..2, "", false);
+        use Reparse::*;
+        // Tilde is useful because it always creates a distinct token, whereas
+        // spaces may join with adjacent text as one token.
+        test("abc~def~gh~", Edit::Range(5..6), "+", Incr("abc~d+f~"));
+        test("~~~~~~~", Edit::Range(3..4), "A", Incr("~~~A~~"));
+        test("abc~~", Edit::Match("b"), "", Incr("ac~"));
+        test("#var. hello", Edit::Match(" "), " ", All);
+        test("#var;hello", Edit::Range(9..10), "a", All);
+        test("https:/world", Edit::After("/"), "/", All);
+        test("hello  world", Edit::Match("world"), "walkers", All);
+        test("a d e", Edit::Match(" d"), " b c d", All);
+        test("~*~*~", Edit::At(2), "*", All);
+        test("::1\n2. a\n3", Edit::After(" "), "4", Incr("1\n2. 4a\n"));
+        test("* #{1+2} *", Edit::Match("2"), "3", Incr("{1+3}"));
+        test("#{(0, 1, 2)}", Edit::Match("1"), "11pt", Incr("{(0, 11pt, 2)}"));
+        test("\n= A heading", Edit::After("A"), "n evocative", All);
+        test("#call() abc~d", Edit::After("()"), "[]", Incr("#call()[] abc"));
+        test("a your thing a", Edit::Range(6..7), "a", All);
+        test("#grid(columns: (auto, 1fr, 40%))", Edit::Match("auto"), "4pt", All);
+        test(
+            "abc\n= a head\njoke",
+            Edit::Match("\n"),
+            "\nmore\n\n",
+            Incr("abc\nmore\n\n= a head\n"),
+        );
+        test("#show f: a => b..", Edit::End, "c", All);
+        test("#for", Edit::End, "//", All);
+        test("a\n#let \nb", Edit::At(7), "i", Incr("#let i\nb"));
+        test("#{{let x = z}; a = 1} b", Edit::At(7), "//", All);
+        test("a ```typst hello```", Edit::Range(16..17), "", All);
+        test("a{b}c", Edit::At(1), "#", All);
+        test("a#{b}c", Edit::Match("#"), "", All);
     }
 
+    /// Test incremental reparsing of code and content blocks.
     #[test]
     fn test_reparse_block() {
-        test("Hello #{ x + 1 }!", 9..10, "abc", true);
-        test("A#{}!", 3..3, "\"", false);
-        test("#{ [= x] }!", 5..5, "=", true);
-        test("#[[]]", 3..3, "\\", true);
-        test("#[[ab]]", 4..5, "\\", true);
-        test("#{}}", 2..2, "{", false);
-        test("A: #[BC]", 6..6, "{", true);
-        test("A: #[BC]", 6..6, "#{", true);
-        test("A: #[BC]", 6..6, "#{}", true);
-        test("#{\"ab\"}A", 5..5, "c", true);
-        test("#{\"ab\"}A", 5..6, "c", false);
-        test("a#[]b", 3..3, "#{", true);
-        test("a#{call(); abc}b", 8..8, "[]", true);
-        test("a #while x {\n g(x) \n}  b", 12..12, "//", true);
-        test("a#[]b", 3..3, "[hey]", true);
+        use Reparse::*;
+        test("Hello #{ x + 1 }!", Edit::Match("x"), "abc", Incr("{ abc + 1 }"));
+        test("A#{}!", Edit::After("{"), "\"", All);
+        test("#{ [= x] }!", Edit::After("="), "=", Incr("== x"));
+        test("#[[]]", Edit::At(3), "\\", Incr("[[\\]]"));
+        test("#[[ab]]", Edit::Match("b"), "\\", Incr("[[a\\]]"));
+        test("#{}}", Edit::After("{"), "{", All);
+        test("A: #[BC]", Edit::After("B"), "{", Incr("B{C"));
+        test("A: #[BC]", Edit::After("B"), "#{", Incr("B#{C"));
+        test("A: #[BC]", Edit::After("B"), "#{}", Incr("B#{}C"));
+        test("#{\"ab\"}A", Edit::At(5), "c", Incr("{\"abc\"}"));
+        test("#{\"ab\"}A", Edit::Range(5..6), "c", All);
+        test("a#[]b", Edit::After("["), "#{", Incr("[#{]"));
+        test("a#{call(); abc}b", Edit::At(8), "[]", Incr("{call([]); abc}"));
+        test(
+            "a #while x {\n g(x) \n}  b",
+            Edit::After("{"),
+            "//",
+            Incr("{//\n g(x) \n}"),
+        );
+        test("a#[]b", Edit::After("["), "[hey]", Incr("[[hey]]"));
     }
 }
