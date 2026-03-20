@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use ecow::EcoString;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
+use typst_syntax::Source;
 
 use crate::collect::{FilePos, Test};
 use crate::report::{ReportFile, TestReport};
@@ -46,8 +47,13 @@ pub struct TestResult {
 
 impl TestResult {
     /// Add a report to this result, potentially initializing the option.
-    pub fn add_report(&mut self, name: EcoString, file_report: ReportFile) {
-        let report = self.report.get_or_insert_with(|| TestReport::new(name));
+    pub fn add_report(
+        &mut self,
+        name: EcoString,
+        source: Source,
+        file_report: ReportFile,
+    ) {
+        let report = self.report.get_or_insert_with(|| TestReport::new(name, source));
         report.files.push(file_report);
     }
 }

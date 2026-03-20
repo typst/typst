@@ -224,6 +224,10 @@ h2.diff-container-header {
   }
 }
 
+.test-report-source {
+  border-bottom: 2.5rem solid var(--layer-2);
+}
+
 .icon-button.test-report-toggle {
   height: var(--size-medium);
   width: var(--size-medium);
@@ -369,6 +373,12 @@ tr {
   width: 50%;
   min-width: 50%;
   max-width: 50%;
+}
+
+.col-source-line-body {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 .diff-line {

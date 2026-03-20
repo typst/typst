@@ -499,6 +499,8 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                             .class("test-report-body")
                             .hidden(close)
                             .with(|div| {
+                                test_report_source(div, test_report);
+
                                 for (file_idx, report_file) in
                                     test_report.files.iter().enumerate()
                                 {
@@ -743,6 +745,26 @@ fn test_report_header(
                 }
             }
         });
+}
+
+fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport) {
+    parent.div().class("test-report-source").with(|div| {
+        div.table().class("text-diff").with(|table| {
+            table.colgroup().with(|colgroup| {
+                colgroup.col().attr("span", 1).class("col-line-gutter");
+                colgroup.col().attr("span", 1).class("col-source-line-body");
+            });
+
+            let lines =
+                super::diff::file_lines(test_report.source.text(), LineKind::Unchanged);
+
+            for line in lines.lines {
+                table.tr().class("diff-line").with(|tr| {
+                    diff_cells(tr, &line);
+                });
+            }
+        })
+    });
 }
 
 fn file_diff_tabs(
