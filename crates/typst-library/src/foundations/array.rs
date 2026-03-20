@@ -100,6 +100,11 @@ impl Array {
         self.0.iter()
     }
 
+    /// Iterate over mutable references to the contained values.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Value> {
+        self.0.make_mut().iter_mut()
+    }
+
     /// Mutably borrow the first value in the array.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {
         self.0.make_mut().first_mut().ok_or_else(array_is_empty)
