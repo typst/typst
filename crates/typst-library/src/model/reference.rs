@@ -44,7 +44,8 @@ use crate::text::TextElem;
 /// page number at its location. You can use the
 /// [page's supplement]($page.supplement) to modify the text before the page
 /// number. Unlike a `{"normal"}` reference, the label can be attached to any
-/// element.
+/// element as long as the corresponding [page's numbering]($page.numbering) is
+/// set.
 ///
 /// # Example
 /// ```example
