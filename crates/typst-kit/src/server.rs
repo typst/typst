@@ -196,6 +196,8 @@ fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
         Some("pdf") => Some("application/pdf"),
         Some("png") => Some("image/png"),
         Some("svg") => Some("image/svg+xml"),
+        Some("css") => Some("text/css"),
+        Some("js") => Some("text/javascript"),
         _ => infer::get(buf).map(|ty| ty.mime_type()),
     }
 }
