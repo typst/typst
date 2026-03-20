@@ -3163,6 +3163,7 @@ dependencies = [
  "typst-timing",
  "typst-utils",
  "ureq",
+ "url",
 ]
 
 [[package]]
