@@ -36,10 +36,12 @@ const reportFiles = []
 for (const report of document.getElementsByClassName("test-report")) {
   const reportHeader = report.querySelector(".test-report-header")
   const reportToggle = reportHeader.querySelector(".test-report-toggle")
+  const reportSourceToggle = reportHeader.querySelector(".test-report-source-toggle")
   const reportFileHeaders = reportHeader.querySelectorAll(".report-file-header");
   const reportFileTabGroup = reportHeader.querySelector(".report-file-tab-group");
   const reportFileTabs = reportFileTabGroup.querySelectorAll(".report-file-tab");
   const reportBody = report.querySelector(".test-report-body")
+  const reportSource = report.querySelector(".test-report-source")
   const reportFileTabpanels = reportBody.querySelectorAll(":scope > .report-file");
 
   /** @type {TestReportState} */
@@ -58,6 +60,16 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportBody.hidden = !expanded;
     reportToggle.ariaExpanded = expanded;
   });
+
+  reportSourceToggle.addEventListener("click", () => {
+    const expanded = !(reportSourceToggle.ariaExpanded == "true");
+    reportSource.hidden = !expanded;
+    reportSourceToggle.ariaExpanded = expanded;
+  });
+  
+  // Default state: hide the test sources.
+  reportSource.hidden = true;
+  reportSourceToggle.ariaExpanded = false;
 
   for (const button of reportHeader.querySelectorAll(".copy-button")) {
     button.addEventListener("click", () => {

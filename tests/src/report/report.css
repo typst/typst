@@ -608,7 +608,7 @@ label.icon-toggle-button:has(input:active:not(:disabled)) {
   background-color: var(--action-secondary-active);
 }
 
-label.icon-toggle-button:has(input:checked) {
+label.icon-toggle-button:has(input:checked), .icon-button.test-report-source-toggle[aria-expanded="true"] {
   color: var(--action-primary-selected);
 }
 
