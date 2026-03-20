@@ -550,6 +550,7 @@ f4c3eb6e975a6882d552a03670102140 grid-subheaders-too-large-repeating-orphan-befo
 a473a5021ca601a151c88dec977a917f heading-block
 edfaabf3dc626df2c0dbb2e334f44d0e heading-hanging-indent-auto
 a3031a78de231560e94274753fd0398e heading-hanging-indent-auto-center-align
+0b8bbb4c3c77e786451c7eb576e413bb heading-hanging-indent-auto-cj-punct
 1d3241002e10b6d3d6e90ab0e906e6f0 heading-hanging-indent-length
 fd179f17ade795e7388ee183001aec8d heading-hanging-indent-zero
 d79c3a2470bccf2601ae0b91a5f4a15c heading-offset
