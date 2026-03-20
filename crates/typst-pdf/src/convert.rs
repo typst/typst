@@ -106,7 +106,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         if let Some(label) = typst_page
             .numbering
             .as_ref()
-            .and_then(|num| PageLabel::generate(num, typst_page.number))
+            .and_then(|num| {
+                PageLabel::generate(num, typst_page.number)
+                    .at(Span::detached())
+                    .transpose()
+            })
+            .transpose()?
             .or_else(|| {
                 // When some pages were ignored from export, we show a page label with
                 // the correct real (not logical) page number.
