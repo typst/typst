@@ -1,11 +1,12 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::SourceResult;
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{Eval, Vm};
 
@@ -47,12 +48,17 @@ impl Eval for ast::MathIdent<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
-        Ok(vm
-            .scopes
-            .get_in_math(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
+        match vm.scopes.get_in_math(&self) {
+            Ok(binding) => Ok(binding.read_checked((&mut vm.engine, span)).clone()),
+            Err(_) => {
+                let fallback = Content::sequence(
+                    self.as_str()
+                        .graphemes(true)
+                        .map(SymbolElem::packed),
+                );
+                Ok(Value::Content(fallback))
+            }
+        }
     }
 }
 
