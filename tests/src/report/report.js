@@ -12,9 +12,11 @@ const reportFiles = []
  * @type {object}
  * @property report {HTMLDetailsElement}
  * @property reportToggle {HTMLButtonElement}
+ * @property reportSourceToggle {HTMLButtonElement}
  * @property reportFileHeaders {NodeListOf<HTMLDivElement>}
  * @property reportFileTabs {NodeListOf<HTMLInputElement>}
  * @property reportBody HTMLDivElement
+ * @property reportSource HTMLDivElement
  * @property reportFileTabpanels {NodeListOf<HTMLElement>}
  */
 
@@ -52,6 +54,8 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportFileTabs,
     reportFileTabpanels,
     reportToggle,
+    reportSourceToggle,
+    reportSource,
   }
   testReports.push(state);
 
@@ -145,6 +149,11 @@ for (const mode of diff_modes) {
       changeGlobalDiffMode(mode)
     })
 }
+
+document.getElementById("global-view-test-sources")
+  .addEventListener("click", () => {
+    changeGlobalSourceVisibility(true)
+  });
 
 function filterDiffs() {
   let outputs = filterDiffFormats
@@ -262,6 +271,16 @@ function currentFileDiffTab(state) {
     if (tab.checked) {
       return tab.value
     }
+  }
+}
+
+/**
+ * @param visible {boolean}
+ */
+function changeGlobalSourceVisibility(visible) {
+  for (const state of testReports) {
+    state.reportSource.hidden = !visible;
+    state.reportSourceToggle.ariaExpanded = visible;
   }
 }
 

@@ -654,6 +654,19 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
         });
     });
 
+    parent.div().class("sidebar-setting").with(|div| {
+        div.text("Test Sources");
+        div.fieldset().class("control-group").with(|fieldset| {
+            icon_button(
+                fieldset,
+                "global-view-test-sources",
+                "Show test sources",
+                icons::TEXT,
+                false,
+            );
+        });
+    });
+
     parent.h2().text("Tests");
 
     parent.ul().class("sidebar-list").tabindex(-1).with(|ul| {

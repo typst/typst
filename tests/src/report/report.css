@@ -225,7 +225,7 @@ h2.diff-container-header {
 }
 
 .test-report-source {
-  border-bottom: 2.5rem solid var(--layer-2);
+  border-bottom: 2rem solid var(--layer-2);
 }
 
 .icon-button.test-report-toggle {
