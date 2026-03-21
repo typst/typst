@@ -499,6 +499,8 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                             .class("test-report-body")
                             .hidden(close)
                             .with(|div| {
+                                test_report_source(div, test_report, test_idx);
+
                                 for (file_idx, report_file) in
                                     test_report.files.iter().enumerate()
                                 {
@@ -652,6 +654,19 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
         });
     });
 
+    parent.div().class("sidebar-setting").with(|div| {
+        div.text("Test Sources");
+        div.fieldset().class("control-group").with(|fieldset| {
+            icon_button(
+                fieldset,
+                "global-view-test-sources",
+                "Show test sources",
+                icons::TEXT,
+                false,
+            );
+        });
+    });
+
     parent.h2().text("Tests");
 
     parent.ul().class("sidebar-list").tabindex(-1).with(|ul| {
@@ -742,6 +757,43 @@ fn test_report_header(
                     });
                 }
             }
+        });
+
+    parent.fieldset().class("control-group").with(|fieldset| {
+        // The source is shown by default without JavaScript.
+        fieldset
+            .button()
+            .class("icon-button test-report-source-toggle")
+            .aria_expanded(true)
+            .aria_controls(display!("test-report-source-{test_idx}"))
+            .title("View test source")
+            .with(|button| svg_icon(button, icons::TEXT))
+    });
+}
+
+fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx: usize) {
+    parent
+        .div()
+        .class("test-report-source")
+        .id(display!("test-report-source-{test_idx}"))
+        .with(|div| {
+            div.table().class("text-diff").with(|table| {
+                table.colgroup().with(|colgroup| {
+                    colgroup.col().attr("span", 1).class("col-line-gutter");
+                    colgroup.col().attr("span", 1).class("col-source-line-body");
+                });
+
+                let lines = super::diff::file_lines(
+                    test_report.source.text(),
+                    LineKind::Unchanged,
+                );
+
+                for line in lines.lines {
+                    table.tr().class("diff-line").with(|tr| {
+                        diff_cells(tr, &line);
+                    });
+                }
+            })
         });
 }
 
