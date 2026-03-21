@@ -297,7 +297,9 @@ fn visit_kind_rules<'a>(
         // textual elements via `TEXTUAL` grouping. However, in math, this is
         // not desirable, so we just do it on a per-element basis.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles) {
+            if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles)
+                && m.text.len() == elem.text.len()
+            {
                 visit_regex_match(s, &[(content, styles)], m)?;
                 return Ok(true);
             }
