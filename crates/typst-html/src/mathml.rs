@@ -401,8 +401,7 @@ fn handle_glyph(
     let movablelimits = (info.properties.contains(Properties::MOVABLELIMITS))
         .then(|| eco_format!("false"));
 
-    // TODO: symmetric, minsize, maxsize
-    // surpress stretchy with `largeop`
+    // TODO: symmetric, maxsize
     let mut chars = text.chars();
     let stretch_axis = if let Some(c) = chars.next()
         && chars.next().is_none()
@@ -412,9 +411,13 @@ fn handle_glyph(
     } else {
         Axis::Y
     };
-    let stretch = item.stretch.get().resolve(stretch_axis);
-    let stretchy = (stretch.is_some() != info.properties.contains(Properties::STRETCHY))
-        .then(|| eco_format!("{}", stretch.is_some()));
+    let stretch = item.stretch.get();
+    let semantic = stretch.is_semantic(stretch_axis);
+    let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
+        .then(|| eco_format!("{}", semantic));
+    let minsize = stretch
+        .resolve_requested(stretch_axis)
+        .map(|target| eco_format!("{}", css::rel(target)));
 
     ctx.push(
         HtmlElement::new(tag)
@@ -426,6 +429,7 @@ fn handle_glyph(
             .with_optional_attr(attr::separator, separator)
             .with_optional_attr(attr::largeop, largeop)
             .with_optional_attr(attr::movablelimits, movablelimits)
+            .with_optional_attr(attr::minsize, minsize)
             .with_optional_attr(attr::stretchy, stretchy),
     );
     Ok(())
