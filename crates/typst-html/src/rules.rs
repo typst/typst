@@ -15,8 +15,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
-    Abs, BlockBody, BlockElem, BoxElem, Corners, Em, HElem, Length, OuterVAlignment, Rel,
-    Sides, Sizing,
+    BlockBody, BlockElem, BoxElem, Corners, HElem, OuterVAlignment, Rel, Sides, Sizing,
 };
 use typst_library::math::EquationElem;
 use typst_library::math::ir::resolve_equation;
@@ -1034,7 +1033,7 @@ fn styled_container(
         mut width,
         mut height,
         outset,
-        mut inset,
+        inset,
         stroke,
         radius,
         fill,
@@ -1064,17 +1063,18 @@ fn styled_container(
         }
     }
 
-    // Apply extra inset to round shapes.
-    if shape.is_some_and(ShapeKind::is_round) {
-        inset = inset.map(|v| Some(v.unwrap_or_default() + Shape::ROUND_SHAPE_INSET));
-    }
-
     let border = stroke.as_ref().map(css::Border::resolve);
 
-    let model =
-        css::BoxModel::resolve(width, height, outset, inset, &border, body.is_some());
-    let (mut css, body_wrapper) =
-        write_container_model(engine.warning_sink(elem.span()), kind, &model);
+    let model = css::BoxModel::resolve(
+        shape,
+        width,
+        height,
+        outset,
+        inset,
+        &border,
+        body.is_some(),
+    );
+    let mut css = container_model_styles(engine.warning_sink(elem.span()), kind, &model);
 
     // FIXME: This is a preferred aspect-ratio that doesn't always take effect.
     // If an intrinsic width or height is used, the container is only expanded
@@ -1096,7 +1096,14 @@ fn styled_container(
         }
     }
 
-    if kind.is_inline() && (body.is_some() || !model.width.is_auto()) {
+    if model.padding.is_some_and(css::Padding::uses_nested_element) {
+        // Use `display: flex` to avoid margin collapsing for paddings that are
+        // represented as a margin.
+        match kind {
+            LayoutKind::Block => css.push("display", "flex"),
+            LayoutKind::Inline => css.push("display", "inline-flex"),
+        }
+    } else if kind.is_inline() && (body.is_some() || !model.width.is_auto()) {
         css.push("display", "inline-block");
     }
 
@@ -1113,22 +1120,21 @@ fn styled_container(
 
     let css = css.finish();
 
-    // Create a nested element to replicate the layout behavior of Typst.
-    if let Some(body_wrapper) = body_wrapper {
+    // Create a nested element.
+    if let Some(css::Padding::NestedElementMargin(margin)) = model.padding {
         let mut css = css::Properties::build(engine.warning_sink(elem.span()));
+
+        // Set the `width`, in case the body uses a relative width.
+        css.push("width", Rel::one() - margin.sum_by_axis().x);
+        css.push("margin", margin);
 
         let tag = match kind {
             LayoutKind::Block => tag::div,
             LayoutKind::Inline => {
-                // TODO:
-                css.push("display", "block");
+                css.push("display", "inline-block");
                 tag::span
             }
         };
-
-        if let Some(margin) = body_wrapper.margin {
-            css.push("margin", margin);
-        }
 
         body = Some(
             HtmlElem::new(tag)
@@ -1146,20 +1152,12 @@ fn styled_container(
         .spanned(elem.span()))
 }
 
-/// If the container would need to have negative padding, which isn't valid in
-/// HTML/CSS, a nested element with negative margin is written instead.
-#[derive(Default)]
-struct BodyWrapper {
-    margin: Option<Sides<Length>>,
-}
-
-fn write_container_model<T: WarningSink>(
+fn container_model_styles<T: WarningSink>(
     sink: T,
     kind: LayoutKind,
     model: &css::BoxModel,
-) -> (css::PropertiesBuilder<T>, Option<BodyWrapper>) {
+) -> css::PropertiesBuilder<T> {
     let mut css = css::Properties::build(sink);
-    let mut body_wrapper: Option<BodyWrapper> = None;
 
     if model.ignored_relative_outset {
         css.ignored("relative outset");
@@ -1198,20 +1196,11 @@ fn write_container_model<T: WarningSink>(
         css.push("margin", margin);
     }
 
-    if let Some(padding) = model.padding {
-        let all_positive =
-            padding.iter().all(|p| p.abs >= Abs::zero() && p.em >= Em::zero());
-
-        // If the padding is negative create a nested element and apply a
-        // negative margin to it instead.
-        if all_positive {
-            css.push("padding", padding);
-        } else {
-            body_wrapper.get_or_insert_default().margin = Some(padding);
-        }
+    if let Some(css::Padding::Normal(padding)) = model.padding {
+        css.push("padding", padding);
     }
 
-    (css, body_wrapper)
+    css
 }
 
 // Also check `PATCHED_IMAGE_RULE` in `docs/src/main.rs` when editing this.

@@ -79,6 +79,9 @@ c749652f96c8c5b2f3af9673a216740a cases-content-text
 adabac6d50796b1f83fe82c0416e72d7 circle-auto-sizing
 a74c4e7e01177baec7e7e77de1a919de circle-beyond-page-width-overflows
 cf38333b2576f53fdfd128e1536157dc circle-directly-in-rect
+790f8af4f352487797dd6c3268b4a712 circle-fixed-height
+790f8af4f352487797dd6c3268b4a712 circle-fixed-width
+13e92d8d0b94777e64c93fb502169563 circle-intrinsic-size
 fccbd27063182a3f95050467c13c47de circle-relative-sizing
 56527f6da1cafc34c2f0bbdda2d524e3 circle-size-beyond-default
 bd528411c43aac6f8a9db37ab1834ab9 circle-sizing-options
