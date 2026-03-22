@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      mtable.multiline-equation {
+        math-style: unset;
+      }
+      
+      mtable.multiline-equation mtd {
+        padding: 0;
+      }
+      
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mtable class="multiline-equation aligned-equation">
+        <mtr>
+          <mtd>
+            <mi>𝑎</mi>
+          </mtd>
+          <mtd>
+            <mo form="infix">=</mo>
+            <mi>𝑏</mi>
+            <mo>+</mo>
+            <mi>𝑐</mi>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd></mtd>
+          <mtd>
+            <mo>=</mo>
+            <mi>𝑑</mi>
+            <mo>+</mo>
+            <mi>𝑒</mi>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd></mtd>
+          <mtd>
+            <mo>=</mo>
+            <mi>𝑓</mi>
+            <mo>+</mo>
+            <mi>𝑔</mi>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

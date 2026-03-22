@@ -7,6 +7,7 @@ use unicode_math_class::MathClass;
 use super::item::{MathItem, RawMathItem};
 use super::multiline::{AlignedRow, split_at_align};
 use crate::foundations::StyleChain;
+use crate::layout::Em;
 use crate::math::{MEDIUM, MathSize, THICK, THIN};
 
 /// The result of processing items for grouping.
@@ -159,7 +160,7 @@ where
             }
 
             // Explicit spacing disables automatic spacing.
-            RawMathItem::Item(MathItem::Spacing(width, weak)) => {
+            RawMathItem::Item(MathItem::Spacing(width, font_size, weak)) => {
                 last = None;
                 space = None;
 
@@ -167,10 +168,16 @@ where
                     let Some(resolved_last) = resolved.last_mut() else {
                         continue;
                     };
-                    if let RawMathItem::Item(MathItem::Spacing(prev, true)) =
-                        resolved_last
+                    if let RawMathItem::Item(MathItem::Spacing(
+                        prev_width,
+                        prev_font_size,
+                        true,
+                    )) = resolved_last
                     {
-                        *prev = (*prev).max(width);
+                        if prev_width.at(*prev_font_size) < width.at(font_size) {
+                            *prev_width = width;
+                            *prev_font_size = font_size;
+                        }
                         continue;
                     }
                 }
@@ -242,7 +249,7 @@ where
     {
         item.set_rspace(Some(THIN))
     } else if let Some(idx) = resolved.last_index()
-        && let RawMathItem::Item(MathItem::Spacing(_, true)) = resolved.0[idx]
+        && let RawMathItem::Item(MathItem::Spacing(_, _, true)) = resolved.0[idx]
     {
         resolved.0.remove(idx);
     }
@@ -273,6 +280,9 @@ fn spacing<'a>(
     use MathClass::*;
 
     let script = |f: &MathItem| f.size().is_some_and(|s| s <= MathSize::Script);
+
+    l.set_rspace(Some(Em::zero()));
+    r.set_lspace(Some(Em::zero()));
 
     match (l.rclass(), r.lclass()) {
         // No spacing before punctuation; thin spacing after punctuation, unless

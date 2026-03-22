@@ -471,8 +471,8 @@ fn layout_realized(
     // Handle non-component items first.
     let comp = match item {
         MathItem::Component(comp) => comp,
-        MathItem::Spacing(amount, _) => {
-            ctx.push(MathFragment::Space(*amount));
+        MathItem::Spacing(amount, font_size, _) => {
+            ctx.push(MathFragment::Space(amount.at(*font_size)));
             return Ok(());
         }
         MathItem::Space => {
@@ -487,8 +487,12 @@ fn layout_realized(
 
     let props = &comp.props;
 
-    // Insert left spacing.
-    if let Some(lspace) = props.lspace {
+    // Insert left spacing. Items with an alignment form get their spacing
+    // handled by the multiline layout instead.
+    if let Some(lspace) = props.lspace
+        && !props.align_form_infix
+        && !lspace.is_zero()
+    {
         let width = lspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }
@@ -533,7 +537,9 @@ fn layout_realized(
     }
 
     // Insert right spacing.
-    if let Some(rspace) = props.rspace {
+    if let Some(rspace) = props.rspace
+        && !rspace.is_zero()
+    {
         let width = rspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }

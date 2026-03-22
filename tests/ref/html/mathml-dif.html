@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      mtable.multiline-equation {
+        math-style: unset;
+      }
+      
+      mtable.multiline-equation mtd {
+        padding: 0;
+      }
+      
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mo>∫</mo>
+      <mspace width="0.16666666666666666em"/>
+      <mi mathvariant="normal">d</mi>
+      <mi>𝑥</mi>
+      <mspace width="0.16666666666666666em"/>
+      <mi mathvariant="normal">D</mi>
+      <mi>𝑦</mi>
+    </math>
+  </body>
+</html>
