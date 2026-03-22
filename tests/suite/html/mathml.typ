@@ -11,6 +11,9 @@ $ op("custom", limits: #true)_(n -> oo) n $
 --- mathml-lr html ---
 $ (x/2 + z) $
 
+--- mathml-lr-size html ---
+$ lr((a + b), size: #5em) $
+
 --- mathml-spacing-resolve html ---
 $
   a #h(1em + 10pt) b \
@@ -30,3 +33,15 @@ $
     & = d + e \
     & = f + g
 $
+
+--- mathml-stretch-largeop-vs-explicit html ---
+$ integral $
+$ stretch(integral) $
+$ stretch(integral, size: #50pt) $
+$ stretch(integral, size: #50%) $
+
+--- mathml-stretch html ---
+$ a -> b $
+$ a stretch(->) b $
+$ a stretch(->, size: #3em) b $
+$ a stretch(->, size: #200%) b $
