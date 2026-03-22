@@ -80,6 +80,11 @@ impl<T> Sides<T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()
     }
 
+    /// An iterator over the sides, starting with the left side, clockwise.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        [&mut self.left, &mut self.top, &mut self.right, &mut self.bottom].into_iter()
+    }
+
     /// Map two adjacent sides into a corner `f`.
     pub fn map_corners<F, U>(self, mut f: F) -> Corners<U>
     where

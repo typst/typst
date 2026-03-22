@@ -10,7 +10,8 @@ use typst_library::layout::{
 };
 use typst_library::visualize::{
     Color, ColorSpace, ConicGradient, DashPattern, Gradient, Hsl, LinearGradient,
-    LinearRgb, Oklab, Oklch, Paint, RadialGradient, Rgb, Stroke, Tiling,
+    LinearRgb, Oklab, Oklch, Paint, RadialGradient, Rgb, Shape, ShapeKind, Stroke,
+    Tiling,
 };
 use typst_utils::Numeric;
 
@@ -706,7 +707,7 @@ impl ToCss for Tiling {
     }
 }
 
-impl ToCss for Sides<Length> {
+impl ToCss for Sides<Rel> {
     fn emit(&self, w: &mut CssWriter) {
         if self.is_uniform() {
             w.emit(self.top);
@@ -827,8 +828,8 @@ impl Properties {
 pub struct BoxModel {
     pub width: Sizing,
     pub height: Sizing,
-    pub margin: Option<Sides<Length>>,
-    pub padding: Option<Sides<Length>>,
+    pub margin: Option<Sides<Rel>>,
+    pub padding: Option<Padding>,
     pub box_sizing: Option<BoxSizing>,
     /// Margins in CSS are computed on the width of the containing block, which
     /// is quite different from Typst.
@@ -841,6 +842,7 @@ pub struct BoxModel {
 impl BoxModel {
     /// Computes parameters for an element using a `content-box` box-model.
     pub fn resolve(
+        shape: Option<ShapeKind>,
         width: Sizing,
         height: Sizing,
         outset: Sides<Option<Rel>>,
@@ -848,15 +850,25 @@ impl BoxModel {
         border: &Sides<Option<Border>>,
         has_body: bool,
     ) -> BoxModel {
-        let outset = outset.unwrap_or_default();
-        let inset = inset.unwrap_or_default();
+        let mut outset = outset.unwrap_or_default();
+        let mut inset = inset.unwrap_or_default();
 
         // Ignore relative outset and inset.
         let ignored_relative_outset = outset.iter().any(|rel| !rel.rel.is_zero());
         let ignored_relative_inset =
             has_body && inset.iter().any(|rel| !rel.rel.is_zero());
-        let outset = outset.map(|rel| rel.abs);
-        let inset = inset.map(|rel| rel.abs);
+        outset.iter_mut().for_each(|rel| rel.rel = Ratio::zero());
+        inset.iter_mut().for_each(|rel| rel.rel = Ratio::zero());
+
+        // Apply extra inset to round shapes.
+        if shape.is_some_and(ShapeKind::is_round) {
+            // Use a relative inset for round shapes, which is represented as
+            // the margin of a nested element.
+            // FIXME: This is also somewhat broken because a relative margin is
+            // computed from the parent width, never the height, regardless of
+            // the side.
+            inset.iter_mut().for_each(|rel| rel.rel += Shape::ROUND_SHAPE_INSET);
+        }
 
         // Strokes in Typst don't affect layout, but they do in the HTML/CSS
         // layout model. Try to replicate the Typst behavior by using negative
@@ -872,7 +884,7 @@ impl BoxModel {
             Sizing::Rel(rel) => Sizing::Rel(
                 rel + outset.sum_by_axis().x + 0.5 * border_widths.sum_by_axis().x,
             ),
-            // TODO: Once fractions are supported, handle the outset.
+            // TODO: If fractions are supported, handle the outset.
             Sizing::Fr(fr) => Sizing::Fr(fr),
         };
         let height = match height {
@@ -880,7 +892,7 @@ impl BoxModel {
             Sizing::Rel(rel) => Sizing::Rel(
                 rel + outset.sum_by_axis().y + 0.5 * border_widths.sum_by_axis().y,
             ),
-            // TODO: Once fractions are supported, handle the outset.
+            // TODO: If fractions are supported, handle the outset.
             Sizing::Fr(fr) => Sizing::Fr(fr),
         };
 
@@ -907,6 +919,23 @@ impl BoxModel {
             BoxSizing::ContentBox
         };
 
+        let padding = {
+            let all_positive = padding.iter().all(|p| {
+                p.rel >= Ratio::zero()
+                    && p.abs.abs >= Abs::zero()
+                    && p.abs.em >= Em::zero()
+            });
+
+            // If the padding is negative, or a relative padding is used for a
+            // round element, create a nested element and apply a margin to it
+            // instead.
+            if all_positive && !shape.is_some_and(ShapeKind::is_round) {
+                Padding::Normal(padding)
+            } else {
+                Padding::NestedElementMargin(padding)
+            }
+        };
+
         let margin = has_margin.then_some(margin);
         let padding = has_padding.then_some(padding);
         let box_sizing = box_sizing.is_border_box().then_some(box_sizing);
@@ -920,6 +949,18 @@ impl BoxModel {
             ignored_relative_outset,
             ignored_relative_inset,
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Padding {
+    Normal(Sides<Rel>),
+    NestedElementMargin(Sides<Rel>),
+}
+
+impl Padding {
+    pub fn uses_nested_element(self) -> bool {
+        matches!(self, Self::NestedElementMargin(_))
     }
 }
 

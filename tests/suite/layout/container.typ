@@ -338,6 +338,8 @@ Paragraph
 An empty box #box(width: 2em, height: 1em, fill: red) inside a paragraph.
 
 --- issue-2128-block-width-box paged html ---
+#set html.elem(profile: "presentational")
+
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])
