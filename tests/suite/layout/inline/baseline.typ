@@ -11,6 +11,9 @@ that ever learned to mimic a human voice.
 --- baseline-box paged ---
 Hey #box(baseline: 40%, image("/assets/images/tiger.jpg", width: 1.5cm)) there!
 
+--- baseline-display-math paged ---
+#bounds[$ sum_(i = 1)^n i/pi = 10 $ ]
+
 --- issue-2214-baseline-math paged ---
 // The math content should also be affected by the TextElem baseline.
 hello #text(baseline: -5pt)[123 #sym.WW\orld]\
