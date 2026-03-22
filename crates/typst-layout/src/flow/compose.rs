@@ -154,7 +154,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             };
             offset += width + self.config.columns.gutter;
 
+            if i == 0 && frame.has_baseline() {
+                output.set_baseline(frame.baseline());
+            }
+
             output.push_frame(Point::with_x(x), frame);
+
             inner.next();
         }
 
@@ -700,6 +705,10 @@ impl<'a, 'b> Insertions<'a, 'b> {
             let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
             offset_top += frame.height() + placed.clearance;
             output.push_frame(Point::new(x, y) + delta, frame);
+        }
+
+        if inner.has_baseline() {
+            output.set_baseline(self.top_size + inner.baseline());
         }
 
         output.push_frame(Point::with_y(self.top_size), inner);
