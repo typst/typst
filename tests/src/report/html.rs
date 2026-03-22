@@ -657,13 +657,16 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
     parent.div().class("sidebar-setting").with(|div| {
         div.text("Test Sources");
         div.fieldset().class("control-group").with(|fieldset| {
-            icon_button(
-                fieldset,
-                "global-view-test-sources",
-                "Show test sources",
-                icons::SOURCE,
-                false,
-            );
+            fieldset.label().class("icon-toggle-button").with(|label| {
+                label
+                    .input()
+                    .type_("checkbox")
+                    .id("global-view-test-sources")
+                    .title("Show test sources")
+                    .checked(false)
+                    .disabled(false);
+                svg_icon(label, icons::SOURCE);
+            });
         });
     });
 
@@ -760,11 +763,10 @@ fn test_report_header(
         });
 
     parent.fieldset().class("control-group").with(|fieldset| {
-        // The source is shown by default without JavaScript.
         fieldset
             .button()
             .class("icon-button test-report-source-toggle")
-            .aria_expanded(true)
+            .aria_expanded(false)
             .aria_controls(display!("test-report-source-{test_idx}"))
             .title("View test source")
             .with(|button| svg_icon(button, icons::SOURCE))
@@ -775,6 +777,7 @@ fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx:
     parent
         .div()
         .class("test-report-source")
+        .hidden(true)
         .id(display!("test-report-source-{test_idx}"))
         .with(|div| {
             div.table().class("text-diff").with(|table| {

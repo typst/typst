@@ -1,4 +1,5 @@
 const sidebarList = document.querySelector(".sidebar > .sidebar-list")
+const globalSourceToggle = document.getElementById("global-view-test-sources")
 /** @type {HTMLAnchorElement[]} */
 const sidebarLinks = sidebarList.querySelectorAll("a")
 
@@ -35,6 +36,11 @@ const reportFiles = []
  * @typedef {"visual" | "text"} DiffMode
  */
 
+let activeTestSources = 0
+
+// Avoid implicit statefulness by the browser
+globalSourceToggle.checked = false
+
 for (const report of document.getElementsByClassName("test-report")) {
   const reportHeader = report.querySelector(".test-report-header")
   const reportToggle = reportHeader.querySelector(".test-report-toggle")
@@ -69,12 +75,16 @@ for (const report of document.getElementsByClassName("test-report")) {
     const expanded = !(reportSourceToggle.ariaExpanded == "true");
     reportSource.hidden = !expanded;
     reportSourceToggle.ariaExpanded = expanded;
+    
+    if (expanded) {
+      activeTestSources += 1;
+    } else {
+      activeTestSources -= 1;
+    }
+
+    globalSourceToggle.checked = activeTestSources > 0;
   });
   
-  // Default state: hide the test sources.
-  reportSource.hidden = true;
-  reportSourceToggle.ariaExpanded = false;
-
   for (const button of reportHeader.querySelectorAll(".copy-button")) {
     button.addEventListener("click", () => {
       navigator.clipboard.writeText(button.dataset.filePath);
@@ -150,9 +160,10 @@ for (const mode of diff_modes) {
     })
 }
 
-document.getElementById("global-view-test-sources")
-  .addEventListener("click", () => {
-    changeGlobalSourceVisibility(true)
+globalSourceToggle
+  .addEventListener("change", () => {
+    // If all tests are hidden, display them. If one is shown, hide them.
+    changeGlobalSourceVisibility(activeTestSources === 0)
   });
 
 function filterDiffs() {
@@ -282,6 +293,8 @@ function changeGlobalSourceVisibility(visible) {
     state.reportSource.hidden = !visible;
     state.reportSourceToggle.ariaExpanded = visible;
   }
+
+  activeTestSources = visible ? testReports.length : 0;
 }
 
 /** @type {ImageDiffState} */
