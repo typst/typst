@@ -555,7 +555,7 @@ prevent a pair of delimiters from scaling, you can escape them with backslashes.
 
 Typst will automatically set terms around a slash `/` as a fraction while
 honoring operator precedence. All round parentheses not made redundant by the
-fraction will appear in the output. Fractions are typeset veritcally unless
+fraction will appear in the output. Fractions are typeset vertically unless
 customized with [`frac.style`]($math.frac.style). You can also produce a slash
 as it is by escaping it with a backslash (`\/`).
 
