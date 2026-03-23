@@ -7,12 +7,13 @@ use std::io;
 use std::ops::Range;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::Files;
 use codespan_reporting::term;
 use ecow::eco_format;
-use term::termcolor::WriteColor;
+use termcolor::{Color, ColorSpec, WriteColor};
 use typst_library::World;
-use typst_library::diag::{FileError, Severity, SourceDiagnostic};
-use typst_syntax::{FileId, Lines, Source, Span};
+use typst_library::diag::{FileError, Severity, SourceDiagnostic, Tracepoint};
+use typst_syntax::{FileId, Lines, Source, Span, Spanned};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -66,7 +67,13 @@ pub fn emit<'a>(
                 .collect(),
         )
         .with_labels(
-            label(&mut files, diagnostic.span)
+            diagnostic
+                .span
+                .id()
+                .and_then(|id| {
+                    let range = files.range(diagnostic.span)?;
+                    Some(Label::primary(id, range))
+                })
                 .into_iter()
                 .chain(diagnostic.hints.iter().filter_map(|hint| {
                     let id = hint.span.id()?;
@@ -79,22 +86,62 @@ pub fn emit<'a>(
         term::emit(dest, &config, &files, &diag)?;
 
         // Stacktrace-like helper diagnostics.
+        let mut traced = false;
         for point in &diagnostic.trace {
-            let message = point.v.to_string();
-            let help = Diagnostic::help()
-                .with_message(message)
-                .with_labels(label(&mut files, point.span).into_iter().collect());
+            emit_trace(dest, &mut files, point)?;
+            traced = true;
+        }
 
-            term::emit(dest, &config, &files, &help)?;
+        if traced {
+            writeln!(dest)?;
         }
     }
 
     Ok(())
 }
 
-/// Create a label for a span.
-fn label(files: &mut WorldFiles, span: Span) -> Option<Label<FileId>> {
-    Some(Label::primary(span.id()?, files.range(span)?))
+/// Emits a tracepoint.
+fn emit_trace(
+    dest: &mut dyn WriteColor,
+    files: &mut WorldFiles,
+    point: &Spanned<Tracepoint>,
+) -> Result<(), codespan_reporting::files::Error> {
+    let Some(id) = point.span.id() else { return Ok(()) };
+    let Some(range) = files.range(point.span) else { return Ok(()) };
+    let lines = files.lines(id)?;
+
+    let name = files.name(id)?;
+    let line_index = files.line_index(id, range.start)?;
+    let line = files.line_number(id, line_index)?;
+    let column = files.column_number(id, line_index, range.start)?;
+    let text = &lines.text()[range];
+
+    // Displays what kind of tracepoint we have and where.
+    write!(dest, "  {} at ", point.v)?;
+    dest.set_color(ColorSpec::new().set_underline(true))?;
+    write!(dest, "{name}:{line}:{column}")?;
+    dest.reset()?;
+    writeln!(dest)?;
+
+    // Displays the context in the source in a single line.
+    let mut lines = text.lines();
+    write!(dest, "    ")?;
+    dest.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(248))))?;
+    if let Some(first) = lines.next() {
+        write!(dest, "{first}")?;
+    }
+    if let Some(last) = lines.next_back()
+        && let Some(last_char) = last.chars().next_back()
+        && !last_char.is_whitespace()
+    {
+        // If the traced source text is multi-line, try to display it
+        // with inner ellipses followed by the last character.
+        write!(dest, "…{last_char}")?;
+    }
+    dest.reset()?;
+    writeln!(dest)?;
+
+    Ok(())
 }
 
 /// Provides file contents and metadata to `codespan-reporting`.
@@ -133,7 +180,7 @@ impl WorldFiles<'_> {
     }
 }
 
-impl<'a> codespan_reporting::files::Files<'a> for WorldFiles<'_> {
+impl<'a> Files<'a> for WorldFiles<'_> {
     type FileId = FileId;
     type Name = String;
     type Source = Lines<String>;
