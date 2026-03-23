@@ -1,7 +1,7 @@
 use std::vec;
 
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use unicode_math_class::MathClass;
 
 use super::item::{FencedBody, FencedItem, MathItem, RawMathItem, SharedFenceSizing};
 use crate::foundations::StyleChain;
@@ -120,12 +120,12 @@ where
             }
             RawMathItem::Linebreak => unreachable!(),
             RawMathItem::Item(mut item) => {
-                // If we just passed an alignment point, check if this item has
-                // lspace that indicates it is semantically infix.
+                // If we just passed an alignment point, check if this item is
+                // semantically infix.
                 if at_boundary && !item.is_ignorant() {
                     if cols.len().is_multiple_of(2)
+                        && matches!(item.class(), MathClass::Relation | MathClass::Binary)
                         && let MathItem::Component(ref mut comp) = item
-                        && comp.props.lspace.is_some_and(|l| !l.is_zero())
                     {
                         comp.props.align_form_infix = true;
                     }

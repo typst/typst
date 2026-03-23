@@ -166,7 +166,7 @@ impl<'a> MathItem<'a> {
     }
 
     /// Whether this item should be ignored for spacing calculations.
-    pub(crate) fn is_ignorant(&self) -> bool {
+    pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Component(comp) => comp.props.ignorant,
             Self::Tag(_) => true,

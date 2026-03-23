@@ -5,8 +5,11 @@ use typst_library::engine::Engine;
 use typst_library::layout::{Axis, Em};
 use typst_library::math::ir::{
     AccentItem, FencedItem, FractionItem, GlyphItem, MathItem, MathKind, MathProperties,
-    MultilineItem, NumberItem, Position, RadicalItem, ScriptsItem, TableItem, TextItem,
+    MultilineItem, NumberItem, Position, RadicalItem, ScriptsItem, Stretch, TableItem,
+    TextItem,
 };
+use typst_syntax::Span;
+use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
 use crate::tag::mathml as tag;
@@ -56,6 +59,7 @@ impl HtmlNodesExt for EcoVec<HtmlNode> {
     }
 }
 
+#[derive(Copy, Clone)]
 enum NodePosition {
     Start,
     Middle,
@@ -74,16 +78,23 @@ impl NodePosition {
     }
 }
 
+struct EmbellishmentContext {
+    lspace: Option<Em>,
+    rspace: Option<Em>,
+    position: NodePosition,
+}
+
 /// The context for math handling.
 struct MathContext<'v, 'e> {
     engine: &'v mut Engine<'e>,
     nodes: EcoVec<HtmlNode>,
+    embellishment: Option<EmbellishmentContext>,
 }
 
 impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
     fn new(engine: &'v mut Engine<'e>) -> Self {
-        Self { engine, nodes: EcoVec::new() }
+        Self { engine, nodes: EcoVec::new(), embellishment: None }
     }
 
     /// Push a node.
@@ -151,35 +162,57 @@ fn handle_realized(
     ctx: &mut MathContext,
     position: NodePosition,
 ) -> SourceResult<()> {
-    let MathItem::Component(comp) = item else {
-        match item {
-            MathItem::Spacing(amount, _, _) => ctx.push(
+    // Handle non-component items first.
+    let comp = match item {
+        MathItem::Component(comp) => comp,
+        MathItem::Spacing(amount, _, _) => {
+            ctx.push(
                 HtmlElement::new(tag::mspace)
                     .with_attr(attr::width, eco_format!("{}", css::length(*amount))),
-            ),
-            MathItem::Space => ctx.push(HtmlElement::new(tag::mspace).with_attr(
+            );
+            return Ok(());
+        }
+        MathItem::Space => {
+            ctx.push(HtmlElement::new(tag::mspace).with_attr(
                 attr::width,
                 eco_format!("{}", css::length(Em::new(0.2222222222222222))),
-            )),
-            MathItem::Tag(tag) => ctx.push(HtmlNode::Tag(tag.clone())),
-            _ => unreachable!(),
+            ));
+            return Ok(());
         }
-        return Ok(());
+        MathItem::Tag(tag) => {
+            ctx.push(HtmlNode::Tag(tag.clone()));
+            return Ok(());
+        }
     };
 
     let props = &comp.props;
+    let embellished = is_embellished_operator(item);
 
-    // TODO: deal with lspace/rspace for non-Glyph items.
-    // if let Some(lspace) = props.lspace {
-    //     // TODO: use more accurate text size.
-    //     let width = lspace.at(styles.resolve(TextElem::size));
-    //     let frag = MathFragment::Space(width);
-    //     if ctx.fragments.last().is_some_and(|x| matches!(x, MathFragment::Align)) {
-    //         ctx.fragments.insert(ctx.fragments.len() - 1, frag);
-    //     } else {
-    //         ctx.push(frag);
-    //     }
-    // }
+    // Push explicit lspace if it won't be added to the attributes of an `mo`.
+    if !embellished
+        && let Some(lspace) = props.lspace
+        && !props.align_form_infix
+        && !lspace.is_zero()
+    {
+        ctx.push(
+            HtmlElement::new(tag::mspace)
+                .with_attr(attr::width, eco_format!("{}em", lspace.get())),
+        );
+    }
+
+    // For embellished operators which aren't an `mo` element, pass the outer
+    // spacing and position to the core operator.
+    if embellished
+        && !matches!(comp.kind, MathKind::Glyph(_) | MathKind::Text(_))
+        && ctx.embellishment.is_none()
+        && !props.align_form_infix
+    {
+        ctx.embellishment = Some(EmbellishmentContext {
+            lspace: props.lspace,
+            rspace: props.rspace,
+            position,
+        });
+    }
 
     match &comp.kind {
         MathKind::Glyph(item) => handle_glyph(item, ctx, props, position)?,
@@ -189,7 +222,7 @@ fn handle_realized(
         MathKind::Primes(_item) => {}
         MathKind::Table(item) => handle_table(item, ctx, props)?,
         MathKind::Fraction(item) => handle_fraction(item, ctx, props)?,
-        MathKind::Text(item) => handle_text(item, ctx, props)?,
+        MathKind::Text(item) => handle_text(item, ctx, props, position)?,
         MathKind::Number(item) => handle_number(item, ctx, props)?,
         MathKind::Fenced(item) => handle_fenced(item, ctx, props)?,
         MathKind::Group(_) => {
@@ -223,11 +256,16 @@ fn handle_realized(
         }
     }
 
-    // if let Some(rspace) = props.rspace {
-    //     // TODO: use more accurate text size.
-    //     let width = rspace.at(styles.resolve(TextElem::size));
-    //     ctx.push(MathFragment::Space(width));
-    // }
+    // Push explicit rspace if it won't be added to the attributes of an `mo`.
+    if !embellished
+        && let Some(rspace) = props.rspace
+        && !rspace.is_zero()
+    {
+        ctx.push(
+            HtmlElement::new(tag::mspace)
+                .with_attr(attr::width, eco_format!("{}em", rspace.get())),
+        );
+    }
 
     Ok(())
 }
@@ -313,7 +351,7 @@ fn handle_glyph(
     let mut fence = false;
     let mut separator = false;
     let mut largeop = false;
-    let tag = match props.class {
+    match props.class {
         MathClass::Normal
         | MathClass::Alphabetic
         | MathClass::Special
@@ -327,110 +365,37 @@ fn handle_glyph(
             );
             return Ok(());
         }
-        MathClass::Relation => tag::mo,
-        MathClass::Diacritic => {
-            form = Some(Form::Postfix);
-            tag::mo
-        }
-        MathClass::Binary => {
-            form = Some(Form::Infix);
-            tag::mo
-        }
-        MathClass::Vary | MathClass::Unary => {
-            form = Some(Form::Prefix);
-            tag::mo
-        }
-        MathClass::Punctuation => {
-            separator = true;
-            tag::mo
-        }
-        MathClass::Fence => {
-            fence = true;
-            tag::mo
-        }
+        MathClass::Relation => {}
+        MathClass::Diacritic => form = Some(Form::Postfix),
+        MathClass::Binary => form = Some(Form::Infix),
+        MathClass::Vary | MathClass::Unary => form = Some(Form::Prefix),
+        MathClass::Punctuation => separator = true,
+        MathClass::Fence => fence = true,
         MathClass::Large => {
             largeop = true;
-            tag::mo
+            form = Some(Form::Prefix);
         }
         MathClass::Opening => {
             fence = true;
             form = Some(Form::Prefix);
-            tag::mo
         }
         MathClass::Closing => {
             fence = true;
             form = Some(Form::Postfix);
-            tag::mo
         }
-    };
-
-    if props.align_form_infix {
-        form = Some(Form::Infix);
     }
 
-    let initial_form = position.get_form();
-    let info = OperatorInfo::of(
+    push_mo(
         text,
-        form.unwrap_or(initial_form),
-        form.filter(|f| *f != initial_form).is_some(),
-    );
-    let form = form.filter(|f| *f != initial_form).map(|f| match f {
-        Form::Prefix => "prefix",
-        Form::Infix => "infix",
-        Form::Postfix => "postfix",
-    });
-
-    let lspace = props
-        .lspace
-        .filter(|l| l.get() != info.lspace)
-        .filter(|_| !matches!(position, NodePosition::Only(_)))
-        .map(|l| eco_format!("{}em", l.get()));
-    let rspace = props
-        .rspace
-        .filter(|r| r.get() != info.rspace)
-        .filter(|_| !matches!(position, NodePosition::Only(_)))
-        .map(|r| eco_format!("{}em", r.get()));
-
-    let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
-    let separator =
-        (separator != is_separator(text)).then(|| eco_format!("{}", separator));
-
-    let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
-        .then(|| eco_format!("{}", largeop));
-    // We don't use movablelimits as we handle the positioning ourselves.
-    let movablelimits = (info.properties.contains(Properties::MOVABLELIMITS))
-        .then(|| eco_format!("false"));
-
-    // TODO: symmetric, maxsize
-    let mut chars = text.chars();
-    let stretch_axis = if let Some(c) = chars.next()
-        && chars.next().is_none()
-        && is_stretch_axis_inline(c)
-    {
-        Axis::X
-    } else {
-        Axis::Y
-    };
-    let stretch = item.stretch.get();
-    let semantic = stretch.is_semantic(stretch_axis);
-    let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
-        .then(|| eco_format!("{}", semantic));
-    let minsize = stretch
-        .resolve_requested(stretch_axis)
-        .map(|target| eco_format!("{}", css::rel(target)));
-
-    ctx.push(
-        HtmlElement::new(tag)
-            .with_children(eco_vec![HtmlNode::text(text, props.span)])
-            .with_optional_attr(attr::form, form)
-            .with_optional_attr(attr::lspace, lspace)
-            .with_optional_attr(attr::rspace, rspace)
-            .with_optional_attr(attr::fence, fence)
-            .with_optional_attr(attr::separator, separator)
-            .with_optional_attr(attr::largeop, largeop)
-            .with_optional_attr(attr::movablelimits, movablelimits)
-            .with_optional_attr(attr::minsize, minsize)
-            .with_optional_attr(attr::stretchy, stretchy),
+        props.span,
+        ctx,
+        props,
+        position,
+        form,
+        fence,
+        separator,
+        largeop,
+        Some(item.stretch.get()),
     );
     Ok(())
 }
@@ -572,17 +537,27 @@ fn handle_text(
     item: &TextItem,
     ctx: &mut MathContext,
     props: &MathProperties,
+    position: NodePosition,
 ) -> SourceResult<()> {
-    // math.op should be mi instead of mtext.
-    // TODO: reconsider if this is the best way to do this...
-    let tag = match props.class {
-        MathClass::Large => tag::mi,
-        _ => tag::mtext,
-    };
-    ctx.push(
-        HtmlElement::new(tag)
-            .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]),
-    );
+    if props.class == MathClass::Large {
+        push_mo(
+            &item.text,
+            props.span,
+            ctx,
+            props,
+            position,
+            Some(Form::Prefix),
+            false,
+            false,
+            false,
+            None,
+        );
+    } else {
+        ctx.push(
+            HtmlElement::new(tag::mtext)
+                .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]),
+        );
+    }
     Ok(())
 }
 
@@ -625,4 +600,152 @@ fn handle_fenced(
 
     ctx.push(HtmlElement::new(tag::mrow).with_children(children));
     Ok(())
+}
+
+/// Creates and adds an `mo` node.
+#[allow(clippy::too_many_arguments)]
+fn push_mo(
+    text: &str,
+    span: Span,
+    ctx: &mut MathContext,
+    props: &MathProperties,
+    position: NodePosition,
+    mut form: Option<Form>,
+    fence: bool,
+    separator: bool,
+    largeop: bool,
+    stretch: Option<Stretch>,
+) {
+    // If this is the core operator of an embellished operator, use the spacing
+    // and position stored in the context.
+    let (mut lspace, rspace, position) = ctx
+        .embellishment
+        .take()
+        .map(|e| (e.lspace, e.rspace, e.position))
+        .unwrap_or((props.lspace, props.rspace, position));
+
+    if props.align_form_infix {
+        form = Some(Form::Infix);
+        // The lspace at this stage is gone, but since it is infix the spacing
+        // is symmetric, so we can just use the rspace.
+        lspace = rspace;
+    }
+
+    let initial_form = position.get_form();
+    let info = OperatorInfo::of(
+        text,
+        form.unwrap_or(initial_form),
+        form.filter(|f| *f != initial_form).is_some(),
+    );
+    let form = form.filter(|f| *f != initial_form).map(|f| match f {
+        Form::Prefix => "prefix",
+        Form::Infix => "infix",
+        Form::Postfix => "postfix",
+    });
+
+    let lspace = lspace
+        .filter(|l| l.get() != info.lspace)
+        .filter(|_| !matches!(position, NodePosition::Only(_)))
+        .map(|l| eco_format!("{}em", l.get()));
+    let rspace = rspace
+        .filter(|r| r.get() != info.rspace)
+        .filter(|_| !matches!(position, NodePosition::Only(_)))
+        .map(|r| eco_format!("{}em", r.get()));
+
+    let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
+    let separator =
+        (separator != is_separator(text)).then(|| eco_format!("{}", separator));
+
+    let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
+        .then(|| eco_format!("{}", largeop));
+    // We don't use movablelimits as we handle the positioning ourselves.
+    let movablelimits = (info.properties.contains(Properties::MOVABLELIMITS))
+        .then(|| eco_format!("false"));
+
+    // TODO: symmetric, maxsize
+    let (stretchy, minsize) = if let Some(stretch) = stretch {
+        let mut chars = text.chars();
+        let stretch_axis = if let Some(c) = chars.next()
+            && chars.next().is_none()
+            && is_stretch_axis_inline(c)
+        {
+            Axis::X
+        } else {
+            Axis::Y
+        };
+        let semantic = stretch.is_semantic(stretch_axis);
+        let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
+            .then(|| eco_format!("{}", semantic));
+        let minsize = stretch
+            .resolve_requested(stretch_axis)
+            .map(|target| eco_format!("{}", css::rel(target)));
+        (stretchy, minsize)
+    } else {
+        (None, None)
+    };
+
+    ctx.push(
+        HtmlElement::new(tag::mo)
+            .with_children(eco_vec![HtmlNode::text(text, span)])
+            .with_optional_attr(attr::form, form)
+            .with_optional_attr(attr::lspace, lspace)
+            .with_optional_attr(attr::rspace, rspace)
+            .with_optional_attr(attr::fence, fence)
+            .with_optional_attr(attr::separator, separator)
+            .with_optional_attr(attr::largeop, largeop)
+            .with_optional_attr(attr::movablelimits, movablelimits)
+            .with_optional_attr(attr::minsize, minsize)
+            .with_optional_attr(attr::stretchy, stretchy),
+    );
+}
+
+/// Whether this item is considered an embellished operator in MathML Core.
+fn is_embellished_operator(item: &MathItem) -> bool {
+    let MathItem::Component(comp) = item else { return false };
+    match &comp.kind {
+        MathKind::Glyph(_) => !matches!(
+            comp.props.class,
+            MathClass::Normal
+                | MathClass::Alphabetic
+                | MathClass::Special
+                | MathClass::GlyphPart
+                | MathClass::Space
+        ),
+        MathKind::Text(_) => comp.props.class == MathClass::Large,
+        MathKind::Scripts(scripts) => is_embellished_operator(&scripts.base),
+        MathKind::Accent(accent) => is_embellished_operator(&accent.base),
+        MathKind::Fraction(fraction) => is_embellished_operator(&fraction.numerator),
+        MathKind::Group(group) => {
+            group
+                .items
+                .iter()
+                .filter(|item| !item.is_ignorant())
+                .filter(|item| !is_space_like(item))
+                .count()
+                == 1
+                && group
+                    .items
+                    .iter()
+                    .filter(|item| !item.is_ignorant())
+                    .any(|item| is_embellished_operator(item))
+        }
+        _ => false,
+    }
+}
+
+/// Whether this item is considered a space-like element in MathML Core.
+fn is_space_like(item: &MathItem) -> bool {
+    match item {
+        MathItem::Spacing(..) | MathItem::Space => true,
+        MathItem::Component(comp) => match &comp.kind {
+            MathKind::Text(_) => comp.props.class != MathClass::Large,
+            MathKind::Group(group) => group
+                .items
+                .iter()
+                .filter(|item| !item.is_ignorant())
+                .all(is_space_like),
+            _ => false,
+        },
+        _ => false,
+    }
 }

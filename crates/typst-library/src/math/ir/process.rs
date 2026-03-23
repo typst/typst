@@ -230,15 +230,25 @@ where
         if !item.is_ignorant() {
             if let Some(i) = last
                 && let RawMathItem::Item(ref mut prev) = resolved[i]
-                && let Some(s) = spacing(prev, space.take(), &mut item)
             {
-                resolved.insert(i + 1, RawMathItem::Item(s));
+                if let Some(s) = spacing(prev, space.take(), &mut item) {
+                    resolved.insert(i + 1, RawMathItem::Item(s));
+                }
+            } else {
+                item.set_lspace(Some(Em::zero()));
             }
 
             last = Some(resolved.len());
         }
 
         resolved.push(RawMathItem::Item(item));
+    }
+
+    // Initialize rspace on the last non-ignorant item.
+    if let Some(i) = last
+        && let RawMathItem::Item(ref mut item) = resolved[i]
+    {
+        item.set_rspace(Some(Em::zero()));
     }
 
     // Apply closing punctuation spacing if applicable.
