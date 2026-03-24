@@ -54,7 +54,7 @@ comemo = "0.5.1"
 csv = "1"
 ctrlc = "3.4.1"
 dirs = "6"
-ecow = { version = "0.2.6", features = ["serde"] }
+ecow = { git = "https://github.com/typst/ecow", rev = "247ab14", features = ["serde"] }
 either = "1"
 env_proxy = "0.4"
 fastrand = "2.3"

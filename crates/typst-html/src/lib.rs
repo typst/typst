@@ -23,6 +23,7 @@ pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
+use typst_library::diag::WarningSink;
 use typst_library::foundations::{Content, Module, Scope};
 use typst_library::introspection::Location;
 use typst_macros::elem;
@@ -66,6 +67,11 @@ pub struct HtmlElem {
 
     /// The element's HTML attributes.
     pub attrs: HtmlAttrs,
+
+    /// The element's CSS properties. Currently only used for generated styles.
+    #[internal]
+    #[parse(Some(css::Properties::default()))]
+    pub css: css::Properties,
 
     /// The contents of the HTML element.
     ///
@@ -113,13 +119,9 @@ impl HtmlElem {
         if let Some(value) = value { self.with_attr(attr, value) } else { self }
     }
 
-    /// Adds CSS styles to an element.
-    fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
+    /// Build and add CSS properties to the element.
+    pub fn build_css(self, css: css::PropertiesBuilder, sink: impl WarningSink) -> Self {
+        self.with_css(css.finish(sink))
     }
 
     /// Checks whether the given element is "phrasing content" in HTML.

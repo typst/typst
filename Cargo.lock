@@ -640,8 +640,7 @@ dependencies = [
 [[package]]
 name = "ecow"
 version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78e4f79b296fbaab6ce2e22d52cb4c7f010fe0ebe7a32e34fa25885fd797bd02"
+source = "git+https://github.com/typst/ecow?rev=247ab14#247ab148248bff63bd24c352a34f63d73da1b2f3"
 dependencies = [
  "serde",
 ]
@@ -3103,6 +3102,7 @@ dependencies = [
  "bumpalo",
  "comemo",
  "ecow",
+ "indexmap",
  "palette",
  "rustc-hash",
  "time",

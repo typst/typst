@@ -360,6 +360,9 @@ pub trait Numeric:
     fn is_finite(self) -> bool;
 }
 
+/// A marker trait for numeric lengths.
+pub trait NumericLength: Numeric {}
+
 /// Returns the default math class of a character in Typst, if it has one.
 ///
 /// This is determined by the Unicode math class, with some manual overrides.

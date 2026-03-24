@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Display, Formatter};
+use std::num::NonZeroU64;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
@@ -15,7 +16,7 @@ use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::document::HtmlOutput;
-use crate::{HtmlIntrospector, attr, charsets, css};
+use crate::{HtmlIntrospector, charsets, css};
 
 /// An HTML document.
 ///
@@ -186,6 +187,8 @@ pub struct HtmlElement {
     pub tag: HtmlTag,
     /// The element's attributes.
     pub attrs: HtmlAttrs,
+    /// The element's CSS properties. Currently only used for generated styles.
+    pub css: css::Properties,
     /// The element's children.
     pub children: EcoVec<HtmlNode>,
     /// The element's logical parent. For introspection purposes, this element
@@ -209,6 +212,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
+            css: css::Properties::default(),
             children: EcoVec::new(),
             parent: None,
             span: Span::detached(),
@@ -231,12 +235,9 @@ impl HtmlElement {
     }
 
     /// Adds CSS styles to an element.
-    pub(crate) fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
+    pub(crate) fn with_css(mut self, css: css::Properties) -> Self {
+        self.css = css;
+        self
     }
 
     /// Attach a span to the element.
@@ -335,6 +336,11 @@ impl HtmlTag {
         self.0.resolve()
     }
 
+    /// The internal key of the [`PicoStr`] that uniquely identifies it.
+    pub fn opaque_key(self) -> NonZeroU64 {
+        self.0.opaque_key()
+    }
+
     /// Turns the tag into its inner interned string.
     pub const fn into_inner(self) -> PicoStr {
         self.0
@@ -382,6 +388,15 @@ impl HtmlAttrs {
     /// Finds an attribute value.
     pub fn get(&self, attr: HtmlAttr) -> Option<&EcoString> {
         self.0.iter().find(|&&(k, _)| k == attr).map(|(_, v)| v)
+    }
+
+    /// Finds an attribute value.
+    pub fn get_mut(&mut self, attr: HtmlAttr) -> Option<&mut EcoString> {
+        self.0
+            .make_mut()
+            .iter_mut()
+            .find(|&&mut (k, _)| k == attr)
+            .map(|(_, v)| v)
     }
 }
 

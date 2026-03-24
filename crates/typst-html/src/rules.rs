@@ -362,7 +362,7 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
     // represent an ordered list. However, the list is already numbered with the
     // footnote superscripts in the DOM, so we turn off CSS' list enumeration.
     let list = HtmlElem::new(tag::ol)
-        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_css(css::Properties::new().with("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack();
 
@@ -399,7 +399,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
         // deprecated, so we don't do that. The elements are already easily
         // selectable via `nav[role="doc-toc"] ol`.
         HtmlElem::new(tag::ol)
-            .with_styles(css::Properties::new().with("list-style-type", "none"))
+            .with_css(css::Properties::new().with("list-style-type", "none"))
             .with_body(Some(Content::sequence(list.into_iter().map(convert_node))))
             .pack()
     }
@@ -501,7 +501,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     let title = elem.realize_title(styles);
     let list = HtmlElem::new(tag::ul)
-        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_css(css::Properties::new().with("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack()
         .spanned(span);
@@ -654,14 +654,16 @@ const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // rather an "Unarticulated Annotation" element (see HTML spec
     // 4.5.22). Using `text-decoration` instead is recommended by MDN.
     Ok(HtmlElem::new(tag::span)
-        .with_attr(attr::style, "text-decoration: underline")
+        .with_attr(attr::class, "underline")
+        .with_css(css::Properties::new().with("text-decoration", "underline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
 
 const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::span)
-        .with_attr(attr::style, "text-decoration: overline")
+        .with_attr(attr::class, "overline")
+        .with_css(css::Properties::new().with("text-decoration", "overline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -673,15 +675,10 @@ const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::mark).with_body(Some(elem.body.clone())).pack());
 
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
+    let variant = if elem.all.get(styles) { "all-small-caps" } else { "small-caps" };
     Ok(HtmlElem::new(tag::span)
-        .with_attr(
-            attr::style,
-            if elem.all.get(styles) {
-                "font-variant-caps: all-small-caps"
-            } else {
-                "font-variant-caps: small-caps"
-            },
-        )
+        .with_attr(attr::class, variant)
+        .with_css(css::Properties::new().with("font-variant-caps", variant))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -720,7 +717,7 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 pub fn html_span_filled(content: Content, color: Color) -> Content {
     let span = content.span();
     HtmlElem::new(tag::span)
-        .with_styles(css::Properties::new().with("color", css::color(color)))
+        .build_css(css::Properties::build().with("color", color), ())
         .with_body(Some(content))
         .pack()
         .spanned(span)
@@ -749,7 +746,8 @@ const BLOCK_RULE: ShowFn<BlockElem> = |elem, _, styles| {
 // TODO: This is rather incomplete.
 const BOX_RULE: ShowFn<BoxElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::span)
-        .with_styles(css::Properties::new().with("display", "inline-block"))
+        .with_attr(attr::class, "box")
+        .with_css(css::Properties::new().with("display", "inline-block"))
         .with_body(elem.body.get_cloned(styles))
         .pack())
 };
@@ -764,25 +762,28 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
         attrs.push(attr::alt, alt);
     }
 
-    let mut inline = css::Properties::new();
+    let mut css = css::Properties::build();
 
     // TODO: Exclude in semantic profile.
     if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
-        inline.push("image-rendering", value);
+        css.push("image-rendering", value);
     }
 
     // TODO: Exclude in semantic profile?
     match elem.width.get(styles) {
         Smart::Auto => {}
-        Smart::Custom(rel) => inline.push("width", css::rel(rel)),
+        Smart::Custom(rel) => css.push("width", rel),
     }
 
     // TODO: Exclude in semantic profile?
     match elem.height.get(styles) {
         Sizing::Auto => {}
-        Sizing::Rel(rel) => inline.push("height", css::rel(rel)),
+        Sizing::Rel(rel) => css.push("height", rel),
         Sizing::Fr(_) => {}
     }
 
-    Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
+    Ok(HtmlElem::new(tag::img)
+        .with_attrs(attrs)
+        .build_css(css, (engine, elem.span()))
+        .pack())
 };
