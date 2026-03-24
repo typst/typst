@@ -66,6 +66,11 @@ fn test_fonts_path() {
 }
 
 #[test]
+fn test_fonts_empty_path() {
+    exec().arg("fonts").arg("--font-path").arg("").must_succeed();
+}
+
+#[test]
 fn test_info() {
     let output = exec().arg("info").must_succeed();
     output.stderr.must_start_with("Version");

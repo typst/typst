@@ -468,6 +468,7 @@ pub struct FontArgs {
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
         value_delimiter = ENV_PATH_SEP,
+        value_parser = font_path_value_parser(),
     )]
     pub font_paths: Vec<PathBuf>,
 
@@ -768,6 +769,14 @@ fn parse_page_number(value: &str) -> Result<NonZeroUsize, &'static str> {
     } else {
         NonZeroUsize::from_str(value).map_err(|_| "not a valid page number")
     }
+}
+
+/// The clap value parser used by `FontArgs.font_paths`.
+///
+/// Unlike the default `PathBufValueParser`, this accepts empty strings so that
+/// `--font-path ""` and `TYPST_FONT_PATHS=""` don't produce an error.
+fn font_path_value_parser() -> impl TypedValueParser<Value = PathBuf> {
+    clap::builder::OsStringValueParser::new().map(PathBuf::from)
 }
 
 /// The clap value parser used by `SharedArgs.input`
