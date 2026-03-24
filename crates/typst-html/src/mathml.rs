@@ -3,6 +3,7 @@ use typst_assets::mathml::*;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::layout::{Axis, Em};
+use typst_library::math::MathSize;
 use typst_library::math::ir::{
     AccentItem, FencedItem, FractionItem, GlyphItem, MathItem, MathKind, MathProperties,
     MultilineItem, NumberItem, Position, RadicalItem, ScriptsItem, Stretch, TableItem,
@@ -21,27 +22,58 @@ pub(crate) const ALIGNED_EQUATION_CLASS: &str = "multiline-equation aligned-equa
 
 // TODO: vertical spacing between rows.
 pub(crate) const EQUATION_CSS_STYLES: &str = "\
-mtable.multiline-equation {
-  math-style: unset;
+/* Tables */
+mtable {
+  math-style: inherit;
+}
+mtd {
+  math-depth: auto-add;
+  math-style: compact;
+  math-shift: compact;
 }
 
+/* Equations */
 mtable.multiline-equation mtd {
+  math-depth: inherit;
+  math-style: inherit;
+  math-shift: inherit;
   padding: 0;
 }
-
 mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
   text-align: -webkit-right;
 }
-
 mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
   text-align: -webkit-left;
+}
+
+/* Fractions */
+mfrac {
+  padding-inline: 0;
+  margin-inline: 0.1em;
+}
+
+/* Other rules for scriptlevel, displaystyle and math-shift */
+mroot {
+  math-shift: inherit;
+}
+mroot > :first-child,
+munder > :nth-child(2),
+munderover > :nth-child(2),
+munder[accentunder=\"true\" i] > :first-child {
+  math-shift: compact
+}
+munder[accentunder=\"true\" i] > :nth-child(2),
+mover[accent=\"true\" i] > :nth-child(2) {
+  math-depth: inherit;
+  math-style: inherit;
 }";
 
 pub(crate) fn convert_math_to_nodes(
     item: MathItem,
     engine: &mut Engine,
+    block: bool,
 ) -> SourceResult<EcoVec<HtmlNode>> {
-    let mut ctx = MathContext::new(engine);
+    let mut ctx = MathContext::new(engine, block);
     ctx.handle_into_nodes(&item)
 }
 
@@ -82,6 +114,74 @@ struct EmbellishmentContext {
     lspace: Option<Em>,
     rspace: Option<Em>,
     position: NodePosition,
+    limits: bool,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+struct CssContext {
+    /// True if math-style: normal, false if math-style: compact
+    math_style_normal: bool,
+    /// True if math-shift: normal, false if math-shift: compact
+    math_shift_normal: bool,
+    math_depth: u32,
+}
+
+impl CssContext {
+    fn new(block: bool) -> Self {
+        Self {
+            math_style_normal: block,
+            math_shift_normal: true,
+            math_depth: 0,
+        }
+    }
+
+    fn depth_auto_add(self) -> Self {
+        Self {
+            math_depth: if !self.math_style_normal {
+                self.math_depth + 1
+            } else {
+                self.math_depth
+            },
+            ..self
+        }
+    }
+
+    fn depth_add(self, n: u32) -> Self {
+        Self { math_depth: self.math_depth + n, ..self }
+    }
+
+    fn style_compact(self) -> Self {
+        Self { math_style_normal: false, ..self }
+    }
+
+    fn shift_compact(self) -> Self {
+        Self { math_shift_normal: false, ..self }
+    }
+
+    fn from_math_size(size: MathSize) -> Self {
+        match size {
+            MathSize::Display => Self {
+                math_style_normal: true,
+                math_shift_normal: true,
+                math_depth: 0,
+            },
+            MathSize::Text => Self {
+                math_style_normal: false,
+                math_shift_normal: true,
+                math_depth: 0,
+            },
+            MathSize::Script => Self {
+                math_style_normal: false,
+                math_shift_normal: true,
+                math_depth: 1,
+            },
+            MathSize::ScriptScript => Self {
+                math_style_normal: false,
+                math_shift_normal: true,
+                math_depth: 2,
+            },
+        }
+    }
 }
 
 /// The context for math handling.
@@ -89,17 +189,30 @@ struct MathContext<'v, 'e> {
     engine: &'v mut Engine<'e>,
     nodes: EcoVec<HtmlNode>,
     embellishment: Option<EmbellishmentContext>,
+    css: CssContext,
 }
 
 impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
-    fn new(engine: &'v mut Engine<'e>) -> Self {
-        Self { engine, nodes: EcoVec::new(), embellishment: None }
+    fn new(engine: &'v mut Engine<'e>, block: bool) -> Self {
+        Self {
+            engine,
+            nodes: EcoVec::new(),
+            embellishment: None,
+            css: CssContext::new(block),
+        }
     }
 
     /// Push a node.
     fn push(&mut self, node: impl Into<HtmlNode>) {
         self.nodes.push(node.into());
+    }
+
+    fn with_css<T>(&mut self, css: CssContext, f: impl FnOnce(&mut Self) -> T) -> T {
+        let prev = std::mem::replace(&mut self.css, css);
+        let result = f(self);
+        self.css = prev;
+        result
     }
 
     /// Handle the given element and return the resulting [`HtmlNode`]s.
@@ -188,6 +301,12 @@ fn handle_realized(
     let props = &comp.props;
     let embellished = is_embellished_operator(item);
 
+    let target = CssContext::from_math_size(props.size);
+    let scriptlevel = (target.math_depth != ctx.css.math_depth)
+        .then(|| eco_format!("{}", target.math_depth));
+    let displaystyle = (target.math_style_normal != ctx.css.math_style_normal)
+        .then(|| eco_format!("{}", target.math_style_normal));
+
     // Push explicit lspace if it won't be added to the attributes of an `mo`.
     if !embellished
         && let Some(lspace) = props.lspace
@@ -196,7 +315,8 @@ fn handle_realized(
     {
         ctx.push(
             HtmlElement::new(tag::mspace)
-                .with_attr(attr::width, eco_format!("{}em", lspace.get())),
+                .with_attr(attr::width, eco_format!("{}em", lspace.get()))
+                .with_optional_attr(attr::scriptlevel, scriptlevel.clone()),
         );
     }
 
@@ -211,49 +331,62 @@ fn handle_realized(
             lspace: props.lspace,
             rspace: props.rspace,
             position,
+            limits: has_limits(item),
         });
     }
 
-    match &comp.kind {
-        MathKind::Glyph(item) => handle_glyph(item, ctx, props, position)?,
-        MathKind::Radical(item) => handle_radical(item, ctx, props)?,
-        MathKind::Accent(item) => handle_accent(item, ctx, props)?,
-        MathKind::Scripts(item) => handle_scripts(item, ctx, props)?,
-        MathKind::Primes(_item) => {}
-        MathKind::Table(item) => handle_table(item, ctx, props)?,
-        MathKind::Fraction(item) => handle_fraction(item, ctx, props)?,
-        MathKind::Text(item) => handle_text(item, ctx, props, position)?,
-        MathKind::Number(item) => handle_number(item, ctx, props)?,
-        MathKind::Fenced(item) => handle_fenced(item, ctx, props)?,
-        MathKind::Group(_) => {
-            let node = ctx.handle_into_node(item)?;
-            ctx.push(node);
-        }
-        MathKind::Multiline(item) => handle_multiline(item, ctx, props)?,
+    let css = if target != ctx.css { target } else { ctx.css };
+    if let Some(node) = ctx.with_css(css, |ctx| -> SourceResult<Option<HtmlNode>> {
+        Ok(match &comp.kind {
+            MathKind::Glyph(item) => {
+                Some(handle_glyph(item, ctx, props, position)?.into())
+            }
+            MathKind::Radical(item) => Some(handle_radical(item, ctx, props)?.into()),
+            MathKind::Accent(item) => Some(handle_accent(item, ctx, props)?.into()),
+            MathKind::Scripts(item) => Some(handle_scripts(item, ctx, props)?),
+            MathKind::Primes(_) => None,
+            MathKind::Table(item) => Some(handle_table(item, ctx, props)?.into()),
+            MathKind::Fraction(item) => Some(handle_fraction(item, ctx, props)?.into()),
+            MathKind::Text(item) => Some(handle_text(item, ctx, props, position)?.into()),
+            MathKind::Number(item) => Some(handle_number(item, ctx, props)?.into()),
+            MathKind::Fenced(item) => Some(handle_fenced(item, ctx, props)?.into()),
+            MathKind::Group(_) => Some(ctx.handle_into_node(item)?),
+            MathKind::Multiline(item) => Some(handle_multiline(item, ctx, props)?.into()),
 
-        // Polyfill required for MathML Core.
-        MathKind::SkewedFraction(_) | MathKind::Cancel(_) | MathKind::Line(_) => {}
+            // Polyfill required for MathML Core.
+            MathKind::SkewedFraction(_) | MathKind::Cancel(_) | MathKind::Line(_) => None,
 
-        // Arbitrary content is not allowed, as per the HTML spec.
-        // Only MathML token elements (mi, mo, mn, ms, and mtext),
-        // when descendants of HTML elements, may contain
-        // [phrasing content] from the HTML namespace.
-        // https://html.spec.whatwg.org/#phrasing-content-2
-        //
-        // In MathML 3, nothing is allowed except MathML elements.
-        // Further, nesting root-level math elements is disallowed.
-        //
-        // Since the math element is considered phrasing content,
-        // it can be nested in MathML Core (as long as it is itself
-        // within a MathML token element).
-        MathKind::Box(_) => {}
-        MathKind::External(item) => {
-            ctx.engine.sink.warn(warning!(
-                props.span,
-                "{} was ignored during MathML export",
-                item.content.elem().name()
-            ));
-        }
+            // Arbitrary content is not allowed, as per the HTML spec.
+            // Only MathML token elements (mi, mo, mn, ms, and mtext),
+            // when descendants of HTML elements, may contain
+            // [phrasing content] from the HTML namespace.
+            // https://html.spec.whatwg.org/#phrasing-content-2
+            //
+            // In MathML 3, nothing is allowed except MathML elements.
+            // Further, nesting root-level math elements is disallowed.
+            //
+            // Since the math element is considered phrasing content,
+            // it can be nested in MathML Core (as long as it is itself
+            // within a MathML token element).
+            MathKind::Box(_) => None,
+            MathKind::External(item) => {
+                ctx.engine.sink.warn(warning!(
+                    props.span,
+                    "{} was ignored during MathML export",
+                    item.content.elem().name()
+                ));
+                None
+            }
+        })
+    })? {
+        ctx.push(match node {
+            // TODO: add math-shift: compact
+            HtmlNode::Element(elem) => elem
+                .with_optional_attr(attr::scriptlevel, scriptlevel.clone())
+                .with_optional_attr(attr::displaystyle, displaystyle)
+                .into(),
+            other => other,
+        })
     }
 
     // Push explicit rspace if it won't be added to the attributes of an `mo`.
@@ -263,7 +396,8 @@ fn handle_realized(
     {
         ctx.push(
             HtmlElement::new(tag::mspace)
-                .with_attr(attr::width, eco_format!("{}em", rspace.get())),
+                .with_attr(attr::width, eco_format!("{}em", rspace.get()))
+                .with_optional_attr(attr::scriptlevel, scriptlevel),
         );
     }
 
@@ -274,7 +408,7 @@ fn handle_multiline(
     item: &MultilineItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlElement> {
     let aligned = item.rows.first().is_some_and(|row| row.len() > 1);
     let cells = item
         .rows
@@ -292,51 +426,54 @@ fn handle_multiline(
             cell_nodes.map(|nodes| HtmlElement::new(tag::mtr).with_children(nodes).into())
         })
         .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
-    ctx.push(
-        HtmlElement::new(tag::mtable)
-            .with_attr(
-                crate::attr::class,
-                if aligned { ALIGNED_EQUATION_CLASS } else { MULTILINE_EQUATION_CLASS },
-            )
-            .with_children(cells),
-    );
-    Ok(())
+    Ok(HtmlElement::new(tag::mtable)
+        .with_attr(
+            crate::attr::class,
+            if aligned { ALIGNED_EQUATION_CLASS } else { MULTILINE_EQUATION_CLASS },
+        )
+        .with_children(cells))
 }
 
 fn handle_fraction(
     item: &FractionItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
-    let num = ctx.handle_into_node(&item.numerator)?;
-    let denom = ctx.handle_into_node(&item.denominator)?;
+) -> SourceResult<HtmlElement> {
+    let num = ctx.with_css(ctx.css.depth_auto_add().style_compact(), |ctx| {
+        ctx.handle_into_node(&item.numerator)
+    })?;
+    let denom = ctx
+        .with_css(ctx.css.depth_auto_add().style_compact().shift_compact(), |ctx| {
+            ctx.handle_into_node(&item.denominator)
+        })?;
     let line = (!item.line).then_some("0");
-    ctx.push(
-        HtmlElement::new(tag::mfrac)
-            .with_children(eco_vec![num, denom])
-            .with_optional_attr(attr::linethickness, line),
-    );
-    Ok(())
+    Ok(HtmlElement::new(tag::mfrac)
+        .with_children(eco_vec![num, denom])
+        .with_optional_attr(attr::linethickness, line))
 }
 
 fn handle_radical(
     item: &RadicalItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
-    let radicand = ctx.handle_into_nodes(&item.radicand)?;
+) -> SourceResult<HtmlElement> {
+    let radicand = ctx
+        .with_css(ctx.css.shift_compact(), |ctx| ctx.handle_into_nodes(&item.radicand))?;
     let index = item
         .index
         .as_ref()
-        .map(|index| ctx.handle_into_node(index))
+        .map(|index| {
+            ctx.with_css(ctx.css.depth_add(2).style_compact(), |ctx| {
+                ctx.handle_into_node(index)
+            })
+        })
         .transpose()?;
     let (tag, children) = if let Some(index) = index {
         (tag::mroot, eco_vec![radicand.into_node(), index])
     } else {
         (tag::msqrt, radicand)
     };
-    ctx.push(HtmlElement::new(tag).with_children(children));
-    Ok(())
+    Ok(HtmlElement::new(tag).with_children(children))
 }
 
 fn handle_glyph(
@@ -344,7 +481,7 @@ fn handle_glyph(
     ctx: &mut MathContext,
     props: &MathProperties,
     position: NodePosition,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlElement> {
     let text = &item.text;
 
     let mut form = None;
@@ -358,12 +495,9 @@ fn handle_glyph(
         | MathClass::GlyphPart
         | MathClass::Space => {
             let mathvariant = will_auto_transform(text).then_some("normal");
-            ctx.push(
-                HtmlElement::new(tag::mi)
-                    .with_children(eco_vec![HtmlNode::text(text, props.span)])
-                    .with_optional_attr(attr::mathvariant, mathvariant),
-            );
-            return Ok(());
+            return Ok(HtmlElement::new(tag::mi)
+                .with_children(eco_vec![HtmlNode::text(text, props.span)])
+                .with_optional_attr(attr::mathvariant, mathvariant));
         }
         MathClass::Relation => {}
         MathClass::Diacritic => form = Some(Form::Postfix),
@@ -385,7 +519,7 @@ fn handle_glyph(
         }
     }
 
-    push_mo(
+    Ok(make_mo(
         text,
         props.span,
         ctx,
@@ -396,22 +530,22 @@ fn handle_glyph(
         separator,
         largeop,
         Some(item.stretch.get()),
-    );
-    Ok(())
+    ))
 }
 
 fn handle_accent(
     item: &AccentItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlElement> {
     let (tag, attr) = if item.position == Position::Below {
         (tag::munder, attr::accentunder)
     } else {
         (tag::mover, attr::accent)
     };
 
-    let base = ctx.handle_into_node(&item.base)?;
+    let base =
+        ctx.with_css(ctx.css.shift_compact(), |ctx| ctx.handle_into_node(&item.base))?;
 
     // TODO: maybe only add this if the base is an i or j, or only add when disabling.
     // let dtls = if elem.dotless.get(styles) { "on" } else { "off" };
@@ -426,36 +560,40 @@ fn handle_accent(
     // Should surpress "Text run starts with a composing character" warnings from validator.
     let accent = ctx.handle_into_node_with_only_form(&item.accent, Form::Postfix)?;
 
-    ctx.push(
-        HtmlElement::new(tag)
-            .with_children(eco_vec![base, accent])
-            .with_attr(attr, "true"),
-    );
-    Ok(())
+    Ok(HtmlElement::new(tag)
+        .with_children(eco_vec![base, accent])
+        .with_attr(attr, "true"))
 }
 
 fn handle_scripts(
     item: &ScriptsItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlNode> {
     let mut base = ctx.handle_into_node(&item.base)?;
 
+    let sup_css = ctx.css.depth_add(1).style_compact();
+    let sub_css = sup_css.shift_compact();
+
     macro_rules! handle {
-        ($content:ident) => {
+        ($content:ident, $css:ident) => {
             item.$content
                 .as_ref()
-                .map(|x| ctx.handle_into_node_with_only_form(x, Form::Postfix))
+                .map(|x| {
+                    ctx.with_css($css, |ctx| {
+                        ctx.handle_into_node_with_only_form(x, Form::Postfix)
+                    })
+                })
                 .transpose()?
         };
     }
 
-    let t = handle!(top);
-    let tr = handle!(top_right);
-    let tl = handle!(top_left);
-    let b = handle!(bottom);
-    let br = handle!(bottom_right);
-    let bl = handle!(bottom_left);
+    let t = handle!(top, sup_css);
+    let tr = handle!(top_right, sup_css);
+    let tl = handle!(top_left, sup_css);
+    let b = handle!(bottom, sub_css);
+    let br = handle!(bottom_right, sub_css);
+    let bl = handle!(bottom_left, sub_css);
 
     if let Some((tag, other_children)) = match (tl, tr, bl, br) {
         (None, None, None, None) => None,
@@ -494,15 +632,15 @@ fn handle_scripts(
         base = HtmlElement::new(tag).with_children(children).into();
     }
 
-    ctx.push(base);
-    Ok(())
+    Ok(base)
 }
 
 fn handle_table(
     item: &TableItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlElement> {
+    let css = ctx.css.depth_auto_add().style_compact().shift_compact();
     let cells = item
         .cells
         .iter()
@@ -510,14 +648,13 @@ fn handle_table(
             let cell_nodes = row
                 .iter()
                 .flat_map(|cell| {
-                    // let props =
-                    //     css::Properties::new().with("padding", "0em 0.2em");
                     let nodes: EcoVec<SourceResult<HtmlNode>> = cell
                         .iter()
                         .map(|sub_col| {
                             Ok(HtmlElement::new(tag::mtd)
-                                .with_children(ctx.handle_into_nodes(sub_col)?)
-                                // .with_styles(props)
+                                .with_children(ctx.with_css(css, |ctx| {
+                                    ctx.handle_into_nodes(sub_col)
+                                })?)
                                 .into())
                         })
                         .collect();
@@ -529,8 +666,7 @@ fn handle_table(
             cell_nodes.map(|nodes| HtmlElement::new(tag::mtr).with_children(nodes).into())
         })
         .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
-    ctx.push(HtmlElement::new(tag::mtable).with_children(cells));
-    Ok(())
+    Ok(HtmlElement::new(tag::mtable).with_children(cells))
 }
 
 fn handle_text(
@@ -538,9 +674,9 @@ fn handle_text(
     ctx: &mut MathContext,
     props: &MathProperties,
     position: NodePosition,
-) -> SourceResult<()> {
-    if props.class == MathClass::Large {
-        push_mo(
+) -> SourceResult<HtmlElement> {
+    Ok(if props.class == MathClass::Large {
+        make_mo(
             &item.text,
             props.span,
             ctx,
@@ -551,33 +687,27 @@ fn handle_text(
             false,
             false,
             None,
-        );
+        )
     } else {
-        ctx.push(
-            HtmlElement::new(tag::mtext)
-                .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]),
-        );
-    }
-    Ok(())
+        HtmlElement::new(tag::mtext)
+            .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)])
+    })
 }
 
 fn handle_number(
     item: &NumberItem,
-    ctx: &mut MathContext,
+    _ctx: &mut MathContext,
     props: &MathProperties,
-) -> SourceResult<()> {
-    ctx.push(
-        HtmlElement::new(tag::mn)
-            .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]),
-    );
-    Ok(())
+) -> SourceResult<HtmlElement> {
+    Ok(HtmlElement::new(tag::mn)
+        .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]))
 }
 
 fn handle_fenced(
     item: &FencedItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<()> {
+) -> SourceResult<HtmlElement> {
     let mut children = EcoVec::new();
     if let Some(open) = item
         .open
@@ -598,13 +728,12 @@ fn handle_fenced(
         children.push(close);
     }
 
-    ctx.push(HtmlElement::new(tag::mrow).with_children(children));
-    Ok(())
+    Ok(HtmlElement::new(tag::mrow).with_children(children))
 }
 
-/// Creates and adds an `mo` node.
+/// Creates an `mo` element.
 #[allow(clippy::too_many_arguments)]
-fn push_mo(
+fn make_mo(
     text: &str,
     span: Span,
     ctx: &mut MathContext,
@@ -615,14 +744,14 @@ fn push_mo(
     separator: bool,
     largeop: bool,
     stretch: Option<Stretch>,
-) {
+) -> HtmlElement {
     // If this is the core operator of an embellished operator, use the spacing
     // and position stored in the context.
-    let (mut lspace, rspace, position) = ctx
+    let (mut lspace, rspace, position, limits) = ctx
         .embellishment
         .take()
-        .map(|e| (e.lspace, e.rspace, e.position))
-        .unwrap_or((props.lspace, props.rspace, position));
+        .map(|e| (e.lspace, e.rspace, e.position, e.limits))
+        .unwrap_or((props.lspace, props.rspace, position, false));
 
     if props.align_form_infix {
         form = Some(Form::Infix);
@@ -658,9 +787,10 @@ fn push_mo(
 
     let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
         .then(|| eco_format!("{}", largeop));
-    // We don't use movablelimits as we handle the positioning ourselves.
-    let movablelimits = (info.properties.contains(Properties::MOVABLELIMITS))
-        .then(|| eco_format!("false"));
+    let movablelimits = (limits
+        && !ctx.css.math_style_normal
+        && info.properties.contains(Properties::MOVABLELIMITS))
+    .then(|| eco_format!("false"));
 
     // TODO: symmetric, maxsize
     let (stretchy, minsize) = if let Some(stretch) = stretch {
@@ -684,19 +814,17 @@ fn push_mo(
         (None, None)
     };
 
-    ctx.push(
-        HtmlElement::new(tag::mo)
-            .with_children(eco_vec![HtmlNode::text(text, span)])
-            .with_optional_attr(attr::form, form)
-            .with_optional_attr(attr::lspace, lspace)
-            .with_optional_attr(attr::rspace, rspace)
-            .with_optional_attr(attr::fence, fence)
-            .with_optional_attr(attr::separator, separator)
-            .with_optional_attr(attr::largeop, largeop)
-            .with_optional_attr(attr::movablelimits, movablelimits)
-            .with_optional_attr(attr::minsize, minsize)
-            .with_optional_attr(attr::stretchy, stretchy),
-    );
+    HtmlElement::new(tag::mo)
+        .with_children(eco_vec![HtmlNode::text(text, span)])
+        .with_optional_attr(attr::form, form)
+        .with_optional_attr(attr::lspace, lspace)
+        .with_optional_attr(attr::rspace, rspace)
+        .with_optional_attr(attr::fence, fence)
+        .with_optional_attr(attr::separator, separator)
+        .with_optional_attr(attr::largeop, largeop)
+        .with_optional_attr(attr::movablelimits, movablelimits)
+        .with_optional_attr(attr::minsize, minsize)
+        .with_optional_attr(attr::stretchy, stretchy)
 }
 
 /// Whether this item is considered an embellished operator in MathML Core.
@@ -746,6 +874,23 @@ fn is_space_like(item: &MathItem) -> bool {
                 .all(is_space_like),
             _ => false,
         },
+        _ => false,
+    }
+}
+
+/// Whether this item, which is considered an embellished operator in MathML
+/// Core, has top or bottom attachements somewhere.
+fn has_limits(item: &MathItem) -> bool {
+    let MathItem::Component(comp) = item else { return false };
+    match &comp.kind {
+        MathKind::Glyph(_) => false,
+        MathKind::Text(_) => false,
+        MathKind::Scripts(scripts) => {
+            scripts.top.is_some() || scripts.bottom.is_some() || has_limits(&scripts.base)
+        }
+        MathKind::Accent(accent) => has_limits(&accent.base),
+        MathKind::Fraction(fraction) => has_limits(&fraction.numerator),
+        MathKind::Group(group) => group.items.iter().any(|item| has_limits(item)),
         _ => false,
     }
 }

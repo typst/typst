@@ -397,6 +397,8 @@ pub struct MathProperties {
     pub class: MathClass,
     /// The current math size.
     pub size: MathSize,
+    /// Whether this item is in a cramped style.
+    pub cramped: bool,
     /// Whether this item should be ignored for spacing calculations.
     pub(crate) ignorant: bool,
     /// Whether this item should have explicit spaces around it.
@@ -419,6 +421,7 @@ impl MathProperties {
             limits: Limits::Never,
             class,
             size: styles.get(EquationElem::size),
+            cramped: styles.get(EquationElem::cramped),
             ignorant: false,
             spaced: false,
             lspace: None,
