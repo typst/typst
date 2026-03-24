@@ -1,4 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
+use ecow::string::ToEcoString;
 use ecow::{EcoVec, eco_vec};
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail, error};
@@ -183,9 +184,38 @@ fn html_document_common(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
-    // the styles must be resolved last.
-    css::resolve_inline_styles(output.root_mut());
+    // Since `finalize_dom` might insert more dom nodes that have styles, the
+    // stylesheet must be generated last.
+    let stylesheet = css::resolve_stylesheet(output.nodes.make_mut());
+    if !stylesheet.is_empty() {
+        let root = output.root_mut();
+
+        let head = root.children.make_mut().iter_mut().find_map(|node| match node {
+            HtmlNode::Element(elem) if elem.tag == tag::head => Some(elem),
+            _ => None,
+        });
+
+        let head = match head {
+            Some(head) => head,
+            None => {
+                root.children.push(HtmlElement::new(tag::head).into());
+                let node = root.children.make_mut().last_mut().unwrap();
+                match node {
+                    HtmlNode::Element(head) => head,
+                    _ => unreachable!(),
+                }
+            }
+        };
+
+        head.children.push(
+            HtmlElement::new(tag::style)
+                .with_children(eco_vec![HtmlNode::Text(
+                    stylesheet.display().to_eco_string(),
+                    Span::detached()
+                )])
+                .into(),
+        );
+    }
 
     Ok(HtmlDocument::new(output, info))
 }
@@ -244,6 +274,8 @@ fn finalize_dom(
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
+                // TODO: Stylesheet isn't included in the final output. Either
+                // warn or add some other mechanism to retrieve/insert it.
                 footnotes_unsupported_with_custom_dom(engine)?;
                 return Ok(HtmlOutput { nodes, root_index: idx });
             }

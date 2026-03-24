@@ -686,6 +686,7 @@ const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // rather an "Unarticulated Annotation" element (see HTML spec
     // 4.5.22). Using `text-decoration` instead is recommended by MDN.
     Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, "underline")
         .with_css(css::Properties::new().with("text-decoration", "underline"))
         .with_body(Some(elem.body.clone()))
         .pack())
@@ -693,6 +694,7 @@ const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
 
 const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, "overline")
         .with_css(css::Properties::new().with("text-decoration", "overline"))
         .with_body(Some(elem.body.clone()))
         .pack())
@@ -707,6 +709,7 @@ const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
     let variant = if elem.all.get(styles) { "all-small-caps" } else { "small-caps" };
     Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, variant)
         .with_css(css::Properties::new().with("font-variant-caps", variant))
         .with_body(Some(elem.body.clone()))
         .pack())

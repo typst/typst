@@ -645,6 +645,7 @@ fn protect_space(node: &mut HtmlNode) {
 fn pre_wrap(nodes: EcoVec<HtmlNode>) -> HtmlElement {
     let span = Span::find(nodes.iter().map(|c| c.span()));
     let mut elem = HtmlElement::new(tag::span)
+        .with_attr(attr::class, "pre-wrap")
         .with_css(css::Properties::new().with("white-space", "pre-wrap"))
         .with_children(nodes)
         .spanned(span);

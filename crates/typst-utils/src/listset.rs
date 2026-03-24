@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 
 /// Picked by gut feeling. Could probably even be a bit larger.
 const CUT_OFF: usize = 15;
@@ -44,5 +44,18 @@ where
         } else {
             self.0.contains(value)
         }
+    }
+}
+
+// Only implement `Deref` not `DerefMut` so the order of elements can't be
+// changed.
+impl<T, S> Deref for ListSet<S>
+where
+    S: Deref<Target = [T]>,
+{
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
     }
 }
