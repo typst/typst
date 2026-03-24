@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Display, Formatter};
+use std::num::NonZeroU64;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec};
@@ -333,6 +334,11 @@ impl HtmlTag {
     /// Resolves the tag to a string.
     pub fn resolve(self) -> ResolvedPicoStr {
         self.0.resolve()
+    }
+
+    /// The internal key of the [`PicoStr`] that uniquely identifies it.
+    pub fn opaque_key(self) -> NonZeroU64 {
+        self.0.opaque_key()
     }
 
     /// Turns the tag into its inner interned string.
