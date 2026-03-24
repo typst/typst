@@ -107,7 +107,7 @@ impl<S: WarningSink> PropertiesBuilder<S> {
         self
     }
 
-    /// Finish building the properties and propagate warnings.
+    /// Finish building the properties.
     pub fn finish(self) -> Properties {
         self.props
     }

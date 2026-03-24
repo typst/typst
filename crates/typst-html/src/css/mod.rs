@@ -1,5 +1,5 @@
-pub use encode::{Properties, ToCss};
-pub use resolve::resolve_inline_styles;
+pub use encode::{Properties, Property, ToCss};
+pub use resolve::resolve_stylesheet;
 
 mod encode;
 mod resolve;
