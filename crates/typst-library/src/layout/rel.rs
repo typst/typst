@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ecow::{EcoString, eco_format};
-use typst_utils::Numeric;
+use typst_utils::{Numeric, NumericLength};
 
 use crate::foundations::{Fold, Repr, Resolve, StyleChain, cast, ty};
 use crate::layout::{Abs, Em, Length, Ratio};
@@ -68,14 +68,14 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// ```
 #[ty(cast, name = "relative", title = "Relative Length")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Rel<T: Numeric = Length> {
+pub struct Rel<T: NumericLength = Length> {
     /// The relative part.
     pub rel: Ratio,
     /// The absolute part.
     pub abs: T,
 }
 
-impl<T: Numeric> Rel<T> {
+impl<T: NumericLength> Rel<T> {
     /// The zero relative.
     pub fn zero() -> Self {
         Self { rel: Ratio::zero(), abs: T::zero() }
@@ -110,7 +110,7 @@ impl<T: Numeric> Rel<T> {
     pub fn map<F, U>(self, f: F) -> Rel<U>
     where
         F: FnOnce(T) -> U,
-        U: Numeric,
+        U: NumericLength,
     {
         Rel { rel: self.rel, abs: f(self.abs) }
     }
@@ -129,7 +129,7 @@ impl Rel<Length> {
     }
 }
 
-impl<T: Numeric + Debug> Debug for Rel<T> {
+impl<T: NumericLength + Debug> Debug for Rel<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match (self.rel.is_zero(), self.abs.is_zero()) {
             (false, false) => write!(f, "{:?} + {:?}", self.rel, self.abs),
@@ -139,7 +139,7 @@ impl<T: Numeric + Debug> Debug for Rel<T> {
     }
 }
 
-impl<T: Numeric + Repr> Repr for Rel<T> {
+impl<T: NumericLength + Repr> Repr for Rel<T> {
     fn repr(&self) -> EcoString {
         eco_format!("{} + {}", self.rel.repr(), self.abs.repr())
     }
@@ -157,19 +157,19 @@ impl From<Em> for Rel<Length> {
     }
 }
 
-impl<T: Numeric> From<T> for Rel<T> {
+impl<T: NumericLength> From<T> for Rel<T> {
     fn from(abs: T) -> Self {
         Self { rel: Ratio::zero(), abs }
     }
 }
 
-impl<T: Numeric> From<Ratio> for Rel<T> {
+impl<T: NumericLength> From<Ratio> for Rel<T> {
     fn from(rel: Ratio) -> Self {
         Self { rel, abs: T::zero() }
     }
 }
 
-impl<T: Numeric + PartialOrd> PartialOrd for Rel<T> {
+impl<T: NumericLength + PartialOrd> PartialOrd for Rel<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.rel.is_zero() && other.rel.is_zero() {
             self.abs.partial_cmp(&other.abs)
@@ -181,7 +181,7 @@ impl<T: Numeric + PartialOrd> PartialOrd for Rel<T> {
     }
 }
 
-impl<T: Numeric> Neg for Rel<T> {
+impl<T: NumericLength> Neg for Rel<T> {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -189,7 +189,7 @@ impl<T: Numeric> Neg for Rel<T> {
     }
 }
 
-impl<T: Numeric> Add for Rel<T> {
+impl<T: NumericLength> Add for Rel<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self::Output {
@@ -200,7 +200,7 @@ impl<T: Numeric> Add for Rel<T> {
     }
 }
 
-impl<T: Numeric> Sub for Rel<T> {
+impl<T: NumericLength> Sub for Rel<T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self::Output {
@@ -208,7 +208,7 @@ impl<T: Numeric> Sub for Rel<T> {
     }
 }
 
-impl<T: Numeric> Mul<f64> for Rel<T> {
+impl<T: NumericLength> Mul<f64> for Rel<T> {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self::Output {
@@ -216,7 +216,7 @@ impl<T: Numeric> Mul<f64> for Rel<T> {
     }
 }
 
-impl<T: Numeric> Mul<Rel<T>> for f64 {
+impl<T: NumericLength> Mul<Rel<T>> for f64 {
     type Output = Rel<T>;
 
     fn mul(self, other: Rel<T>) -> Self::Output {
@@ -224,7 +224,7 @@ impl<T: Numeric> Mul<Rel<T>> for f64 {
     }
 }
 
-impl<T: Numeric> Div<f64> for Rel<T> {
+impl<T: NumericLength> Div<f64> for Rel<T> {
     type Output = Self;
 
     fn div(self, other: f64) -> Self::Output {
@@ -232,35 +232,35 @@ impl<T: Numeric> Div<f64> for Rel<T> {
     }
 }
 
-impl<T: Numeric + AddAssign> AddAssign for Rel<T> {
+impl<T: NumericLength + AddAssign> AddAssign for Rel<T> {
     fn add_assign(&mut self, other: Self) {
         self.rel += other.rel;
         self.abs += other.abs;
     }
 }
 
-impl<T: Numeric + SubAssign> SubAssign for Rel<T> {
+impl<T: NumericLength + SubAssign> SubAssign for Rel<T> {
     fn sub_assign(&mut self, other: Self) {
         self.rel -= other.rel;
         self.abs -= other.abs;
     }
 }
 
-impl<T: Numeric + MulAssign<f64>> MulAssign<f64> for Rel<T> {
+impl<T: NumericLength + MulAssign<f64>> MulAssign<f64> for Rel<T> {
     fn mul_assign(&mut self, other: f64) {
         self.rel *= other;
         self.abs *= other;
     }
 }
 
-impl<T: Numeric + DivAssign<f64>> DivAssign<f64> for Rel<T> {
+impl<T: NumericLength + DivAssign<f64>> DivAssign<f64> for Rel<T> {
     fn div_assign(&mut self, other: f64) {
         self.rel /= other;
         self.abs /= other;
     }
 }
 
-impl<T: Numeric> Add<T> for Ratio {
+impl<T: NumericLength> Add<T> for Ratio {
     type Output = Rel<T>;
 
     fn add(self, other: T) -> Self::Output {
@@ -268,7 +268,7 @@ impl<T: Numeric> Add<T> for Ratio {
     }
 }
 
-impl<T: Numeric> Add<T> for Rel<T> {
+impl<T: NumericLength> Add<T> for Rel<T> {
     type Output = Self;
 
     fn add(self, other: T) -> Self::Output {
@@ -276,7 +276,7 @@ impl<T: Numeric> Add<T> for Rel<T> {
     }
 }
 
-impl<T: Numeric> Add<Ratio> for Rel<T> {
+impl<T: NumericLength> Add<Ratio> for Rel<T> {
     type Output = Self;
 
     fn add(self, other: Ratio) -> Self::Output {
@@ -284,10 +284,18 @@ impl<T: Numeric> Add<Ratio> for Rel<T> {
     }
 }
 
+impl<T: NumericLength> Sub<T> for Rel<T> {
+    type Output = Self;
+
+    fn sub(self, other: T) -> Self::Output {
+        self - Rel::from(other)
+    }
+}
+
 impl<T> Resolve for Rel<T>
 where
-    T: Resolve + Numeric,
-    <T as Resolve>::Output: Numeric,
+    T: Resolve + NumericLength,
+    <T as Resolve>::Output: NumericLength,
 {
     type Output = Rel<<T as Resolve>::Output>;
 
@@ -298,7 +306,7 @@ where
 
 impl<T> Fold for Rel<T>
 where
-    T: Numeric + Fold,
+    T: NumericLength + Fold,
 {
     fn fold(self, outer: Self) -> Self {
         Self { rel: self.rel, abs: self.abs.fold(outer.abs) }
