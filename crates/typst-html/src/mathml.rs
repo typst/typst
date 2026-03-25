@@ -302,7 +302,7 @@ fn handle_realized(
     let embellished = is_embellished_operator(item);
 
     let target = CssContext::from_math_size(props.size);
-    let scriptlevel = (target.math_depth != ctx.css.math_depth)
+    let scriptlevel = (target.math_depth != ctx.css.math_depth.min(2))
         .then(|| eco_format!("{}", target.math_depth));
     let displaystyle = (target.math_style_normal != ctx.css.math_style_normal)
         .then(|| eco_format!("{}", target.math_style_normal));
