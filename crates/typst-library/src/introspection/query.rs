@@ -150,7 +150,7 @@ use crate::introspection::Introspector;
 /// [`first()`]($array.first) method to extract just it.
 ///
 /// ```sh
-/// $ typst eval 'query(<note>).first().value' --in example.ty
+/// $ typst eval 'query(<note>).first().value' --in example.typ
 /// "This is a note"
 /// ```
 ///
