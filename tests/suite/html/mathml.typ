@@ -45,3 +45,10 @@ $ a -> b $
 $ a stretch(->) b $
 $ a stretch(->, size: #3em) b $
 $ a stretch(->, size: #200%) b $
+
+--- mathml-custom-class html ---
+#let loves = math.class(
+  "relation",
+  sym.suit.heart,
+)
+$x loves y and y loves 5$
