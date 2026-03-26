@@ -137,6 +137,10 @@ impl TestBody {
                 NoteRange::None => {
                     writeln!(new, "// {kind}: {message}").unwrap();
                 }
+                NoteRange::Some { external_file: Some(_), .. } => {
+                    // Don't compare external line numbers to test lines.
+                    writeln!(new, "// {kind}: {range} {message}").unwrap();
+                }
                 NoteRange::Some { positions: Range { start, .. }, .. } => {
                     while let Some(&(line_index, line)) = lines.peek()
                         && line_index < start.line
