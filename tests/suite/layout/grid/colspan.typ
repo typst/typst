@@ -73,19 +73,19 @@
 )
 
 --- grid-colspan-out-of-bounds paged ---
-// Error: 3:8-3:32 cell's colspan would cause it to exceed the available column(s)
-// Hint: 3:8-3:32 try placing the cell in another position or reducing its colspan
 #grid(
   columns: 3,
+  // Error: 8-32 cell's colspan would cause it to exceed the available column(s)
+  // Hint: 8-32 try placing the cell in another position or reducing its colspan
   [a], grid.cell(colspan: 3)[b]
 )
 
 --- grid-colspan-overlap paged ---
-// Error: 4:8-4:32 cell would span a previously placed cell at column 2, row 0
-// Hint: 4:8-4:32 try specifying your cells in a different order or reducing the cell's rowspan or colspan
 #grid(
   columns: 3,
   grid.cell(x: 2, y: 0)[x],
+  // Error: 8-32 cell would span a previously placed cell at column 2, row 0
+  // Hint: 8-32 try specifying your cells in a different order or reducing the cell's rowspan or colspan
   [a], grid.cell(colspan: 2)[b]
 )
 
