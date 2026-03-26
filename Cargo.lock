@@ -3138,6 +3138,7 @@ dependencies = [
 name = "typst-kit"
 version = "0.14.2"
 dependencies = [
+ "chrono",
  "codespan-reporting",
  "dirs",
  "ecow",

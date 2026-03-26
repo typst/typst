@@ -16,6 +16,7 @@ typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+chrono = { workspace = true, optional = true }
 codespan-reporting = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }
 ecow = { workspace = true }
@@ -74,6 +75,9 @@ watcher = ["dep:notify", "dep:same-file"]
 
 # Enables live-reloading HTTP serving via `server::HttpServer`.
 http-server = ["dep:tiny_http", "dep:infer"]
+
+# Enables obtaining the current date via `datetime::Now::today`
+datetime = ["dep:chrono"]
 
 # Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
 # Windows and macOS build.
