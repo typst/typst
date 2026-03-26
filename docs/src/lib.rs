@@ -195,7 +195,7 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
         md_page_with_title(
             resolver,
             &base,
-            load!("guides/guide-for-latex-users.md"),
+            load!("guides/for-latex-users.md"),
             Some("For LaTeX Users"),
         ),
         md_page_with_title(
