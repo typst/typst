@@ -22,7 +22,7 @@ pub fn layout_move(
     let mut frame = crate::layout_frame(engine, &elem.body, locator, styles, region)?;
     let delta = Axes::new(elem.dx.resolve(styles), elem.dy.resolve(styles));
     let delta = delta.zip_map(region.size, Rel::relative_to);
-    frame.translate(delta.to_point());
+    frame.translate_visual(delta.to_point());
     Ok(frame)
 }
 

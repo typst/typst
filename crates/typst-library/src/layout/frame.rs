@@ -300,6 +300,15 @@ impl Frame {
         }
     }
 
+    /// Move the contents of the frame without changing the baseline.
+    pub fn translate_visual(&mut self, offset: Point) {
+        if !offset.is_zero() {
+            for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
+                *point += offset;
+            }
+        }
+    }
+
     /// Hide all content in the frame, but keep metadata.
     pub fn hide(&mut self) {
         Arc::make_mut(&mut self.items).retain_mut(|(_, item)| match item {
