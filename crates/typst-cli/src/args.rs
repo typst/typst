@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use clap::builder::styling::{AnsiColor, Effects};
-use clap::builder::{Styles, TypedValueParser, ValueParser};
+use clap::builder::{FalseyValueParser, Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use semver::Version;
@@ -473,12 +473,12 @@ pub struct FontArgs {
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
-    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
+    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS", value_parser = FalseyValueParser::new())]
     pub ignore_system_fonts: bool,
 
     /// Ensures fonts embedded into Typst won't be considered.
     #[cfg(feature = "embedded-fonts")]
-    #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
+    #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS", value_parser = FalseyValueParser::new())]
     pub ignore_embedded_fonts: bool,
 }
 
