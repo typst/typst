@@ -204,11 +204,30 @@ fn measure_and_layout(
             .pre_concat(transform)
             .pre_concat(Transform::translate(-x, -y));
 
+        // Compute a new baseline that goes through the transformed baseline
+        // (when seen as a hypothetical line crossing the frame at the baseline
+        // height). To do this, we use the height of one point at baseline
+        // height - in this case, the middle point. When scaling, the chosen
+        // point doesn't matter as the height of all transformed points at
+        // baseline height will be the same, but when rotating, this guarantees
+        // the new baseline will cross the middle of the old baseline.
+        let new_baseline = if frame.has_baseline() {
+            let p = Point::new(frame.width() / 2.0, frame.baseline()).transform(ts);
+            Some(p.y)
+        } else {
+            None
+        };
+
         // Compute the bounding box and offset and wrap in a new frame.
         let (offset, size) = compute_bounding_box(frame.size(), ts);
         frame.transform(ts);
-        frame.translate(offset);
+        frame.translate_visual(offset);
         frame.set_size(size);
+
+        if let Some(new_baseline) = new_baseline {
+            frame.set_baseline(new_baseline + offset.y);
+        }
+
         Ok(frame)
     } else {
         // Layout the body.
