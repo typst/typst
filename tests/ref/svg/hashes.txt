@@ -49,7 +49,7 @@ bdbf85bf89e9e79e9d3215757bf5e88b block-sticky-alone
 bcb6b706818cdce3087a210308caf548 block-sticky-breakable
 925e283d183c327e1729fa1184122600 block-sticky-colbreak
 1aab340cd890600b1e4761161129ada7 block-sticky-many
-9b8f0a2de0237f20ac789e7264f5015e box
+d2de61d9018a98c85ce0825646223e9a box
 52ae12c54f6e8f1cbe6b8a89ea2609d6 box-clip-outset
 4fbef7f29d4dac197bd1322b3f4db952 box-clip-radius
 6b1f56871f9def6e4f4038dc3196e6fc box-clip-radius-without-stroke
@@ -58,7 +58,7 @@ e2a87c71f41228aeafc0d05c2e79c16f box-fr-width
 f1db845dc13110a03a41d600da27c593 call-basic
 7bf4c6febda8b6ce8bbb2b37c21de1b7 cases-content-symbol
 7250e7052013a9e721929273402b5075 cases-content-text
-03dff3c5b8354ccda754d6bbbec5a9f0 circle
+11a80584dd2d1e461295f347db69da2b circle
 d5ecbb617b636e08f249222411778b0b circle-auto-sizing
 a74c4e7e01177baec7e7e77de1a919de circle-beyond-page-width-overflows
 cf38333b2576f53fdfd128e1536157dc circle-directly-in-rect
@@ -874,8 +874,8 @@ bd1adf28312c9c8987e082fd209b794c line-numbers-auto-alignment
 a34807ee8e729e9be3624bc124775bad line-numbers-columns-override
 db77e362a65c4d39529a35a3be1ac5d8 line-numbers-columns-rtl
 8561483385f38eddf4f98bf128714dac line-numbers-deduplication
-d462b29a193710bb967a3373d200be2c line-numbers-deduplication-tall-line
-791001f89e6a90b065acfeb465afd04b line-numbers-deduplication-zero-height-number
+6faa53f59368be57fc1fd2cb322e839a line-numbers-deduplication-tall-line
+69ffe10b07cd46518c1b6fdb4edb7231 line-numbers-deduplication-zero-height-number
 fbda9ce172f9cf9ab67ddd9dbe75fa23 line-numbers-default-alignment
 d80954d544d54b62125c0a0704cd1d31 line-numbers-enable
 68f98a4a34530a361022d20966fa0bf5 line-numbers-equation-number
@@ -1575,7 +1575,7 @@ f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
 2a718c470e7876048c16d5a67f59af90 show-text-path-resolving
 b52757e62217615fa7d40b9d423670eb show-text-regex
 2aa60ecc7a52b54bb47e03d86bcd72a2 show-text-regex-case-insensitive
-03d8e1273001ff2f0275c364d3936a21 show-text-regex-character-class
+b103b81bbd7adbaa790772685464f79b show-text-regex-character-class
 92ff9817e7d53e8b4ed844ca026265c5 show-text-regex-word-boundary
 3ab7d0ab87f95c28921803785efe65b1 show-text-smartquote
 4ae6ed29fb82924293c33dd605138878 show-text-space-collapsing
@@ -1638,13 +1638,13 @@ f03c49fa8325e6ce12d77347620eb88c spacing-fr-weak-standalone-start
 0d99ab5c8911a83c4b51fe5fa093e1af spacing-fr-weak-survives-with-strong
 6d29093865413c2c90d0ef85483f8126 spacing-fr-weak-versus-fr-block-spacing
 bd123804651c3b32d038fe8b6f436e6e spacing-fr-weak-with-fr-block
-abe57f6155557c7cfdafa1af7513fd53 spacing-h-and-v
+9c11addd4666eadb7de26ffbdd235347 spacing-h-and-v
 d1c6b37b6053e22b57c7dfcd42b81dea spacing-rtl
 b0eeb009eee45154bb5cd59e4ced93e2 spacing-weak-versus-block-spacing
-9e4ae3289ca5d1a32079557997c30c14 square
+ddb9cd6a2cd2a12dc2a12d63cdfce0e5 square
 c5c207b9af2c3d59e945eec63ea345dc square-auto-sized
 d652c079d03f25a23f9879d5bdd1d1e4 square-base
-892aef77d76afb65dbc8ffab11e2598e square-circle-alignment
+35c0020eca66bae787cf66a882b6827d square-circle-alignment
 6032f95f9673a4ac872f868ee5c1fb01 square-circle-overspecified
 80796156b7aad72f2b1895deaf5f3971 square-contents-overflow
 35475f379e52e4123178d0c31a908d09 square-height-limited
