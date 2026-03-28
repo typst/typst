@@ -22,7 +22,7 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-use write_fonts::{FontBuilder, dump_table};
+use write_fonts::FontBuilder;
 
 use crate::path::SvgPathBuilder;
 use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
@@ -289,112 +289,7 @@ impl SVGRenderer<'_> {
 
         let mut style = String::new();
         for (font, glyphs) in &self.fonts_for_subset {
-            let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
-            let ttf = font.ttf();
-
-            let mut head: Head = fr.head().unwrap().to_owned_table();
-            let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
-            let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
-            let os2: Os2 = fr.os2().unwrap().to_owned_table();
-            let name: Name = fr.name().unwrap().to_owned_table();
-            let post: Post = fr.post().unwrap().to_owned_table();
-
-            let mut needed_pairs = HashMap::with_capacity(glyphs.len());
-            for subtable in ttf.tables().cmap.unwrap().subtables {
-                subtable.codepoints(|cp| {
-                    let Some(gid) = subtable.glyph_index(cp) else { return };
-                    if glyphs.contains(&(gid.0 as u32)) {
-                        // safety: the code point is valid since it is defined in the font's cmap
-                        needed_pairs.insert(
-                            unsafe { char::from_u32_unchecked(cp) },
-                            write_fonts::types::GlyphId::new(gid.0 as u32),
-                        );
-                    }
-                });
-            }
-
-            let n_glyphs = needed_pairs.len() + 1;
-
-            let mut glyf = GlyfLocaBuilder::new();
-
-            glyf.add_glyph(&SimpleGlyph {
-                bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
-                contours: vec![
-                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)].into(),
-                ],
-                instructions: Vec::new(),
-            })
-            .unwrap();
-
-            let old_metrics = hmtx.h_metrics.clone();
-            hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
-            hhea.number_of_h_metrics = n_glyphs as u16;
-
-            for (i, (_, gid)) in needed_pairs.iter_mut().enumerate() {
-                glyf.add_glyph(&Glyph::Empty).unwrap();
-
-                let ttf_gid = GlyphId(gid.to_u32() as u16);
-
-                let advance = ttf.glyph_hor_advance(ttf_gid).unwrap();
-                let side_bearing = ttf.glyph_hor_side_bearing(ttf_gid).unwrap();
-
-                hmtx.h_metrics[i + 1] = LongMetric { advance, side_bearing };
-                *gid = (i as u16 + 1).into();
-            }
-
-            hmtx.left_side_bearings.clear(); // only clear() after the loop above
-
-            let (glyf, loca, loca_fmt) = glyf.build();
-            head.index_to_loc_format = loca_fmt as i16;
-
-            println!(
-                "n_glyphs: {n_glyphs}, glyf: {:?}, loca: {:?}, font: {:?}, glyphs: {glyphs:?}",
-                dump_table(&glyf),
-                dump_table(&loca),
-                font.index()
-            );
-
-            let cmap = Cmap::from_mappings(needed_pairs).unwrap();
-
-            let new_font = FontBuilder::new()
-                .add_table(&head)
-                .unwrap()
-                .add_table(&hhea)
-                .unwrap()
-                .add_table(&cmap)
-                .unwrap()
-                .add_table(&hmtx)
-                .unwrap()
-                .add_table(&Maxp {
-                    num_glyphs: n_glyphs as u16,
-                    max_points: Some(2),
-                    max_contours: Some(1),
-                    max_composite_points: Some(0),
-                    max_composite_contours: Some(0),
-                    max_zones: Some(1),
-                    max_twilight_points: Some(0),
-                    max_storage: Some(0),
-                    max_function_defs: Some(0),
-                    max_instruction_defs: Some(0),
-                    max_stack_elements: Some(0),
-                    max_size_of_instructions: Some(0),
-                    max_component_elements: Some(0),
-                    max_component_depth: Some(1),
-                })
-                .unwrap()
-                .add_table(&os2)
-                .unwrap()
-                .add_table(&name)
-                .unwrap()
-                .add_table(&post)
-                .unwrap()
-                .add_table(&glyf)
-                .unwrap()
-                .add_table(&loca)
-                .unwrap()
-                .build();
-
-            let b64 = B64_STANDARD.encode(&new_font);
+            let b64 = B64_STANDARD.encode(&subset_font(font, glyphs));
             write!(
                 &mut style,
                 "@font-face {{ font-family: '{}'; src: url('data:font/ttf;base64,{b64}') format('truetype'); }}",
@@ -424,4 +319,104 @@ impl FontExt for Font {
 
         format!("typst-embedded-font-{hash}").into()
     }
+}
+
+/// Subset the font to only include the used glyphs.
+fn subset_font(font: &Font, glyphs: &[u32]) -> Vec<u8> {
+    let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
+    let ttf = font.ttf();
+
+    let mut head: Head = fr.head().unwrap().to_owned_table();
+    let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
+    let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
+    let os2: Os2 = fr.os2().unwrap().to_owned_table();
+    let name: Name = fr.name().unwrap().to_owned_table();
+    let post: Post = fr.post().unwrap().to_owned_table();
+
+    let mut needed_pairs = HashMap::with_capacity(glyphs.len());
+    for subtable in ttf.tables().cmap.unwrap().subtables {
+        subtable.codepoints(|cp| {
+            let Some(gid) = subtable.glyph_index(cp) else { return };
+            if glyphs.contains(&(gid.0 as u32)) {
+                needed_pairs.insert(
+                    char::from_u32(cp).unwrap_or('\0'),
+                    write_fonts::types::GlyphId::new(gid.0 as u32),
+                );
+            }
+        });
+    }
+
+    let n_glyphs = needed_pairs.len() + 1;
+
+    let mut glyf = GlyfLocaBuilder::new();
+
+    glyf.add_glyph(&SimpleGlyph {
+        bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
+        contours: vec![
+            vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)].into(),
+        ],
+        instructions: Vec::new(),
+    })
+    .unwrap();
+
+    let old_metrics = hmtx.h_metrics.clone();
+    hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
+    hhea.number_of_h_metrics = n_glyphs as u16;
+
+    for (i, (_, gid)) in needed_pairs.iter_mut().enumerate() {
+        glyf.add_glyph(&Glyph::Empty).unwrap();
+
+        let ttf_gid = GlyphId(gid.to_u32() as u16);
+
+        let advance = ttf.glyph_hor_advance(ttf_gid).unwrap_or(0);
+        let side_bearing = ttf.glyph_hor_side_bearing(ttf_gid).unwrap_or(0);
+
+        hmtx.h_metrics[i + 1] = LongMetric { advance, side_bearing };
+        *gid = (i as u16 + 1).into();
+    }
+
+    hmtx.left_side_bearings.clear(); // only clear() after the loop above
+
+    let (glyf, loca, loca_fmt) = glyf.build();
+    head.index_to_loc_format = loca_fmt as i16;
+
+    let cmap = Cmap::from_mappings(needed_pairs).unwrap();
+
+    FontBuilder::new()
+        .add_table(&head)
+        .unwrap()
+        .add_table(&hhea)
+        .unwrap()
+        .add_table(&cmap)
+        .unwrap()
+        .add_table(&hmtx)
+        .unwrap()
+        .add_table(&Maxp {
+            num_glyphs: n_glyphs as u16,
+            max_points: Some(2),
+            max_contours: Some(1),
+            max_composite_points: Some(0),
+            max_composite_contours: Some(0),
+            max_zones: Some(1),
+            max_twilight_points: Some(0),
+            max_storage: Some(0),
+            max_function_defs: Some(0),
+            max_instruction_defs: Some(0),
+            max_stack_elements: Some(0),
+            max_size_of_instructions: Some(0),
+            max_component_elements: Some(0),
+            max_component_depth: Some(1),
+        })
+        .unwrap()
+        .add_table(&os2)
+        .unwrap()
+        .add_table(&name)
+        .unwrap()
+        .add_table(&post)
+        .unwrap()
+        .add_table(&glyf)
+        .unwrap()
+        .add_table(&loca)
+        .unwrap()
+        .build()
 }
