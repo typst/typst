@@ -1,11 +1,13 @@
 use ecow::EcoVec;
-use typst::introspection::{DocumentPosition, HtmlPosition};
-use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
+use typst::WorldExt;
+use typst::foundations::AsOutput;
+use typst::introspection::{DocumentPosition, HtmlPosition, PagedPosition};
+use typst::layout::{Frame, FrameItem, Point, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
-use typst::{AsDocument, WorldExt};
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode, HtmlSliceExt};
+use typst_layout::PagedDocument;
 
 use crate::IdeWorld;
 
@@ -17,7 +19,7 @@ pub enum Jump {
     /// Jump to an external URL.
     Url(Url),
     /// Jump to a point on a page.
-    Position(Position),
+    Position(PagedPosition),
 }
 
 impl Jump {
@@ -46,9 +48,9 @@ impl JumpFromDocument for PagedDocument {}
 impl JumpFromDocument for HtmlDocument {}
 
 mod jump_from_document_sealed {
-    use typst::introspection::{HtmlPosition, InnerHtmlPosition};
-    use typst::layout::{PagedDocument, Position};
+    use typst::introspection::{HtmlPosition, InnerHtmlPosition, PagedPosition};
     use typst_html::{HtmlDocument, HtmlNode, HtmlSliceExt};
+    use typst_layout::PagedDocument;
 
     use super::{Jump, jump_from_click_in_frame};
     use crate::IdeWorld;
@@ -65,14 +67,14 @@ mod jump_from_document_sealed {
     }
 
     impl JumpFromDocument for PagedDocument {
-        type Position = Position;
+        type Position = PagedPosition;
 
         fn resolve_position(
             &self,
             world: &dyn IdeWorld,
             position: &Self::Position,
         ) -> Option<Jump> {
-            let page = self.pages.get(position.page.get() - 1)?;
+            let page = self.pages().get(position.page.get() - 1)?;
             let click = position.point;
             jump_from_click_in_frame(world, self, &page.frame, click)
         }
@@ -86,7 +88,7 @@ mod jump_from_document_sealed {
             world: &dyn IdeWorld,
             position: &Self::Position,
         ) -> Option<Jump> {
-            let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
+            let mut current_node = self.root_node();
             let mut prefix_len = 0;
 
             let indices_count = position.element().count();
@@ -98,7 +100,7 @@ mod jump_from_document_sealed {
                             .children
                             .iter_with_dom_indices()
                             .enumerate()
-                            .find(|(_, (child, dom_index))| {
+                            .find(|&(_, (child, dom_index))| {
                                 !matches!(child, HtmlNode::Tag(_)) && dom_index == index
                             })?;
 
@@ -206,11 +208,11 @@ mod jump_from_document_sealed {
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click_in_frame(
     world: &dyn IdeWorld,
-    document: impl AsDocument,
+    output: impl AsOutput,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
-    let document = document.as_document();
+    let output = output.as_output();
 
     // Try to find a link first.
     for (pos, item) in frame.items() {
@@ -221,8 +223,8 @@ pub fn jump_from_click_in_frame(
                 Destination::Url(url) => return Some(Jump::Url(url.clone())),
                 Destination::Position(pos) => return Some(Jump::Position(*pos)),
                 Destination::Location(loc) => {
-                    if let DocumentPosition::Paged(pos) =
-                        document.introspector().position(*loc)
+                    if let Some(DocumentPosition::Paged(pos)) =
+                        output.introspector().position(*loc)
                     {
                         return Some(Jump::Position(pos));
                     }
@@ -249,7 +251,7 @@ pub fn jump_from_click_in_frame(
                 };
                 let pos = pos.transform_inf(inv_transform);
                 if let Some(span) =
-                    jump_from_click_in_frame(world, document, &group.frame, pos)
+                    jump_from_click_in_frame(world, output, &group.frame, pos)
                 {
                     return Some(span);
                 }
@@ -373,10 +375,10 @@ mod jump_in_document_sealed {
     use std::num::NonZeroUsize;
 
     use ecow::EcoVec;
-    use typst::introspection::HtmlPosition;
-    use typst::layout::{PagedDocument, Position};
+    use typst::introspection::{HtmlPosition, PagedPosition};
     use typst::syntax::Span;
     use typst_html::HtmlDocument;
+    use typst_layout::PagedDocument;
 
     use super::{find_in_elem, find_in_frame};
 
@@ -388,14 +390,14 @@ mod jump_in_document_sealed {
     }
 
     impl JumpInDocument for PagedDocument {
-        type Position = Position;
+        type Position = PagedPosition;
 
         fn find_span(&self, span: Span) -> Vec<Self::Position> {
-            self.pages
+            self.pages()
                 .iter()
                 .enumerate()
                 .filter_map(|(i, page)| {
-                    find_in_frame(&page.frame, span).map(|point| Position {
+                    find_in_frame(&page.frame, span).map(|point| PagedPosition {
                         page: NonZeroUsize::new(i + 1).unwrap(),
                         point,
                     })
@@ -408,7 +410,7 @@ mod jump_in_document_sealed {
         type Position = HtmlPosition;
 
         fn find_span(&self, span: Span) -> Vec<Self::Position> {
-            find_in_elem(&self.root, span, &mut EcoVec::new())
+            find_in_elem(self.root(), span, &mut EcoVec::new())
         }
     }
 }
@@ -484,10 +486,11 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use ecow::eco_vec;
-    use typst::introspection::HtmlPosition;
-    use typst::layout::{Abs, PagedDocument, Point, Position};
+    use typst::introspection::{HtmlPosition, PagedPosition};
+    use typst::layout::{Abs, Point};
     use typst::utils::NonZeroExt;
     use typst_html::HtmlDocument;
+    use typst_layout::PagedDocument;
 
     use super::{Jump, jump_from_click, jump_from_cursor};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -500,8 +503,8 @@ mod tests {
         Some(Jump::File(TestWorld::main_id(), cursor))
     }
 
-    fn pos(page: usize, x: f64, y: f64) -> Option<Position> {
-        Some(Position {
+    fn pos(page: usize, x: f64, y: f64) -> Option<PagedPosition> {
+        Some(PagedPosition {
             page: NonZeroUsize::new(page).unwrap(),
             point: point(x, y),
         })
@@ -534,7 +537,7 @@ mod tests {
         let jump = jump_from_click(
             world,
             &doc,
-            &Position { page: NonZeroUsize::ONE, point: click },
+            &PagedPosition { page: NonZeroUsize::ONE, point: click },
         );
         assert_jump_eq(jump, expected);
     }
@@ -553,7 +556,11 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_cursor(world: impl WorldLike, pos: impl FilePos, expected: Option<Position>) {
+    fn test_cursor(
+        world: impl WorldLike,
+        pos: impl FilePos,
+        expected: Option<PagedPosition>,
+    ) {
         let world = world.acquire();
         let world = world.borrow();
         let doc: PagedDocument = typst::compile(world).output.unwrap();

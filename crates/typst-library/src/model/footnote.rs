@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use ecow::{EcoString, eco_format};
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, singleton};
 
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -13,7 +13,7 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
 };
-use crate::layout::{Abs, Em, Length, Ratio};
+use crate::layout::{Em, Length, Ratio};
 use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
@@ -247,7 +247,7 @@ pub struct FootnoteEntry {
         LineElem::new()
             .with_length(Ratio::new(0.3).into())
             .with_stroke(Stroke {
-                thickness: Smart::Custom(Abs::pt(0.5).into()),
+                thickness: Smart::Custom(Em::new(0.05).into()),
                 ..Default::default()
             })
             .pack()
@@ -333,6 +333,19 @@ impl ShowSet for Packed<FootnoteEntry> {
 cast! {
     FootnoteElem,
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
+}
+
+/// In HTML export, this is inserted at the end of the body to display
+/// footnotes. In the future, we can expose this to allow customizing where the
+/// footnotes appear. It could also be exposed for paged export.
+#[elem(Locatable)]
+pub struct FootnoteContainer {}
+
+impl FootnoteContainer {
+    /// Get the globally shared footnote container element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, FootnoteContainer::new().pack())
+    }
 }
 
 /// This is an empty element inserted by the HTML footnote rule to indicate the

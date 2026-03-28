@@ -73,8 +73,9 @@ pub use crate::__dict as dict;
 /// ```
 ///
 /// [^1]: When spreading into a dictionary, if all items between the parentheses
-/// are spread, you have to use the special `(:..spread)` syntax. Otherwise, it
-/// will spread into an array.
+/// are spread, you have to begin the container with `(:`,
+/// as in `(: ..dict, ..other_dict)`. Otherwise the container is inferred to
+/// be an array and an error is raised.
 #[ty(scope, cast, name = "dictionary")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);

@@ -102,6 +102,64 @@ B
 #set page(numbering: "1 / 1", margin: (bottom: 20pt))
 #counter(page).update(5)
 
+--- counter-page-bundle bundle ---
+#set page(
+  numbering: "1/1",
+  number-align: center,
+  header: align(center, context counter(page).display("1/1", both: true)),
+)
+
+#document("a.pdf")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (5,))
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).get(), (3,))
+  = A <a>
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).final(), (5,))
+]
+
+#document("b.pdf")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (7,))
+  #pagebreak()
+  B1 <b1>
+  #counter(page).update(4)
+  B2 <b2>
+  #counter(page).step()
+  #context test(counter(page).get(), (5,))
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).final(), (7,))
+]
+
+// We might want to forbid this, see `counter-page-html`.
+#document("c.html")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (1,))
+]
+
+// Can access the page counter at a location even from the top-level bundle.
+#context {
+  test(counter(page).at(<a>), (3,))
+  test(counter(page).at(<b1>), (2,))
+  test(counter(page).at(<b2>), (4,))
+}
+
+--- counter-page-html html empty ---
+// We might want to forbid using the page counter in HTML.
+#context test(counter(page).get(), (1,))
+#counter(page).step()
+#context test(counter(page).get(), (2,))
+
+--- counter-page-bundle-top-level bundle empty ---
+// We might want to forbid using the page counter at the top level.
+#context test(counter(page).get(), (1,))
+#counter(page).step()
+#context test(counter(page).get(), (2,))
+
 --- counter-display-at paged ---
 // Test displaying counter at a given location.
 #set heading(numbering: "1.1")

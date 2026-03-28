@@ -85,6 +85,8 @@ pub enum Selector {
     /// Matches text elements through a regular expression.
     Regex(Regex),
     /// Matches elements with a specific capability.
+    ///
+    /// This is not exposed, but used internally.
     Can(TypeId),
     /// Matches if any of the subselectors match.
     Or(EcoVec<Self>),
@@ -94,6 +96,10 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
+    /// Matches all matches of `selector` that are strictly within `ancestor`.
+    ///
+    /// This is not yet exposed, but used internally.
+    Within { selector: Arc<Self>, ancestor: Arc<Self> },
 }
 
 impl Selector {
@@ -140,7 +146,10 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
+            Self::Regex(_)
+            | Self::Before { .. }
+            | Self::After { .. }
+            | Self::Within { .. } => false,
         }
     }
 }
@@ -273,6 +282,9 @@ impl Repr for Selector {
                     inclusive_arg
                 )
             }
+            Self::Within { selector, ancestor } => {
+                eco_format!("{}.within({})", selector.repr(), ancestor.repr(),)
+            }
         }
     }
 }
@@ -368,6 +380,11 @@ impl FromValue for LocatableSelector {
                         validate(selector)?;
                     }
                 }
+                Selector::Within { selector, ancestor } => {
+                    for selector in [selector, ancestor] {
+                        validate(selector)?;
+                    }
+                }
             }
             Ok(())
         }
@@ -442,7 +459,8 @@ impl FromValue for ShowableSelector {
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
-                | Selector::After { .. } => {
+                | Selector::After { .. }
+                | Selector::Within { .. } => {
                     bail!("this selector cannot be used with show")
                 }
             }

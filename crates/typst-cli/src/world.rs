@@ -60,14 +60,8 @@ impl SystemWorld {
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
-            let features = process_args
-                .features
-                .iter()
-                .map(|&feature| match feature {
-                    Feature::Html => typst::Feature::Html,
-                    Feature::A11yExtras => typst::Feature::A11yExtras,
-                })
-                .collect();
+            let features =
+                process_args.features.iter().copied().map(Into::into).collect();
 
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
@@ -375,5 +369,15 @@ impl From<VirtualizeError> for WorldCreationError {
 impl From<WorldCreationError> for EcoString {
     fn from(err: WorldCreationError) -> Self {
         eco_format!("{err}")
+    }
+}
+
+impl From<Feature> for typst::Feature {
+    fn from(feature: Feature) -> Self {
+        match feature {
+            Feature::Html => typst::Feature::Html,
+            Feature::Bundle => typst::Feature::Bundle,
+            Feature::A11yExtras => typst::Feature::A11yExtras,
+        }
     }
 }

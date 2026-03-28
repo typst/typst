@@ -415,7 +415,7 @@ impl SingleChild<'_> {
 fn layout_single_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -515,7 +515,7 @@ impl<'a> MultiChild<'a> {
 fn layout_multi_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
