@@ -11,7 +11,7 @@ $f(x/2) < zeta(c^2 + abs(a + b/2))$
 
 --- math-lr-unmatched paged html ---
 // Test unmatched.
-$[1,2[ = [1,2) != zeta\(x/2\) $
+$[1,2[ = [1,2) != zeta\(x/2\)$
 
 --- math-lr-call paged html ---
 // Test manual matching.
