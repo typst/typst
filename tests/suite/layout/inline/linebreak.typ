@@ -90,6 +90,25 @@ We prove $1 < 2$— \
 #link("https://example.com/paren)") \
 #link("https://hi.com/%%%%%%%%abcdef") \
 
+--- linebreak-link-ip-host paged ---
+// Ensure that links with IP hosts use the same URL line-breaking behavior.
+#set page(width: 100pt)
+#set par(justify: true)
+
+#let link_padding = "lorem_ipsum_dolor_sit_amet"
+
+#let links = (
+  "http://127.0.0.1:8080/" + link_padding,
+  "HtTpS://1example.com/" + link_padding,
+  "this-is-a+cool.scheme://a.com/" + link_padding,
+)
+#for link_text in links {
+  link_text
+  linebreak()
+  link(link_text)
+  linebreak()
+}
+
 --- linebreak-link-justify paged ---
 #set page(width: 240pt)
 #set par(justify: true)

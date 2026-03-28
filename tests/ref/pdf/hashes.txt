@@ -946,6 +946,7 @@ d190e120731dd688c8f86840bd71c2de line-numbers-place-out-of-order
 1a38492b52aa7916bf0af5e3658a55c3 linebreak-hyphen-nbsp
 1ee35b1234b5896330e19fb521fc77c1 linebreak-link
 25fdce5e713936d9a464351cacf8cd3f linebreak-link-end
+a263d66647776cd4337dd8b5fb54ca03 linebreak-link-ip-host
 48a5a6ef3e2ed8a516524246f4cd152c linebreak-link-justify
 9ca738eae90f3fea26094a3cc78c9a95 linebreak-manual
 4628b238e87a91dd97047f04b3ecf6f9 linebreak-manual-consecutive
