@@ -10,7 +10,7 @@ mod write;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
@@ -139,7 +139,7 @@ struct SVGRenderer<'a> {
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Glyphs used in the text items, separated by font. Used for subsetting.
-    fonts_for_subset: HashMap<Font, Vec<u32>>,
+    fonts_for_subset: HashMap<Font, HashSet<u32>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C

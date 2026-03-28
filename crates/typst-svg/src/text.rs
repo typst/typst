@@ -1,6 +1,6 @@
 use base64::Engine;
 use ecow::EcoString;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use ttf_parser::GlyphId;
@@ -302,7 +302,7 @@ impl SVGRenderer<'_> {
 
     /// Save the glyph ID & font for later subsetting in [`SVGRenderer::write_text_metrics`].
     fn save_glyph_for_subset(&mut self, font: Font, glyph_id: u32) {
-        self.fonts_for_subset.entry(font).or_default().push(glyph_id);
+        self.fonts_for_subset.entry(font).or_default().insert(glyph_id);
     }
 }
 
@@ -322,7 +322,7 @@ impl FontExt for Font {
 }
 
 /// Subset the font to only include the used glyphs.
-fn subset_font(font: &Font, glyphs: &[u32]) -> Vec<u8> {
+fn subset_font(font: &Font, glyphs: &HashSet<u32>) -> Vec<u8> {
     let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
     let ttf = font.ttf();
 
@@ -338,10 +338,8 @@ fn subset_font(font: &Font, glyphs: &[u32]) -> Vec<u8> {
         subtable.codepoints(|cp| {
             let Some(gid) = subtable.glyph_index(cp) else { return };
             if glyphs.contains(&(gid.0 as u32)) {
-                needed_pairs.insert(
-                    char::from_u32(cp).unwrap_or('\0'),
-                    write_fonts::types::GlyphId::new(gid.0 as u32),
-                );
+                let Some(c) = char::from_u32(cp) else { return };
+                needed_pairs.insert(c, write_fonts::types::GlyphId::new(gid.0 as u32));
             }
         });
     }
