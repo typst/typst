@@ -22,7 +22,7 @@ pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 /// Attaches an accent to a base.
 ///
 /// In math mode, each accent name is its own function and can be used
-/// without `accent`. 
+/// directly without `accent`.
 ///
 /// # Example
 /// ```example
