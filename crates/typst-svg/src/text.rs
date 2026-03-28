@@ -1,14 +1,18 @@
+use base64::Engine;
+use ecow::EcoString;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use base64::Engine;
-use ecow::EcoString;
 use ttf_parser::GlyphId;
-use write_fonts::{dump_table, FontBuilder};
+use typst_library::layout::{Abs, Ratio, Size, Transform};
+use typst_library::text::color::{
+    GlyphFrame, GlyphFrameItem, glyph_frame, should_outline,
+};
+use typst_library::text::{Font, TextItem};
+use typst_library::visualize::{FillRule, Paint, RelativeTo};
 use write_fonts::from_obj::ToOwnedTable;
-use write_fonts::read::{FontRef, TableProvider};
-use write_fonts::read::tables::cmap::CmapSubtable;
 use write_fonts::read::tables::glyf::CurvePoint;
+use write_fonts::read::{FontRef, TableProvider};
 use write_fonts::tables::cmap::Cmap;
 use write_fonts::tables::glyf::{Bbox, GlyfLocaBuilder, Glyph, SimpleGlyph};
 use write_fonts::tables::head::Head;
@@ -18,12 +22,7 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-use typst_library::layout::{Abs, Ratio, Size, Transform};
-use typst_library::text::{Font, TextItem};
-use typst_library::text::color::{
-    GlyphFrame, GlyphFrameItem, glyph_frame, should_outline,
-};
-use typst_library::visualize::{FillRule, Paint, RelativeTo};
+use write_fonts::{FontBuilder, dump_table};
 
 use crate::path::SvgPathBuilder;
 use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
@@ -100,8 +99,7 @@ impl SVGRenderer<'_> {
                 .attr("transform", "scale(1,-1)");
 
             for item in span_items {
-                let mut text_el = text_el
-                    .elem("tspan");
+                let mut text_el = text_el.elem("tspan");
 
                 text_el
                     .attr("x", item.x_offset.to_pt())
@@ -309,7 +307,7 @@ impl SVGRenderer<'_> {
                         // safety: the code point is valid since it is defined in the font's cmap
                         needed_pairs.insert(
                             unsafe { char::from_u32_unchecked(cp) },
-                            write_fonts::types::GlyphId::new(gid.0 as u32)
+                            write_fonts::types::GlyphId::new(gid.0 as u32),
                         );
                     }
                 });
@@ -322,12 +320,11 @@ impl SVGRenderer<'_> {
             glyf.add_glyph(&SimpleGlyph {
                 bbox: Bbox { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
                 contours: vec![
-                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)]
-                        .into(),
+                    vec![CurvePoint::on_curve(0, 0), CurvePoint::on_curve(0, 0)].into(),
                 ],
                 instructions: Vec::new(),
             })
-                .unwrap();
+            .unwrap();
 
             let old_metrics = hmtx.h_metrics.clone();
             hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
@@ -341,10 +338,7 @@ impl SVGRenderer<'_> {
                 let advance = ttf.glyph_hor_advance(ttf_gid).unwrap();
                 let side_bearing = ttf.glyph_hor_side_bearing(ttf_gid).unwrap();
 
-                hmtx.h_metrics[i + 1] = LongMetric {
-                    advance,
-                    side_bearing,
-                };
+                hmtx.h_metrics[i + 1] = LongMetric { advance, side_bearing };
                 *gid = (i as u16 + 1).into();
             }
 
@@ -422,7 +416,6 @@ pub(crate) trait FontExt {
 }
 
 impl FontExt for Font {
-
     #[comemo::memoize]
     fn svg_font_family(&self) -> EcoString {
         let mut hasher = DefaultHasher::new();

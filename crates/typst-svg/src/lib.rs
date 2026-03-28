@@ -15,7 +15,7 @@ use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
-use crate::text::{RenderedGlyph};
+use crate::text::RenderedGlyph;
 use crate::write::{SvgDisplay, SvgElem, SvgIdRef, SvgTransform, SvgUrl, SvgWrite};
 use ecow::EcoString;
 use std::hash::Hash;
