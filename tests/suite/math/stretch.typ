@@ -186,7 +186,7 @@ $ stretch(=, size: #2em) \
 #let base = math.stretch($=$, size: 4em)
 $ stretch(base, size: #50%) $
 
-#let base = $stretch(=, size: #4em) $
+#let base = $stretch(=, size: #4em)$
 $ stretch(base, size: #50%) $
 
 --- math-stretch-attach-nested-equation paged ---
