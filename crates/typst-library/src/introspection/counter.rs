@@ -29,8 +29,18 @@ use crate::routines::Routines;
 /// Counts through pages, elements, and more.
 ///
 /// With the counter function, you can access and modify counters for pages,
-/// headings, figures, and more. Moreover, you can define custom counters for
-/// other things you want to count.
+/// headings, figures, equations, and footnotes. These are the built-in
+/// elements that have automatic counting support:
+///
+/// - [`page`]: page counter
+/// - [`heading`]: heading / section counter (supports multiple levels)
+/// - [`figure`]: figure counter (with automatic numbering via `figure.caption`)
+/// - [`math.equation`]: equation counter
+/// - [`footnote`]: footnote counter
+///
+/// Beyond these, you can pass any [locatable]($location/#locatable)
+/// element or [label] to count its occurrences. You can also define
+/// fully custom counters using a string key.
 ///
 /// Since counters change throughout the course of the document, their current
 /// value is _contextual._ It is recommended to read the chapter on [context]
