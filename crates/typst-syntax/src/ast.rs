@@ -859,8 +859,9 @@ impl<'a> Equation<'a> {
         self.0.cast_first()
     }
 
-    /// Whether the equation should be displayed as a separate block.
-    pub fn block(self) -> bool {
+    /// Whether the equation should be displayed as block-level or inline based
+    /// on the whitespace inside the dollar signs.
+    pub fn block(self) -> EquationBlock {
         // The parser likes to group adjacent trivia, so if the equation's body
         // is an empty `Math` node, e.g. in `$ /**/ $`, the CST will look like:
         // `Eqn [ Math(<empty>) Space(" ") BlockComment("/**/") Space(" ") ]`.
@@ -877,19 +878,32 @@ impl<'a> Equation<'a> {
                     // inside the dollar signs. We treat this as a block if that
                     // node is whitespace with multiple chars or is a newline.
                     // `parse::<char>` is `Ok` when there was exactly one char.
-                    return back.kind() == SyntaxKind::Space
+                    let block = back.kind() == SyntaxKind::Space
                         && back.text().parse::<char>().map_or(true, is_newline);
+                    return EquationBlock::Consistent { block };
                 }
             }
             [_ldollar, front, .., back, _rdollar] => (front, back),
-            _ => return false,
+            _ => return EquationBlock::Consistent { block: false },
         };
 
         let front_space = front.kind() == SyntaxKind::Space;
         let back_space = back.kind() == SyntaxKind::Space;
 
-        front_space && back_space
+        if front_space == back_space {
+            EquationBlock::Consistent { block: front_space }
+        } else {
+            EquationBlock::Inconsistent
+        }
     }
+}
+
+/// The spacing around an equation, and whether it should be displayed as
+/// block-level or inline. Inconsistent spacing should be treated as inline.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum EquationBlock {
+    Consistent { block: bool },
+    Inconsistent,
 }
 
 node! {

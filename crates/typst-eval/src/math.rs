@@ -1,5 +1,5 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
@@ -14,7 +14,23 @@ impl Eval for ast::Equation<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body().eval(vm)?;
-        let block = self.block();
+        let block = match self.block() {
+            ast::EquationBlock::Consistent { block } => block,
+            ast::EquationBlock::Inconsistent => {
+                vm.engine.sink.warn(warning!(
+                    self.span(), "inconsistent spacing inside dollar signs";
+                    hint: "this is being treated as an inline equation";
+                    hint: "a block-level equation requires whitespace inside \
+                           both dollar signs";
+                    hint: "an inline equation should not have whitespace inside \
+                           either dollar sign";
+                ));
+                // We treat inconsistently spaced equations as inline since one
+                // of the sides didn't have a space. This avoids shifting the
+                // layout when writing `$a + $` before typing `b`.
+                false
+            }
+        };
         Ok(EquationElem::new(body).with_block(block).pack())
     }
 }
