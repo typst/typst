@@ -157,7 +157,13 @@ Multiple trailing line breaks.
 --- math-linebreaking-trailing-linebreak paged ---
 // A single linebreak at the end still counts as one line.
 #let hrule(x) = box(line(length: x))
+// Warning: 13-31 inconsistent spacing next to opening and closing dollar signs
+// Hint: 13-31 a block-level equation requires whitespace both after the opening dollar sign and before the closing dollar sign
+// Hint: 13-31 an inline equation should not have whitespace on either side
+// Hint: 13-31 this is being treated as an inline equation
 #hrule(60pt)$e^(pi i)+1 = 0\ $
+// We could remove the warning by using `#linebreak()` or `#[\ ]`, but it's
+// questionable whether inline equations with a linebreak at the end are useful.
 
 --- math-linebreaking-in-box paged ---
 // Inline, in a box, doesn't linebreak.
