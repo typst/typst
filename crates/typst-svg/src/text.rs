@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use base64::Engine;
@@ -291,6 +292,7 @@ impl SVGRenderer<'_> {
         let mut style = String::new();
         for (font, glyphs) in &self.fonts_for_subset {
             let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
+            let ttf = font.ttf();
 
             let mut head: Head = fr.head().unwrap().to_owned_table();
             let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
@@ -299,26 +301,20 @@ impl SVGRenderer<'_> {
             let name: Name = fr.name().unwrap().to_owned_table();
             let post: Post = fr.post().unwrap().to_owned_table();
 
-            let cmap = fr.cmap().unwrap();
+            let mut needed_pairs = HashMap::with_capacity(glyphs.len());
+            for subtable in ttf.tables().cmap.unwrap().subtables {
+                subtable.codepoints(|cp| {
+                    let Some(gid) = subtable.glyph_index(cp) else { return };
+                    if glyphs.contains(&(gid.0 as u32)) {
+                        // safety: the code point is valid since it is defined in the font's cmap
+                        needed_pairs.insert(
+                            unsafe { char::from_u32_unchecked(cp) },
+                            write_fonts::types::GlyphId::new(gid.0 as u32)
+                        );
+                    }
+                });
+            }
 
-            let Some(cmap12) = cmap
-                .encoding_records()
-                .iter()
-                .map(|r| r.subtable(cmap.offset_data()))
-                .flat_map(|s| match s {
-                    Ok(CmapSubtable::Format12(cmap12)) => Some(cmap12),
-                    _ => None,
-                })
-                .nth(0)
-            else {
-                panic!("font does not contain a format 12 cmap subtable")
-            };
-
-            let mut needed_pairs = cmap12
-                .iter()
-                .filter(|(_, gid)| glyphs.contains(&gid.to_u32()))
-                .map(|(cp, gid)| (unsafe { char::from_u32_unchecked(cp) }, gid))
-                .collect::<Vec<_>>();
             let n_glyphs = needed_pairs.len() + 1;
 
             let mut glyf = GlyfLocaBuilder::new();
@@ -337,24 +333,19 @@ impl SVGRenderer<'_> {
             hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
             hhea.number_of_h_metrics = n_glyphs as u16;
 
-            for i in 0..needed_pairs.len() {
+            for (i, (_, gid)) in needed_pairs.iter_mut().enumerate() {
                 glyf.add_glyph(&Glyph::Empty).unwrap();
 
-                let orig_gid = needed_pairs[i].1.to_u32() as usize;
-                let metric = if orig_gid < old_metrics.len() {
-                    old_metrics[orig_gid].clone()
-                } else { // if orig_gid >= metrics.len(), uses side_bearing from left_side_bearings
-                    let old_last = old_metrics.last().unwrap();
-                    LongMetric {
-                        advance: old_last.advance,
-                        side_bearing: *hmtx.left_side_bearings
-                            .get(orig_gid - old_metrics.len())
-                            .unwrap_or(&old_last.side_bearing)
-                    }
-                };
+                let ttf_gid = GlyphId(gid.to_u32() as u16);
 
-                hmtx.h_metrics[i + 1] = metric;
-                needed_pairs[i].1 = (i as u16 + 1).into();
+                let advance = ttf.glyph_hor_advance(ttf_gid).unwrap();
+                let side_bearing = ttf.glyph_hor_side_bearing(ttf_gid).unwrap();
+
+                hmtx.h_metrics[i + 1] = LongMetric {
+                    advance,
+                    side_bearing,
+                };
+                *gid = (i as u16 + 1).into();
             }
 
             hmtx.left_side_bearings.clear(); // only clear() after the loop above
