@@ -557,7 +557,11 @@ impl<'a> Runner<'a> {
                     let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
                     let new = output.map(|(_, _, data)| (live_path, data));
                     let file_report = make_report::<T>(old, new);
-                    self.result.add_report(self.test.name.clone(), file_report);
+                    self.result.add_report(
+                        self.test.name.clone(),
+                        self.test.body.source.clone(),
+                        file_report,
+                    );
                 }
                 return;
             }
@@ -609,7 +613,11 @@ impl<'a> Runner<'a> {
 
             if ARGS.gen_report() {
                 let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
-                self.result.add_report(self.test.name.clone(), file_report);
+                self.result.add_report(
+                    self.test.name.clone(),
+                    self.test.body.source.clone(),
+                    file_report,
+                );
             }
         }
     }
@@ -648,7 +656,11 @@ impl<'a> Runner<'a> {
                     });
 
                     let file_report = make_report::<T>(old, new);
-                    self.result.add_report(self.test.name.clone(), file_report);
+                    self.result.add_report(
+                        self.test.name.clone(),
+                        self.test.body.source.clone(),
+                        file_report,
+                    );
                 }
 
                 return;
@@ -692,7 +704,11 @@ impl<'a> Runner<'a> {
             if ARGS.gen_report() {
                 let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
                 let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
-                self.result.add_report(self.test.name.clone(), file_report);
+                self.result.add_report(
+                    self.test.name.clone(),
+                    self.test.body.source.clone(),
+                    file_report,
+                );
             }
         }
     }

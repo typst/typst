@@ -931,13 +931,20 @@ impl Gradient {
                 }
             }
             Self::Conic(conic) => {
-                let (x, y) =
-                    (x as f64 - conic.center.x.get(), y as f64 - conic.center.y.get());
-                let angle = Gradient::correct_aspect_ratio(
-                    conic.angle,
+                // The x and y coordinates have been transformed into ratios to
+                // compute the position relative to the gradient center.
+                let x = x as f64 - conic.center.x.get();
+                let y = y as f64 - conic.center.y.get();
+
+                // Transform the angle computed from the ratio positions back
+                // into the screen space, to correct for the aspect ratio.
+                let sample_angle = Gradient::correct_aspect_ratio(
+                    Angle::atan2(y, x),
                     Ratio::new((width / height) as f64),
                 );
-                ((-Angle::atan2(y, x) + Angle::rad(PI) + angle).to_rad() % TAU) / TAU
+
+                // Negate conic angle for clockwise rotation.
+                (Angle::rad(PI) + sample_angle - conic.angle).normalized().to_rad() / TAU
             }
         };
 
