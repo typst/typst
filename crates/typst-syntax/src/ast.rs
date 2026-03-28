@@ -866,32 +866,33 @@ impl<'a> Equation<'a> {
     /// Whether the equation should be displayed as a separate block.
     pub fn block(self) -> bool {
         // The parser likes to group adjacent trivia, so if the equation's body
-        // is an empty Math node, e.g. in `$ /**/ $`, the CST will look like:
-        // `Eqn [ Math(<empty>) Space(" ") Trivia("/**/") Space(" ") ]`.
+        // is an empty `Math` node, e.g. in `$ /**/ $`, the CST will look like:
+        // `Eqn [ Math(<empty>) Space(" ") BlockComment("/**/") Space(" ") ]`.
         // Yet we still want to treat this as a block, so we check the following
         // node by skipping an empty math node at the start.
-        let mut front_iter = self.0.children().enumerate().skip(1);
-        let mut front_pair = front_iter.next();
-        if let Some((_, front)) = front_pair
-            && front.is_empty()
-            && front.kind() == SyntaxKind::Math
-        {
-            front_pair = front_iter.next();
-        }
+        let (front, back) = match self.0.children().as_slice() {
+            [_ldollar, empty, rest @ .., back, _rdollar]
+                if empty.is_empty() && empty.kind() == SyntaxKind::Math =>
+            {
+                if let [front, ..] = rest {
+                    (front, back)
+                } else {
+                    // The body is empty and there's exactly one trivia node
+                    // inside the dollar signs. We treat this as a block if that
+                    // node is whitespace with multiple chars or is a newline.
+                    // `parse::<char>` is `Ok` when there was exactly one char.
+                    return back.kind() == SyntaxKind::Space
+                        && back.text().parse::<char>().map_or(true, is_newline);
+                }
+            }
+            [_ldollar, front, .., back, _rdollar] => (front, back),
+            _ => return false,
+        };
 
-        if let Some((front_idx, front)) = front_pair
-            && let Some((back_idx, back)) = self.0.children().enumerate().nth_back(1)
-        {
-            front.kind() == SyntaxKind::Space
-                && back.kind() == SyntaxKind::Space
-                // If the front and back spaces are the same one, require that
-                // it has multiple chars or, if one char, that it is a newline.
-                // `parse::<char>` is `Ok` if there was only a single char.
-                && (front_idx != back_idx
-                    || front.text().parse::<char>().map_or(true, is_newline))
-        } else {
-            false
-        }
+        let front_space = front.kind() == SyntaxKind::Space;
+        let back_space = back.kind() == SyntaxKind::Space;
+
+        front_space && back_space
     }
 }
 
