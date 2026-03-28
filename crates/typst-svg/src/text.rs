@@ -290,7 +290,7 @@ impl SVGRenderer<'_> {
 
         let mut style = String::new();
         for (font, glyphs) in &self.fonts_for_subset {
-            let fr = FontRef::new(font.data().as_slice()).unwrap();
+            let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
 
             let mut head: Head = fr.head().unwrap().to_owned_table();
             let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
