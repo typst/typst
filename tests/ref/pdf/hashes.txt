@@ -5,6 +5,12 @@ db801611f5fdda742bb1176b26711912 align-right
 fe705ebcd178f80fc17b893ec9926ac4 array-basic-syntax
 57d07491b5cae5d1ce59cb00c465e24a array-join-content
 cc171058cdeec1488c7fb63e2f2e4b48 baseline-box
+356506a5f71f065ebbf74867153f397e baseline-breakable-display-math
+f807dadadc205a9ba870c9c3f3b77c70 baseline-display-math
+73a2e9d1fe03ddf860fd9d6ed942fc89 baseline-inline-math
+2e7dd3c79d9ffc3eee7915b4793f1429 baseline-isolated-box
+121398cc8fa49d007f64c8f0a2c7344c baseline-move
+1595de98146f467bacd8314c1e8453e1 baseline-paragraph
 e38a57b07a9d4b4f3de57cffaa79363f baseline-text
 b203edd5e928fcbca5934101970a1032 bibliography-basic
 463e305a46252ffe726bc860d1bb89c3 bibliography-before-content
@@ -687,7 +693,7 @@ f3287d1ec90855cf5461211974e97b69 issue-3601-empty-raw
 8306ef8e8a5e4fc299ac647e2cdc0cac issue-3624-spacing-behaviour
 e70636285cb8fe72ce4c6aea293dcf73 issue-3641-float-loop
 2fc76781a8dd042f189977802788d7c3 issue-3650-italic-equation
-05a19ab5e365eb2e9223e89920364774 issue-3658-math-size
+2c2d57af47c1d88cf77a537f194907e7 issue-3658-math-size
 2f0fa4e1cbc2555ca17da4fa77bb8b54 issue-3662-pdf-smartquotes
 9f84bcc040dff7dade762ccad5fdc753 issue-3696-equation-rtl
 b5720236a20805b356ad2cfe7e082cfe issue-3699-cite-twice-et-al
@@ -1106,7 +1112,7 @@ b667d61888b497543c36a612469735ba math-linebreaking-after-binop-and-rel
 2dc8007a0bd1aa96d0a8088d077fe1d6 math-linebreaking-empty
 7e07188be80bd64d2a274f329f05a2a3 math-linebreaking-in-box
 6c6e8c8595d6e36040d09fa5a838ec41 math-linebreaking-lr
-e07074e31f5f54832edb47751565f30c math-linebreaking-multiline
+4aba4d4e64fc493320d54975f2c5637a math-linebreaking-multiline
 ccb201352a2d462515eb99f8238bfcf5 math-linebreaking-trailing-linebreak
 b24d58ad654cf3766c6f2efc71bf8e0d math-lr-call
 51771e50f319759352364a19f883ce5e math-lr-color
@@ -1183,7 +1189,7 @@ ee551a3e1b2d18cedbbe3ecf4b6422ee math-pagebreaking
 e0e07c334b0cd75e0b7a926e46d5ff67 math-pagebreaking-numbered
 92050e16f7218442f8db151f3833de2b math-pagebreaking-single-line
 fa72a7e3d1246b364940887776b31210 math-pagebreaking-single-line-numbered
-b53c9a763e7b81b8df20910671efe987 math-par
+0a0da96ae73349ad701a9f6251623c71 math-par
 e077493596d264ed6a9ae8884986aeec math-primes
 0b8262073724bccef1fcdcff66685cb4 math-primes-after-code-expr
 cd41066eb1137f95ceb9182ace57db88 math-primes-attach
@@ -1214,8 +1220,8 @@ f3a8e7f596b41904a6e0afc00789dc50 math-root-line-fill-stroke
 5a5b0dc3bf762dd88f1443710d0b355f math-root-syntax-prec
 e82e89ccdba4894c5fc949e5b550f822 math-shorthands
 e08c1d4fd89e13d75a55963c72222567 math-shorthands-noncontinuable
-a72277a7d8b93ec875bc464f977d4ef4 math-size
-f2343e17a7462df2319d6b4447446368 math-size-arbitrary-content
+3eae36965f3e6c21157813c5377267a3 math-size
+d621a9ec49e778b160bef01059908c6f math-size-arbitrary-content
 249e19b26b536efc925b923fbdc72229 math-size-math-content-1
 d2e36a8f141e9230eabc0987e036af57 math-size-math-content-2
 ec1ec2adc9d9bb0aa3a992b89372cf3d math-size-math-content-3
