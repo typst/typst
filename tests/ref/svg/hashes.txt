@@ -5,6 +5,12 @@ b7ad515c15227c9866d667fcc2cd0fb3 align-right
 eaa2b0f8075ea08f4c00a34fcfa782bf array-basic-syntax
 261e80e8575c3673459b111b3206fb19 array-join-content
 49fa44fd8e510e66604da5f762213735 baseline-box
+56068061e22707f8f220515a28055a52 baseline-breakable-display-math
+c6e0405f87da9d98bb84bd10e7634037 baseline-display-math
+fe96c5634b042633703eefa2e47c9c70 baseline-inline-math
+9c823c1e2767f241dec82395cd160422 baseline-isolated-box
+29120ceb97805198aafe9ff7221a5f10 baseline-move
+c0d372053962191d2ba94211b5019252 baseline-paragraph
 fe5a4ef28f152f504fa01046f2fb9438 baseline-text
 77199d8760997fd6a227e6932282028f bibliography-basic
 2aaceabd952671676e58375e09f94467 bibliography-before-content
@@ -692,7 +698,7 @@ c34ae7bba2e0f2e02551e712d8f7307e issue-3601-empty-raw
 43a95471fbda3eb97c3cf5faf560d6bf issue-3624-spacing-behaviour
 9303556ae855d79ee220610218e97287 issue-3641-float-loop
 57e6f5a6845c1cffe60489a7adec0d1b issue-3650-italic-equation
-5755e720854c629e8a62af02c3885811 issue-3658-math-size
+e047f3f9bd19f4f5483c8b09f2bb5d64 issue-3658-math-size
 f78897e9ccb15ff21bb81a0898f3380a issue-3662-pdf-smartquotes
 607056cd387a7035b1db5d8ea23dedee issue-3696-equation-rtl
 7e0b298688532400a8b02f27f0f0cd3b issue-3699-cite-twice-et-al
@@ -1184,7 +1190,7 @@ b5d093f2f6f98aa3b63bb6c68179862e math-optical-size-nested-scripts
 54de2ea3acdafd10bf235c0d044bb3e6 math-pagebreaking-numbered
 dfe15bcfa35ac32d4e9db2639c9fd75a math-pagebreaking-single-line
 0cbfd2352ff316fe07bd56892501124d math-pagebreaking-single-line-numbered
-fcec21446bdec14393660f45a8e191ab math-par
+9964c6743e74cfad82975a2595837589 math-par
 227d2bc0e15f1e112e100e3d7ae63f6f math-primes
 162d2318b4b90fde9c9d79362c16e9f1 math-primes-after-code-expr
 bb496f78402535bcdb19fb954bab8b24 math-primes-attach
@@ -1215,7 +1221,7 @@ c14ee7834938536236dbb6c4f70aec98 math-root-show-rule-2
 36bfea7dfa52402f1b0f64e0b30129db math-shorthands
 856d16ec75eeb84a69a5f6877a9e9ed4 math-shorthands-noncontinuable
 7fd6cdd65164ea7ffa57e18d1097a2ea math-size
-d3db0f146d1ad55aed87be3f091339f5 math-size-arbitrary-content
+f21561e68d5519b25ca776ab3807c6bd math-size-arbitrary-content
 0c424ab04a7a71d367ee65e909e0ba31 math-size-math-content-1
 89e5be7262e0a481ddc5e07834fc721e math-size-math-content-2
 bf3175a80fab28eae7b0173874b123bb math-size-math-content-3
