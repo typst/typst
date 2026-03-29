@@ -243,8 +243,13 @@ impl MathRunFrameBuilder {
     /// Consumes the builder and returns a [`Frame`].
     pub fn build(self) -> Frame {
         let mut frame = Frame::soft(self.size);
+        let mut set_baseline = true;
         for (sub, pos) in self.frames.into_iter() {
+            if set_baseline && sub.has_baseline() {
+                frame.set_baseline(sub.baseline());
+            }
             frame.push_frame(pos, sub);
+            set_baseline = false;
         }
         frame
     }
