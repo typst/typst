@@ -11,8 +11,27 @@ that ever learned to mimic a human voice.
 --- baseline-box paged ---
 Hey #box(baseline: 40%, image("/assets/images/tiger.jpg", width: 1.5cm)) there!
 
+
+--- baseline-inline-math paged ---
+#bounds[$sum_(i = 1)^n i/pi = 10$]
+
 --- baseline-display-math paged ---
-#bounds[$ sum_(i = 1)^n i/pi = 10 $ ]
+#bounds[$ sum_(i = 1)^n i/pi = 10 $]
+#bounds[$ (x + y + z)/(2 dot.c 3) $]
+#bounds({
+  set math.equation(numbering: "(1)")
+  $ sum_(i = 1)^n i/pi = 10 $
+})
+
+--- baseline-breakable-display-math paged ---
+#set page(height: 5em)
+#show math.equation: set block(breakable: true)
+
+#bounds[$
+  sum_(i = 1)^n i/pi &= 1 \
+  sum_(i = 1)^n i/pi &= 2 \
+  sum_(i = 1)^n i/pi &= 3
+$]
 
 --- baseline-paragraph paged ---
 #bounds[
