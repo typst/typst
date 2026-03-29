@@ -238,6 +238,56 @@ World
 #text(red)[- World]
 #text(green)[- What up?]
 
+--- list-baseline-table paged ---
+- #table(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+- #table(
+    inset: 10pt,
+    columns: 2,
+    stroke: none,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-grid paged ---
+- #grid(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-curve paged ---
+#let dy = 15pt
+- #curve(
+    stroke: 5pt,
+    curve.move((0pt,  30pt + dy)),
+    curve.line((30pt, 30pt + dy)),
+    curve.line((15pt, dy)),
+    curve.close()
+  )
+
+--- list-baseline-text-with-math paged ---
+#set page(width: auto, height: auto)
+- Text
+  - Text $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+  - $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+
+--- list-baseline-math-fraction paged ---
+- $ (7 "O1" + 3 (display((sum_(i = 5)^8 L_i)/4)))/10 $
+
+--- list-baseline-multiline-math paged ---
+- $
+    sum_(i = 1)^n (x_i)^5 &= 0 \
+    y_1 + y_2 &= 10 \
+    (a b c)/x^2 &= 5
+  $
+
 --- list-par paged html ---
 // Check whether the contents of list items become paragraphs.
 #show par: it => if target() != "html" { highlight(it) } else { it }
