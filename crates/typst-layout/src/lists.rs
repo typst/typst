@@ -261,20 +261,19 @@ fn layout_item(
     let mut skip_first = should_skip_first_frame(&fragment);
 
     let diff = if elem.baseline_align {
-        let baseline = match fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
-            Some(first) => extract_baseline(first, Abs::zero()),
-            _ => None,
-        };
-
-        let marker_baseline = extract_baseline(&marker, Abs::zero());
-
-        match (baseline, marker_baseline) {
-            (Some(baseline), Some(marker_baseline)) => baseline - marker_baseline,
-            _ => Abs::zero(),
+        if marker.has_baseline()
+            && let Some(first) = fragment.as_slice().get(if skip_first { 1 } else { 0 })
+            && first.has_baseline()
+        {
+            first.baseline() - marker.baseline()
+        } else {
+            // One of the frames has no natural baseline, so baseline alignment is disabled.
+            Abs::zero()
         }
     } else {
-        // Re-layout the marker with the same height as the body's first frame
-        // so it may align itself vertically.
+        // Explicit marker alignment was chosen, so re-layout the marker with
+        // the same height as the body's first frame so it may align itself
+        // vertically.
         let mut regions = regions;
         if let Some(first) = fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
             regions.size.y = first.height();
@@ -365,32 +364,4 @@ fn should_skip_first_frame(fragment: &Fragment) -> bool {
 /// the introspection tags interfere with the layouting.
 fn is_empty_frame(frame: &Frame) -> bool {
     frame.items().all(|(_, item)| matches!(item, FrameItem::Tag(_)))
-}
-
-fn extract_baseline(first: &Frame, y_offset: Abs) -> Option<Abs> {
-    if first.has_baseline() {
-        return Some(first.baseline() + y_offset);
-    }
-
-    let mut baseline = None;
-    for (pos, item) in first.items() {
-        let height = pos.y + y_offset;
-        let new_baseline = match item {
-            FrameItem::Group(group) => extract_baseline(&group.frame, height),
-            FrameItem::Text(_) => Some(height),
-
-            // Skip frame items that are only markers, not visible at all.
-            FrameItem::Tag(_) | FrameItem::Link(..) => continue,
-
-            // This kind of frame item does not demand baseline alignment.
-            FrameItem::Shape(..) | FrameItem::Image(..) => None,
-        };
-
-        if let Some(new_baseline) = new_baseline {
-            baseline.get_or_insert(Abs::inf()).set_min(new_baseline);
-        }
-        break;
-    }
-
-    baseline
 }
