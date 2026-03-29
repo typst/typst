@@ -201,7 +201,7 @@ b2a6ccf96178e065c50254e290681d86 enum-numbering-closure-nested-complex
 06f7dcfe912ce7fc28d87d80e3e1b311 enum-numbering-pattern
 b60945f122e797b75a52577a9a8cac7a enum-numbering-reversed
 794385c1f285693e07a1dcb865de0ef9 enum-numbering-reversed-overridden
-51a5e57c9cfc95fa5b1d4a60b516e0b8 enum-numbering-too-high
+30e7b376f3adc0bccb401c55e088c191 enum-numbering-too-high
 54a8ab7cd1b9af4eb54a15dbcbd1bd9a enum-par
 4dceb0a7d6b01ad950dd2ab4de474494 enum-syntax-at-start
 4270e89cc8af472d376b219b85d54636 enum-syntax-edge-cases
@@ -642,7 +642,7 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 149d8387d80ba298067081b6809ba2c5 issue-1041-smartquotes-in-outline
 db6d5a76ae0ebde94e23c88c26212ce5 issue-1050-terms-indent
 070b232e7ca9895a62393217762ec470 issue-1052-math-number-spacing
-5214266561e3ba9ca814303a57f41c97 issue-1204-enum-baseline-alignment
+e1a62b6160eb22ca42af37a89324a1ca issue-1204-enum-baseline-alignment
 613787ed31685ff451f4ae560c80c663 issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
@@ -943,6 +943,12 @@ e1966175253dd3d55d9d96c5b61aae1d link-to-page
 4e8b15e856ef5156f55354238f2b7be8 link-transformed
 39f4e3dea7bccbc9173b23d94b933a6d list-attached
 70000556e355634a1cb80e613bfc015b list-attached-above-spacing
+e2f8a1a6a145690ebba39824d0ad701d list-baseline-curve
+01ed36f0acaab5f6ae4dd0582e612277 list-baseline-grid
+c5212a610119cd1d0d1cd9ff82a3f789 list-baseline-math-fraction
+bf5707630de6c91a0c9d7ca1f60410c6 list-baseline-multiline-math
+c131d2d34f1542b35fdeb6acaa4c58b1 list-baseline-table
+cf693eb8e8a1ba2cb2b5cf7587843d8b list-baseline-text-with-math
 c2f1a053f45722da47c1de7d9a68fa38 list-basic
 423d1cfedd873983bce331a7a8f265de list-content-block
 0a5ef45280214d02617328e9254e5b09 list-indent-specifics
@@ -1800,7 +1806,7 @@ ba11e757f0903f9220385d9f9e1aae66 tiling-with-different-spacing
 a096b2bf8e7d153e6214e7d2f65c34de title-with-body-auto
 c1ae6e9b00c5baa611e05f1954af47b8 transform-combinations
 3770b5b30ec739f578e778902d81bd07 transform-rotate
-1ecca56b9d6b7ae4fd1d3f71622b2ed6 transform-rotate-180deg
+047909f47b460b056fff726a9e2c7bb2 transform-rotate-180deg
 c5066f2e6e22516686ac5b22d8137731 transform-rotate-and-scale
 e66761e6dc39da94d15102ce8bac268c transform-rotate-origin
 6b9b9c494c87e08fb4552aa85963a1dc transform-rotate-relative-sizing
