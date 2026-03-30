@@ -1660,8 +1660,8 @@ ed9ddc08b7d8663e65a855a94dbee529 super-highlight
 c205d134b783581691a3ba1a2c8eb79d super-underline
 207844d323a3335bbe72f2ec48fb87c0 symbol
 9e8a3bd3ba1db9e83274b665f54e6834 symbol-constructor
-eac40caac637e6e74f875b8d11d8a4fe symbol-modifier-deprecated
-7be5f27f829e545ef692014466f93a95 symbol-sect-deprecated
+647999b2f4f61f6721a0d528a020363a symbol-modifier-deprecated
+a7e4e7fe79a53ddc00ff35293a07a44c symbol-sect-deprecated
 5559bf8522ff36c1bfacea715f5ebd9b table-align-array
 b4aee7f5055cc1646c3091a473492262 table-cell-align-override
 e5dd94370865f8af7d53070835a8bb02 table-cell-folding
