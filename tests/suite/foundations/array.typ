@@ -29,6 +29,20 @@
 // Error: 6-8 invalid number suffix: u
 #(1, 1u 2)
 
+--- array-unit-spacing eval ---
+// Error: 4 expected comma
+// Hint: 4 if you meant to use a unit, try `1pt` instead
+#(1 pt,)
+
+--- array-unit-spacing-percent eval ---
+// Error: 5-6 the character `%` is not valid in code
+// Hint: 5-6 if you meant to use a unit, try `1%` instead
+#(1 %)
+
+--- array-missing-comma eval ---
+// Error: 4 expected comma
+#(1 2)
+
 --- array-leading-comma eval ---
 // Error: 3-4 unexpected comma
 #(,1)
