@@ -125,7 +125,7 @@ smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_n
 stacker = "0.1.19"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
-tar = "0.4"
+tar = "0.4.45"
 tempfile = "3.7.0"
 thin-vec = "0.2.13"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
