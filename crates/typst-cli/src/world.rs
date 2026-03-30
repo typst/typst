@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, OnceLock};
+use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
@@ -12,7 +12,7 @@ use typst::syntax::{
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
-use typst_kit::datetime::Now;
+use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
 use typst_kit::fonts::FontStore;
@@ -32,8 +32,8 @@ pub struct SystemWorld {
     files: FileStore<SystemFiles>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
-    /// Reset between compilations if not [`Now::Fixed`].
-    now: Now,
+    /// Reset between compilations if not [`Time::Fixed`].
+    now: Time,
 }
 
 impl SystemWorld {
@@ -67,8 +67,9 @@ impl SystemWorld {
         };
 
         let now = match world_args.creation_timestamp {
-            Some(time) => Now::Fixed(time),
-            None => Now::System(OnceLock::new()),
+            Some(time) => Time::fixed_timestamp(time)
+                .map_err(|_| WorldCreationError::InvalidTimestamp)?,
+            None => Time::system(),
         };
 
         Ok(Self {
@@ -286,6 +287,8 @@ pub enum WorldCreationError {
     InputMalformed(VirtualizeError),
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
+    /// The requested fixed timestamp was invalid
+    InvalidTimestamp,
     /// Another type of I/O error.
     Io(io::Error),
 }
@@ -311,6 +314,7 @@ impl fmt::Display for WorldCreationError {
             WorldCreationError::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
             }
+            WorldCreationError::InvalidTimestamp => write!(f, "timestamp out of range"),
             WorldCreationError::Io(err) => write!(f, "{err}"),
         }
     }

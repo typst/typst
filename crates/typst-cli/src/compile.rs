@@ -226,7 +226,10 @@ impl CompileConfig {
             pages,
             pdf_standards,
             tagged,
-            creation_timestamp: args.world.creation_timestamp,
+            creation_timestamp: args
+                .world
+                .creation_timestamp
+                .and_then(|time| chrono::DateTime::from_timestamp(time, 0)),
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),

@@ -7,11 +7,15 @@
 
 use std::sync::OnceLock;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime};
+
 use typst_library::foundations::{Datetime, Duration};
 
 /// The current date and time.
-pub enum Now {
+pub struct Time(TimeInner);
+
+enum TimeInner {
     /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
     /// Used for reproducible builds.
     Fixed(DateTime<Utc>),
@@ -19,15 +23,64 @@ pub enum Now {
     System(OnceLock<DateTime<Utc>>),
 }
 
-impl Now {
+impl Time {
+    /// Use a predefined fixed date and time to provide the current date.
+    ///
+    /// Used for reproducible builds.
+    ///
+    /// Returns an error if `datetime` is only a time.
+    pub fn fixed(datetime: Datetime) -> Result<Self, &'static str> {
+        let date = match datetime {
+            Datetime::Date(d) => d,
+            Datetime::Datetime(dt) => dt.date(),
+            _ => return Err("fixed datetime must specify a date"),
+        };
+
+        Ok(Time(TimeInner::Fixed(DateTime::from_naive_utc_and_offset(
+            NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(
+                    date.year(),
+                    date.month() as u32,
+                    date.day() as u32,
+                )
+                .ok_or("provided fixed date is invalid")?,
+                NaiveTime::from_hms_opt(
+                    datetime.hour().unwrap_or(0) as u32,
+                    datetime.minute().unwrap_or(0) as u32,
+                    datetime.second().unwrap_or(0) as u32,
+                )
+                .ok_or("provided fixed time is invalid")?,
+            ),
+            Utc,
+        ))))
+    }
+
+    /// Use a fixed timestamp to provide the current date. Used for reproducible
+    /// builds.
+    ///
+    /// This timestamp is usually provided using the `SOURCE_DATE_EPOCH`
+    /// environment variable.
+    ///
+    /// Returns an error if the timestamp is out of range.
+    pub fn fixed_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+        Ok(Time(TimeInner::Fixed(
+            DateTime::from_timestamp(timestamp, 0).ok_or("timestamp is out of range")?,
+        )))
+    }
+
+    /// Rely on the system to provide the current date.
+    pub fn system() -> Self {
+        Time(TimeInner::System(OnceLock::new()))
+    }
+
     /// The current date.
     ///
     /// A timezone offset can be given to obtain the current date in this
     /// timezone.
     pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        let now = match self {
-            Now::Fixed(time) => time.fixed_offset(),
-            Now::System(time) => {
+        let now = match &self.0 {
+            TimeInner::Fixed(time) => time.fixed_offset(),
+            TimeInner::System(time) => {
                 let now_utc = time.get_or_init(Utc::now);
                 if offset.is_some() {
                     // Actual offset will be applied later.
@@ -63,7 +116,7 @@ impl Now {
 
     /// Fetch the current time again from the system, if it was not fixed.
     pub fn reset(&mut self) {
-        if let Now::System(time_lock) = self {
+        if let TimeInner::System(ref mut time_lock) = self.0 {
             time_lock.take();
         }
     }
