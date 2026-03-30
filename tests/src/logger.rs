@@ -204,10 +204,7 @@ impl Logger {
             prompt_regen = report::write(reports).unwrap_or(false);
 
             if ARGS.open_report {
-                let res = open::that("tests/store/report.html");
-                if let Err(err) = res {
-                    eprintln!("failed to open `tests/store/report.html`: {err}");
-                }
+                crate::open_report();
             }
         }
 
