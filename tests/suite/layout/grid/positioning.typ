@@ -53,18 +53,18 @@
 )
 
 --- grid-cell-position-collide paged ---
-// Error: 3:3-3:42 attempted to place a second cell at column 0, row 0
-// Hint: 3:3-3:42 try specifying your cells in a different order
 #grid(
   [A],
+  // Error: 3-42 attempted to place a second cell at column 0, row 0
+  // Hint: 3-42 try specifying your cells in a different order
   grid.cell(x: 0, y: 0)[This shall error]
 )
 
 --- table-cell-position-collide paged ---
-// Error: 3:3-3:43 attempted to place a second cell at column 0, row 0
-// Hint: 3:3-3:43 try specifying your cells in a different order
 #table(
   [A],
+  // Error: 3-43 attempted to place a second cell at column 0, row 0
+  // Hint: 3-43 try specifying your cells in a different order
   table.cell(x: 0, y: 0)[This shall error]
 )
 
@@ -76,10 +76,10 @@
 )
 
 --- grid-cell-position-x-out-of-bounds paged ---
-// Error: 4:3-4:36 cell could not be placed at invalid column 2
 #grid(
   columns: 2,
   [A],
+  // Error: 3-36 cell could not be placed at invalid column 2
   grid.cell(x: 2)[This shall error]
 )
 
@@ -106,20 +106,20 @@
 )
 
 --- grid-cell-position-partial-collide paged ---
-// Error: 4:3-4:21 cell could not be placed in row 0 because it was full
-// Hint: 4:3-4:21 try specifying your cells in a different order
 #grid(
   columns: 2,
   [A], [B],
+  // Error: 3-21 cell could not be placed in row 0 because it was full
+  // Hint: 3-21 try specifying your cells in a different order
   grid.cell(y: 0)[C]
 )
 
 --- table-cell-position-partial-collide paged ---
-// Error: 4:3-4:22 cell could not be placed in row 0 because it was full
-// Hint: 4:3-4:22 try specifying your cells in a different order
 #table(
   columns: 2,
   [A], [B],
+  // Error: 3-22 cell could not be placed in row 0 because it was full
+  // Hint: 3-22 try specifying your cells in a different order
   table.cell(y: 0)[C]
 )
 

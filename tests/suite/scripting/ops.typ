@@ -314,8 +314,8 @@
 
 --- ops-precedence-boolean-ops eval ---
 // Assignment binds stronger than boolean operations.
-// Error: 2:3-2:8 cannot mutate a temporary value
 #let x = false
+// Error: 3-8 cannot mutate a temporary value
 #(not x = "a")
 
 --- ops-precedence-unary eval ---
@@ -491,8 +491,8 @@
 #(1 + 2 += 3)
 
 --- ops-assign-to-invalid-unary-op eval ---
-// Error: 2:3-2:8 cannot apply 'not' to string
 #let x = "Hey"
+// Error: 3-8 cannot apply 'not' to string
 #(not x = "a")
 
 --- ops-assign-to-invalid-binary-op eval ---

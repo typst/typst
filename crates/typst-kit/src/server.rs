@@ -115,17 +115,22 @@ fn start_server(port: Option<u16>) -> StrResult<(SocketAddr, tiny_http::Server)>
 
 /// Handles a request.
 fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<()> {
-    let path = req.url();
+    let base = url::Url::parse("http://localhost").unwrap();
+    let Ok(url) = base.join(req.url()) else {
+        return req.respond(Response::empty(StatusCode(400)));
+    };
+
+    let path = url.path();
     if path == "/__events" {
         return handle_events(req, bucket.clone());
     }
 
     let fs = bucket.get();
-    if let Some(body) = fs(path) {
-        handle_body(req, reload, body)
-    } else {
-        req.respond(Response::new_empty(StatusCode(404)))
-    }
+    let Some(body) = fs(path) else {
+        return req.respond(Response::empty(StatusCode(404)));
+    };
+
+    handle_body(req, reload, body)
 }
 
 /// Handles for the `/` route. Serves the compiled HTML.
@@ -196,6 +201,8 @@ fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
         Some("pdf") => Some("application/pdf"),
         Some("png") => Some("image/png"),
         Some("svg") => Some("image/svg+xml"),
+        Some("css") => Some("text/css"),
+        Some("js") => Some("text/javascript"),
         _ => infer::get(buf).map(|ty| ty.mime_type()),
     }
 }
