@@ -1675,8 +1675,8 @@ b7c450607c1d14c99170e5916d879690 sub-super-typographic
 9bbcfca44efa0d7683d7f2bc1c6f2a74 super-underline
 3130718791dfe1abb1a258775d5a8e80 symbol
 24df57e69e4dc2581f072e6e8814263d symbol-constructor
-03191732d23872636dc6fac6c3b0e59c symbol-modifier-deprecated
-64d47e398e18becb236761623fb03690 symbol-sect-deprecated
+c08b76370fc7e53d43212136c36210bf symbol-modifier-deprecated
+20441a3e011dd2b1c51c37bc29e2f7c6 symbol-sect-deprecated
 386d0fc11d233b76136875a4d5e83337 table-align-array
 b5b5e27ae0c7b9b01ba40d1ca1941a6a table-cell-align-override
 1824188fb9c5904e88e6136f4d6a7a11 table-cell-folding

@@ -177,15 +177,15 @@
 )
 
 --- symbol-sect-deprecated paged ---
-// Warning: 5-9 `sect` is deprecated, use `inter` instead
-$ A sect B = A inter B $
+// Warning: 3-7 `join` is deprecated, use `bowtie.big` instead
+$ join_x x = bowtie.big_x x $
 
 --- symbol-modifier-deprecated paged ---
-// Warning: 7-12 `ast.small` is deprecated (CJK compatibility character), use ﹡ or `\u{fe61}` instead
-$ ast.small $
+// Warning: 6-9 `gt.tri` is deprecated, use `gt.closed` instead
+$ gt.tri $
 
-// Warning: 14-20 `bracket.double` is deprecated, use `bracket.stroked` instead
-#sym.bracket.double.r
+// Warning: 12-15 `gt.tri.eq` is deprecated, use `gt.closed.eq` instead
+#sym.gt.eq.tri.not
 
 --- issue-5930-symbol-label paged ---
 #emoji.face<lab>
