@@ -94,6 +94,26 @@
 // Error: 8 expected comma
 #func(1 2)
 
+--- call-args-unit-spacing eval ---
+// Error: 8 expected comma
+// Hint: 8 if you meant to use a unit, try `1pt` instead
+#func(1 pt)
+
+--- call-args-unit-spacing-percent eval ---
+// Error: 9-10 the character `%` is not valid in code
+// Hint: 9-10 if you meant to use a unit, try `1%` instead
+#func(1 %)
+
+--- call-args-unit-spacing-named eval ---
+// Error: 15 expected comma
+// Hint: 15 if you meant to use a unit, try `1pt` instead
+#box(stroke: 1 pt, [a])
+
+--- call-args-unit-spacing-named-negative eval ---
+// Error: 16 expected comma
+// Hint: 16 if you meant to use a unit, try `1pt` instead
+#box(stroke: -1 pt, [a])
+
 --- call-args-bad-name-and-incomplete-pair eval ---
 // Error: 7-8 expected identifier, found integer
 // Error: 9 expected expression
