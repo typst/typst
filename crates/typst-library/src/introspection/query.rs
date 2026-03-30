@@ -100,10 +100,10 @@ use crate::introspection::Introspector;
 ///
 /// # Command line queries
 /// You can also perform queries from the command line, using the `typst eval`
-/// command. This command evaluates arbitrary Typst code, potentially in the
-/// context of a document, and outputs the resulting value in serialized form.
-/// It takes the code to evaluate as its first argument and (optionally) the
-/// path to a document via `--in`.
+/// command. This command evaluates Typst code, potentially in the context of a
+/// document, and outputs the resulting value in serialized form. It takes the
+/// code to evaluate as its first argument and (optionally) the path to a
+/// document via `--in`.
 ///
 /// Consider the following `example.typ` file which contains some invisible
 /// [metadata]:
@@ -128,12 +128,8 @@ use crate::introspection::Introspector;
 /// `{query(<note>)}` with access to the resulting document.
 ///
 /// **Note:** The code is surrounded with quotes to avoid special characters
-/// being interpreted by the shell. How to quote strings in the shell depends on
-/// your platform. The example above works on Unix platforms. If you're on
-/// Windows, you'll need to use double quotes instead of single quotes.
-/// ```cmd
-/// typst eval "query(<note>)" --in example.typ
-/// ```
+/// being interpreted by the shell. How to quote strings depends on your
+/// platform/shell.
 ///
 /// ## Retrieving a specific field
 ///
