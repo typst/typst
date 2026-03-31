@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use clap::builder::{FalseyValueParser, TypedValueParser};
+use clap::builder::{BoolValueParser, TypedValueParser};
 use clap::{CommandFactory, ValueEnum};
 use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
@@ -315,10 +315,16 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         .map(PathBuf::from)
         .collect::<_>();
 
+
     let boolish = |v: &String| {
-        // This is only an error if `v` is not valid UTF-8, which it
-        // always is.
-        FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
+        match BoolValueParser::new().parse_ref(&cmd, None, v.as_ref()) {
+            Ok(bool) => Some(bool),
+            Err(_) => {
+                crate::print_error(&format!("Invalid environment variable value: `{v}`. Expected: [true, false]"))
+                    .map_err(|e| eco_format!("{e}")).expect("failed to print error");
+                None
+            },
+        }
     };
 
     let version = typst::utils::version();
