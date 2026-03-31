@@ -315,17 +315,18 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         .map(PathBuf::from)
         .collect::<_>();
 
-
-    let boolish = |v: &String| {
-        match BoolValueParser::new().parse_ref(&cmd, None, v.as_ref()) {
+    let boolish =
+        |v: &String| match BoolValueParser::new().parse_ref(&cmd, None, v.as_ref()) {
             Ok(bool) => Some(bool),
             Err(_) => {
-                crate::print_error(&format!("Invalid environment variable value: `{v}`. Expected: [true, false]"))
-                    .map_err(|e| eco_format!("{e}")).expect("failed to print error");
+                crate::print_error(&format!(
+                    "Invalid environment variable value: `{v}`. Expected: [true, false]"
+                ))
+                .map_err(|e| eco_format!("{e}"))
+                .expect("failed to print error");
                 None
-            },
-        }
-    };
+            }
+        };
 
     let version = typst::utils::version();
     let value = Info {
