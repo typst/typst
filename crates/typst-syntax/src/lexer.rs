@@ -456,12 +456,12 @@ impl Lexer<'_> {
 
         if !balanced {
             return self.error(
-                "automatic links cannot contain unbalanced brackets, \
+                "automatic links cannot contain unbalanced parentheses, \
                  use the `link` function instead",
             );
         }
 
-        SyntaxKind::Link
+        SyntaxKind::LinkMarker
     }
 
     fn numbering(&mut self, start: usize) -> SyntaxKind {
@@ -1046,7 +1046,7 @@ pub fn is_newline(character: char) -> bool {
 /// parentheses and brackets in the link were balanced.
 pub fn link_prefix(text: &str) -> (&str, bool) {
     let mut s = unscanny::Scanner::new(text);
-    let mut brackets = Vec::new();
+    let mut parentheses = 0;
 
     #[rustfmt::skip]
     s.eat_while(|c: char| {
@@ -1057,16 +1057,15 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
             | '!' | '#' | '$' | '%' | '&' | '*' | '+'
             | ',' | '-' | '.' | '/' | ':' | ';' | '='
             | '?' | '@' | '_' | '~' | '\'' => true,
-            '[' => {
-                brackets.push(b'[');
-                true
-            }
             '(' => {
-                brackets.push(b'(');
+                parentheses += 1;
                 true
             }
-            ']' => brackets.pop() == Some(b'['),
-            ')' => brackets.pop() == Some(b'('),
+            ')' if parentheses == 0 => false,
+            ')' => {
+                parentheses -= 1;
+                true
+            }
             _ => false,
         }
     });
@@ -1076,7 +1075,7 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
         s.uneat();
     }
 
-    (s.before(), brackets.is_empty())
+    (s.before(), parentheses == 0)
 }
 
 /// Split text at newlines. These newline characters are not kept.
