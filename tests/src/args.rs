@@ -144,6 +144,8 @@ pub enum Command {
     Undangle,
     /// Prints the tags from a PDF file.
     Pdftags(PdftagsCommand),
+    /// Open the last generated HTML test report in a browser.
+    OpenReport,
 }
 
 #[derive(Debug, Clone, Parser)]

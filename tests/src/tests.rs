@@ -56,6 +56,7 @@ fn main() {
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
         Some(Command::Pdftags(command)) => pdftags(command),
+        Some(Command::OpenReport) => open_report(),
     }
 }
 
@@ -225,6 +226,13 @@ fn pdftags(command: &PdftagsCommand) {
     match pdftags::format(&bytes) {
         Ok(tags) => println!("{tags}"),
         Err(err) => eprintln!("error: {err}"),
+    }
+}
+
+fn open_report() {
+    let res = open::that("tests/store/report.html");
+    if let Err(err) = res {
+        eprintln!("failed to open `tests/store/report.html`: {err}");
     }
 }
 
