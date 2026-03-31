@@ -27,8 +27,17 @@ $.block)
 
 // If either side lacks whitespace, we have an inline equation.
 #assert(not $x$.block)
+// And we warn if the sides are inconsistent:
+// Warning: 1:13-2:2 inconsistent spacing inside dollar signs
+// Hint: 1:13-2:2 this is being treated as an inline equation
+// Hint: 1:13-2:2 a block-level equation requires whitespace inside both dollar signs
+// Hint: 1:13-2:2 an inline equation should not have whitespace inside either dollar sign
 #assert(not $x
 $.block)
+// Warning: 1:13-2:3 inconsistent spacing inside dollar signs
+// Hint: 1:13-2:3 this is being treated as an inline equation
+// Hint: 1:13-2:3 a block-level equation requires whitespace inside both dollar signs
+// Hint: 1:13-2:3 an inline equation should not have whitespace inside either dollar sign
 #assert(not $
 x$.block)
 
@@ -38,11 +47,24 @@ x$.block)
 
 y$.block)
 
-// And inline comments _do_ interrupt the block status.
+// Comments _do_ interrupt the block status.
 #assert($ /**/ $.block)
+#assert(not $/**/ /**/ /**/$.block)
+// Warning: 13-20 inconsistent spacing inside dollar signs
+// Hint: 13-20 this is being treated as an inline equation
+// Hint: 13-20 a block-level equation requires whitespace inside both dollar signs
+// Hint: 13-20 an inline equation should not have whitespace inside either dollar sign
 #assert(not $/**/ $.block)
+// Warning: 13-20 inconsistent spacing inside dollar signs
+// Hint: 13-20 this is being treated as an inline equation
+// Hint: 13-20 a block-level equation requires whitespace inside both dollar signs
+// Hint: 13-20 an inline equation should not have whitespace inside either dollar sign
 #assert(not $ /**/$.block)
-#assert(not $/**/
+// Warning: 1:13-2:2 inconsistent spacing inside dollar signs
+// Hint: 1:13-2:2 this is being treated as an inline equation
+// Hint: 1:13-2:2 a block-level equation requires whitespace inside both dollar signs
+// Hint: 1:13-2:2 an inline equation should not have whitespace inside either dollar sign
+#assert(not $//
 $.block)
 
 --- math-equation-block-syntax-unicode eval ---
@@ -64,7 +86,15 @@ $.block)
   }
   for non-space in non-spaces {
     assert(eval("$" + space + non-space + space + "$.block"))
+    // Warning: 17-56 inconsistent spacing inside dollar signs
+    // Hint: 17-56 this is being treated as an inline equation
+    // Hint: 17-56 a block-level equation requires whitespace inside both dollar signs
+    // Hint: 17-56 an inline equation should not have whitespace inside either dollar sign
     assert(eval("not $" + space + non-space + "$.block"))
+    // Warning: 17-56 inconsistent spacing inside dollar signs
+    // Hint: 17-56 this is being treated as an inline equation
+    // Hint: 17-56 a block-level equation requires whitespace inside both dollar signs
+    // Hint: 17-56 an inline equation should not have whitespace inside either dollar sign
     assert(eval("not $" + non-space + space + "$.block"))
   }
 }
@@ -76,7 +106,15 @@ $.block)
   }
   for non-space in non-spaces {
     assert(eval("$" + newline + non-space + newline + "$.block"))
+    // Warning: 17-58 inconsistent spacing inside dollar signs
+    // Hint: 17-58 this is being treated as an inline equation
+    // Hint: 17-58 a block-level equation requires whitespace inside both dollar signs
+    // Hint: 17-58 an inline equation should not have whitespace inside either dollar sign
     assert(eval("not $" + newline + non-space + "$.block"))
+    // Warning: 17-58 inconsistent spacing inside dollar signs
+    // Hint: 17-58 this is being treated as an inline equation
+    // Hint: 17-58 a block-level equation requires whitespace inside both dollar signs
+    // Hint: 17-58 an inline equation should not have whitespace inside either dollar sign
     assert(eval("not $" + non-space + newline + "$.block"))
   }
 }
