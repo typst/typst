@@ -15,9 +15,7 @@ lang: "nl"
         - Tag: LBody
           /Lang: "de"
           /K:
-            - Tag: P
-              /K:
-                - Content: page=0 mcid=2
+            - Content: page=0 mcid=2
     - Tag: L
       /ListNumbering: Circle
       /K:

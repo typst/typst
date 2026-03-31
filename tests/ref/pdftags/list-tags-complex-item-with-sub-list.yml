@@ -43,25 +43,25 @@
                               /Contents: "1"
                     - Content: page=0 mcid=13
                 - Content: page=0 mcid=3
-    - Tag: L
-      /ListNumbering: Circle
-      /K:
-        - Tag: LI
-          /K:
-            - Tag: Lbl
-              /K:
-                - Content: page=0 mcid=4
-            - Tag: LBody
-              /K:
-                - Content: page=0 mcid=5
-        - Tag: LI
-          /K:
-            - Tag: Lbl
-              /K:
-                - Content: page=0 mcid=6
-            - Tag: LBody
-              /K:
-                - Content: page=0 mcid=7
+                - Tag: L
+                  /ListNumbering: Circle
+                  /K:
+                    - Tag: LI
+                      /K:
+                        - Tag: Lbl
+                          /K:
+                            - Content: page=0 mcid=4
+                        - Tag: LBody
+                          /K:
+                            - Content: page=0 mcid=5
+                    - Tag: LI
+                      /K:
+                        - Tag: Lbl
+                          /K:
+                            - Content: page=0 mcid=6
+                        - Tag: LBody
+                          /K:
+                            - Content: page=0 mcid=7
     - Tag: LI
       /K:
         - Tag: Lbl

@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::{Packed, Resolve, StyleChain, Styles};
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{Abs, BlockElem, Dir, Em, Fr, Frame, FrameItem, Point, Size};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
@@ -13,6 +13,22 @@ use super::*;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::Adjustability;
 use crate::modifiers::layout_and_modify;
+
+/// The result of committing a line.
+///
+/// Either a laid-out frame or an inline block that needs to be laid out later
+/// during flow layout.
+#[derive(Clone)]
+pub enum ParChild {
+    Frame(Frame),
+    Block {
+        elem: Packed<BlockElem>,
+        styles: Styles,
+        width: Abs,
+        tags: Vec<Tag>,
+        tags_before: usize,
+    },
+}
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -478,17 +494,65 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
-/// Commit to a line and build its frame.
-#[allow(clippy::too_many_arguments)]
+/// Commit to a line and build its frame, or return an inline block for flow
+/// layout later.
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
     line: &Line,
-    width: Abs,
+    line_width: Abs,
+    block_width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
-) -> SourceResult<Frame> {
-    let mut remaining = width - line.width - p.config.hanging_indent;
+) -> SourceResult<ParChild> {
+    if line.items.iter().any(|item| matches!(item, Item::Block(_, _))) {
+        // There will only ever be a single Block and possibly Tag(s).
+
+        let mut block_elem = None;
+        let mut block_styles = None;
+        let mut block_idx = None;
+        let mut tags = Vec::with_capacity(line.items.len().saturating_sub(1));
+
+        for &(idx, ref item) in line.items.indexed_iter() {
+            match &**item {
+                Item::Block(elem, styles) => {
+                    // We need owned values as the `ParChild::Block` created
+                    // will outlive inline layout.
+                    block_elem = Some((*elem).clone());
+                    block_styles = Some(styles.to_map());
+                    block_idx = Some(idx);
+                }
+                Item::Tag(tag) => {
+                    tags.push((idx, (*tag).clone()));
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        let block_idx = block_idx.unwrap();
+        tags.sort_unstable_by_key(|(idx, _)| *idx);
+
+        let mut tags_before = 0;
+        let mut ordered_tags = Vec::with_capacity(tags.len());
+        for (idx, tag) in tags {
+            if idx < block_idx {
+                tags_before += 1;
+                ordered_tags.push(tag);
+            } else if idx > block_idx {
+                ordered_tags.push(tag);
+            }
+        }
+
+        return Ok(ParChild::Block {
+            elem: block_elem.unwrap(),
+            styles: block_styles.unwrap(),
+            width: block_width,
+            tags: ordered_tags,
+            tags_before,
+        });
+    }
+
+    let mut remaining = line_width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
 
     // We always build the line from left to right. In an LTR paragraph, we must
@@ -600,6 +664,7 @@ pub fn commit(
                 frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
+            Item::Block(_, _) => unreachable!(),
         }
     }
 
@@ -608,7 +673,7 @@ pub fn commit(
         remaining = Abs::zero();
     }
 
-    let size = Size::new(width, top + bottom);
+    let size = Size::new(line_width, top + bottom);
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
@@ -628,7 +693,7 @@ pub fn commit(
         output.push_frame(Point::new(x, y), frame);
     }
 
-    Ok(output)
+    Ok(ParChild::Frame(output))
 }
 
 /// Adds a paragraph line marker to a paragraph line's output frame if
