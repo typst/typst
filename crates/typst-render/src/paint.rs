@@ -253,7 +253,9 @@ pub fn to_sk_paint<'a>(
             *pixmap = Some(Arc::new(canvas));
 
             let base_offset = match relative {
-                RelativeTo::Self_ => gradient_map.map(|(offset, _)| -offset).unwrap_or_default(),
+                RelativeTo::Self_ => {
+                    gradient_map.map(|(offset, _)| -offset).unwrap_or_default()
+                }
                 RelativeTo::Parent => Point::zero(),
             };
 
@@ -264,7 +266,10 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_translate(tilings.offset().x.to_f32(), tilings.offset().y.to_f32())
+                    .pre_translate(
+                        tilings.offset().x.to_f32(),
+                        tilings.offset().y.to_f32(),
+                    )
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
                     .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );
