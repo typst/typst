@@ -252,16 +252,9 @@ pub fn to_sk_paint<'a>(
             let canvas = render_tiling_frame(&state, tilings);
             *pixmap = Some(Arc::new(canvas));
 
-            let offset = match relative {
-                RelativeTo::Self_ => {
-                    let base_offset =
-                        gradient_map.map(|(offset, _)| -offset).unwrap_or_default();
-                    Point::new(
-                        base_offset.x + tilings.offset().x,
-                        base_offset.y + tilings.offset().y,
-                    )
-                }
-                RelativeTo::Parent => Point::new(tilings.offset().x, tilings.offset().y),
+            let base_offset = match relative {
+                RelativeTo::Self_ => gradient_map.map(|(offset, _)| -offset).unwrap_or_default(),
+                RelativeTo::Parent => Point::zero(),
             };
 
             // Create the shader
@@ -271,8 +264,9 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_translate(offset.x.to_f32(), offset.y.to_f32())
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                    .pre_translate(tilings.offset().x.to_f32(), tilings.offset().y.to_f32())
+                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
+                    .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );
         }
     }
