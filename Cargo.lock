@@ -3137,6 +3137,7 @@ dependencies = [
 name = "typst-kit"
 version = "0.14.2"
 dependencies = [
+ "chrono",
  "codespan-reporting",
  "dirs",
  "ecow",
@@ -3387,7 +3388,6 @@ version = "0.14.2"
 dependencies = [
  "base64",
  "bitflags 2.9.1",
- "chrono",
  "clap",
  "comemo",
  "ecow",

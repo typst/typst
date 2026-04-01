@@ -16,6 +16,7 @@ typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+chrono = { workspace = true, optional = true }
 codespan-reporting = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }
 ecow = { workspace = true }
@@ -62,6 +63,9 @@ system-packages = ["dep:dirs", "universe-packages"]
 # Enables loading of packages from Typst Universe via
 # `packages::UniversePackages`.
 universe-packages = ["dep:flate2", "dep:tar", "dep:fastrand"]
+
+# Enables obtaining the current date via `datetime::Time::today`.
+datetime = ["dep:chrono"]
 
 # Enables emitting terminal-style diagnostics via `diagnostics::emit`.
 emit-diagnostics = ["dep:codespan-reporting"]
