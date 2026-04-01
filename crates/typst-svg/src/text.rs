@@ -1,8 +1,10 @@
+use std::cmp::{max, min};
 use base64::Engine;
 use ecow::EcoString;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Range;
 use ttf_parser::GlyphId;
 use typst_library::layout::{Abs, Ratio, Size, Transform};
 use typst_library::text::color::{
@@ -63,11 +65,11 @@ impl SVGRenderer<'_> {
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
 
-        struct SpanItem<'text> {
+        struct SpanItem {
             x_offset: Abs,
             y_offset: Abs,
             x_advance: Abs,
-            text: &'text str,
+            range: Range<usize>,
         }
 
         let mut span_items = Vec::<SpanItem>::new();
@@ -77,12 +79,21 @@ impl SVGRenderer<'_> {
             let x_offset = x + glyph.x_offset.at(text.size);
             let y_offset = y + glyph.y_offset.at(text.size);
 
-            span_items.push(SpanItem {
-                x_offset,
-                y_offset,
-                x_advance: glyph.x_advance.at(text.size),
-                text: &text.text.as_str()[glyph.range()],
-            });
+            // merge with previous span if they are contiguous and have the same y_offset
+            if let Some(last) = span_items.last_mut() && last.x_advance == (x_offset - last.x_offset) && y_offset == last.y_offset {
+                last.x_advance += glyph.x_advance.at(text.size);
+
+                // merge the range. can't just do "last.range.start..glyph_range.end" because RTL => glyphs in different order than source characters => pain
+                let glyph_range = glyph.range();
+                last.range = min(last.range.start, glyph_range.start)..max(last.range.end, glyph_range.end);
+            } else {
+                span_items.push(SpanItem {
+                    x_offset,
+                    y_offset,
+                    x_advance: glyph.x_advance.at(text.size),
+                    range: glyph.range(),
+                });
+            }
 
             self.render_glyph(svg, &state, text, id, x_offset, y_offset);
             self.save_glyph_for_subset(text.font.clone(), glyph.id as u32);
@@ -105,12 +116,14 @@ impl SVGRenderer<'_> {
                     .attr("x", item.x_offset.to_pt())
                     .attr("y", item.y_offset.to_pt());
 
+                let text = &text.text[item.range];
+
                 // check if all whitespace
-                if let None = item.text.split_whitespace().next() {
+                if let None = text.split_whitespace().next() {
                     text_el.attr("style", "white-space: pre");
                 }
 
-                text_el.text(item.text);
+                text_el.text(text);
             }
         });
     }
