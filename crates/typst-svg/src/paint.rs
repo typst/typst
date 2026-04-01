@@ -92,7 +92,7 @@ impl SVGRenderer<'_> {
         // that it needs and once to actually render it.
         let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        // Use the rendered SVG and the tiling size as a key, since the `Tiling`
+        // Use the rendered SVG and the tiling's size and offset as a key, since the `Tiling`
         // itself includes `Location`s which aren't stable.
         let tiling_id = self
             .tilings
@@ -326,8 +326,8 @@ impl SVGRenderer<'_> {
                 .attr("id", id)
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
-                .attr("x", tiling.dx().to_pt())
-                .attr("y", tiling.dy().to_pt())
+                .attr("x", tiling.offset().x.to_pt())
+                .attr("y", tiling.offset().y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])

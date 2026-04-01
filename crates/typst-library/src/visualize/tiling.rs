@@ -284,16 +284,6 @@ impl Tiling {
         self.0.offset
     }
 
-    /// Return the horizontal offset of the tiling in absolute units.
-    pub fn dx(&self) -> Abs {
-        self.0.offset.x
-    }
-
-    /// Return the vertical offset of the tiling in absolute units.
-    pub fn dy(&self) -> Abs {
-        self.0.offset.y
-    }
-
     /// Return the frame of the tiling.
     pub fn frame(&self) -> &Frame {
         &self.0.frame
