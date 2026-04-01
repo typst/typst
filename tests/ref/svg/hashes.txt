@@ -753,7 +753,7 @@ cf64bf16868e5f3f954cbd98501cbdd4 issue-5490-bidi-invalid-range
 96b2fb6432a354ea9a0ef8c52dff7381 issue-5496-footnote-never-fits
 22940f02078406c4d738dc4b47b421cf issue-5496-footnote-never-fits-multiple
 49bb3a6a90241c2003864fac05902f93 issue-5496-footnote-separator-never-fits
-e7e15a1e0b335fc0496aa59f820800dd issue-5499-text-fill-in-clip-block
+650c2a9eace0e464e3b266126addda24 issue-5499-text-fill-in-clip-block
 93683cf428199836176e46e15a36628d issue-5503-cite-group-interrupted-by-par-align
 0a2ce7cab10712fa52e32bf5afc52da4 issue-5503-cite-in-align
 f26ed3eb49f98deafc69f16fae8206f3 issue-5503-enum-in-align
@@ -1759,8 +1759,8 @@ c8c2404d61e8d3b76fa6883ae166a179 tiling-relative-self
 d1beea271ca0fdd53eb9980e286346b8 tiling-spacing-zero
 c0d8a2e3ef52406af6554dd1cf4f6290 tiling-stroke
 a01d6e873bc5a48573cb83244486c3ab tiling-stroke-relative-parent
-e1bb705f66c6c67b42ce8dc542eee312 tiling-text
-7585324e831d48ad482125513e5d88c5 tiling-text-fill
+4d55a1eb038512c095d7044444d54cb5 tiling-text
+1922a57fdf7b415cb02011b3105a0eba tiling-text-fill
 a09cda1876bb5a779eda326236d71ed2 tiling-with-different-size
 a09cda1876bb5a779eda326236d71ed2 tiling-with-different-spacing
 2387aae6db5dbf52aad3b46d1dc0ca4a title
