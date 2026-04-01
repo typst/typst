@@ -186,10 +186,9 @@ $ mat(-1&, 1&, 1&; 1&, -1&, 1&; 1&, 1&, -1&) $
 $ mat(-1&, 1&, 1&; 1, -1, 1; 1, 1, -1) $
 $ mat(&-1, &1, &1; 1, -1, 1; 1, 1, -1) $
 
---- math-mat-bad-comma eval ---
-// This error message is bad.
-// Error: 13-14 expected array, found content
-$ mat(1, 2; 3, 4, delim: "[") $,
+--- math-mat-bad-comma paged ---
+// Test an old issue with 2d args and named args in math.
+$ mat(1, 2; 3, 4, delim: "[") $
 
 --- issue-852-mat-type paged ---
 $ mat(B, A B) $
@@ -262,6 +261,11 @@ $ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 // Warning: 20-29 linebreaks are ignored in cells
 // Hint: 20-29 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
+
+--- math-mat-linebreaks-trailing paged ---
+// Warning: 7-10 linebreaks are ignored in cells
+// Hint: 7-10 use commas instead to separate each line
+$ mat(a \ ) $
 
 --- math-mat-vec-cases-unity paged ---
 // Test that matrices, vectors, and cases are all laid out the same.

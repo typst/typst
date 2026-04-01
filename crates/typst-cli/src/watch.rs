@@ -49,7 +49,7 @@ pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResu
 
     // Eagerly scan fonts if we expect to need them so that it's not counted as
     // part of the displayed compilation time. The duration of font scanning is
-    // heavily system-dependant, so it could result in confusion why compilation
+    // heavily system-dependent, so it could result in confusion why compilation
     // is so much faster/slower.
     if config.output_format.is_paged() {
         world.scan_fonts();

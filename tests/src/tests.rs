@@ -56,6 +56,7 @@ fn main() {
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
         Some(Command::Pdftags(command)) => pdftags(command),
+        Some(Command::OpenReport) => open_report(),
     }
 }
 
@@ -67,7 +68,7 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
+    for dir in ["render", "html", "pdf", "pdftags", "svg", "bundle", "by-hash"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 
@@ -225,6 +226,13 @@ fn pdftags(command: &PdftagsCommand) {
     match pdftags::format(&bytes) {
         Ok(tags) => println!("{tags}"),
         Err(err) => eprintln!("error: {err}"),
+    }
+}
+
+fn open_report() {
+    let res = open::that("tests/store/report.html");
+    if let Err(err) = res {
+        eprintln!("failed to open `tests/store/report.html`: {err}");
     }
 }
 

@@ -21,6 +21,10 @@ pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attaches an accent to a base.
 ///
+/// In math mode, common accents are also available as named [symbols]($symbol)
+/// that can be directly called (like [functions]($function)) to attach them to
+/// some content.
+///
 /// # Example
 /// ```example
 /// $grave(a) = accent(a, `)$ \

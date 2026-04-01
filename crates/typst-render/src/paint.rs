@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use tiny_skia as sk;
-use typst_library::layout::{Axes, Point, Ratio, Size};
-use typst_library::visualize::{Color, Gradient, Paint, RelativeTo, Tiling};
+use typst_library::layout::{Abs, Axes, Point, Ratio, Size};
+use typst_library::visualize::{
+    Color, Geometry, Gradient, Paint, RelativeTo, Shape, Tiling,
+};
 
 use crate::{AbsExt, State};
 
@@ -131,11 +133,10 @@ impl PaintSampler for TilingSampler<'_> {
 pub fn to_sk_paint<'a>(
     paint: &Paint,
     state: State,
-    item_size: Size,
     on_text: bool,
-    fill_transform: Option<sk::Transform>,
     pixmap: &'a mut Option<Arc<sk::Pixmap>>,
-    gradient_map: Option<(Point, Axes<Ratio>)>,
+    shape: Option<&Shape>,
+    include_stroke_in_bbox: bool,
 ) -> sk::Paint<'a> {
     /// Actual sampling of the gradient, cached for performance.
     #[comemo::memoize]
@@ -165,6 +166,26 @@ pub fn to_sk_paint<'a>(
 
         Arc::new(pixmap)
     }
+
+    let (item_size, fill_transform, gradient_map) = if let Some(shape) = shape {
+        let bbox = shape.bbox(include_stroke_in_bbox);
+        let fill_transform =
+            sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
+        let gradient_map = match shape.geometry {
+            // Special handling for rectangles (mirrors gradients for negative sizes)
+            Geometry::Rect(rect) => Some((
+                Point::new(
+                    if rect.x.signum() < 0.0 { -bbox.size().x } else { Abs::zero() },
+                    if rect.y.signum() < 0.0 { -bbox.size().y } else { Abs::zero() },
+                ) * state.pixel_per_pt as f64,
+                Axes::new(Ratio::new(rect.x.signum()), Ratio::new(rect.y.signum())),
+            )),
+            _ => None,
+        };
+        (bbox.size(), Some(fill_transform), gradient_map)
+    } else {
+        (Size::zero(), None, None)
+    };
 
     let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
     match paint {

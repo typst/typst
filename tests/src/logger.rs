@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use ecow::EcoString;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
+use typst_syntax::Source;
 
 use crate::collect::{FilePos, Test};
 use crate::report::{ReportFile, TestReport};
@@ -46,8 +47,13 @@ pub struct TestResult {
 
 impl TestResult {
     /// Add a report to this result, potentially initializing the option.
-    pub fn add_report(&mut self, name: EcoString, file_report: ReportFile) {
-        let report = self.report.get_or_insert_with(|| TestReport::new(name));
+    pub fn add_report(
+        &mut self,
+        name: EcoString,
+        source: Source,
+        file_report: ReportFile,
+    ) {
+        let report = self.report.get_or_insert_with(|| TestReport::new(name, source));
         report.files.push(file_report);
     }
 }
@@ -184,7 +190,13 @@ impl Logger {
             eprintln!(
                 "  pass '--update' to update error annotations or reference outputs"
             );
-            eprintln!("  for a rich diff, view tests/store/report.html");
+            if io::stderr().is_terminal() {
+                eprintln!(
+                    "  for a rich diff, view \x1B[4mtests/store/report.html\x1B[0m"
+                );
+            } else {
+                eprintln!("  for a rich diff, view tests/store/report.html");
+            }
         }
 
         let mut prompt_regen = false;
@@ -192,10 +204,7 @@ impl Logger {
             prompt_regen = report::write(reports).unwrap_or(false);
 
             if ARGS.open_report {
-                let res = open::that("tests/store/report.html");
-                if let Err(err) = res {
-                    eprintln!("failed to open `tests/store/report.html`: {err}");
-                }
+                crate::open_report();
             }
         }
 

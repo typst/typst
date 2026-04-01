@@ -16,6 +16,7 @@ readme = { workspace = true }
 typst = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
+typst-layout = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }

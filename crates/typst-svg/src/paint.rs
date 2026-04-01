@@ -113,7 +113,7 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        for (id, (gradient, ratio)) in self.gradients.iter() {
+        for (id, (gradient, aspect_ratio)) in self.gradients.iter() {
             let mut svg = match &gradient {
                 Gradient::Linear(linear) => {
                     let mut gradient = defs.elem("linearGradient");
@@ -121,7 +121,8 @@ impl SVGRenderer<'_> {
                     gradient.attr("spreadMethod", "pad");
                     gradient.attr("gradientUnits", "userSpaceOnUse");
 
-                    let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
+                    let angle =
+                        Gradient::correct_aspect_ratio(linear.angle, *aspect_ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
 
                     // Scale to edges of unit square.
@@ -168,15 +169,25 @@ impl SVGRenderer<'_> {
                     pattern.attr("x", "-0.5");
                     pattern.attr("y", "-0.5");
 
-                    // The rotation angle, negated to match rotation in PNG.
-                    let angle = -Gradient::correct_aspect_ratio(conic.angle, *ratio);
                     let center = conic.center;
+
+                    // Correct the angles with the inverse aspect-ratio, to
+                    // compensate for the transformation that is applied later
+                    // on to the gradient fill.
+                    let inverse_ratio = aspect_ratio.recip();
 
                     // We build an arg segment for each segment of a circle.
                     let dtheta = Angle::rad(TAU / NUM_CONIC_SEGMENTS as f64);
                     for i in 0..NUM_CONIC_SEGMENTS {
-                        let theta1 = angle + (dtheta * i as f64);
-                        let theta2 = angle + (dtheta * (i + 1) as f64);
+                        // Negate the angle for clockwise gradient rotation.
+                        let theta1 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * i as f64),
+                            inverse_ratio,
+                        );
+                        let theta2 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * (i + 1) as f64),
+                            inverse_ratio,
+                        );
 
                         // Create the path for the segment.
                         let mut builder = SvgPathBuilder::empty();

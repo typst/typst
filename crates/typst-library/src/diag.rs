@@ -161,6 +161,75 @@ pub use {
 /// create an error for this type is with the `bail!` macro.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
+/// Collects an iterator of [`SourceResult`]s into a result containg a collection
+/// or the accumulated errors.
+///
+/// Unlike normal `FromIterator` for `Result`, this will combine all the errors.
+/// This is possible because a [`SourceResult`] can hold multiple errors.
+pub trait CollectCombinedResult {
+    type Item;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> CollectCombinedResult for I
+where
+    I: Iterator<Item = SourceResult<T>>,
+{
+    type Item = T;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        let mut errors = EcoVec::new();
+        let collected = self
+            .filter_map(|result| match result {
+                Ok(item) => Some(item),
+                Err(errs) => {
+                    errors.extend(errs);
+                    None
+                }
+            })
+            .collect();
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(collected)
+    }
+}
+
+/// A variation of [`CollectCombinedResult`] for parallel rayon iterators.
+///
+/// Needs to be a separate trait because we can't have two blanket impls.
+pub trait ParallelCollectCombinedResult {
+    type Item;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> ParallelCollectCombinedResult for I
+where
+    I: rayon::iter::ParallelIterator<Item = SourceResult<T>>,
+    T: Send,
+{
+    type Item = T;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        // A more efficient approach might be possible, but this is simpler and
+        // pragmatic. The point of this trait is primarily to make the call-site
+        // convenient, not to maximize efficiency.
+        self.collect::<Vec<_>>().into_iter().collect_combined_result()
+    }
+}
+
 /// An output alongside warnings generated while producing it.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Warned<T> {
@@ -311,24 +380,19 @@ pub enum Tracepoint {
     /// A show rule application.
     Show(EcoString),
     /// A module import.
-    Import,
+    Import(EcoString),
+    /// A module include.
+    Include(EcoString),
 }
 
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{name}`")
-            }
-            Tracepoint::Call(None) => {
-                write!(f, "error occurred in this function call")
-            }
-            Tracepoint::Show(name) => {
-                write!(f, "error occurred while applying show rule to this {name}")
-            }
-            Tracepoint::Import => {
-                write!(f, "error occurred while importing this module")
-            }
+            Tracepoint::Call(Some(name)) => write!(f, "while calling `{name}`"),
+            Tracepoint::Call(None) => write!(f, "while calling function"),
+            Tracepoint::Show(name) => write!(f, "while showing {name} element"),
+            Tracepoint::Import(name) => write!(f, "while importing `{name}`"),
+            Tracepoint::Include(name) => write!(f, "while including `{name}`"),
         }
     }
 }

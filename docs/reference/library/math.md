@@ -47,8 +47,8 @@ Math mode supports special function calls without the hash prefix. In these
 - Within them, Typst is still in "math mode". Thus, you can write math directly
   into them, but need to use hash syntax to pass code expressions (except for
   strings, which are available in the math syntax).
-- They support positional and named arguments, as well as argument spreading.
-- They don't support trailing content blocks.
+- They support positional and named arguments, as well as argument spreading,
+  but don't support trailing content blocks.
 - They provide additional syntax for 2-dimensional argument lists. The semicolon
   (`;`) merges preceding arguments separated by commas into an array argument.
 

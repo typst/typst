@@ -1,6 +1,12 @@
 // Test interactions with styling and normal layout.
 // Hint: They are bad ...
 
+--- math-unknown-var-hint eval ---
+// Error: 4-6 unknown variable: ab
+// Hint: 4-6 if you meant to display multiple letters as is, try adding spaces between each letter: `a b`
+// Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
+$ 5ab $
+
 --- math-nested-normal-layout paged ---
 // Test images and font fallback.
 #let monkey = move(dy: 0.2em, image("/assets/images/monkey.svg", height: 1em))

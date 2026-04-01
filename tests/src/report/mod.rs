@@ -16,7 +16,7 @@
 mod diff;
 mod html;
 
-pub use self::diff::{DiffKind, File, Old, ReportFile, image_diff, text_diff};
+pub use self::diff::{Diff, File, Old, ReportFile, html_diff, image_diff, text_diff};
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -24,6 +24,7 @@ use std::path::Path;
 use ecow::EcoString;
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
+use typst_syntax::Source;
 
 use crate::output::{HASH_OUTPUTS, HashedRefs};
 use crate::{ARGS, STORE_PATH, git};
@@ -31,12 +32,13 @@ use crate::{ARGS, STORE_PATH, git};
 /// A test report for a single test.
 pub struct TestReport {
     pub name: EcoString,
+    pub source: Source,
     pub files: Vec<ReportFile>,
 }
 
 impl TestReport {
-    pub fn new(name: EcoString) -> Self {
-        Self { name, files: Vec::new() }
+    pub fn new(name: EcoString, source: Source) -> Self {
+        Self { name, source, files: Vec::new() }
     }
 }
 
@@ -54,7 +56,7 @@ pub fn write(mut reports: Vec<TestReport>) -> Result<bool, ()> {
     let mut missing_live = (reports.iter())
         .flat_map(|report| std::iter::repeat(&report.name).zip(report.files.iter()))
         .filter_map(|(name, file)| {
-            let hash_ref = file.diffs.iter().find_map(DiffKind::missing_old)?;
+            let hash_ref = file.diffs.iter().find_map(Diff::missing_old)?;
             Some(((name.as_str(), file.output), hash_ref))
         })
         .collect::<IndexMap<_, _, FxBuildHasher>>();

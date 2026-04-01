@@ -10,7 +10,7 @@ use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
-use typst::{Feature, Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt, World};
 
 use crate::IdeWorld;
 
@@ -175,9 +175,7 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = typst::Library::builder()
-        .with_features([Feature::Html].into_iter().collect())
-        .build();
+    let mut lib = typst::Library::builder().with_features(Features::all()).build();
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
     lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles

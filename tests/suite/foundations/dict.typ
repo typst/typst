@@ -1,5 +1,8 @@
 // Test dictionaries.
 
+// Tests for method calls on dictionaries are in `../scripting/methods.typ` as
+// `field-call-dict-*`.
+
 --- dict-basic-syntax paged ---
 
 // Empty
@@ -59,6 +62,50 @@
   let z = (a: 3)
   test((:..x, ..y, ..z), (a: 3, b: 2))
   test((..(a: 1), b: 2), (a: 1, b: 2))
+}
+
+--- spread-dicts-in-array-diagnostic eval ---
+#{
+  let x = (a: 1)
+  let y = (b: 2)
+  // Error: 4-7 cannot spread dictionary into array
+  // Hint: 4-7 add a colon to create a dictionary instead: `(: ..x,..y)`
+  (..x,..y)
+}
+
+--- spread-single-dict-in-array-diagnostic eval ---
+#{
+  let x = (a: 1)
+  // Error: 4-7 cannot spread dictionary into array
+  // Hint: 4-7 add a colon to create a dictionary instead: `(: ..x)`
+  (..x)
+}
+
+--- spread-dict-and-array-in-array-diagnostic eval ---
+// Here we should not emit a hint to use `(: <...>)` syntax
+// since the developer's intent is unclear
+#{
+  let x = (a: 1)
+  let y = (2,3)
+  // Error: 4-7 cannot spread dictionary into array
+  (..x,..y)
+}
+
+--- spread-dict-and-single-item eval ---
+// Here we should not emit a hint to use `(: <...>)` syntax
+// since the developer's intent is unclear
+#{
+  let x = (a: 1)
+  // Error: 4-7 cannot spread dictionary into array
+  (..x,"item")
+}
+
+--- spread-none-and-dict eval ---
+#{
+  let x = (a: 1)
+  // Error: 11-20 cannot spread dictionary into array
+  // Hint: 11-20 add a colon to create a dictionary instead: `(: ..none,..(one:1))`
+  (..none,..(one:1))
 }
 
 --- spread-array-into-dict eval ---
@@ -177,26 +224,9 @@
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
 
---- dict-function-item-not-a-method eval ---
-#{
-  let dict = (
-    call-me: () => 1,
-  )
-  // Error: 8-15 type dictionary has no method `call-me`
-  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
-  dict.call-me()
-}
-
---- dict-item-missing-method eval ---
-#{
-  let dict = (
-    nonfunc: 1
-  )
-
-  // Error: 8-15 type dictionary has no method `nonfunc`
-  // Hint: 8-15 did you mean to access the field `nonfunc`?
-  dict.nonfunc()
-}
+--- dict-method-typo eval ---
+// Error: 2-25 type dictionary has no method `rmeove`
+#(typo: "rmeove").rmeove("typo")
 
 --- dict-dynamic-duplicate-key eval ---
 #let a = "hello"

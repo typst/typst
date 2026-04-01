@@ -1,16 +1,18 @@
 //! Intermediate representation for math.
 
 mod item;
-mod preprocess;
+mod multiline;
+mod process;
 mod resolve;
 
 pub use self::item::*;
+pub use self::multiline::AlignedRow;
 
 use self::resolve::MathResolver;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Packed, StyleChain};
-use crate::introspection::SplitLocator;
+use crate::introspection::Locator;
 use crate::math::EquationElem;
 use crate::routines::Arenas;
 
@@ -21,7 +23,7 @@ use crate::routines::Arenas;
 pub fn resolve_equation<'a>(
     elem: &'a Packed<EquationElem>,
     engine: &mut Engine,
-    locator: &mut SplitLocator<'a>,
+    locator: Locator<'a>,
     arenas: &'a Arenas,
     styles: StyleChain<'a>,
 ) -> SourceResult<MathItem<'a>> {
