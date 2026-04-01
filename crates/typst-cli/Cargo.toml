@@ -62,10 +62,10 @@ features = [
     "scan-fonts",
     "system-packages",
     "universe-packages",
+    "datetime",
     "emit-diagnostics",
     "system-downloader",
     "watcher",
-    "datetime",
 ]
 
 [dev-dependencies]

@@ -287,7 +287,7 @@ pub enum WorldCreationError {
     InputMalformed(VirtualizeError),
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
-    /// The requested fixed timestamp was invalid
+    /// The requested creation timestamp was invalid.
     InvalidTimestamp,
     /// Another type of I/O error.
     Io(io::Error),
@@ -314,7 +314,9 @@ impl fmt::Display for WorldCreationError {
             WorldCreationError::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
             }
-            WorldCreationError::InvalidTimestamp => write!(f, "timestamp out of range"),
+            WorldCreationError::InvalidTimestamp => {
+                write!(f, "creation timestamp out of range")
+            }
             WorldCreationError::Io(err) => write!(f, "{err}"),
         }
     }

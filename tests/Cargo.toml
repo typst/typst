@@ -18,7 +18,7 @@ typst-bundle = { workspace = true }
 typst-dev-assets = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
-typst-kit = { workspace = true, features = ["datetime"]}
+typst-kit = { workspace = true, features = ["datetime"] }
 typst-layout = { workspace = true }
 typst-library = { workspace = true }
 typst-pdf = { workspace = true }

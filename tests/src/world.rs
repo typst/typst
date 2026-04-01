@@ -78,7 +78,8 @@ impl World for TestWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        Time::fixed_timestamp(12 * 60 * 60).ok()?.today(offset)
+        let datetime = Datetime::from_ymd_hms(1970, 1, 1, 12, 0, 0).unwrap();
+        Time::fixed(datetime).unwrap().today(offset)
     }
 }
 

@@ -19,12 +19,12 @@
 //! - `universe-packages`: Enables loading of packages from Typst Universe via
 //!   [`packages::UniversePackages`].
 //! - `emit-diagnostics`: Enables emitting terminal-style diagnostics via
+//! - `datetime`: Enables obtaining the current date via [`datetime::Time::today`].
 //!   [`diagnostics::emit`].
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
-//! - `datetime`: Enables obtaining the current date via [`datetime::Time::today`].
-//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`]
+//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`].
 //! - `vendor-openssl`: Whether to vendor OpenSSL for the `system-downloader`.
 //!   Not applicable to Windows and macOS build.
 

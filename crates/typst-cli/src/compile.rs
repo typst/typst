@@ -229,7 +229,11 @@ impl CompileConfig {
             creation_timestamp: args
                 .world
                 .creation_timestamp
-                .and_then(|time| chrono::DateTime::from_timestamp(time, 0)),
+                .map(|time| {
+                    chrono::DateTime::from_timestamp(time, 0)
+                        .ok_or("creation timestamp is out of range")
+                })
+                .transpose()?,
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),

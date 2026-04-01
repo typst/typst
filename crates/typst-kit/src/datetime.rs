@@ -1,7 +1,7 @@
 //! Date and time manipulation.
 //!
 //! In particular, this module provides the necessary building pieces for
-//! [`typst::World::today`].
+//! [`World::today`](typst_library::World::today).
 
 #![cfg(feature = "datetime")]
 
@@ -10,30 +10,30 @@ use std::sync::OnceLock;
 use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Utc};
 use chrono::{NaiveDate, NaiveDateTime};
 
+use typst_library::diag::{StrResult, bail};
 use typst_library::foundations::{Datetime, Duration};
 
 /// The current date and time.
 pub struct Time(TimeInner);
 
+/// The internal representation of a [`Time`].
 enum TimeInner {
-    /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
-    /// Used for reproducible builds.
+    /// A fixed date and time.
     Fixed(DateTime<Utc>),
     /// The current date and time if the time is not externally fixed.
     System(OnceLock<DateTime<Utc>>),
 }
 
 impl Time {
-    /// Use a predefined fixed date and time to provide the current date.
-    ///
-    /// Used for reproducible builds.
+    /// Use a predefined fixed date and time to provide the current date. Used
+    /// for reproducible builds.
     ///
     /// Returns an error if `datetime` is only a time.
-    pub fn fixed(datetime: Datetime) -> Result<Self, &'static str> {
+    pub fn fixed(datetime: Datetime) -> StrResult<Self> {
         let date = match datetime {
             Datetime::Date(d) => d,
             Datetime::Datetime(dt) => dt.date(),
-            _ => return Err("fixed datetime must specify a date"),
+            _ => bail!("fixed datetime must specify a date"),
         };
 
         Ok(Time(TimeInner::Fixed(DateTime::from_naive_utc_and_offset(
@@ -62,7 +62,7 @@ impl Time {
     /// environment variable.
     ///
     /// Returns an error if the timestamp is out of range.
-    pub fn fixed_timestamp(timestamp: i64) -> Result<Self, &'static str> {
+    pub fn fixed_timestamp(timestamp: i64) -> StrResult<Self> {
         Ok(Time(TimeInner::Fixed(
             DateTime::from_timestamp(timestamp, 0).ok_or("timestamp is out of range")?,
         )))
@@ -77,6 +77,9 @@ impl Time {
     ///
     /// A timezone offset can be given to obtain the current date in this
     /// timezone.
+    ///
+    /// This can directly be used to implement
+    /// [`World::today`](typst_library::World::today).
     pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         let now = match &self.0 {
             TimeInner::Fixed(time) => time.fixed_offset(),
@@ -114,7 +117,10 @@ impl Time {
         )
     }
 
-    /// Fetch the current time again from the system, if it was not fixed.
+    /// If not a fixed time, resets the memoized time fetched from the system.
+    ///
+    /// It will be fetched again the next time [`today`](Self::today) is called.
+    /// This is usually called in between compilations.
     pub fn reset(&mut self) {
         if let TimeInner::System(ref mut time_lock) = self.0 {
             time_lock.take();

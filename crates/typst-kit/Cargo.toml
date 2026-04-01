@@ -64,6 +64,9 @@ system-packages = ["dep:dirs", "universe-packages"]
 # `packages::UniversePackages`.
 universe-packages = ["dep:flate2", "dep:tar", "dep:fastrand"]
 
+# Enables obtaining the current date via `datetime::Time::today`.
+datetime = ["dep:chrono"]
+
 # Enables emitting terminal-style diagnostics via `diagnostics::emit`.
 emit-diagnostics = ["dep:codespan-reporting"]
 
@@ -75,9 +78,6 @@ watcher = ["dep:notify", "dep:same-file"]
 
 # Enables live-reloading HTTP serving via `server::HttpServer`.
 http-server = ["dep:tiny_http", "dep:infer"]
-
-# Enables obtaining the current date via `datetime::Time::today`.
-datetime = ["dep:chrono"]
 
 # Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
 # Windows and macOS build.
