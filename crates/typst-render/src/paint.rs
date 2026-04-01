@@ -235,7 +235,10 @@ pub fn to_sk_paint<'a>(
                 RelativeTo::Self_ => {
                     let base_offset =
                         gradient_map.map(|(offset, _)| -offset).unwrap_or_default();
-                    Point::new(base_offset.x + tilings.offset().x, base_offset.y + tilings.offset().y)
+                    Point::new(
+                        base_offset.x + tilings.offset().x,
+                        base_offset.y + tilings.offset().y,
+                    )
                 }
                 RelativeTo::Parent => Point::new(tilings.offset().x, tilings.offset().y),
             };
