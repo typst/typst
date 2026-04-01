@@ -1,26 +1,33 @@
-use std::collections::HashSet;
-use std::fmt::Display;
+//! This modules tries to resolve a [`Stylesheet`] from the CSS properties that
+//! are specified for each element. Existing classes and tags are used where
+//! possible, otherwise custom classes are generated and assigned to elements.
+
+use std::borrow::Borrow;
+use std::cell::Cell;
+use std::fmt::{Display, Write as _};
 use std::hash::Hash;
+use std::ops::Deref;
 
 use bumpalo::Bump;
-use bumpalo::collections::Vec as BumpVec;
+use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
+use ecow::EcoString;
 use ecow::string::ToEcoString;
-use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
+use typst_utils::{Id, IdMap, IdVec, KeyFor};
 
+use crate::css::resolve::idqueue::IdQueue;
 use crate::css::{Properties, Property};
 use crate::{HtmlAttrs, HtmlNode, HtmlTag, attr};
 
+mod idqueue;
+
+#[derive(Default)]
 pub struct Stylesheet {
     styles: IndexMap<EcoString, Properties, FxBuildHasher>,
 }
 
 impl Stylesheet {
-    pub fn new() -> Self {
-        Self { styles: IndexMap::default() }
-    }
-
     pub fn is_empty(&self) -> bool {
         self.styles.is_empty()
     }
@@ -44,7 +51,7 @@ impl Stylesheet {
 struct Resolver<'a> {
     bump: &'a Bump,
     /// Elements grouped by their CSS properties.
-    groups: IndexMap<&'a Properties, Group<'a>, FxBuildHasher>,
+    groups: IdMap<&'a Properties, Group<'a>>,
     /// Lookup table for groups that contain at least one element with a tag.
     by_tag: FxHashMap<HtmlTag, FxHashSet<GroupId>>,
     /// Lookup table for groups that contain at least one element with a class.
@@ -57,7 +64,7 @@ impl<'a> Resolver<'a> {
     fn new(bump: &'a Bump) -> Self {
         Self {
             bump,
-            groups: IndexMap::default(),
+            groups: IdMap::new(),
             by_tag: FxHashMap::default(),
             by_class: FxHashMap::default(),
         }
@@ -65,18 +72,20 @@ impl<'a> Resolver<'a> {
 }
 
 /// Index into [`Resolver::groups`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct GroupId(u32);
+type GroupId = Id<GroupKey>;
+struct GroupKey;
+impl<'a> KeyFor<Group<'a>> for GroupKey {}
 
 #[derive(Debug, Default)]
 struct Group<'a> {
     /// The elements in this group.
-    elems: Vec<Elem<'a>>,
+    elems: IdVec<Elem<'a>>,
 }
 
 /// Index into [`Group::elems`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct ElemId(u32);
+type ElemId = Id<ElemKey>;
+struct ElemKey;
+impl<'a> KeyFor<Elem<'a>> for ElemKey {}
 
 /// The whole [`HtmlElement`] cannot be borrowed, because that would also
 /// include its children.
@@ -101,6 +110,9 @@ pub fn resolve_stylesheet(nodes: &mut [HtmlNode]) -> Stylesheet {
         visit_node(&mut rs, node);
     }
 
+    // TODO: Consider preprocessing groups. Maybe have categories of attributes
+    // that belong together and split the properties based on that.
+
     identify_groups(&mut rs)
 }
 
@@ -110,7 +122,7 @@ fn visit_node<'a>(rs: &mut Resolver<'a>, node: &'a mut HtmlNode) {
     match node {
         HtmlNode::Element(element) => {
             let entry = rs.groups.entry(&element.css);
-            let id = GroupId(entry.index() as u32);
+            let id = entry.id();
             let group = entry.or_default();
 
             // Tags
@@ -140,159 +152,388 @@ fn visit_node<'a>(rs: &mut Resolver<'a>, node: &'a mut HtmlNode) {
 }
 
 fn identify_groups(rs: &mut Resolver) -> Stylesheet {
-    let mut stylesheet = Stylesheet::new();
+    let mut styles = IdMap::new();
 
-    let mut class_number = 1;
+    let mut class_number: u32 = 1;
 
+    let mut bump = Bump::new();
+    let mut unidentified = Vec::new();
     for (&props, group) in rs.groups.iter_mut() {
+        bump.reset();
+        unidentified.clear();
+
         // The group with an empty set of properties is only included to check
         // for uniqueness of selectors.
         if props.is_empty() {
             continue;
         }
 
-        // TODO: Have some sort of niceness metric at which point we generate
-        // our own classes instead of using existing tags and classes. Possibly
-        // mixing both.
-        let selector = match indentify_group(rs.bump, &rs.by_tag, &rs.by_class, group) {
-            Ok(selector) => display_selector_list(selector).to_eco_string(),
-            Err(_) => {
-                // TODO: Derive better names.
-                // Naively generate a custom class name.
-                let mut name;
-                while {
-                    name = eco_format!("typst-{class_number}");
-                    class_number += 1;
-                    rs.by_class.contains_key(name.as_str())
-                } {}
+        // TODO: Maybe have some sort of niceness metric at which point we
+        // generate our own classes instead of using existing tags and classes.
+        // Possibly mixing both. The problem with adding a heuristic like this
+        // is that the output may switch unexpectedly.
+        let mut identifier =
+            indentify_group(&bump, &rs.by_tag, &rs.by_class, group, &mut unidentified);
 
-                // Add the class attribute.
-                for elem in group.elems.iter_mut() {
-                    if let Some(classes) = elem.attrs.get_mut(attr::class) {
-                        classes.push(' ');
-                        classes.push_str(&name);
-                    } else {
-                        elem.attrs.push_front(attr::class, name.clone());
-                    }
+        // Only add a custom class to `unidentified` elements, and reuse
+        // existing selectors for other ones. Otherwise there might be
+        // unexpected cases where creating an unrelated element with the same
+        // properties will force custom class assignment for an otherwise well
+        // identified subset of the group.
+        if !unidentified.is_empty() {
+            // TODO: Derive better names if possible.
+            let mut name = BumpString::new_in(&bump);
+            // Naively generate a custom class name.
+            while {
+                name.clear();
+                write!(name, "typst-{class_number}").ok();
+                class_number += 1;
+                rs.by_class.contains_key(name.as_str())
+            } {}
+
+            // Add the class attribute.
+            for &elem_id in unidentified.iter() {
+                let elem = group.elems.get_mut(elem_id);
+                if let Some(classes) = elem.attrs.get_mut(attr::class) {
+                    classes.push(' ');
+                    classes.push_str(&name);
+                } else {
+                    elem.attrs.push_front(attr::class, EcoString::from(name.as_str()));
                 }
-
-                // Make it a class selector
-                name.insert(0, '.');
-
-                name
             }
-        };
-        stylesheet.styles.insert(selector, props.clone());
+
+            identifier.push(Selector::Class(name.into_bump_str()));
+        }
+
+        identifier.sort_by(|a, b| match (a, b) {
+            (Selector::Type(a), Selector::Type(b)) => {
+                // The `Ord` implementation of `HtmlTagKey` doesn't sort by
+                // string contents, for performance reasons. For the CSS
+                // generation it's preferable to sort alphabetically even though
+                // it will be slower.
+                a.0.resolve().as_str().cmp(b.0.resolve().as_str())
+            }
+            _ => a.cmp(b),
+        });
+
+        let selector_list = SelectorList(&identifier).to_eco_string();
+        styles.insert(selector_list, props.clone());
     }
 
-    stylesheet
+    // Sort the stylesheet
+    let mut styles = styles.into_inner();
+    styles.sort_by(|a, _, b, _| a.cmp(b));
+    Stylesheet { styles }
+}
+
+/// A list of CSS selectors.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct SelectorList<'a>(&'a [Selector<&'a str>]);
+
+impl<'a> Borrow<[Selector<&'a str>]> for SelectorList<'a> {
+    fn borrow(&self) -> &'a [Selector<&'a str>] {
+        self.0
+    }
+}
+
+impl<'a> Deref for SelectorList<'a> {
+    type Target = [Selector<&'a str>];
+
+    fn deref(&self) -> &'a Self::Target {
+        self.0
+    }
+}
+
+impl Display for SelectorList<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, selector) in self.iter().enumerate() {
+            if i > 0 {
+                f.write_str(", ")?;
+            }
+            match selector {
+                Selector::Type(tag) => f.write_str(&tag.0.resolve())?,
+                Selector::Class(class) => write!(f, ".{class}")?,
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A CSS selector.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 enum Selector<S> {
-    Type(HtmlTag),
+    Type(HtmlTagKey),
     Class(S),
 }
 
-/// Try to uniquely identify a group, ideally using the element tag, or a class
-/// that's already present on all elements within it.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct HtmlTagKey(HtmlTag);
+
+impl Ord for HtmlTagKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // We don't really care about what ordering, just that there is *some*
+        // consistent ordering of selectors.
+        self.0.opaque_key().cmp(&other.0.opaque_key())
+    }
+}
+
+impl PartialOrd for HtmlTagKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Index into `selectcor_candidates`.
+type SelectorCandidateId = Id<SelectorCandidate>;
+
+#[derive(Default)]
+struct SelectorCandidate {
+    // PERF: Consider using a container with inline storage and the
+    // bump-allocator as backing storage.
+    buckets: FxHashSet<BucketId>,
+    /// Cached number of elements this selector would cover.
+    /// Is updated incrementally.
+    remaining_elems: Cell<u32>,
+}
+
+/// Index into the `buckets` array.
+type BucketId = Id<Bucket>;
+
+#[derive(Debug, Default)]
+struct Bucket {
+    eliminated: Cell<bool>,
+    num_elems: u32,
+}
+
+/// Try to uniquely identify a group of elements that have the same CSS
+/// properties, using a list of unique type and class selectors that are already
+/// present on the elements. Unique selectors are those that only describe the
+/// elements within the current group and no elements of other groups.
+///
+/// # Algorithm
+///
+/// ## Conceptual
+/// In principle this solves the ["Set cover problem"] using greedy algorithm to
+/// approximate a minimal set cover (selector list):
+/// ```txt
+/// // U is universe: the set of all uniquely identifiable elements in the group
+/// // S is the family of subsets: unique selectors covering a set subset of U
+/// greedy-set-cover(U, S) {
+///     X = U  // stores the uncovered elements
+///     C = {} // stores the sets of the cover
+///     while (X is not empty) {
+///         select s[i] in S that covers the most elements of X
+///         add i to C
+///         remove the elements of s[i] from X
+///     }
+///     return C
+/// }
+/// ```
+///
+/// ## In practice
+///
+/// ### Partitioning
+/// First the group of elements is partitioned into mutually exclusive
+/// (disjoint) buckets of elements that have the same non-empty set of unique
+/// selectors.
+///
+/// Elements that can't be uniquely described by any of their selectors are
+/// stored in the `unidentified` list and will have a custom class assigned.
+///
+/// ### Filter
+/// In a pre-pass, all selectors that have a bucket of elements which can only
+/// be identified them are selected and the buckets are eliminated.
+///
+/// ### Weighted cover
+/// After partitioning the elements into buckets, this is essentially the
+/// weighted ["Set cover problem"], where the number of elements in each bucket
+/// is the bucket's weight. The algorithm incrementally selects the selector
+/// which has the highest number of [`SelectorCandidate::remaining_elems`] adds
+/// it to the selector list and updates all other selector candidates that would
+/// also cover the same bucket. Selectors that have no more remaining elements
+/// are eliminated. This is done until there are no more candidates, and thus
+/// all buckets of elements have been covered.
+///
+/// ["Set cover problem"]: https://en.wikipedia.org/wiki/Set_cover_problem
 fn indentify_group<'a>(
     bump: &'a Bump,
     by_tag: &FxHashMap<HtmlTag, FxHashSet<GroupId>>,
     by_class: &FxHashMap<&'a str, FxHashSet<GroupId>>,
     group: &Group<'a>,
-) -> Result<&'a [Selector<&'a str>], &'a [Selector<&'a str>]> {
+    unidentified: &mut Vec<ElemId>,
+) -> BumpVec<'a, Selector<&'a str>> {
     // PERF: Consider adding some cutoff optimizations here.
 
-    let mut selectors = IndexMap::<Selector<&'a str>, HashSet<_>>::default();
+    // PERF: Somehow make use of the bump allocator, reuse allocations, or use
+    // some other more efficient allocation strategy.
 
-    // Find class selectors that identify *all* elements within the current
-    // group, but no elements from other groups.
+    // Buckets of elements are identified by an exact intersection of selectors.
+    //   => All buckets are mutually exclusive (disjoint) sets of elements.
+    let mut buckets = IdMap::<SelectorList, Bucket>::new();
+
+    // Maps from each selector to a list of buckets with elements.
+    let mut selector_candidates = IdMap::<Selector<&'a str>, SelectorCandidate>::new();
+
+    // Find class or type selectors that identify buckets of elements within the
+    // current group, but no elements from other groups.
     for (i, elem) in group.elems.iter().enumerate() {
-        let Some(classes) = elem.attrs.get(attr::class) else { continue };
-        for class in classes.split_whitespace() {
-            let (class, groups) = by_class.get_key_value(class).unwrap();
-            if groups.len() != 1 {
-                continue;
+        let mut selector_list = BumpVec::new_in(bump);
+
+        if let Some(classes) = elem.attrs.get(attr::class) {
+            for class in classes.split_whitespace() {
+                let (class, groups) = by_class.get_key_value(class).unwrap();
+                if groups.len() == 1 {
+                    selector_list.push(Selector::Class(*class));
+                }
             }
-            selectors
-                .entry(Selector::Class(class))
-                .or_default()
-                .insert(ElemId(i as u32));
         }
-    }
 
-    // Find type (tag) selectors that only identify elements within the current group.
-    for (i, elem) in group.elems.iter().enumerate() {
-        if by_tag.get(&elem.tag).unwrap().len() != 1 {
-            continue;
-        }
-        selectors
-            .entry(Selector::Type(elem.tag))
-            .or_default()
-            .insert(ElemId(i as u32));
-    }
+        // TODO: also use aria roles here?
 
-    // Search for a class that all elements have, which is also a unique
-    // identifier for this group.
-    for (selector, elems) in selectors.iter() {
-        if elems.len() == group.elems.len() {
-            return Ok(bump.alloc_slice_fill_iter([*selector]));
-        }
-    }
-
-    // There is no single tag or class that uniquely identifies *all* elements
-    // in the group. Try to find an approximately minimal set of tags and
-    // classes that fully covers the elements in this group.
-    // This is essentially the "Set cover problem":
-    // https://en.wikipedia.org/wiki/Set_cover_problem
-
-    let mut num_uncovered = group.elems.len();
-    let mut selector_list = BumpVec::new_in(bump);
-
-    // TODO: If we have some sort of niceness score anyway, consider aborting
-    // this loop once a threshold is met to not waste too much computation.
-
-    // Build the selector list progressively adding the selector that will cover
-    // the most uncovered elements.
-    while num_uncovered > 0 && !selectors.is_empty() {
-        // Find the selector that covers the most remaining elements.
-        let (idx, _) = (selectors.iter().enumerate())
-            .max_by_key(|(_, (_, elems))| elems.len())
-            .unwrap();
-        let (selector, covered) = selectors.shift_remove_index(idx).unwrap();
-
-        selector_list.push(selector);
-
-        // Update the remaining selectors.
-        num_uncovered -= covered.len();
-        selectors.retain(|_, selector_elems| {
-            for elem in covered.iter() {
-                selector_elems.remove(elem);
+        // Only use tag if there is no class that can uniquely identify this
+        // group.
+        if selector_list.is_empty() {
+            let groups = by_tag.get(&elem.tag).unwrap();
+            if groups.len() == 1 {
+                selector_list.push(Selector::Type(HtmlTagKey(elem.tag)));
             }
-            !selector_elems.is_empty()
-        });
+        }
+
+        if selector_list.is_empty() {
+            unidentified.push(ElemId::new(i));
+        } else {
+            // Make sure the selector lists are consistently sorted, so we can
+            // use them as unique keys.
+            selector_list.sort_unstable();
+            selector_list.dedup();
+
+            // PERF: Avoid unnecessary bump allocations, free the selector list, if
+            // it's already present in the selector map.
+            let selector_list = SelectorList(selector_list.into_bump_slice());
+            let entry = buckets.entry(selector_list);
+            let first_inserted = entry.is_vacant();
+            let bucket_id = entry.id();
+            entry.or_default().num_elems += 1;
+
+            if first_inserted {
+                for selector in selector_list.iter() {
+                    let candidate = selector_candidates.entry(*selector).or_default();
+                    candidate.buckets.insert(bucket_id);
+                }
+            }
+        }
     }
 
-    if num_uncovered == 0 {
-        Ok(selector_list.into_bump_slice())
-    } else {
-        Err(selector_list.into_bump_slice())
+    // PERF: We could find disjoint sets of selectors by doing a flood fill and
+    // compute the identifiers for those.
+    // Disjoint meaning that there is no path between two selectors when
+    // recursively visiting all selectors that point to the same bucket.
+
+    let mut identifier = BumpVec::new_in(bump);
+
+    // Compute the number of remaining elements per selector candidate.
+    for candidate in selector_candidates.values() {
+        let num_elems = (candidate.buckets.iter())
+            .map(|id| buckets.get_id(*id).num_elems)
+            .sum::<u32>();
+        candidate.remaining_elems.set(num_elems);
     }
+
+    // Eliminiate all buckets that only have a single possible selector.
+    for bucket_id in buckets.ids() {
+        let (list, _) = buckets.get_id_full(bucket_id);
+        if let [selector] = list.0 {
+            let candidate_id = selector_candidates.lookup_id(selector).unwrap();
+            choose_selector_candidate(
+                &mut identifier,
+                &selector_candidates,
+                &buckets,
+                candidate_id,
+                |_, _| (),
+            );
+        }
+    }
+
+    // Build a priority queue backed by a binary heap to incrementally select
+    // the next selector and update the priority of other selectors that pointed
+    // to the same buckets.
+    let selector_queue = selector_candidates
+        .id_iter()
+        .filter(|(_, _, candidate)| candidate.remaining_elems.get() > 0)
+        .map(|(id, _, _)| id)
+        .collect_in::<BumpVec<_>>(bump);
+    let mut selector_queue = IdQueue::new(bump, selector_queue, |id| {
+        selector_candidates.get_id(id).remaining_elems.get()
+    });
+
+    // Incrementally build the identifier for this group by choosing the
+    // selector that will cover the most remaining elements.
+    while let Some(candidate_id) = selector_queue.pop() {
+        choose_selector_candidate(
+            &mut identifier,
+            &selector_candidates,
+            &buckets,
+            candidate_id,
+            |candidate_id, num_elems| {
+                if num_elems == 0 {
+                    selector_queue.remove(candidate_id);
+                } else {
+                    selector_queue.update(candidate_id);
+                }
+            },
+        );
+    }
+
+    identifier
 }
 
-fn display_selector_list(list: &[Selector<&str>]) -> impl Display {
-    typst_utils::display(move |f| {
-        for (i, selector) in list.iter().enumerate() {
-            if i > 0 {
-                f.write_str(", ")?;
-            }
-            match selector {
-                Selector::Type(tag) => f.write_str(&tag.resolve())?,
-                Selector::Class(class) => write!(f, ".{class}")?,
-            }
+/// Choose a selector and recursively update the
+/// [`SelectorCandidate::remaining_elems`] count of all affected selectors.
+fn choose_selector_candidate<'a, F>(
+    selector_list: &mut BumpVec<Selector<&'a str>>,
+    selector_candidates: &IdMap<Selector<&'a str>, SelectorCandidate>,
+    buckets: &IdMap<SelectorList<'a>, Bucket>,
+    candidate_id: SelectorCandidateId,
+    mut update_queue: F,
+) where
+    F: FnMut(SelectorCandidateId, u32),
+{
+    let (&selector, candidate) = selector_candidates.get_id_full(candidate_id);
+
+    // There should be no candidates with 0 `remaining_elems` in the queue.
+    // Either they should have been filtered out when creating the queue, or
+    // they should have been removed when their `remaining_elems` count was
+    // updated.
+    debug_assert_ne!(candidate.remaining_elems.get(), 0);
+
+    selector_list.push(selector);
+
+    candidate.remaining_elems.set(0);
+
+    // Eliminate the covered buckets.
+    #[allow(clippy::iter_over_hash_type)]
+    for &bucket_id in candidate.buckets.iter() {
+        let (list, bucket) = buckets.get_id_full(bucket_id);
+        if bucket.eliminated.get() {
+            continue;
         }
-        Ok(())
-    })
+        bucket.eliminated.set(true);
+
+        // Update the candidate element counts.
+        for selector in list.iter() {
+            let candidate_id = selector_candidates.lookup_id(selector).unwrap();
+            let candidate = selector_candidates.get_id(candidate_id);
+            let remaining_elems = candidate.remaining_elems.get();
+
+            // This should only happen for the candidate that was just selected,
+            // otherwise the bucket shouldn't have been eliminated.
+            if remaining_elems == 0 {
+                continue;
+            }
+
+            candidate.remaining_elems.set(remaining_elems - bucket.num_elems);
+
+            update_queue(candidate_id, candidate.remaining_elems.get());
+        }
+    }
 }
