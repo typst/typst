@@ -9,6 +9,7 @@ mod deferred;
 mod duration;
 mod hash;
 mod id;
+mod idqueue;
 mod listset;
 mod pico;
 mod protected;
