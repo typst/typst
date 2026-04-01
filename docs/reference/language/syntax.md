@@ -40,7 +40,7 @@ more about their syntax and usage.
 | Strong emphasis    | `[*strong*]`                 | [`strong`]               |
 | Emphasis           | `[_emphasis_]`               | [`emph`]                 |
 | Raw text           | ``[`print(1)`]``             | [`raw`]                  |
-| Link               | `[https://typst.app/]`       | [`link`]                 |
+| Link               | `[https://typst.app]`, `[https://typst.app[body]]` | [`link`] |
 | Label              | `[<intro>]`                  | [`label`]                |
 | Reference          | `[@intro]`                   | [`ref`]                  |
 | Heading            | `[= Heading]`                | [`heading`]              |

@@ -1061,8 +1061,7 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
                 parentheses += 1;
                 true
             }
-            ')' if parentheses == 0 => false,
-            ')' => {
+            ')' if parentheses > 0 => {
                 parentheses -= 1;
                 true
             }
