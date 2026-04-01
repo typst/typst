@@ -1,6 +1,6 @@
-use std::cmp::{max, min};
 use base64::Engine;
 use ecow::EcoString;
+use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -12,6 +12,7 @@ use typst_library::text::color::{
 };
 use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
+use write_fonts::FontBuilder;
 use write_fonts::from_obj::ToOwnedTable;
 use write_fonts::read::tables::glyf::CurvePoint;
 use write_fonts::read::{FontRef, TableProvider};
@@ -24,7 +25,6 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-use write_fonts::FontBuilder;
 
 use crate::path::SvgPathBuilder;
 use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
@@ -80,12 +80,16 @@ impl SVGRenderer<'_> {
             let y_offset = y + glyph.y_offset.at(text.size);
 
             // merge with previous span if they are contiguous and have the same y_offset
-            if let Some(last) = span_items.last_mut() && last.x_advance == (x_offset - last.x_offset) && y_offset == last.y_offset {
+            if let Some(last) = span_items.last_mut()
+                && last.x_advance == (x_offset - last.x_offset)
+                && y_offset == last.y_offset
+            {
                 last.x_advance += glyph.x_advance.at(text.size);
 
                 // merge the range. can't just do "last.range.start..glyph_range.end" because RTL => glyphs in different order than source characters => pain
                 let glyph_range = glyph.range();
-                last.range = min(last.range.start, glyph_range.start)..max(last.range.end, glyph_range.end);
+                last.range = min(last.range.start, glyph_range.start)
+                    ..max(last.range.end, glyph_range.end);
             } else {
                 span_items.push(SpanItem {
                     x_offset,
