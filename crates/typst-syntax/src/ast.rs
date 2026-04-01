@@ -742,12 +742,12 @@ node! {
 
 impl<'a> Link<'a> {
     /// Get the URL.
-    pub fn dest(self) -> &'a EcoString {
+    pub fn dest(self) -> EcoString {
         self.0
             .children()
             .find(|node| node.kind() == SyntaxKind::LinkMarker)
-            .unwrap()
-            .text()
+            .map(|node| node.text().clone())
+            .unwrap_or_default()
     }
 
     /// Get the link's body.

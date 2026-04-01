@@ -192,7 +192,7 @@ impl Eval for ast::Link<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let url = Url::new(self.dest().clone()).at(self.span())?;
+        let url = Url::new(self.dest()).at(self.span())?;
         if let Some(body) = self.body() {
             Ok(LinkElem::new(LinkTarget::Dest(Destination::Url(url)), body.eval(vm)?).pack())
         } else {
