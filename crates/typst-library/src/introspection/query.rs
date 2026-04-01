@@ -99,18 +99,22 @@ use crate::introspection::Introspector;
 /// ```
 ///
 /// # Command line queries
-/// You can also perform queries from the command line with the `typst query`
-/// command. This command executes an arbitrary query on the document and
-/// returns the resulting elements in serialized form. Consider the following
-/// `example.typ` file which contains some invisible [metadata]:
+/// You can also perform queries from the command line, using the `typst eval`
+/// command. This command evaluates Typst code, potentially in the context of a
+/// document, and outputs the resulting value in serialized form. It takes the
+/// code to evaluate as its first argument and (optionally) the path to a
+/// document via `--in`.
+///
+/// Consider the following `example.typ` file which contains some invisible
+/// [metadata]:
 ///
 /// ```typ
 /// #metadata("This is a note") <note>
 /// ```
 ///
-/// You can execute a query on it as follows using Typst's CLI:
+/// You can execute a query on it as follows using Typst's CLI.
 /// ```sh
-/// $ typst query example.typ "<note>"
+/// $ typst eval 'query(<note>)' --in example.typ
 /// [
 ///   {
 ///     "func": "metadata",
@@ -120,23 +124,29 @@ use crate::introspection::Introspector;
 /// ]
 /// ```
 ///
+/// This command tells Typst to compile `example.typ` and then run the code
+/// `{query(<note>)}` with access to the resulting document.
+///
+/// **Note:** The code is surrounded with quotes to avoid special characters
+/// being interpreted by the shell. How to quote strings depends on your
+/// platform/shell.
+///
 /// ## Retrieving a specific field
 ///
 /// Frequently, you're interested in only one specific field of the resulting
 /// elements. In the case of the `metadata` element, the `value` field is the
-/// interesting one. You can extract just this field with the `--field`
-/// argument.
+/// interesting one. You can extract just this field by adjusting the code.
 ///
 /// ```sh
-/// $ typst query example.typ "<note>" --field value
+/// $ typst eval 'query(<note>).map(it => it.value)' --in example.typ
 /// ["This is a note"]
 /// ```
 ///
-/// If you are interested in just a single element, you can use the `--one`
-/// flag to extract just it.
+/// If you are interested in just a single element, you can also use the
+/// [`first()`]($array.first) method to extract just it.
 ///
 /// ```sh
-/// $ typst query example.typ "<note>" --field value --one
+/// $ typst eval 'query(<note>).first().value' --in example.typ
 /// "This is a note"
 /// ```
 ///
@@ -174,7 +184,7 @@ impl Introspect for QueryIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query(&self.0)
     }
@@ -201,7 +211,7 @@ impl Introspect for QueryFirstIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_first(&self.0)
     }
@@ -226,7 +236,7 @@ impl Introspect for QueryUniqueIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_unique(&self.0)
     }
@@ -251,7 +261,7 @@ impl Introspect for QueryLabelIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_label(self.0).cloned()
     }

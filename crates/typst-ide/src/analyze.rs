@@ -1,11 +1,10 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
-use typst::AsDocument;
-use typst::foundations::{Label, Styles, Value};
-use typst::layout::PagedDocument;
+use typst::foundations::{AsOutput, Label, Styles, Value};
 use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{LinkedNode, SyntaxKind, ast};
+use typst_layout::PagedDocument;
 
 use crate::IdeWorld;
 
@@ -99,16 +98,14 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 ///
 /// Note: When multiple labels in the document have the same identifier,
 /// this only returns the first one.
-pub fn analyze_labels(
-    document: impl AsDocument,
-) -> (Vec<(Label, Option<EcoString>)>, usize) {
-    let introspector = document.as_document().introspector();
+pub fn analyze_labels(output: impl AsOutput) -> (Vec<(Label, Option<EcoString>)>, usize) {
+    let introspector = output.as_output().introspector();
 
     let mut output = vec![];
     let mut seen_labels = FxHashSet::default();
 
     // Labels in the document.
-    for elem in introspector.all() {
+    for elem in introspector.query_labelled() {
         let Some(label) = elem.label() else { continue };
         if !seen_labels.insert(label) {
             continue;
@@ -120,7 +117,7 @@ pub fn analyze_labels(
                 Some(Some(caption)) => Some(caption.pack_ref()),
                 _ => None,
             })
-            .unwrap_or(elem)
+            .unwrap_or(&elem)
             .get_by_name("body")
             .ok()
             .and_then(|field| match field {
@@ -128,7 +125,7 @@ pub fn analyze_labels(
                 _ => None,
             })
             .as_ref()
-            .unwrap_or(elem)
+            .unwrap_or(&elem)
             .plain_text();
         output.push((label, Some(details)));
     }

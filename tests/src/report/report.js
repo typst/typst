@@ -1,4 +1,5 @@
 const sidebarList = document.querySelector(".sidebar > .sidebar-list")
+const globalSourceToggle = document.getElementById("global-view-test-sources")
 /** @type {HTMLAnchorElement[]} */
 const sidebarLinks = sidebarList.querySelectorAll("a")
 
@@ -12,9 +13,11 @@ const reportFiles = []
  * @type {object}
  * @property report {HTMLDetailsElement}
  * @property reportToggle {HTMLButtonElement}
+ * @property reportSourceToggle {HTMLButtonElement}
  * @property reportFileHeaders {NodeListOf<HTMLDivElement>}
  * @property reportFileTabs {NodeListOf<HTMLInputElement>}
  * @property reportBody HTMLDivElement
+ * @property reportSource HTMLDivElement
  * @property reportFileTabpanels {NodeListOf<HTMLElement>}
  */
 
@@ -30,16 +33,23 @@ const reportFiles = []
  */
 
 /**
- * @typedef {"image" | "text"} DiffKind
+ * @typedef {"visual" | "text"} DiffMode
  */
+
+let activeTestSources = 0
+
+// Avoid implicit statefulness by the browser
+globalSourceToggle.checked = false
 
 for (const report of document.getElementsByClassName("test-report")) {
   const reportHeader = report.querySelector(".test-report-header")
   const reportToggle = reportHeader.querySelector(".test-report-toggle")
+  const reportSourceToggle = reportHeader.querySelector(".test-report-source-toggle")
   const reportFileHeaders = reportHeader.querySelectorAll(".report-file-header");
   const reportFileTabGroup = reportHeader.querySelector(".report-file-tab-group");
   const reportFileTabs = reportFileTabGroup.querySelectorAll(".report-file-tab");
   const reportBody = report.querySelector(".test-report-body")
+  const reportSource = report.querySelector(".test-report-source")
   const reportFileTabpanels = reportBody.querySelectorAll(":scope > .report-file");
 
   /** @type {TestReportState} */
@@ -50,6 +60,8 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportFileTabs,
     reportFileTabpanels,
     reportToggle,
+    reportSourceToggle,
+    reportSource,
   }
   testReports.push(state);
 
@@ -59,6 +71,20 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportToggle.ariaExpanded = expanded;
   });
 
+  reportSourceToggle.addEventListener("click", () => {
+    const expanded = !(reportSourceToggle.ariaExpanded == "true");
+    reportSource.hidden = !expanded;
+    reportSourceToggle.ariaExpanded = expanded;
+    
+    if (expanded) {
+      activeTestSources += 1;
+    } else {
+      activeTestSources -= 1;
+    }
+
+    globalSourceToggle.checked = activeTestSources > 0;
+  });
+  
   for (const button of reportHeader.querySelectorAll(".copy-button")) {
     button.addEventListener("click", () => {
       navigator.clipboard.writeText(button.dataset.filePath);
@@ -126,13 +152,19 @@ filterSearch.addEventListener("change", () => {
 
 filterDiffs()
 
-let diff_kinds = ["text", "image"]
-for (const kind of diff_kinds) {
-  document.getElementById(`global-diff-mode-${kind}`)
+let diff_modes = ["visual", "text"]
+for (const mode of diff_modes) {
+  document.getElementById(`global-diff-mode-${mode}`)
     .addEventListener("click", () => {
-      changeGlobalDiffMode(kind)
+      changeGlobalDiffMode(mode)
     })
 }
+
+globalSourceToggle
+  .addEventListener("change", () => {
+    // If all tests are hidden, display them. If one is shown, hide them.
+    changeGlobalSourceVisibility(activeTestSources === 0)
+  });
 
 function filterDiffs() {
   let outputs = filterDiffFormats
@@ -211,31 +243,31 @@ function currentReportFileTab(state) {
 }
 
 /**
- * @param diff_kind {DiffKind}
+ * @param diff_mode {DiffMode}
  */
-function changeGlobalDiffMode(diff_kind) {
+function changeGlobalDiffMode(diff_mode) {
   for (const state of reportFiles) {
     let found = false
     for (const tab of state.fileDiffTabs) {
-      if (tab.value == diff_kind) {
+      if (tab.value == diff_mode) {
         tab.checked = true;
         found = true;
         break;
       }
     }
     if (found) {
-      fileDiffTabChanged(state, diff_kind)
+      fileDiffTabChanged(state, diff_mode)
     }
   }
 }
 
 /**
   * @param state {ReportFileState}
-  * @param diff_kind {DiffKind}
+  * @param diff_mode {DiffMode}
   */
-function fileDiffTabChanged(state, diff_kind) {
+function fileDiffTabChanged(state, diff_mode) {
   for (const [idx, tab] of state.fileDiffTabs.entries()) {
-    const selected = tab.value == diff_kind;
+    const selected = tab.value == diff_mode;
     tab.ariaSelected = selected;
     state.fileDiffTabpanels[idx].hidden = !selected;
   }
@@ -243,7 +275,7 @@ function fileDiffTabChanged(state, diff_kind) {
 
 /**
   * @param state {ReportFileState}
-  * @return {DiffKind}
+  * @return {DiffMode}
   */
 function currentFileDiffTab(state) {
   for (const tab of state.fileDiffTabs) {
@@ -251,6 +283,18 @@ function currentFileDiffTab(state) {
       return tab.value
     }
   }
+}
+
+/**
+ * @param visible {boolean}
+ */
+function changeGlobalSourceVisibility(visible) {
+  for (const state of testReports) {
+    state.reportSource.hidden = !visible;
+    state.reportSourceToggle.ariaExpanded = visible;
+  }
+
+  activeTestSources = visible ? testReports.length : 0;
 }
 
 /** @type {ImageDiffState} */
@@ -276,7 +320,7 @@ const imageDiffs = []
  */
 
 /**
- * @typedef {"side-by-side" | "blend" | "difference"} ImageViewMode
+ * @typedef {"side-by-side" | "swipe" | "blend" | "difference"} ImageViewMode
  */
 
 for (const imageDiff of document.getElementsByClassName("image-diff")) {
@@ -381,7 +425,7 @@ function onViewportIntersectionChanged(element, callback) {
   observer.observe(element);
 }
 
-let imageModes = ["side-by-side", "blend", "difference"]
+let imageModes = ["side-by-side", "swipe", "blend", "difference"]
 for (const mode of imageModes) {
   document.getElementById(`global-image-view-mode-${mode}`)
     .addEventListener("click", () => changeGlobalImageMode(mode));
@@ -421,6 +465,11 @@ function disableImageControls(state, mode) {
       state.imageBlendControl.disabled = true;
       break;
     }
+    case "swipe": {
+      state.imageAlignXControl.disabled = false;
+      state.imageBlendControl.disabled = false;
+      break;
+    }
     case "blend": {
       state.imageAlignXControl.disabled = false;
       state.imageBlendControl.disabled = false;
@@ -442,6 +491,7 @@ function disableImageControls(state, mode) {
  * @property y {number}
  * @property w {number}
  * @property h {number}
+ * @property clip {Path2D?}
  * @property opacity {number}
  */
 
@@ -469,8 +519,9 @@ function redrawImageDiff(state) {
   const mode = currentImageMode(state)
   const alignX = currentImageAlignX(state);
   const alignY = currentImageAlignY(state);
-  const blend = state.imageBlend.value
+  const blend = Number(state.imageBlend.value);
 
+  /** @type {ImageParams} */
   const a = {
     x: 0,
     y: 0,
@@ -478,6 +529,7 @@ function redrawImageDiff(state) {
     h: scale * state.images[0].naturalHeight,
     opacity: 1,
   };
+  /** @type {ImageParams} */
   const b = {
     x: 0,
     y: 0,
@@ -491,14 +543,18 @@ function redrawImageDiff(state) {
 
   const sideBySideGap = 1;
 
+  const swipeYPadding = scale * 8;
+  const swipeXPadding = 2;
+  const swipeDividerWidth = 1;
+
   let canvasSize = { w: maxWidth, h: maxHeight };
   let compositeMode;
+  let swipeDividerPos = null;
   switch (mode) {
     case "side-by-side": {
       compositeMode = "source-over";
 
-      const maxWidth = Math.max(a.w, b.w);
-      canvasSize = { w: 2 * maxWidth + sideBySideGap, h: Math.max(a.h, b.h) };
+      canvasSize = { w: 2 * maxWidth + sideBySideGap, h: maxHeight };
 
       // Center align images
       a.x = maxWidth - a.w;
@@ -506,6 +562,29 @@ function redrawImageDiff(state) {
 
       a.y = verticalAlignImage(a, canvasSize, alignY);
       b.y = verticalAlignImage(b, canvasSize, alignY);
+
+      break;
+    }
+    case "swipe": {
+      compositeMode = "source-over";
+
+      const logicalCanvasSize = canvasSize;
+      canvasSize = { w: maxWidth + 2 * swipeXPadding, h: maxHeight + 2 * swipeYPadding };
+
+      a.x = horizontalAlignImage(a, logicalCanvasSize, alignX) + swipeXPadding;
+      b.x = horizontalAlignImage(b, logicalCanvasSize, alignX) + swipeXPadding;
+      a.y = verticalAlignImage(a, logicalCanvasSize, alignY) + swipeYPadding;
+      b.y = verticalAlignImage(b, logicalCanvasSize, alignY) + swipeYPadding;
+
+      swipeDividerPos = Math.round(blend * (canvasSize.w - swipeDividerWidth));
+
+      // Use clip paths instead of the `drawImage` source paramters to avoid
+      // wobble of the images when moving the slider.
+      a.clip = new Path2D();
+      a.clip.rect(0, 0, swipeDividerPos, canvasSize.h);
+
+      b.clip = new Path2D();
+      b.clip.rect(swipeDividerPos, 0, canvasSize.w - swipeDividerPos, canvasSize.h);
 
       break;
     }
@@ -544,6 +623,7 @@ function redrawImageDiff(state) {
     default: throw `unknown mode ${mode}`
   }
 
+  // Computation is done, do the actual drawing.
   state.imageCanvas.width = canvasSize.w;
   state.imageCanvas.height = canvasSize.h;
 
@@ -553,11 +633,32 @@ function redrawImageDiff(state) {
   ctx.imageSmoothingEnabled = antialiased;
   ctx.globalCompositeOperation = compositeMode;
 
-  ctx.globalAlpha = a.opacity;
-  ctx.drawImage(state.images[0], a.x, a.y, a.w, a.h);
+  drawImage(ctx, state.images[0], a);
+  drawImage(ctx, state.images[1], b);
 
-  ctx.globalAlpha = b.opacity;
-  ctx.drawImage(state.images[1], b.x, b.y, b.w, b.h);
+  // Divider.
+  if (swipeDividerPos != null) {
+    ctx.lineWidth = swipeDividerWidth;
+    ctx.strokeStyle = "red";
+    const divider = new Path2D();
+    console.log(swipeDividerPos);
+    divider.moveTo(swipeDividerPos, 0);
+    divider.lineTo(swipeDividerPos, canvasSize.h);
+    ctx.stroke(divider);
+  }
+}
+
+/**
+ * @param ctx {CanvasRenderingContext2D}
+ * @param img {HTMLImageElement}
+ * @param p {ImageParams}
+ */
+function drawImage(ctx, img, p) {
+  ctx.save();
+  ctx.globalAlpha = p.opacity;
+  if (p.clip != null) ctx.clip(p.clip);
+  ctx.drawImage(img, p.x, p.y, p.w, p.h);
+  ctx.restore();
 }
 
 /**

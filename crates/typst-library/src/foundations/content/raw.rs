@@ -124,7 +124,7 @@ impl RawContent {
     ///
     /// # Safety
     /// - The reference count must be zero.
-    /// - The raw content must be be of type `E`.
+    /// - The raw content must be of type `E`.
     pub(super) unsafe fn drop_impl<E: NativeElement>(&mut self) {
         debug_assert_eq!(self.header().refs.load(Ordering::Relaxed), 0);
 

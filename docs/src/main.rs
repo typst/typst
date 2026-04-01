@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use typst::layout::PagedDocument;
 use typst_docs::{Html, Resolver, provide};
+use typst_layout::PagedDocument;
 use typst_render::render;
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ impl Resolver for CliResolver<'_> {
 
         fs::create_dir_all(self.assets_dir).expect("create dir");
 
-        let pages = match &document.pages[..] {
+        let pages = match document.pages() {
             [page] => vec![(page, format!("{hash:x}.png"), "Preview".to_string())],
             pages => pages
                 .iter()

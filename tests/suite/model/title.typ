@@ -1,16 +1,16 @@
 // Test title element.
 
 --- title paged html pdftags pdfstandard(ua-1) ---
-#set document(title: "My title")
+#set document(title: [My title])
 #title()
 = A level one heading
 
 --- title-with-body paged html ---
-#set document(title: "My title")
+#set document(title: [My title])
 #title[My display title]
 
 --- title-with-body-auto paged ---
-#set document(title: "My title")
+#set document(title: [My title])
 #title(auto)
 
 --- title-show-set paged ---

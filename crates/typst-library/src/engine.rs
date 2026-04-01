@@ -23,7 +23,7 @@ pub struct Engine<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,
     /// Provides access to information about the document.
-    pub introspector: Protected<Tracked<'a, Introspector>>,
+    pub introspector: Protected<Tracked<'a, dyn Introspector + 'a>>,
     /// May hold a span that is currently under inspection.
     pub traced: Tracked<'a, Traced>,
     /// A pure sink for warnings, delayed errors, and spans under inspection.
