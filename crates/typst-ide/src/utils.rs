@@ -5,7 +5,7 @@ use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
-use typst::introspection::Introspector;
+use typst::introspection::EmptyIntrospector;
 use typst::syntax::{LinkedNode, SyntaxKind};
 use typst::text::{FontInfo, FontStyle};
 use typst::utils::Protected;
@@ -17,7 +17,7 @@ pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
 where
     F: FnOnce(&mut Engine) -> T,
 {
-    let introspector = Introspector::default();
+    let introspector = EmptyIntrospector;
     let traced = Traced::default();
     let mut sink = Sink::new();
     let mut engine = Engine {

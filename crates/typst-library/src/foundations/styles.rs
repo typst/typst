@@ -110,15 +110,6 @@ impl Styles {
         self
     }
 
-    /// Whether there is a style for the given field of the given element.
-    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
-        let elem = E::ELEM;
-        self.0
-            .iter()
-            .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == I)
-    }
-
     /// Determines the styles used for content that it at the root, outside of
     /// the user-controlled content (e.g. page marginals and footnotes). This
     /// applies to both paged and HTML export.
@@ -641,6 +632,14 @@ impl<'a> StyleChain<'a> {
         self.get_cloned(field).resolve(self)
     }
 
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
+        self.entries()
+            .filter_map(|style| style.property())
+            .any(|property| property.is_of(elem) && property.id == I)
+    }
+
     /// Retrieves a reference to a field, also taking into account the
     /// instance's value if any.
     fn get_unfolded<T: 'static>(self, func: Element, id: u8) -> Option<&'a T> {
@@ -1002,35 +1001,35 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
+        fn empty<T: NativeElement>() -> ShowFn<T> {
+            |_, _, _| Ok(Content::empty())
+        }
+
         let mut rules = Self { rules: FxHashMap::default() };
 
-        // ContextElem is as special as SequenceElem and StyledElem and could,
-        // in theory, also be special cased in realization.
-        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+        for target in [Target::Paged, Target::Html, Target::Bundle] {
+            // ContextElem is as special as SequenceElem and StyledElem and
+            // could, in theory, also be special cased in realization.
+            rules.register(target, crate::foundations::CONTEXT_RULE);
 
-        // CounterDisplayElem only exists because the compiler can't currently
-        // express the equivalent of `context counter(..).display(..)` in native
-        // code (no native closures).
-        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+            // CounterDisplayElem only exists because the compiler can't
+            // currently express the equivalent of `context
+            // counter(..).display(..)` in native code (no native closures).
+            rules.register(target, crate::introspection::COUNTER_DISPLAY_RULE);
 
-        // These are all only for introspection and empty on all targets.
-        rules.register_empty::<crate::introspection::CounterUpdateElem>();
-        rules.register_empty::<crate::introspection::StateUpdateElem>();
-        rules.register_empty::<crate::introspection::MetadataElem>();
-        rules.register_empty::<crate::model::PrefixInfo>();
+            // These are all only for introspection and empty on all targets.
+            rules.register(target, empty::<crate::introspection::CounterUpdateElem>());
+            rules.register(target, empty::<crate::introspection::StateUpdateElem>());
+            rules.register(target, empty::<crate::introspection::MetadataElem>());
+            rules.register(target, empty::<crate::model::PrefixInfo>());
+        }
+
+        for target in [Target::Paged, Target::Html] {
+            rules.register(target, crate::model::ASSET_UNSUPPORTED_RULE);
+            rules.register(target, crate::model::DOCUMENT_UNSUPPORTED_RULE);
+        }
 
         rules
-    }
-
-    /// Registers a rule for all targets.
-    fn register_empty<T: NativeElement>(&mut self) {
-        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
-    }
-
-    /// Registers a rule for all targets.
-    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
-        self.register(Target::Paged, f);
-        self.register(Target::Html, f);
     }
 
     /// Registers a rule for a target.

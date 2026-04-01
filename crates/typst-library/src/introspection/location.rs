@@ -3,13 +3,16 @@ use std::num::NonZeroUsize;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
-use typst_syntax::Span;
+use typst_syntax::{Span, VirtualPath};
+use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
 use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
-use crate::introspection::{History, Introspect, Introspector};
-use crate::layout::{Abs, Position};
+use crate::introspection::{
+    DocumentPosition, History, Introspect, Introspector, PagedPosition,
+};
+use crate::layout::Abs;
 use crate::model::Numbering;
 
 /// Makes an element available in the introspector.
@@ -106,7 +109,7 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     #[func]
-    pub fn position(self, engine: &mut Engine, span: Span) -> Position {
+    pub fn position(self, engine: &mut Engine, span: Span) -> PagedPosition {
         engine.introspect(PositionIntrospection(self, span))
     }
 
@@ -170,14 +173,18 @@ impl From<Location> for LocationKey {
 pub struct PositionIntrospection(pub Location, pub Span);
 
 impl Introspect for PositionIntrospection {
-    type Output = Position;
+    type Output = PagedPosition;
 
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.position(self.0).as_paged_or_default()
+        match introspector.position(self.0) {
+            Some(DocumentPosition::Paged(pos)) => pos,
+            // Maybe error here instead?
+            Some(DocumentPosition::Html(_)) | None => PagedPosition::ORIGIN,
+        }
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -210,9 +217,10 @@ impl Introspect for PageIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.page(self.0)
+        // Maybe error here instead of calling `unwrap_or`?
+        introspector.page(self.0).unwrap_or(NonZeroUsize::ONE)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -237,7 +245,7 @@ impl Introspect for PageNumberingIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.page_numbering(self.0).cloned()
     }
@@ -266,9 +274,11 @@ impl Introspect for PageSupplementIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.page_supplement(self.0)
+        // Maybe returns `None` here instead of empty content if no supplement
+        // was specified?
+        introspector.page_supplement(self.0).cloned().unwrap_or_default()
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -281,6 +291,68 @@ impl Introspect for PageSupplementIntrospection {
                 eco_format!("supplement of the page on which the {element} is located")
             },
             |supplement| eco_format!("`{}`", supplement.repr()),
+        )
+    }
+}
+
+/// Retrieves the file path of the document/asset which has or contains the
+/// given location.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PathIntrospection(pub Location, pub Span);
+
+impl Introspect for PathIntrospection {
+    type Output = Option<VirtualPath>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Self::Output {
+        introspector.path(self.0).cloned()
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "path",
+            |element| {
+                eco_format!("path of the document in which the {element} is located")
+            },
+            |path| {
+                eco_format!(
+                    "`{}`",
+                    path.as_ref().map(|p| p.get_with_slash()).into_value().repr()
+                )
+            },
+        )
+    }
+}
+
+/// Retrieves the location of the document in which an element is located.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct DocumentIntrospection(pub Location, pub Span);
+
+impl Introspect for DocumentIntrospection {
+    type Output = Option<Location>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Self::Output {
+        introspector.document(self.0)
+    }
+
+    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
+        format_convergence_warning(
+            self.0,
+            self.1,
+            history,
+            "path",
+            |element| eco_format!("document in which the {element} is located"),
+            |_loc| eco_format!("TODO"),
         )
     }
 }

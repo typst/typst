@@ -81,17 +81,40 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- measure-counter-multiple-times paged ---
+--- measure-counter paged empty ---
 // When the thing we measure appears multiple times, we measure as if it was
 // the first one.
 #context {
   let c = counter("c")
-  let u(n) = c.update(n)
   let it = context c.get().first() * h(1pt)
-  let size = measure(it)
-  table(columns: 5, u(17), it, u(1), it, u(5))
-  [#size.width] // 17pt
+  c.update(42) + it
+  metadata(measure(it).width)
 }
+#context test(query(metadata).first().value, 42pt)
+
+--- measure-counter-bundle bundle ---
+// Ensure that introspector-assisted location assignment works in bundle export.
+// This tests how document introspectors are combined into a bundle
+// introspector.
+#document("main.pdf", context {
+  let c = counter("c")
+  let it = context c.get().first() * h(1pt)
+  c.update(42) + it
+  metadata(measure(it).width)
+})
+#context test(query(metadata).first().value, 42pt)
+
+--- measure-counter-multiple-times paged empty ---
+// When the thing we measure appears multiple times, we measure as if it was
+// the first one.
+#context {
+  let c = counter("c")
+  let it = context c.get().first() * h(1pt)
+  let u(n) = c.update(n)
+  grid(columns: 5, u(17), it, u(1), it, u(5))
+  metadata(measure(it).width)
+}
+#context test(query(metadata).first().value, 17pt)
 
 --- issue-5180-measure-inline-math-bounds paged empty ---
 #context {

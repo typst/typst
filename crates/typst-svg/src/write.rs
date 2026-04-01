@@ -256,7 +256,7 @@ impl SvgDisplay for SvgTransform {
     }
 }
 
-/// A SVG URL.
+/// An SVG URL.
 pub struct SvgUrl<T>(pub T);
 
 impl SvgDisplay for SvgUrl<DedupId> {

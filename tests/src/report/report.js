@@ -1,4 +1,5 @@
 const sidebarList = document.querySelector(".sidebar > .sidebar-list")
+const globalSourceToggle = document.getElementById("global-view-test-sources")
 /** @type {HTMLAnchorElement[]} */
 const sidebarLinks = sidebarList.querySelectorAll("a")
 
@@ -12,9 +13,11 @@ const reportFiles = []
  * @type {object}
  * @property report {HTMLDetailsElement}
  * @property reportToggle {HTMLButtonElement}
+ * @property reportSourceToggle {HTMLButtonElement}
  * @property reportFileHeaders {NodeListOf<HTMLDivElement>}
  * @property reportFileTabs {NodeListOf<HTMLInputElement>}
  * @property reportBody HTMLDivElement
+ * @property reportSource HTMLDivElement
  * @property reportFileTabpanels {NodeListOf<HTMLElement>}
  */
 
@@ -33,13 +36,20 @@ const reportFiles = []
  * @typedef {"visual" | "text"} DiffMode
  */
 
+let activeTestSources = 0
+
+// Avoid implicit statefulness by the browser
+globalSourceToggle.checked = false
+
 for (const report of document.getElementsByClassName("test-report")) {
   const reportHeader = report.querySelector(".test-report-header")
   const reportToggle = reportHeader.querySelector(".test-report-toggle")
+  const reportSourceToggle = reportHeader.querySelector(".test-report-source-toggle")
   const reportFileHeaders = reportHeader.querySelectorAll(".report-file-header");
   const reportFileTabGroup = reportHeader.querySelector(".report-file-tab-group");
   const reportFileTabs = reportFileTabGroup.querySelectorAll(".report-file-tab");
   const reportBody = report.querySelector(".test-report-body")
+  const reportSource = report.querySelector(".test-report-source")
   const reportFileTabpanels = reportBody.querySelectorAll(":scope > .report-file");
 
   /** @type {TestReportState} */
@@ -50,6 +60,8 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportFileTabs,
     reportFileTabpanels,
     reportToggle,
+    reportSourceToggle,
+    reportSource,
   }
   testReports.push(state);
 
@@ -59,6 +71,20 @@ for (const report of document.getElementsByClassName("test-report")) {
     reportToggle.ariaExpanded = expanded;
   });
 
+  reportSourceToggle.addEventListener("click", () => {
+    const expanded = !(reportSourceToggle.ariaExpanded == "true");
+    reportSource.hidden = !expanded;
+    reportSourceToggle.ariaExpanded = expanded;
+    
+    if (expanded) {
+      activeTestSources += 1;
+    } else {
+      activeTestSources -= 1;
+    }
+
+    globalSourceToggle.checked = activeTestSources > 0;
+  });
+  
   for (const button of reportHeader.querySelectorAll(".copy-button")) {
     button.addEventListener("click", () => {
       navigator.clipboard.writeText(button.dataset.filePath);
@@ -133,6 +159,12 @@ for (const mode of diff_modes) {
       changeGlobalDiffMode(mode)
     })
 }
+
+globalSourceToggle
+  .addEventListener("change", () => {
+    // If all tests are hidden, display them. If one is shown, hide them.
+    changeGlobalSourceVisibility(activeTestSources === 0)
+  });
 
 function filterDiffs() {
   let outputs = filterDiffFormats
@@ -251,6 +283,18 @@ function currentFileDiffTab(state) {
       return tab.value
     }
   }
+}
+
+/**
+ * @param visible {boolean}
+ */
+function changeGlobalSourceVisibility(visible) {
+  for (const state of testReports) {
+    state.reportSource.hidden = !visible;
+    state.reportSourceToggle.ariaExpanded = visible;
+  }
+
+  activeTestSources = visible ? testReports.length : 0;
 }
 
 /** @type {ImageDiffState} */

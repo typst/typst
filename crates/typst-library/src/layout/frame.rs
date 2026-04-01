@@ -1,15 +1,14 @@
 //! Finished documents.
 
 use std::fmt::{self, Debug, Formatter};
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{Dict, Label, Value, cast, dict};
+use crate::foundations::Label;
 use crate::introspection::{Location, Tag};
-use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
+use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
@@ -573,35 +572,4 @@ impl FrameParent {
 pub enum Inherit {
     Yes,
     No,
-}
-
-/// A physical position in a document.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Position {
-    /// The page, starting at 1.
-    pub page: NonZeroUsize,
-    /// The exact coordinates on the page (from the top left, as usual).
-    pub point: Point,
-}
-
-cast! {
-    Position,
-    self => Value::Dict(self.into()),
-    mut dict: Dict => {
-        let page = dict.take("page")?.cast()?;
-        let x: Length = dict.take("x")?.cast()?;
-        let y: Length = dict.take("y")?.cast()?;
-        dict.finish(&["page", "x", "y"])?;
-        Self { page, point: Point::new(x.abs, y.abs) }
-    },
-}
-
-impl From<Position> for Dict {
-    fn from(pos: Position) -> Self {
-        dict! {
-            "page" => pos.page,
-            "x" => pos.point.x,
-            "y" => pos.point.y,
-        }
-    }
 }

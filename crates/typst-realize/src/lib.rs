@@ -53,6 +53,7 @@ pub fn realize<'a>(
         locator,
         arenas,
         rules: match kind {
+            RealizationKind::Bundle => BUNDLE_RULES,
             RealizationKind::LayoutDocument { .. } => LAYOUT_RULES,
             RealizationKind::LayoutFragment { .. } => LAYOUT_RULES,
             RealizationKind::LayoutPar => LAYOUT_PAR_RULES,
@@ -586,21 +587,31 @@ fn visit_styled<'a>(
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
+            let local = StyleChain::new(&local);
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate(&local)
-            } else {
+                info.populate(local);
+            } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
                     style.span(),
                     "document set rules are not allowed inside of containers",
                 );
             }
+            if local.has(DocumentElem::format)
+                && !matches!(s.kind, RealizationKind::Bundle)
+            {
+                bail!(
+                    style.span(),
+                    "setting the document format is only supported in the bundle target"
+                );
+            }
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate_locale(&local)
+                info.populate_locale(StyleChain::new(&local));
             }
         } else if elem == PageElem::ELEM {
             match s.kind {
+                RealizationKind::Bundle => {}
                 RealizationKind::LayoutDocument { .. } => {
                     // When there are page styles, we "break free" from our show
                     // rule cage.
@@ -910,6 +921,9 @@ fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
 /// The maximum number of nested groups that are possible. Corresponds to the
 /// number of unique priority levels.
 const MAX_GROUP_NESTING: usize = 3;
+
+/// Grouping rules used in bundle realization.
+static BUNDLE_RULES: &[&GroupingRule] = &[];
 
 /// Grouping rules used in layout realization.
 static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];

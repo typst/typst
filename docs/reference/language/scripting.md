@@ -66,7 +66,7 @@ Content and code blocks can be nested arbitrarily. In the example below,
 ## Bindings and Destructuring { #bindings }
 As already demonstrated above, variables can be defined with `{let}` bindings.
 The variable is assigned the value of the expression that follows the `=` sign.
-A [valid variable name](#identifiers) may contain `-`, but cannot start with `-`.
+A [valid variable name]($syntax/#identifiers) may contain `-`, but cannot start with `-`.
 The assignment of a value is optional, if no value is assigned, the variable
 will be initialized as `{none}`. The `{let}` keyword can also be used to create
 a [custom named function]($function/#defining-functions). Variables can be

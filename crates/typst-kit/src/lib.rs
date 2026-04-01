@@ -19,11 +19,12 @@
 //! - `universe-packages`: Enables loading of packages from Typst Universe via
 //!   [`packages::UniversePackages`].
 //! - `emit-diagnostics`: Enables emitting terminal-style diagnostics via
+//! - `datetime`: Enables obtaining the current date via [`datetime::Time::today`].
 //!   [`diagnostics::emit`].
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
-//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`]
+//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`].
 //! - `vendor-openssl`: Whether to vendor OpenSSL for the `system-downloader`.
 //!   Not applicable to Windows and macOS build.
 
@@ -39,10 +40,12 @@
         feature = "system-downloader",
         feature = "watcher",
         feature = "http-server",
+        feature = "datetime",
     )),
     allow(rustdoc::broken_intra_doc_links)
 )]
 
+pub mod datetime;
 pub mod diagnostics;
 pub mod downloader;
 pub mod files;

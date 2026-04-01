@@ -1,7 +1,9 @@
 //! Structuring elements that define the document model.
 
+mod asset;
 mod bibliography;
 mod cite;
+mod divider;
 mod document;
 mod emph;
 #[path = "enum.rs"]
@@ -22,8 +24,10 @@ mod table;
 mod terms;
 mod title;
 
+pub use self::asset::*;
 pub use self::bibliography::*;
 pub use self::cite::*;
+pub use self::divider::*;
 pub use self::document::*;
 pub use self::emph::*;
 pub use self::enum_::*;
@@ -43,11 +47,15 @@ pub use self::terms::*;
 pub use self::title::*;
 
 use crate::foundations::Scope;
+use crate::{Feature, Features};
 
 /// Hook up all `model` definitions.
-pub fn define(global: &mut Scope) {
+pub fn define(global: &mut Scope, features: &Features) {
     global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
+    if features.is_enabled(Feature::Bundle) {
+        global.define_elem::<AssetElem>();
+    }
     global.define_elem::<ParElem>();
     global.define_elem::<ParbreakElem>();
     global.define_elem::<StrongElem>();
@@ -58,6 +66,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<LinkElem>();
     global.define_elem::<TitleElem>();
     global.define_elem::<HeadingElem>();
+    global.define_elem::<DividerElem>();
     global.define_elem::<FigureElem>();
     global.define_elem::<QuoteElem>();
     global.define_elem::<FootnoteElem>();
