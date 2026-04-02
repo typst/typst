@@ -3,8 +3,8 @@ use typst_library::foundations::{
     Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
-    EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
-    StrongElem, Supplement, TermItem, Url,
+    Destination, EmphElem, EnumItem, HeadingElem, LinkElem, LinkTarget,
+    ListItem, ParbreakElem, RefElem, StrongElem, Supplement, TermItem, Url,
 };
 use typst_library::text::{
     LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
@@ -191,9 +191,13 @@ impl Eval for ast::Raw<'_> {
 impl Eval for ast::Link<'_> {
     type Output = Content;
 
-    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let url = Url::new(self.get().clone()).at(self.span())?;
-        Ok(LinkElem::from_url(url).pack())
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let url = Url::new(self.dest()).at(self.span())?;
+        if let Some(body) = self.body() {
+            Ok(LinkElem::new(LinkTarget::Dest(Destination::Url(url)), body.eval(vm)?).pack())
+        } else {
+            Ok(LinkElem::from_url(url).pack())
+        }
     }
 }
 
