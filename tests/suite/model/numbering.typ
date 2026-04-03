@@ -115,6 +115,17 @@
 #counter(page).update(100)
 Hello
 
+--- page-numbering-too-high-pdf pdf ---
+// Error: the number 100 is too large to be represented with the `arabic.o` numeral system
+// Hint: this happened when trying to write a page number in the PDF metadata
+// Explanation:
+// The page number is not displayed on the page. Instead, it is only computed to
+// be embedded in the PDF metadata so the error is triggered in `typst-pdf`
+// instead of `typst-layout`.
+#set page(numbering: "①", footer: none)
+#counter(page).update(100)
+Hello
+
 --- footnote-numbering-too-high paged ---
 #set footnote(numbering: "①")
 #counter(footnote).update(100)
