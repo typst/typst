@@ -224,6 +224,10 @@ h2.diff-container-header {
   }
 }
 
+.test-report-source {
+  border-bottom: 1.25rem solid var(--layer-2);
+}
+
 .icon-button.test-report-toggle {
   height: var(--size-medium);
   width: var(--size-medium);
@@ -345,12 +349,12 @@ table.text-diff {
   border-spacing: 0;
   table-layout: fixed;
 
-  td.line-body:nth-child(2) {
-    border-right: var(--border-panel);
+  td.line-gutter:nth-child(3) {
+    border-left: var(--border-panel);
   }
 
-  td.diff-gap:nth-child(1) {
-    border-right: var(--border-panel);
+  td.diff-gap:nth-child(2) {
+    border-left: var(--border-panel);
   }
 }
 
@@ -369,6 +373,12 @@ tr {
   width: 50%;
   min-width: 50%;
   max-width: 50%;
+}
+
+.col-source-line-body {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
 }
 
 .diff-line {
@@ -598,7 +608,7 @@ label.icon-toggle-button:has(input:active:not(:disabled)) {
   background-color: var(--action-secondary-active);
 }
 
-label.icon-toggle-button:has(input:checked) {
+label.icon-toggle-button:has(input:checked), .icon-button.test-report-source-toggle[aria-expanded="true"] {
   color: var(--action-primary-selected);
 }
 

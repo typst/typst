@@ -425,8 +425,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9589e1effc5cacbea347899645c654158b03b2053d24bb426fd3128ced6e423c"
+source = "git+https://github.com/typst/codex?rev=231b9d5#231b9d57ff88e1082ccd358587a943b8d50859c4"
 
 [[package]]
 name = "color-print"
@@ -2703,9 +2702,9 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tar"
-version = "0.4.43"
+version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c65998313f8e17d0d553d28f91a0df93e4dbbbf770279c7bc21ca0f09ea1a1f6"
+checksum = "22692a6476a21fa75fdfc11d452fda482af402c008cdbaf3476414e122040973"
 dependencies = [
  "filetime",
  "libc",
@@ -3138,6 +3137,7 @@ dependencies = [
 name = "typst-kit"
 version = "0.14.2"
 dependencies = [
+ "chrono",
  "codespan-reporting",
  "dirs",
  "ecow",
@@ -3163,6 +3163,7 @@ dependencies = [
  "typst-timing",
  "typst-utils",
  "ureq",
+ "url",
 ]
 
 [[package]]
@@ -3387,7 +3388,6 @@ version = "0.14.2"
 dependencies = [
  "base64",
  "bitflags 2.9.1",
- "chrono",
  "clap",
  "comemo",
  "ecow",

@@ -35,7 +35,7 @@ use crate::{World, WorldExt};
 /// bail!(
 ///     span, "returning a {} error", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceResult
 /// ```
 #[macro_export]
@@ -80,7 +80,7 @@ macro_rules! __bail {
 /// error!(
 ///     span, "an error with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceDiagnostic
 /// ```
 #[macro_export]
@@ -103,15 +103,30 @@ macro_rules! __error {
     };
 
     // For `error!(span, ...)`
+    // Hints may include a span inside brackets: `hint[span_expr]: "msg"`.
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::error(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut err = $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: err, $hint $(, $hint_arg)*);)*
+        err
+    }};
+
+    // Internal recursive macro for adding hints with/without spans. Note that
+    // recursive macros must generate full expressions, so we can't use
+    // `.with_hint()` or `.with_spanned_hint()`.
+    (hint: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.hint($crate::diag::eco_format!($hint $(, $hint_arg)*))
+    };
+    (hint[$hint_span:expr]: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.spanned_hint($crate::diag::eco_format!($hint $(, $hint_arg)*), $hint_span)
     };
 }
 
@@ -130,7 +145,7 @@ macro_rules! __error {
 /// warning!(
 ///     span, "warning with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// );
 /// ```
 #[macro_export]
@@ -138,14 +153,18 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::warning(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut warning = $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
-    };
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: warning, $hint $(, $hint_arg)*);)*
+        warning
+    }};
 }
 
 #[rustfmt::skip]

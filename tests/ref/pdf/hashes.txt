@@ -1021,14 +1021,13 @@ e120f62f76c1a20a4f33805cfc842753 math-attach-prescripts
 3a2e54993d151c82689d9cc4c238b953 math-binom-multiple
 837328965654a57b166eece55881fb7d math-box-with-baseline
 e6d608b114c4bf5c5f33403eacd6c71b math-box-without-baseline
-16603a858b824dedb14d6c9404fdfb9c math-call-2d-semicolon-priority
-4ad5a4ae890e60d41f2e032be7c4e967 math-call-empty-args-non-func
-e29c24c018e45a7fc748f291eb6079c1 math-call-named-args
-3d51926aca805c0a421ae9ee58e91e0c math-call-non-func
+f57ad1fe359282b0d5d745c3586c8806 math-call-non-func
+be3be48b4ba1029d95f479e419665092 math-call-non-func-2d
+f509281f4ef2bd772bcd72b8b4d7718b math-call-non-func-empty-args
+1bfb085cc52f994001919a9576b541e7 math-call-non-func-spacing
 4ca65014514dcf4f12b33ecdab0f3204 math-call-pass-to-box
 41e64d80f9be44e6db48744f9fae8809 math-call-shadowed-builtin
 beb172061810513475c0cc74d94b3f5c math-call-spread-shorthand-clash
-995f789515d7475a4276e0c91b008616 math-call-symbol
 8d14c0e5bea574dcad99874588f23261 math-cancel-angle-absolute
 510ed43c47ee884fd2d8297c4ea089a4 math-cancel-angle-func
 c896f23dc54392d0281bcb4e2c6a7837 math-cancel-cross
@@ -1140,6 +1139,7 @@ c199b697f53a8aba29bbf7273eaf7f5e math-mat-align-implicit
 5c9ac506e79e1fc8834c00a7ab0dfc68 math-mat-align-signed-numbers
 d4cc5602bc2447c37fd2c47824fc5974 math-mat-augment
 59b64ff129858112c73f7d22d57f9eda math-mat-augment-set
+460e3ec44df973577177e4558e16afee math-mat-bad-comma
 4920de1ec8b0161cf4252d9cf1481b48 math-mat-baseline
 60ef4e1b9d22bb5dd079604b4d79c986 math-mat-delim-class
 40bc1dda0bc9872f2e0c12c7e188e611 math-mat-delim-direct
@@ -1676,8 +1676,8 @@ b7c450607c1d14c99170e5916d879690 sub-super-typographic
 9bbcfca44efa0d7683d7f2bc1c6f2a74 super-underline
 3130718791dfe1abb1a258775d5a8e80 symbol
 24df57e69e4dc2581f072e6e8814263d symbol-constructor
-03191732d23872636dc6fac6c3b0e59c symbol-modifier-deprecated
-64d47e398e18becb236761623fb03690 symbol-sect-deprecated
+c08b76370fc7e53d43212136c36210bf symbol-modifier-deprecated
+20441a3e011dd2b1c51c37bc29e2f7c6 symbol-sect-deprecated
 386d0fc11d233b76136875a4d5e83337 table-align-array
 b5b5e27ae0c7b9b01ba40d1ca1941a6a table-cell-align-override
 1824188fb9c5904e88e6136f4d6a7a11 table-cell-folding
