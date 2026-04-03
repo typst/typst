@@ -1,9 +1,13 @@
 use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
+use super::*;
 use az::SaturatingAs;
 use icu_properties::LineBreak;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
+use icu_properties::{
+    maps::{CodePointMapData, CodePointMapDataBorrowed},
+    sets::{CodePointSetData, CodePointSetDataBorrowed},
+};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -15,8 +19,6 @@ use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
-
-use super::*;
 
 /// The cost of a line or inline layout.
 type Cost = f64;
@@ -58,6 +60,13 @@ static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| 
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 
+static ALPHABETIC: LazyLock<CodePointSetDataBorrowed> =
+    LazyLock::new(icu_properties::sets::alphabetic);
+static COMBINING_MARK: LazyLock<CodePointSetData> = LazyLock::new(|| {
+    icu_properties::sets::for_general_category_group(
+        icu_properties::GeneralCategoryGroup::Mark,
+    )
+});
 // Zero width space.
 const ZWS: char = '\u{200B}';
 
@@ -760,7 +769,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         // Hyphenate between the last and current breakpoint.
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
-                if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
+                if !segment.is_empty() && segment.chars().all(is_word_char) {
                     hyphenations(p, &lb, last, segment, &mut f);
                 }
                 last += segment.len();
@@ -816,6 +825,32 @@ fn hyphenations(
         // Call `f` for the word-internal hyphenation opportunity.
         f(offset, Breakpoint::Hyphen(l, r));
     }
+}
+
+/// Determines whether a character is a valid constituent of a hyphenatable word.
+///
+/// This uses two Unicode derived properties rather than a simple `char::is_alphabetic()`
+/// check, because the latter misclassifies combining marks that are integral to words
+/// in many scripts — particularly Indic scripts.
+///
+/// # Properties used
+///
+/// - **`Alphabetic`** (Unicode derived property): Covers all letter categories (`Ll`, `Lu`,
+///   `Lt`, `Lm`, `Lo`) plus letter-numbers (`Nl`) and `Other_Alphabetic` characters.
+///   `Other_Alphabetic` includes many Indic vowel signs (matras) such as Malayalam
+///   `ി` U+0D3F, `ീ` U+0D40, and similar characters across Devanagari, Tamil, Telugu, etc.
+///
+/// - **`General_Category = Mark`** (`Mn`, `Mc`, `Me`): Captures combining marks that are
+///   *not* covered by `Alphabetic`. The most important case is **Virama** (the consonant
+///   killer/joiner): `്` U+0D4D in Malayalam, `्` U+094D in Devanagari, `்` U+0BCD in
+///   Tamil, and their equivalents across all Indic scripts. Virama is classified `Mn`
+///   (Non-spacing Mark) and is explicitly excluded from `Other_Alphabetic` in the Unicode
+///   standard because it is a conjunct-forming control character rather than a vowel —
+///   yet it is inseparable from the word it appears in. Without this, nearly every
+///   common Malayalam word (e.g. `സന്തോഷ്`) would be silently skipped by the
+///   hyphenation engine.
+fn is_word_char(c: char) -> bool {
+    ALPHABETIC.contains(c) || COMBINING_MARK.as_borrowed().contains(c)
 }
 
 /// Produce linebreak opportunities for a link.
