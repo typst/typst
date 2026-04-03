@@ -9,7 +9,6 @@ use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignm
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
-use typst_syntax::Span;
 
 use crate::grid::GridLayouter;
 
@@ -116,7 +115,7 @@ pub fn layout_enum(
         } else {
             match numbering {
                 Numbering::Pattern(pattern) => TextElem::packed(
-                    pattern.apply_kth(parents.len(), number).at(Span::detached())?,
+                    pattern.apply_kth(parents.len(), number).at(item.span())?,
                 ),
                 other => other
                     .apply(engine, context.track(), item.span(), &[number])?

@@ -105,8 +105,8 @@
 #numbering("①", 51)
 
 --- enum-numbering-too-high paged ---
-// Error: the number 11 is too large to be represented with the `arabic.oo` numeral system
 #set enum(numbering: "⓵")
+// Error: 1-9 the number 11 is too large to be represented with the `arabic.oo` numeral system
 11. Test
 
 --- page-numbering-too-high paged ---
