@@ -266,8 +266,8 @@ cast! {
             pat.push_str(prefix);
             pat.push_str(
                 system
-                .shorthand()
-                .expect("it is not possible to construct numbering systems that don't have a shorthand within Typst for now"),
+                    .shorthand()
+                    .expect("it is not possible to construct numbering systems that don't have a shorthand within Typst for now"),
             );
         }
         pat.push_str(&self.suffix);
