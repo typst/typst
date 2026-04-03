@@ -297,9 +297,7 @@ fn visit_kind_rules<'a>(
         // textual elements via `TEXTUAL` grouping. However, in math, this is
         // not desirable, so we just do it on a per-element basis.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles)
-                && m.text.len() == elem.text.len()
-            {
+            if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles) {
                 visit_regex_match(s, &[(content, styles)], m)?;
                 return Ok(true);
             }
@@ -1288,8 +1286,9 @@ fn visit_regex_match<'a>(
     // lone symbol, return a `SymbolElem`, otherwise return a newly composed
     // `TextElem`. We should only match against a `SymbolElem` during math
     // realization (`RealizationKind::Math`).
+    // Note: grpheme clusters can be split, so symbols are handled in the same way as text (#8058)
     let piece = match elems {
-        &[(lone, _)] if lone.is::<SymbolElem>() => lone.clone(),
+        &[(lone, _)] if lone.is::<SymbolElem>() => SymbolElem::packed(m.text),
         _ => TextElem::packed(m.text),
     };
 
@@ -1328,14 +1327,20 @@ fn visit_regex_match<'a>(
         let elem_range = cursor..cursor + len;
 
         // If the element starts before the start of match, visit it fully or
-        // sliced.
+        // sliced. Symbols are also sliced despite being a single grapheme cluster for consistency with text (#8058)
         if elem_range.start < match_range.start {
             if elem_range.end <= match_range.start {
                 visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
+            } else if let Some(elem) = content.to_packed::<TextElem>() {
+                let mut elem = elem.clone();
                 elem.text = elem.text[..match_range.start - elem_range.start].into();
                 visit(s, s.store(elem.pack()), styles)?;
+            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
+                let mut elem = elem.clone();
+                elem.text = elem.text[..match_range.start - elem_range.start].into();
+                visit(s, s.store(elem.pack()), styles)?;
+            } else {
+                unreachable!();
             }
         }
 
@@ -1345,14 +1350,20 @@ fn visit_regex_match<'a>(
         }
 
         // If the element ends after the end of the match, visit if fully or
-        // sliced.
+        // sliced. Symbols are also sliced despite being a single grapheme cluster for consistency with text (#8058)
         if elem_range.end > match_range.end {
             if elem_range.start >= match_range.end {
                 visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
+            } else if let Some(elem) = content.to_packed::<TextElem>() {
+                let mut elem = elem.clone();
                 elem.text = elem.text[match_range.end - elem_range.start..].into();
                 visit(s, s.store(elem.pack()), styles)?;
+            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
+                let mut elem = elem.clone();
+                elem.text = elem.text[match_range.end - elem_range.start..].into();
+                visit(s, s.store(elem.pack()), styles)?;
+            } else {
+                unreachable!();
             }
         }
 
