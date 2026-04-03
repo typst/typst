@@ -15,7 +15,7 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{
-    At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
+    At, ExpectInternal, HintedString, SourceDiagnostic, SourceResult, bail, error,
 };
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
@@ -106,7 +106,13 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         if let Some(label) = typst_page
             .numbering
             .as_ref()
-            .and_then(|num| PageLabel::generate(num, typst_page.number))
+            .and_then(|num| {
+                PageLabel::generate(num, typst_page.number)
+                    .map_err(|e| HintedString::new(e).with_hint("this happened when trying to write a page number in the PDF metadata"))
+                    .at(Span::detached())
+                    .transpose()
+            })
+            .transpose()?
             .or_else(|| {
                 // When some pages were ignored from export, we show a page label with
                 // the correct real (not logical) page number.

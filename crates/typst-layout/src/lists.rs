@@ -1,6 +1,6 @@
 use comemo::Track;
 use smallvec::smallvec;
-use typst_library::diag::SourceResult;
+use typst_library::diag::{At, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
@@ -107,15 +107,19 @@ pub fn layout_enum(
         let context = Context::new(None, Some(styles));
         let resolved = if full {
             parents.push(number);
-            let content = numbering.apply(engine, context.track(), &parents)?.display();
+            let content = numbering
+                .apply(engine, context.track(), item.span(), &parents)?
+                .display();
             parents.pop();
             content
         } else {
             match numbering {
-                Numbering::Pattern(pattern) => {
-                    TextElem::packed(pattern.apply_kth(parents.len(), number))
-                }
-                other => other.apply(engine, context.track(), &[number])?.display(),
+                Numbering::Pattern(pattern) => TextElem::packed(
+                    pattern.apply_kth(parents.len(), number).at(item.span())?,
+                ),
+                other => other
+                    .apply(engine, context.track(), item.span(), &[number])?
+                    .display(),
             }
         };
 

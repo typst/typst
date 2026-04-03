@@ -236,7 +236,7 @@ fn lines(
     numbering: Numbering,
 ) -> SourceResult<Value> {
     (1..=count)
-        .map(|n| numbering.apply(engine, context, &[n]))
+        .map(|n| numbering.apply(engine, context, span, &[n]))
         .collect::<SourceResult<Array>>()?
         .join(Some('\n'.into_value()), None, None)
         .at(span)
