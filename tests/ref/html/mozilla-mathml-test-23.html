@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      mroot {
+        math-shift: inherit;
+      }
+      mroot > :first-child,
+      munder > :nth-child(2),
+      munderover > :nth-child(2),
+      munder[accentunder="true" i] > :first-child {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :nth-child(2),
+      mover[accent="true" i] > :nth-child(2) {
+        math-depth: inherit;
+        math-style: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mrow>
+        <mo>(</mo>
+        <mtable>
+          <mtr>
+            <mtd>
+              <mrow>
+                <mo>(</mo>
+                <mtable>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑎</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>𝑏</mi>
+                    </mtd>
+                  </mtr>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑐</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>𝑑</mi>
+                    </mtd>
+                  </mtr>
+                </mtable>
+                <mo>)</mo>
+              </mrow>
+            </mtd>
+            <mtd>
+              <mrow>
+                <mo>(</mo>
+                <mtable>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑒</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>𝑓</mi>
+                    </mtd>
+                  </mtr>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑔</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>ℎ</mi>
+                    </mtd>
+                  </mtr>
+                </mtable>
+                <mo>)</mo>
+              </mrow>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <mn>0</mn>
+            </mtd>
+            <mtd>
+              <mrow>
+                <mo>(</mo>
+                <mtable>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑖</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>𝑗</mi>
+                    </mtd>
+                  </mtr>
+                  <mtr>
+                    <mtd>
+                      <mi>𝑘</mi>
+                    </mtd>
+                    <mtd>
+                      <mi>𝑙</mi>
+                    </mtd>
+                  </mtr>
+                </mtable>
+                <mo>)</mo>
+              </mrow>
+            </mtd>
+          </mtr>
+        </mtable>
+        <mo>)</mo>
+      </mrow>
+    </math>
+  </body>
+</html>

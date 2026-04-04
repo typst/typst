@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      mroot {
+        math-shift: inherit;
+      }
+      mroot > :first-child,
+      munder > :nth-child(2),
+      munderover > :nth-child(2),
+      munder[accentunder="true" i] > :first-child {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :nth-child(2),
+      mover[accent="true" i] > :nth-child(2) {
+        math-depth: inherit;
+        math-style: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <munder>
+        <mo lspace="0em">∑</mo>
+        <mrow>
+          <mi>𝑝</mi>
+          <mspace width="0.2222222222222222em"/>
+          <mtext>prime</mtext>
+        </mrow>
+      </munder>
+      <mi>𝑓</mi>
+      <mrow>
+        <mo>(</mo>
+        <mi>𝑝</mi>
+        <mo>)</mo>
+      </mrow>
+      <mo>=</mo>
+      <msub>
+        <mo form="prefix" lspace="0em">∫</mo>
+        <mrow>
+          <mi>𝑡</mi>
+          <mo lspace="0em" rspace="0em">></mo>
+          <mn>1</mn>
+        </mrow>
+      </msub>
+      <mi>𝑓</mi>
+      <mrow>
+        <mo>(</mo>
+        <mi>𝑡</mi>
+        <mo>)</mo>
+      </mrow>
+      <mspace width="0.16666666666666666em"/>
+      <mi mathvariant="normal">d</mi>
+      <mi>𝜋</mi>
+      <mrow>
+        <mo>(</mo>
+        <mi>𝑡</mi>
+        <mo>)</mo>
+      </mrow>
+    </math>
+  </body>
+</html>

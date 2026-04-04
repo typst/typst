@@ -10,6 +10,7 @@ mod encode;
 mod fragment;
 mod introspect;
 mod link;
+mod mathml;
 mod rules;
 mod tag;
 mod typed;
@@ -23,8 +24,9 @@ pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
-use typst_library::foundations::{Content, Module, Scope};
+use typst_library::foundations::{Content, Module, Scope, StyleChain};
 use typst_library::introspection::Location;
+use typst_library::math::EquationElem;
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -123,9 +125,10 @@ impl HtmlElem {
     }
 
     /// Checks whether the given element is "phrasing content" in HTML.
-    fn is_phrasing(elem: &Content) -> bool {
+    fn is_phrasing(elem: &Content, styles: StyleChain) -> bool {
         elem.to_packed::<HtmlElem>()
             .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
+            || is_inline_equation(elem, styles)
     }
 }
 
@@ -145,4 +148,10 @@ pub struct FrameElem {
     #[positional]
     #[required]
     pub body: Content,
+}
+
+/// Checks whether the given element is an inline EquationElem.
+fn is_inline_equation(elem: &Content, styles: StyleChain) -> bool {
+    elem.to_packed::<EquationElem>()
+        .is_some_and(|elem| !elem.block.get(styles))
 }

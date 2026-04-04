@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      mroot {
+        math-shift: inherit;
+      }
+      mroot > :first-child,
+      munder > :nth-child(2),
+      munderover > :nth-child(2),
+      munder[accentunder="true" i] > :first-child {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :nth-child(2),
+      mover[accent="true" i] > :nth-child(2) {
+        math-depth: inherit;
+        math-style: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mo minsize="4em">[</mo>
+      <mfrac>
+        <mi>𝑎</mi>
+        <mi>𝑏</mi>
+      </mfrac>
+      <mo rspace="0em" symmetric="true" minsize="4em">↑</mo>
+    </math>
+  </body>
+</html>

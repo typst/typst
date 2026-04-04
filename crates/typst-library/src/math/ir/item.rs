@@ -13,7 +13,9 @@ use super::multiline::AlignedRow;
 use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::{Locator, Tag};
-use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
+use crate::layout::{
+    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Rel,
+};
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
 };
@@ -63,8 +65,9 @@ impl<'a> RawMathItem<'a> {
 pub enum MathItem<'a> {
     /// A layoutable component with associated properties and styles.
     Component(MathComponent<'a>),
-    /// Explicit spacing. The boolean indicates whether the spacing is weak.
-    Spacing(Abs, bool),
+    /// Explicit spacing with the font size at the point of creation. The
+    /// boolean indicates whether the spacing is weak.
+    Spacing(Length, Abs, bool),
     /// A regular space.
     Space,
     /// An introspection tag.
@@ -103,7 +106,7 @@ impl<'a> MathItem<'a> {
     pub(crate) fn class(&self) -> MathClass {
         match self {
             Self::Component(comp) => comp.props.class,
-            Self::Spacing(_, _) | Self::Space => MathClass::Space,
+            Self::Spacing(..) | Self::Space => MathClass::Space,
             Self::Tag(_) => MathClass::Special,
         }
     }
@@ -163,7 +166,7 @@ impl<'a> MathItem<'a> {
     }
 
     /// Whether this item should be ignored for spacing calculations.
-    pub(crate) fn is_ignorant(&self) -> bool {
+    pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Component(comp) => comp.props.ignorant,
             Self::Tag(_) => true,
@@ -265,8 +268,19 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the stretch configuration for this glyph.
-    pub(crate) fn set_stretch(&self, stretch: Stretch) {
+    /// Sets the stretch configuration for this glyph, marking it as semantic.
+    pub(crate) fn set_stretch(&self, mut stretch: Stretch) {
+        if let Some(info) = &mut stretch.0.x {
+            info.semantic = true;
+        }
+        if let Some(info) = &mut stretch.0.y {
+            info.semantic = true;
+        }
+        self.replace_stretch(stretch);
+    }
+
+    /// Sets the stretch configuration for this glyph
+    pub(crate) fn replace_stretch(&self, stretch: Stretch) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
@@ -275,10 +289,11 @@ impl<'a> MathItem<'a> {
     }
 
     /// Updates the vertical stretch info for this glyph.
-    pub(crate) fn set_y_stretch(&self, info: StretchInfo) {
+    pub(crate) fn set_y_stretch(&self, mut info: StretchInfo) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
+            info.semantic = true;
             glyph.stretch.update(|stretch| stretch.with_y(info));
         }
     }
@@ -382,6 +397,8 @@ pub struct MathProperties {
     pub class: MathClass,
     /// The current math size.
     pub size: MathSize,
+    /// Whether this item is in a cramped style.
+    pub cramped: bool,
     /// Whether this item should be ignored for spacing calculations.
     pub(crate) ignorant: bool,
     /// Whether this item should have explicit spaces around it.
@@ -390,6 +407,9 @@ pub struct MathProperties {
     pub lspace: Option<Em>,
     /// The amount of spacing to the right of this item.
     pub rspace: Option<Em>,
+    /// Whether this item is at the start of a left-aligned column but
+    /// semantically infix.
+    pub align_form_infix: bool,
     /// The source span.
     pub span: Span,
 }
@@ -401,10 +421,12 @@ impl MathProperties {
             limits: Limits::Never,
             class,
             size: styles.get(EquationElem::size),
+            cramped: styles.get(EquationElem::cramped),
             ignorant: false,
             spaced: false,
             lspace: None,
             rspace: None,
+            align_form_infix: false,
             span: Span::detached(),
         }
     }
@@ -601,10 +623,11 @@ impl<'a> SkewedFractionItem<'a> {
         denominator: MathItem<'a>,
         slash: MathItem<'a>,
         styles: StyleChain<'a>,
+        span: Span,
     ) -> MathItem<'a> {
         let kind =
             MathKind::SkewedFraction(Box::new(Self { numerator, denominator, slash }));
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -932,7 +955,9 @@ impl<'a> BoxItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Box(Self { elem, locator });
-        let props = MathProperties::default(styles).with_spaced(true);
+        let props = MathProperties::default(styles)
+            .with_spaced(true)
+            .with_span(elem.span());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -959,7 +984,8 @@ impl<'a> ExternalItem<'a> {
         let kind = MathKind::External(Self { content, locator });
         let props = MathProperties::default(styles)
             .with_spaced(true)
-            .with_ignorant(content.is::<PlaceElem>());
+            .with_ignorant(content.is::<PlaceElem>())
+            .with_span(content.span());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -1059,8 +1085,10 @@ impl Stretch {
         self
     }
 
-    /// Updates stretch info for both axes, combining with existing info.
-    pub(crate) fn update(mut self, info: StretchInfo) -> Self {
+    /// Updates stretch info for both axes, combining with existing info and
+    /// marking them as semantic.
+    pub(crate) fn update(mut self, mut info: StretchInfo) -> Self {
+        info.semantic = true;
         match &mut self.0.x {
             Some(val) => *val *= info,
             None => self.0.x = Some(info),
@@ -1113,6 +1141,20 @@ impl Stretch {
         }
         self.0.get(axis)
     }
+
+    /// Returns the user-requested stretch target for the given axis, if any.
+    pub fn resolve_requested(self, axis: Axis) -> Option<Rel<Length>> {
+        self.0
+            .get(axis)
+            .and_then(|info| info.requested_target)
+            .filter(|target| !target.is_one())
+    }
+
+    /// Whether the stretch along the given axis should be represented
+    /// semantically.
+    pub fn is_semantic(self, axis: Axis) -> bool {
+        self.0.get(axis).is_some_and(|info| info.semantic)
+    }
 }
 
 /// Information about how to stretch a glyph on one axis.
@@ -1123,6 +1165,10 @@ pub struct StretchInfo {
     /// A buffer to store the latest stretch added, in case it needs to be
     /// relative to something else.
     buffer: Option<Rel<Abs>>,
+    /// Whether this stretch should be represented semantically.
+    pub(crate) semantic: bool,
+    /// The user-requested stretch target, if any.
+    pub(crate) requested_target: Option<Rel<Length>>,
     /// The short-fall amount for glyph assembly.
     pub short_fall: Em,
     /// The reference size for relative targets.
@@ -1141,6 +1187,21 @@ impl StretchInfo {
         Self {
             target,
             buffer: None,
+            semantic: false,
+            requested_target: None,
+            short_fall,
+            relative_to: None,
+            font_size: None,
+        }
+    }
+
+    /// Creates stretch info from a user-specified size.
+    pub(crate) fn from_size(size: Rel<Length>, short_fall: Em, font_size: Abs) -> Self {
+        Self {
+            target: size.map(|l| l.at(font_size)),
+            buffer: None,
+            semantic: false,
+            requested_target: (!size.is_one()).then_some(size),
             short_fall,
             relative_to: None,
             font_size: None,
@@ -1157,6 +1218,18 @@ impl MulAssign for StretchInfo {
             );
         }
         self.buffer = Some(rhs.target);
+
+        if let Some(requested) = rhs.requested_target {
+            self.requested_target =
+                Some(self.requested_target.map_or(requested, |target| {
+                    Rel::new(
+                        target.rel * requested.rel,
+                        requested.rel.of(target.abs) + requested.abs,
+                    )
+                }));
+        }
+
+        self.semantic = self.semantic || rhs.semantic;
         self.short_fall = rhs.short_fall;
     }
 }

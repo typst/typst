@@ -151,6 +151,49 @@ pub fn is_escapable_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::textarea | self::title)
 }
 
+/// Whether this is a foreign tag whose associated element is from the MathML
+/// namespace or the SVG namespace.
+pub fn is_foreign(tag: HtmlTag) -> bool {
+    matches!(
+        tag,
+        self::mathml::annotation
+            | self::mathml::annotation_xml
+            | self::mathml::maction
+            | self::mathml::math
+            | self::mathml::merror
+            | self::mathml::mfrac
+            | self::mathml::mi
+            | self::mathml::mmultiscripts
+            | self::mathml::mn
+            | self::mathml::mo
+            | self::mathml::mover
+            | self::mathml::mpadded
+            | self::mathml::mphantom
+            | self::mathml::mprescripts
+            | self::mathml::mroot
+            | self::mathml::mrow
+            | self::mathml::ms
+            | self::mathml::mspace
+            | self::mathml::msqrt
+            | self::mathml::mstyle
+            | self::mathml::msub
+            | self::mathml::msubsup
+            | self::mathml::msup
+            | self::mathml::mtable
+            | self::mathml::mtd
+            | self::mathml::mtext
+            | self::mathml::mtr
+            | self::mathml::munder
+            | self::mathml::munderover
+            | self::mathml::semantics
+    )
+}
+
+/// Whether this is a foreign element whose tag is self-closing.
+pub fn is_foreign_self_closing(tag: HtmlTag) -> bool {
+    matches!(tag, self::mathml::mprescripts | self::mathml::mspace)
+}
+
 // HTML spec § 3.2.5.2 Kinds of content
 
 /// Whether an element is considered metadata content.
@@ -222,6 +265,7 @@ pub fn is_flow_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meta
             | self::meter
@@ -305,6 +349,7 @@ pub fn is_phrasing_content(tag: HtmlTag) -> bool {
             | self::link
             | self::map
             | self::mark
+            | self::mathml::math
             | self::meta
             | self::meter
             | self::noscript
@@ -343,6 +388,7 @@ pub fn is_embedded_content(tag: HtmlTag) -> bool {
             | self::embed
             | self::iframe
             | self::img
+            | self::mathml::math
             | self::object
             | self::picture
             | self::video
@@ -416,6 +462,7 @@ pub fn is_palpable_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meter
             | self::nav
@@ -514,5 +561,45 @@ pub fn is_tabular_by_default(tag: HtmlTag) -> bool {
             | self::caption
             | self::col
             | self::colgroup
+            | self::mathml::mtr
+            | self::mathml::mtd
     )
+}
+
+/// Elements in the MathML namespace.
+///
+/// Only the MathML Core elements at the moment.
+pub mod mathml {
+    use super::HtmlTag;
+
+    pub const annotation: HtmlTag = HtmlTag::constant("annotation");
+    pub const annotation_xml: HtmlTag = HtmlTag::constant("annotation-xml");
+    pub const maction: HtmlTag = HtmlTag::constant("maction");
+    pub const math: HtmlTag = HtmlTag::constant("math");
+    pub const merror: HtmlTag = HtmlTag::constant("merror");
+    pub const mfrac: HtmlTag = HtmlTag::constant("mfrac");
+    pub const mi: HtmlTag = HtmlTag::constant("mi");
+    pub const mmultiscripts: HtmlTag = HtmlTag::constant("mmultiscripts");
+    pub const mn: HtmlTag = HtmlTag::constant("mn");
+    pub const mo: HtmlTag = HtmlTag::constant("mo");
+    pub const mover: HtmlTag = HtmlTag::constant("mover");
+    pub const mpadded: HtmlTag = HtmlTag::constant("mpadded");
+    pub const mphantom: HtmlTag = HtmlTag::constant("mphantom");
+    pub const mprescripts: HtmlTag = HtmlTag::constant("mprescripts");
+    pub const mroot: HtmlTag = HtmlTag::constant("mroot");
+    pub const mrow: HtmlTag = HtmlTag::constant("mrow");
+    pub const ms: HtmlTag = HtmlTag::constant("ms");
+    pub const mspace: HtmlTag = HtmlTag::constant("mspace");
+    pub const msqrt: HtmlTag = HtmlTag::constant("msqrt");
+    pub const mstyle: HtmlTag = HtmlTag::constant("mstyle");
+    pub const msub: HtmlTag = HtmlTag::constant("msub");
+    pub const msubsup: HtmlTag = HtmlTag::constant("msubsup");
+    pub const msup: HtmlTag = HtmlTag::constant("msup");
+    pub const mtable: HtmlTag = HtmlTag::constant("mtable");
+    pub const mtd: HtmlTag = HtmlTag::constant("mtd");
+    pub const mtext: HtmlTag = HtmlTag::constant("mtext");
+    pub const mtr: HtmlTag = HtmlTag::constant("mtr");
+    pub const munder: HtmlTag = HtmlTag::constant("munder");
+    pub const munderover: HtmlTag = HtmlTag::constant("munderover");
+    pub const semantics: HtmlTag = HtmlTag::constant("semantics");
 }

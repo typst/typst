@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.multiline-equation.aligned-equation mtd:nth-child(even) {
+        text-align: -webkit-left;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      mroot {
+        math-shift: inherit;
+      }
+      mroot > :first-child,
+      munder > :nth-child(2),
+      munderover > :nth-child(2),
+      munder[accentunder="true" i] > :first-child {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :nth-child(2),
+      mover[accent="true" i] > :nth-child(2) {
+        math-depth: inherit;
+        math-style: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mo lspace="0em" rspace="0em">det</mo>
+      <mrow>
+        <mo>|</mo>
+        <mtable>
+          <mtr>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>0</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>1</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>2</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <mi>⋯</mi>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mi>𝑛</mi>
+              </msub>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>1</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>2</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>3</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <mi>⋯</mi>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mrow>
+                  <mi>𝑛</mi>
+                  <mo lspace="0em" rspace="0em">+</mo>
+                  <mn>1</mn>
+                </mrow>
+              </msub>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>2</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>3</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mn>4</mn>
+              </msub>
+            </mtd>
+            <mtd>
+              <mi>⋯</mi>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mrow>
+                  <mi>𝑛</mi>
+                  <mo lspace="0em" rspace="0em">+</mo>
+                  <mn>2</mn>
+                </mrow>
+              </msub>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <mi>⋮</mi>
+            </mtd>
+            <mtd>
+              <mi>⋮</mi>
+            </mtd>
+            <mtd>
+              <mi>⋮</mi>
+            </mtd>
+            <mtd></mtd>
+            <mtd>
+              <mi>⋮</mi>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mi>𝑛</mi>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mrow>
+                  <mi>𝑛</mi>
+                  <mo lspace="0em" rspace="0em">+</mo>
+                  <mn>1</mn>
+                </mrow>
+              </msub>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mrow>
+                  <mi>𝑛</mi>
+                  <mo lspace="0em" rspace="0em">+</mo>
+                  <mn>2</mn>
+                </mrow>
+              </msub>
+            </mtd>
+            <mtd>
+              <mi>⋯</mi>
+            </mtd>
+            <mtd>
+              <msub>
+                <mi>𝑐</mi>
+                <mrow>
+                  <mn>2</mn>
+                  <mi>𝑛</mi>
+                </mrow>
+              </msub>
+            </mtd>
+          </mtr>
+        </mtable>
+        <mo>|</mo>
+      </mrow>
+      <mo>></mo>
+      <mn>0</mn>
+    </math>
+  </body>
+</html>

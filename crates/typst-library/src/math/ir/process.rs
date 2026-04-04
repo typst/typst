@@ -159,7 +159,7 @@ where
             }
 
             // Explicit spacing disables automatic spacing.
-            RawMathItem::Item(MathItem::Spacing(width, weak)) => {
+            RawMathItem::Item(MathItem::Spacing(width, font_size, weak)) => {
                 last = None;
                 space = None;
 
@@ -167,10 +167,16 @@ where
                     let Some(resolved_last) = resolved.last_mut() else {
                         continue;
                     };
-                    if let RawMathItem::Item(MathItem::Spacing(prev, true)) =
-                        resolved_last
+                    if let RawMathItem::Item(MathItem::Spacing(
+                        prev_width,
+                        prev_font_size,
+                        true,
+                    )) = resolved_last
                     {
-                        *prev = (*prev).max(width);
+                        if prev_width.at(*prev_font_size) < width.at(font_size) {
+                            *prev_width = width;
+                            *prev_font_size = font_size;
+                        }
                         continue;
                     }
                 }
@@ -242,7 +248,7 @@ where
     {
         item.set_rspace(Some(THIN))
     } else if let Some(idx) = resolved.last_index()
-        && let RawMathItem::Item(MathItem::Spacing(_, true)) = resolved.0[idx]
+        && let RawMathItem::Item(MathItem::Spacing(_, _, true)) = resolved.0[idx]
     {
         resolved.0.remove(idx);
     }
