@@ -851,18 +851,12 @@ fn is_embellished_operator(item: &MathItem) -> bool {
         MathKind::Accent(accent) => is_embellished_operator(&accent.base),
         MathKind::Fraction(fraction) => is_embellished_operator(&fraction.numerator),
         MathKind::Group(group) => {
-            group
+            let mut items = group
                 .items
                 .iter()
-                .filter(|item| !item.is_ignorant())
-                .filter(|item| !is_space_like(item))
-                .count()
-                == 1
-                && group
-                    .items
-                    .iter()
-                    .filter(|item| !item.is_ignorant())
-                    .any(|item| is_embellished_operator(item))
+                .filter(|item| !item.is_ignorant() && !is_space_like(item));
+            items.next().is_some_and(|item| is_embellished_operator(item))
+                && items.next().is_none()
         }
         _ => false,
     }
