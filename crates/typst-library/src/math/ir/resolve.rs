@@ -805,7 +805,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
         Stretch::new().with_y(StretchInfo::new(Rel::one(), DELIM_SHORT_FALL)),
     );
 
-    ctx.push(SkewedFractionItem::create(numerator, denominator, slash, styles));
+    ctx.push(SkewedFractionItem::create(numerator, denominator, slash, styles, span));
 
     Ok(())
 }

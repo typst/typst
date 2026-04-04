@@ -623,10 +623,11 @@ impl<'a> SkewedFractionItem<'a> {
         denominator: MathItem<'a>,
         slash: MathItem<'a>,
         styles: StyleChain<'a>,
+        span: Span,
     ) -> MathItem<'a> {
         let kind =
             MathKind::SkewedFraction(Box::new(Self { numerator, denominator, slash }));
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles).with_span(span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -954,7 +955,9 @@ impl<'a> BoxItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Box(Self { elem, locator });
-        let props = MathProperties::default(styles).with_spaced(true);
+        let props = MathProperties::default(styles)
+            .with_spaced(true)
+            .with_span(elem.span());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -981,7 +984,8 @@ impl<'a> ExternalItem<'a> {
         let kind = MathKind::External(Self { content, locator });
         let props = MathProperties::default(styles)
             .with_spaced(true)
-            .with_ignorant(content.is::<PlaceElem>());
+            .with_ignorant(content.is::<PlaceElem>())
+            .with_span(content.span());
         MathComponent { kind, props, styles }.into()
     }
 }
