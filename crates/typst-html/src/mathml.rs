@@ -119,26 +119,36 @@ struct EmbellishmentContext {
 }
 
 #[derive(Copy, Clone, PartialEq)]
+enum MathShift {
+    Normal,
+    Compact,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum MathStyle {
+    Normal,
+    Compact,
+}
+
+#[derive(Copy, Clone, PartialEq)]
 struct CssContext {
-    /// True if math-style: normal, false if math-style: compact
-    math_style_normal: bool,
-    /// True if math-shift: normal, false if math-shift: compact
-    math_shift_normal: bool,
+    math_style: MathStyle,
+    math_shift: MathShift,
     math_depth: u32,
 }
 
 impl CssContext {
     fn new(block: bool) -> Self {
         Self {
-            math_style_normal: block,
-            math_shift_normal: true,
+            math_style: if block { MathStyle::Normal } else { MathStyle::Compact },
+            math_shift: MathShift::Normal,
             math_depth: 0,
         }
     }
 
     fn depth_auto_add(self) -> Self {
         Self {
-            math_depth: if !self.math_style_normal {
+            math_depth: if self.math_style == MathStyle::Compact {
                 self.math_depth + 1
             } else {
                 self.math_depth
@@ -152,33 +162,33 @@ impl CssContext {
     }
 
     fn style_compact(self) -> Self {
-        Self { math_style_normal: false, ..self }
+        Self { math_style: MathStyle::Compact, ..self }
     }
 
     fn shift_compact(self) -> Self {
-        Self { math_shift_normal: false, ..self }
+        Self { math_shift: MathShift::Compact, ..self }
     }
 
     fn from_math_size(size: MathSize) -> Self {
         match size {
             MathSize::Display => Self {
-                math_style_normal: true,
-                math_shift_normal: true,
+                math_style: MathStyle::Normal,
+                math_shift: MathShift::Normal,
                 math_depth: 0,
             },
             MathSize::Text => Self {
-                math_style_normal: false,
-                math_shift_normal: true,
+                math_style: MathStyle::Compact,
+                math_shift: MathShift::Normal,
                 math_depth: 0,
             },
             MathSize::Script => Self {
-                math_style_normal: false,
-                math_shift_normal: true,
+                math_style: MathStyle::Compact,
+                math_shift: MathShift::Normal,
                 math_depth: 1,
             },
             MathSize::ScriptScript => Self {
-                math_style_normal: false,
-                math_shift_normal: true,
+                math_style: MathStyle::Compact,
+                math_shift: MathShift::Normal,
                 math_depth: 2,
             },
         }
@@ -308,8 +318,8 @@ fn handle_realized(
     // `scriptlevel="2"` everywhere.
     let scriptlevel = (target.math_depth != ctx.css.math_depth.min(2))
         .then(|| eco_format!("{}", target.math_depth));
-    let displaystyle = (target.math_style_normal != ctx.css.math_style_normal)
-        .then(|| eco_format!("{}", target.math_style_normal));
+    let displaystyle = (target.math_style != ctx.css.math_style)
+        .then(|| eco_format!("{}", target.math_style == MathStyle::Normal));
 
     // Push explicit lspace if it won't be added to the attributes of an `mo`.
     if !embellished
@@ -817,7 +827,7 @@ fn make_mo(
     let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
         .then(|| eco_format!("{}", largeop));
     let movablelimits = (limits
-        && !ctx.css.math_style_normal
+        && ctx.css.math_style == MathStyle::Compact
         && info.properties.contains(Properties::MOVABLELIMITS))
     .then(|| eco_format!("false"));
 
