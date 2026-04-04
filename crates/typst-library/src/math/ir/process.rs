@@ -7,7 +7,6 @@ use unicode_math_class::MathClass;
 use super::item::{MathItem, RawMathItem};
 use super::multiline::{AlignedRow, split_at_align};
 use crate::foundations::StyleChain;
-use crate::layout::Em;
 use crate::math::{MEDIUM, MathSize, THICK, THIN};
 
 /// The result of processing items for grouping.
@@ -230,25 +229,15 @@ where
         if !item.is_ignorant() {
             if let Some(i) = last
                 && let RawMathItem::Item(ref mut prev) = resolved[i]
+                && let Some(s) = spacing(prev, space.take(), &mut item)
             {
-                if let Some(s) = spacing(prev, space.take(), &mut item) {
-                    resolved.insert(i + 1, RawMathItem::Item(s));
-                }
-            } else {
-                item.set_lspace(Some(Em::zero()));
+                resolved.insert(i + 1, RawMathItem::Item(s));
             }
 
             last = Some(resolved.len());
         }
 
         resolved.push(RawMathItem::Item(item));
-    }
-
-    // Initialize rspace on the last non-ignorant item.
-    if let Some(i) = last
-        && let RawMathItem::Item(ref mut item) = resolved[i]
-    {
-        item.set_rspace(Some(Em::zero()));
     }
 
     // Apply closing punctuation spacing if applicable.
@@ -290,9 +279,6 @@ fn spacing<'a>(
     use MathClass::*;
 
     let script = |f: &MathItem| f.size().is_some_and(|s| s <= MathSize::Script);
-
-    l.set_rspace(Some(Em::zero()));
-    r.set_lspace(Some(Em::zero()));
 
     match (l.rclass(), r.lclass()) {
         // No spacing before punctuation; thin spacing after punctuation, unless

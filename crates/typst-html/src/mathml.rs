@@ -811,14 +811,10 @@ fn make_mo(
         Form::Postfix => "postfix",
     });
 
-    let lspace = lspace
-        .filter(|l| l.get() != info.lspace)
-        .filter(|_| !matches!(position, NodePosition::Only(_)))
-        .map(|l| eco_format!("{}em", l.get()));
-    let rspace = rspace
-        .filter(|r| r.get() != info.rspace)
-        .filter(|_| !matches!(position, NodePosition::Only(_)))
-        .map(|r| eco_format!("{}em", r.get()));
+    let lspace = lspace.unwrap_or(Em::zero()).get();
+    let lspace = (lspace != info.lspace).then(|| eco_format!("{}em", lspace));
+    let rspace = rspace.unwrap_or(Em::zero()).get();
+    let rspace = (rspace != info.rspace).then(|| eco_format!("{}em", rspace));
 
     let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
     let separator =
