@@ -339,6 +339,11 @@ mod tests {
         test("abc~def~gh~", Edit::Range(5..6), "+", Incr("abc~d+f~"));
         test("~~~~~~~", Edit::Range(3..4), "A", Incr("~~~A~~"));
         test("abc~~", Edit::Match("b"), "", Incr("ac~"));
+        // Newlines behave slightly differently to tildes:
+        test("~b~c~d~e", Edit::At(0), "a", Incr("a~b"));
+        test("a~b~c~d~", Edit::End, "e", Incr("~d~e"));
+        test("\nb\nc\nd\ne", Edit::At(0), "a", Incr("a\nb\n"));
+        test("a\nb\nc\nd\n", Edit::End, "e", Incr("c\nd\ne"));
         test("#var. hello", Edit::Match(" "), " ", All);
         test("#var;hello", Edit::Range(9..10), "a", All);
         test("https:/world", Edit::After("/"), "/", All);
