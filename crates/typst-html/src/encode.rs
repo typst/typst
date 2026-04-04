@@ -168,7 +168,6 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         });
 
     w.pretty &= pretty_inside;
-    w.pretty |= element.tag == tag::mathml::math;
     let mut indent = w.pretty;
 
     w.level += 1;
@@ -341,11 +340,14 @@ fn allows_pretty_inside(tag: HtmlTag) -> bool {
 /// In contrast to `allows_pretty_inside`, which is purely spec-driven, this is
 /// more subjective and depends on preference.
 fn wants_pretty_around(element: &HtmlElement) -> bool {
-    (allows_pretty_inside(element.tag)
-        && (element.tag != tag::mathml::math
-            || element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")))
-        || tag::is_metadata_content(element.tag)
-        || element.tag == tag::pre
+    match element.tag {
+        tag::mathml::math => {
+            element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")
+        }
+        tag::pre => true,
+        t if tag::is_metadata_content(t) => true,
+        t => allows_pretty_inside(t),
+    }
 }
 
 /// Escape a character.
