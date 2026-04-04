@@ -2,6 +2,7 @@ use ecow::{EcoVec, eco_format, eco_vec};
 use typst_assets::mathml::*;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
+use typst_library::foundations::Content;
 use typst_library::layout::{Axis, Em};
 use typst_library::math::MathSize;
 use typst_library::math::ir::{
@@ -357,7 +358,21 @@ fn handle_realized(
             MathKind::Multiline(item) => Some(handle_multiline(item, ctx, props)?.into()),
 
             // Polyfill required for MathML Core.
-            MathKind::SkewedFraction(_) | MathKind::Cancel(_) | MathKind::Line(_) => None,
+            MathKind::SkewedFraction(item) => Some(ignored_math_item(
+                ctx,
+                &item.numerator,
+                props.span,
+                "math.frac.where(style: \"skewed\")",
+            )?),
+            MathKind::Line(item) if matches!(item.position, Position::Above) => {
+                Some(ignored_math_item(ctx, &item.base, props.span, "math.overline")?)
+            }
+            MathKind::Line(item) => {
+                Some(ignored_math_item(ctx, &item.base, props.span, "math.underline")?)
+            }
+            MathKind::Cancel(item) => {
+                Some(ignored_math_item(ctx, &item.base, props.span, "math.cancel")?)
+            }
 
             // Arbitrary content is not allowed, as per the HTML spec.
             // Only MathML token elements (mi, mo, mn, ms, and mtext),
@@ -371,14 +386,11 @@ fn handle_realized(
             // Since the math element is considered phrasing content,
             // it can be nested in MathML Core (as long as it is itself
             // within a MathML token element).
-            MathKind::Box(_) => None,
+            MathKind::Box(item) => {
+                ignored_external_item(ctx, item.elem.pack_ref(), props.span)
+            }
             MathKind::External(item) => {
-                ctx.engine.sink.warn(warning!(
-                    props.span,
-                    "{} was ignored during MathML export",
-                    item.content.elem().name()
-                ));
-                None
+                ignored_external_item(ctx, item.content, props.span)
             }
         })
     })? {
@@ -912,4 +924,31 @@ fn has_limits(item: &MathItem) -> bool {
         MathKind::Group(group) => group.items.iter().any(|item| has_limits(item)),
         _ => false,
     }
+}
+
+/// Warn on ignored math items, but still handle their main part.
+fn ignored_math_item(
+    ctx: &mut MathContext,
+    body: &MathItem,
+    span: Span,
+    name: &str,
+) -> SourceResult<HtmlNode> {
+    ctx.engine
+        .sink
+        .warn(warning!(span, "{} was ignored during MathML export", name));
+    ctx.handle_into_node(body)
+}
+
+/// Warn and ignore all external items.
+fn ignored_external_item(
+    ctx: &mut MathContext,
+    content: &Content,
+    span: Span,
+) -> Option<HtmlNode> {
+    ctx.engine.sink.warn(warning!(
+        span,
+        "{} was ignored during MathML export",
+        content.elem().name()
+    ));
+    None
 }

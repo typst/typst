@@ -58,3 +58,20 @@ $x loves y and y loves 5$
 
 --- mathml-primes html ---
 $ x' x'' x''' x'''' x''''' x'''''' $
+
+--- mathml-ignored-math-content html ---
+// Warning: math.frac.where(style: "skewed") was ignored during MathML export
+#set math.frac(style: "skewed")
+$
+  // Warning: 7-16 math.cancel was ignored during MathML export
+  // Warning: 19-30 math.overline was ignored during MathML export
+  // Warning: 35-47 math.underline was ignored during MathML export
+  a + cancel(x) + overline(y)/d = underline(x) - 1
+$
+
+--- mathml-ignored-external-content html ---
+// Warning: elem was ignored during MathML export
+// Warning: grid was ignored during MathML export
+$
+  a + #box[b] + c != #grid[d]
+$
