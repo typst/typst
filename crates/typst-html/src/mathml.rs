@@ -82,9 +82,9 @@ trait HtmlNodesExt {
 }
 
 impl HtmlNodesExt for EcoVec<HtmlNode> {
-    fn into_node(mut self) -> HtmlNode {
+    fn into_node(self) -> HtmlNode {
         if self.len() == 1 {
-            self.pop().unwrap()
+            self.into_iter().next().unwrap()
         } else {
             HtmlElement::new(tag::mrow).with_children(self).into()
         }
