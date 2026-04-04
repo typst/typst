@@ -728,6 +728,11 @@ fn handle_fenced(
         children.push(close);
     }
 
+    // We shouldn't always need to wrap this in an `mrow`, but browsers don't
+    // follow the spec and insert an inferred `mrow` in situations like
+    // `<msqrt>...</msqrt>`, `<mtd>...</mtd>`, and the top-level
+    // `<math>...</math>`. For example:
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=236963
     Ok(HtmlElement::new(tag::mrow).with_children(children))
 }
 
