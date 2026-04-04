@@ -427,7 +427,7 @@ impl<'v, 'e> MathContext<'v, 'e> {
             .all(|e| e.is_text_like());
 
         let styles = item.styles().unwrap_or(styles);
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         let frame = fragments.into_frame();
         Ok(FrameFragment::new(&props, styles, frame)
             .with_text_like(text_like)

@@ -396,7 +396,7 @@ pub struct MathProperties {
 
 impl MathProperties {
     /// Creates properties with an explicit class, avoiding the style lookup.
-    fn new(styles: StyleChain, class: MathClass) -> MathProperties {
+    fn new(styles: StyleChain, class: MathClass, span: Span) -> MathProperties {
         Self {
             limits: Limits::Never,
             class,
@@ -405,15 +405,19 @@ impl MathProperties {
             spaced: false,
             lspace: None,
             rspace: None,
-            span: Span::detached(),
+            span,
         }
     }
 
     /// Creates default properties from the given styles.
     ///
     /// This gets both the math class and size from the styles.
-    pub fn default(styles: StyleChain) -> MathProperties {
-        Self::new(styles, styles.get(EquationElem::class).unwrap_or(MathClass::Normal))
+    pub fn default(styles: StyleChain, span: Span) -> MathProperties {
+        Self::new(
+            styles,
+            styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
+            span,
+        )
     }
 
     /// Sets how attachments should be positioned for this item.
@@ -433,12 +437,6 @@ impl MathProperties {
         self.spaced = spaced;
         self
     }
-
-    /// Sets the source span for this item.
-    fn with_span(mut self, span: Span) -> Self {
-        self.span = span;
-        self
-    }
 }
 
 /// A group of math items laid out horizontally.
@@ -454,7 +452,7 @@ impl<'a> GroupItem<'a> {
         items: Vec<MathItem<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         let kind = MathKind::Group(Self { items });
         MathComponent { kind, props, styles }.into()
     }
@@ -482,7 +480,7 @@ impl<'a> MultilineItem<'a> {
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Multiline(Self { rows, centered: false });
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -510,7 +508,7 @@ impl<'a> RadicalItem<'a> {
         span: Span,
     ) -> MathItem<'a> {
         let kind = MathKind::Radical(Box::new(Self { radicand, index, sqrt }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -546,7 +544,7 @@ impl<'a> FencedItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Fenced(Box::new(Self { open, close, body: body.into(), balanced }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -576,7 +574,7 @@ impl<'a> FractionItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Fraction(Box::new(Self { numerator, denominator, line, padding }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -601,10 +599,11 @@ impl<'a> SkewedFractionItem<'a> {
         denominator: MathItem<'a>,
         slash: MathItem<'a>,
         styles: StyleChain<'a>,
+        span: Span,
     ) -> MathItem<'a> {
         let kind =
             MathKind::SkewedFraction(Box::new(Self { numerator, denominator, slash }));
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -637,7 +636,7 @@ impl<'a> TableItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Table(Box::new(Self { cells, gap, augment, align, alternator }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -675,7 +674,7 @@ impl<'a> ScriptsItem<'a> {
         bottom_right: Option<MathItem<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class());
+        let props = MathProperties::new(styles, base.class(), Span::detached());
         let kind = MathKind::Scripts(Box::new(Self {
             base,
             top,
@@ -715,7 +714,7 @@ impl<'a> AccentItem<'a> {
         exact_frame_width: bool,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class());
+        let props = MathProperties::new(styles, base.class(), Span::detached());
         let kind = MathKind::Accent(Box::new(Self {
             base,
             accent,
@@ -757,7 +756,7 @@ impl<'a> CancelItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class(), span);
         let kind = MathKind::Cancel(Box::new(Self {
             base,
             length,
@@ -789,7 +788,7 @@ impl<'a> LineItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.class(), span);
         let kind = MathKind::Line(Box::new(Self { base, position }));
         MathComponent { kind, props, styles }.into()
     }
@@ -815,7 +814,7 @@ impl<'a> PrimesItem<'a> {
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Primes(Box::new(Self { prime, count }));
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -840,9 +839,8 @@ impl<'a> TextItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Text(Self { text, locator });
-        let props = MathProperties::new(styles, MathClass::Alphabetic)
-            .with_spaced(true)
-            .with_span(span);
+        let props =
+            MathProperties::new(styles, MathClass::Alphabetic, span).with_spaced(true);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -862,7 +860,7 @@ impl NumberItem {
         span: Span,
     ) -> MathItem<'a> {
         let kind = MathKind::Number(Self { text });
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -907,8 +905,7 @@ impl GlyphItem {
             mid_stretched: Cell::new(None),
             flac: Cell::new(false),
         }));
-        let props =
-            MathProperties::new(styles, class).with_limits(limits).with_span(span);
+        let props = MathProperties::new(styles, class, span).with_limits(limits);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -932,7 +929,7 @@ impl<'a> BoxItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Box(Self { elem, locator });
-        let props = MathProperties::default(styles).with_spaced(true);
+        let props = MathProperties::default(styles, elem.span()).with_spaced(true);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -957,7 +954,7 @@ impl<'a> ExternalItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::External(Self { content, locator });
-        let props = MathProperties::default(styles)
+        let props = MathProperties::default(styles, content.span())
             .with_spaced(true)
             .with_ignorant(content.is::<PlaceElem>());
         MathComponent { kind, props, styles }.into()
