@@ -52,3 +52,6 @@ $ a stretch(->, size: #200%) b $
   sym.suit.heart,
 )
 $x loves y and y loves 5$
+
+--- mathml-primes html ---
+$ x' x'' x''' x'''' x''''' x'''''' $

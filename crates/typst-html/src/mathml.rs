@@ -6,8 +6,8 @@ use typst_library::layout::{Axis, Em};
 use typst_library::math::MathSize;
 use typst_library::math::ir::{
     AccentItem, FencedItem, FractionItem, GlyphItem, MathItem, MathKind, MathProperties,
-    MultilineItem, NumberItem, Position, RadicalItem, ScriptsItem, Stretch, TableItem,
-    TextItem,
+    MultilineItem, NumberItem, Position, PrimesItem, RadicalItem, ScriptsItem, Stretch,
+    TableItem, TextItem,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
@@ -347,7 +347,7 @@ fn handle_realized(
             MathKind::Radical(item) => Some(handle_radical(item, ctx, props)?.into()),
             MathKind::Accent(item) => Some(handle_accent(item, ctx, props)?.into()),
             MathKind::Scripts(item) => Some(handle_scripts(item, ctx, props)?),
-            MathKind::Primes(_) => None,
+            MathKind::Primes(item) => Some(handle_primes(item, ctx, props)?.into()),
             MathKind::Table(item) => Some(handle_table(item, ctx, props)?.into()),
             MathKind::Fraction(item) => Some(handle_fraction(item, ctx, props)?.into()),
             MathKind::Text(item) => Some(handle_text(item, ctx, props, position)?.into()),
@@ -704,6 +704,15 @@ fn handle_number(
 ) -> SourceResult<HtmlElement> {
     Ok(HtmlElement::new(tag::mn)
         .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]))
+}
+
+fn handle_primes(
+    item: &PrimesItem,
+    ctx: &mut MathContext,
+    _props: &MathProperties,
+) -> SourceResult<HtmlElement> {
+    let prime = ctx.handle_into_node(&item.prime)?;
+    Ok(HtmlElement::new(tag::mrow).with_children(eco_vec![prime; item.count]))
 }
 
 fn handle_fenced(
