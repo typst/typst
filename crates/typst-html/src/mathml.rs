@@ -286,6 +286,7 @@ fn handle_realized(
             return Ok(());
         }
         MathItem::Space => {
+            // We hard-code the space width as `(4/18)em`.
             ctx.push(HtmlElement::new(tag::mspace).with_attr(
                 attr::width,
                 eco_format!("{}", css::length(Em::new(0.2222222222222222))),
