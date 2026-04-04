@@ -841,13 +841,13 @@ fn make_mo(
         Axis::Y
     };
     let semantic = stretch.is_some_and(|stretch| stretch.is_semantic(stretch_axis));
-    let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
+    let stretchy = (semantic != info.properties.contains(Properties::STRETCHY))
         .then(|| eco_format!("{}", semantic));
 
     // We don't need to set `maxsize` as it is infinity by default.
     let (symmetric, minsize) = if semantic {
         let vertical = stretch_axis == Axis::Y;
-        let symmetric = (vertical ^ info.properties.contains(Properties::SYMMETRIC))
+        let symmetric = (vertical != info.properties.contains(Properties::SYMMETRIC))
             .then(|| eco_format!("{}", vertical));
 
         let minsize = stretch
