@@ -40,6 +40,9 @@ $ stretch(integral) $
 $ stretch(integral, size: #50pt) $
 $ stretch(integral, size: #50%) $
 
+--- mathml-stretch-vertical-alignment html ---
+$ stretch(\[, size: #4em) a/b stretch(arrow.t, size: #4em) $
+
 --- mathml-stretch html ---
 $ a -> b $
 $ a stretch(->) b $

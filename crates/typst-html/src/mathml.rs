@@ -809,24 +809,31 @@ fn make_mo(
         && info.properties.contains(Properties::MOVABLELIMITS))
     .then(|| eco_format!("false"));
 
-    // TODO: symmetric, maxsize
-    let (stretchy, minsize) = if let Some(stretch) = stretch {
-        let mut chars = text.chars();
-        let stretch_axis = if let Some(c) = chars.next()
-            && chars.next().is_none()
-            && is_stretch_axis_inline(c)
-        {
-            Axis::X
-        } else {
-            Axis::Y
-        };
-        let semantic = stretch.is_semantic(stretch_axis);
-        let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
-            .then(|| eco_format!("{}", semantic));
+    let mut chars = text.chars();
+    let stretch_axis = if let Some(c) = chars.next()
+        && chars.next().is_none()
+        && is_stretch_axis_inline(c)
+    {
+        Axis::X
+    } else {
+        Axis::Y
+    };
+    let semantic = stretch.is_some_and(|stretch| stretch.is_semantic(stretch_axis));
+    let stretchy = (semantic ^ info.properties.contains(Properties::STRETCHY))
+        .then(|| eco_format!("{}", semantic));
+
+    // We don't need to set `maxsize` as it is infinity by default.
+    let (symmetric, minsize) = if semantic {
+        let vertical = stretch_axis == Axis::Y;
+        let symmetric = (vertical ^ info.properties.contains(Properties::SYMMETRIC))
+            .then(|| eco_format!("{}", vertical));
+
         let minsize = stretch
+            .unwrap()
             .resolve_requested(stretch_axis)
             .map(|target| eco_format!("{}", css::rel(target)));
-        (stretchy, minsize)
+
+        (symmetric, minsize)
     } else {
         (None, None)
     };
@@ -834,14 +841,15 @@ fn make_mo(
     HtmlElement::new(tag::mo)
         .with_children(eco_vec![HtmlNode::text(text, span)])
         .with_optional_attr(attr::form, form)
-        .with_optional_attr(attr::lspace, lspace)
-        .with_optional_attr(attr::rspace, rspace)
         .with_optional_attr(attr::fence, fence)
         .with_optional_attr(attr::separator, separator)
+        .with_optional_attr(attr::lspace, lspace)
+        .with_optional_attr(attr::rspace, rspace)
+        .with_optional_attr(attr::stretchy, stretchy)
+        .with_optional_attr(attr::symmetric, symmetric)
+        .with_optional_attr(attr::minsize, minsize)
         .with_optional_attr(attr::largeop, largeop)
         .with_optional_attr(attr::movablelimits, movablelimits)
-        .with_optional_attr(attr::minsize, minsize)
-        .with_optional_attr(attr::stretchy, stretchy)
 }
 
 /// Whether this item is considered an embellished operator in MathML Core.
