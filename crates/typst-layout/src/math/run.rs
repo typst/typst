@@ -74,16 +74,14 @@ pub fn layout_aligned_row(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<Vec<MathRun>> {
-    let items: Vec<&MathItem> = row.iter().collect();
-
-    let mut cells = Vec::with_capacity(items.len());
-    for (c, item) in items.iter().enumerate() {
+    let mut cells = Vec::with_capacity(row.len());
+    for (c, item) in row.iter().enumerate() {
         let mut frags = ctx.layout_into_fragments(item, styles)?;
 
         // For a (right-aligned, left-aligned) pair, move the lspace of the item
         // in the left-aligned column to the right-aligned column.
         if c.is_multiple_of(2)
-            && let Some(next_item) = items.get(c + 1)
+            && let Some(next_item) = row.get(c + 1)
             && let Some(spacing) = alignment_lspace(next_item)
         {
             frags.push(MathFragment::Space(spacing));

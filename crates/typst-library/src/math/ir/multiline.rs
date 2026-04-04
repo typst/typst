@@ -37,6 +37,11 @@ impl<'a> AlignedRow<'a> {
     pub fn iter(&self) -> std::slice::Iter<'_, MathItem<'a>> {
         self.0.iter()
     }
+
+    /// Returns a reference to the item at the given index.
+    pub fn get(&self, index: usize) -> Option<&MathItem<'a>> {
+        self.0.get(index)
+    }
 }
 
 impl<'a> IntoIterator for AlignedRow<'a> {
