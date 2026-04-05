@@ -575,9 +575,13 @@ fn embedded_code_expr(p: &mut Parser) {
         let at = p.at_set(set::ATOMIC_CODE_EXPR);
         code_expr_prec(p, true, 0);
 
-        // Consume error for things like `#12p` or `#"abc\"`.#
+        // Consume error for things like `#12p` or `#"abc\"`.
         if !at {
+            let at_unary = p.at_set(set::UNARY_OP);
             p.unexpected();
+            if at_unary {
+                p.hint("to use a unary operator, wrap the entire expression in parentheses");
+            }
         }
 
         // Note: 2d math arguments rely on the `directly_at` check.
@@ -665,7 +669,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     }
 }
 
-/// Parses an primary in a code expression. These are the atoms that unary and
+/// Parses a primary in a code expression. These are the atoms that unary and
 /// binary operations, functions calls, and field accesses start with / are
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
