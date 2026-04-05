@@ -394,8 +394,7 @@ pub fn generate(reports: &[TestReport]) -> String {
         root.elem("body").with(|body| {
             test_reports(body, reports);
 
-            //
-            body.elem("script").type_("text/javascript").raw_text(REPORT_SCRIPT);
+            body.elem("script").raw_text(REPORT_SCRIPT);
         });
     });
 
