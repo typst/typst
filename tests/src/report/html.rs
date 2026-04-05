@@ -678,7 +678,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
             });
         }
         if reports.is_empty() {
-            ul.div().class("sidebar-list-empty").text("NONE");
+            ul.li().class("sidebar-list-empty").text("NONE");
         }
     });
 }
