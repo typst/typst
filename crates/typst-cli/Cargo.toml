@@ -18,6 +18,7 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
+dhat = { workspace = true, optional = true }
 typst = { workspace = true }
 typst-bundle = { workspace = true }
 typst-eval = { workspace = true }
@@ -85,6 +86,9 @@ typst-utils = { workspace = true }
 
 [features]
 default = ["embedded-fonts", "http-server"]
+
+# Heap profiling with dhat
+dhat-heap = ["dep:dhat"]
 
 # Embeds some fonts into the binary, see typst-kit
 embedded-fonts = ["typst-kit/embedded-fonts"]

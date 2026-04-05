@@ -1,3 +1,7 @@
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 mod args;
 mod compile;
 mod completions;
@@ -50,6 +54,9 @@ static ARGS: LazyLock<CliArguments> = LazyLock::new(|| {
 
 /// Entry point.
 fn main() -> ExitCode {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     // Handle SIGPIPE
     // https://stackoverflow.com/questions/65755853/simple-word-count-rust-program-outputs-valid-stdout-but-panicks-when-piped-to-he/65760807
     sigpipe::reset();

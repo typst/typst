@@ -746,7 +746,7 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(Tag::Start(elem, _)) => {
+                FrameItem::Tag(Tag::Start(elem, _, _)) => {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };

@@ -215,7 +215,10 @@ pub fn layout_flow<'a>(
     )?;
 
     let mut work = Work::new(&children);
-    let mut finished = vec![];
+    // Pre-allocate with a reasonable hint: at least backlog size + 1.
+    // This avoids expensive Vec doublings for large documents.
+    let initial_capacity = regions.backlog.len() + 1;
+    let mut finished = Vec::with_capacity(initial_capacity);
 
     // This loop runs once per region produced by the flow layout.
     loop {

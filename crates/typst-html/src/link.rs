@@ -58,8 +58,8 @@ fn traverse(
             // When visiting a start tag, we check whether the element needs an
             // ID and if so, add it to the queue, so that its first child node
             // receives an ID.
-            HtmlNode::Tag(Tag::Start(elem, _)) => {
-                let loc = elem.location().unwrap();
+            HtmlNode::Tag(Tag::Start(elem, loc, _)) => {
+                let loc = *loc;
                 if targets.contains(&loc) {
                     work.enqueue(loc, elem.label());
                 }
@@ -126,8 +126,8 @@ fn traverse_frame(
 ) {
     for (_, item) in frame.items() {
         match item {
-            FrameItem::Tag(Tag::Start(elem, _)) => {
-                let loc = elem.location().unwrap();
+            FrameItem::Tag(Tag::Start(elem, loc, _)) => {
+                let loc = *loc;
                 if targets.contains(&loc)
                     && let Some(DocumentPosition::Html(position)) =
                         generator.introspector().position(loc)

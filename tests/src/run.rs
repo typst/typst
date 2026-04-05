@@ -519,8 +519,12 @@ impl<'a> Runner<'a> {
                         #[cfg(target_family = "unix")]
                         std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
                         #[cfg(target_family = "windows")]
-                        std::os::windows::fs::symlink_file(&link_path, &live_path)
-                            .unwrap();
+                        {
+                            // Try symlink first, fall back to copy if lacking privileges
+                            if std::os::windows::fs::symlink_file(&link_path, &live_path).is_err() {
+                                std::fs::copy(&hash_path, &live_path).ok();
+                            }
+                        }
                     }
                 }
             }

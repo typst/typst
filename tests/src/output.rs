@@ -331,7 +331,7 @@ fn generate_pdf(
 ) -> SourceResult<Vec<u8>> {
     let standards = PdfStandards::new(standard.as_slice()).unwrap();
     let options = PdfOptions { standards, ..Default::default() };
-    typst_pdf::pdf(doc, &options)
+    typst_pdf::pdf(doc.clone(), &options)
 }
 
 pub struct Pdftags;

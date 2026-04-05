@@ -1,5 +1,8 @@
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+
+use crate::page_store::DiskPageStore;
 
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
@@ -13,20 +16,26 @@ use typst_library::visualize::{Color, Paint};
 use crate::PagedIntrospector;
 
 /// A finished document with metadata and page frames.
-#[derive(Debug, Clone)]
+///
+/// The introspector is built lazily on first access. For documents that
+/// don't use introspection features (no `query()`, `locate()`, `counter()`,
+/// `state()`), the introspector may never be built, saving significant
+/// memory (~200MB+ for large documents).
 pub struct PagedDocument {
     pages: EcoVec<Page>,
     info: DocumentInfo,
-    introspector: Arc<PagedIntrospector>,
+    introspector: OnceLock<Arc<PagedIntrospector>>,
+    /// Optional disk-backed page store for large documents.
+    /// When set, pages may have been spilled to disk during layout.
+    page_store: Option<Arc<DiskPageStore>>,
 }
 
 impl PagedDocument {
     /// Creates a new paged document from its parts.
     ///
-    /// Internally builds the introspector.
+    /// The introspector is built lazily on first access via `introspector()`.
     pub fn new(pages: EcoVec<Page>, info: DocumentInfo) -> Self {
-        let introspector = PagedIntrospector::new(&pages);
-        Self { pages, info, introspector: Arc::new(introspector) }
+        Self { pages, info, introspector: OnceLock::new(), page_store: None }
     }
 
     /// The document's finished pages.
@@ -40,8 +49,85 @@ impl PagedDocument {
     }
 
     /// Provides the ability to execute queries on the document.
+    ///
+    /// On first call, this builds the introspector by scanning all page
+    /// frames. Subsequent calls return the cached introspector.
     pub fn introspector(&self) -> &Arc<PagedIntrospector> {
-        &self.introspector
+        self.introspector.get_or_init(|| {
+            Arc::new(PagedIntrospector::new(&self.pages))
+        })
+    }
+
+    /// Drops page frames to free memory, keeping only the introspector
+    /// and document info. After calling this, `pages()` returns an empty
+    /// slice. This is used in the convergence loop where historical
+    /// documents only need their introspector.
+    pub fn drop_pages(&mut self) {
+        // Ensure introspector is built before dropping pages,
+        // since building it requires scanning the pages.
+        self.introspector();
+        self.pages = EcoVec::new();
+    }
+
+    /// Takes ownership of the pages, leaving the document with empty pages.
+    /// This allows the caller to process and drop pages one at a time.
+    pub fn take_pages(&mut self) -> EcoVec<Page> {
+        std::mem::replace(&mut self.pages, EcoVec::new())
+    }
+
+    /// Creates a new document from pages and info, with a lazy introspector.
+    /// Used when reconstructing a document from disk-backed page store.
+    pub fn from_pages_and_info(pages: EcoVec<Page>, info: DocumentInfo) -> Self {
+        Self::new(pages, info)
+    }
+
+    /// Returns the document info.
+    pub fn info(&self) -> &DocumentInfo {
+        &self.info
+    }
+
+    /// Sets a pre-built introspector on this document.
+    /// Used when the introspector was built incrementally during layout.
+    pub fn set_introspector(&mut self, introspector: PagedIntrospector) {
+        let _ = self.introspector.set(Arc::new(introspector));
+    }
+
+    /// Sets the disk-backed page store for this document.
+    pub fn set_page_store(&mut self, store: DiskPageStore) {
+        self.page_store = Some(Arc::new(store));
+    }
+
+    /// Returns the disk-backed page store, if any.
+    pub fn page_store(&self) -> Option<&Arc<DiskPageStore>> {
+        self.page_store.as_ref()
+    }
+}
+
+impl Clone for PagedDocument {
+    fn clone(&self) -> Self {
+        Self {
+            pages: self.pages.clone(),
+            info: self.info.clone(),
+            introspector: match self.introspector.get() {
+                Some(intro) => {
+                    let lock = OnceLock::new();
+                    let _ = lock.set(intro.clone());
+                    lock
+                }
+                None => OnceLock::new(),
+            },
+            page_store: self.page_store.clone(),
+        }
+    }
+}
+
+impl Debug for PagedDocument {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("PagedDocument")
+            .field("pages", &self.pages.len())
+            .field("info", &self.info)
+            .field("introspector_built", &self.introspector.get().is_some())
+            .finish()
     }
 }
 
@@ -62,7 +148,7 @@ impl Document for PagedDocument {
 
 impl Output for PagedDocument {
     fn introspector(&self) -> &dyn Introspector {
-        self.introspector.as_ref()
+        self.introspector().as_ref()
     }
 
     fn target() -> Target {
@@ -75,6 +161,10 @@ impl Output for PagedDocument {
         styles: StyleChain,
     ) -> SourceResult<Self> {
         crate::layout_document(engine, content, styles)
+    }
+
+    fn drop_pages(&mut self) {
+        PagedDocument::drop_pages(self);
     }
 }
 

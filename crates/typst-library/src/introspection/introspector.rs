@@ -481,8 +481,9 @@ pub struct ElementIntrospectorBuilder<P> {
 
 /// An item in the builder's sink.
 enum BuilderItem<P> {
-    /// Indicates the start of the given element. Also holds its position.
-    Start(Content, P),
+    /// Indicates the start of the given element. Also holds its location and
+    /// position.
+    Start(Content, Location, P),
     /// Indicates the end of the element with the given location.
     End(Location),
 }
@@ -490,13 +491,24 @@ enum BuilderItem<P> {
 impl<P> ElementIntrospectorBuilder<P> {
     /// Creates an empty builder.
     pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    /// Creates a builder with pre-allocated capacity for the estimated
+    /// number of introspectable elements. Reduces memory waste from
+    /// HashMap/HashSet/Vec growth doubling.
+    pub fn with_capacity(hint: usize) -> Self {
+        let mut seen = FxHashSet::default();
+        seen.reserve(hint);
+        let mut locations = FxHashMap::default();
+        locations.reserve(hint);
         Self {
             stack: Vec::new(),
-            sink: Vec::new(),
-            seen: FxHashSet::default(),
+            sink: Vec::with_capacity(hint.saturating_mul(2)),
+            seen,
             insertions: MultiMap::default(),
             keys: MultiMap::default(),
-            locations: FxHashMap::default(),
+            locations,
             labels: MultiMap::default(),
         }
     }
@@ -504,11 +516,11 @@ impl<P> ElementIntrospectorBuilder<P> {
     /// Discovers an introspectible in a tag.
     pub fn discover_tag(&mut self, tag: &Tag, position: P) {
         match tag {
-            Tag::Start(elem, flags) => {
+            Tag::Start(elem, loc, flags) => {
                 if flags.introspectable {
-                    let loc = elem.location().unwrap();
+                    let loc = *loc;
                     if self.seen.insert(loc) {
-                        self.sink.push(BuilderItem::Start(elem.clone(), position));
+                        self.sink.push(BuilderItem::Start(elem.clone(), loc, position));
                     }
                 }
             }
@@ -538,7 +550,7 @@ impl<P> ElementIntrospectorBuilder<P> {
             if self.seen.insert(loc) {
                 let range = elements.locations.get(&loc).unwrap();
                 let position = map_position(q);
-                self.sink.push(BuilderItem::Start(elem.clone(), position));
+                self.sink.push(BuilderItem::Start(elem.clone(), loc, position));
                 debug_assert_eq!(range.start, i);
                 queued.insert(range.end, loc);
             }
@@ -589,8 +601,7 @@ impl<P> ElementIntrospectorBuilder<P> {
     /// acceleration structures.
     fn visit(&mut self, elems: &mut Vec<(Content, P)>, item: BuilderItem<P>) {
         match item {
-            BuilderItem::Start(elem, pos) => {
-                let loc = elem.location().unwrap();
+            BuilderItem::Start(elem, loc, pos) => {
                 let idx = elems.len();
 
                 // Populate the location acceleration map. Initially, we insert

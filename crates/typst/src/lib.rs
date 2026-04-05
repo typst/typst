@@ -137,6 +137,9 @@ fn compile_impl<T: Output>(
     // If that doesn't happen within five attempts, we give up.
     loop {
         let _scope = TimingScope::new(ITER_NAMES[history.len()]);
+
+        // Always enable layout-time eviction for memory savings.
+        typst_library::engine_flags::enable_layout_eviction();
         let introspector = history
             .last()
             .map(|doc| doc.introspector())
@@ -181,6 +184,18 @@ fn compile_impl<T: Output>(
             }
             break;
         }
+
+        // Drop page frames from the document before storing in history.
+        // The convergence loop only needs the introspector from previous
+        // iterations, never the page data. This prevents holding multiple
+        // complete copies of large documents (e.g., 300K pages) in memory.
+        document.drop_pages();
+
+        // Evict stale memoization cache entries to free memory from the
+        // previous iteration's cached layout results. Use max_age 2 to
+        // keep entries that might be reused in the next iteration while
+        // freeing older ones.
+        comemo::evict(2);
 
         history.push(document);
     }

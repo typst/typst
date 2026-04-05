@@ -561,7 +561,7 @@ fn prepare(
     // when queried.
     let tags = elem
         .location()
-        .map(|loc| (Tag::Start(elem.clone(), flags), Tag::End(loc, key, flags)));
+        .map(|loc| (Tag::Start(elem.clone(), loc, flags), Tag::End(loc, key, flags)));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.

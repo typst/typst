@@ -32,9 +32,28 @@ use typst_library::model::LateLinkResolver;
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
+/// Takes ownership of the document so pages can be dropped during conversion
+/// to reduce peak memory usage for large documents.
 #[typst_macros::time(name = "pdf")]
-pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options, &[], None)
+pub fn pdf(mut document: PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
+    convert::convert(&mut document, options, &[], None)
+}
+
+/// Export a document to PDF with disk-backed streaming.
+///
+/// Uses a `DiskPageStore` to read pages one at a time from disk during
+/// conversion. The document must have had `tags::init` called with its
+/// pages before they were serialized to disk.
+///
+/// `document` should have empty pages (already serialized to `store`).
+/// The tag tree and introspector should already be built.
+#[typst_macros::time(name = "pdf streaming")]
+pub fn pdf_streaming(
+    document: &mut PagedDocument,
+    options: &PdfOptions,
+    store: &typst_layout::page_store::DiskPageStore,
+) -> SourceResult<Vec<u8>> {
+    convert::convert_streaming(document, options, store)
 }
 
 /// Export a document into a PDF file as part of a bundle.
@@ -50,7 +69,10 @@ pub fn pdf_in_bundle(
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options, anchors, Some(link_resolver))
+    // Clone the document so we can take ownership of pages during conversion.
+    // In bundle mode, the document may be memoized and shared.
+    let mut doc = document.clone();
+    convert::convert(&mut doc, options, anchors, Some(link_resolver))
 }
 
 /// Settings for PDF export.

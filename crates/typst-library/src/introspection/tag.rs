@@ -12,9 +12,11 @@ use crate::introspection::Location;
 pub enum Tag {
     /// The stored element starts here.
     ///
-    /// Content placed in a tag **must** have a [`Location`] or there will be
-    /// panics.
-    Start(Content, TagFlags),
+    /// The [`Location`] is stored directly on the tag so that creators
+    /// (e.g. grid cell tag generation) do not need to call
+    /// `set_location` on the [`Content`], which would trigger a deep
+    /// clone via `Arc::make_mut`.
+    Start(Content, Location, TagFlags),
     /// The element with the given location and key hash ends here.
     ///
     /// Note: The key hash is stored here instead of in `Start` simply to make
@@ -27,7 +29,7 @@ impl Tag {
     /// Access the location of the tag.
     pub fn location(&self) -> Location {
         match self {
-            Tag::Start(elem, ..) => elem.location().unwrap(),
+            Tag::Start(_, loc, ..) => *loc,
             Tag::End(loc, ..) => *loc,
         }
     }
@@ -37,7 +39,7 @@ impl Debug for Tag {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let loc = self.location();
         match self {
-            Tag::Start(elem, ..) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
+            Tag::Start(elem, _, ..) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
             Tag::End(..) => write!(f, "End({loc:?})"),
         }
     }

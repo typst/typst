@@ -12,7 +12,7 @@ fuzz_target!(|text: &str| {
             std::hint::black_box(typst_render::render(page, 1.0));
             std::hint::black_box(typst_svg::svg(page));
         }
-        _ = std::hint::black_box(typst_pdf::pdf(&document, &PdfOptions::default()));
+        _ = std::hint::black_box(typst_pdf::pdf(document, &PdfOptions::default()));
     }
     comemo::evict(10);
 });

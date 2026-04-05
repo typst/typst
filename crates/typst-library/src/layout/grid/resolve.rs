@@ -1,6 +1,9 @@
+use std::cell::RefCell;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Deref, DerefMut, Range};
 use std::sync::Arc;
+
+use rustc_hash::FxHashMap;
 
 use ecow::eco_format;
 use typst_library::Dir;
@@ -21,6 +24,14 @@ use typst_syntax::Span;
 use typst_utils::{NonZeroExt, SmallBitSet};
 
 use crate::pdf::{TableCellKind, TableHeaderScope};
+
+thread_local! {
+    /// Cache for `Stroke<Abs>` to `Arc<Stroke<Length>>` conversions.
+    /// Keyed by value hash of the source stroke. Cleared at the start of each
+    /// `resolve_cellgrid` call to prevent cross-compilation leaks.
+    static STROKE_CONV_CACHE: RefCell<FxHashMap<u128, Arc<Stroke>>> =
+        RefCell::new(FxHashMap::default());
+}
 
 /// Convert a grid to a cell grid.
 #[typst_macros::time(span = elem.span())]
@@ -202,7 +213,7 @@ fn table_item_to_resolvable(
 
 impl ResolvableCell for Packed<TableCell> {
     fn resolve_cell(
-        mut self,
+        self,
         x: usize,
         y: usize,
         fill: &Option<Paint>,
@@ -213,15 +224,14 @@ impl ResolvableCell for Packed<TableCell> {
         styles: StyleChain,
         kind: Smart<TableCellKind>,
     ) -> Cell {
-        let cell = &mut *self;
-        let colspan = cell.colspan.get(styles);
-        let rowspan = cell.rowspan.get(styles);
-        let breakable = cell.breakable.get(styles).unwrap_or(breakable);
-        let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
+        // READ phase: all through Deref (immutable, no make_unique)
+        let colspan = self.colspan.get(styles);
+        let rowspan = self.rowspan.get(styles);
+        let breakable = self.breakable.get(styles).unwrap_or(breakable);
+        let fill = self.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
+        let kind = self.kind.get(styles).or(kind);
 
-        let kind = cell.kind.get(styles).or(kind);
-
-        let cell_stroke = cell.stroke.resolve(styles);
+        let cell_stroke = self.stroke.resolve(styles);
         let stroke_overridden =
             cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
 
@@ -235,38 +245,51 @@ impl ResolvableCell for Packed<TableCell> {
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
         let stroke = cell_stroke.fold(stroke).map(Option::flatten);
-        cell.x.set(Smart::Custom(x));
-        cell.y.set(Smart::Custom(y));
-        cell.fill.set(Smart::Custom(fill.clone()));
-        cell.align.set(match align {
+
+        let resolved_align = match align {
             Smart::Custom(align) => Smart::Custom(
-                cell.align.get(styles).map_or(align, |inner| inner.fold(align)),
+                self.align.get(styles).map_or(align, |inner| inner.fold(align)),
             ),
             // Don't fold if the table is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => cell.align.get(styles),
-        });
-        cell.inset.set(Smart::Custom(
-            cell.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
-        ));
-        cell.stroke.set(
-            // Here we convert the resolved stroke to a regular stroke, however
-            // with resolved units (that is, 'em' converted to absolute units).
-            // We also convert any stroke unspecified by both the cell and the
-            // outer stroke ('None' in the folded stroke) to 'none', that is,
-            // all sides are present in the resulting Sides object accessible
-            // by show rules on table cells.
-            stroke.as_ref().map(|side| {
-                Some(side.as_ref().map(|cell_stroke| {
-                    Arc::new((**cell_stroke).clone().map(Length::from))
-                }))
-            }),
+            Smart::Auto => self.align.get(styles),
+        };
+        let resolved_inset = Smart::Custom(
+            self.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
         );
-        cell.breakable.set(Smart::Custom(breakable));
-        cell.kind.set(kind);
+        let converted_stroke = stroke.as_ref().map(|side| {
+            Some(side.as_ref().map(|cell_stroke| {
+                let hash = typst_utils::hash128(&**cell_stroke);
+                STROKE_CONV_CACHE.with(|cache| {
+                    cache
+                        .borrow_mut()
+                        .entry(hash)
+                        .or_insert_with(|| {
+                            Arc::new((**cell_stroke).clone().map(Length::from))
+                        })
+                        .clone()
+                })
+            }))
+        });
+
+        // CONSTRUCT phase: build new TableCell from scratch (no deep clone)
+        let body = self.body.clone();
+        let span = self.span();
+        let new_cell = TableCell::new(body)
+            .with_x(Smart::Custom(x))
+            .with_y(Smart::Custom(y))
+            .with_colspan(colspan)
+            .with_rowspan(rowspan)
+            .with_fill(Smart::Custom(fill.clone()))
+            .with_align(resolved_align)
+            .with_inset(resolved_inset)
+            .with_stroke(converted_stroke)
+            .with_breakable(Smart::Custom(breakable))
+            .with_kind(kind);
+
         Cell {
-            body: self.pack(),
+            body: Packed::new(new_cell).spanned(span).pack(),
             fill,
             colspan,
             rowspan,
@@ -299,7 +322,7 @@ impl ResolvableCell for Packed<TableCell> {
 
 impl ResolvableCell for Packed<GridCell> {
     fn resolve_cell(
-        mut self,
+        self,
         x: usize,
         y: usize,
         fill: &Option<Paint>,
@@ -310,13 +333,13 @@ impl ResolvableCell for Packed<GridCell> {
         styles: StyleChain,
         _: Smart<TableCellKind>,
     ) -> Cell {
-        let cell = &mut *self;
-        let colspan = cell.colspan.get(styles);
-        let rowspan = cell.rowspan.get(styles);
-        let breakable = cell.breakable.get(styles).unwrap_or(breakable);
-        let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
+        // READ phase: all through Deref (immutable, no make_unique)
+        let colspan = self.colspan.get(styles);
+        let rowspan = self.rowspan.get(styles);
+        let breakable = self.breakable.get(styles).unwrap_or(breakable);
+        let fill = self.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
 
-        let cell_stroke = cell.stroke.resolve(styles);
+        let cell_stroke = self.stroke.resolve(styles);
         let stroke_overridden =
             cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
 
@@ -330,37 +353,56 @@ impl ResolvableCell for Packed<GridCell> {
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
         let stroke = cell_stroke.fold(stroke).map(Option::flatten);
-        cell.x.set(Smart::Custom(x));
-        cell.y.set(Smart::Custom(y));
-        cell.fill.set(Smart::Custom(fill.clone()));
-        cell.align.set(match align {
+
+        let resolved_align = match align {
             Smart::Custom(align) => Smart::Custom(
-                cell.align.get(styles).map_or(align, |inner| inner.fold(align)),
+                self.align.get(styles).map_or(align, |inner| inner.fold(align)),
             ),
             // Don't fold if the grid is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => cell.align.get(styles),
-        });
-        cell.inset.set(Smart::Custom(
-            cell.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
-        ));
-        cell.stroke.set(
-            // Here we convert the resolved stroke to a regular stroke, however
-            // with resolved units (that is, 'em' converted to absolute units).
-            // We also convert any stroke unspecified by both the cell and the
-            // outer stroke ('None' in the folded stroke) to 'none', that is,
-            // all sides are present in the resulting Sides object accessible
-            // by show rules on grid cells.
-            stroke.as_ref().map(|side| {
-                Some(side.as_ref().map(|cell_stroke| {
-                    Arc::new((**cell_stroke).clone().map(Length::from))
-                }))
-            }),
+            Smart::Auto => self.align.get(styles),
+        };
+        let resolved_inset = Smart::Custom(
+            self.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
         );
-        cell.breakable.set(Smart::Custom(breakable));
+        // Here we convert the resolved stroke to a regular stroke, however
+        // with resolved units (that is, 'em' converted to absolute units).
+        // We also convert any stroke unspecified by both the cell and the
+        // outer stroke ('None' in the folded stroke) to 'none', that is,
+        // all sides are present in the resulting Sides object accessible
+        // by show rules on grid cells.
+        let converted_stroke = stroke.as_ref().map(|side| {
+            Some(side.as_ref().map(|cell_stroke| {
+                let hash = typst_utils::hash128(&**cell_stroke);
+                STROKE_CONV_CACHE.with(|cache| {
+                    cache
+                        .borrow_mut()
+                        .entry(hash)
+                        .or_insert_with(|| {
+                            Arc::new((**cell_stroke).clone().map(Length::from))
+                        })
+                        .clone()
+                })
+            }))
+        });
+
+        // CONSTRUCT phase: build new GridCell from scratch (no deep clone)
+        let body = self.body.clone();
+        let span = self.span();
+        let new_cell = GridCell::new(body)
+            .with_x(Smart::Custom(x))
+            .with_y(Smart::Custom(y))
+            .with_colspan(colspan)
+            .with_rowspan(rowspan)
+            .with_fill(Smart::Custom(fill.clone()))
+            .with_align(resolved_align)
+            .with_inset(resolved_inset)
+            .with_stroke(converted_stroke)
+            .with_breakable(Smart::Custom(breakable));
+
         Cell {
-            body: self.pack(),
+            body: Packed::new(new_cell).spanned(span).pack(),
             fill,
             colspan,
             rowspan,
@@ -923,6 +965,9 @@ where
     C: IntoIterator<Item = ResolvableGridChild<T, I>>,
     C::IntoIter: ExactSizeIterator,
 {
+    // Clear stroke conversion cache to prevent cross-compilation leaks.
+    STROKE_CONV_CACHE.with(|cache| cache.borrow_mut().clear());
+
     CellGridResolver {
         tracks,
         gutter,

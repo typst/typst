@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use rustc_hash::FxHashMap;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::introspection::Locator;
@@ -311,18 +311,26 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
+    /// Number of finished regions (pages) between spill/eviction cycles.
+    /// Controls peak memory: smaller = less memory, more disk I/O.
+    const SPILL_INTERVAL: usize = 50;
+
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
         if let Some(footer) = &self.grid.footer
             && footer.repeated
         {
-            // Ensure rows in the first region will be aware of the
-            // possible presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
             self.regions.size.y -= self.current.footer_height;
             self.current.initial_after_repeats = self.regions.size.y;
         }
+
+        /// Number of finished regions between comemo evictions.
+        /// Smaller = less peak memory, larger = fewer eviction overhead calls.
+        const EVICT_INTERVAL: usize = 15;
+
+        let mut last_evict_at: usize = 0;
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
@@ -332,8 +340,6 @@ impl<'a> GridLayouter<'a> {
             {
                 self.place_new_headers(&mut consecutive_header_count, engine)?;
                 y = next_header.range.end;
-
-                // Skip header rows during normal layout.
                 continue;
             }
 
@@ -350,36 +356,24 @@ impl<'a> GridLayouter<'a> {
             }
 
             self.layout_row(y, engine, 0)?;
-
-            // After the first non-header row is placed, pending headers are no
-            // longer orphans and can repeat, so we move them to repeating
-            // headers.
-            //
-            // Note that this is usually done in `push_row`, since the call to
-            // `layout_row` above might trigger region breaks (for multi-page
-            // auto rows), whereas this needs to be called as soon as any part
-            // of a row is laid out. However, it's possible a row has no
-            // visible output and thus does not push any rows even though it
-            // was successfully laid out, in which case we additionally flush
-            // here just in case.
             self.flush_orphans();
+
+            // Periodically evict comemo cache to free per-cell layout
+            // caches — but ONLY during the first convergence iteration.
+            // On subsequent iterations, keeping caches enables fast
+            // validation via cache hits.
+            if self.finished.len() >= last_evict_at + EVICT_INTERVAL
+                && typst_library::engine_flags::is_layout_eviction_enabled()
+            {
+                comemo::evict(1);
+                last_evict_at = self.finished.len();
+            }
 
             y += 1;
         }
 
         self.finish_region(engine, true)?;
 
-        // Layout any missing rowspans.
-        // There are only two possibilities for rowspans not yet laid out
-        // (usually, a rowspan is laid out as soon as its last row, or any row
-        // after it, is laid out):
-        // 1. The rowspan was fully empty and only spanned fully empty auto
-        // rows, which were all prevented from being laid out. Those rowspans
-        // are ignored by 'layout_rowspan', and are not of any concern.
-        //
-        // 2. The rowspan's last row was an auto row at the last region which
-        // was not laid out, and no other rows were laid out after it. Those
-        // might still need to be laid out, so we check for them.
         for rowspan in std::mem::take(&mut self.rowspans) {
             self.layout_rowspan(rowspan, None, engine)?;
         }
@@ -463,7 +457,7 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
-    /// Add lines and backgrounds.
+    /// Add lines and backgrounds, then return the finished fragment.
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
         let frame_amount = finished.len();

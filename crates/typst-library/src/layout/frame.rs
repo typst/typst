@@ -31,6 +31,11 @@ pub struct Frame {
 
 /// Constructor, accessors and setters.
 impl Frame {
+    /// Returns a reference to the inner Arc for checking refcount.
+    pub fn items_arc(&self) -> &Arc<LazyHash<Vec<(Point, FrameItem)>>> {
+        &self.items
+    }
+
     /// Create a new, empty frame.
     ///
     /// Panics the size is not finite.

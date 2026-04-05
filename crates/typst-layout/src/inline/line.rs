@@ -664,7 +664,7 @@ fn add_par_line_marker(
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
     let flags = TagFlags { introspectable: false, tagged: false };
-    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), loc, flags)));
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 

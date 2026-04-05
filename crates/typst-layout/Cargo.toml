@@ -13,6 +13,9 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
+bincode = { workspace = true }
+serde = { workspace = true }
+tempfile = { workspace = true }
 typst-assets = { workspace = true }
 typst-library = { workspace = true }
 typst-macros = { workspace = true }

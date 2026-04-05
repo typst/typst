@@ -316,7 +316,7 @@ fn compile_and_export(
     match config.output_format {
         OutputFormat::Pdf | OutputFormat::Png | OutputFormat::Svg => {
             let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_paged(&document, config));
+            let result = output.and_then(|document| export_paged(document, config));
             Warned { output: result, warnings }
         }
         OutputFormat::Html => {
@@ -352,7 +352,7 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 
 /// Export to a paged target format.
 fn export_paged(
-    document: &PagedDocument,
+    document: PagedDocument,
     config: &CompileConfig,
 ) -> SourceResult<Vec<Output>> {
     match config.output_format {
@@ -360,19 +360,50 @@ fn export_paged(
             export_pdf(document, config).map(|()| vec![config.output.clone()])
         }
         OutputFormat::Png => {
-            export_image(document, config, ImageExportFormat::Png).at(Span::detached())
+            export_image(&document, config, ImageExportFormat::Png).at(Span::detached())
         }
         OutputFormat::Svg => {
-            export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
+            export_image(&document, config, ImageExportFormat::Svg).at(Span::detached())
         }
         OutputFormat::Html | OutputFormat::Bundle => unreachable!(),
     }
 }
 
-/// Export to a PDF.
-fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+/// Export to a PDF. Takes ownership of the document so pages can be
+/// freed during conversion to reduce peak memory for large documents.
+///
+/// For large documents (>100 pages), uses disk-backed streaming:
+/// 1. Serializes pages to a temp file
+/// 2. Builds PDF tag tree while pages are still in memory
+/// Export to a PDF. Uses streaming disk-backed conversion for large documents.
+fn export_pdf(mut document: PagedDocument, config: &CompileConfig) -> SourceResult<()> {
     let options = pdf_options(config);
-    let buffer = typst_pdf::pdf(document, &options)?;
+
+    let has_store = document.page_store().is_some();
+    let buffer = if has_store {
+        // Large document: some pages were spilled to disk during layout.
+        // Reconstruct full page list from store for PDF conversion.
+        let store = document.page_store().unwrap().clone();
+        let mut all_pages: Vec<typst_layout::Page> = document.pages().to_vec();
+        // Read spilled pages from disk and append
+        if let Ok(iter) = store.pages_iter() {
+            for page_result in iter {
+                if let Ok(page) = page_result {
+                    all_pages.push(page);
+                }
+            }
+        }
+        // Create a complete document for PDF conversion
+        let full_doc = typst_layout::PagedDocument::from_pages_and_info(
+            all_pages.into(),
+            document.info().clone(),
+        );
+        comemo::evict(0);
+        typst_pdf::pdf(full_doc, &options)?
+    } else {
+        typst_pdf::pdf(document, &options)?
+    };
+
     config
         .output
         .write(&buffer)

@@ -53,6 +53,8 @@ color-print = "0.3.6"
 comemo = "0.5.1"
 csv = "1"
 ctrlc = "3.4.1"
+dhat = "0.3"
+bincode = "1.3"
 dirs = "6"
 ecow = { version = "0.2.6", features = ["serde"] }
 either = "1"

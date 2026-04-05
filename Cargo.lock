@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "addr2line"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b5d307320b3181d6d7954e663bd7c774a838b8220fe0593c86d9fb09f498b4b"
+dependencies = [
+ "gimli",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -129,6 +138,21 @@ name = "az"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
+
+[[package]]
+name = "backtrace"
+version = "0.3.76"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb531853791a215d7c62a30daf0dde835f381ab5de4589cfe7c649d2cbe92bd6"
+dependencies = [
+ "addr2line",
+ "cfg-if",
+ "libc",
+ "miniz_oxide",
+ "object",
+ "rustc-demangle",
+ "windows-link",
+]
 
 [[package]]
 name = "base64"
@@ -468,7 +492,7 @@ checksum = "3c963350b2b08aa4b725d7802593245380ab53dacfedcaa971385fc33306c0d4"
 dependencies = [
  "comemo-macros",
  "parking_lot",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "siphasher",
  "slab",
 ]
@@ -603,6 +627,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "dhat"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98cd11d84628e233de0ce467de10b8633f4ddaecafadefc86e13b84b8739b827"
+dependencies = [
+ "backtrace",
+ "lazy_static",
+ "mintex",
+ "parking_lot",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "thousands",
 ]
 
 [[package]]
@@ -915,6 +955,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimli"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+
+[[package]]
 name = "glidesort"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -992,7 +1038,7 @@ dependencies = [
  "log",
  "moxcms",
  "phf",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "siphasher",
  "skrifa",
  "smallvec",
@@ -1022,7 +1068,7 @@ dependencies = [
  "flate2",
  "kurbo 0.12.0",
  "log",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "smallvec",
  "zune-jpeg 0.4.14",
 ]
@@ -1449,7 +1495,7 @@ dependencies = [
  "pdf-writer",
  "png",
  "rayon",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "rustybuzz",
  "siphasher",
  "skrifa",
@@ -1494,6 +1540,12 @@ dependencies = [
  "euclid",
  "smallvec",
 ]
+
+[[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
@@ -1651,6 +1703,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mintex"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c505b3e17ed6b70a7ed2e67fbb2c560ee327353556120d6e72f5232b6880d536"
+
+[[package]]
 name = "mio"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1765,6 +1823,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.37.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1855,7 +1922,7 @@ dependencies = [
  "log",
  "rayon",
  "rgb",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "zopfli",
 ]
 
@@ -2309,6 +2376,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-demangle"
+version = "0.1.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2636,7 +2715,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb6895a12ac5599bb6057362f00e8a3cf1daab4df33f553a55690a44e4fed8d0"
 dependencies = [
  "kurbo 0.12.0",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "skrifa",
  "write-fonts",
 ]
@@ -2773,6 +2852,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "thousands"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bf63baf9f5039dadc247375c29eb13706706cfde997d0330d05aa63a77d8820"
 
 [[package]]
 name = "time"
@@ -2946,7 +3031,7 @@ dependencies = [
  "arrayvec",
  "comemo",
  "ecow",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "typst-eval",
  "typst-html",
  "typst-layout",
@@ -2972,7 +3057,7 @@ dependencies = [
  "either",
  "indexmap",
  "rayon",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "typst-html",
  "typst-layout",
  "typst-library",
@@ -2996,6 +3081,7 @@ dependencies = [
  "codespan-reporting",
  "color-print",
  "comemo",
+ "dhat",
  "dirs",
  "ecow",
  "fs_extra",
@@ -3046,7 +3132,7 @@ dependencies = [
  "heck",
  "pulldown-cmark",
  "regex",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -3069,7 +3155,7 @@ dependencies = [
  "comemo",
  "ecow",
  "indexmap",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "stacker",
  "toml",
  "typst-library",
@@ -3104,7 +3190,7 @@ dependencies = [
  "comemo",
  "ecow",
  "palette",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "time",
  "typst-assets",
  "typst-library",
@@ -3122,7 +3208,7 @@ dependencies = [
  "comemo",
  "ecow",
  "once_cell",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "serde",
  "typst",
  "typst-assets",
@@ -3151,7 +3237,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "parking_lot",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "same-file",
  "serde",
  "serde_json",
@@ -3171,6 +3257,7 @@ name = "typst-layout"
 version = "0.14.2"
 dependencies = [
  "az",
+ "bincode",
  "bumpalo",
  "codex",
  "comemo",
@@ -3185,9 +3272,11 @@ dependencies = [
  "kurbo 0.12.0",
  "libm",
  "memchr",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "rustybuzz",
+ "serde",
  "smallvec",
+ "tempfile",
  "ttf-parser",
  "typst-assets",
  "typst-library",
@@ -3240,7 +3329,7 @@ dependencies = [
  "regex-syntax",
  "roxmltree",
  "rust_decimal",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "rustybuzz",
  "serde",
  "serde_json",
@@ -3292,7 +3381,7 @@ dependencies = [
  "infer",
  "krilla",
  "krilla-svg",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "serde",
  "smallvec",
  "typst-assets",
@@ -3353,7 +3442,7 @@ dependencies = [
  "image",
  "indexmap",
  "itoa",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "ryu",
  "ttf-parser",
  "typst-assets",
@@ -3370,7 +3459,7 @@ name = "typst-syntax"
 version = "0.14.2"
 dependencies = [
  "ecow",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "serde",
  "toml",
  "typst-timing",
@@ -3401,7 +3490,7 @@ dependencies = [
  "rayon",
  "regex",
  "roxmltree",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "serde_yaml",
  "similar",
  "smallvec",
@@ -3444,7 +3533,7 @@ dependencies = [
  "once_cell",
  "portable-atomic",
  "rayon",
- "rustc-hash",
+ "rustc-hash 2.1.1",
  "semver",
  "siphasher",
  "thin-vec",
@@ -3829,6 +3918,12 @@ checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
  "windows-targets",
 ]
+
+[[package]]
+name = "windows-link"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
 
 [[package]]
 name = "windows-sys"

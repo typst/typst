@@ -10,8 +10,9 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, NativeElement, Packed, StyleChain};
 use typst_library::introspection::{Location, Locator, SplitLocator, Tag, TagFlags};
 use typst_library::layout::grid::resolve::Cell;
+use std::sync::Arc;
 use typst_library::layout::{
-    Fragment, FrameItem, FrameParent, GridCell, GridElem, Inherit, Point, Regions,
+    Fragment, Frame, FrameItem, FrameParent, GridCell, GridElem, Inherit, Point, Regions,
 };
 use typst_library::model::{TableCell, TableElem};
 
@@ -43,11 +44,17 @@ pub fn layout_cell(
     let mut tags = None;
     if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
         let mut table_cell = table_cell.clone();
-        table_cell.is_repeated.set(is_repeated);
+        // Only set is_repeated if true — default is false, so skipping
+        // avoids triggering a deep clone via make_unique when not needed.
+        if is_repeated {
+            table_cell.is_repeated.set(is_repeated);
+        }
         tags = Some(generate_tags(table_cell, &mut locator, engine));
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
         let mut grid_cell = grid_cell.clone();
-        grid_cell.is_repeated.set(is_repeated);
+        if is_repeated {
+            grid_cell.is_repeated.set(is_repeated);
+        }
         tags = Some(generate_tags(grid_cell, &mut locator, engine));
     }
 
@@ -61,21 +68,32 @@ pub fn layout_cell(
     {
         let flags = TagFlags { introspectable: true, tagged: true };
         if remainder.is_empty() {
-            first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, flags)));
-            first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
+            // Optimization: instead of prepend/push on the existing frame
+            // (which triggers Arc::make_mut deep clone when refcount > 1),
+            // create a wrapper frame with tags + the original as a group.
+            // This avoids cloning the potentially large items Vec.
+            if Arc::strong_count(first.items_arc()) > 1 {
+                // Wrap the original frame as a Group to avoid deep-cloning
+                // the items Vec. Use push(Group) directly instead of
+                // push_frame which might inline (triggering clone).
+                let size = first.size();
+                let kind = first.kind();
+                let original = std::mem::replace(first, Frame::new(size, kind));
+                first.push(Point::zero(), FrameItem::Tag(Tag::Start(elem, loc, flags)));
+                first.push(Point::zero(), FrameItem::Group(
+                    typst_library::layout::GroupItem::new(original)
+                ));
+                first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
+            } else {
+                first.prepend(Point::zero(), FrameItem::Tag(Tag::Start(elem, loc, flags)));
+                first.push(Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags)));
+            }
         } else {
-            // If there is more than one frame, set the logical parent of all
-            // frames to the cell, which converts them to group frames. Then
-            // prepend the start and end tags containing no content. The first
-            // frame is also a logical child to guarantee correct ordering
-            // in the introspector, since logical children are currently
-            // inserted immediately after the start tag of the parent element
-            // preceding any content within the parent element's tags.
             for frame in frames.iter_mut() {
                 frame.set_parent(FrameParent::new(loc, Inherit::Yes));
             }
             frames.first_mut().unwrap().prepend_multiple([
-                (Point::zero(), FrameItem::Tag(Tag::Start(elem, flags))),
+                (Point::zero(), FrameItem::Tag(Tag::Start(elem, loc, flags))),
                 (Point::zero(), FrameItem::Tag(Tag::End(loc, key, flags))),
             ]);
         }
@@ -85,13 +103,14 @@ pub fn layout_cell(
 }
 
 fn generate_tags<T: NativeElement>(
-    mut cell: Packed<T>,
+    cell: Packed<T>,
     locator: &mut SplitLocator,
     engine: &mut Engine,
 ) -> (Content, Location, u128) {
     let key = typst_utils::hash128(&cell);
     let loc = locator.next_location(engine, key, cell.span());
-    cell.set_location(loc);
+    // Location is stored on the Tag, not on the Content.
+    // This avoids triggering make_unique (deep clone).
     (cell.pack(), loc, key)
 }
 

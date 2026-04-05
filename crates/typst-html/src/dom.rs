@@ -525,6 +525,7 @@ mod tests {
             text(" you"),
             HtmlNode::Tag(Tag::Start(
                 Content::default(),
+                Location::new(0),
                 TagFlags { introspectable: true, tagged: true },
             )),
             text(" there"),

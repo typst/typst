@@ -39,7 +39,7 @@ use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
-    typst_document: &PagedDocument,
+    typst_document: &mut PagedDocument,
     options: &PdfOptions,
     anchors: &[(Location, EcoString)],
     link_resolver: Option<Tracked<LateLinkResolver>>,
@@ -64,7 +64,14 @@ pub fn convert(
         &page_index_converter,
     );
 
+    // Build tags from the full document (needs all pages).
     let tags = tags::init(typst_document, options)?;
+
+    // Take ownership of pages BEFORE creating GlobalContext.
+    // After tags::init has scanned all pages, the original page frames
+    // are no longer needed. Each page is dropped after being converted
+    // to PDF, preventing the entire document from being held in memory.
+    let pages: Vec<_> = typst_document.take_pages().into_iter().collect();
 
     let mut gc = GlobalContext::new(
         typst_document,
@@ -75,7 +82,8 @@ pub fn convert(
         tags,
     );
 
-    convert_pages(&mut gc, &mut document)?;
+    convert_pages(&mut gc, &mut document, pages)?;
+
     attach_files(&gc, &mut document)?;
     let (doc_lang, tree) = tags::resolve(&mut gc)?;
 
@@ -86,8 +94,138 @@ pub fn convert(
     finish(document, gc, options.standards.config)
 }
 
-fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
-    for (i, typst_page) in gc.document.pages().iter().enumerate() {
+/// Streaming conversion: reads pages one at a time from a DiskPageStore.
+///
+/// The `typst_document` must still have pages for `tags::init` to scan.
+/// After tag building, pages are read from the `store` one at a time.
+pub fn convert_streaming(
+    typst_document: &mut PagedDocument,
+    options: &PdfOptions,
+    store: &typst_layout::page_store::DiskPageStore,
+) -> SourceResult<Vec<u8>> {
+    let settings = SerializeSettings {
+        compress_content_streams: true,
+        no_device_cs: true,
+        ascii_compatible: false,
+        xmp_metadata: true,
+        cmyk_profile: None,
+        configuration: options.standards.config,
+        enable_tagging: options.tagged,
+        render_svg_glyph_fn: render_svg_glyph,
+    };
+
+    let mut document = Document::new_with(settings);
+    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    let named_destinations = collect_named_destinations(
+        &mut document,
+        typst_document,
+        &[],
+        &page_index_converter,
+    );
+
+    // Build tags while pages are still in memory.
+    let tags = tags::init(typst_document, options)?;
+
+    // NOW drop pages from the document — tags have been built.
+    typst_document.drop_pages();
+
+    let mut gc = GlobalContext::new(
+        typst_document,
+        options,
+        None,
+        named_destinations,
+        page_index_converter,
+        tags,
+    );
+
+    // Read pages from disk one at a time. Each page is dropped after conversion.
+    convert_pages_from_store(&mut gc, &mut document, store)?;
+
+    attach_files(&gc, &mut document)?;
+    let (doc_lang, tree) = tags::resolve(&mut gc)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc, doc_lang));
+    document.set_tag_tree(tree);
+
+    finish(document, gc, options.standards.config)
+}
+
+/// Reads pages one at a time from disk and converts them to PDF.
+fn convert_pages_from_store(
+    gc: &mut GlobalContext,
+    document: &mut Document,
+    store: &typst_layout::page_store::DiskPageStore,
+) -> SourceResult<()> {
+    // Use sequential iterator for efficient buffered reading.
+    let page_iter = store.pages_iter()
+        .map_err(|e| ecow::eco_format!("failed to open page store: {e}"))
+        .at(Span::detached())?;
+
+    for (i, page_result) in page_iter.enumerate() {
+        if gc.page_index_converter.pdf_page_index(i).is_none() {
+            continue;
+        }
+
+        // Read single page from disk — only this page is in memory.
+        let typst_page = page_result
+            .map_err(|e| ecow::eco_format!("failed to read page {i} from store: {e}"))
+            .at(Span::detached())?;
+
+        let mut settings = PageSettings::from_wh(
+            typst_page.frame.width().to_f32().max(3.0),
+            typst_page.frame.height().to_f32().max(3.0),
+        )
+        .expect_internal("invalid page size")
+        .at(Span::detached())?;
+
+        if let Some(label) = typst_page
+            .numbering
+            .as_ref()
+            .and_then(|num| PageLabel::generate(num, typst_page.number))
+            .or_else(|| {
+                gc.page_index_converter
+                    .has_skipped_pages()
+                    .then(|| PageLabel::arabic((i + 1) as u64))
+            })
+        {
+            settings = settings.with_page_label(label);
+        }
+
+        let mut page = document.start_page_with(settings);
+        let mut surface = page.surface();
+        let page_idx = gc.page_index_converter.pdf_page_index(i);
+        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+
+        tags::page(gc, &mut surface, |gc, surface| {
+            handle_frame(
+                &mut fc,
+                &typst_page.frame,
+                typst_page.fill_or_transparent(),
+                surface,
+                gc,
+            )
+        })?;
+
+        surface.finish();
+
+        let link_annotations = fc.link_annotations.into_values().flatten();
+        tags::add_link_annotations(gc, &mut page, link_annotations);
+
+        // typst_page is dropped here — frame memory freed
+    }
+
+    Ok(())
+}
+
+fn convert_pages(
+    gc: &mut GlobalContext,
+    document: &mut Document,
+    pages: Vec<typst_layout::Page>,
+) -> SourceResult<()> {
+    // Process each page and drop it immediately after to free memory.
+    // This prevents holding all page frames in memory during PDF conversion.
+    for (i, typst_page) in pages.into_iter().enumerate() {
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
             continue;
@@ -142,6 +280,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         let link_annotations = fc.link_annotations.into_values().flatten();
         tags::add_link_annotations(gc, &mut page, link_annotations);
+
+        // typst_page is dropped here, freeing the Frame and all its items
     }
 
     Ok(())
@@ -324,7 +464,7 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
-            FrameItem::Tag(Tag::Start(_, flags)) => {
+            FrameItem::Tag(Tag::Start(_, _, flags)) => {
                 if flags.tagged {
                     tags::handle_start(gc, surface);
                 }

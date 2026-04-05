@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use std::{mem, ptr};
 
 use comemo::Tracked;
@@ -377,16 +378,16 @@ impl Debug for Property {
 
 /// A block storage for storing style values.
 ///
-/// We're using a `Box` since values will either be contained in an `Arc` and
-/// therefore already on the heap or they will be small enough that we can just
-/// clone them.
-#[derive(Hash)]
-struct Block(Box<dyn Blockable>);
+/// We're using an `Arc` so that cloning a style property is a cheap
+/// reference-count increment instead of a deep copy. This is critical
+/// for large tables where cells share identical style values.
+#[derive(Hash, Clone)]
+struct Block(Arc<dyn Blockable>);
 
 impl Block {
     /// Creates a new block.
     fn new<T: Blockable>(value: T) -> Self {
-        Self(Box::new(value))
+        Self(Arc::new(value))
     }
 
     /// Downcasts the block to the specified type.
@@ -404,34 +405,21 @@ impl Debug for Block {
     }
 }
 
-impl Clone for Block {
-    fn clone(&self) -> Self {
-        self.0.dyn_clone()
-    }
-}
-
 /// A value that can be stored in a block.
 ///
-/// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
+/// Auto derived for all types that implement [`Any`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
 trait Blockable: Debug + Any + Send + Sync + 'static {
     /// Equivalent to [`Hash`] for the block.
     fn dyn_hash(&self, state: &mut dyn Hasher);
-
-    /// Equivalent to [`Clone`] for the block.
-    fn dyn_clone(&self) -> Block;
 }
 
-impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
+impl<T: Debug + Hash + Send + Sync + 'static> Blockable for T {
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
         TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
-    }
-
-    fn dyn_clone(&self) -> Block {
-        Block(Box::new(self.clone()))
     }
 }
 

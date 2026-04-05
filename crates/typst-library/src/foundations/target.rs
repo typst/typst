@@ -27,6 +27,11 @@ pub trait Output: Any {
 
     /// Get the output's introspector.
     fn introspector(&self) -> &dyn Introspector;
+
+    /// Drop heavy page data to free memory, keeping only the introspector.
+    /// Used in the convergence loop where historical documents only need
+    /// their introspector for the next iteration.
+    fn drop_pages(&mut self) {}
 }
 
 /// A trait for accepting an arbitrary kind of output as n argument.
