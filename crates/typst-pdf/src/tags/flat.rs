@@ -31,8 +31,6 @@ pub struct FlatTagData {
     pub spans: Vec<Span>,
     pub children: Vec<Vec<TagNode>>,
     pub weak: Vec<bool>,
-    #[allow(dead_code)]
-    pub parent: Vec<u32>,
     /// Language for each group, extracted from GroupKind::lang().
     pub langs: Vec<Option<Option<Locale>>>,
     /// Bounding box id for each group, extracted from GroupKind::bbox().

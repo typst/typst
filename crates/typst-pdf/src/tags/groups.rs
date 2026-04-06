@@ -123,12 +123,10 @@ impl Groups {
         let mut spans = Vec::with_capacity(len);
         let mut children = Vec::with_capacity(len);
         let mut weak = Vec::with_capacity(len);
-        let mut parent = Vec::with_capacity(len);
         let mut langs = Vec::with_capacity(len);
         let mut bboxes = Vec::with_capacity(len);
 
         for group in self.list.drain() {
-            parent.push(group.parent.get());
             spans.push(group.span);
             weak.push(group.weak);
             children.push(group.nodes);
@@ -188,7 +186,6 @@ impl Groups {
                 spans,
                 children,
                 weak,
-                parent,
                 langs,
                 bboxes,
             },

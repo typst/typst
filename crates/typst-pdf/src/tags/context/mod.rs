@@ -8,7 +8,6 @@ use crate::convert::FrameContext;
 use crate::tags::context::figure::build_figure;
 use crate::tags::context::grid::build_grid;
 use crate::tags::context::table::build_table;
-use crate::tags::groups::GroupKind;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec};
@@ -85,13 +84,6 @@ impl Ctx {
 
     pub fn new_bbox(&mut self) -> BBoxId {
         self.bboxes.push(BBoxCtx::new())
-    }
-
-    /// Used during tree building (before flatten). After flatten, use
-    /// `bbox_by_id` with the BBoxId from `FlatTagData::bboxes`.
-    #[allow(dead_code)]
-    pub fn bbox(&self, kind: &GroupKind) -> Option<&BBoxCtx> {
-        Some(self.bboxes.get(kind.bbox()?))
     }
 
     /// Look up a bounding box by its ID directly. Used by the resolver
