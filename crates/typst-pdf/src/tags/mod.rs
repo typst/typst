@@ -20,6 +20,7 @@ pub use crate::tags::groups::GroupId;
 pub use crate::tags::resolve::resolve;
 
 mod context;
+pub(crate) mod flat;
 mod groups;
 mod resolve;
 mod tree;

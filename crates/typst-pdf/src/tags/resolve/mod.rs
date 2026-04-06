@@ -11,10 +11,11 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
-use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
+use crate::tags::flat::FlatTagData;
+use crate::tags::groups::{GroupId, GroupKind, TagStorage};
 use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
-use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
+use crate::tags::util::{self, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 
 mod accumulator;
@@ -34,7 +35,7 @@ pub enum TagNode {
 struct Resolver<'a> {
     options: &'a PdfOptions<'a>,
     ctx: &'a Ctx,
-    groups: &'a IdVec<Group>,
+    flat: &'a FlatTagData,
     tags: &'a mut TagStorage,
     annotations: &'a mut Annotations,
     last_heading_level: Option<NonZeroU16>,
@@ -59,6 +60,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         context::finish(&mut gc.tags.tree);
     }
 
+    // Extract doc_lang from root BEFORE flattening (flatten drains the list).
     let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
     let GroupKind::Root(mut doc_lang) = root.kind else { unreachable!() };
 
@@ -66,11 +68,18 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         return Ok((doc_lang, TagTree::new()));
     }
 
+    // Flatten the Groups tree into a compact FlatTagTree representation.
+    // This drains all Group data into parallel arrays, drops the HashMap,
+    // and moves TagStorage out. The original Groups struct is now empty.
+    let mut flat = gc.tags.tree.groups.flatten();
+
+    let root_children = flat.data.children(GroupId::ROOT.idx());
+
     let mut resolver = Resolver {
         options: gc.options,
         ctx: &gc.tags.tree.ctx,
-        groups: &gc.tags.tree.groups.list,
-        tags: &mut gc.tags.tree.groups.tags,
+        flat: &flat.data,
+        tags: &mut flat.tag_storage,
         annotations: &mut gc.tags.annotations,
         last_heading_level: None,
         flatten: false,
@@ -78,9 +87,9 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
     };
 
     let mut accum = Accumulator::root();
-    accum.reserve(root.nodes().len());
+    accum.reserve(root_children.len());
 
-    for child in root.nodes().iter() {
+    for child in root_children.iter() {
         resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
     }
 
@@ -89,6 +98,9 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
     }
 
     let children = accum.finish();
+
+    // Drop the flat tree to free remaining memory.
+    drop(flat);
 
     Ok((doc_lang, TagTree::from(children)))
 }
@@ -124,11 +136,15 @@ fn resolve_group_node(
     mut accum: &mut Accumulator,
     id: GroupId,
 ) {
-    let group = rs.groups.get(id);
+    let idx = id.idx();
 
-    let tag = build_group_tag(rs, group);
-    let mut lang = group.kind.lang().filter(|_| tag.is_some());
-    let mut bbox = rs.ctx.bbox(&group.kind).cloned();
+    let tag = build_group_tag(rs, idx);
+    let kind = rs.flat.kind(idx);
+    let mut lang = kind.lang().filter(|_| tag.is_some());
+    let mut bbox = rs.ctx.bbox(kind).cloned();
+    let is_artifact = kind.is_artifact();
+    let is_weak = rs.flat.is_weak(idx);
+    let group_children = rs.flat.children(idx);
 
     // If this group doesn't produce a tag, don't create a nested accumulator
     // and push the children directly into the parent.
@@ -145,19 +161,20 @@ fn resolve_group_node(
     // won't be ingested by AT anyway, but would still have to comply with all
     // rules, which can be annoying.
     let flatten = tag.as_ref().is_some_and(|t| t.alt_text().is_some());
+
     rs.with_flatten(flatten, |rs| {
         let lang = lang.as_mut().unwrap_or(parent_lang);
         let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
 
         // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
         // this might become an `Artifact` tag.
-        if group.kind.is_artifact() {
-            for child in group.nodes().iter() {
+        if is_artifact {
+            for child in group_children.iter() {
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
-            children.reserve(group.nodes().len());
-            for child in group.nodes().iter() {
+            children.reserve(group_children.len());
+            for child in group_children.iter() {
                 resolve_node(rs, lang, bbox, children, child);
             }
         }
@@ -177,7 +194,7 @@ fn resolve_group_node(
 
     // Omit the weak group if it is empty.
     let nodes = nested_children.finish();
-    if group.weak && nodes.is_empty() {
+    if is_weak && nodes.is_empty() {
         return;
     }
 
@@ -253,12 +270,14 @@ fn resolve_artifact_node(
 ) {
     match &node {
         TagNode::Group(id) => {
-            let group = rs.groups.get(*id);
-            let mut bbox = rs.ctx.bbox(&group.kind).cloned();
+            let idx = id.idx();
+            let kind = rs.flat.kind(idx);
+            let mut bbox = rs.ctx.bbox(kind).cloned();
+            let group_children = rs.flat.children(idx);
 
             {
                 let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
-                for child in group.nodes().iter() {
+                for child in group_children.iter() {
                     resolve_artifact_node(rs, bbox, child);
                 }
             }
@@ -274,50 +293,85 @@ fn resolve_artifact_node(
     }
 }
 
-fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
-    let tag = match &group.kind {
-        GroupKind::Root(_) => unreachable!(),
-        GroupKind::Artifact(_) => return None,
-        GroupKind::LogicalParent(_) => return None,
-        GroupKind::LogicalChild(_, _) => return None,
-        GroupKind::Outline(_, _) => Tag::TOC.into(),
-        GroupKind::OutlineEntry(_, _) => Tag::TOCI.into(),
-        GroupKind::Table(id, _, _) => rs.ctx.tables.get(*id).build_tag(),
-        GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
-        GroupKind::Grid(_, _) => Tag::Div.into(),
-        GroupKind::GridCell(_, _) => Tag::Div.into(),
-        GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
-        GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
-        GroupKind::ListItemBody(_) => Tag::LBody.into(),
-        GroupKind::TermsItemLabel(_) => Tag::Lbl.into(),
-        GroupKind::TermsItemBody(_, _) => Tag::LBody.into(),
-        GroupKind::BibEntry(_) => Tag::BibEntry.into(),
-        GroupKind::FigureWrapper(id) => rs.ctx.figures.get(*id).build_wrapper_tag()?,
-        GroupKind::Figure(id, _, _) => rs.ctx.figures.get(*id).build_tag()?,
-        GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
+fn build_group_tag(rs: &mut Resolver, idx: usize) -> Option<TagKind> {
+    // First pass: extract what we need from the kind without holding a
+    // long-lived immutable borrow on rs.flat, so we can call
+    // tag_storage.take() (mutable) when needed.
+    enum TagSource {
+        /// Tag was built directly from kind data.
+        Direct(TagKind),
+        /// Need to take from tag_storage by TagId.
+        TakeFromStorage(crate::tags::context::TagId),
+        /// No tag for this group kind.
+        None,
+        /// Unreachable (Root).
+        Unreachable,
+    }
+
+    let kind = rs.flat.kind(idx);
+    let is_link = kind.is_link();
+    let source = match kind {
+        GroupKind::Root(_) => TagSource::Unreachable,
+        GroupKind::Artifact(_) => TagSource::None,
+        GroupKind::LogicalParent(_) => TagSource::None,
+        GroupKind::LogicalChild(_, _) => TagSource::None,
+        GroupKind::Outline(_, _) => TagSource::Direct(Tag::TOC.into()),
+        GroupKind::OutlineEntry(_, _) => TagSource::Direct(Tag::TOCI.into()),
+        GroupKind::Table(id, _, _) => TagSource::Direct(rs.ctx.tables.get(*id).build_tag()),
+        GroupKind::TableCell(_, tag_id, _) => TagSource::TakeFromStorage(*tag_id),
+        GroupKind::Grid(_, _) => TagSource::Direct(Tag::Div.into()),
+        GroupKind::GridCell(_, _) => TagSource::Direct(Tag::Div.into()),
+        GroupKind::List(_, numbering, _) => TagSource::Direct(Tag::L(*numbering).into()),
+        GroupKind::ListItemLabel(_) => TagSource::Direct(Tag::Lbl.into()),
+        GroupKind::ListItemBody(_) => TagSource::Direct(Tag::LBody.into()),
+        GroupKind::TermsItemLabel(_) => TagSource::Direct(Tag::Lbl.into()),
+        GroupKind::TermsItemBody(_, _) => TagSource::Direct(Tag::LBody.into()),
+        GroupKind::BibEntry(_) => TagSource::Direct(Tag::BibEntry.into()),
+        GroupKind::FigureWrapper(id) => {
+            match rs.ctx.figures.get(*id).build_wrapper_tag() {
+                Some(tag) => TagSource::Direct(tag),
+                None => return None,
+            }
+        }
+        GroupKind::Figure(id, _, _) => {
+            match rs.ctx.figures.get(*id).build_tag() {
+                Some(tag) => TagSource::Direct(tag),
+                None => return None,
+            }
+        }
+        GroupKind::FigureCaption(_, _) => TagSource::Direct(Tag::Caption.into()),
         GroupKind::Image(image, _, _) => {
             let alt = image.alt.opt_ref().map(Into::into);
-            Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into()
+            TagSource::Direct(Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into())
         }
         GroupKind::Formula(equation, _, _) => {
             let alt = equation.alt.opt_ref().map(Into::into);
             let placement = equation.block.val().then_some(kt::Placement::Block);
-            Tag::Formula(alt).with_placement(placement).into()
+            TagSource::Direct(Tag::Formula(alt).with_placement(placement).into())
         }
-        GroupKind::Link(_, _) => Tag::Link.into(),
+        GroupKind::Link(_, _) => TagSource::Direct(Tag::Link.into()),
         GroupKind::CodeBlock(_) => {
-            Tag::Code.with_placement(Some(kt::Placement::Block)).into()
+            TagSource::Direct(Tag::Code.with_placement(Some(kt::Placement::Block)).into())
         }
-        GroupKind::CodeBlockLine(_) => Tag::P.into(),
-        GroupKind::Par(_) => Tag::P.into(),
-        GroupKind::TextAttr(_) => return None,
-        GroupKind::Transparent => return None,
-        GroupKind::Standard(tag, _) => rs.tags.take(*tag),
+        GroupKind::CodeBlockLine(_) => TagSource::Direct(Tag::P.into()),
+        GroupKind::Par(_) => TagSource::Direct(Tag::P.into()),
+        GroupKind::TextAttr(_) => TagSource::None,
+        GroupKind::Transparent => TagSource::None,
+        GroupKind::Standard(tag_id, _) => TagSource::TakeFromStorage(*tag_id),
+    };
+    // Now the immutable borrow of `kind` is dropped.
+
+    let tag = match source {
+        TagSource::Direct(tag) => tag,
+        TagSource::TakeFromStorage(tag_id) => rs.tags.take(tag_id),
+        TagSource::None => return None,
+        TagSource::Unreachable => unreachable!(),
     };
 
-    let tag = tag.with_location(Some(group.span.into_raw()));
+    let span = rs.flat.span(idx);
+    let tag = tag.with_location(Some(span.into_raw()));
 
-    if rs.flatten && !group.kind.is_link() {
+    if rs.flatten && !is_link {
         return None;
     }
 

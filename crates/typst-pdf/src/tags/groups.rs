@@ -14,6 +14,7 @@ use typst_syntax::Span;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
+use crate::tags::flat::{FlatTagData, FlatTagTree};
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
 use crate::tags::util::{self, Id, IdVec};
@@ -104,6 +105,45 @@ impl Groups {
     /// Create a new weak group, not associated with any location.
     pub fn new_weak(&mut self, parent: GroupId, span: Span, kind: GroupKind) -> GroupId {
         self.list.push(Group::weak(parent, span, kind))
+    }
+
+    /// Convert the Groups tree into a compact FlatTagTree representation.
+    ///
+    /// This drains all Group data into parallel arrays and moves the TagStorage
+    /// out. After this call, the Groups struct is empty (locations map cleared,
+    /// list drained). The caller should drop the Groups to free memory.
+    pub fn flatten(&mut self) -> FlatTagTree {
+        let len = self.list.len();
+        let mut kinds = Vec::with_capacity(len);
+        let mut spans = Vec::with_capacity(len);
+        let mut children = Vec::with_capacity(len);
+        let mut weak = Vec::with_capacity(len);
+        let mut parent = Vec::with_capacity(len);
+
+        for group in self.list.drain() {
+            parent.push(group.parent.get());
+            spans.push(group.span);
+            kinds.push(group.kind);
+            children.push(group.nodes);
+            weak.push(group.weak);
+        }
+
+        // Clear the locations map to free its memory.
+        self.locations = FxHashMap::default();
+
+        // Move the tag storage out, replacing with empty.
+        let tag_storage = std::mem::replace(&mut self.tags, TagStorage::new());
+
+        FlatTagTree {
+            data: FlatTagData {
+                kinds,
+                spans,
+                children,
+                weak,
+                parent,
+            },
+            tag_storage,
+        }
     }
 
     /// NOTE: this needs to be kept in sync with [`Groups::break_group`].

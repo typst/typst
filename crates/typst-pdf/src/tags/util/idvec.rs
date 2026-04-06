@@ -39,6 +39,16 @@ impl<T> IdVec<T> {
         self.inner.iter_mut()
     }
 
+    /// Returns the number of elements in the IdVec.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Drain all elements out of the IdVec, consuming them.
+    pub fn drain(&mut self) -> std::vec::Drain<'_, T> {
+        self.inner.drain(..)
+    }
+
     pub fn ids(
         &self,
     ) -> impl ExactSizeIterator<Item = Id<T>> + DoubleEndedIterator + use<T> {
