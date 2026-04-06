@@ -160,6 +160,47 @@ fn compile_impl<T: Output>(
 
         if timed!("check stabilized", constraint.validate(document.introspector())) {
             sink.extend_from_sink(subsink);
+
+            // Phase 2: Streaming re-layout for large paged documents.
+            // Now that introspection has converged, re-layout with memoization
+            // disabled and pages spilled to disk. This prevents holding the
+            // full document in memory. Only activates for documents exceeding
+            // the streaming threshold (>100 pages).
+            if document.should_stream() {
+                // Drop page frames but keep the introspector alive.
+                // drop_pages() ensures introspector is built first.
+                document.drop_pages();
+                // Free all Phase 1 comemo caches — streaming bypasses them.
+                comemo::evict(0);
+
+                typst_library::engine_flags::enable_streaming_mode();
+
+                let streaming_result = (|| -> SourceResult<T> {
+                    let constraint2 = comemo::Constraint::new();
+                    let mut subsink2 = Sink::new();
+                    let mut engine2 = Engine {
+                        world,
+                        introspector: Protected::new(
+                            document.introspector().track_with(&constraint2),
+                        ),
+                        traced,
+                        sink: subsink2.track_mut(),
+                        route: Route::default(),
+                        routines: &ROUTINES,
+                    };
+
+                    let result = T::create(&mut engine2, &content, styles);
+                    sink.extend_from_sink(subsink2);
+                    result
+                })();
+
+                typst_library::engine_flags::disable_streaming_mode();
+
+                // Replace the converged document with the streaming one.
+                // The old document (with dropped pages) is dropped here.
+                document = streaming_result?;
+            }
+
             break;
         }
 

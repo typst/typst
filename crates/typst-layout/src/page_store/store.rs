@@ -44,6 +44,24 @@ pub struct DiskPageStore {
 }
 
 impl DiskPageStore {
+    /// Creates a new empty store backed by a temporary file.
+    /// Pages can be appended one at a time via `append_page()`.
+    pub fn new() -> io::Result<Self> {
+        let file = tempfile::NamedTempFile::new()?;
+        Ok(DiskPageStore {
+            file,
+            page_count: 0,
+            offsets: Vec::new(),
+            fonts: FontRegistry::new(),
+            images: ImageRegistry::new(),
+            tags: Vec::new(),
+            gradients: Vec::new(),
+            tilings: Vec::new(),
+            numberings: Vec::new(),
+            supplements: Vec::new(),
+        })
+    }
+
     /// Creates a new store and serializes all pages to disk.
     /// After this call, the pages can be dropped from memory.
     pub fn from_pages(pages: &[Page]) -> io::Result<Self> {

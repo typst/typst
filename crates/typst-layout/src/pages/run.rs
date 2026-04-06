@@ -72,7 +72,7 @@ pub fn layout_page_run(
 }
 
 /// The internal implementation of `layout_page_run`.
-#[comemo::memoize]
+#[comemo::memoize(enabled = !typst_library::engine_flags::is_streaming_mode())]
 #[allow(clippy::too_many_arguments)]
 fn layout_page_run_impl(
     routines: &Routines,

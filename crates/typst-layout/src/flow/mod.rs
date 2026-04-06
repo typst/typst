@@ -105,7 +105,7 @@ pub fn layout_columns(
 }
 
 /// The cached, internal implementation of [`layout_fragment`].
-#[comemo::memoize]
+#[comemo::memoize(enabled = !typst_library::engine_flags::is_streaming_mode())]
 #[allow(clippy::too_many_arguments)]
 fn layout_fragment_impl(
     routines: &Routines,

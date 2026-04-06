@@ -32,6 +32,13 @@ pub trait Output: Any {
     /// Used in the convergence loop where historical documents only need
     /// their introspector for the next iteration.
     fn drop_pages(&mut self) {}
+
+    /// Whether this document is large enough to benefit from streaming
+    /// re-layout in Phase 2. Returns true when the document exceeds
+    /// a page count threshold (default: false).
+    fn should_stream(&self) -> bool {
+        false
+    }
 }
 
 /// A trait for accepting an arbitrary kind of output as n argument.

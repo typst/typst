@@ -49,7 +49,7 @@ pub fn layout_document(
 }
 
 /// The internal implementation of `layout_document`.
-#[comemo::memoize]
+#[comemo::memoize(enabled = !typst_library::engine_flags::is_streaming_mode())]
 #[allow(clippy::too_many_arguments)]
 fn layout_document_impl(
     routines: &Routines,
@@ -96,7 +96,7 @@ pub fn layout_document_for_bundle(
 }
 
 /// The internal implementation of `layout_document_for_bundle`.
-#[comemo::memoize]
+#[comemo::memoize(enabled = !typst_library::engine_flags::is_streaming_mode())]
 #[allow(clippy::too_many_arguments)]
 fn layout_document_for_bundle_impl(
     routines: &Routines,
@@ -219,9 +219,24 @@ fn layout_pages_streaming<'a>(
     let mut pages = EcoVec::new();
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
-    let mut store: Option<DiskPageStore> = None;
-    let mut intro_builder: Option<PagedIntrospectorBuilder> = None;
     let mut total_pages: usize = 0;
+
+    let streaming = typst_library::engine_flags::is_streaming_mode();
+
+    // In streaming mode, always spill to disk and build introspector
+    // incrementally. This keeps at most ~1 page in memory at a time.
+    let mut store: Option<DiskPageStore> = if streaming {
+        Some(DiskPageStore::new()
+            .map_err(|e| ecow::eco_format!("disk store creation failed: {e}"))
+            .at(typst_syntax::Span::detached())?)
+    } else {
+        None
+    };
+    let mut intro_builder: Option<PagedIntrospectorBuilder> = if streaming {
+        Some(PagedIntrospectorBuilder::with_capacity(0))
+    } else {
+        None
+    };
 
     for item in &items {
         match item {
@@ -229,22 +244,35 @@ fn layout_pages_streaming<'a>(
                 let layouted = runs.next().unwrap()?;
                 let run_page_count = layouted.len();
 
-                // Only spill to disk if THIS page run is large (single big table).
-                // Don't spill for many small tables that happen to total > threshold.
-                let should_spill = run_page_count > SPILL_THRESHOLD;
-
                 for layouted in layouted {
                     let page = finalize(engine, &mut counter, &mut tags, layouted)?;
-                    pages.push(page);
+
+                    if streaming {
+                        // Build introspector data from this page before spilling.
+                        intro_builder.as_mut().unwrap()
+                            .discover_page(total_pages, &page);
+                        // Serialize page to disk and drop it immediately.
+                        store.as_mut().unwrap()
+                            .append_page(&page)
+                            .map_err(|e| ecow::eco_format!("disk spill failed: {e}"))
+                            .at(typst_syntax::Span::detached())?;
+                    } else {
+                        pages.push(page);
+                    }
                     total_pages += 1;
                 }
 
-                // Evict comemo after large page runs to free per-cell caches.
-                // Only during first convergence iteration — subsequent
-                // iterations benefit from cache hits for fast validation.
-                if typst_library::engine_flags::is_layout_eviction_enabled() {
-                    if run_page_count > SPILL_THRESHOLD || (total_pages % 200 == 0 && total_pages > 0) {
-                        comemo::evict(0);
+                // Evict comemo caches to free memory from layout data.
+                if streaming {
+                    // In streaming mode, aggressively evict everything after
+                    // every run since memoization is disabled anyway.
+                    comemo::evict(0);
+                } else if typst_library::engine_flags::is_layout_eviction_enabled() {
+                    if run_page_count > SPILL_THRESHOLD
+                        || (total_pages % 50 == 0 && total_pages > 0)
+                        || run_page_count > 0  // Evict after every non-empty page run
+                    {
+                        comemo::evict(1);
                     }
                 }
             }

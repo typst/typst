@@ -166,6 +166,12 @@ impl Output for PagedDocument {
     fn drop_pages(&mut self) {
         PagedDocument::drop_pages(self);
     }
+
+    fn should_stream(&self) -> bool {
+        // Only use streaming for documents large enough to benefit.
+        // The threshold matches SPILL_THRESHOLD in pages/mod.rs.
+        self.pages.len() > 100
+    }
 }
 
 /// A finished page.
