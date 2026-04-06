@@ -115,7 +115,13 @@ pub fn convert_streaming(
     };
 
     let mut document = Document::new_with(settings);
-    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    // Use store page count when document pages are empty (spilled to disk).
+    let page_count = if typst_document.pages().is_empty() {
+        store.page_count()
+    } else {
+        typst_document.pages().len()
+    };
+    let page_index_converter = PageIndexConverter::with_page_count(page_count, options);
     let named_destinations = collect_named_destinations(
         &mut document,
         typst_document,
@@ -123,11 +129,16 @@ pub fn convert_streaming(
         &page_index_converter,
     );
 
-    // Build tags while pages are still in memory.
-    let tags = tags::init(typst_document, options)?;
-
-    // NOW drop pages from the document — tags have been built.
-    typst_document.drop_pages();
+    // Build tags — either from in-memory pages or from disk store.
+    let tags = if typst_document.pages().is_empty() {
+        // Pages were already spilled to disk (Phase 1 spilling).
+        // Read them from the store one at a time.
+        tags::init_from_store(typst_document, options, store)?
+    } else {
+        let tags = tags::init(typst_document, options)?;
+        typst_document.drop_pages();
+        tags
+    };
 
     let mut gc = GlobalContext::new(
         typst_document,
@@ -887,10 +898,14 @@ pub(crate) struct PageIndexConverter {
 
 impl PageIndexConverter {
     pub fn new(document: &PagedDocument, options: &PdfOptions) -> Self {
+        Self::with_page_count(document.pages().len(), options)
+    }
+
+    pub fn with_page_count(page_count: usize, options: &PdfOptions) -> Self {
         let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
-        for i in 0..document.pages().len() {
+        for i in 0..page_count {
             if options
                 .page_ranges
                 .as_ref()

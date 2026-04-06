@@ -16,7 +16,7 @@ use typst_library::introspection::Location;
 use typst_library::layout::Inherit;
 use typst_library::model::LinkMarker;
 
-pub use build::build;
+pub use build::{build, build_from_store};
 pub use text::{ResolvedTextAttrs, TextAttr, resolve_text_attrs};
 
 mod build;

@@ -381,25 +381,11 @@ fn export_pdf(mut document: PagedDocument, config: &CompileConfig) -> SourceResu
 
     let has_store = document.page_store().is_some();
     let buffer = if has_store {
-        // Large document: some pages were spilled to disk during layout.
-        // Reconstruct full page list from store for PDF conversion.
-        let store = document.page_store().unwrap().clone();
-        let mut all_pages: Vec<typst_layout::Page> = document.pages().to_vec();
-        // Read spilled pages from disk and append
-        if let Ok(iter) = store.pages_iter() {
-            for page_result in iter {
-                if let Ok(page) = page_result {
-                    all_pages.push(page);
-                }
-            }
-        }
-        // Create a complete document for PDF conversion
-        let full_doc = typst_layout::PagedDocument::from_pages_and_info(
-            all_pages.into(),
-            document.info().clone(),
-        );
+        // Large document: pages were spilled to disk during layout.
+        // Use streaming PDF conversion — reads pages one at a time.
+        let store = document.take_page_store().unwrap();
         comemo::evict(0);
-        typst_pdf::pdf(full_doc, &options)?
+        typst_pdf::pdf_streaming(&mut document, &options, &store)?
     } else {
         typst_pdf::pdf(document, &options)?
     };

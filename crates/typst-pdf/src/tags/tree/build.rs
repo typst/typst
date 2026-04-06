@@ -182,6 +182,37 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         visit_frame(&mut tree, &page.frame)?;
     }
 
+    build_finish(tree, options)
+}
+
+/// Build the tag tree from pages stored in a `DiskPageStore`.
+/// Reads pages one at a time to avoid holding all pages in memory.
+pub fn build_from_store(
+    document: &PagedDocument,
+    options: &PdfOptions,
+    store: &typst_layout::page_store::DiskPageStore,
+) -> SourceResult<Tree> {
+    let mut tree = TreeBuilder::new(document, options);
+
+    // Read pages from disk one at a time — each page is dropped after
+    // visiting its frame, so at most one page is in memory.
+    let page_iter = store.pages_iter()
+        .map_err(|e| ecow::eco_format!("failed to open page store for tags: {e}"))
+        .at(typst_syntax::Span::detached())?;
+
+    for page_result in page_iter {
+        let page = page_result
+            .map_err(|e| ecow::eco_format!("failed to read page for tags: {e}"))
+            .at(typst_syntax::Span::detached())?;
+        visit_frame(&mut tree, &page.frame)?;
+        // page is dropped here — frame memory freed
+    }
+
+    build_finish(tree, options)
+}
+
+fn build_finish(mut tree: TreeBuilder, options: &PdfOptions) -> SourceResult<Tree> {
+
     if let Some(last) = tree.stack.last() {
         panic_internal("tags weren't properly closed")
             .at(tree.groups.get(last.id).span)?;

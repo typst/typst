@@ -101,6 +101,11 @@ impl PagedDocument {
     pub fn page_store(&self) -> Option<&Arc<DiskPageStore>> {
         self.page_store.as_ref()
     }
+
+    /// Takes the disk-backed page store out of this document.
+    pub fn take_page_store(&mut self) -> Option<Arc<DiskPageStore>> {
+        self.page_store.take()
+    }
 }
 
 impl Clone for PagedDocument {

@@ -39,6 +39,24 @@ pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags
     Ok(Tags::new(tree))
 }
 
+/// Build tags from pages stored in a DiskPageStore. Reads pages one at a time.
+pub fn init_from_store(
+    document: &PagedDocument,
+    options: &PdfOptions,
+    store: &typst_layout::page_store::DiskPageStore,
+) -> SourceResult<Tags> {
+    let tree = if options.tagged {
+        if options.page_ranges.is_some() {
+            bail!(Span::detached(), "cannot enable tagged PDF and export a page range");
+        }
+
+        tree::build_from_store(document, options, store)?
+    } else {
+        Tree::empty(document, options)
+    };
+    Ok(Tags::new(tree))
+}
+
 pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface) {
     if disabled(gc) {
         return;
