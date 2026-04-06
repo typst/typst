@@ -326,11 +326,11 @@ impl<'a> GridLayouter<'a> {
             self.current.initial_after_repeats = self.regions.size.y;
         }
 
-        /// Number of finished regions between comemo evictions.
-        /// Smaller = less peak memory, larger = fewer eviction overhead calls.
-        const EVICT_INTERVAL: usize = 15;
+        /// Number of finished pages between comemo evictions.
+        const EVICT_PAGE_INTERVAL: usize = 10;
 
         let mut last_evict_at: usize = 0;
+        let eviction_enabled = typst_library::engine_flags::is_layout_eviction_enabled();
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
@@ -362,10 +362,10 @@ impl<'a> GridLayouter<'a> {
             // caches — but ONLY during the first convergence iteration.
             // On subsequent iterations, keeping caches enables fast
             // validation via cache hits.
-            if self.finished.len() >= last_evict_at + EVICT_INTERVAL
-                && typst_library::engine_flags::is_layout_eviction_enabled()
+            if eviction_enabled
+                && self.finished.len() >= last_evict_at + EVICT_PAGE_INTERVAL
             {
-                comemo::evict(1);
+                comemo::evict(0);
                 last_evict_at = self.finished.len();
             }
 
