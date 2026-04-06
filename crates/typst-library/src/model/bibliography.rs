@@ -206,7 +206,7 @@ impl BibliographyElem {
     pub fn assign_citations_impl(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
         traced: Tracked<Traced>,
         sink: TrackedMut<Sink>,
         route: Tracked<Route>,
