@@ -20,7 +20,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         let x_offset = x + glyph.x_offset.at(text.size);
         let y_offset = y + glyph.y_offset.at(text.size);
 
-        if should_outline(&text.font, glyph) {
+        if should_outline(&text.font, id) {
             let state = state.pre_translate(Point::new(x_offset, -y_offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
@@ -30,8 +30,9 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
                 .pre_translate(Point::new(x_offset, -y_offset - text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
-            let (glyph_frame, _) = glyph_frame(&text.font, glyph.id);
-            crate::render_frame(canvas, state, &glyph_frame);
+            if let Some(frame) = glyph_frame(&text.font, glyph.id) {
+                crate::render_frame(canvas, state, &frame.into());
+            }
         }
 
         x += glyph.x_advance.at(text.size);
@@ -75,15 +76,8 @@ fn render_outline_glyph(
         // system is Y-up.
         let ts = ts.pre_scale(scale, -scale);
         let state_ts = state.pre_concat(sk::Transform::from_scale(scale, -scale));
-        let paint = paint::to_sk_paint(
-            &text.fill,
-            state_ts,
-            Size::zero(),
-            true,
-            None,
-            &mut pixmap,
-            None,
-        );
+        let paint =
+            paint::to_sk_paint(&text.fill, state_ts, true, &mut pixmap, None, false);
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
 
         if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
@@ -92,15 +86,8 @@ fn render_outline_glyph(
         {
             let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
-            let paint = paint::to_sk_paint(
-                paint,
-                state_ts,
-                Size::zero(),
-                true,
-                None,
-                &mut pixmap,
-                None,
-            );
+            let paint =
+                paint::to_sk_paint(paint, state_ts, true, &mut pixmap, None, false);
             let stroke = sk::Stroke {
                 width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
                 line_cap: shape::to_sk_line_cap(*cap),

@@ -1,20 +1,21 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use ecow::EcoString;
+use ecow::{EcoString, eco_vec};
 use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime};
-use typst::layout::{Abs, PagedDocument, Point, Size};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::foundations::{Bytes, Datetime, Duration};
+use typst::layout::{Abs, Point, Size};
+use typst::model::Document;
+use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
+use typst_layout::PagedDocument;
 use unscanny::Scanner;
-use yaml_front_matter::YamlFrontMatter;
 
 use crate::{FONTS, LIBRARY, OutlineItem, Resolver, contributors};
 
@@ -51,11 +52,10 @@ impl Html {
         let mut text = md;
         let mut description = None;
         let mut title = None;
-        let document = YamlFrontMatter::parse::<Metadata>(md);
-        if let Ok(document) = &document {
-            text = &document.content;
-            title = document.metadata.title.clone();
-            description = document.metadata.description.clone();
+        if let Some((Ok(metadata), body)) = parse_yaml_font_matter::<Metadata>(md) {
+            title = metadata.title.clone();
+            description = metadata.description.clone();
+            text = body;
         }
 
         let options = md::Options::ENABLE_TABLES
@@ -460,7 +460,8 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
         highlighted = Some(html);
     }
 
-    let id = FileId::new(None, VirtualPath::new("main.typ"));
+    let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+        .intern();
     let source = Source::new(id, compile);
     let world = DocWorld(source);
 
@@ -473,12 +474,10 @@ fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
     };
 
     if let ExampleView::Single(Some([x, y, w, h])) = args.view {
-        document.pages[0].frame.translate(Point::new(-x, -y));
-        *document.pages[0].frame.size_mut() = Size::new(w, h);
-    }
-
-    if let ExampleView::Single(_) = args.view {
-        document.pages.truncate(1);
+        let mut page = document.pages()[0].clone();
+        page.frame.translate(Point::new(-x, -y));
+        page.frame.set_size(Size::new(w, h));
+        document = PagedDocument::new(eco_vec![page], document.info().clone());
     }
 
     let hash = typst::utils::hash128(&(lang, text));
@@ -525,17 +524,15 @@ impl World for DocWorld {
         if id == self.0.id() {
             Ok(self.0.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            Err(FileError::NotFound(id.vpath().get_without_slash().into()))
         }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        assert!(id.package().is_none());
+        assert_eq!(*id.root(), VirtualRoot::Project);
         Ok(Bytes::new(
-            typst_dev_assets::get_by_name(
-                &id.vpath().as_rootless_path().to_string_lossy(),
-            )
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),
+            typst_dev_assets::get_by_name(id.vpath().get_without_slash())
+                .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath())),
         ))
     }
 
@@ -543,7 +540,46 @@ impl World for DocWorld {
         FONTS.1.get(index).cloned()
     }
 
-    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+}
+
+/// Parses the first YAML document as a metadata header.
+///
+/// Expects a leading YAML document separator before the header:
+/// ```md
+/// ---
+/// this: "is the metadata header"
+/// which: "will be parsed as a YAML document"
+/// ---
+/// # The Body
+/// ```
+fn parse_yaml_font_matter<'a, T: Deserialize<'a>>(
+    markdown: &'a str,
+) -> Option<(serde_yaml::Result<T>, &'a str)> {
+    let mut lines = markdown.split_inclusive('\n');
+
+    let mut header_start = 0;
+    loop {
+        let line = lines.next()?;
+        header_start += line.len();
+        if line.trim() == "---" {
+            break;
+        }
+    }
+
+    let mut header_end = header_start;
+    loop {
+        let line = lines.next()?;
+        if line.trim() == "---" {
+            let header = &markdown[header_start..header_end];
+            let body_start = header_end + line.len();
+            let body = &markdown[body_start..];
+
+            let metadata = serde_yaml::from_str::<T>(header);
+            return Some((metadata, body));
+        }
+        header_end += line.len();
     }
 }

@@ -12,17 +12,9 @@ body:
     attributes:
       label: Description
       description: Please describe your issue. Include specific steps to reproduce it or a screenshot if the problem is with Typst's output.
-      placeholder: Terse and specific description of the bug. You can add a screenshot by dragging an image here.
+      placeholder: Terse and specific description of the bug. If possible, include (minimal) Typst code that reproduces problem. You can add a screenshot by dragging an image here.
     validations:
       required: true
-  - type: input
-    id: repro-url
-    attributes:
-      label: Reproduction URL
-      description: If you did not specify Typst code above, you can share a link to your typst.app project here.
-      placeholder: https://typst.app/project/rU6j4Q5foiCcvB7Hz_gs9m
-    validations:
-      required: false
   - type: dropdown
     id: os
     attributes:

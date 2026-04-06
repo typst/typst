@@ -1,6 +1,7 @@
 use crate::foundations::{Cast, Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
+use kurbo::{PathEl, Shape as _};
 
 /// A rectangle with optional content.
 ///
@@ -341,6 +342,15 @@ pub struct Shape {
     pub stroke: Option<FixedStroke>,
 }
 
+impl Shape {
+    /// The bounding box of the shape,
+    /// optionally taking the stroke into account
+    pub fn bbox(&self, include_stroke: bool) -> Rect {
+        self.geometry
+            .bbox(if include_stroke { self.stroke.as_ref() } else { None })
+    }
+}
+
 /// A fill rule for curve drawing.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FillRule {
@@ -383,30 +393,63 @@ impl Geometry {
         }
     }
 
-    /// The bounding box of the geometry.
-    pub fn bbox(&self) -> Rect {
-        match self {
-            Self::Line(end) => {
-                let min = end.min(Point::zero());
-                let max = end.max(Point::zero());
-                Rect::new(min, max)
-            }
-            Self::Rect(size) => {
-                let p = size.to_point();
-                let min = p.min(Point::zero());
-                let max = p.max(Point::zero());
-                Rect::new(min, max)
-            }
-            Self::Curve(curve) => curve.bbox(),
+    /// Set the geometry's background fill and stroke.
+    pub fn filled_and_stroked(
+        self,
+        fill: impl Into<Paint>,
+        stroke: FixedStroke,
+    ) -> Shape {
+        Shape {
+            geometry: self,
+            fill: Some(fill.into()),
+            fill_rule: FillRule::default(),
+            stroke: Some(stroke),
         }
     }
 
-    /// The bounding box of the geometry.
-    pub fn bbox_size(&self) -> Size {
+    /// The bounding box of the geometry,
+    /// optionally taking the stroke width of the shape into account
+    pub fn bbox(&self, stroke: Option<&FixedStroke>) -> Rect {
         match self {
-            Self::Line(line) => Size::new(line.x, line.y),
-            Self::Rect(rect) => *rect,
-            Self::Curve(curve) => curve.bbox_size(),
+            Self::Line(end) => {
+                if let Some(stroke) = stroke {
+                    bbox_of_stroked_line(end, stroke)
+                } else {
+                    Rect::new(end.min(Point::zero()), end.max(Point::zero()))
+                }
+            }
+            Self::Rect(size) => {
+                let min = size.to_point().min(Point::zero());
+                let stroke_width = stroke.map(|s| s.thickness).unwrap_or(Abs::zero());
+                Rect::from_pos_size(
+                    min.map(|i| i - 0.5 * stroke_width),
+                    size.map(|i| i.abs() + stroke_width),
+                )
+            }
+            Self::Curve(curve) => curve.bbox(stroke),
         }
     }
+}
+
+/// The bounding box of a line including the stroke
+fn bbox_of_stroked_line(end: &Point, stroke: &FixedStroke) -> Rect {
+    let cap = match stroke.cap {
+        super::LineCap::Butt => kurbo::Cap::Butt,
+        super::LineCap::Round => kurbo::Cap::Round,
+        super::LineCap::Square => kurbo::Cap::Square,
+    };
+    let style = kurbo::Stroke::new(stroke.thickness.to_raw()).with_caps(cap);
+    let opts = kurbo::StrokeOpts::default();
+    let tolerance = 0.01;
+    let bbox = kurbo::stroke(
+        [PathEl::LineTo(kurbo::Point::new(end.x.to_raw(), end.y.to_raw()))],
+        &style,
+        &opts,
+        tolerance,
+    )
+    .bounding_box();
+    Rect::new(
+        Point::new(Abs::raw(bbox.x0), Abs::raw(bbox.y0)),
+        Point::new(Abs::raw(bbox.x1), Abs::raw(bbox.y1)),
+    )
 }

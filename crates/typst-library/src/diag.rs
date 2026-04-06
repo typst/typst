@@ -11,7 +11,7 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -35,7 +35,7 @@ use crate::{World, WorldExt};
 /// bail!(
 ///     span, "returning a {} error", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceResult
 /// ```
 #[macro_export]
@@ -80,7 +80,7 @@ macro_rules! __bail {
 /// error!(
 ///     span, "an error with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceDiagnostic
 /// ```
 #[macro_export]
@@ -103,15 +103,30 @@ macro_rules! __error {
     };
 
     // For `error!(span, ...)`
+    // Hints may include a span inside brackets: `hint[span_expr]: "msg"`.
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::error(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut err = $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: err, $hint $(, $hint_arg)*);)*
+        err
+    }};
+
+    // Internal recursive macro for adding hints with/without spans. Note that
+    // recursive macros must generate full expressions, so we can't use
+    // `.with_hint()` or `.with_spanned_hint()`.
+    (hint: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.hint($crate::diag::eco_format!($hint $(, $hint_arg)*))
+    };
+    (hint[$hint_span:expr]: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.spanned_hint($crate::diag::eco_format!($hint $(, $hint_arg)*), $hint_span)
     };
 }
 
@@ -130,7 +145,7 @@ macro_rules! __error {
 /// warning!(
 ///     span, "warning with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// );
 /// ```
 #[macro_export]
@@ -138,14 +153,18 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::warning(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut warning = $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
-    };
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: warning, $hint $(, $hint_arg)*);)*
+        warning
+    }};
 }
 
 #[rustfmt::skip]
@@ -160,6 +179,75 @@ pub use {
 /// A result that can carry multiple source errors. The recommended way to
 /// create an error for this type is with the `bail!` macro.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
+
+/// Collects an iterator of [`SourceResult`]s into a result containg a collection
+/// or the accumulated errors.
+///
+/// Unlike normal `FromIterator` for `Result`, this will combine all the errors.
+/// This is possible because a [`SourceResult`] can hold multiple errors.
+pub trait CollectCombinedResult {
+    type Item;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> CollectCombinedResult for I
+where
+    I: Iterator<Item = SourceResult<T>>,
+{
+    type Item = T;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        let mut errors = EcoVec::new();
+        let collected = self
+            .filter_map(|result| match result {
+                Ok(item) => Some(item),
+                Err(errs) => {
+                    errors.extend(errs);
+                    None
+                }
+            })
+            .collect();
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(collected)
+    }
+}
+
+/// A variation of [`CollectCombinedResult`] for parallel rayon iterators.
+///
+/// Needs to be a separate trait because we can't have two blanket impls.
+pub trait ParallelCollectCombinedResult {
+    type Item;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> ParallelCollectCombinedResult for I
+where
+    I: rayon::iter::ParallelIterator<Item = SourceResult<T>>,
+    T: Send,
+{
+    type Item = T;
+
+    fn collect_combined_result<B>(self) -> SourceResult<B>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        // A more efficient approach might be possible, but this is simpler and
+        // pragmatic. The point of this trait is primarily to make the call-site
+        // convenient, not to maximize efficiency.
+        self.collect::<Vec<_>>().into_iter().collect_combined_result()
+    }
+}
 
 /// An output alongside warnings generated while producing it.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -311,24 +399,19 @@ pub enum Tracepoint {
     /// A show rule application.
     Show(EcoString),
     /// A module import.
-    Import,
+    Import(EcoString),
+    /// A module include.
+    Include(EcoString),
 }
 
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{name}`")
-            }
-            Tracepoint::Call(None) => {
-                write!(f, "error occurred in this function call")
-            }
-            Tracepoint::Show(name) => {
-                write!(f, "error occurred while applying show rule to this {name}")
-            }
-            Tracepoint::Import => {
-                write!(f, "error occurred while importing this module")
-            }
+            Tracepoint::Call(Some(name)) => write!(f, "while calling `{name}`"),
+            Tracepoint::Call(None) => write!(f, "while calling function"),
+            Tracepoint::Show(name) => write!(f, "while showing {name} element"),
+            Tracepoint::Import(name) => write!(f, "while importing `{name}`"),
+            Tracepoint::Include(name) => write!(f, "while including `{name}`"),
         }
     }
 }
@@ -381,15 +464,7 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| {
-            let mut diagnostic = SourceDiagnostic::error(span, message);
-            if diagnostic.message.contains("(access denied)") {
-                diagnostic.hint("cannot read file outside of project root");
-                diagnostic
-                    .hint("you can adjust the project root with the --root argument");
-            }
-            eco_vec![diagnostic]
-        })
+        self.map_err(|message| eco_vec![SourceDiagnostic::error(span, message)])
     }
 }
 
@@ -490,7 +565,7 @@ impl<T> Hint<T> for HintedStrResult<T> {
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 
-/// An error that occurred while trying to load of a file.
+/// An error that occurred while trying to load a file.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FileError {
     /// A file was not found at this path.
@@ -580,7 +655,7 @@ pub type PackageResult<T> = Result<T, PackageError>;
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
-    /// The specified package found, but the version does not exist.
+    /// The specified package was found, but the version does not exist.
     VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
@@ -716,7 +791,7 @@ fn load_err_in_text(
     // This also does UTF-8 validation. Only report an error in an external
     // file if it is human readable (valid UTF-8), otherwise fall back to
     // `load_err_in_invalid_text`.
-    let lines = Lines::try_from(&loaded.data);
+    let lines = loaded.data.lines();
     match (loaded.source.v, lines) {
         (LoadSource::Path(file_id), Ok(lines)) => {
             if let Some(range) = pos.range(&lines) {
@@ -757,17 +832,19 @@ fn load_err_in_invalid_text(
     match (loaded.source.v, line_col) {
         (LoadSource::Path(file), _) => {
             message.pop();
-            if let Some(package) = file.package() {
-                write!(
-                    &mut message,
-                    " in {package}{}",
-                    file.vpath().as_rooted_path().display()
-                )
-                .ok();
-            } else {
-                write!(&mut message, " in {}", file.vpath().as_rootless_path().display())
+            match file.root() {
+                VirtualRoot::Project => {
+                    write!(&mut message, " in {}", file.vpath().get_without_slash()).ok();
+                }
+                VirtualRoot::Package(package) => {
+                    write!(
+                        &mut message,
+                        " in {package}{}",
+                        file.vpath().get_with_slash()
+                    )
                     .ok();
-            };
+                }
+            }
             if let Some((line, col)) = line_col {
                 write!(&mut message, ":{line}:{col}").ok();
             }

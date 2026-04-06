@@ -126,7 +126,8 @@ impl<T: AsRef<str>> Lines<T> {
         Some(start..end)
     }
 
-    /// Return the byte index of the given (line, column) pair.
+    /// Return the byte index of the given (line, column) pair, or `None` if
+    /// either is out-of-range.
     ///
     /// The column defines the number of characters to go beyond the start of
     /// the line.
@@ -136,10 +137,10 @@ impl<T: AsRef<str>> Lines<T> {
         column_idx: usize,
     ) -> Option<usize> {
         let range = self.line_to_range(line_idx)?;
-        let line = self.text().get(range.clone())?;
+        let line = &self.text()[range.clone()];
         let mut chars = line.chars();
         for _ in 0..column_idx {
-            chars.next();
+            chars.next()?;
         }
         Some(range.start + (line.len() - chars.as_str().len()))
     }

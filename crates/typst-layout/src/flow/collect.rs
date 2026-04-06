@@ -90,6 +90,7 @@ impl<'a> Collector<'a, '_, '_> {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
                 self.output.push(Child::Break(elem.weak.get(styles)));
+                self.par_situation = ParSituation::First;
             } else if child.is::<PagebreakElem>() {
                 bail!(
                     child.span(), "pagebreaks are not allowed inside of containers";
@@ -149,7 +150,7 @@ impl<'a> Collector<'a, '_, '_> {
             Spacing::Rel(rel) => {
                 Child::Rel(rel.resolve(styles), elem.weak.get(styles) as u8)
             }
-            Spacing::Fr(fr) => Child::Fr(fr),
+            Spacing::Fr(fr) => Child::Fr(fr, elem.weak.get(styles) as u8),
         });
     }
 
@@ -246,7 +247,7 @@ impl<'a> Collector<'a, '_, '_> {
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
-            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
+            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr, 2),
         };
 
         self.output.push(spacing(elem.above.get(styles)));
@@ -349,8 +350,8 @@ pub enum Child<'a> {
     Tag(&'a Tag),
     /// Relative spacing with a specific weakness level.
     Rel(Rel<Abs>, u8),
-    /// Fractional spacing.
-    Fr(Fr),
+    /// Fractional spacing with a specific weakness level.
+    Fr(Fr, u8),
     /// An already layouted line of a paragraph.
     Line(BumpBox<'a, LineChild>),
     /// An unbreakable block.
@@ -414,7 +415,7 @@ impl SingleChild<'_> {
 fn layout_single_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -514,7 +515,7 @@ impl<'a> MultiChild<'a> {
 fn layout_multi_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,

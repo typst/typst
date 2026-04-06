@@ -1,22 +1,19 @@
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
-use rustc_hash::FxHashSet;
 use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, StyleChain, Styles};
+use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
 use typst_library::introspection::{
-    DocumentPosition, HtmlPosition, Introspector, IntrospectorBuilder, Location, Locator,
+    Introspector, Locator, LocatorLink, QueryIntrospection,
 };
-use typst_library::layout::Transform;
-use typst_library::model::DocumentInfo;
+use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
 use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::rules::FootnoteContainer;
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, HtmlSliceExt, attr, tag};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -46,15 +43,99 @@ pub fn html_document(
 fn html_document_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
     content: &Content,
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
+    let mut document = html_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::root(),
+        styles,
+    )?;
+
+    // Assigns HTML fragment IDs to linked-to elements.
+    let targets = document.introspector().link_targets();
+    let anchors = crate::link::create_link_anchors(&mut document, &targets);
+    document.introspector_mut().set_anchors(anchors);
+
+    Ok(document)
+}
+
+/// Produce an HTML document from content, as part of a bundle compilation
+/// process.
+#[typst_macros::time(name = "html document")]
+pub fn html_document_for_bundle(
+    engine: &mut Engine,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
+    html_document_for_bundle_impl(
+        engine.routines,
+        engine.world,
+        engine.introspector.into_raw(),
+        engine.traced,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        engine.route.track(),
+        content,
+        locator.track(),
+        styles,
+    )
+}
+
+/// The internal implementation of `html_document_for_bundle`.
+#[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
+fn html_document_for_bundle_impl(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Tracked<Locator>,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
+    let link = LocatorLink::new(locator);
+    html_document_common(
+        routines,
+        world,
+        introspector,
+        traced,
+        sink,
+        route,
+        content,
+        Locator::link(&link),
+        styles,
+    )
+}
+
+/// The shared, unmemoized implementation of `html_document` and
+/// `html_document_for_bundle`.
+#[allow(clippy::too_many_arguments)]
+fn html_document_common(
+    routines: &Routines,
+    world: Tracked<dyn World + '_>,
+    introspector: Tracked<dyn Introspector + '_>,
+    traced: Tracked<Traced>,
+    sink: TrackedMut<Sink>,
+    route: Tracked<Route>,
+    content: &Content,
+    locator: Locator,
+    styles: StyleChain,
+) -> SourceResult<HtmlDocument> {
     let introspector = Protected::from_raw(introspector);
-    let mut locator = Locator::root().split();
+    let mut locator = locator.split();
     let mut engine = Engine {
         routines,
         world,
@@ -71,11 +152,17 @@ fn html_document_impl(
     // document level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
-
     let arenas = Arenas::default();
+
     let mut info = DocumentInfo::default();
+    info.populate(styles);
+    info.populate_locale(styles);
+
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument { info: &mut info, is_inline: HtmlElem::is_inline },
+        RealizationKind::HtmlDocument {
+            info: &mut info,
+            is_phrasing: HtmlElem::is_phrasing,
+        },
         &mut engine,
         &mut locator,
         &arenas,
@@ -91,7 +178,7 @@ fn html_document_impl(
         Whitespace::Normal,
     )?;
 
-    let (mut tags_and_root, root_index) = finalize_dom(
+    let output = finalize_dom(
         &mut engine,
         nodes,
         &info,
@@ -99,100 +186,42 @@ fn html_document_impl(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    let mut link_targets = FxHashSet::default();
-    let mut introspector = introspect_html(&tags_and_root, &mut link_targets);
-    let HtmlNode::Element(mut root) = tags_and_root.remove(root_index) else {
-        panic!("expected HTML element")
-    };
-    crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
-
-    Ok(HtmlDocument { info, root, introspector })
+    Ok(HtmlDocument::new(output, info))
 }
 
-/// Introspects HTML nodes.
-#[typst_macros::time(name = "introspect html")]
-fn introspect_html(
-    output: &[HtmlNode],
-    link_targets: &mut FxHashSet<Location>,
-) -> Introspector {
-    fn discover(
-        builder: &mut IntrospectorBuilder,
-        sink: &mut Vec<(Content, DocumentPosition)>,
-        link_targets: &mut FxHashSet<Location>,
-        nodes: &[HtmlNode],
-        current_position: &mut EcoVec<usize>,
-    ) {
-        for (node, dom_index) in nodes.iter_with_dom_indices() {
-            match node {
-                HtmlNode::Tag(tag) => {
-                    current_position.push(dom_index);
-                    builder.discover_in_tag(
-                        sink,
-                        tag,
-                        DocumentPosition::Html(HtmlPosition::new(
-                            current_position.clone(),
-                        )),
-                    );
-                    current_position.pop();
-                }
-                HtmlNode::Text(_, _) => {}
-                HtmlNode::Element(elem) => {
-                    let is_root = elem.tag == tag::html;
-                    if !is_root {
-                        current_position.push(dom_index);
-                    }
+/// The introspectible output of HTML compilation.
+#[derive(Debug, Clone)]
+pub struct HtmlOutput {
+    nodes: EcoVec<HtmlNode>,
+    root_index: usize,
+}
 
-                    if let Some(parent) = elem.parent {
-                        let mut nested = vec![];
-                        discover(
-                            builder,
-                            &mut nested,
-                            link_targets,
-                            &elem.children,
-                            current_position,
-                        );
-                        builder.register_insertion(parent, nested);
-                    } else {
-                        discover(
-                            builder,
-                            sink,
-                            link_targets,
-                            &elem.children,
-                            current_position,
-                        );
-                    }
+impl HtmlOutput {
+    /// All nodes.
+    pub fn nodes(&self) -> &[HtmlNode] {
+        &self.nodes
+    }
 
-                    if !is_root {
-                        current_position.pop();
-                    }
-                }
-                HtmlNode::Frame(frame) => {
-                    current_position.push(dom_index);
-
-                    builder.discover_in_frame(
-                        sink,
-                        &frame.inner,
-                        Transform::identity(),
-                        &mut |point| {
-                            DocumentPosition::Html(
-                                HtmlPosition::new(current_position.clone())
-                                    .in_frame(point),
-                            )
-                        },
-                    );
-
-                    crate::link::introspect_frame_links(&frame.inner, link_targets);
-                    current_position.pop();
-                }
-            }
+    /// The root note.
+    pub fn root(&self) -> &HtmlElement {
+        match &self.nodes[self.root_index] {
+            HtmlNode::Element(root) => root,
+            _ => panic!("expected HTML element"),
         }
     }
 
-    let mut elems = Vec::new();
-    let mut builder = IntrospectorBuilder::new();
-    let mut current_position = EcoVec::new();
-    discover(&mut builder, &mut elems, link_targets, output, &mut current_position);
-    builder.finalize(elems)
+    /// The root note, mutably.
+    pub fn root_mut(&mut self) -> &mut HtmlElement {
+        match &mut self.nodes.make_mut()[self.root_index] {
+            HtmlNode::Element(root) => root,
+            _ => panic!("expected HTML element"),
+        }
+    }
+
+    /// The document's root HTML element, in its containing node wrapper.
+    pub fn root_node(&self) -> &HtmlNode {
+        &self.nodes[self.root_index]
+    }
 }
 
 /// Wrap the user generated HTML in <html>, <body> or both if needed.
@@ -201,24 +230,24 @@ fn introspect_html(
 /// A direct reference to the root element is also returned.
 fn finalize_dom(
     engine: &mut Engine,
-    output: EcoVec<HtmlNode>,
+    nodes: EcoVec<HtmlNode>,
     info: &DocumentInfo,
     footnote_locator: Locator<'_>,
     footnote_styles: StyleChain<'_>,
-) -> SourceResult<(EcoVec<HtmlNode>, usize)> {
-    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
+) -> SourceResult<HtmlOutput> {
+    let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
     let mut needs_body = true;
-    for (idx, node) in output.iter().enumerate() {
+    for (idx, node) in nodes.iter().enumerate() {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
-                FootnoteContainer::unsupported_with_custom_dom(engine)?;
-                return Ok((output, idx));
+                footnotes_unsupported_with_custom_dom(engine)?;
+                return Ok(HtmlOutput { nodes, root_index: idx });
             }
             (tag::body, 1) => {
-                FootnoteContainer::unsupported_with_custom_dom(engine)?;
+                footnotes_unsupported_with_custom_dom(engine)?;
                 needs_body = false;
             }
             (tag::html | tag::body, _) => bail!(
@@ -231,7 +260,7 @@ fn finalize_dom(
     }
 
     let body = if needs_body {
-        let mut body = HtmlElement::new(tag::body).with_children(output);
+        let mut body = HtmlElement::new(tag::body).with_children(nodes);
         let footnotes = crate::fragment::html_block_fragment(
             engine,
             FootnoteContainer::shared(),
@@ -242,7 +271,7 @@ fn finalize_dom(
         body.children.extend(footnotes);
         eco_vec![body.into()]
     } else {
-        output
+        nodes
     };
 
     let mut html = HtmlElement::new(tag::html)
@@ -250,7 +279,7 @@ fn finalize_dom(
     let head = head_element(info);
     html.children.push(head.into());
     html.children.extend(body);
-    Ok((eco_vec![html.into()], 0))
+    Ok(HtmlOutput { nodes: eco_vec![html.into()], root_index: 0 })
 }
 
 /// Generate a `<head>` element.
@@ -302,4 +331,26 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     }
 
     HtmlElement::new(tag::head).with_children(children)
+}
+
+/// Fails with an error if there are footnotes.
+fn footnotes_unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
+    let markers = engine
+        .introspect(QueryIntrospection(FootnoteMarker::ELEM.select(), Span::detached()));
+
+    if markers.is_empty() {
+        return Ok(());
+    }
+
+    Err(markers
+        .iter()
+        .map(|marker| {
+            error!(
+                marker.span(),
+                "footnotes are not currently supported in combination \
+                 with a custom `<html>` or `<body>` element";
+                hint: "you can still use footnotes with a custom footnote show rule";
+            )
+        })
+        .collect())
 }

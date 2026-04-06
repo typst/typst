@@ -1,6 +1,6 @@
 // Test creating a header with the query function.
 
---- query-here paged ---
+--- query-here paged empty ---
 // Test that `here()` yields the context element's location.
 #context test(query(here()).first().func(), (context none).func())
 
@@ -201,6 +201,150 @@
   ([Frog], [GiraffeCat], [Iguana])
 )
 
+--- query-within paged html bundle ---
+// The within selector is not yet publicly exposed, but already used internally,
+// so it's good to have some tests. Since it's not yet in the public API, we
+// have a test-runner specific `selector-within` "polyfill" instead.
+
+// We also want to test in bundle mode to ensure the inner introspector
+// correctly forwards the stuff.
+#show: it => context if target() == "bundle" {
+  document("main.pdf", it)
+} else {
+  it
+}
+
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
+
+= #emph[Hi *there*]
+
+What's *up* with *you?*
+
+#figure([Empty], caption: [A *nice* *rect*])
+
+// Test that the within query gracefully handles a case where an insertion
+// immediately precedes the end tag.
+#quote(footnote[_Hello_])
+
+#context [
+  #let loc = here()
+  *Local* bold *text*
+  #test-selector(
+    selector-within(strong, loc),
+    ([Local], [text]),
+  )
+]
+
+#test-selector(
+  selector-within(strong, par),
+  ([up], [you?], [Local], [text]),
+)
+
+#test-selector(
+  selector-within(strong, selector.or(heading, emph, figure)),
+  ([there], [nice], [rect]),
+)
+
+#test-selector(
+  selector-within(selector-within(strong, emph), heading),
+  ([there],),
+)
+
+#test-selector(
+  selector-within(selector-within(strong, heading), emph),
+  ([there],),
+)
+
+#test-selector(
+  selector-within(strong, selector-within(heading, emph)),
+  (),
+)
+
+#test-selector(
+  selector-within(emph, quote),
+  ([Hello],),
+)
+
+--- query-within-document bundle ---
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
+
+#document("a.html")[
+  = 1
+  #table[
+    = 2
+  ][
+    = 3
+  ]
+] <a>
+
+#document("b.html")[
+  = 4
+  = 5
+] <b>
+
+#test-selector(selector-within(heading, table), ([2], [3]))
+#test-selector(selector-within(heading, <a>), ([1], [2], [3]))
+#test-selector(selector-within(heading, <b>), ([4], [5]))
+
+--- query-bundle-logical-order bundle ---
+#let m(s) = [#metadata(s) <hi>]
+
+#metadata(1)
+#document("hi.html")[
+  #metadata("a")
+  HTML
+]
+#metadata(2)
+#asset("data.json", "data")
+#metadata(3)
+#document("hi.pdf")[
+  #metadata("b")
+  PDF
+]
+#metadata(4)
+
+// Test logical order across documents.
+#context {
+  test(query(metadata).map(v => v.value), (1, "a", 2, 3, "b", 4))
+}
+
+// Test querying documents and assets.
+#context {
+  test(query(document).map(v => v.path), ("/hi.html", "/hi.pdf"))
+  test(query(asset).map(v => v.path), ("/data.json",))
+  test(
+    query(selector.or(document, asset)).map(v => v.path),
+    ("/hi.html", "/data.json", "/hi.pdf"),
+  )
+  test(
+    query(selector(document).after(metadata.where(value: 3))).map(v => v.path),
+    ("/hi.pdf",),
+  )
+}
+
+--- query-bundle-logical-order-around-html bundle ---
+#metadata(1)
+#document("hi.html")[
+  // Test tags around the HTML root element.
+  #metadata("a")
+  #html.html[
+    #metadata("b")
+    #html.body[Hello World!]
+    #metadata("c")
+  ]
+  #metadata("d")
+]
+#metadata(2)
+
+#context test(
+  query(metadata).map(v => v.value),
+  (1, "a", "b", "c", "d", 2)
+)
+
 --- issue-3726-query-show-set paged ---
 // Test that show rules apply to queried elements, i.e. that the content
 // returned from `query` isn't yet marked as prepared.
@@ -233,7 +377,7 @@
 
 #context query(<nop>).first()
 
---- issue-5117-query-order-place paged ---
+--- issue-5117-query-order-place paged empty ---
 #let t(expected) = context {
   let elems = query(selector(metadata).after(here()))
   let val = elems.first().value

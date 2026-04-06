@@ -55,7 +55,7 @@ routines! {
         routines: &Routines,
         world: Tracked<dyn World + '_>,
         sink: TrackedMut<Sink>,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
         context: Tracked<Context>,
         string: &str,
         span: Span,
@@ -69,7 +69,7 @@ routines! {
         closure: &LazyHash<Closure>,
         routines: &Routines,
         world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
         traced: Tracked<Traced>,
         sink: TrackedMut<Sink>,
         route: Tracked<Route>,
@@ -108,6 +108,9 @@ routines! {
 
 /// Defines what kind of realization we are performing.
 pub enum RealizationKind<'a> {
+    /// The realization for bundles. The content is realized into documents and
+    /// assets.
+    Bundle,
     /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
     LayoutDocument { info: &'a mut DocumentInfo },
@@ -120,15 +123,15 @@ pub enum RealizationKind<'a> {
     /// This the root realization for HTML. Requires a mutable reference to
     /// document metadata that will be filled from `set document` rules.
     ///
-    /// The `is_inline` function checks whether content consists of an inline
-    /// HTML element. It's used by the `PAR` grouping rules. This is slightly
-    /// hacky and might be replaced by a mechanism to supply the grouping rules
-    /// as a realization user.
-    HtmlDocument { info: &'a mut DocumentInfo, is_inline: fn(&Content) -> bool },
+    /// The `is_phrasing` function checks whether content consists of a
+    /// "phrasing content" HTML element. It's used by the `PAR` grouping rules.
+    /// This is slightly hacky and might be replaced by a mechanism to supply
+    /// the grouping rules as a realization user.
+    HtmlDocument { info: &'a mut DocumentInfo, is_phrasing: fn(&Content) -> bool },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    HtmlFragment { kind: &'a mut FragmentKind, is_inline: fn(&Content) -> bool },
+    HtmlFragment { kind: &'a mut FragmentKind, is_phrasing: fn(&Content) -> bool },
     /// A realization within math.
     Math,
 }

@@ -2,7 +2,11 @@ use typst_syntax::Spanned;
 
 use crate::diag::bail;
 use crate::foundations::{Cast, Content, Value, elem};
+use crate::layout::Em;
 use crate::math::Mathy;
+
+/// How much padding to add around each side of a fraction.
+pub const FRAC_PADDING: Em = Em::new(0.1);
 
 /// A mathematical fraction.
 ///
@@ -60,6 +64,18 @@ pub struct FracElem {
     ///
     /// This $(x-y)/z = 3$ is inline math, and this is block math:
     /// $ (x-y)/z = 3 $
+    /// ```
+    ///
+    /// ```example:"Use LaTeX-like convention"
+    /// // Change the default style.
+    /// #set math.frac(style: "horizontal")
+    /// // Define a shorthand with the original style.
+    /// #let frac = math.frac.with(style: "vertical")
+    ///
+    /// $ p/q = frac(p, q) $
+    ///
+    /// // The shadowed definition can still be accessed.
+    /// #assert.eq($p/q$, $std.math.frac(p, q)$)
     /// ```
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,

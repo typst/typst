@@ -9,6 +9,7 @@ use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::StrResult;
+use typst_kit::packages::FsPackages;
 
 use crate::CliArguments;
 use crate::args::{Feature, InfoCommand};
@@ -108,16 +109,17 @@ impl Settings {
 #[serde(rename_all = "kebab-case")]
 struct Features {
     html: bool,
+    bundle: bool,
     a11y_extras: bool,
 }
 
 impl Features {
     /// Return the runtime features with human readable information.
     fn features(&self) -> impl Iterator<Item = KeyValDesc<'_>> {
-        let Self { html, a11y_extras } = self;
-
+        let Self { html, bundle, a11y_extras } = self;
         [
-            ("html", html, "Experimental HTML support"),
+            ("html", html, "Experimental HTML export"),
+            ("bundle", bundle, "Experimental bundle export"),
             ("a11y-extras", a11y_extras, "Experimental accessibility additions"),
         ]
         .into_iter()
@@ -349,12 +351,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
                 .typst_package_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_path),
+                .or_else(|| FsPackages::system_data().map(|fs| fs.path().into())),
             package_cache_path: env
                 .typst_package_cache_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_cache_path),
+                .or_else(|| FsPackages::system_cache().map(|fs| fs.path().into())),
         },
         env,
     };
@@ -416,16 +418,17 @@ fn get_vars() -> StrResult<Environment> {
 /// Turns a comma separated list of feature names into a well typed struct of
 /// feature flags.
 fn parse_features(feature_list: &str) -> StrResult<Features> {
-    let mut features = Features { html: false, a11y_extras: false };
+    let mut features = Features { html: false, bundle: false, a11y_extras: false };
 
     for feature in feature_list.split(',').filter(|s| !s.is_empty()) {
         match Feature::from_str(feature, true) {
             Ok(feature) => match feature {
                 Feature::Html => features.html = true,
+                Feature::Bundle => features.bundle = true,
                 Feature::A11yExtras => features.a11y_extras = true,
             },
             Err(_) => {
-                crate::print_error(&format!("Unknown runtime feature: `{feature}`"))
+                crate::print_error(&format!("unknown runtime feature: `{feature}`"))
                     .map_err(|e| eco_format!("{e}"))?;
                 continue;
             }

@@ -83,6 +83,8 @@ use crate::foundations::{
 /// follows:
 ///
 /// - `year`: Displays the year of the datetime.
+///   - `base`: Can be either `calendar` or `iso_week`. Specifies whether the
+///     year is based on the Gregorian calendar or the ISO week number.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     year is padded.
 ///   - `repr` Can be either `full` in which case the full year is displayed or
@@ -127,6 +129,9 @@ use crate::foundations::{
 /// - `second`: Displays the second of the date.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
+///
+/// [See here](https://time-rs.github.io/book/api/format-description.html#components)
+/// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
 /// create a new datetime with `{datetime(year: 2023, month: 10, day: 13)}`, it
@@ -364,14 +369,15 @@ impl Datetime {
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
         /// offset will be the local offset.
+        ///
+        /// When an integer offset is given, it will be treated as a duration in
+        /// hours.
         #[named]
         #[default]
-        offset: Smart<i64>,
+        offset: Smart<TodayOffset>,
     ) -> StrResult<Datetime> {
-        Ok(engine
-            .world
-            .today(offset.custom())
-            .ok_or("unable to get the current date")?)
+        let offset = offset.custom().map(|v| v.0);
+        Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
     }
 
     /// Displays the datetime in a specified format.
@@ -525,7 +531,13 @@ impl Add<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime + rhs),
-            Self::Date(date) => Self::Date(date + rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) + rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time + rhs),
         }
     }
@@ -538,7 +550,13 @@ impl Sub<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime - rhs),
-            Self::Date(date) => Self::Date(date - rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) - rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time - rhs),
         }
     }
@@ -619,4 +637,14 @@ fn format_time_invalid_format_description_error(
         }
         err => eco_format!("failed to parse datetime format ({err})"),
     }
+}
+
+/// A duration which automatically converts integer values into hours.
+pub struct TodayOffset(Duration);
+
+cast! {
+    TodayOffset,
+    self => self.0.into_value(),
+    v: Duration => Self(v),
+    hours: i64 => Self(time::Duration::hours(hours).into()),
 }

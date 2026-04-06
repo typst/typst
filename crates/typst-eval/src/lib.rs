@@ -28,7 +28,7 @@ use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
-use typst_library::introspection::Introspector;
+use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::Routines;
 use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
@@ -52,7 +52,7 @@ pub fn eval(
     }
 
     // Prepare the engine.
-    let introspector = Introspector::default();
+    let introspector = EmptyIntrospector;
     let engine = Engine {
         routines,
         world,
@@ -84,12 +84,7 @@ pub fn eval(
     }
 
     // Assemble the module.
-    let name = id
-        .vpath()
-        .as_rootless_path()
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy();
+    let name = id.vpath().file_stem().unwrap_or_default();
 
     Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }
@@ -103,7 +98,7 @@ pub fn eval_string(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
     sink: TrackedMut<Sink>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
     string: &str,
     span: Span,

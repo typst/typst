@@ -7,6 +7,11 @@ $ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
   acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
   harpoon(a), harpoon.lt(a) $
 
+--- math-accent-sym-call-error eval ---
+#test(math.tilde(math.pi), math.accent(math.pi, math.tilde))
+// Error: 2-9 symbol π is not callable
+#math.pi(math.tilde)
+
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $
 
@@ -95,13 +100,18 @@ $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
 
---- math-accent-string-too-long paged ---
+--- math-accent-string-too-long eval ---
 // Error: 17-21 expected exactly one character
 $ accent(x + y, "..") $
 
---- math-accent-content-too-long paged ---
+--- math-accent-content-too-long eval ---
 // Error: 17-19 expected a single-codepoint symbol
 $ accent(x + y, ..) $
+
+--- math-accent-overlay paged ---
+// Ensure accent is laid out above the base.
+#show "\u{0338}": set text(red)
+$accent(W, \u{0338})$, $accent(y, \u{0338})$
 
 --- issue-7437-math-accent-text-presentation paged ---
 // Make sure that the `arrow.l.r` symbol correctly works as an accent even
@@ -118,7 +128,7 @@ $ accent(x + y, <->) $
 // Ensure that function call works.
 $ arrow.l.r(x + y) $
 
---- issue-7437-math-accent-emoji-presentation paged ---
+--- issue-7437-math-accent-emoji-presentation eval ---
 // Check that we do not normalize an accent character with emoji presentation
 // variation selector to an accent.
 //
@@ -130,7 +140,7 @@ $ arrow.l.r(x + y) $
 // Error: 12-31 expected exactly one character
 $accent(A, std.emoji.arrow.l.r)$
 
---- issue-7437-math-accent-trailing-text paged ---
+--- issue-7437-math-accent-trailing-text eval ---
 // Test that we don't allow extra text after the text variation selector.
 
 // Error: 13-47 expected exactly one character

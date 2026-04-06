@@ -1,13 +1,12 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value, fields_on, repr,
+    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
+    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -17,12 +16,11 @@ use typst::syntax::{
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
-use typst::{AsDocument, Document};
 use unscanny::Scanner;
 
-use crate::utils::{
-    check_value_recursively, globals, plain_docs_sentence, summarize_font_family,
-};
+use crate::analyze::analyze_expr_with_fallback;
+use crate::docs::{find_param_docs, find_value_docs};
+use crate::utils::{check_value_recursively, globals, summarize_font_family};
 use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
 
 /// Autocomplete a cursor position in a source file.
@@ -33,12 +31,12 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items}
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
 ///
-/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// Passing an `output` (from a previous compilation) is optional, but enhances
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
 pub fn autocomplete(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    output: Option<impl AsOutput>,
     source: &Source,
     cursor: usize,
     explicit: bool,
@@ -46,7 +44,7 @@ pub fn autocomplete(
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
     let mut ctx = CompletionContext::new(
         world,
-        document.as_ref().map(|v| v.as_document()),
+        output.as_ref().map(|v| v.as_output()),
         source,
         &leaf,
         cursor,
@@ -428,10 +426,8 @@ fn field_access_completions(
     // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
         let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
-        if func
-            .params()
-            .and_then(|params| params.first())
-            .is_some_and(|param| param.name == "self")
+        if let Some(param) = func.params().next()
+            && param.name() == Some("self")
         {
             ctx.call_completion(name.clone(), binding.read());
         }
@@ -616,10 +612,7 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(true, |value| {
         matches!(
             value,
-            Value::Func(func) if func.params()
-                .unwrap_or_default()
-                .iter()
-                .any(|param| param.settable),
+            Value::Func(func) if func.params().any(|param| param.settable())
         )
     });
 }
@@ -685,7 +678,9 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
-        } {
+        }
+        && let Some(callee) = grand.find(callee.span())
+    {
         (callee, set, args, parent)
     } else {
         return false;
@@ -713,7 +708,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             ctx.from = ctx.cursor.min(next.offset());
         }
 
-        named_param_value_completions(ctx, callee, &param);
+        named_param_value_completions(ctx, &callee, &param);
         return true;
     }
 
@@ -727,7 +722,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             ctx.from = ctx.cursor.min(next.offset());
         }
 
-        param_completions(ctx, callee, set, args, args_linked);
+        param_completions(ctx, &callee, set, args, args_linked);
         return true;
     }
 
@@ -737,13 +732,13 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 /// Add completions for the parameters of a function.
 fn param_completions<'a>(
     ctx: &mut CompletionContext<'a>,
-    callee: ast::Expr<'a>,
+    callee: &LinkedNode<'a>,
     set: bool,
     args: ast::Args<'a>,
-    args_linked: &'a LinkedNode<'a>,
+    args_linked: &LinkedNode<'a>,
 ) {
-    let Some(func) = resolve_global_callee(ctx, callee) else { return };
-    let Some(params) = func.params() else { return };
+    let Some(value) = analyze_expr_with_fallback(ctx.world, callee) else { return };
+    let Ok(func) = value.cast::<Func>() else { return };
 
     // Determine which arguments are already present.
     let mut existing_positional = 0;
@@ -764,36 +759,38 @@ fn param_completions<'a>(
     }
 
     let mut skipped_positional = 0;
-    for param in params {
-        if set && !param.settable {
+    for param in func.params() {
+        if set && !param.settable() {
             continue;
         }
 
-        if param.positional {
-            if skipped_positional < existing_positional && !param.variadic {
+        if param.positional() {
+            if skipped_positional < existing_positional && !param.variadic() {
                 skipped_positional += 1;
                 continue;
             }
 
-            param_value_completions(ctx, func, param);
+            param_value_completions(ctx, &func, &param);
         }
 
-        if param.named {
-            if existing_named.contains(&param.name) {
+        if let Some(name) = param.name()
+            && param.named()
+        {
+            if existing_named.contains(name) {
                 continue;
             }
 
-            let apply = if param.name == "caption" {
-                eco_format!("{}: [${{}}]", param.name)
+            let apply = if param.name() == Some("caption") {
+                eco_format!("{name}: [${{}}]")
             } else {
-                eco_format!("{}: ${{}}", param.name)
+                eco_format!("{name}: ${{}}")
             };
 
             ctx.completions.push(Completion {
                 kind: CompletionKind::Param,
-                label: param.name.into(),
+                label: name.into(),
                 apply: Some(apply),
-                detail: Some(plain_docs_sentence(param.docs)),
+                detail: find_param_docs(ctx.world, &param).map(|docs| docs.summary()),
             });
         }
     }
@@ -806,16 +803,18 @@ fn param_completions<'a>(
 /// Add completions for the values of a named function parameter.
 fn named_param_value_completions<'a>(
     ctx: &mut CompletionContext<'a>,
-    callee: ast::Expr<'a>,
+    callee: &LinkedNode,
     name: &str,
 ) {
-    let Some(func) = resolve_global_callee(ctx, callee) else { return };
+    let Some(value) = analyze_expr_with_fallback(ctx.world, callee) else { return };
+    let Ok(func) = value.cast::<Func>() else { return };
+
     let Some(param) = func.param(name) else { return };
-    if !param.named {
+    if !param.named() {
         return;
     }
 
-    param_value_completions(ctx, func, param);
+    param_value_completions(ctx, &func, &param);
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
@@ -826,23 +825,25 @@ fn named_param_value_completions<'a>(
 fn param_value_completions<'a>(
     ctx: &mut CompletionContext<'a>,
     func: &Func,
-    param: &'a ParamInfo,
+    param: &ParamInfo,
 ) {
-    if param.name == "font" {
+    if param.name() == Some("font") {
         ctx.font_completions();
     } else if let Some(extensions) = path_completion(func, param) {
         ctx.file_completions_with_extensions(extensions);
-    } else if func.name() == Some("figure") && param.name == "body" {
+    } else if func.name() == Some("figure") && param.name() == Some("body") {
         ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
         ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
     }
 
-    ctx.cast_completions(&param.input);
+    if let ParamInfo::Native(param) = param {
+        ctx.cast_completions(&param.input);
+    }
 }
 
 /// Returns which file extensions to complete for the given parameter if any.
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
-    Some(match (func.name(), param.name) {
+    Some(match (func.name(), param.name().unwrap_or_default()) {
         (Some("image"), "source") => {
             &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp", "pdf"]
         }
@@ -863,29 +864,6 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (None, "path") => &[],
         _ => return None,
     })
-}
-
-/// Resolve a callee expression to a global function.
-fn resolve_global_callee<'a>(
-    ctx: &CompletionContext<'a>,
-    callee: ast::Expr<'a>,
-) -> Option<&'a Func> {
-    let globals = globals(ctx.world, ctx.leaf);
-    let value = match callee {
-        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
-        ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => {
-                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
-            }
-            _ => return None,
-        },
-        _ => return None,
-    };
-
-    match value {
-        Value::Func(func) => Some(func),
-        _ => None,
-    }
 }
 
 /// Complete in code mode.
@@ -1116,7 +1094,7 @@ fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
-    document: Option<&'a dyn Document>,
+    output: Option<&'a dyn Output>,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1132,7 +1110,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn IdeWorld + 'a),
-        document: Option<&'a dyn Document>,
+        output: Option<&'a dyn Output>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
@@ -1141,7 +1119,7 @@ impl<'a> CompletionContext<'a> {
         let text = source.text();
         Some(Self {
             world,
-            document,
+            output,
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1184,9 +1162,10 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
+        let book = self.world.book();
         let equation = is_in_equation_show_rule(self.leaf);
-        for (family, iter) in self.world.book().families() {
-            let variants: Vec<_> = iter.collect();
+        for (family, iter) in book.families() {
+            let variants: Vec<_> = iter.filter_map(|id| book.info(id)).collect();
             let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
             let detail = summarize_font_family(variants);
             if !equation || is_math {
@@ -1219,19 +1198,15 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all available files.
     fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
-        let Some(base_id) = self.leaf.span().id() else { return };
-        let Some(base_path) = base_id.vpath().as_rooted_path().parent() else { return };
+        let Some(current_id) = self.leaf.span().id() else { return };
+        let Some(current_dir) = current_id.vpath().parent() else { return };
 
         let mut paths: Vec<EcoString> = self
             .world
             .files()
             .iter()
-            .filter(|&&file_id| file_id != base_id && filter(file_id))
-            .filter_map(|file_id| {
-                let file_path = file_id.vpath().as_rooted_path();
-                pathdiff::diff_paths(file_path, base_path)
-            })
-            .map(|path| path.to_string_lossy().replace('\\', "/").into())
+            .filter(|&&id| id != current_id && filter(id))
+            .map(|id| id.vpath().relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1251,9 +1226,7 @@ impl<'a> CompletionContext<'a> {
         self.file_completions(|id| {
             let ext = id
                 .vpath()
-                .as_rooted_path()
                 .extension()
-                .and_then(OsStr::to_str)
                 .map(EcoString::from)
                 .unwrap_or_default()
                 .to_lowercase();
@@ -1285,8 +1258,8 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let Some(document) = self.document else { return };
-        let (labels, split) = analyze_labels(document);
+        let Some(output) = self.output else { return };
+        let (labels, split) = analyze_labels(output);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');
@@ -1354,8 +1327,9 @@ impl<'a> CompletionContext<'a> {
 
         let detail = detail.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
-            Value::Func(func) => func.docs().map(plain_docs_sentence),
-            Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
+            Value::Func(_) | Value::Type(_) => {
+                find_value_docs(self.world, value).map(|docs| docs.summary())
+            }
             v => {
                 let repr = v.repr();
                 (repr.as_str() != label).then_some(repr)
@@ -1398,7 +1372,7 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for a castable.
-    fn cast_completions(&mut self, cast: &'a CastInfo) {
+    fn cast_completions(&mut self, cast: &CastInfo) {
         // Prevent duplicate completions from appearing.
         if !self.seen_casts.insert(typst::utils::hash128(cast)) {
             return;
@@ -1541,10 +1515,9 @@ enum BracketMode {
 
 impl BracketMode {
     fn of(func: &Func) -> Self {
-        if func
-            .params()
-            .is_some_and(|params| params.iter().all(|param| param.name == "self"))
-        {
+        // If we have no parameters or only the self one, it's friendlier to put
+        // the cursor after the method call.
+        if func.params().all(|param| param.name() == Some("self")) {
             return Self::RoundAfter;
         }
 
@@ -1565,8 +1538,8 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::AsDocument;
-    use typst::layout::PagedDocument;
+    use typst::foundations::AsOutput;
+    use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -1586,8 +1559,7 @@ mod tests {
         fn must_be_empty(&self) -> &Self;
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
-        fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
-        -> &Self;
+        fn at(&self, label: &str) -> &Completion;
     }
 
     impl ResponseExt for Response {
@@ -1637,16 +1609,29 @@ mod tests {
         }
 
         #[track_caller]
-        fn must_apply<'a>(
-            &self,
-            label: &str,
-            apply: impl Into<Option<&'a str>>,
-        ) -> &Self {
-            let Some(completion) = self.completions().iter().find(|c| c.label == label)
-            else {
-                panic!("found no completion for {label:?}");
-            };
-            assert_eq!(completion.apply.as_deref(), apply.into());
+        fn at(&self, label: &str) -> &Completion {
+            self.completions()
+                .iter()
+                .find(|c| c.label == label)
+                .unwrap_or_else(|| panic!("found no completion for {label:?}"))
+        }
+    }
+
+    trait CompletionExt {
+        fn must_apply_as<'a>(&self, apply: impl Into<Option<&'a str>>) -> &Self;
+        fn must_have_detail<'a>(&self, detail: impl Into<Option<&'a str>>) -> &Self;
+    }
+
+    impl CompletionExt for Completion {
+        #[track_caller]
+        fn must_apply_as<'a>(&self, apply: impl Into<Option<&'a str>>) -> &Self {
+            assert_eq!(self.apply.as_deref(), apply.into());
+            self
+        }
+
+        #[track_caller]
+        fn must_have_detail<'a>(&self, detail: impl Into<Option<&'a str>>) -> &Self {
+            assert_eq!(self.detail.as_deref(), detail.into());
             self
         }
     }
@@ -1684,13 +1669,13 @@ mod tests {
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
-        doc: Option<impl AsDocument>,
+        output: Option<impl AsOutput>,
         explicit: bool,
     ) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let (source, cursor) = pos.resolve(world);
-        autocomplete(world, doc, &source, cursor, explicit)
+        autocomplete(world, output, &source, cursor, explicit)
     }
 
     #[test]
@@ -1774,14 +1759,14 @@ mod tests {
     /// on the function and existing parens.
     #[test]
     fn test_autocomplete_bracket_mode() {
-        test("#", 1).must_apply("list", "list(${})");
-        test("#", 1).must_apply("linebreak", "linebreak()${}");
-        test("#", 1).must_apply("strong", "strong[${}]");
-        test("#", 1).must_apply("footnote", "footnote[${}]");
-        test("#", 1).must_apply("figure", "figure(\n  ${}\n)");
-        test("#", 1).must_apply("table", "table(\n  ${}\n)");
-        test("#()", 1).must_apply("list", None);
-        test("#[]", 1).must_apply("strong", None);
+        test("#", 1).at("list").must_apply_as("list(${})");
+        test("#", 1).at("linebreak").must_apply_as("linebreak()${}");
+        test("#", 1).at("strong").must_apply_as("strong[${}]");
+        test("#", 1).at("footnote").must_apply_as("footnote[${}]");
+        test("#", 1).at("figure").must_apply_as("figure(\n  ${}\n)");
+        test("#", 1).at("table").must_apply_as("table(\n  ${}\n)");
+        test("#()", 1).at("list").must_apply_as(None);
+        test("#[]", 1).at("strong").must_apply_as(None);
     }
 
     /// Test that we only complete positional parameters if they aren't
@@ -1857,11 +1842,11 @@ mod tests {
 
     #[test]
     fn test_autocomplete_figure_snippets() {
-        test("#figure()", -2)
-            .must_apply("image", "image(\"${}\"),")
-            .must_apply("table", "table(\n  ${}\n),");
+        let res = test("#figure()", -2);
+        res.at("image").must_apply_as("image(\"${}\"),");
+        res.at("table").must_apply_as("table(\n  ${}\n),");
 
-        test("#figure(cap)", -2).must_apply("caption", "caption: [${}]");
+        test("#figure(cap)", -2).at("caption").must_apply_as("caption: [${}]");
     }
 
     #[test]
@@ -2003,5 +1988,24 @@ mod tests {
         // At destructuring rename pattern source
         test(document, 24).must_be_empty();
         test_implicit(document, 24).must_be_empty();
+    }
+
+    #[test]
+    fn test_autocomplete_user_function() {
+        let world = TestWorld::new("#import \"lib.typ\"\n#lib.")
+            .with_source("lib.typ", crate::tests::EXAMPLE_CLOSURE);
+        let res = test(&world, -1);
+        res.must_include(["foo"]);
+        res.at("foo").must_have_detail("A useful function.");
+    }
+
+    #[test]
+    fn test_autocomplete_user_function_params() {
+        let world = TestWorld::new("#import \"lib.typ\": *\n#foo()")
+            .with_source("lib.typ", crate::tests::EXAMPLE_CLOSURE);
+        let res = test(&world, -2);
+        res.must_include(["forest", "tree"]);
+        res.at("forest").must_have_detail("More trees.");
+        res.at("tree").must_have_detail("Tree with three slashes.");
     }
 }

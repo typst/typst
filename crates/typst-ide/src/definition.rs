@@ -1,5 +1,4 @@
-use typst::AsDocument;
-use typst::foundations::{Label, Selector, Value};
+use typst::foundations::{AsOutput, Label, Selector, Value};
 use typst::syntax::{LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
@@ -25,7 +24,7 @@ pub enum Definition {
 /// when the document is available.
 pub fn definition(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    output: Option<impl AsOutput>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -75,7 +74,7 @@ pub fn definition(
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
                 .expect("unexpected empty reference");
             let selector = Selector::Label(label);
-            let elem = document?.as_document().introspector().query_first(&selector)?;
+            let elem = output?.as_output().introspector().query_first(&selector)?;
             return Some(Definition::Span(elem.span()));
         }
 
@@ -92,8 +91,8 @@ mod tests {
 
     use typst::WorldExt;
     use typst::foundations::{IntoValue, NativeElement};
-    use typst::layout::PagedDocument;
     use typst::syntax::Side;
+    use typst_layout::PagedDocument;
 
     use super::{Definition, definition};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -111,10 +110,7 @@ mod tests {
             match self.1 {
                 Some(Definition::Span(span)) => {
                     let range = self.0.range(span);
-                    assert_eq!(
-                        span.id().unwrap().vpath().as_rootless_path().to_string_lossy(),
-                        path
-                    );
+                    assert_eq!(span.id().unwrap().vpath().get_without_slash(), path);
                     assert_eq!(range, Some(expected));
                 }
                 _ => panic!("expected span definition"),

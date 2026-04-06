@@ -35,6 +35,116 @@ $stretch(arrow.t)^"map"$
 $stretch(arrow.t, size: #2em)^"map"$
 $stretch(arrow.t, size: #200%)^"map"$
 
+--- math-stretch-vertical-large-class paged ---
+// Test vertical stretch of large math class characters that are stretched in
+// display size automatically.
+$integral
+ stretch(integral, size: #3em)
+ stretch(integral, size: #0em)
+ stretch(integral, size: #50%)
+ stretch(integral, size: #200%)$
+$ integral
+  stretch(integral, size: #3em)
+  stretch(integral, size: #0em)
+  stretch(integral, size: #50%)
+  stretch(integral, size: #200%) $
+
+--- math-stretch-nested-vertical-attach paged ---
+// Test nested vertical stretch interactions with attachments.
+$ stretch(stretch(\[, size: #4em))
+  stretch(stretch(\[, size: #4em), size: #0em)
+  stretch(stretch(\[, size: #200%))
+  stretch(stretch(\[, size: #200%), size: #50%)
+  =
+  stretch(stretch(\[, size: #4em))_A
+  stretch(stretch(\[, size: #4em), size: #0em)_A
+  stretch(stretch(\[, size: #200%))_A
+  stretch(stretch(\[, size: #200%), size: #50%)_A $
+
+--- math-stretch-nested-horizontal-attach paged ---
+// Test nested horizontal stretch interactions with attachments.
+$ stretch(stretch(->, size: #4em)) >> stretch(stretch(->, size: #4em))_A \
+  stretch(stretch(->, size: #4em), size: #0em) = stretch(stretch(->, size: #4em), size: #0em)_A \
+  stretch(stretch(->, size: #500%)) >>> stretch(stretch(->, size: #500%))_A \
+  stretch(stretch(->, size: #500%), size: #50%) > stretch(stretch(->, size: #500%), size: #50%)_A \
+  stretch(stretch(->, size: #4em), size: #50%) > stretch(stretch(->, size: #4em), size: #50%)_"blah" $
+
+--- math-stretch-lr-nested-vertical paged ---
+// Test stretch and lr nested vertical interactions.
+$ stretch(lr(arrow.t, size: #3em))
+  stretch(lr(arrow.t, size: #3em), size: #0em)
+  stretch(lr(arrow.t, size: #3em), size: #50%)
+  stretch(lr(arrow.t, size: #3em), size: #200%),
+  lr(stretch(arrow.t, size: #3em))
+  lr(stretch(arrow.t, size: #3em), size: #0em)
+  lr(stretch(arrow.t, size: #3em), size: #50%)
+  lr(stretch(arrow.t, size: #3em), size: #200%),
+  stretch(lr(arrow.t), size: #3em)
+  stretch(lr(arrow.t, size: #0em), size: #3em)
+  stretch(lr(arrow.t, size: #50%), size: #3em)
+  stretch(lr(arrow.t, size: #200%), size: #3em),
+  lr(stretch(arrow.t), size: #3em)
+  lr(stretch(arrow.t, size: #0em), size: #3em)
+  lr(stretch(arrow.t, size: #50%), size: #3em)
+  lr(stretch(arrow.t, size: #200%), size: #3em) $
+
+--- math-stretch-lr-nested-vertical-attach paged ---
+// Test stretch and lr nested vertical interactions with attachments.
+$ stretch(lr(arrow.t, size: #3em))^A
+  stretch(lr(arrow.t, size: #3em), size: #0em)^A
+  stretch(lr(arrow.t, size: #3em), size: #50%)^A
+  stretch(lr(arrow.t, size: #3em), size: #200%)^A,
+  lr(stretch(arrow.t, size: #3em))^A
+  lr(stretch(arrow.t, size: #3em), size: #0em)^A
+  lr(stretch(arrow.t, size: #3em), size: #50%)^A
+  lr(stretch(arrow.t, size: #3em), size: #200%)^A,
+  stretch(lr(arrow.t), size: #3em)^A
+  stretch(lr(arrow.t, size: #0em), size: #3em)^A
+  stretch(lr(arrow.t, size: #50%), size: #3em)^A
+  stretch(lr(arrow.t, size: #200%), size: #3em)^A,
+  lr(stretch(arrow.t), size: #3em)^A
+  lr(stretch(arrow.t, size: #0em), size: #3em)^A
+  lr(stretch(arrow.t, size: #50%), size: #3em)^A
+  lr(stretch(arrow.t, size: #200%), size: #3em)^A $
+
+--- math-stretch-lr-nested-horizontal paged ---
+// Test stretch and lr nested horizontal interactions.
+$ stretch(lr(=, size: #2em))
+  stretch(lr(=, size: #2em), size: #0em)
+  stretch(lr(=, size: #2em), size: #50%)
+  stretch(lr(=, size: #2em), size: #200%) \
+  lr(stretch(=, size: #2em))
+  lr(stretch(=, size: #2em), size: #0em)
+  lr(stretch(=, size: #2em), size: #50%)
+  lr(stretch(=, size: #2em), size: #200%) \
+  stretch(lr(=), size: #2em)
+  stretch(lr(=, size: #0em), size: #2em)
+  stretch(lr(=, size: #50%), size: #2em)
+  stretch(lr(=, size: #200%), size: #2em) \
+  lr(stretch(=), size: #2em)
+  lr(stretch(=, size: #0em), size: #2em)
+  lr(stretch(=, size: #50%), size: #2em)
+  lr(stretch(=, size: #200%), size: #2em) $
+
+--- math-stretch-lr-nested-horizontal-attach paged ---
+// Test stretch and lr nested horizontal interactions with attachments.
+$ stretch(lr(=, size: #2em))_A
+  stretch(lr(=, size: #2em), size: #0em)_A
+  stretch(lr(=, size: #2em), size: #50%)_A
+  stretch(lr(=, size: #2em), size: #200%)_A \
+  lr(stretch(=, size: #2em))_A
+  lr(stretch(=, size: #2em), size: #0em)_A
+  lr(stretch(=, size: #2em), size: #50%)_A
+  lr(stretch(=, size: #2em), size: #200%)_A \
+  stretch(lr(=), size: #2em)_A
+  stretch(lr(=, size: #0em), size: #2em)_A
+  stretch(lr(=, size: #50%), size: #2em)_A
+  stretch(lr(=, size: #200%), size: #2em)_A \
+  lr(stretch(=), size: #2em)_A
+  lr(stretch(=, size: #0em), size: #2em)_A
+  lr(stretch(=, size: #50%), size: #2em)_A
+  lr(stretch(=, size: #200%), size: #2em)_A $
+
 --- math-stretch-vertical-scripts paged ---
 // Test vertical stretch interactions with script attachments.
 #let big = $stretch(|, size: #4em)$

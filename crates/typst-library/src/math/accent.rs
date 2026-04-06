@@ -11,12 +11,19 @@ use icu_provider_blob::BlobDataProvider;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, ParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
+    NativeFuncPtr, NativeParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
 };
-use crate::layout::{Length, Rel};
+use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;
 
+/// How much the accent can be shorter than the base.
+pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
+
 /// Attaches an accent to a base.
+///
+/// In math mode, common accents are also available as named [symbols]($symbol)
+/// that can be directly called (like [functions]($function)) to attach them to
+/// some content.
 ///
 /// # Example
 /// ```example
@@ -206,9 +213,9 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
 }
 
 /// Creates parameter signature metadata for an accent function.
-fn create_accent_param_info() -> Vec<ParamInfo> {
+fn create_accent_param_info() -> Vec<NativeParamInfo> {
     vec![
-        ParamInfo {
+        NativeParamInfo {
             name: "base",
             docs: "The base to which the accent is applied.",
             input: Content::input(),
@@ -219,7 +226,7 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
             required: true,
             settable: false,
         },
-        ParamInfo {
+        NativeParamInfo {
             name: "size",
             docs: "The size of the accent, relative to the width of the base.",
             input: Rel::<Length>::input(),
@@ -230,7 +237,7 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
             required: false,
             settable: false,
         },
-        ParamInfo {
+        NativeParamInfo {
             name: "dotless",
             docs: "Whether to remove the dot on top of lowercase i and j when adding a top accent.",
             input: bool::input(),
