@@ -11,11 +11,11 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
-use crate::tags::flat::FlatTagData;
+use crate::tags::flat::{FlatTagData, ResolvedGroupKind};
 use crate::tags::groups::{GroupId, GroupKind, TagStorage};
 use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
-use crate::tags::util::{self, PropertyOptRef, PropertyValCopied};
+use crate::tags::util;
 use crate::tags::{AnnotationId, disabled};
 
 mod accumulator;
@@ -140,8 +140,8 @@ fn resolve_group_node(
 
     let tag = build_group_tag(rs, idx);
     let kind = rs.flat.kind(idx);
-    let mut lang = kind.lang().filter(|_| tag.is_some());
-    let mut bbox = rs.ctx.bbox(kind).cloned();
+    let mut lang = rs.flat.lang(idx).filter(|_| tag.is_some());
+    let mut bbox = rs.flat.bbox(idx).and_then(|id| rs.ctx.bbox_by_id(id)).cloned();
     let is_artifact = kind.is_artifact();
     let is_weak = rs.flat.is_weak(idx);
     let group_children = rs.flat.children(idx);
@@ -271,8 +271,7 @@ fn resolve_artifact_node(
     match &node {
         TagNode::Group(id) => {
             let idx = id.idx();
-            let kind = rs.flat.kind(idx);
-            let mut bbox = rs.ctx.bbox(kind).cloned();
+            let mut bbox = rs.flat.bbox(idx).and_then(|id| rs.ctx.bbox_by_id(id)).cloned();
             let group_children = rs.flat.children(idx);
 
             {
@@ -311,53 +310,53 @@ fn build_group_tag(rs: &mut Resolver, idx: usize) -> Option<TagKind> {
     let kind = rs.flat.kind(idx);
     let is_link = kind.is_link();
     let source = match kind {
-        GroupKind::Root(_) => TagSource::Unreachable,
-        GroupKind::Artifact(_) => TagSource::None,
-        GroupKind::LogicalParent(_) => TagSource::None,
-        GroupKind::LogicalChild(_, _) => TagSource::None,
-        GroupKind::Outline(_, _) => TagSource::Direct(Tag::TOC.into()),
-        GroupKind::OutlineEntry(_, _) => TagSource::Direct(Tag::TOCI.into()),
-        GroupKind::Table(id, _, _) => TagSource::Direct(rs.ctx.tables.get(*id).build_tag()),
-        GroupKind::TableCell(_, tag_id, _) => TagSource::TakeFromStorage(*tag_id),
-        GroupKind::Grid(_, _) => TagSource::Direct(Tag::Div.into()),
-        GroupKind::GridCell(_, _) => TagSource::Direct(Tag::Div.into()),
-        GroupKind::List(_, numbering, _) => TagSource::Direct(Tag::L(*numbering).into()),
-        GroupKind::ListItemLabel(_) => TagSource::Direct(Tag::Lbl.into()),
-        GroupKind::ListItemBody(_) => TagSource::Direct(Tag::LBody.into()),
-        GroupKind::TermsItemLabel(_) => TagSource::Direct(Tag::Lbl.into()),
-        GroupKind::TermsItemBody(_, _) => TagSource::Direct(Tag::LBody.into()),
-        GroupKind::BibEntry(_) => TagSource::Direct(Tag::BibEntry.into()),
-        GroupKind::FigureWrapper(id) => {
+        ResolvedGroupKind::Root => TagSource::Unreachable,
+        ResolvedGroupKind::Artifact(_) => TagSource::None,
+        ResolvedGroupKind::LogicalParent => TagSource::None,
+        ResolvedGroupKind::LogicalChild => TagSource::None,
+        ResolvedGroupKind::Outline => TagSource::Direct(Tag::TOC.into()),
+        ResolvedGroupKind::OutlineEntry => TagSource::Direct(Tag::TOCI.into()),
+        ResolvedGroupKind::Table(id) => TagSource::Direct(rs.ctx.tables.get(*id).build_tag()),
+        ResolvedGroupKind::TableCell(tag_id) => TagSource::TakeFromStorage(*tag_id),
+        ResolvedGroupKind::Grid => TagSource::Direct(Tag::Div.into()),
+        ResolvedGroupKind::GridCell => TagSource::Direct(Tag::Div.into()),
+        ResolvedGroupKind::List(numbering) => TagSource::Direct(Tag::L(*numbering).into()),
+        ResolvedGroupKind::ListItemLabel => TagSource::Direct(Tag::Lbl.into()),
+        ResolvedGroupKind::ListItemBody => TagSource::Direct(Tag::LBody.into()),
+        ResolvedGroupKind::TermsItemLabel => TagSource::Direct(Tag::Lbl.into()),
+        ResolvedGroupKind::TermsItemBody => TagSource::Direct(Tag::LBody.into()),
+        ResolvedGroupKind::BibEntry => TagSource::Direct(Tag::BibEntry.into()),
+        ResolvedGroupKind::FigureWrapper(id) => {
             match rs.ctx.figures.get(*id).build_wrapper_tag() {
                 Some(tag) => TagSource::Direct(tag),
                 None => return None,
             }
         }
-        GroupKind::Figure(id, _, _) => {
+        ResolvedGroupKind::Figure(id) => {
             match rs.ctx.figures.get(*id).build_tag() {
                 Some(tag) => TagSource::Direct(tag),
                 None => return None,
             }
         }
-        GroupKind::FigureCaption(_, _) => TagSource::Direct(Tag::Caption.into()),
-        GroupKind::Image(image, _, _) => {
-            let alt = image.alt.opt_ref().map(Into::into);
+        ResolvedGroupKind::FigureCaption => TagSource::Direct(Tag::Caption.into()),
+        ResolvedGroupKind::Image { alt } => {
+            let alt = alt.as_ref().map(Into::into);
             TagSource::Direct(Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into())
         }
-        GroupKind::Formula(equation, _, _) => {
-            let alt = equation.alt.opt_ref().map(Into::into);
-            let placement = equation.block.val().then_some(kt::Placement::Block);
+        ResolvedGroupKind::Formula { alt, block } => {
+            let alt = alt.as_ref().map(Into::into);
+            let placement = block.then_some(kt::Placement::Block);
             TagSource::Direct(Tag::Formula(alt).with_placement(placement).into())
         }
-        GroupKind::Link(_, _) => TagSource::Direct(Tag::Link.into()),
-        GroupKind::CodeBlock(_) => {
+        ResolvedGroupKind::Link => TagSource::Direct(Tag::Link.into()),
+        ResolvedGroupKind::CodeBlock => {
             TagSource::Direct(Tag::Code.with_placement(Some(kt::Placement::Block)).into())
         }
-        GroupKind::CodeBlockLine(_) => TagSource::Direct(Tag::P.into()),
-        GroupKind::Par(_) => TagSource::Direct(Tag::P.into()),
-        GroupKind::TextAttr(_) => TagSource::None,
-        GroupKind::Transparent => TagSource::None,
-        GroupKind::Standard(tag_id, _) => TagSource::TakeFromStorage(*tag_id),
+        ResolvedGroupKind::CodeBlockLine => TagSource::Direct(Tag::P.into()),
+        ResolvedGroupKind::Par => TagSource::Direct(Tag::P.into()),
+        ResolvedGroupKind::TextAttr => TagSource::None,
+        ResolvedGroupKind::Transparent => TagSource::None,
+        ResolvedGroupKind::Standard(tag_id) => TagSource::TakeFromStorage(*tag_id),
     };
     // Now the immutable borrow of `kind` is dropped.
 

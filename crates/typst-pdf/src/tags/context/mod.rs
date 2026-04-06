@@ -87,8 +87,18 @@ impl Ctx {
         self.bboxes.push(BBoxCtx::new())
     }
 
+    /// Used during tree building (before flatten). After flatten, use
+    /// `bbox_by_id` with the BBoxId from `FlatTagData::bboxes`.
+    #[allow(dead_code)]
     pub fn bbox(&self, kind: &GroupKind) -> Option<&BBoxCtx> {
         Some(self.bboxes.get(kind.bbox()?))
+    }
+
+    /// Look up a bounding box by its ID directly. Used by the resolver
+    /// after flattening, when bounding box IDs are stored in
+    /// `FlatTagData::bboxes` instead of in `GroupKind`.
+    pub fn bbox_by_id(&self, id: BBoxId) -> Option<&BBoxCtx> {
+        Some(self.bboxes.get(id))
     }
 }
 

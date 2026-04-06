@@ -14,10 +14,10 @@ use typst_syntax::Span;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
-use crate::tags::flat::{FlatTagData, FlatTagTree};
+use crate::tags::flat::{FlatTagData, FlatTagTree, ResolvedGroupKind};
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
-use crate::tags::util::{self, Id, IdVec};
+use crate::tags::util::{self, Id, IdVec, PropertyOptRef, PropertyValCopied};
 
 pub type GroupId = Id<Group>;
 
@@ -112,6 +112,11 @@ impl Groups {
     /// This drains all Group data into parallel arrays and moves the TagStorage
     /// out. After this call, the Groups struct is empty (locations map cleared,
     /// list drained). The caller should drop the Groups to free memory.
+    ///
+    /// Each `GroupKind` is converted to a lightweight `ResolvedGroupKind` that
+    /// stores only the data the resolver needs, dropping expensive types like
+    /// `Packed<TableCell>` (~320 bytes), `Packed<ImageElem>`, `Content`, etc.
+    /// Language and bounding box data are extracted into parallel arrays.
     pub fn flatten(&mut self) -> FlatTagTree {
         let len = self.list.len();
         let mut kinds = Vec::with_capacity(len);
@@ -119,13 +124,56 @@ impl Groups {
         let mut children = Vec::with_capacity(len);
         let mut weak = Vec::with_capacity(len);
         let mut parent = Vec::with_capacity(len);
+        let mut langs = Vec::with_capacity(len);
+        let mut bboxes = Vec::with_capacity(len);
 
         for group in self.list.drain() {
             parent.push(group.parent.get());
             spans.push(group.span);
-            kinds.push(group.kind);
-            children.push(group.nodes);
             weak.push(group.weak);
+            children.push(group.nodes);
+
+            // Extract lang and bbox before converting to resolved kind.
+            langs.push(group.kind.lang());
+            bboxes.push(group.kind.bbox());
+
+            // Convert to lightweight resolved kind, dropping expensive data.
+            let resolved = match group.kind {
+                GroupKind::Root(_) => ResolvedGroupKind::Root,
+                GroupKind::Artifact(ty) => ResolvedGroupKind::Artifact(ty),
+                GroupKind::LogicalParent(_) => ResolvedGroupKind::LogicalParent,
+                GroupKind::LogicalChild(_, _) => ResolvedGroupKind::LogicalChild,
+                GroupKind::Outline(_, _) => ResolvedGroupKind::Outline,
+                GroupKind::OutlineEntry(_, _) => ResolvedGroupKind::OutlineEntry,
+                GroupKind::Table(id, _, _) => ResolvedGroupKind::Table(id),
+                GroupKind::TableCell(_, tag_id, _) => ResolvedGroupKind::TableCell(tag_id),
+                GroupKind::Grid(_, _) => ResolvedGroupKind::Grid,
+                GroupKind::GridCell(_, _) => ResolvedGroupKind::GridCell,
+                GroupKind::List(_, numbering, _) => ResolvedGroupKind::List(numbering),
+                GroupKind::ListItemLabel(_) => ResolvedGroupKind::ListItemLabel,
+                GroupKind::ListItemBody(_) => ResolvedGroupKind::ListItemBody,
+                GroupKind::TermsItemLabel(_) => ResolvedGroupKind::TermsItemLabel,
+                GroupKind::TermsItemBody(_, _) => ResolvedGroupKind::TermsItemBody,
+                GroupKind::BibEntry(_) => ResolvedGroupKind::BibEntry,
+                GroupKind::FigureWrapper(id) => ResolvedGroupKind::FigureWrapper(id),
+                GroupKind::Figure(id, _, _) => ResolvedGroupKind::Figure(id),
+                GroupKind::FigureCaption(_, _) => ResolvedGroupKind::FigureCaption,
+                GroupKind::Image(ref image, _, _) => ResolvedGroupKind::Image {
+                    alt: image.alt.opt_ref().cloned(),
+                },
+                GroupKind::Formula(ref equation, _, _) => ResolvedGroupKind::Formula {
+                    alt: equation.alt.opt_ref().cloned(),
+                    block: equation.block.val(),
+                },
+                GroupKind::Link(_, _) => ResolvedGroupKind::Link,
+                GroupKind::CodeBlock(_) => ResolvedGroupKind::CodeBlock,
+                GroupKind::CodeBlockLine(_) => ResolvedGroupKind::CodeBlockLine,
+                GroupKind::Par(_) => ResolvedGroupKind::Par,
+                GroupKind::TextAttr(_) => ResolvedGroupKind::TextAttr,
+                GroupKind::Transparent => ResolvedGroupKind::Transparent,
+                GroupKind::Standard(tag_id, _) => ResolvedGroupKind::Standard(tag_id),
+            };
+            kinds.push(resolved);
         }
 
         // Clear the locations map to free its memory.
@@ -141,6 +189,8 @@ impl Groups {
                 children,
                 weak,
                 parent,
+                langs,
+                bboxes,
             },
             tag_storage,
         }
@@ -535,6 +585,7 @@ impl GroupKind {
         self.as_artifact().is_some()
     }
 
+    #[allow(dead_code)]
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
     }
