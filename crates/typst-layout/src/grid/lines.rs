@@ -559,9 +559,10 @@ pub fn hline_stroke_at_column(
 #[cfg(test)]
 mod test {
     use std::num::NonZeroUsize;
-    use typst_library::foundations::Content;
+    use typst_library::foundations::{Content, Smart};
     use typst_library::layout::grid::resolve::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
+    use typst_syntax::Span;
     use typst_utils::NonZeroExt;
 
     use super::*;
@@ -575,6 +576,10 @@ mod test {
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            resolved_inset: Smart::Auto,
+            resolved_align: Smart::Auto,
+            source: None,
+            source_span: Span::detached(),
         }
     }
 
@@ -587,6 +592,10 @@ mod test {
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            resolved_inset: Smart::Auto,
+            resolved_align: Smart::Auto,
+            source: None,
+            source_span: Span::detached(),
         }
     }
 

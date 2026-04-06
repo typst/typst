@@ -7,12 +7,13 @@ pub use self::layouter::GridLayouter;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, StyleChain};
+use typst_library::foundations::{Content, NativeElement, Packed, Smart, StyleChain};
 use typst_library::introspection::{Location, Locator, SplitLocator, Tag, TagFlags};
-use typst_library::layout::grid::resolve::Cell;
+use typst_library::layout::grid::resolve::{Cell, CellSource};
 use std::sync::Arc;
 use typst_library::layout::{
-    Fragment, Frame, FrameItem, FrameParent, GridCell, GridElem, Inherit, Point, Regions,
+    Fragment, Frame, FrameItem, FrameParent, GridCell, GridElem, Inherit,
+    Point, Regions,
 };
 use typst_library::model::{TableCell, TableElem};
 
@@ -42,20 +43,37 @@ pub fn layout_cell(
     // the grid layouter makes the test suite pass.
     let mut locator = locator.split();
     let mut tags = None;
-    if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
-        let mut table_cell = table_cell.clone();
-        // Only set is_repeated if true — default is false, so skipping
-        // avoids triggering a deep clone via make_unique when not needed.
-        if is_repeated {
-            table_cell.is_repeated.set(is_repeated);
+
+    // Generate tags using Cell.source metadata to avoid cloning the full
+    // Packed<TableCell/GridCell> from cell.body. We build a lightweight
+    // packed cell with only the fields needed for PDF tagging.
+    match &cell.source {
+        Some(CellSource::Table { cell_x, cell_y, kind }) => {
+            let tag_cell = TableCell::new(Content::default())
+                .with_x(Smart::Custom(*cell_x))
+                .with_y(Smart::Custom(*cell_y))
+                .with_colspan(cell.colspan)
+                .with_rowspan(cell.rowspan)
+                .with_kind(*kind);
+            let mut packed = Packed::new(tag_cell).spanned(cell.source_span);
+            if is_repeated {
+                packed.is_repeated.set(is_repeated);
+            }
+            tags = Some(generate_tags(packed, &mut locator, engine));
         }
-        tags = Some(generate_tags(table_cell, &mut locator, engine));
-    } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
-        let mut grid_cell = grid_cell.clone();
-        if is_repeated {
-            grid_cell.is_repeated.set(is_repeated);
+        Some(CellSource::Grid { cell_x, cell_y }) => {
+            let tag_cell = GridCell::new(Content::default())
+                .with_x(Smart::Custom(*cell_x))
+                .with_y(Smart::Custom(*cell_y))
+                .with_colspan(cell.colspan)
+                .with_rowspan(cell.rowspan);
+            let mut packed = Packed::new(tag_cell).spanned(cell.source_span);
+            if is_repeated {
+                packed.is_repeated.set(is_repeated);
+            }
+            tags = Some(generate_tags(packed, &mut locator, engine));
         }
-        tags = Some(generate_tags(grid_cell, &mut locator, engine));
+        None => {}
     }
 
     let locator = locator.next(&cell.body.span());

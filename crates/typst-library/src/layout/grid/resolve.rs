@@ -273,9 +273,12 @@ impl ResolvableCell for Packed<TableCell> {
             }))
         });
 
-        // CONSTRUCT phase: build new TableCell from scratch (no deep clone)
+        // CONSTRUCT phase: build new TableCell from scratch (no deep clone).
+        // We still wrap body in Packed<TableCell> so user show rules work.
+        // The resolved fields on Cell allow layout_cell to avoid cloning
+        // the packed cell for tag generation.
         let body = self.body.clone();
-        let span = self.span();
+        let source_span = self.span();
         let new_cell = TableCell::new(body)
             .with_x(Smart::Custom(x))
             .with_y(Smart::Custom(y))
@@ -289,13 +292,21 @@ impl ResolvableCell for Packed<TableCell> {
             .with_kind(kind);
 
         Cell {
-            body: Packed::new(new_cell).spanned(span).pack(),
+            body: Packed::new(new_cell).spanned(source_span).pack(),
             fill,
             colspan,
             rowspan,
             stroke,
             stroke_overridden,
             breakable,
+            resolved_inset,
+            resolved_align,
+            source: Some(CellSource::Table {
+                cell_x: x,
+                cell_y: y,
+                kind,
+            }),
+            source_span,
         }
     }
 
@@ -368,10 +379,6 @@ impl ResolvableCell for Packed<GridCell> {
         );
         // Here we convert the resolved stroke to a regular stroke, however
         // with resolved units (that is, 'em' converted to absolute units).
-        // We also convert any stroke unspecified by both the cell and the
-        // outer stroke ('None' in the folded stroke) to 'none', that is,
-        // all sides are present in the resulting Sides object accessible
-        // by show rules on grid cells.
         let converted_stroke = stroke.as_ref().map(|side| {
             Some(side.as_ref().map(|cell_stroke| {
                 let hash = typst_utils::hash128(&**cell_stroke);
@@ -387,9 +394,12 @@ impl ResolvableCell for Packed<GridCell> {
             }))
         });
 
-        // CONSTRUCT phase: build new GridCell from scratch (no deep clone)
+        // CONSTRUCT phase: build new GridCell from scratch (no deep clone).
+        // We still wrap body in Packed<GridCell> so user show rules work.
+        // The resolved fields on Cell allow layout_cell to avoid cloning
+        // the packed cell for tag generation.
         let body = self.body.clone();
-        let span = self.span();
+        let source_span = self.span();
         let new_cell = GridCell::new(body)
             .with_x(Smart::Custom(x))
             .with_y(Smart::Custom(y))
@@ -402,13 +412,20 @@ impl ResolvableCell for Packed<GridCell> {
             .with_breakable(Smart::Custom(breakable));
 
         Cell {
-            body: Packed::new(new_cell).spanned(span).pack(),
+            body: Packed::new(new_cell).spanned(source_span).pack(),
             fill,
             colspan,
             rowspan,
             stroke,
             stroke_overridden,
             breakable,
+            resolved_inset,
+            resolved_align,
+            source: Some(CellSource::Grid {
+                cell_x: x,
+                cell_y: y,
+            }),
+            source_span,
         }
     }
 
@@ -609,10 +626,34 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
     Cell(T),
 }
 
+/// Indicates whether a cell originated from a table or grid element.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum CellSource {
+    /// The cell came from a table element. Stores resolved properties needed
+    /// for PDF tagging (x, y, kind).
+    Table {
+        /// The cell's column index.
+        cell_x: usize,
+        /// The cell's row index.
+        cell_y: usize,
+        /// The cell's kind (header/footer/data) for PDF accessibility.
+        kind: Smart<TableCellKind>,
+    },
+    /// The cell came from a grid element. Stores resolved position for tags.
+    Grid {
+        /// The cell's column index.
+        cell_x: usize,
+        /// The cell's row index.
+        cell_y: usize,
+    },
+}
+
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
 #[derive(Debug, PartialEq, Hash)]
 pub struct Cell {
-    /// The cell's body.
+    /// The cell's body content, wrapped in Packed<TableCell> or
+    /// Packed<GridCell> for show rule support. The resolved fields below
+    /// are used by layout_cell for lightweight tag generation.
     pub body: Content,
     /// The cell's fill.
     pub fill: Option<Paint>,
@@ -637,6 +678,16 @@ pub struct Cell {
     /// By default, a cell spanning only fixed-size rows is unbreakable, while
     /// a cell spanning at least one `auto`-sized row is breakable.
     pub breakable: bool,
+    /// The resolved inset for this cell (from table/grid inset + cell override).
+    /// Stored here for potential future use; currently still applied via show rule.
+    pub resolved_inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The resolved alignment for this cell.
+    /// Stored here for potential future use; currently still applied via show rule.
+    pub resolved_align: Smart<Alignment>,
+    /// Where the cell came from (table or grid), with position info for tags.
+    pub source: Option<CellSource>,
+    /// The span of the original cell element (for locator/tracing).
+    pub source_span: Span,
 }
 
 impl Cell {
@@ -650,6 +701,10 @@ impl Cell {
             stroke: Sides::splat(None),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            resolved_inset: Smart::Auto,
+            resolved_align: Smart::Auto,
+            source: None,
+            source_span: Span::detached(),
         }
     }
 }
