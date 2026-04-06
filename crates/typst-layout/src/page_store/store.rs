@@ -98,19 +98,18 @@ impl DiskPageStore {
 
     /// Appends a single page to the store.
     pub fn append_page(&mut self, page: &Page) -> io::Result<()> {
-        let mut file = self.file.reopen()?;
+        let spage = self.convert_page(page);
+        let bytes = bincode::serialize(&spage)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        let file = self.file.as_file_mut();
         file.seek(io::SeekFrom::End(0))?;
         let file_len = file.stream_position()?;
         self.offsets.push(file_len);
 
-        let mut writer = BufWriter::new(file);
-        let spage = self.convert_page(page);
-        let bytes = bincode::serialize(&spage)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let len = bytes.len() as u64;
-        writer.write_all(&len.to_le_bytes())?;
-        writer.write_all(&bytes)?;
-        writer.flush()?;
+        file.write_all(&len.to_le_bytes())?;
+        file.write_all(&bytes)?;
 
         self.page_count += 1;
         Ok(())

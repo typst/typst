@@ -174,6 +174,14 @@ fn compile_impl<T: Output>(
                 comemo::evict(0);
 
                 typst_library::engine_flags::enable_streaming_mode();
+                // Guard ensures streaming mode is disabled even on panic.
+                struct StreamingGuard;
+                impl Drop for StreamingGuard {
+                    fn drop(&mut self) {
+                        typst_library::engine_flags::disable_streaming_mode();
+                    }
+                }
+                let _guard = StreamingGuard;
 
                 let streaming_result = (|| -> SourceResult<T> {
                     let constraint2 = comemo::Constraint::new();
@@ -193,8 +201,6 @@ fn compile_impl<T: Output>(
                     sink.extend_from_sink(subsink2);
                     result
                 })();
-
-                typst_library::engine_flags::disable_streaming_mode();
 
                 // Replace the converged document with the streaming one.
                 // The old document (with dropped pages) is dropped here.
