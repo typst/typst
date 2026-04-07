@@ -435,3 +435,19 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   </svg>
   ```.text
 ))
+
+--- image-breakable paged ---
+// Test that a breakable image is sliced across pages.
+#set page(height: 60pt)
+#image("/assets/images/tiger.jpg", breakable: true)
+
+--- image-breakable-fits paged ---
+// Test that a breakable image that fits on one page is not sliced.
+#set page(height: 200pt)
+#image("/assets/images/tiger.jpg", width: 80pt, breakable: true)
+
+--- image-breakable-false paged ---
+// Test that a non-breakable image (default) jumps to the next page.
+#set page(height: 60pt)
+Some text.
+#image("/assets/images/tiger.jpg")

@@ -3,7 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
+    Abs, Axes, FixedAlignment, Fragment, Frame, FrameItem, Point, Region, Regions, Size,
 };
 use typst_library::visualize::{Curve, Image, ImageElem, ImageFit};
 
@@ -78,4 +78,104 @@ pub fn layout_image(
     }
 
     Ok(frame)
+}
+
+/// Layout the image across multiple regions, slicing at page boundaries.
+#[typst_macros::time(span = elem.span())]
+pub fn layout_image_breakable(
+    elem: &Packed<ImageElem>,
+    engine: &mut Engine,
+    _: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let image = elem.decode(engine, styles)?;
+
+    // Determine the image's pixel aspect ratio.
+    let pxw = image.width();
+    let pxh = image.height();
+    let px_ratio = pxw / pxh;
+
+    // Use the base region for sizing (full page dimensions).
+    let base = regions.base();
+    let expand = regions.expand;
+
+    let region_ratio = base.x / base.y;
+    let wide = px_ratio > region_ratio;
+
+    // Compute the full target size the image wants to occupy.
+    let target = if expand.x && expand.y {
+        base
+    } else if expand.x {
+        Size::new(base.x, base.x / px_ratio)
+    } else if expand.y {
+        Size::new(base.y * px_ratio, base.y)
+    } else {
+        let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
+        let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
+        Size::new(natural.x.min(base.x), natural.y.min(base.x / px_ratio))
+    };
+
+    // Compute the fitted image size.
+    let fit = elem.fit.get(styles);
+    let fitted = match fit {
+        ImageFit::Cover | ImageFit::Contain => {
+            if wide == (fit == ImageFit::Contain) {
+                Size::new(target.x, target.x / px_ratio)
+            } else {
+                Size::new(target.y * px_ratio, target.y)
+            }
+        }
+        ImageFit::Stretch => target,
+    };
+
+    // Build the full image frame.
+    let mut full_frame = Frame::soft(fitted);
+    full_frame.push(Point::zero(), FrameItem::Image(image, fitted, elem.span()));
+    full_frame.resize(target, Axes::splat(FixedAlignment::Center));
+
+    if fit == ImageFit::Cover && !target.fits(fitted) {
+        full_frame.clip(Curve::rect(full_frame.size()));
+    }
+
+    let total_height = full_frame.height();
+
+    // Fast path: image fits in the first region.
+    if regions.size.y.fits(total_height) || !regions.may_break() {
+        return Ok(Fragment::frame(full_frame));
+    }
+
+    // Slice the image across regions.
+    let mut frames = vec![];
+    let mut remaining = total_height;
+    let mut y_offset = Abs::zero();
+    let mut iter = regions;
+
+    loop {
+        let available = iter.size.y;
+        let slice_height = remaining.min(available);
+        let slice_size = Size::new(target.x, slice_height);
+
+        // Create a frame showing the appropriate vertical slice.
+        let mut frame = Frame::soft(full_frame.size());
+        for (point, item) in full_frame.items() {
+            frame.push(*point, item.clone());
+        }
+        frame.translate(Point::new(Abs::zero(), -y_offset));
+        frame.set_size(slice_size);
+        frame.clip(Curve::rect(slice_size));
+
+        frames.push(frame);
+
+        remaining -= slice_height;
+        y_offset += slice_height;
+
+        if remaining <= Abs::zero() || !iter.may_break() {
+            break;
+        }
+
+        iter.next();
+    }
+
+    Ok(Fragment::frames(frames))
 }
