@@ -774,10 +774,19 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
 };
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, _, styles| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
-        .with_width(elem.width.get(styles))
-        .with_height(elem.height.get(styles))
-        .pack())
+    let width = elem.width.get(styles);
+    let height = elem.height.get(styles);
+    if elem.breakable.get(styles) {
+        Ok(BlockElem::multi_layouter(elem.clone(), crate::image::layout_image_breakable)
+            .with_width(width)
+            .with_height(height)
+            .pack())
+    } else {
+        Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
+            .with_width(width)
+            .with_height(height)
+            .pack())
+    }
 };
 
 const LINE_RULE: ShowFn<LineElem> = |elem, _, _| {

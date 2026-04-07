@@ -175,6 +175,18 @@ pub struct ImageElem {
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 
+    /// Whether the image can be broken across pages.
+    ///
+    /// When `{true}`, if the image is taller than the remaining space on the
+    /// current page, it will be sliced at the page boundary and continue on
+    /// the next page, similar to how browsers handle images when printing to
+    /// PDF.
+    ///
+    /// When `{false}` (the default), the image is kept as a single unit and
+    /// will move to the next page if it doesn't fit.
+    #[default(false)]
+    pub breakable: bool,
+
     /// A hint to viewers how they should scale the image.
     ///
     /// When set to `{auto}`, the default is left up to the viewer. For PNG

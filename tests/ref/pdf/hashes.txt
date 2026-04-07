@@ -589,6 +589,9 @@ e66174704695ed5a7f878cb4436b6b6c hyphenate-shy
 c966db83171f169ad48b02efc8374998 if-condition-complex
 09cafb541fc19439bd59c8d5410d6a7a if-markup
 d46b5d7163d3adece9e897c5be776992 image-baseline-with-box
+8a4c226428e59479df403c48796db305 image-breakable
+e4ed249298af8061561c36d8192fba98 image-breakable-false
+66a7d75bf1321cc4b49e1b2dcc7b26df image-breakable-fits
 6ca8215af82d148a324565bce6dcbdb0 image-decode-detect-format
 7d19169f03251a4ce05a038e325d48f4 image-decode-specify-format
 ead49a7b6dc3ae7e62b8aa84011bfa72 image-decode-svg
