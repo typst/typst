@@ -177,8 +177,8 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         Destination::Location(location) => Some(
             EarlyLinkResolver::new(elem.location().unwrap(), span)
                 .resolve(engine, location)
-                .at(span)?
-                .into_uri(),
+                .and_then(|link| link.into_relative_uri())
+                .at(span)?,
         ),
     };
 
