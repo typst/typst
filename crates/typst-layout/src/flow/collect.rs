@@ -461,7 +461,8 @@ impl<'a> MultiChild<'a> {
         regions: Regions,
     ) -> SourceResult<(Frame, Option<MultiSpill<'a, 'b>>)> {
         let fragment = self.layout_full(engine, regions)?;
-        let exist_non_empty_frame = fragment.iter().any(|f| !f.is_empty());
+        let exist_non_empty_frame = fragment.has_any_non_empty();
+        let has_more = fragment.len() > 1;
 
         // Extract the first frame.
         let mut frames = fragment.into_iter();
@@ -469,7 +470,7 @@ impl<'a> MultiChild<'a> {
 
         // If there's more, return a `spill`.
         let mut spill = None;
-        if frames.next().is_some() {
+        if has_more {
             spill = Some(MultiSpill {
                 exist_non_empty_frame,
                 multi: self,
@@ -506,6 +507,15 @@ impl<'a> MultiChild<'a> {
                 regions,
             )
         })
+    }
+
+    /// Clear a consumed frame from the cached Fragment to free memory.
+    /// Used in streaming mode to release frames that have already been extracted.
+    fn clear_cached_frame(&self, index: usize) {
+        let mut slot = self.cell.0.borrow_mut();
+        if let Some((_, Ok(fragment))) = &mut *slot {
+            fragment.clear_frame(index);
+        }
     }
 }
 
@@ -584,11 +594,12 @@ impl MultiSpill<'_, '_> {
         };
 
         // Extract the not-yet-processed frames.
+        // Use into_iter_from to efficiently skip consumed frames without
+        // reading them from disk (important for disk-backed fragments).
         let mut frames = self
             .multi
             .layout_full(engine, pod)?
-            .into_iter()
-            .skip(self.backlog.len());
+            .into_iter_from(self.backlog.len());
 
         // Ensure that the backlog never shrinks, so that unwrapping below is at
         // least fairly safe. Note that the whole region juggling here is
@@ -603,9 +614,20 @@ impl MultiSpill<'_, '_> {
         // Save the first frame.
         let frame = frames.next().unwrap();
 
+        // In streaming mode, clear consumed frames from cache to free memory.
+        // Frames 0..=backlog.len() have been consumed (backlog.len() is the
+        // current frame's index after the push above).
+        if typst_library::engine_flags::is_streaming_mode() {
+            for i in 0..=self.backlog.len() {
+                self.multi.clear_cached_frame(i);
+            }
+        }
+
         // If there's more, return a `spill`.
+        // Use len() instead of next().is_some() to avoid reading an extra
+        // frame from disk for disk-backed fragments.
         let mut spill = None;
-        if frames.next().is_some() {
+        if frames.len() > 0 {
             spill = Some(self);
         }
 

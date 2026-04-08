@@ -33,6 +33,11 @@ impl FrameModifiers {
             hidden: styles.get(HideElem::hidden),
         }
     }
+
+    /// Returns true if these modifiers would not change any frame.
+    pub fn is_noop(&self) -> bool {
+        self.dest.is_none() && !self.hidden
+    }
 }
 
 /// Applies [`FrameModifiers`].
@@ -58,6 +63,14 @@ impl FrameModify for Frame {
 
 impl FrameModify for Fragment {
     fn modify(&mut self, modifiers: &FrameModifiers) {
+        // Skip for disk-backed fragments when modifiers are no-ops.
+        if self.is_disk_backed() && modifiers.is_noop() {
+            return;
+        }
+        // Materialize disk-backed fragments if modifiers need applying.
+        if self.is_disk_backed() {
+            self.materialize();
+        }
         for frame in self.iter_mut() {
             frame.modify(modifiers);
         }

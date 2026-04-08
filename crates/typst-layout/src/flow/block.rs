@@ -206,6 +206,23 @@ pub fn layout_multi_block(
     let has_inset = !inset.is_zero();
     let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
 
+    // For disk-backed fragments (e.g., large grids), skip block post-processing
+    // when there's nothing to do. This avoids materializing all frames into memory.
+    if fragment.is_disk_backed()
+        && !is_explicit
+        && !has_fill_or_stroke
+        && !has_inset
+        && !clip
+        && elem.label().is_none()
+    {
+        return Ok(fragment);
+    }
+
+    // Materialize disk-backed fragments if post-processing is needed.
+    if fragment.is_disk_backed() {
+        fragment.materialize();
+    }
+
     // Skip filling, stroking and labeling the first frame if it is empty and
     // a non-empty one follows.
     let mut skip_first = false;

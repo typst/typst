@@ -11,7 +11,9 @@ use typst_library::diag::{
     At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Fold, Packed, Smart, StyleChain};
+use typst_library::foundations::{
+    Content, Element, Fold, Packed, Selector, Smart, StyleChain, Target, TargetElem,
+};
 use typst_library::layout::{
     Abs, Alignment, Axes, Celled, GridCell, GridChild, GridElem, GridItem, Length,
     OuterHAlignment, OuterVAlignment, Rel, ResolvedCelled, Sides, Sizing,
@@ -24,6 +26,34 @@ use typst_syntax::Span;
 use typst_utils::{NonZeroExt, SmallBitSet};
 
 use crate::pdf::{TableCellKind, TableHeaderScope};
+
+/// Check if the Packed cell wrapper is needed. Returns true if:
+/// - The output target is HTML (HTML export needs cell elements for structure), or
+/// - User show rules target this cell element type.
+fn needs_packed_cell(styles: StyleChain, cell_elem: Element) -> bool {
+    // HTML export requires Packed<TableCell/GridCell> for table structure.
+    if styles.get(TargetElem::target) != Target::Paged {
+        return true;
+    }
+    styles.recipes().any(|recipe| {
+        recipe
+            .selector()
+            .is_some_and(|sel| selector_may_target(sel, cell_elem))
+    })
+}
+
+fn selector_may_target(selector: &Selector, target: Element) -> bool {
+    match selector {
+        Selector::Elem(elem, _) => *elem == target,
+        Selector::Or(sels) | Selector::And(sels) => {
+            sels.iter().any(|s| selector_may_target(s, target))
+        }
+        Selector::Before { selector, .. }
+        | Selector::After { selector, .. }
+        | Selector::Within { selector, .. } => selector_may_target(selector, target),
+        _ => false,
+    }
+}
 
 thread_local! {
     /// Cache for `Stroke<Abs>` to `Arc<Stroke<Length>>` conversions.
@@ -273,26 +303,41 @@ impl ResolvableCell for Packed<TableCell> {
             }))
         });
 
-        // CONSTRUCT phase: build new TableCell from scratch (no deep clone).
-        // We still wrap body in Packed<TableCell> so user show rules work.
-        // The resolved fields on Cell allow layout_cell to avoid cloning
-        // the packed cell for tag generation.
-        let body = self.body.clone();
+        // CONSTRUCT phase: if no user show rules target table.cell, skip
+        // the Packed<TableCell> allocation and apply inset/align directly.
         let source_span = self.span();
-        let new_cell = TableCell::new(body)
-            .with_x(Smart::Custom(x))
-            .with_y(Smart::Custom(y))
-            .with_colspan(colspan)
-            .with_rowspan(rowspan)
-            .with_fill(Smart::Custom(fill.clone()))
-            .with_align(resolved_align)
-            .with_inset(resolved_inset)
-            .with_stroke(converted_stroke)
-            .with_breakable(Smart::Custom(breakable))
-            .with_kind(kind);
+        let body = if needs_packed_cell(styles, Element::of::<TableCell>()) {
+            // User show rules exist: keep Packed wrapper for matching.
+            let body = self.body.clone();
+            let new_cell = TableCell::new(body)
+                .with_x(Smart::Custom(x))
+                .with_y(Smart::Custom(y))
+                .with_colspan(colspan)
+                .with_rowspan(rowspan)
+                .with_fill(Smart::Custom(fill.clone()))
+                .with_align(resolved_align)
+                .with_inset(resolved_inset)
+                .with_stroke(converted_stroke)
+                .with_breakable(Smart::Custom(breakable))
+                .with_kind(kind);
+            Packed::new(new_cell).spanned(source_span).pack()
+        } else {
+            // No user show rules: apply inset/align directly (same as show_cell).
+            let mut body = self.body.clone();
+            let applied_inset = resolved_inset
+                .unwrap_or_default()
+                .map(Option::unwrap_or_default);
+            if applied_inset != Sides::default() {
+                body = body.padded(applied_inset);
+            }
+            if let Smart::Custom(alignment) = resolved_align {
+                body = body.aligned(alignment);
+            }
+            body
+        };
 
         Cell {
-            body: Packed::new(new_cell).spanned(source_span).pack(),
+            body,
             fill,
             colspan,
             rowspan,
@@ -394,25 +439,40 @@ impl ResolvableCell for Packed<GridCell> {
             }))
         });
 
-        // CONSTRUCT phase: build new GridCell from scratch (no deep clone).
-        // We still wrap body in Packed<GridCell> so user show rules work.
-        // The resolved fields on Cell allow layout_cell to avoid cloning
-        // the packed cell for tag generation.
-        let body = self.body.clone();
+        // CONSTRUCT phase: if no user show rules target grid.cell, skip
+        // the Packed<GridCell> allocation and apply inset/align directly.
         let source_span = self.span();
-        let new_cell = GridCell::new(body)
-            .with_x(Smart::Custom(x))
-            .with_y(Smart::Custom(y))
-            .with_colspan(colspan)
-            .with_rowspan(rowspan)
-            .with_fill(Smart::Custom(fill.clone()))
-            .with_align(resolved_align)
-            .with_inset(resolved_inset)
-            .with_stroke(converted_stroke)
-            .with_breakable(Smart::Custom(breakable));
+        let body = if needs_packed_cell(styles, Element::of::<GridCell>()) {
+            // User show rules exist: keep Packed wrapper for matching.
+            let body = self.body.clone();
+            let new_cell = GridCell::new(body)
+                .with_x(Smart::Custom(x))
+                .with_y(Smart::Custom(y))
+                .with_colspan(colspan)
+                .with_rowspan(rowspan)
+                .with_fill(Smart::Custom(fill.clone()))
+                .with_align(resolved_align)
+                .with_inset(resolved_inset)
+                .with_stroke(converted_stroke)
+                .with_breakable(Smart::Custom(breakable));
+            Packed::new(new_cell).spanned(source_span).pack()
+        } else {
+            // No user show rules: apply inset/align directly (same as show_cell).
+            let mut body = self.body.clone();
+            let applied_inset = resolved_inset
+                .unwrap_or_default()
+                .map(Option::unwrap_or_default);
+            if applied_inset != Sides::default() {
+                body = body.padded(applied_inset);
+            }
+            if let Smart::Custom(alignment) = resolved_align {
+                body = body.aligned(alignment);
+            }
+            body
+        };
 
         Cell {
-            body: Packed::new(new_cell).spanned(source_span).pack(),
+            body,
             fill,
             colspan,
             rowspan,
@@ -880,6 +940,58 @@ impl CellGrid {
     #[track_caller]
     pub fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.entry(x, y).and_then(Entry::as_cell)
+    }
+
+    /// Release the body Content of all cells in row `y` that have rowspan == 1.
+    /// This frees the cell's layout content after the row has been fully laid
+    /// out, reducing peak memory for large grids. Cells with rowspan > 1 are
+    /// kept alive for later rowspan layout.
+    ///
+    /// # Safety
+    /// This uses interior mutability to modify cells through a shared reference.
+    /// The caller must ensure no other code holds a reference to the cell body
+    /// being released. This is safe during grid layout because cells are only
+    /// accessed row-by-row, and released rows are never revisited.
+    pub fn release_row_cells(&self, y: usize) {
+        let c = self.non_gutter_column_count();
+        let factor = if self.has_gutter { 2 } else { 1 };
+        for col_idx in 0..c {
+            let x = col_idx * factor;
+            let entry_idx = if self.has_gutter {
+                (y / 2) * c + x / 2
+            } else {
+                y * c + x
+            };
+            if let Some(Entry::Cell(cell)) = self.entries.get(entry_idx) {
+                if cell.rowspan.get() == 1 {
+                    // SAFETY: During grid layout, once a non-rowspan row is laid out,
+                    // its cell bodies are never accessed again (headers/footers are
+                    // excluded by the caller). The Content is replaced with a no-alloc
+                    // singleton to free memory.
+                    unsafe {
+                        let cell_ptr = cell as *const Cell as *mut Cell;
+                        (*cell_ptr).body = Content::empty();
+                    }
+                }
+            }
+        }
+    }
+
+    /// Release the body Content of a specific cell at position (x, y).
+    /// Uses the same interior mutability approach as release_row_cells.
+    pub fn release_cell(&self, x: usize, y: usize) {
+        let c = self.non_gutter_column_count();
+        let entry_idx = if self.has_gutter {
+            (y / 2) * c + x / 2
+        } else {
+            y * c + x
+        };
+        if let Some(Entry::Cell(cell)) = self.entries.get(entry_idx) {
+            unsafe {
+                let cell_ptr = cell as *const Cell as *mut Cell;
+                (*cell_ptr).body = Content::empty();
+            }
+        }
     }
 
     /// Returns the position of the parent cell of the grid entry at the given
