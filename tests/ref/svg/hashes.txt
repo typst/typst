@@ -804,7 +804,7 @@ bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 2e23a826a914d869461b594a54ba8890 issue-7437-math-accent-text-presentation
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
-3ed4ba2c029b6bd399d5cb1e242ac986 issue-7901-rect-negative-dimensions-radius
+366fcb9e4d729259ba5ed7a60884efb4 issue-7901-rect-negative-dimensions-radius
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
 cdb9cb5e69f59e77d9640e7c9001f9d8 issue-852-mat-type
 421744506d29db117dff226731da1b04 issue-886-args-sink
