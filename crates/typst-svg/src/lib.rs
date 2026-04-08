@@ -8,7 +8,7 @@ mod text;
 mod write;
 
 use comemo::Tracked;
-pub use image::{convert_image_scaling, convert_image_to_base64_url};
+pub use image::{WebImage, convert_image_scaling};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use typst_library::model::{Destination, LateLinkResolver};

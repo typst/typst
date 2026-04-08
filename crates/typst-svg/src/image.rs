@@ -4,7 +4,7 @@ use base64::Engine;
 use ecow::{EcoString, eco_format};
 use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use image::{ImageEncoder, codecs::png::PngEncoder};
-use typst_library::foundations::Smart;
+use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
@@ -22,12 +22,12 @@ impl SVGRenderer<'_> {
         image: &Image,
         size: &Axes<Abs>,
     ) {
-        let url = convert_image_to_base64_url(image);
+        let url = WebImage::new(image).to_base64_url();
         let mut svg = svg.elem("image");
         if !state.transform.is_identity() {
             svg.attr("transform", SvgTransform(state.transform));
         }
-        svg.attr("xlink:href", url);
+        svg.attr("xlink:href", url.as_str());
         svg.attr("width", size.x.to_pt());
         svg.attr("height", size.y.to_pt());
         svg.attr("preserveAspectRatio", "none");
@@ -53,43 +53,91 @@ pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static st
     }
 }
 
-/// Encode an image into a data URL. The format of the URL is
-/// `data:image/{format};base64,`.
-#[comemo::memoize]
-pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
-    let (mut buf, strbuf);
-    let (format, data): (&str, &[u8]) = match image.kind() {
-        ImageKind::Raster(raster) => match raster.format() {
-            RasterFormat::Exchange(format) => (
-                match format {
-                    ExchangeFormat::Png => "png",
-                    ExchangeFormat::Jpg => "jpeg",
-                    ExchangeFormat::Gif => "gif",
-                    ExchangeFormat::Webp => "webp",
-                },
-                raster.data(),
-            ),
-            RasterFormat::Pixel(_) => ("png", {
-                buf = vec![];
-                let mut encoder = PngEncoder::new(&mut buf);
-                if let Some(icc_profile) = raster.icc() {
-                    encoder.set_icc_profile(icc_profile.to_vec()).ok();
-                }
-                raster.dynamic().write_with_encoder(encoder).unwrap();
-                buf.as_slice()
-            }),
-        },
-        ImageKind::Svg(svg) => ("svg+xml", svg.data()),
-        ImageKind::Pdf(pdf) => {
-            strbuf = pdf_to_svg(pdf);
-            ("svg+xml", strbuf.as_bytes())
-        }
-    };
+/// An image that is prepared for use in the web platform (SVG or HTML).
+#[derive(Debug, Clone, Hash)]
+pub struct WebImage {
+    pub format: WebImageFormat,
+    pub data: Bytes,
+}
 
-    let mut url = eco_format!("data:image/{format};base64,");
-    let data = base64::engine::general_purpose::STANDARD.encode(data);
-    url.push_str(&data);
-    url
+/// An image format supported on the web.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub enum WebImageFormat {
+    Png,
+    Jpg,
+    Gif,
+    Webp,
+    Svg,
+}
+
+impl WebImageFormat {
+    /// The mime type for this format.
+    pub fn mime(&self) -> &'static str {
+        match self {
+            Self::Png => "image/png",
+            Self::Jpg => "image/jpeg",
+            Self::Gif => "image/gif",
+            Self::Webp => "image/webp",
+            Self::Svg => "image/svg+xml",
+        }
+    }
+
+    /// The canonical extension used for this format.
+    pub fn extension(&self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Jpg => "jpg",
+            Self::Gif => "gif",
+            Self::Webp => "webp",
+            Self::Svg => "svg",
+        }
+    }
+}
+
+impl WebImage {
+    /// Prepare an image for embedding in SVG or HTML.
+    #[comemo::memoize]
+    pub fn new(image: &Image) -> WebImage {
+        let (format, data) = match image.kind() {
+            ImageKind::Raster(raster) => match raster.format() {
+                RasterFormat::Exchange(format) => (
+                    match format {
+                        ExchangeFormat::Png => WebImageFormat::Png,
+                        ExchangeFormat::Jpg => WebImageFormat::Jpg,
+                        ExchangeFormat::Gif => WebImageFormat::Gif,
+                        ExchangeFormat::Webp => WebImageFormat::Webp,
+                    },
+                    raster.data().clone(),
+                ),
+                RasterFormat::Pixel(_) => (WebImageFormat::Png, {
+                    let mut buf = vec![];
+                    let mut encoder = PngEncoder::new(&mut buf);
+                    if let Some(icc_profile) = raster.icc() {
+                        encoder.set_icc_profile(icc_profile.to_vec()).ok();
+                    }
+                    raster.dynamic().write_with_encoder(encoder).unwrap();
+                    Bytes::new(buf)
+                }),
+            },
+            ImageKind::Svg(svg) => (WebImageFormat::Svg, svg.data().clone()),
+            ImageKind::Pdf(pdf) => {
+                (WebImageFormat::Svg, Bytes::from_string(pdf_to_svg(pdf)))
+            }
+        };
+        Self { format, data }
+    }
+
+    /// Turns the image into a base64 URL.
+    ///
+    /// The format of the URL is `data:{mime};base64,`.
+    #[comemo::memoize]
+    pub fn to_base64_url(&self) -> EcoString {
+        let mut url = eco_format!("data:{};base64,", self.format.mime());
+        let data = base64::engine::general_purpose::STANDARD.encode(&self.data);
+        url.push_str(&data);
+        url
+    }
 }
 
 // Keep this in sync with `typst-png`!
