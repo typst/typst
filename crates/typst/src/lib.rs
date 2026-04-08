@@ -309,7 +309,7 @@ impl LibraryExt for Library {
 ///
 /// This is essentially dynamic linking and done to allow for crate splitting.
 static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
-    rules: {
+    rules: || {
         let mut rules = NativeRuleMap::new();
         typst_layout::register(&mut rules);
         typst_html::register(&mut rules);

@@ -510,7 +510,7 @@ fn verdict<'a>(
     // If we found no user-defined rule, also consider the built-in show rule.
     if step.is_none() {
         let target = styles.get(TargetElem::target);
-        if let Some(rule) = engine.library.routines.rules.get(target, elem) {
+        if let Some(rule) = engine.library.rules.get(target, elem) {
             step = Some(ShowStep::Builtin(rule));
         }
     }

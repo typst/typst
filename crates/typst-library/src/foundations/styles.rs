@@ -5,7 +5,8 @@ use std::{mem, ptr};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_vec};
-use rustc_hash::FxHashMap;
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -982,8 +983,9 @@ fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
 }
 
 /// Holds native show rules.
+#[derive(Debug, Clone)]
 pub struct NativeRuleMap {
-    rules: FxHashMap<(Element, Target), NativeShowRule>,
+    rules: IndexMap<(Element, Target), NativeShowRule, FxBuildHasher>,
 }
 
 /// The signature of a native show rule.
@@ -1005,7 +1007,7 @@ impl NativeRuleMap {
             |_, _, _| Ok(Content::empty())
         }
 
-        let mut rules = Self { rules: FxHashMap::default() };
+        let mut rules = Self { rules: IndexMap::default() };
 
         for target in [Target::Paged, Target::Html, Target::Bundle] {
             // ContextElem is as special as SequenceElem and StyledElem and
@@ -1035,11 +1037,26 @@ impl NativeRuleMap {
     /// Registers a rule for a target.
     ///
     /// Panics if a rule already exists for this target-element combination.
+    #[track_caller]
     pub fn register<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
         let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
         if res.is_some() {
             panic!(
                 "duplicate native show rule for `{}` on {target:?} target",
+                T::ELEM.name()
+            )
+        }
+    }
+
+    /// Replaces a rule for a target.
+    ///
+    /// Panics if no rule exists for this target-element combination.
+    #[track_caller]
+    pub fn replace<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
+        let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
+        if res.is_none() {
+            panic!(
+                "no existing native show rule for `{}` on {target:?} target",
                 T::ELEM.name()
             )
         }
@@ -1058,13 +1075,22 @@ impl Default for NativeRuleMap {
     }
 }
 
+impl Hash for NativeRuleMap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.rules.len());
+        for item in &self.rules {
+            item.hash(state);
+        }
+    }
+}
+
 pub use rule::NativeShowRule;
 
 mod rule {
     use super::*;
 
     /// The show rule for a native element.
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Hash)]
     pub struct NativeShowRule {
         /// The element to which this rule applies.
         elem: Element,
@@ -1103,6 +1129,12 @@ mod rule {
 
             // Safety: We just checked that the element is of the correct type.
             unsafe { (self.f)(content, engine, styles) }
+        }
+    }
+
+    impl Debug for NativeShowRule {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            f.pad("NativeShowRule(..)")
         }
     }
 }
