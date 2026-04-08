@@ -29,8 +29,6 @@ macro_rules! routines {
         /// This is essentially dynamic linking and done to allow for crate
         /// splitting.
         pub struct Routines {
-            /// Native show rules.
-            pub rules: NativeRuleMap,
             $(
                 $(#[$attr])*
                 pub $name: $(for<$($time),*>)? fn ($($args)*) -> $ret
@@ -50,6 +48,9 @@ macro_rules! routines {
 }
 
 routines! {
+    /// Creates the map with the built-in show rules.
+    fn rules() -> NativeRuleMap
+
     /// Evaluates a string as code and return the resulting value.
     fn eval_string(
         routines: &Routines,
