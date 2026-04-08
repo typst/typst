@@ -759,7 +759,8 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     let image = elem.decode(engine, styles)?;
 
     let mut attrs = HtmlAttrs::new();
-    attrs.push(attr::src, typst_svg::convert_image_to_base64_url(&image));
+    let src = typst_svg::WebImage::new(&image).to_base64_url();
+    attrs.push(attr::src, src);
 
     if let Some(alt) = elem.alt.get_cloned(styles) {
         attrs.push(attr::alt, alt);
