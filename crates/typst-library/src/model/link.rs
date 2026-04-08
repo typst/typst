@@ -615,20 +615,15 @@ impl EarlyLinkResolver {
             .introspect(LinkAnchorIntrospection(location, self.span))
             .ok_or("failed to determine link anchor")?;
 
-        Ok(match (&from, &to) {
+        Ok(match (from, to) {
             // This is the normal case in single file export.
             (None, None) => ResolvedLink::Local { anchor },
             // This is the normal case in bundle export.
             (Some(from), Some(to)) => {
                 if from == to {
                     ResolvedLink::Local { anchor }
-                } else if let Some(parent) = from.parent() {
-                    let relative_path = to.relative_from(&parent);
-                    ResolvedLink::Cross { relative_path, anchor }
                 } else {
-                    // For this to happen, `src` would have to be `/`, which
-                    // is not allowed.
-                    bail!("containing document has invalid path")
+                    ResolvedLink::Cross { from, to, anchor }
                 }
             }
             // This can, for instance, happen when trying to link to
@@ -688,11 +683,8 @@ impl<'a> LateLinkResolver<'a> {
             (Some(from), Some(to)) => {
                 if from == to {
                     ResolvedLink::Local { anchor }
-                } else if let Some(parent) = from.parent() {
-                    let relative_path = to.relative_from(&parent);
-                    ResolvedLink::Cross { relative_path, anchor }
                 } else {
-                    return None;
+                    ResolvedLink::Cross { from: from.clone(), to: to.clone(), anchor }
                 }
             }
             (Some(_), None) => return None,
@@ -712,22 +704,31 @@ pub enum ResolvedLink {
     },
     /// Should link to an anchor in another document.
     Cross {
-        /// The relative path that navigates from the document containing the link
-        /// to the linked-to document containing the anchor.
-        relative_path: EcoString,
-        /// The anchor to link to. If empty, should link to the full document.
+        /// The path of the file containing the link.
+        from: VirtualPath,
+        /// The path of the linked-to file.
+        to: VirtualPath,
+        /// The anchor to link to in the `to` file. If empty, should link to the
+        /// full document.
         anchor: EcoString,
     },
 }
 
 impl ResolvedLink {
-    /// Turns the link into a URI, potentially with an `#` anchor fragment.
-    pub fn into_uri(self) -> EcoString {
-        match self {
+    /// Turns the link into a relative URI, potentially with an `#` anchor fragment.
+    pub fn into_relative_uri(self) -> StrResult<EcoString> {
+        Ok(match self {
             // Still write the empty anchor if linking to the document itself
             // because `#` doesn't trigger a reload unlike an empty href.
             Self::Local { anchor } => eco_format!("#{anchor}"),
-            Self::Cross { relative_path, anchor } => {
+            Self::Cross { from, to, anchor } => {
+                let Some(parent) = from.parent() else {
+                    // For this to happen, `src` would have to be `/`, which
+                    // is not allowed.
+                    bail!("containing document has invalid path");
+                };
+
+                let relative_path = to.relative_from(&parent);
                 if anchor.is_empty() {
                     // Don't write a trailing `#` if linking to a full document.
                     relative_path
@@ -735,7 +736,7 @@ impl ResolvedLink {
                     eco_format!("{relative_path}#{anchor}")
                 }
             }
-        }
+        })
     }
 }
 

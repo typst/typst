@@ -353,8 +353,8 @@ impl<'a> SVGRenderer<'a> {
                 // outside of HTML.
                 if let Some(resolver) = self.link_resolver
                     && let Some(link) = resolver.resolve(*loc)
+                    && let Ok(uri) = link.into_relative_uri()
                 {
-                    let uri = link.into_uri();
                     a.attr("href", &uri);
                     a.attr("xlink:href", &uri);
                 }
