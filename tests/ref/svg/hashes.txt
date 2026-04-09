@@ -955,7 +955,7 @@ a9ea1964ea50a5f99bb43b60052d92e2 loop-break-join-in-nested-blocks
 d0870db62e7d975b7ed374c4dd5149da lorem-pars
 d67b22f989938c53a50e3005de222f43 math-accent-align
 5b53d99967ab61c16b7e708e94ac14fe math-accent-bottom
-e41e40e9124f82fdbcee67aad8d1d43f math-accent-bottom-cramped
+790d288706e2cdb297ce9bb4548f5cd9 math-accent-bottom-cramped
 e0fbfe68dbe47bc60dbb37b440a241ef math-accent-bottom-high-base
 dfc8f1d12038f66e48525fc5b6f9d4f3 math-accent-bottom-sized
 21d8e0995c539510c94aaaad245329c5 math-accent-bottom-subscript

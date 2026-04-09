@@ -329,7 +329,7 @@ fn resolve_symbol<'a, 'v, 'e>(
 
 /// Resolves an accent element.
 ///
-/// The base is resolved in cramped style.
+/// The base is resolved in cramped style if the accent is above.
 fn resolve_accent<'a, 'v, 'e>(
     elem: &'a Packed<AccentElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
@@ -339,10 +339,13 @@ fn resolve_accent<'a, 'v, 'e>(
     let position = if accent.is_bottom() { Position::Below } else { Position::Above };
 
     let mut new_styles = Styles::new();
-    new_styles.apply(style_cramped().into());
-    // Try to replace the base glyph with its dotless variant.
-    if position == Position::Above && elem.dotless.get(styles) {
-        new_styles.apply(style_dtls().into());
+    if position == Position::Above {
+        new_styles.apply(style_cramped().into());
+
+        // Try to replace the base glyph with its dotless variant.
+        if elem.dotless.get(styles) {
+            new_styles.apply(style_dtls().into());
+        }
     }
 
     let base_styles = ctx.chain_styles(styles, new_styles);

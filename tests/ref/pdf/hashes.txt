@@ -955,7 +955,7 @@ d3905bbf66c760f77c8d0749e87ea686 locate-start-of-par
 88d69634be527282f21836b3a2e89df3 lorem-pars
 84b4fbe8abf075596be51a280b97c2a4 math-accent-align
 54aa80a66fa9d3067798872bcd512fbb math-accent-bottom
-7c1fd133d35e3808f3c4a2d8ede571e8 math-accent-bottom-cramped
+1530cc9459f2d77ecc632e1fa91135d2 math-accent-bottom-cramped
 40d82db19a66708ad12eacb956f4f7e5 math-accent-bottom-high-base
 4e205f08d144b2ab1b0246129fbd118c math-accent-bottom-sized
 1f9ff8b0b9f4f49f24e31a884579541c math-accent-bottom-subscript
