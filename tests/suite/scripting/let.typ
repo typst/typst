@@ -99,7 +99,8 @@ Three
 
 #for _ in range(2) []
 
-// Error: 2-3 unexpected underscore
+// Error: 2 expected expression
+// Error: 2-3 unclosed delimiter
 #_
 
 // Error: 8-9 expected expression, found underscore
