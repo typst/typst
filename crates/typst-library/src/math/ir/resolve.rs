@@ -1172,25 +1172,23 @@ fn resolve_op<'a, 'v, 'e>(
 /// Resolves a root (radical) element.
 ///
 /// The radicand is resolved in cramped style, and the index in
-/// scriptscript size.
+/// scriptscript size and cramped style.
 fn resolve_root<'a, 'v, 'e>(
     elem: &'a Packed<RootElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let bumped_styles = ctx.store_chain(styles);
-    let radicand = {
-        let cramped = ctx.store_styles(style_cramped());
-        ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
-            .with_multiline_centering()
-    };
+    let cramped_styles = ctx.store_chain(ctx.chain_styles(styles, style_cramped()));
+    let radicand = ctx
+        .resolve_into_item(&elem.radicand, *cramped_styles)?
+        .with_multiline_centering();
     let index = {
         let sscript =
             ctx.store_styles(EquationElem::size.set(MathSize::ScriptScript).wrap());
         elem.index
             .get_ref(styles)
             .as_ref()
-            .map(|elem| ctx.resolve_into_item(elem, bumped_styles.chain(sscript)))
+            .map(|elem| ctx.resolve_into_item(elem, cramped_styles.chain(sscript)))
             .transpose()?
     };
     let sqrt = ctx.resolve_into_item(

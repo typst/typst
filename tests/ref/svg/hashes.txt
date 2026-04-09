@@ -1197,7 +1197,7 @@ dcad2f88070e22f99f7b8e8234775fae math-primes-show-rule
 8c78cd73c7cc245cfaff619414e11076 math-primes-with-superscript
 cec2f04c08dd9e4cab0a59396e97cc1c math-root-basic
 c7b2da5be74c454c16c24223c5bc4a27 math-root-frame-size-index
-875b486cb5d56cfe0ee7738bbfa93c4d math-root-index-cramped
+fdf3c6a8c324038cab07d2d975a18931 math-root-index-cramped
 e5ba516922d0fe30488c8fe025198fe6 math-root-large-body
 2d0919c18b48be9486138a80567d0fa7 math-root-large-index
 12905ebf52da18181a5c18530eccaba3 math-root-line-fill-stroke
