@@ -73,8 +73,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         base: StyleChain<'a>,
         new: impl Into<Styles>,
     ) -> StyleChain<'a> {
-        let new = self.arenas.styles.alloc(new.into());
-        self.arenas.bump.alloc(base).chain(new)
+        self.store_chain(base).chain(self.store_styles(new))
     }
 
     /// Lifetime-extends some style chain.
@@ -438,7 +437,7 @@ fn resolve_inner_attach<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<MathItem<'a>> {
     // Lifetime-extend the super/subscript styles.
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
     let sup_style = ctx.store_styles(style_for_superscript(styles));
     let sup_style_chain = bumped_styles.chain(sup_style);
     let sub_style = ctx.store_styles(style_for_subscript(styles));
@@ -693,7 +692,7 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
 
@@ -789,7 +788,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
     let denominator = ctx.resolve_into_item(denom, bumped_styles.chain(denom_style))?;
@@ -1176,7 +1175,7 @@ fn resolve_root<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
     let radicand = {
         let cramped = ctx.store_styles(style_cramped());
         ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
