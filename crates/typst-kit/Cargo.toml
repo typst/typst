@@ -12,6 +12,7 @@ readme = { workspace = true }
 
 [dependencies]
 typst-assets = { workspace = true, optional = true }
+typst-bundle = { workspace = true, optional = true }
 typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
@@ -45,6 +46,9 @@ openssl = { workspace = true, optional = true }
 
 [features]
 default = []
+
+# Enables functionality related to `typst-bundle`.
+bundle = ["dep:typst-bundle"]
 
 # Enables loading of embedded fonts via `fonts::embedded`.
 embedded-fonts = ["dep:typst-assets", "typst-assets/fonts"]

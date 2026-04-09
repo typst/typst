@@ -28,7 +28,7 @@ use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
 
 #[cfg(feature = "http-server")]
-use typst_kit::server::{HttpBody, HttpServer};
+use typst_kit::server::HttpServer;
 
 /// Execute a compilation command.
 pub fn compile(
@@ -426,27 +426,7 @@ fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Out
 
     #[cfg(feature = "http-server")]
     if let Some(server) = &config.server {
-        server.set_router(move |route| {
-            let path = typst::syntax::VirtualPath::new(route).ok()?;
-            let with_index = path.join("index.html").unwrap();
-            for path in [path, with_index] {
-                let Some(data) = fs.get(&path) else { continue };
-                let body = if matches!(
-                    bundle.files.get(&path),
-                    Some(typst_bundle::BundleFile::Document(
-                        typst_bundle::BundleDocument::Html(_)
-                    ))
-                ) && let Ok(string) = data.as_str()
-                {
-                    HttpBody::Html(string.to_owned())
-                } else {
-                    HttpBody::Raw(data.clone())
-                };
-                return Some(body);
-            }
-
-            None
-        });
+        server.set_bundle(bundle, fs);
     }
 
     Ok(outputs)
