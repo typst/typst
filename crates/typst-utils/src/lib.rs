@@ -451,3 +451,19 @@ pub struct DefSite {
     /// the definition in the file.
     pub key: &'static str,
 }
+
+/// Implements `Display` for a type that implements clap's `ValueEnum` via
+/// `to_possible_values`.
+#[macro_export]
+macro_rules! display_possible_values {
+    ($ty:ty) => {
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.to_possible_value()
+                    .expect("no values are skipped")
+                    .get_name()
+                    .fmt(f)
+            }
+        }
+    };
+}
