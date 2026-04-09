@@ -118,7 +118,7 @@ pub struct CompileCommand {
     pub args: CompileArgs,
 }
 
-/// Compiles an input file into a supported output format.
+/// Watches an input file and recompiles on changes.
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Arguments for compilation.
