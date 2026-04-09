@@ -13,14 +13,12 @@ use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{EcoString, EcoVec, eco_format};
+use ecow::{EcoString, EcoVec};
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
-use typst_library::diag::{
-    At, CollectCombinedResult, SourceDiagnostic, SourceResult, bail, error,
-};
+use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
     Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
@@ -267,20 +265,13 @@ fn collect<'a>(
                 entry.insert(elem.span());
             }
             Entry::Occupied(entry) => {
-                errors.push(
-                    SourceDiagnostic::error(
-                        elem.span(),
-                        eco_format!(
-                            "path `{}` occurs multiple times in the bundle",
-                            path.get_without_slash()
-                        ),
-                    )
-                    .with_hint(eco_format!(
-                        "{} paths must be unique in the bundle",
-                        elem.func().name(),
-                    ))
-                    .with_spanned_hint("path is already in use here", *entry.get()),
-                );
+                errors.push(error!(
+                    elem.span(), "path `{}` occurs multiple times in the bundle",
+                    path.get_without_slash();
+                    hint: "{} paths must be unique in the bundle",
+                    elem.func().name();
+                    hint[*entry.get()]: "path is already in use here";
+                ));
             }
         }
     }

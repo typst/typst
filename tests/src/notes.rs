@@ -90,7 +90,7 @@ impl TestBody {
             Some((i, pos)) => {
                 let note = &mut self.notes[i];
                 note.seen |= seen;
-                // We replace the notes kind/range/message (which should cause
+                // We replace the note's kind/range/message (which should cause
                 // it to match exactly in future stages), but keep the old
                 // values to report the difference.
                 let annotated = Box::new((
@@ -137,6 +137,10 @@ impl TestBody {
                 NoteRange::None => {
                     writeln!(new, "// {kind}: {message}").unwrap();
                 }
+                NoteRange::Some { external_file: Some(_), .. } => {
+                    // Don't compare external line numbers to test lines.
+                    writeln!(new, "// {kind}: {range} {message}").unwrap();
+                }
                 NoteRange::Some { positions: Range { start, .. }, .. } => {
                     while let Some(&(line_index, line)) = lines.peek()
                         && line_index < start.line
@@ -149,7 +153,10 @@ impl TestBody {
                     if let Some(&(_, line)) = lines.peek() {
                         new.push_str(Scanner::new(line).eat_while(' '));
                     }
-                    writeln!(new, "// {kind}: {range} {message}").unwrap();
+                    // Write line numbers relative to the annotated line, not
+                    // relative to the start of the test.
+                    let relative_range = range.clone().with_relative_start_line();
+                    writeln!(new, "// {kind}: {relative_range} {message}").unwrap();
                 }
             }
         }
@@ -247,7 +254,8 @@ impl Note {
             seen: stage,
             kind,
             range,
-            message,
+            // Annotated messages must be a single line.
+            message: message.replace("\n", "\\n"),
         }
     }
 }
@@ -318,6 +326,19 @@ impl NoteRange {
                 Some((start.col, end.col))
             }
         }
+    }
+
+    /// Update the note range's line numers so the start line is relative to the
+    /// annotated line (for printing when updating tests).
+    ///
+    /// This subtracts the start line's value from the end line and itself,
+    /// effectively setting it to 0.
+    fn with_relative_start_line(mut self) -> Self {
+        if let Self::Some { external_file: None, positions, .. } = &mut self {
+            positions.end.line -= positions.start.line;
+            positions.start.line = 0;
+        }
+        self
     }
 }
 
@@ -456,6 +477,10 @@ fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
 }
 
 /// Parses an annotation in a test, continuing from `parse_note_start`.
+///
+/// Messages must be a single line, but can annotate multiline errors by writing
+/// `\n`, as we convert newlines in the emitted message to `\n` before
+/// comparing.
 fn parse_note(
     pos: FilePos,
     annotated_line: usize,
@@ -467,11 +492,12 @@ fn parse_note(
 
     let range = parse_note_range(s, annotated_line, source)?;
 
+    // Using `VERSION` as a placeholder for the current version lets us avoid
+    // updating certain messages on every release.
     let message = s
         .after()
         .trim()
-        .replace("VERSION", &format!("{}", PackageVersion::compiler()))
-        .replace("\\n", "\n");
+        .replace("VERSION", &format!("{}", PackageVersion::compiler()));
 
     Ok(Note {
         status: NoteStatus::Annotated { pos },
@@ -489,6 +515,9 @@ fn expect_space_after(s: &mut Scanner, thing: &str) -> StrResult<()> {
 
 /// Parse the range of an annotation, either internal to this test or external
 /// at the given path.
+///
+/// External ranges include the path in quotes before the line/col positions.
+/// Ex: `// Error: "/path/to/file.typ" <line>:<col>-<line>:<col> message`
 fn parse_note_range(
     s: &mut Scanner,
     annotated_line: usize,

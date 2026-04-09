@@ -428,7 +428,7 @@ fn parse_features(feature_list: &str) -> StrResult<Features> {
                 Feature::A11yExtras => features.a11y_extras = true,
             },
             Err(_) => {
-                crate::print_error(&format!("Unknown runtime feature: `{feature}`"))
+                crate::print_error(&format!("unknown runtime feature: `{feature}`"))
                     .map_err(|e| eco_format!("{e}"))?;
                 continue;
             }

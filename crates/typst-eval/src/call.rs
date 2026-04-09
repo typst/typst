@@ -503,37 +503,21 @@ fn unparse_math_args(
                 let name = callee.to_untyped().clone().into_text();
                 let fixed =
                     named.to_untyped().clone().into_text().replacen(":", "\\:", 1);
-                errors.push(
-                    error!(
-                        named.span(),
-                        "named-argument syntax can only be used with functions"
-                    )
-                    .with_spanned_hint(
-                        eco_format!("`{name}` is not a function"),
-                        callee.span(),
-                    )
-                    .with_hint(eco_format!(
-                        "to render the colon as text, escape it: `{fixed}`"
-                    )),
-                );
+                errors.push(error!(
+                    named.span(), "named-argument syntax can only be used with functions";
+                    hint[callee.span()]: "`{name}` is not a function";
+                    hint: "to render the colon as text, escape it: `{fixed}`";
+                ));
             }
             ast::MathArgItem::Arg(ast::Arg::Spread(spread)) => {
                 let name = callee.to_untyped().clone().into_text();
                 let fixed =
                     spread.to_untyped().clone().into_text().replacen("..", ".. ", 1);
-                errors.push(
-                    error!(
-                        spread.span(),
-                        "spread-argument syntax can only be used with functions"
-                    )
-                    .with_spanned_hint(
-                        eco_format!("`{name}` is not a function"),
-                        callee.span(),
-                    )
-                    .with_hint(eco_format!(
-                        "to render the dots as text, add a space: `{fixed}`"
-                    )),
-                );
+                errors.push(error!(
+                    spread.span(), "spread-argument syntax can only be used with functions";
+                    hint[callee.span()]: "`{name}` is not a function";
+                    hint: "to render the dots as text, add a space: `{fixed}`";
+                ));
             }
         }
     }
