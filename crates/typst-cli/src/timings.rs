@@ -21,19 +21,16 @@ impl Timer {
     /// Initializes the timing system and returns a timer that can be used to
     /// record timings for a specific function invocation.
     pub fn new(args: &CliArguments) -> Timer {
-        let record = match &args.command {
+        let path = match &args.command {
             Command::Compile(command) => command.args.timings.clone(),
             Command::Watch(command) => command.args.timings.clone(),
             _ => None,
         };
 
         // Enable event collection.
-        if record.is_some() {
+        if path.is_some() {
             typst_timing::enable();
         }
-
-        let path =
-            record.map(|path| path.unwrap_or_else(|| PathBuf::from("record-{n}.json")));
 
         Timer { path, index: 0 }
     }
