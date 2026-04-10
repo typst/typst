@@ -82,7 +82,8 @@ use crate::visualize::RelativeTo;
 /// The [`offset`]($tiling.offset) parameter allows you to offset the starting
 /// position of the tiling. This shifts the entire tile grid without affecting
 /// the tile size or spacing. Positive x values move the pattern to the right,
-/// and positive y values move it down. Relative values are resolved against the tile size plus spacing
+/// and positive y values move it down. Relative values are resolved against
+/// the tile size plus spacing
 ///
 /// ```example
 /// #let pat = tiling(size: (40pt, 40pt))[
@@ -218,6 +219,11 @@ impl Tiling {
             bail!(spacing.span, "tile spacing must be finite");
         }
 
+        // Ensure that offset is not font-relative.
+        if !offset.v.x.abs.em.is_zero() || !offset.v.y.abs.em.is_zero() {
+            bail!(offset.span, "tile offset must not be font-relative");
+        }
+
         // Ensure that offset is finite.
         if !offset.v.x.rel.get().is_finite()
             || !offset.v.x.abs.is_finite()
@@ -255,15 +261,16 @@ impl Tiling {
 
         let size = frame.size();
         let spacing = spacing.v.map(|l| l.abs);
+        let offset = offset
+            .v
+            .map(|l| l.resolve(styles))
+            .zip_map(size + spacing, Rel::relative_to);
 
         Ok(Self(Arc::new(TilingInner {
             size,
             frame: LazyHash::new(frame),
             spacing,
-            offset: offset
-                .v
-                .map(|l| l.resolve(styles))
-                .zip_map(size + spacing, Rel::relative_to),
+            offset,
             relative,
         })))
     }
