@@ -1574,6 +1574,7 @@ f9f6165eed9c5dad31cb6d0f15d14c75 show-text-get-text-on-it
 d277fa6bebec01490ae5e0098bfb5d64 show-text-in-citation
 164e565e79e376452ca17e37f6b618d6 show-text-in-other-show
 9812a7c3f0815e388a42085b21cc323c show-text-indirectly-cyclic
+677c7eefbce4024d15430950f4593a58 show-text-isolated-space
 8d738b9cd74b9dd21dc7b4bc9e0304e1 show-text-line-wrapping
 d074c3f2fa0b2e558875613980c30bed show-text-linebreak
 d85358819d505d54c9a16b923e0a79e5 show-text-list

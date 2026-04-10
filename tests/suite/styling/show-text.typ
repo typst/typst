@@ -221,6 +221,17 @@ A C \
 A#text(red)[ ]C \
 A#text(red)[X]C
 
+--- show-text-isolated-space paged ---
+#show " ": it => {
+  test(it.func(), text)
+  test(it.text, " ")
+  [-]
+}
+// We split up the text run into three separate elements to see what kind of
+// element we get in the match (space vs text). We want text so that a `.text`
+// field is available.
+A#[ ]B
+
 --- show-text-where-text-is-space paged ---
 // Spaces in `text` match even if differently styled, unlike the previous test.
 #show text.where(text: " "): [B]

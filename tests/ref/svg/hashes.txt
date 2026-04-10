@@ -1573,6 +1573,7 @@ bce9e527b76d30d09dd62e855d11fe81 show-text-citation-smartquote
 61e3b763e5fac416637aab08668d5bb5 show-text-in-citation
 75c914d0d9513f4bba832695c3b57a79 show-text-in-other-show
 eda549e8ff2b0fdf23540f9c455dd1ae show-text-indirectly-cyclic
+78c20ababf87ad01879e2ecd9eec04d3 show-text-isolated-space
 fe514ec68ea2ff585adad29320fe9f0b show-text-line-wrapping
 f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
 bf125910a7e03f556dc82768c65c0fa4 show-text-list
