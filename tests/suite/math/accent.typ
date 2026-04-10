@@ -94,6 +94,16 @@ $ accent(integral, \u{20EC}), accent(integral, \u{20EC})_a^b, accent(integral_a^
 // Test bottom accent size.
 $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, size: #200%)$
 
+--- math-accent-cramped paged ---
+// Test whether cramped styles applied to the base of top accents.
+$ hat(x^2) x^2 $
+$ breve(scripts(sum)^X^X) scripts(sum)^X^X $
+
+--- math-accent-bottom-cramped paged ---
+// Test whether cramped styles applied to the base of bottom accents.
+$ accent(x^2, \u{0330}) x^2 $
+$ accent(scripts(sum)^X^X, \u{032D}) scripts(sum)^X^X $
+
 --- math-accent-nested paged ---
 // Test nested top and bottom accents.
 $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
