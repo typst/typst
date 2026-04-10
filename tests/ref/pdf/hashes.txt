@@ -805,7 +805,9 @@ fc815e90340a2724adc27ab1c38bbf78 issue-7437-math-accent-text-presentation
 05ad3f9eed0c1435183fae4a491f06f4 issue-758-link-repeat
 a975b02164c8d48dbded119de6d1b7db issue-785-cite-locate
 4762076e37cc612f971de182e349dd74 issue-7901-rect-negative-dimensions-radius
+6fb9a9922177dd422bc438d3eb97fa81 issue-7991-show-text-symbol-grapheme-sliced
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
+14e81f4542b39d400540e370ea8b3c2f issue-8058-show-text-grapheme-sliced
 21a423976fd0a8c6bb7eb3593b18e365 issue-852-mat-type
 40a0c2e4d119d9f2515575c488dba6d7 issue-886-args-sink
 d1a0e13958cbbcc49ef6dfadd13c4568 issue-color-mix-luma

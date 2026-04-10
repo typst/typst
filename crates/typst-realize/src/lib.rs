@@ -1286,9 +1286,16 @@ fn visit_regex_match<'a>(
     // lone symbol, return a `SymbolElem`, otherwise return a newly composed
     // `TextElem`. We should only match against a `SymbolElem` during math
     // realization (`RealizationKind::Math`).
-    let piece = match elems {
-        &[(lone, _)] if lone.is::<SymbolElem>() => lone.clone(),
-        _ => TextElem::packed(m.text),
+    let piece = if let &[(lone, _)] = elems
+        && let Some(symbol) = lone.to_packed::<SymbolElem>()
+    {
+        if symbol.text.len() == m.text.len() {
+            lone.clone()
+        } else {
+            SymbolElem::packed(m.text)
+        }
+    } else {
+        TextElem::packed(m.text)
     };
 
     let context = Context::new(None, Some(m.styles));
@@ -1330,10 +1337,20 @@ fn visit_regex_match<'a>(
         if elem_range.start < match_range.start {
             if elem_range.end <= match_range.start {
                 visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
+            } else if let Some(elem) = content.to_packed::<TextElem>() {
+                let mut elem = elem.clone();
                 elem.text = elem.text[..match_range.start - elem_range.start].into();
                 visit(s, s.store(elem.pack()), styles)?;
+            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
+                // Symbols are also sliced despite being a single grapheme
+                // cluster for consistency with text. We may want to more
+                // generally avoid slicing grapheme clusters in the future
+                // (see <https://github.com/typst/typst/issues/8058>).
+                let mut elem = elem.clone();
+                elem.text = elem.text[..match_range.start - elem_range.start].into();
+                visit(s, s.store(elem.pack()), styles)?;
+            } else {
+                unreachable!();
             }
         }
 
@@ -1347,10 +1364,16 @@ fn visit_regex_match<'a>(
         if elem_range.end > match_range.end {
             if elem_range.start >= match_range.end {
                 visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
+            } else if let Some(elem) = content.to_packed::<TextElem>() {
+                let mut elem = elem.clone();
                 elem.text = elem.text[match_range.end - elem_range.start..].into();
                 visit(s, s.store(elem.pack()), styles)?;
+            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
+                let mut elem = elem.clone();
+                elem.text = elem.text[match_range.end - elem_range.start..].into();
+                visit(s, s.store(elem.pack()), styles)?;
+            } else {
+                unreachable!();
             }
         }
 

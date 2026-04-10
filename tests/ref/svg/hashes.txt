@@ -805,7 +805,9 @@ bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
 366fcb9e4d729259ba5ed7a60884efb4 issue-7901-rect-negative-dimensions-radius
+edbddee086a5c94f1808229059ded6fb issue-7991-show-text-symbol-grapheme-sliced
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
+b352c430879f012d1b1d954d3761aa1f issue-8058-show-text-grapheme-sliced
 cdb9cb5e69f59e77d9640e7c9001f9d8 issue-852-mat-type
 421744506d29db117dff226731da1b04 issue-886-args-sink
 e3cda5cda8f3d5a0316e956c3f00757a issue-color-mix-luma
