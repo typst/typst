@@ -504,8 +504,7 @@ fn add_sub_equation_numbers(
         use typst_library::model::{Numbering, NumberingPattern};
         Numbering::Pattern(NumberingPattern::from_str("(a)").unwrap())
     };
-    let sub_pattern_ref =
-        sub_numbering_pattern.unwrap_or(&default_letter_pattern);
+    let sub_pattern_ref = sub_numbering_pattern.unwrap_or(&default_letter_pattern);
     let sub_pattern: &typst_library::model::Numbering = sub_pattern_ref;
 
     // Extract main number text (e.g., "1" from "(1)")

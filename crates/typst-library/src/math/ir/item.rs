@@ -534,11 +534,7 @@ impl<'a> MultilineItem<'a> {
         row_meta: Vec<RowMeta<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let kind = MathKind::Multiline(Self {
-            rows,
-            centered: false,
-            row_meta,
-        });
+        let kind = MathKind::Multiline(Self { rows, centered: false, row_meta });
         let props = MathProperties::default(styles);
         MathComponent { kind, props, styles }.into()
     }

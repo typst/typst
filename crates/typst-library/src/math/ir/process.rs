@@ -7,8 +7,8 @@ use unicode_math_class::MathClass;
 use super::item::{MathItem, RawMathItem, RowMeta};
 use super::multiline::{AlignedRow, split_at_align};
 use crate::foundations::{Smart, StyleChain};
-use typst_syntax::Span;
 use crate::math::{MEDIUM, MathSize, THICK, THIN};
+use typst_syntax::Span;
 
 /// The result of processing items for grouping.
 pub(crate) enum GroupResult<'a> {
@@ -82,7 +82,9 @@ where
             preprocessed
                 .items
                 .into_iter()
-                .filter(|item| !matches!(item, RawMathItem::Align | RawMathItem::LineMarker(_)))
+                .filter(|item| {
+                    !matches!(item, RawMathItem::Align | RawMathItem::LineMarker(_))
+                })
                 .map(RawMathItem::into_item)
                 .collect::<Option<_>>()
                 .unwrap(),
