@@ -160,10 +160,9 @@ pub fn layout_equation_block(
         let mut last_first_pos = Point::zero();
         let mut regions = regions;
 
-        loop {
-            // Keep track of the position of the first row in this region,
-            // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
+        // Keep track of the position of the first row in this region,
+        // so that the offset can be reverted later.
+        while let Some(&(_, first_pos)) = rows.peek() {
             last_first_pos = first_pos;
 
             let mut frames = vec![];
@@ -257,7 +256,7 @@ pub fn layout_equation_block(
     let region_count = equation_builders.len();
     let mut frames = vec![];
 
-    for (_builder_idx, builder) in equation_builders.into_iter().enumerate() {
+    for builder in equation_builders.into_iter() {
         if builder.frames.is_empty() && region_count > 1 {
             // Don't number empty regions, but do number empty equations.
             frames.push(builder.build());
@@ -273,11 +272,21 @@ pub fn layout_equation_block(
             false
         };
 
-        if (sub_numbering || has_manual_numbering)
-            && builder.frames.len() > 1
-            && row_meta.is_some()
-        {
-            let meta = row_meta.as_ref().unwrap();
+        if (sub_numbering || has_manual_numbering) && builder.frames.len() > 1 {
+            let meta = if let Some(meta) = row_meta.as_ref() {
+                meta
+            } else {
+                let numbered_frame = add_equation_number(
+                    builder,
+                    number.clone(),
+                    number_align.resolve(styles),
+                    styles.get(AlignElem::alignment).resolve(styles).x,
+                    regions.size.x,
+                    full_number_width,
+                );
+                frames.push(numbered_frame);
+                continue;
+            };
             let numbered_frame = add_sub_equation_numbers(
                 builder,
                 &number,
@@ -425,6 +434,7 @@ fn resize_equation(
 }
 
 /// Add sub-equation numbers to each row of a multi-line equation.
+#[allow(clippy::too_many_arguments)]
 fn add_sub_equation_numbers(
     equation_builder: MathRunFrameBuilder,
     main_number: &Frame,
@@ -495,7 +505,7 @@ fn add_sub_equation_numbers(
         Numbering::Pattern(NumberingPattern::from_str("(a)").unwrap())
     };
     let sub_pattern_ref =
-        sub_numbering_pattern.map(|p| p).unwrap_or(&default_letter_pattern);
+        sub_numbering_pattern.unwrap_or(&default_letter_pattern);
     let sub_pattern: &typst_library::model::Numbering = sub_pattern_ref;
 
     // Extract main number text (e.g., "1" from "(1)")
