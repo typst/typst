@@ -173,13 +173,13 @@ pub struct EquationElem {
     /// numbered with a sub-number like `(1a)`, `(1b)`, etc.
     ///
     /// ```example
-    /// #set math.equation(numbering: "(1)", sub-numbering: true)
+    /// #set math.equation(numbering: "(1)", sub-number: true)
     ///
     /// $ E &= m c^2 \
     ///     &= p c + ... $
     /// ```
     #[default(false)]
-    pub sub_numbering: bool,
+    pub sub_number: bool,
 
     /// The numbering pattern for sub-equations.
     ///
@@ -188,25 +188,25 @@ pub struct EquationElem {
     /// - `A` for uppercase letters (A, B, C)
     /// - `1` for numbers (1, 2, 3)
     ///
-    /// If set to `{none}`, the default pattern `a` is used.
+    /// If set to `{none}`, the default pattern `(a)` is used.
     ///
     /// ```example
     /// #set math.equation(
     ///   numbering: "(1)",
-    ///   sub-numbering: true,
-    ///   sub-numbering-pattern: "(1.1)",
+    ///   sub-number: true,
+    ///   sub-numbering: "(1.1)",
     /// )
     ///
     /// $ E &= m c^2 \
     ///     &= p c + ... $
     /// ```
-    pub sub_numbering_pattern: Option<Numbering>,
+    pub sub_numbering: Option<Numbering>,
 
     /// The alignment of the sub-equation numbering.
     ///
     /// By default, the alignment is `{end + horizon}`.
     #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
-    pub sub_number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
+    pub sub_number_align: SpecificAlignment<OuterHAlignment, VAlignment>
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -309,16 +309,16 @@ impl Outlinable for Packed<EquationElem> {
 pub struct MathLineElem {
     /// Whether this line should be numbered.
     ///
-    /// - `{auto}`: Follows the global `sub-numbering` setting (default)
+    /// - `{auto}`: Follows the global `sub-number` setting (default)
     /// - `{true}`: Force numbering for this line
     /// - `{false}`: Disable numbering for this line
     #[default(Smart::Auto)]
-    pub numbering: Smart<bool>,
+    pub numbered: Smart<bool>,
 
     /// An optional label for referencing this line.
     ///
     /// When a label is provided, the line will always be numbered regardless
-    /// of the `numbering` setting, so that it can be referenced.
+    /// of the `number` setting, so that it can be referenced.
     pub line_ref: Option<EcoString>,
 
     /// The synthesized full number (e.g., "(1a)") for this line.

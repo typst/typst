@@ -65,7 +65,7 @@ The `sub-numbering.typ` test file includes the following test cases:
 ### Basic sub-numbering
 
 ```typ
-#set math.equation(numbering: "(1)", sub-numbering: true)
+#set math.equation(numbering: "(1)", sub-number: true)
 
 $ E &= m c^2 \
      &= p c + ... $

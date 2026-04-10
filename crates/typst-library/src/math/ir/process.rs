@@ -55,8 +55,8 @@ where
                 }
                 RawMathItem::LineMarker(marker) => {
                     // Update row metadata from marker
-                    let numbering = marker.numbering.get(styles);
-                    row_meta.numbered = match numbering {
+                    let numbered = marker.numbered.get(styles);
+                    row_meta.numbered = match numbered {
                         Smart::Auto => false, // Will be determined later based on global setting
                         Smart::Custom(b) => b,
                     };

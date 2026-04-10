@@ -129,8 +129,8 @@ pub fn layout_equation_block(
             ..
         })
     );
-    let sub_numbering = is_multiline && elem.sub_numbering.get(styles);
-    let sub_numbering_pattern = elem.sub_numbering_pattern.get_ref(styles);
+    let sub_numbering = is_multiline && elem.sub_number.get(styles);
+    let sub_numbering_pattern = elem.sub_numbering.get_ref(styles);
 
     // Extract row metadata if multiline
     let row_meta: Option<Vec<_>> = if let MathItem::Component(MathComponent {
@@ -247,7 +247,7 @@ pub fn layout_equation_block(
         SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
     };
 
-    // Get sub-numbering alignment
+    // Get sub-number alignment
     let sub_number_align = match elem.sub_number_align.get(styles) {
         SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
         SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
@@ -600,7 +600,7 @@ fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
 /// - "1a", "1.a", "1.1" - without outer parentheses
 /// - "(a)", "(1)" - just sub-number
 fn format_sub_number(
-    main_pattern: &typst_library::model::Numbering,
+    _main_pattern: &typst_library::model::Numbering,
     sub_pattern: &typst_library::model::Numbering,
     main_number: &str,
     seq: usize,
@@ -622,7 +622,6 @@ fn format_sub_number(
         }
     };
 
-    let (main_prefix, _, main_suffix) = get_format(main_pattern);
     let (sub_prefix, sub_kind, sub_suffix) = get_format(sub_pattern);
 
     // Format the sub-number part
@@ -634,23 +633,40 @@ fn format_sub_number(
 
     if sub_has_parens || sub_has_brackets {
         // Combined format: (1a), (1.a), (1.1)
-        // Remove the outer parentheses from sub_pattern for the separator
-        let separator = if sub_prefix.len() > 1 {
-            &sub_prefix[1..]
-        } else if !sub_suffix.is_empty() && sub_suffix.len() > 1 {
-            // For pattern like "(a)", suffix is ")", so separator is empty
-            ""
-        } else {
-            ""
-        };
+        // Parse the pattern to find the separator between main and sub numbers
+        // For "(1.1)": prefix="(", pieces=[("1", Arabic), (".", Arabic)], suffix=")"
+        // For "(a)": prefix="(", pieces=[("", LowerLatin)], suffix=")"
         
-        // Build the result
-        if sub_has_parens {
-            eco_format!("({}{}{}{})", main_number, separator, sub_part, 
-                if sub_suffix == ")" { "" } else { &sub_suffix })
+        if let Numbering::Pattern(pat) = sub_pattern {
+            if pat.pieces.len() >= 2 {
+                // Multi-part pattern like "(1.1)" - use the separator from the pattern
+                let separator = if pat.pieces.len() > 1 {
+                    pat.pieces[1].0.as_str()
+                } else {
+                    ""
+                };
+                
+                if sub_has_parens {
+                    eco_format!("({}{}{}{})", main_number, separator, sub_part, 
+                        if sub_suffix == ")" { "" } else { &sub_suffix })
+                } else {
+                    eco_format!("[{}{}{}{}]", main_number, separator, sub_part,
+                        if sub_suffix == "]" { "" } else { &sub_suffix })
+                }
+            } else {
+                // Single-part pattern like "(a)" or "(1)"
+                let inner_prefix = if sub_prefix.len() > 1 { &sub_prefix[1..] } else { "" };
+                if sub_has_parens {
+                    eco_format!("({}{}{}{})", main_number, inner_prefix, sub_part,
+                        if sub_suffix == ")" { "" } else { &sub_suffix })
+                } else {
+                    eco_format!("[{}{}{}{}]", main_number, inner_prefix, sub_part,
+                        if sub_suffix == "]" { "" } else { &sub_suffix })
+                }
+            }
         } else {
-            eco_format!("[{}{}{}{}]", main_number, separator, sub_part,
-                if sub_suffix == "]" { "" } else { &sub_suffix })
+            // Function-based numbering - simple append
+            eco_format!("({}{})", main_number, sub_part)
         }
     } else if !sub_prefix.is_empty() || !sub_suffix.is_empty() {
         // Pattern has prefix/suffix but no outer parens: 1.a, 1-a
