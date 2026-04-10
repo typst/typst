@@ -955,11 +955,13 @@ d3905bbf66c760f77c8d0749e87ea686 locate-start-of-par
 88d69634be527282f21836b3a2e89df3 lorem-pars
 84b4fbe8abf075596be51a280b97c2a4 math-accent-align
 54aa80a66fa9d3067798872bcd512fbb math-accent-bottom
+1530cc9459f2d77ecc632e1fa91135d2 math-accent-bottom-cramped
 40d82db19a66708ad12eacb956f4f7e5 math-accent-bottom-high-base
 4e205f08d144b2ab1b0246129fbd118c math-accent-bottom-sized
 1f9ff8b0b9f4f49f24e31a884579541c math-accent-bottom-subscript
 b59bbce0e360c44c8b90a0bef137c9ba math-accent-bottom-wide-base
 4c4fe4a049760a606c8555a2a35ce8d4 math-accent-bounds
+fff18ca4683afab983276db726074567 math-accent-cramped
 af3590c25c8f8deb3d18ba6fb0d7861d math-accent-dotless
 32063cbf51d1234fbbf58b96d727f15b math-accent-dotless-disabled
 c554640d59845858825d6cfaee098f02 math-accent-dotless-greedy
@@ -1195,6 +1197,7 @@ d3ef8e83ad9047588a3df051ad4c55dd math-primes-show-rule
 c8f84eec5cd086eb48f5571ea4cc2705 math-primes-with-superscript
 53f0262998eb3066a8b48d6e063c57ac math-root-basic
 91d1bfbf0ca427f01b2f6de1b1845e68 math-root-frame-size-index
+b512d81c10683f49236219b3de5a3510 math-root-index-cramped
 52b9b118cee3d7bf5d0ecc58da245911 math-root-large-body
 fd9683df169c488628ede261dcace87a math-root-large-index
 8ce15fcd78d692f484999fd936cdbafa math-root-line-fill-stroke
