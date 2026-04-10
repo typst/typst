@@ -175,6 +175,55 @@ Not in list
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
 
+--- list-marker-align-horizontal paged ---
+#set list(marker: {
+  counter("list").update(n => calc.max(n * 10, 1))
+  context counter("list").display()
+})
+
+- Item
+- Item
+- Item
+
+#set list(marker-align: start)
+#counter("list").update(0)
+
+- Item
+- Item
+- Item
+
+--- list-marker-align-vertical paged ---
+#set list(marker-align: horizon)
+- #box(fill: teal, inset: 10pt )[a]
+- #box(fill: teal, inset: 10pt )[b]
+- #box(fill: teal,inset: 10pt )[c]
+
+--- list-marker-align-unfolded paged ---
+// Marker align option should not be affected by the context.
+#[
+  #set align(top)
+  #set list(marker-align: horizon)
+
+  - #box(fill: teal, inset: 10pt )[]
+]
+
+#[
+  #set align(horizon)
+  - #box(fill: teal, inset: 10pt)[]
+]
+
+--- list-marker-align-values paged empty ---
+// Test valid marker align values (horizontal and vertical)
+#set enum(number-align: start)
+#set enum(number-align: end)
+#set enum(number-align: left)
+#set enum(number-align: center)
+#set enum(number-align: right)
+#set enum(number-align: top)
+#set enum(number-align: horizon)
+#set enum(number-align: bottom)
+
+
 --- list-attached paged ---
 // Test basic attached list.
 Attached to:
