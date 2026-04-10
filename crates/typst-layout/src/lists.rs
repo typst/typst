@@ -7,8 +7,8 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, BlockElem, Dir, Fragment, Frame, FrameItem, HAlignment, Length, Point,
-    Region, Regions, Size, StackChild, StackElem, VAlignment,
+    Abs, Axes, BlockElem, Dir, Fragment, Frame, FrameItem, Length, Point, Region,
+    Regions, Size, StackChild, StackElem,
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
@@ -36,12 +36,15 @@ pub fn layout_list(
     let is_rtl = styles.get(TextElem::dir).resolve(styles) == Dir::RTL;
 
     let Depth(depth) = styles.get(ListElem::depth);
+
+    // Use the user's preferred vertical alignment. Among other things, it
+    // avoids '#set align' interference with the list.
+    let marker_align = elem.marker_align.get(styles);
     let marker = elem
         .marker
         .get_ref(styles)
         .resolve(engine, styles, depth)?
-        // avoid '#set align' interference with the list
-        .aligned(HAlignment::Start + VAlignment::Top);
+        .aligned(marker_align);
 
     let mut items = vec![];
     for item in &elem.children {
@@ -58,7 +61,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
-            true,
+            marker_align.y().is_none(),
             is_rtl,
         );
         items.push(item);

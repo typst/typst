@@ -954,7 +954,10 @@ a6cebb62233b4393bd77346427975eed list-content-block
 6df3e3a0825a9da2f043495ffffc6791 list-indent-specifics
 5307dfdedba67d57eb66a2a433bbfdfb list-item-styling
 5ec6fc9f5de5b369aac90767780ba9c2 list-items-context
+75a96c064a381c45501b8aa963bff99f list-marker-align-horizontal
 cd9f4009dad376735214dd1c88f8ef99 list-marker-align-unaffected
+55fb871d2864cadb1dc921f98f38721f list-marker-align-unfolded
+56f62f6be1cc73fd5672d193c1aedca9 list-marker-align-vertical
 7511ae5fb631b5d98b30153e9508093e list-marker-bare-hyphen
 0ed964b248a5b8d17f3a76478e3e4a2e list-marker-closure
 d757d5e3f29223f861156084b14d6d28 list-marker-cycle
