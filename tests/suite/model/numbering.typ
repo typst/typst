@@ -95,22 +95,26 @@
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
 
---- numbering-illegal-zero eval ---
+--- numbering-illegal-zero paged ---
 #test(numbering("१", 0), "०")
-// Error: 2-19 the numeral system `korean.syllable` cannot represent zero
+// Warning: 2-19 the numeral system `korean.syllable` cannot represent zero
+// Hint: 2-19 this will become a hard error in the future
 #numbering("가", 0)
 
---- numbering-too-high eval ---
-// Error: 2-20 the number 51 is too large to be represented with the `arabic.o` numeral system
+--- numbering-too-high paged ---
+// Warning: 2-20 the number 51 is too large to be represented with the `arabic.o` numeral system
+// Hint: 2-20 this will become a hard error in the future
 #numbering("①", 51)
 
 --- enum-numbering-too-high paged ---
 #set enum(numbering: "⓵")
-// Error: 1-9 the number 11 is too large to be represented with the `arabic.oo` numeral system
+// Warning: 1-9 the number 11 is too large to be represented with the `arabic.oo` numeral system
+// Hint: 1-9 this will become a hard error in the future
 11. Test
 
 --- page-numbering-too-high paged ---
-// Error: the number 100 is too large to be represented with the `arabic.o` numeral system
+// Warning: the number 100 is too large to be represented with the `arabic.o` numeral system
+// Hint: this will become a hard error in the future
 #set page(numbering: "①")
 #counter(page).update(100)
 Hello
@@ -127,5 +131,6 @@ Hello
 --- footnote-numbering-too-high paged ---
 #set footnote(numbering: "①")
 #counter(footnote).update(100)
-// Error: 2-12 the number 101 is too large to be represented with the `arabic.o` numeral system
+// Warning: 2-12 the number 101 is too large to be represented with the `arabic.o` numeral system
+// Hint: 2-12 this will become a hard error in the future
 #footnote[]

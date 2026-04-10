@@ -185,6 +185,7 @@ eabebde9bf34dfcc1f6264c6050f0bb4 enum-numbering-full
 43a246109130985f4ab67dde72cf1ad0 enum-numbering-pattern
 c58f6dfbb08ad40841aa8c99e00cba2d enum-numbering-reversed
 232161ec45cb6ef0d6425765aa9cc3b8 enum-numbering-reversed-overridden
+79a50cae71d8fd8ff927fda80d476e3b enum-numbering-too-high
 470c89cf6b27271427eb9e21abf79cb7 enum-par
 30ec886a32b2c86b45b2f63b26a4be32 enum-syntax-at-start
 981cf1748989d09172818010d1facbf0 enum-syntax-edge-cases
@@ -243,6 +244,7 @@ f4758a6b4a3ab2e5be77920d113510d8 footnote-invariant
 6dcf385c14fe9ca49fd685034ecdefac footnote-multiple-in-one-line
 355f40476ca646e9fe98bddf553883be footnote-nested
 61085b0a61c1e1534f8d47e276a75ed2 footnote-nested-break-across-pages
+d0adb1c5505febe6c27fe604b497bd09 footnote-numbering-too-high
 e945532e1805abc154f3c82cc8f09b49 footnote-ref
 c70ee8464752742dad5ffa421b9c88d9 footnote-ref-call
 032a96a896103cff68580fc24afc6657 footnote-ref-forward
@@ -1282,6 +1284,8 @@ e68948494a551019df89456db7586fb8 measure-citation-in-flow
 9cfe6a06921b318f704ac6620110b52e measure-counter-width
 686af9a8e5ab98357f0295ba6f6b32d8 newline-continuation-code
 6dbf4cb3db7f8cd2845d8e13ecfbb027 newline-continuation-markup
+49853eea9eefdf580a4a08c3a3b8f755 numbering-illegal-zero
+efa8fb9912f9b82ed674c0c447666ba1 numbering-too-high
 38ef04e7d23e07f3f6cca8c862f3081f numbers
 39554fc74ed2512083d334e44d46bdea ops-add-content
 87b3891e44a2bffd193429afdd971c76 ops-multiply-inf-with-length
@@ -1338,6 +1342,7 @@ cad898978d31fc0335a0cf72314fbeac page-number-align-bottom-left
 00f6980ecfe95d4631ec20b43003d423 page-number-align-top-right
 ab8a10bee14d2e3521085ebcc66375ce page-numbering-huge
 b1c1a2db112d62c17ac13867becf4e0c page-numbering-pdf-label
+bbe4534df5850827c37cfd0a7ce3ef99 page-numbering-too-high
 1678f2528a539d5dc5538e360ae4c805 page-numbering-too-high-pdf
 6b20a6568da6b8e6f06c37b550a1b64e page-set-empty
 7b4a1a6154b4a3ae39860bd47c83f202 page-set-forces-break

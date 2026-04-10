@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 use typst_syntax::Span;
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{Context, Func, Str, Value, cast, func};
 
@@ -112,7 +112,9 @@ impl Numbering {
         numbers: &[u64],
     ) -> SourceResult<Value> {
         Ok(match self {
-            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).at(span)?.into()),
+            Self::Pattern(pattern) => {
+                Value::Str(pattern.apply(Some((engine, span)), numbers).at(span)?.into())
+            }
             Self::Func(func) => func.call(engine, context, numbers.iter().copied())?,
         })
     }
@@ -160,7 +162,33 @@ pub struct NumberingPattern {
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[u64]) -> StrResult<EcoString> {
+    ///
+    /// If `warning_context` is not [`None`], when an error would normally be
+    /// returned, a warning is emitted instead and the returned value uses
+    /// Arabic numerals in place of the numeral system that caused the error.
+    pub fn apply(
+        &self,
+        warning_context: Option<(&mut Engine, Span)>,
+        numbers: &[u64],
+    ) -> StrResult<EcoString> {
+        if let Some((engine, span)) = warning_context {
+            self.apply_with(numbers, |system, n| {
+                Ok(apply_system_with_fallback(engine, span, system, n))
+            })
+        } else {
+            self.apply_with(numbers, apply_system)
+        }
+    }
+
+    /// Auxiliary method for [`NumberingPattern::apply`].
+    ///
+    /// Can be removed when the deprecation warnings are turned into hard
+    /// errors.
+    fn apply_with<D: Display>(
+        &self,
+        numbers: &[u64],
+        mut apply_system: impl FnMut(NamedNumeralSystem, u64) -> StrResult<D>,
+    ) -> StrResult<EcoString> {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.iter();
 
@@ -170,7 +198,7 @@ impl NumberingPattern {
             if i > 0 || !self.trimmed {
                 fmt.push_str(prefix);
             }
-            write!(fmt, "{}", apply_system(*system, n)?).unwrap()
+            write!(fmt, "{}", apply_system(*system, n)?).unwrap();
         }
 
         for ((prefix, system), &n) in self.pieces.last().into_iter().cycle().zip(numbers)
@@ -180,7 +208,7 @@ impl NumberingPattern {
             } else {
                 fmt.push_str(prefix);
             }
-            write!(fmt, "{}", apply_system(*system, n)?).unwrap()
+            write!(fmt, "{}", apply_system(*system, n)?).unwrap();
         }
 
         if !self.trimmed {
@@ -191,7 +219,13 @@ impl NumberingPattern {
     }
 
     /// Apply only the k-th segment of the pattern to a number.
-    pub fn apply_kth(&self, k: usize, number: u64) -> StrResult<EcoString> {
+    pub fn apply_kth(
+        &self,
+        engine: &mut Engine,
+        span: Span,
+        k: usize,
+        number: u64,
+    ) -> EcoString {
         let mut fmt = EcoString::new();
         if let Some((prefix, _)) = self.pieces.first() {
             fmt.push_str(prefix);
@@ -202,10 +236,12 @@ impl NumberingPattern {
             .chain(self.pieces.last().into_iter().cycle())
             .nth(k)
         {
-            write!(fmt, "{}", apply_system(*system, number)?).unwrap()
+            let represented_number =
+                apply_system_with_fallback(engine, span, *system, number);
+            write!(fmt, "{represented_number}").unwrap()
         }
         fmt.push_str(&self.suffix);
-        Ok(fmt)
+        fmt
     }
 
     /// How many counting symbols this pattern has.
@@ -228,6 +264,28 @@ fn apply_system(system: NamedNumeralSystem, number: u64) -> StrResult<impl Displ
             )
         }
     }
+}
+
+/// Applies a numeral system to a number. In case of an error, fall back to
+/// Arabic numerals.
+///
+/// This is a temporary function that should be replaced by [`apply_system`]
+/// when the deprecation warning is turned into a hard error.
+fn apply_system_with_fallback(
+    engine: &mut Engine,
+    span: Span,
+    system: NamedNumeralSystem,
+    number: u64,
+) -> impl Display + use<> {
+    apply_system(system, number).unwrap_or_else(|err| {
+        engine.sink.warn(warning!(
+            span,
+            "{err}";
+            hint: "this will become a hard error in the future";
+        ));
+        apply_system(NamedNumeralSystem::Arabic, number)
+            .unwrap_or_else(|_| panic!("`arabic` should be able to represent {number}"))
+    })
 }
 
 impl FromStr for NumberingPattern {

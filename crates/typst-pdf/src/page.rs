@@ -43,7 +43,7 @@ impl PageLabelExt for PageLabel {
         // spec, we use the given prefix and an offset. Otherwise, everything
         // goes into prefix.
         let prefix = if style.is_none() {
-            pat.apply(&[number]).ok()
+            pat.apply(None, &[number]).ok()
         } else {
             (!prefix.is_empty()).then(|| prefix.clone())
         };
