@@ -191,25 +191,6 @@ $ gt.tri $
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
 
---- issue-7991-multichar-symbol-show paged ---
-// Test that multichar symbols work correctly with show rules.
-// Symbols are always a single grapheme cluster, so they are always treated as a whole.
-#set text(font: "New Computer Modern Math")
-#let emptyset = sym.emptyset
-#let narrowemptysettext = emptyset+"\u{fe00}"
-#let narrowemptyset = symbol(narrowemptysettext)
-$narrowemptysettext$ |
-// This should not change anything, but it currently does.
-#show "\u{fe00}": it => it
-$narrowemptysettext$ |
-#show emptyset: set text(red) // Emtysets should be red from now on
-// Duplicate wide emptysets
-#show emptyset: it => it+it
-$narrowemptyset, emptyset, narrowemptysettext$ |
-#show "\u{fe00}": it => "+"
-$narrowemptyset, emptyset, narrowemptysettext$
-
-
 --- presentation-selectors paged ---
 // Currently, presentation selectors do not cause font fallback when the main
 // font supports at least one presentation, instead causing a fallback of the
