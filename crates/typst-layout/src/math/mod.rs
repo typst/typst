@@ -19,7 +19,7 @@ use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleCha
 
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
-    Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
+    Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, FrameItem, InlineItem,
     OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
 };
 use typst_library::math::ir::{
@@ -235,8 +235,8 @@ pub fn layout_equation_block(
     let counter = Counter::of(EquationElem::ELEM)
         .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
-    let mut locator = locator.split();
-    let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
+    let mut split_locator = locator.split();
+    let number = crate::layout_frame(engine, &counter, split_locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
@@ -280,7 +280,7 @@ pub fn layout_equation_block(
                 regions.size.x,
                 full_number_width,
                 engine,
-                locator.next(&()),
+                &mut split_locator,
                 styles,
                 pod,
             )?;
@@ -426,11 +426,13 @@ fn add_sub_equation_numbers(
     region_size_x: Abs,
     full_number_width: Abs,
     engine: &mut Engine,
-    locator: Locator,
+    locator: &mut typst_library::introspection::SplitLocator,
     styles: StyleChain,
     pod: Region,
 ) -> SourceResult<Frame> {
     use ecow::eco_format;
+    use typst_library::introspection::{Tag, TagFlags};
+    use typst_library::math::MathLineElem;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let gutter = NUMBER_GUTTER.resolve(styles);
@@ -450,35 +452,65 @@ fn add_sub_equation_numbers(
 
     let mut equation = equation_builder.build();
 
-    // Determine which rows should be numbered
-    let mut numbered_rows: Vec<(usize, bool)> = Vec::new(); // (row_index, force_numbered)
+    // Determine which rows should be numbered and collect labels
+    let mut numbered_rows: Vec<(usize, bool, Option<ecow::EcoString>)> = Vec::new();
     for (idx, meta) in row_meta.iter().enumerate() {
         // If the row has a line_ref, it must be numbered
         let force_numbered = meta.line_ref.is_some();
         // If explicit numbering is set, use that; otherwise follow global setting
         let should_number = force_numbered || meta.numbered;
         if should_number {
-            numbered_rows.push((idx, force_numbered));
+            numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
         }
     }
 
-    // Generate sub-numbers for numbered rows
-    let mut sub_numbers: Vec<(usize, Frame, Size)> = Vec::new(); // (row_index, frame, row_size)
+    // Generate sub-numbers for numbered rows and create referenceable elements
+    let mut sub_numbers: Vec<(usize, Frame, Size, Option<ecow::EcoString>)> = Vec::new();
     let sub_pattern = sub_numbering_pattern.unwrap_or(main_numbering);
 
-    for (seq_idx, (row_idx, _force_numbered)) in numbered_rows.iter().enumerate() {
+    for (seq_idx, (row_idx, _force_numbered, line_ref)) in numbered_rows.iter().enumerate() {
         let seq_num = seq_idx + 1;
         let sub_label = generate_sub_number_label(sub_pattern, seq_num);
 
-        // Create the sub-number content
+        // Create the full sub-number display text (e.g., "(1a)")
         let sub_number_text = eco_format!("({})", sub_label);
         let sub_number_content =
             typst_library::text::TextElem::packed(sub_number_text.as_str());
         let sub_number_frame =
-            crate::layout_frame(engine, &sub_number_content, locator.relayout(), styles, pod)?;
+            crate::layout_frame(engine, &sub_number_content, locator.next(&()).relayout(), styles, pod)?;
 
         let row_size = frame_info.get(*row_idx).map(|(s, _)| *s).unwrap_or(Size::zero());
-        sub_numbers.push((*row_idx, sub_number_frame, row_size));
+        
+        // Create a referenceable element for this sub-equation
+        if line_ref.is_some() {
+            // Get a unique location for this sub-equation line
+            let location = locator.next_location(engine, *row_idx as u128, typst_syntax::Span::detached());
+            
+            // Create the line element with the location set
+            let line_elem = MathLineElem::new()
+                .with_number(Some(sub_number_content.clone()));
+            
+            let mut packed = line_elem.pack();
+            packed.set_location(location);
+            
+            let tag = Tag::Start(
+                packed.spanned(typst_syntax::Span::detached()), 
+                TagFlags {
+                    introspectable: true,
+                    tagged: true,
+                }
+            );
+            
+            // Add the tag to the frame - this makes the line referenceable
+            let mut tag_frame = Frame::soft(Size::zero());
+            tag_frame.push(Point::zero(), FrameItem::Tag(tag));
+            equation.push_frame(
+                Point::new(Abs::zero(), row_size.y * (*row_idx as f64)),
+                tag_frame
+            );
+        }
+        
+        sub_numbers.push((*row_idx, sub_number_frame, row_size, line_ref.clone()));
     }
 
     // Calculate positions and attach numbers to rows
@@ -486,7 +518,7 @@ fn add_sub_equation_numbers(
         // For simplicity, we place sub-numbers to the right of each row
         let max_number_width = sub_numbers
             .iter()
-            .map(|(_, f, _)| f.width())
+            .map(|(_, f, _, _)| f.width())
             .max()
             .unwrap_or(Abs::zero())
             + gutter;
@@ -499,7 +531,7 @@ fn add_sub_equation_numbers(
         );
 
         // Position each sub-number next to its row
-        for (row_idx, number_frame, row_size) in &sub_numbers {
+        for (row_idx, number_frame, row_size, _line_ref) in &sub_numbers {
             if let Some((_size, row_pos)) = frame_info.get(*row_idx) {
                 let x = match sub_number_align.x {
                     FixedAlignment::Start => Abs::zero(),
@@ -514,7 +546,6 @@ fn add_sub_equation_numbers(
     }
 
     // Also add the main equation number if needed
-    // (This could be optional based on a setting)
     let x = match main_number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => width - main_number.width() - gutter,

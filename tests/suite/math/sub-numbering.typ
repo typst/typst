@@ -87,3 +87,12 @@ $ p &= q \
 
 $ a &= b \\
     &= c $
+
+--- math-sub-numbering-reference paged ---
+// Test referencing sub-equations with labels.
+#set math.equation(numbering: "(1)", sub-numbering: true)
+
+$ E &= m c^2 & #[#math.line() <einstein>] \
+     &= p c + ... & #[#math.line() <approx>] $
+
+See @einstein for the energy-mass relation.

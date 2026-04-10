@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::sync::LazyLock;
 
 use codex::styling::MathVariant;
 use ecow::EcoString;
@@ -8,14 +9,14 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
+    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
 use crate::math::MathSize;
-use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
+use crate::model::{Numbering, NumberingPattern, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
 
 /// A mathematical equation.
@@ -303,8 +304,8 @@ impl Outlinable for Packed<EquationElem> {
 /// multi-line equation.
 ///
 /// This element can be used to mark specific lines in an equation for
-/// sub-numbering or to attach a line-ref to a specific line for referencing.
-#[elem(name = "line")]
+/// sub-numbering or to attach a label to a specific line for referencing.
+#[elem(name = "line", Locatable, Tagged, Refable, Count)]
 pub struct MathLineElem {
     /// Whether this line should be numbered.
     ///
@@ -314,9 +315,47 @@ pub struct MathLineElem {
     #[default(Smart::Auto)]
     pub numbering: Smart<bool>,
 
-    /// An optional line-ref for referencing this line.
+    /// An optional label for referencing this line.
     ///
-    /// When a line-ref is provided, the line will always be numbered regardless
+    /// When a label is provided, the line will always be numbered regardless
     /// of the `numbering` setting, so that it can be referenced.
     pub line_ref: Option<EcoString>,
+
+    /// The synthesized full number (e.g., "(1a)") for this line.
+    /// This is set during layout.
+    #[synthesized]
+    pub number: Option<Content>,
+
+    /// The parent equation's location.
+    #[synthesized]
+    pub parent_location: Option<Location>,
+}
+
+impl Count for Packed<MathLineElem> {
+    fn update(&self) -> Option<CounterUpdate> {
+        // Sub-equations don't update any counter
+        None
+    }
+}
+
+impl Refable for Packed<MathLineElem> {
+    fn supplement(&self) -> Content {
+        // After synthesis, use stored number or default
+        TextElem::packed("Eq.")
+    }
+
+    fn counter(&self) -> Counter {
+        // Use the parent equation's counter
+        Counter::of(EquationElem::ELEM)
+    }
+
+    fn numbering(&self) -> Option<&Numbering> {
+        // Return a simple numbering pattern for sub-lines
+        // This is needed for the reference to work
+        use std::str::FromStr;
+        static PATTERN: LazyLock<Numbering> = LazyLock::new(|| {
+            NumberingPattern::from_str("a").unwrap().into()
+        });
+        Some(&*PATTERN)
+    }
 }
