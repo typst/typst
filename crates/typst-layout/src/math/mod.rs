@@ -274,7 +274,7 @@ pub fn layout_equation_block(
                 numbering,
                 sub_numbering_pattern.as_ref(),
                 meta,
-                number_align.resolve(styles),
+                number_align.resolve(styles),  // main_number_align (unused now)
                 sub_number_align.resolve(styles),
                 styles.get(AlignElem::alignment).resolve(styles).x,
                 regions.size.x,
@@ -420,7 +420,7 @@ fn add_sub_equation_numbers(
     main_numbering: &typst_library::model::Numbering,
     sub_numbering_pattern: Option<&typst_library::model::Numbering>,
     row_meta: &[typst_library::math::ir::RowMeta],
-    main_number_align: Axes<FixedAlignment>,
+    _main_number_align: Axes<FixedAlignment>,
     sub_number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
     region_size_x: Abs,
@@ -453,27 +453,29 @@ fn add_sub_equation_numbers(
     let mut equation = equation_builder.build();
 
     // Determine which rows should be numbered and collect labels
+    // Note: This function is only called when global sub_numbering is true,
+    // so all rows should be numbered by default.
     let mut numbered_rows: Vec<(usize, bool, Option<ecow::EcoString>)> = Vec::new();
     for (idx, meta) in row_meta.iter().enumerate() {
         // If the row has a line_ref, it must be numbered
         let force_numbered = meta.line_ref.is_some();
-        // If explicit numbering is set, use that; otherwise follow global setting
-        let should_number = force_numbered || meta.numbered;
-        if should_number {
-            numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
-        }
+        // Number all rows (this function is only called when sub_numbering is enabled)
+        numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
     }
 
     // Generate sub-numbers for numbered rows and create referenceable elements
     let mut sub_numbers: Vec<(usize, Frame, Size, Option<ecow::EcoString>)> = Vec::new();
     let sub_pattern = sub_numbering_pattern.unwrap_or(main_numbering);
 
+    // Extract main number text (e.g., "1" from "(1)")
+    let main_number_text = extract_text_from_frame(main_number);
+
     for (seq_idx, (row_idx, _force_numbered, line_ref)) in numbered_rows.iter().enumerate() {
         let seq_num = seq_idx + 1;
         let sub_label = generate_sub_number_label(sub_pattern, seq_num);
 
         // Create the full sub-number display text (e.g., "(1a)")
-        let sub_number_text = eco_format!("({})", sub_label);
+        let sub_number_text = eco_format!("({}{})", main_number_text, sub_label);
         let sub_number_content =
             typst_library::text::TextElem::packed(sub_number_text.as_str());
         let sub_number_frame =
@@ -545,23 +547,39 @@ fn add_sub_equation_numbers(
         }
     }
 
-    // Also add the main equation number if needed
-    let x = match main_number_align.x {
-        FixedAlignment::Start => Abs::zero(),
-        FixedAlignment::End => width - main_number.width() - gutter,
-        _ => width - main_number.width() - gutter,
-    };
-    let y = (equation.height() - main_number.height()) / 2.0;
-    equation.push_frame(Point::new(x, y), main_number.clone());
+    // Note: For sub-numbered equations, we don't show the main equation number
+    // to avoid overlap with sub-numbers. The sub-numbers already include the
+    // main number (e.g., "(1a)", "(1b)").
 
     Ok(equation)
 }
 
-/// Extract text content from a frame (simplified version)
-fn extract_text_from_frame(_frame: &Frame) -> ecow::EcoString {
-    // This is a simplified implementation that attempts to extract text from the frame
-    // In practice, we would iterate through frame items and extract text elements
-    ecow::EcoString::from("1") // Placeholder - in real implementation, extract from frame
+/// Extract text content from a frame by iterating through frame items
+fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
+    use typst_library::layout::FrameItem;
+    
+    let mut result = ecow::EcoString::new();
+    
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Group(group) => {
+                // Recursively extract from group
+                result.push_str(&extract_text_from_frame(&group.frame));
+            }
+            FrameItem::Text(text) => {
+                result.push_str(&text.text);
+            }
+            _ => {}
+        }
+    }
+    
+    // Remove parentheses if present
+    let trimmed = result.trim_matches(|c| c == '(' || c == ')' || c == '[' || c == ']');
+    if !trimmed.is_empty() {
+        ecow::EcoString::from(trimmed)
+    } else {
+        result
+    }
 }
 
 /// Generate a sub-number label from a pattern.
