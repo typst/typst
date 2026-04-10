@@ -1282,36 +1282,8 @@ fn visit_regex_match<'a>(
 ) -> SourceResult<()> {
     let match_range = m.offset..m.offset + m.text.len();
 
-    // Replace with the correct intuitive element kind: if matching against a
-    // lone symbol, return a `SymbolElem`, otherwise return a newly composed
-    // `TextElem`. We should only match against a `SymbolElem` during math
-    // realization (`RealizationKind::Math`).
-    let piece = if let &[(lone, _)] = elems
-        && let Some(symbol) = lone.to_packed::<SymbolElem>()
-    {
-        if symbol.text.len() == m.text.len() {
-            lone.clone()
-        } else {
-            SymbolElem::packed(m.text)
-        }
-    } else {
-        TextElem::packed(m.text)
-    };
-
-    let context = Context::new(None, Some(m.styles));
-    let output = m.recipe.apply(s.engine, context.track(), piece)?;
-
     let mut cursor = 0;
-    let mut output = Some(output);
-    let mut visit_unconsumed_match = |s: &mut State<'a, '_, '_, '_>| -> SourceResult<()> {
-        if let Some(output) = output.take() {
-            let revocation = Style::Revocation(m.id).into();
-            let outer = s.arenas.bump.alloc(m.styles);
-            let chained = outer.chain(s.arenas.styles.alloc(revocation));
-            visit(s, s.store(output), chained)?;
-        }
-        Ok(())
-    };
+    let mut m = Some(m);
 
     for &(content, styles) in elems {
         // Just forward tags.
@@ -1354,9 +1326,34 @@ fn visit_regex_match<'a>(
             }
         }
 
-        // When the match starts before this element ends, visit it.
-        if match_range.start < elem_range.end {
-            visit_unconsumed_match(s)?;
+        // When the match starts before this element ends, visit it. To visit
+        // the match only once even if it overlaps with multiple elements, we
+        // use `m.take()`.
+        if match_range.start < elem_range.end
+            && let Some(m) = m.take()
+        {
+            // Replace with the correct intuitive element kind: if matching against a
+            // lone symbol, return a `SymbolElem`, otherwise return a newly composed
+            // `TextElem`. We should only match against a `SymbolElem` during math
+            // realization (`RealizationKind::Math`).
+            let piece = if let &[(lone, _)] = elems
+                && let Some(symbol) = lone.to_packed::<SymbolElem>()
+            {
+                if symbol.text.len() == m.text.len() {
+                    lone.clone()
+                } else {
+                    SymbolElem::packed(m.text)
+                }
+            } else {
+                TextElem::packed(m.text)
+            };
+
+            let context = Context::new(None, Some(m.styles));
+            let output = m.recipe.apply(s.engine, context.track(), piece)?;
+            let revocation = Style::Revocation(m.id).into();
+            let outer = s.arenas.bump.alloc(m.styles);
+            let chained = outer.chain(s.arenas.styles.alloc(revocation));
+            visit(s, s.store(output), chained)?;
         }
 
         // If the element ends after the end of the match, visit if fully or
@@ -1379,11 +1376,6 @@ fn visit_regex_match<'a>(
 
         cursor = elem_range.end;
     }
-
-    // If the match wasn't consumed yet, visit it. This shouldn't really happen
-    // in practice (we'd need to have an empty match at the end), but it's an
-    // extra fail-safe.
-    visit_unconsumed_match(s)?;
 
     Ok(())
 }
