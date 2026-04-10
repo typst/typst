@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
+use std::slice::SliceIndex;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
@@ -1309,47 +1310,55 @@ fn visit_regex_match<'a>(
         if elem_range.start < match_range.start {
             if elem_range.end <= match_range.start {
                 visit(s, content, styles)?;
-            } else if let Some(elem) = content.to_packed::<TextElem>() {
-                let mut elem = elem.clone();
-                elem.text = elem.text[..match_range.start - elem_range.start].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
-                // Symbols are also sliced despite being a single grapheme
-                // cluster for consistency with text. We may want to more
-                // generally avoid slicing grapheme clusters in the future
-                // (see <https://github.com/typst/typst/issues/8058>).
-                let mut elem = elem.clone();
-                elem.text = elem.text[..match_range.start - elem_range.start].into();
-                visit(s, s.store(elem.pack()), styles)?;
             } else {
-                unreachable!();
+                let end = match_range.start - elem_range.start;
+                visit(s, s.store(slice_textual(content, ..end)), styles)?;
             }
         }
 
-        // When the match starts before this element ends, visit it. To visit
-        // the match only once even if it overlaps with multiple elements, we
-        // use `m.take()`.
+        // When the match starts before this element ends, then we are at the
+        // first element that overlaps with the match and should visit the
+        // match. To visit the match only once even if it overlaps with multiple
+        // elements, we use `m.take()`.
+        // ```
+        // Match:           -----------------
+        // Elements: ---- ---- ---------- ----- -----
+        //                ^^^^ current `content` element
+        // ```
         if match_range.start < elem_range.end
             && let Some(m) = m.take()
         {
-            // Replace with the correct intuitive element kind: if matching against a
-            // lone symbol, return a `SymbolElem`, otherwise return a newly composed
-            // `TextElem`. We should only match against a `SymbolElem` during math
-            // realization (`RealizationKind::Math`).
-            let piece = if let &[(lone, _)] = elems
-                && let Some(symbol) = lone.to_packed::<SymbolElem>()
+            // Otherwise, we would have overlapped with a previous element.
+            debug_assert!(elem_range.start <= match_range.start);
+
+            // Produce the content that we'll provide to the user show rule.
+            let it = if match_range.end <= elem_range.end
+                && (content.is::<TextElem>() || content.is::<SymbolElem>())
             {
-                if symbol.text.len() == m.text.len() {
-                    lone.clone()
-                } else {
-                    SymbolElem::packed(m.text)
-                }
+                // When the match also _ends_ before this element ends, it's
+                // fully contained with this element and we can slice it in the
+                // same way we do for the other part(s) of it. This means we
+                // retain whether it was a symbol or text and also its label,
+                // span, etc.
+                slice_textual(
+                    content,
+                    match_range.start - elem_range.start
+                        ..match_range.end - elem_range.start,
+                )
             } else {
-                TextElem::packed(m.text)
+                // If we overlap with multiple elements or have an element that
+                // is not text or a symbol, we create a fresh text element, but
+                // we at least retain _some_ span. Better than nothing.
+                //
+                // Creating a text element instead of propagating the
+                // space/linebreak/smartquote ensures we always provide an
+                // element with a `.text` field, so that users can rely on that
+                // field being accessible.
+                TextElem::packed(m.text).spanned(content.span())
             };
 
             let context = Context::new(None, Some(m.styles));
-            let output = m.recipe.apply(s.engine, context.track(), piece)?;
+            let output = m.recipe.apply(s.engine, context.track(), it)?;
             let revocation = Style::Revocation(m.id).into();
             let outer = s.arenas.bump.alloc(m.styles);
             let chained = outer.chain(s.arenas.styles.alloc(revocation));
@@ -1361,16 +1370,9 @@ fn visit_regex_match<'a>(
         if elem_range.end > match_range.end {
             if elem_range.start >= match_range.end {
                 visit(s, content, styles)?;
-            } else if let Some(elem) = content.to_packed::<TextElem>() {
-                let mut elem = elem.clone();
-                elem.text = elem.text[match_range.end - elem_range.start..].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            } else if let Some(elem) = content.to_packed::<SymbolElem>() {
-                let mut elem = elem.clone();
-                elem.text = elem.text[match_range.end - elem_range.start..].into();
-                visit(s, s.store(elem.pack()), styles)?;
             } else {
-                unreachable!();
+                let start = match_range.end - elem_range.start;
+                visit(s, s.store(slice_textual(content, start..)), styles)?;
             }
         }
 
@@ -1378,6 +1380,29 @@ fn visit_regex_match<'a>(
     }
 
     Ok(())
+}
+
+/// Takes a text or symbol element and returns an appropriate sliced output
+/// element.
+fn slice_textual(elem: &Content, range: impl SliceIndex<str, Output = str>) -> Content {
+    if let Some(elem) = elem.to_packed::<TextElem>() {
+        // Unfortunately, we can't apply a `TextElem::span_offset` for more
+        // precise tracking here because it creates a user-visible styled
+        // element, nesting the text element, and obscuring the `.text` field.
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
+        // Symbols are also sliced despite being a single grapheme cluster for
+        // consistency with text. We may want to more generally avoid slicing
+        // grapheme clusters in the future.
+        // See also: <https://github.com/typst/typst/issues/8058>
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else {
+        panic!("can only slice text and symbols");
+    }
 }
 
 /// Finds the first non-detached span in the list.
