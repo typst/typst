@@ -118,6 +118,10 @@ where
                 at_boundary = true;
             }
             RawMathItem::Linebreak => unreachable!(),
+            RawMathItem::LineMarker(_) => {
+                // Line markers are handled during row processing, ignore here
+                continue;
+            }
             RawMathItem::Item(mut item) => {
                 // If we just passed an alignment point, check if this item has
                 // lspace that should be moved to the previous column.

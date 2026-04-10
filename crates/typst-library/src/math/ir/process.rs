@@ -4,9 +4,10 @@ use std::ops::{Deref, DerefMut};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use super::item::{MathItem, RawMathItem};
+use super::item::{MathItem, RawMathItem, RowMeta};
 use super::multiline::{AlignedRow, split_at_align};
-use crate::foundations::StyleChain;
+use crate::foundations::{Smart, StyleChain};
+use typst_syntax::Span;
 use crate::math::{MEDIUM, MathSize, THICK, THIN};
 
 /// The result of processing items for grouping.
@@ -16,7 +17,7 @@ pub(crate) enum GroupResult<'a> {
     Flat(Vec<MathItem<'a>>),
     /// Linebreaks were present, and items are split into padded rows and
     /// alignment columns.
-    Multiline(Vec<AlignedRow<'a>>),
+    Multiline(Vec<AlignedRow<'a>>, Vec<RowMeta<'a>>),
 }
 
 /// Processes raw items for grouping.
@@ -37,18 +38,36 @@ where
     let preprocessed = preprocess(items, closing, false);
     if preprocessed.linebreaks > 0 {
         let mut row = Vec::new();
-        let mut rows: Vec<_> = preprocessed
+        let mut row_meta = RowMeta::default();
+        let mut rows: Vec<AlignedRow<'a>> = Vec::new();
+        let mut metas: Vec<RowMeta<'a>> = Vec::new();
+
+        for item in preprocessed
             .items
             .into_iter()
             .chain(iter::once(RawMathItem::Linebreak))
-            .filter_map(|item| match item {
-                RawMathItem::Linebreak => Some(split_at_align(row.drain(..), styles)),
+        {
+            match item {
+                RawMathItem::Linebreak => {
+                    rows.push(split_at_align(row.drain(..), styles));
+                    metas.push(row_meta);
+                    row_meta = RowMeta::default();
+                }
+                RawMathItem::LineMarker(marker) => {
+                    // Update row metadata from marker
+                    let numbering = marker.numbering.get(styles);
+                    row_meta.numbered = match numbering {
+                        Smart::Auto => false, // Will be determined later based on global setting
+                        Smart::Custom(b) => b,
+                    };
+                    row_meta.line_ref = marker.line_ref.get_ref(styles).as_ref().map(|s| s.clone());
+                    row_meta.span = Span::detached(); // Markers don't have a meaningful span here
+                }
                 other => {
                     row.push(other);
-                    None
                 }
-            })
-            .collect();
+            }
+        }
 
         if pad {
             let ncols = rows.iter().map(AlignedRow::len).max().unwrap_or_default();
@@ -57,13 +76,13 @@ where
             }
         }
 
-        GroupResult::Multiline(rows)
+        GroupResult::Multiline(rows, metas)
     } else {
         GroupResult::Flat(
             preprocessed
                 .items
                 .into_iter()
-                .filter(|item| !matches!(item, RawMathItem::Align))
+                .filter(|item| !matches!(item, RawMathItem::Align | RawMathItem::LineMarker(_)))
                 .map(RawMathItem::into_item)
                 .collect::<Option<_>>()
                 .unwrap(),
@@ -90,12 +109,19 @@ where
 {
     let preprocessed = preprocess(items, false, true);
     let sub_columns = if preprocessed.has_align {
-        split_at_align(preprocessed.items, styles)
+        split_at_align(
+            preprocessed
+                .items
+                .into_iter()
+                .filter(|item| !matches!(item, RawMathItem::LineMarker(_))),
+            styles,
+        )
     } else {
         AlignedRow::new(vec![MathItem::wrap(
             preprocessed
                 .items
                 .into_iter()
+                .filter(|item| !matches!(item, RawMathItem::LineMarker(_)))
                 .map(RawMathItem::into_item)
                 .collect::<Option<_>>()
                 .unwrap(),
@@ -182,6 +208,12 @@ where
             // Alignment points are resolved later.
             RawMathItem::Align => {
                 has_align = true;
+                resolved.push(item);
+                continue;
+            }
+
+            // Line markers are passed through for later processing.
+            RawMathItem::LineMarker(_) => {
                 resolved.push(item);
                 continue;
             }

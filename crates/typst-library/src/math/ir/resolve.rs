@@ -119,7 +119,9 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         }
 
         Ok(match process_group(self.items.drain(start..), styles, false, true) {
-            GroupResult::Multiline(rows) => MultilineItem::create(rows, styles),
+            GroupResult::Multiline(rows, row_meta) => {
+                MultilineItem::create_with_meta(rows, row_meta, styles)
+            }
             GroupResult::Flat(items) => MathItem::wrap(items, styles),
         })
     }
@@ -179,6 +181,8 @@ fn resolve_realized<'a, 'v, 'e>(
         resolve_class(elem, ctx, styles)?;
     } else if elem.is::<LinebreakElem>() {
         ctx.push(RawMathItem::Linebreak);
+    } else if let Some(line) = elem.to_packed::<MathLineElem>() {
+        ctx.push(RawMathItem::LineMarker(line));
     } else if let Some(elem) = elem.to_packed::<FracElem>() {
         resolve_frac(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<AccentElem>() {
@@ -924,7 +928,7 @@ fn resolve_lr<'a, 'v, 'e>(
 
     let insert_pos = start + start_idx;
     match process_group(inner_items, styles, close.is_some(), false) {
-        GroupResult::Multiline(rows) => {
+        GroupResult::Multiline(rows, _meta) => {
             let items = expand_multiline_fence(rows, open, close, styles, elem.span());
             ctx.items.splice(insert_pos..insert_pos, items);
         }

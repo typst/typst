@@ -44,6 +44,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.start_category(crate::Category::Math);
     math.define_elem::<EquationElem>();
+    math.define_elem::<MathLineElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();

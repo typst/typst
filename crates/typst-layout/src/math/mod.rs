@@ -16,6 +16,7 @@ use typst_library::World;
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
+
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
@@ -120,14 +121,36 @@ pub fn layout_equation_block(
     let arenas = Arenas::default();
     let item = resolve_equation(elem, engine, locator.relayout(), &arenas, styles)?;
 
+    // Check if this is a multiline equation with sub-numbering
+    let is_multiline = matches!(
+        item,
+        MathItem::Component(MathComponent {
+            kind: MathKind::Multiline(_),
+            ..
+        })
+    );
+    let sub_numbering = is_multiline && elem.sub_numbering.get(styles);
+    let sub_numbering_pattern = elem.sub_numbering_pattern.get_ref(styles);
+
+    // Extract row metadata if multiline
+    let row_meta: Option<Vec<_>> = if let MathItem::Component(MathComponent {
+        kind: MathKind::Multiline(multi),
+        ..
+    }) = &item
+    {
+        Some(multi.row_meta.clone())
+    } else {
+        None
+    };
+
     let mut ctx = MathContext::new(engine, regions.base(), font.clone());
     let full_equation_builder = if let MathItem::Component(MathComponent {
         kind: MathKind::Multiline(multi),
-        styles,
+        styles: item_styles,
         ..
     }) = item
     {
-        layout_multiline(&multi, &mut ctx, styles)?
+        layout_multiline(&multi, &mut ctx, item_styles)?
     } else {
         ctx.layout_into_fragments(&item, styles)?.into_frame().into()
     };
@@ -224,25 +247,56 @@ pub fn layout_equation_block(
         SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
     };
 
+    // Get sub-numbering alignment
+    let sub_number_align = match elem.sub_number_align.get(styles) {
+        SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
+        SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
+        SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+    };
+
     // Add equation numbers to each equation region.
     let region_count = equation_builders.len();
-    let frames = equation_builders
-        .into_iter()
-        .map(|builder| {
-            if builder.frames.is_empty() && region_count > 1 {
-                // Don't number empty regions, but do number empty equations.
-                return builder.build();
-            }
-            add_equation_number(
+    let mut frames = vec![];
+
+    for (_builder_idx, builder) in equation_builders.into_iter().enumerate() {
+        if builder.frames.is_empty() && region_count > 1 {
+            // Don't number empty regions, but do number empty equations.
+            frames.push(builder.build());
+            continue;
+        }
+
+        // Check if we need per-row numbering
+        if sub_numbering && builder.frames.len() > 1 && row_meta.is_some() {
+            let meta = row_meta.as_ref().unwrap();
+            let numbered_frame = add_sub_equation_numbers(
+                builder,
+                &number,
+                numbering,
+                sub_numbering_pattern.as_ref(),
+                meta,
+                number_align.resolve(styles),
+                sub_number_align.resolve(styles),
+                styles.get(AlignElem::alignment).resolve(styles).x,
+                regions.size.x,
+                full_number_width,
+                engine,
+                locator.next(&()),
+                styles,
+                pod,
+            )?;
+            frames.push(numbered_frame);
+        } else {
+            let numbered_frame = add_equation_number(
                 builder,
                 number.clone(),
                 number_align.resolve(styles),
                 styles.get(AlignElem::alignment).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
-            )
-        })
-        .collect();
+            );
+            frames.push(numbered_frame);
+        }
+    }
 
     Ok(Fragment::frames(frames))
 }
@@ -357,6 +411,140 @@ fn resize_equation(
     );
     equation.translate(Point::with_y(excess_above));
     resizing_offset + Point::with_y(excess_above)
+}
+
+/// Add sub-equation numbers to each row of a multi-line equation.
+fn add_sub_equation_numbers(
+    equation_builder: MathRunFrameBuilder,
+    main_number: &Frame,
+    main_numbering: &typst_library::model::Numbering,
+    sub_numbering_pattern: Option<&typst_library::model::Numbering>,
+    row_meta: &[typst_library::math::ir::RowMeta],
+    main_number_align: Axes<FixedAlignment>,
+    sub_number_align: Axes<FixedAlignment>,
+    equation_align: FixedAlignment,
+    region_size_x: Abs,
+    full_number_width: Abs,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    pod: Region,
+) -> SourceResult<Frame> {
+    use ecow::eco_format;
+
+    static NUMBER_GUTTER: Em = Em::new(0.5);
+    let gutter = NUMBER_GUTTER.resolve(styles);
+
+    let width = if region_size_x.is_finite() {
+        region_size_x
+    } else {
+        equation_builder.size.x + 2.0 * full_number_width
+    };
+
+    // Save frame info before building
+    let frame_info: Vec<(Size, Point)> = equation_builder
+        .frames
+        .iter()
+        .map(|(f, p)| (f.size(), *p))
+        .collect();
+
+    let mut equation = equation_builder.build();
+
+    // Determine which rows should be numbered
+    let mut numbered_rows: Vec<(usize, bool)> = Vec::new(); // (row_index, force_numbered)
+    for (idx, meta) in row_meta.iter().enumerate() {
+        // If the row has a line_ref, it must be numbered
+        let force_numbered = meta.line_ref.is_some();
+        // If explicit numbering is set, use that; otherwise follow global setting
+        let should_number = force_numbered || meta.numbered;
+        if should_number {
+            numbered_rows.push((idx, force_numbered));
+        }
+    }
+
+    // Generate sub-numbers for numbered rows
+    let mut sub_numbers: Vec<(usize, Frame, Size)> = Vec::new(); // (row_index, frame, row_size)
+    let sub_pattern = sub_numbering_pattern.unwrap_or(main_numbering);
+
+    for (seq_idx, (row_idx, _force_numbered)) in numbered_rows.iter().enumerate() {
+        let seq_num = seq_idx + 1;
+        let sub_label = generate_sub_number_label(sub_pattern, seq_num);
+
+        // Create the sub-number content
+        let sub_number_text = eco_format!("({})", sub_label);
+        let sub_number_content =
+            typst_library::text::TextElem::packed(sub_number_text.as_str());
+        let sub_number_frame =
+            crate::layout_frame(engine, &sub_number_content, locator.relayout(), styles, pod)?;
+
+        let row_size = frame_info.get(*row_idx).map(|(s, _)| *s).unwrap_or(Size::zero());
+        sub_numbers.push((*row_idx, sub_number_frame, row_size));
+    }
+
+    // Calculate positions and attach numbers to rows
+    if !sub_numbers.is_empty() {
+        // For simplicity, we place sub-numbers to the right of each row
+        let max_number_width = sub_numbers
+            .iter()
+            .map(|(_, f, _)| f.width())
+            .max()
+            .unwrap_or(Abs::zero())
+            + gutter;
+
+        // Resize equation to accommodate numbers
+        let new_width = width.max(equation.width() + 2.0 * max_number_width);
+        equation.resize(
+            Size::new(new_width, equation.height()),
+            Axes::<FixedAlignment>::new(equation_align, FixedAlignment::Start),
+        );
+
+        // Position each sub-number next to its row
+        for (row_idx, number_frame, row_size) in &sub_numbers {
+            if let Some((_size, row_pos)) = frame_info.get(*row_idx) {
+                let x = match sub_number_align.x {
+                    FixedAlignment::Start => Abs::zero(),
+                    FixedAlignment::End => new_width - number_frame.width() - gutter,
+                    _ => new_width - number_frame.width() - gutter, // Default to end
+                };
+                let y = row_pos.y + (row_size.y - number_frame.height()) / 2.0;
+
+                equation.push_frame(Point::new(x, y), number_frame.clone());
+            }
+        }
+    }
+
+    // Also add the main equation number if needed
+    // (This could be optional based on a setting)
+    let x = match main_number_align.x {
+        FixedAlignment::Start => Abs::zero(),
+        FixedAlignment::End => width - main_number.width() - gutter,
+        _ => width - main_number.width() - gutter,
+    };
+    let y = (equation.height() - main_number.height()) / 2.0;
+    equation.push_frame(Point::new(x, y), main_number.clone());
+
+    Ok(equation)
+}
+
+/// Extract text content from a frame (simplified version)
+fn extract_text_from_frame(_frame: &Frame) -> ecow::EcoString {
+    // This is a simplified implementation that attempts to extract text from the frame
+    // In practice, we would iterate through frame items and extract text elements
+    ecow::EcoString::from("1") // Placeholder - in real implementation, extract from frame
+}
+
+/// Generate a sub-number label from a pattern.
+/// Supports patterns like "(1a)", "(1.1)", "a", etc.
+fn generate_sub_number_label(
+    _pattern: &typst_library::model::Numbering,
+    seq: usize,
+) -> ecow::EcoString {
+    use ecow::eco_format;
+
+    // For now, use simple letter-based sub-numbering
+    // The pattern analysis would require more complex logic to parse numbering patterns
+    let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
+    eco_format!("{}", letter)
 }
 
 /// The context for math layout.

@@ -12,6 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::multiline::AlignedRow;
 use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
+use crate::introspection::Location;
 use crate::introspection::{Locator, Tag};
 use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
 use crate::math::{
@@ -29,6 +30,10 @@ pub(crate) enum RawMathItem<'a> {
     Linebreak,
     /// An alignment point.
     Align,
+    /// A line marker for sub-numbering control.
+    /// This carries metadata from `MathLineElem` and is placed at the start
+    /// of a line to control its numbering behavior.
+    LineMarker(&'a crate::math::MathLineElem),
 }
 
 impl<'a> From<MathItem<'a>> for RawMathItem<'a> {
@@ -42,7 +47,7 @@ impl<'a> RawMathItem<'a> {
     pub(crate) fn is_ignorant(&self) -> bool {
         match self {
             Self::Item(item) => item.is_ignorant(),
-            Self::Linebreak | Self::Align => false,
+            Self::Linebreak | Self::Align | Self::LineMarker(_) => false,
         }
     }
 
@@ -53,7 +58,7 @@ impl<'a> RawMathItem<'a> {
     pub(crate) fn into_item(self) -> Option<MathItem<'a>> {
         match self {
             Self::Item(item) => Some(item),
-            Self::Linebreak | Self::Align => None,
+            Self::Linebreak | Self::Align | Self::LineMarker(_) => None,
         }
     }
 }
@@ -460,6 +465,33 @@ impl<'a> GroupItem<'a> {
     }
 }
 
+/// Metadata for a single row in a multiline equation.
+#[derive(Debug, Clone)]
+pub struct RowMeta<'a> {
+    /// Whether this row should be numbered.
+    pub numbered: bool,
+    /// The line-ref for referencing this row.
+    pub line_ref: Option<EcoString>,
+    /// The location for this row (for introspection).
+    pub location: Option<Location>,
+    /// The source span for this row.
+    pub span: Span,
+    /// Marker element for this row (if present in source).
+    pub marker: Option<&'a crate::math::MathLineElem>,
+}
+
+impl<'a> Default for RowMeta<'a> {
+    fn default() -> Self {
+        Self {
+            numbered: false,
+            line_ref: None,
+            location: None,
+            span: Span::detached(),
+            marker: None,
+        }
+    }
+}
+
 /// A multiline equation with items pre-split into rows and columns.
 #[derive(Debug)]
 pub struct MultilineItem<'a> {
@@ -473,6 +505,8 @@ pub struct MultilineItem<'a> {
     ///
     /// Only used in paged export.
     pub centered: bool,
+    /// Metadata for each row (sub-numbering, labels, etc.)
+    pub row_meta: Vec<RowMeta<'a>>,
 }
 
 impl<'a> MultilineItem<'a> {
@@ -481,7 +515,27 @@ impl<'a> MultilineItem<'a> {
         rows: Vec<AlignedRow<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let kind = MathKind::Multiline(Self { rows, centered: false });
+        let n_rows = rows.len();
+        let kind = MathKind::Multiline(Self {
+            rows,
+            centered: false,
+            row_meta: vec![RowMeta::default(); n_rows],
+        });
+        let props = MathProperties::default(styles);
+        MathComponent { kind, props, styles }.into()
+    }
+
+    /// Creates a new multiline item with metadata.
+    pub(crate) fn create_with_meta(
+        rows: Vec<AlignedRow<'a>>,
+        row_meta: Vec<RowMeta<'a>>,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        let kind = MathKind::Multiline(Self {
+            rows,
+            centered: false,
+            row_meta,
+        });
         let props = MathProperties::default(styles);
         MathComponent { kind, props, styles }.into()
     }
