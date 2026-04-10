@@ -12,6 +12,8 @@ cb1f3574cb617333171c54e8405e4fc4 baseline-inline-math
 2e7dd3c79d9ffc3eee7915b4793f1429 baseline-isolated-box
 121398cc8fa49d007f64c8f0a2c7344c baseline-move
 1595de98146f467bacd8314c1e8453e1 baseline-paragraph
+a6d94df0c6a1fa8796cefaa6e6125fee baseline-rotate
+e06b02ff4d5e1afde1a09cb938e84caf baseline-skew
 e38a57b07a9d4b4f3de57cffaa79363f baseline-text
 b203edd5e928fcbca5934101970a1032 bibliography-basic
 463e305a46252ffe726bc860d1bb89c3 bibliography-before-content
@@ -1787,9 +1789,10 @@ e1a28140e308d246294a7eb22fdf20ff title-show-set
 c3e1afafe5c083c90c1255325c8b91f7 title-with-body-auto
 39d9c52d9b33db367942984bb66c5064 transform-combinations
 16579beec87ebc7ea0968921facfabbd transform-rotate
+5a821a53d0450d2866b2cff562e25b81 transform-rotate-180deg
 cf3092479be5cf42e0ccd5f559ff19a4 transform-rotate-and-scale
 a25cd38fd9c255f1564958f1485920d0 transform-rotate-origin
-1b963e3425d4ce90f65d6edafc74765d transform-rotate-relative-sizing
+5e4791f5835867fd601a70ddaebc44e3 transform-rotate-relative-sizing
 3bf0be0bd01908bd2c4ca58472cb7a2d transform-scale
 4d0a69caa7d2536aafdd3c7f9514cc22 transform-scale-abs-and-auto
 b561e17d3fd424940d0b90290707b53e transform-scale-origin
