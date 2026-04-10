@@ -1286,9 +1286,16 @@ fn visit_regex_match<'a>(
     // lone symbol, return a `SymbolElem`, otherwise return a newly composed
     // `TextElem`. We should only match against a `SymbolElem` during math
     // realization (`RealizationKind::Math`).
-    let piece = match elems {
-        &[(lone, _)] if lone.is::<SymbolElem>() => SymbolElem::packed(m.text),
-        _ => TextElem::packed(m.text),
+    let piece = if let &[(lone, _)] = elems
+        && let Some(symbol) = lone.to_packed::<SymbolElem>()
+    {
+        if symbol.text.len() == m.text.len() {
+            lone.clone()
+        } else {
+            SymbolElem::packed(m.text)
+        }
+    } else {
+        TextElem::packed(m.text)
     };
 
     let context = Context::new(None, Some(m.styles));
