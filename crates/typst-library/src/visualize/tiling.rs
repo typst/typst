@@ -257,10 +257,13 @@ impl Tiling {
         let spacing = spacing.v.map(|l| l.abs);
 
         Ok(Self(Arc::new(TilingInner {
-            size: size,
+            size,
             frame: LazyHash::new(frame),
             spacing,
-            offset: offset.v.map(|l| l.resolve(styles)).zip_map(size + spacing, Rel::relative_to),
+            offset: offset
+                .v
+                .map(|l| l.resolve(styles))
+                .zip_map(size + spacing, Rel::relative_to),
             relative,
         })))
     }
