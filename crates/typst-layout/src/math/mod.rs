@@ -597,7 +597,7 @@ fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
 /// Format a sub-number by combining main number and sub-number sequence.
 /// Supports various patterns like:
 /// - "(1a)", "(1.a)", "(1.1)" - combined format
-/// - "1a", "1.a", "1.1" - without outer parentheses
+/// - "1a", "1.a", "1.1" - without outer parentheses  
 /// - "(a)", "(1)" - just sub-number
 fn format_sub_number(
     _main_pattern: &typst_library::model::Numbering,
@@ -606,71 +606,65 @@ fn format_sub_number(
     seq: usize,
 ) -> ecow::EcoString {
     use ecow::eco_format;
-    use typst_library::model::{Numbering, NumberingKind};
+    use typst_library::model::Numbering;
 
-    // Helper to get the kind and formatting from a pattern
-    let get_format = |p: &Numbering| -> (String, NumberingKind, String) {
-        match p {
-            Numbering::Pattern(pat) => {
-                if let Some((prefix, kind)) = pat.pieces.first() {
-                    (prefix.to_string(), kind.clone(), pat.suffix.to_string())
-                } else {
-                    (String::new(), NumberingKind::LowerLatin, String::new())
-                }
-            }
-            _ => (String::new(), NumberingKind::LowerLatin, String::new()),
-        }
+    let Numbering::Pattern(pat) = sub_pattern else {
+        // Function-based numbering - fallback to simple letter
+        let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
+        return eco_format!("({}{})", main_number, letter);
     };
 
-    let (sub_prefix, sub_kind, sub_suffix) = get_format(sub_pattern);
+    let sub_part = if pat.pieces.is_empty() {
+        // Fallback to letter
+        char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?').to_string()
+    } else {
+        // Use the last piece's kind to format the sequence number
+        let (_, kind) = pat.pieces.last().unwrap();
+        kind.apply(seq as u64).into()
+    };
 
-    // Format the sub-number part
-    let sub_part = sub_kind.apply(seq as u64);
+    // Get the prefix and check for outer parentheses/brackets
+    let prefix = pat.pieces.first().map(|(p, _)| p.as_str()).unwrap_or("");
+    let suffix = pat.suffix.as_str();
+    
+    let has_outer_parens = prefix.starts_with('(') && suffix.ends_with(')');
+    let has_outer_brackets = prefix.starts_with('[') && suffix.ends_with(']');
 
-    // Check if sub-pattern has explicit parentheses or brackets (wants combined format)
-    let sub_has_parens = sub_prefix.starts_with('(') || sub_suffix.ends_with(')');
-    let sub_has_brackets = sub_prefix.starts_with('[') || sub_suffix.ends_with(']');
-
-    if sub_has_parens || sub_has_brackets {
+    if has_outer_parens || has_outer_brackets {
         // Combined format: (1a), (1.a), (1.1)
-        // Parse the pattern to find the separator between main and sub numbers
-        // For "(1.1)": prefix="(", pieces=[("1", Arabic), (".", Arabic)], suffix=")"
-        // For "(a)": prefix="(", pieces=[("", LowerLatin)], suffix=")"
+        // Build the inner content: main_number + separator + sub_part
+        let mut inner = ecow::EcoString::new();
+        inner.push_str(main_number);
         
-        if let Numbering::Pattern(pat) = sub_pattern {
-            if pat.pieces.len() >= 2 {
-                // Multi-part pattern like "(1.1)" - use the separator from the pattern
-                let separator = if pat.pieces.len() > 1 {
-                    pat.pieces[1].0.as_str()
-                } else {
-                    ""
-                };
-                
-                if sub_has_parens {
-                    eco_format!("({}{}{}{})", main_number, separator, sub_part, 
-                        if sub_suffix == ")" { "" } else { &sub_suffix })
-                } else {
-                    eco_format!("[{}{}{}{}]", main_number, separator, sub_part,
-                        if sub_suffix == "]" { "" } else { &sub_suffix })
-                }
-            } else {
-                // Single-part pattern like "(a)" or "(1)"
-                let inner_prefix = if sub_prefix.len() > 1 { &sub_prefix[1..] } else { "" };
-                if sub_has_parens {
-                    eco_format!("({}{}{}{})", main_number, inner_prefix, sub_part,
-                        if sub_suffix == ")" { "" } else { &sub_suffix })
-                } else {
-                    eco_format!("[{}{}{}{}]", main_number, inner_prefix, sub_part,
-                        if sub_suffix == "]" { "" } else { &sub_suffix })
-                }
+        // Add separator(s) from pattern pieces (excluding the first piece's prefix if it's "(")
+        for (i, (sep, _)) in pat.pieces.iter().skip(1).enumerate() {
+            if i == 0 {
+                inner.push_str(sep);
             }
-        } else {
-            // Function-based numbering - simple append
-            eco_format!("({}{})", main_number, sub_part)
         }
-    } else if !sub_prefix.is_empty() || !sub_suffix.is_empty() {
+        
+        // If single-piece pattern like "(a)", append sub_part directly
+        if pat.pieces.len() == 1 {
+            // Remove the opening paren from prefix if present
+            let inner_prefix = if prefix.starts_with('(') || prefix.starts_with('[') {
+                &prefix[1..]
+            } else {
+                prefix
+            };
+            inner.push_str(inner_prefix);
+        }
+        
+        inner.push_str(&sub_part);
+        
+        // Wrap with outer parens/brackets
+        if has_outer_parens {
+            eco_format!("({})", inner)
+        } else {
+            eco_format!("[{}]", inner)
+        }
+    } else if !prefix.is_empty() || !suffix.is_empty() {
         // Pattern has prefix/suffix but no outer parens: 1.a, 1-a
-        eco_format!("{}{}{}{}", main_number, sub_prefix, sub_part, sub_suffix)
+        eco_format!("{}{}{}{}", main_number, prefix, sub_part, suffix)
     } else {
         // Simple format: just append to main number: 1a, 1b, 1c
         eco_format!("{}{}", main_number, sub_part)
