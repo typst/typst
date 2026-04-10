@@ -572,13 +572,7 @@ fn embedded_code_expr(p: &mut Parser) {
         }
 
         let stmt = p.at_set(set::STMT);
-        let at = p.at_set(set::CODE_EXPR);
         code_expr_prec(p, true, 0);
-
-        // Consume error for things like `#12p` or `#"abc\"`.
-        if !at {
-            p.unexpected();
-        }
 
         // Note: 2d math arguments rely on the `directly_at` check.
         let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
@@ -729,6 +723,9 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Numeric
         | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
+
+        // Consume erroneous tokens for things like `#12p`, `#]`, or `#"abc\"`.
+        _ if atomic => p.unexpected(),
 
         _ => p.expected("expression"),
     }
