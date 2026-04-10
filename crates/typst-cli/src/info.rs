@@ -415,7 +415,7 @@ fn parse_bool(cmd: &Command, val: &str, key: &'static str) -> Option<bool> {
         Ok(bool) => Some(bool),
         Err(_) => {
             crate::print_error(&format!(
-                "invalid value `{val}` for `{key}`. expected `true` or `false`."
+                "invalid value `{val}` for `{key}`, expected `true` or `false`."
             ))
             .map_err(|e| eco_format!("{e}"))
             .expect("failed to print error");
