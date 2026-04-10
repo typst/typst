@@ -8,9 +8,9 @@ use typst_utils::{LazyHash, Numeric};
 use crate::World;
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Content, Repr, Smart, StyleChain, func, scope, ty};
+use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Axes, Frame, Length, Region, Size};
+use crate::layout::{Abs, Axes, Frame, Length, Region, Rel, Size};
 use crate::visualize::RelativeTo;
 
 /// A repeating tiling fill.
@@ -82,7 +82,7 @@ use crate::visualize::RelativeTo;
 /// The [`offset`]($tiling.offset) parameter allows you to offset the starting
 /// position of the tiling. This shifts the entire tile grid without affecting
 /// the tile size or spacing. Positive x values move the pattern to the right,
-/// and positive y values move it down.
+/// and positive y values move it down. Relative values are resolved against the tile size plus spacing
 ///
 /// ```example
 /// #let pat = tiling(size: (40pt, 40pt))[
@@ -177,8 +177,8 @@ impl Tiling {
         spacing: Spanned<Axes<Length>>,
         /// The offset of the tiling.
         #[named]
-        #[default(Spanned::new(Axes::splat(Length::zero()), Span::detached()))]
-        offset: Spanned<Axes<Length>>,
+        #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
+        offset: Spanned<Axes<Rel<Length>>>,
         /// The [relative placement](#relativeness) of the tiling.
         ///
         /// For an element placed at the root/top level of the document, the
@@ -218,13 +218,12 @@ impl Tiling {
             bail!(spacing.span, "tile spacing must be finite");
         }
 
-        // Ensure that offset is absolute.
-        if !offset.v.x.em.is_zero() || !offset.v.y.em.is_zero() {
-            bail!(offset.span, "tile offset must be absolute");
-        }
-
         // Ensure that offset is finite.
-        if !offset.v.x.is_finite() || !offset.v.y.is_finite() {
+        if !offset.v.x.rel.get().is_finite()
+            || !offset.v.x.abs.is_finite()
+            || !offset.v.y.rel.get().is_finite()
+            || !offset.v.y.abs.is_finite()
+        {
             bail!(offset.span, "tile offset must be finite");
         }
 
@@ -254,11 +253,14 @@ impl Tiling {
             );
         }
 
+        let size = frame.size();
+        let spacing = spacing.v.map(|l| l.abs);
+
         Ok(Self(Arc::new(TilingInner {
-            size: frame.size(),
+            size: size,
             frame: LazyHash::new(frame),
-            spacing: spacing.v.map(|l| l.abs),
-            offset: offset.v.map(|l| l.abs),
+            spacing,
+            offset: offset.v.map(|l| l.resolve(styles)).zip_map(size + spacing, Rel::relative_to),
             relative,
         })))
     }
