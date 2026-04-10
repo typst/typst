@@ -32,8 +32,8 @@ $ F = m a $
 
 $
   E & = m c^2     & #[#math.line(numbered: true)] \
-    & = p c + ... \
-    & = ...       & #[#math.line(numbered: true)]
+    & = p c + ... & #[#math.line(numbered: true)] \
+    & = ...
 $
 
 --- math-sub-numbering-manual-disable paged ---
@@ -41,7 +41,7 @@ $
 #set math.equation(numbering: "(1)", sub-number: true)
 
 $
-  E & = m c^2 \
+  E & = m c^2     & #[#math.line(numbered: false)] \
     & = p c + ... & #[#math.line(numbered: false)] \
     & = ...
 $
@@ -132,7 +132,7 @@ $
 
 --- math-sub-numbering-join-number paged ---
 // Multiple equations with numbers
-#set math.equation(numbering: "(1)", sub-number: true, sub-numbering: "1")
+#set math.equation(numbering: "(1)", sub-number: true, sub-numbering: "-1")
 $
   a & = b \
     & = c

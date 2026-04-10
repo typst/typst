@@ -266,7 +266,18 @@ pub fn layout_equation_block(
         }
 
         // Check if we need per-row numbering
-        if sub_numbering && builder.frames.len() > 1 && row_meta.is_some() {
+        // Case 1: Global sub-numbering is enabled
+        // Case 2: Some rows have manual numbered: true or have labels
+        let has_manual_numbering = if let Some(meta) = row_meta.as_ref() {
+            meta.iter().any(|m| m.numbered == Some(true) || m.line_ref.is_some())
+        } else {
+            false
+        };
+        
+        if (sub_numbering || has_manual_numbering) 
+            && builder.frames.len() > 1 
+            && row_meta.is_some() 
+        {
             let meta = row_meta.as_ref().unwrap();
             let numbered_frame = add_sub_equation_numbers(
                 builder,
@@ -283,6 +294,7 @@ pub fn layout_equation_block(
                 &mut split_locator,
                 styles,
                 pod,
+                sub_numbering,  // global_sub_numbering
             )?;
             frames.push(numbered_frame);
         } else {
@@ -429,6 +441,7 @@ fn add_sub_equation_numbers(
     locator: &mut typst_library::introspection::SplitLocator,
     styles: StyleChain,
     pod: Region,
+    global_sub_numbering: bool,
 ) -> SourceResult<Frame> {
     use ecow::eco_format;
     use typst_library::introspection::{Tag, TagFlags};
@@ -453,14 +466,28 @@ fn add_sub_equation_numbers(
     let mut equation = equation_builder.build();
 
     // Determine which rows should be numbered and collect labels
-    // Note: This function is only called when global sub_numbering is true,
-    // so all rows should be numbered by default.
+    // This function is called when global_sub_numbering is true or has_manual_numbering
     let mut numbered_rows: Vec<(usize, bool, Option<ecow::EcoString>)> = Vec::new();
     for (idx, meta) in row_meta.iter().enumerate() {
         // If the row has a line_ref, it must be numbered
         let force_numbered = meta.line_ref.is_some();
-        // Number all rows (this function is only called when sub_numbering is enabled)
-        numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
+        
+        // Determine if this row should be numbered based on:
+        // 1. Explicit setting (Some(true) or Some(false))
+        // 2. Has label (must be numbered for reference)
+        // 3. Default (None = follow global setting)
+        let should_number = match meta.numbered {
+            Some(true) => true,   // Explicitly enabled
+            Some(false) => false, // Explicitly disabled
+            None => {
+                // Default: follow global setting or if has label
+                global_sub_numbering || force_numbered
+            }
+        };
+        
+        if should_number {
+            numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
+        }
     }
 
     // Generate sub-numbers for numbered rows and create referenceable elements

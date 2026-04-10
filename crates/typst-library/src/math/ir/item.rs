@@ -469,7 +469,10 @@ impl<'a> GroupItem<'a> {
 #[derive(Debug, Clone)]
 pub struct RowMeta<'a> {
     /// Whether this row should be numbered.
-    pub numbered: bool,
+    /// - `None`: Not set, follow global setting
+    /// - `Some(true)`: Explicitly enabled
+    /// - `Some(false)`: Explicitly disabled
+    pub numbered: Option<bool>,
     /// The line-ref for referencing this row.
     pub line_ref: Option<EcoString>,
     /// The location for this row (for introspection).
@@ -483,7 +486,7 @@ pub struct RowMeta<'a> {
 impl<'a> Default for RowMeta<'a> {
     fn default() -> Self {
         Self {
-            numbered: false,
+            numbered: None,
             line_ref: None,
             location: None,
             span: Span::detached(),

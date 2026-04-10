@@ -57,8 +57,8 @@ where
                     // Update row metadata from marker
                     let numbered = marker.numbered.get(styles);
                     row_meta.numbered = match numbered {
-                        Smart::Auto => false, // Will be determined later based on global setting
-                        Smart::Custom(b) => b,
+                        Smart::Auto => None, // Will be determined later based on global setting
+                        Smart::Custom(b) => Some(b), // Explicitly set
                     };
                     row_meta.line_ref = marker.line_ref.get_ref(styles).as_ref().map(|s| s.clone());
                     row_meta.span = Span::detached(); // Markers don't have a meaningful span here
