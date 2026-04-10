@@ -19,8 +19,9 @@ use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleCha
 
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
-    Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, FrameItem, InlineItem,
-    OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
+    Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, FrameItem,
+    InlineItem, OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment,
+    VAlignment,
 };
 use typst_library::math::ir::{
     BoxItem, ExternalItem, MathComponent, MathItem, MathKind, MathProperties,
@@ -124,10 +125,7 @@ pub fn layout_equation_block(
     // Check if this is a multiline equation with sub-numbering
     let is_multiline = matches!(
         item,
-        MathItem::Component(MathComponent {
-            kind: MathKind::Multiline(_),
-            ..
-        })
+        MathItem::Component(MathComponent { kind: MathKind::Multiline(_), .. })
     );
     let sub_numbering = is_multiline && elem.sub_number.get(styles);
     let sub_numbering_pattern = elem.sub_numbering.get_ref(styles);
@@ -236,7 +234,8 @@ pub fn layout_equation_block(
         .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
     let mut split_locator = locator.split();
-    let number = crate::layout_frame(engine, &counter, split_locator.next(&()), styles, pod)?;
+    let number =
+        crate::layout_frame(engine, &counter, split_locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
@@ -273,10 +272,10 @@ pub fn layout_equation_block(
         } else {
             false
         };
-        
-        if (sub_numbering || has_manual_numbering) 
-            && builder.frames.len() > 1 
-            && row_meta.is_some() 
+
+        if (sub_numbering || has_manual_numbering)
+            && builder.frames.len() > 1
+            && row_meta.is_some()
         {
             let meta = row_meta.as_ref().unwrap();
             let numbered_frame = add_sub_equation_numbers(
@@ -285,7 +284,7 @@ pub fn layout_equation_block(
                 numbering,
                 sub_numbering_pattern.as_ref(),
                 meta,
-                number_align.resolve(styles),  // main_number_align (unused now)
+                number_align.resolve(styles), // main_number_align (unused now)
                 sub_number_align.resolve(styles),
                 styles.get(AlignElem::alignment).resolve(styles).x,
                 regions.size.x,
@@ -294,7 +293,7 @@ pub fn layout_equation_block(
                 &mut split_locator,
                 styles,
                 pod,
-                sub_numbering,  // global_sub_numbering
+                sub_numbering, // global_sub_numbering
             )?;
             frames.push(numbered_frame);
         } else {
@@ -443,7 +442,6 @@ fn add_sub_equation_numbers(
     pod: Region,
     global_sub_numbering: bool,
 ) -> SourceResult<Frame> {
-    use ecow::eco_format;
     use typst_library::introspection::{Tag, TagFlags};
     use typst_library::math::MathLineElem;
 
@@ -457,11 +455,8 @@ fn add_sub_equation_numbers(
     };
 
     // Save frame info before building
-    let frame_info: Vec<(Size, Point)> = equation_builder
-        .frames
-        .iter()
-        .map(|(f, p)| (f.size(), *p))
-        .collect();
+    let frame_info: Vec<(Size, Point)> =
+        equation_builder.frames.iter().map(|(f, p)| (f.size(), *p)).collect();
 
     let mut equation = equation_builder.build();
 
@@ -471,7 +466,7 @@ fn add_sub_equation_numbers(
     for (idx, meta) in row_meta.iter().enumerate() {
         // If the row has a line_ref, it must be numbered
         let force_numbered = meta.line_ref.is_some();
-        
+
         // Determine if this row should be numbered based on:
         // 1. Explicit setting (Some(true) or Some(false))
         // 2. Has label (must be numbered for reference)
@@ -484,7 +479,7 @@ fn add_sub_equation_numbers(
                 global_sub_numbering || force_numbered
             }
         };
-        
+
         if should_number {
             numbered_rows.push((idx, force_numbered, meta.line_ref.clone()));
         }
@@ -495,62 +490,67 @@ fn add_sub_equation_numbers(
     // Create a default letter-based pattern when none is specified
     // Use "(a)" format by default for sub-numbering
     let default_letter_pattern: typst_library::model::Numbering = {
-        use typst_library::model::{Numbering, NumberingPattern};
         use std::str::FromStr;
+        use typst_library::model::{Numbering, NumberingPattern};
         Numbering::Pattern(NumberingPattern::from_str("(a)").unwrap())
     };
-    let sub_pattern_ref = sub_numbering_pattern.map(|p| p).unwrap_or(&default_letter_pattern);
+    let sub_pattern_ref =
+        sub_numbering_pattern.map(|p| p).unwrap_or(&default_letter_pattern);
     let sub_pattern: &typst_library::model::Numbering = sub_pattern_ref;
 
     // Extract main number text (e.g., "1" from "(1)")
     let main_number_text = extract_text_from_frame(main_number);
 
-    for (seq_idx, (row_idx, _force_numbered, line_ref)) in numbered_rows.iter().enumerate() {
+    for (seq_idx, (row_idx, _force_numbered, line_ref)) in
+        numbered_rows.iter().enumerate()
+    {
         let seq_num = seq_idx + 1;
-        
+
         // Create the full sub-number display text based on pattern
-        let sub_number_text = format_sub_number(
-            main_numbering, 
-            sub_pattern, 
-            &main_number_text, 
-            seq_num
-        );
+        let sub_number_text =
+            format_sub_number(main_numbering, sub_pattern, &main_number_text, seq_num);
         let sub_number_content =
             typst_library::text::TextElem::packed(sub_number_text.as_str());
-        let sub_number_frame =
-            crate::layout_frame(engine, &sub_number_content, locator.next(&()).relayout(), styles, pod)?;
+        let sub_number_frame = crate::layout_frame(
+            engine,
+            &sub_number_content,
+            locator.next(&()).relayout(),
+            styles,
+            pod,
+        )?;
 
         let row_size = frame_info.get(*row_idx).map(|(s, _)| *s).unwrap_or(Size::zero());
-        
+
         // Create a referenceable element for this sub-equation
         if line_ref.is_some() {
             // Get a unique location for this sub-equation line
-            let location = locator.next_location(engine, *row_idx as u128, typst_syntax::Span::detached());
-            
+            let location = locator.next_location(
+                engine,
+                *row_idx as u128,
+                typst_syntax::Span::detached(),
+            );
+
             // Create the line element with the location set
-            let line_elem = MathLineElem::new()
-                .with_number(Some(sub_number_content.clone()));
-            
+            let line_elem =
+                MathLineElem::new().with_number(Some(sub_number_content.clone()));
+
             let mut packed = line_elem.pack();
             packed.set_location(location);
-            
+
             let tag = Tag::Start(
-                packed.spanned(typst_syntax::Span::detached()), 
-                TagFlags {
-                    introspectable: true,
-                    tagged: true,
-                }
+                packed.spanned(typst_syntax::Span::detached()),
+                TagFlags { introspectable: true, tagged: true },
             );
-            
+
             // Add the tag to the frame - this makes the line referenceable
             let mut tag_frame = Frame::soft(Size::zero());
             tag_frame.push(Point::zero(), FrameItem::Tag(tag));
             equation.push_frame(
                 Point::new(Abs::zero(), row_size.y * (*row_idx as f64)),
-                tag_frame
+                tag_frame,
             );
         }
-        
+
         sub_numbers.push((*row_idx, sub_number_frame, row_size, line_ref.clone()));
     }
 
@@ -596,9 +596,9 @@ fn add_sub_equation_numbers(
 /// Extract text content from a frame by iterating through frame items
 fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
     use typst_library::layout::FrameItem;
-    
+
     let mut result = ecow::EcoString::new();
-    
+
     for (_, item) in frame.items() {
         match item {
             FrameItem::Group(group) => {
@@ -611,14 +611,10 @@ fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
             _ => {}
         }
     }
-    
+
     // Remove parentheses if present
     let trimmed = result.trim_matches(|c| c == '(' || c == ')' || c == '[' || c == ']');
-    if !trimmed.is_empty() {
-        ecow::EcoString::from(trimmed)
-    } else {
-        result
-    }
+    if !trimmed.is_empty() { ecow::EcoString::from(trimmed) } else { result }
 }
 
 /// Format a sub-number by combining main number and sub-number sequence.
@@ -643,7 +639,9 @@ fn format_sub_number(
 
     let sub_part = if pat.pieces.is_empty() {
         // Fallback to letter
-        char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?').to_string()
+        char::from_u32('a' as u32 + (seq - 1) as u32)
+            .unwrap_or('?')
+            .to_string()
     } else {
         // Use the last piece's kind to format the sequence number
         let (_, kind) = pat.pieces.last().unwrap();
@@ -653,7 +651,7 @@ fn format_sub_number(
     // Get the prefix and check for outer parentheses/brackets
     let prefix = pat.pieces.first().map(|(p, _)| p.as_str()).unwrap_or("");
     let suffix = pat.suffix.as_str();
-    
+
     let has_outer_parens = prefix.starts_with('(') && suffix.ends_with(')');
     let has_outer_brackets = prefix.starts_with('[') && suffix.ends_with(']');
 
@@ -662,14 +660,14 @@ fn format_sub_number(
         // Build the inner content: main_number + separator + sub_part
         let mut inner = ecow::EcoString::new();
         inner.push_str(main_number);
-        
+
         // Add separator(s) from pattern pieces (excluding the first piece's prefix if it's "(")
         for (i, (sep, _)) in pat.pieces.iter().skip(1).enumerate() {
             if i == 0 {
                 inner.push_str(sep);
             }
         }
-        
+
         // If single-piece pattern like "(a)", append sub_part directly
         if pat.pieces.len() == 1 {
             // Remove the opening paren from prefix if present
@@ -680,9 +678,9 @@ fn format_sub_number(
             };
             inner.push_str(inner_prefix);
         }
-        
+
         inner.push_str(&sub_part);
-        
+
         // Wrap with outer parens/brackets
         if has_outer_parens {
             eco_format!("({})", inner)
@@ -695,38 +693,6 @@ fn format_sub_number(
     } else {
         // Simple format: just append to main number: 1a, 1b, 1c
         eco_format!("{}{}", main_number, sub_part)
-    }
-}
-
-/// Generate a sub-number label from a pattern.
-/// Supports patterns like "a", "1", "(a)", "A", etc.
-fn generate_sub_number_label(
-    pattern: &typst_library::model::Numbering,
-    seq: usize,
-) -> ecow::EcoString {
-    use ecow::eco_format;
-    use typst_library::model::Numbering;
-
-    match pattern {
-        Numbering::Pattern(pat) => {
-            // Use the first piece of the pattern to format the sub-number
-            if let Some((prefix, kind)) = pat.pieces.first() {
-                let mut result = ecow::EcoString::new();
-                result.push_str(prefix);
-                result.push_str(&kind.apply(seq as u64));
-                result.push_str(&pat.suffix);
-                result
-            } else {
-                // Fallback to letter
-                let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
-                eco_format!("{}", letter)
-            }
-        }
-        Numbering::Func(_) => {
-            // For function-based numbering, fallback to letter
-            let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
-            eco_format!("{}", letter)
-        }
     }
 }
 

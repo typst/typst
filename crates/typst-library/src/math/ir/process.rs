@@ -60,7 +60,7 @@ where
                         Smart::Auto => None, // Will be determined later based on global setting
                         Smart::Custom(b) => Some(b), // Explicitly set
                     };
-                    row_meta.line_ref = marker.line_ref.get_ref(styles).as_ref().map(|s| s.clone());
+                    row_meta.line_ref = marker.line_ref.get_ref(styles).clone();
                     row_meta.span = Span::detached(); // Markers don't have a meaningful span here
                 }
                 other => {

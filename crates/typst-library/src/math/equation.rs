@@ -9,14 +9,16 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
+    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
 use crate::math::MathSize;
-use crate::model::{Numbering, NumberingPattern, Outlinable, ParLine, Refable, Supplement};
+use crate::model::{
+    Numbering, NumberingPattern, Outlinable, ParLine, Refable, Supplement,
+};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
 
 /// A mathematical equation.
@@ -206,7 +208,7 @@ pub struct EquationElem {
     ///
     /// By default, the alignment is `{end + horizon}`.
     #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
-    pub sub_number_align: SpecificAlignment<OuterHAlignment, VAlignment>
+    pub sub_number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -353,9 +355,8 @@ impl Refable for Packed<MathLineElem> {
         // Return a simple numbering pattern for sub-lines
         // This is needed for the reference to work
         use std::str::FromStr;
-        static PATTERN: LazyLock<Numbering> = LazyLock::new(|| {
-            NumberingPattern::from_str("a").unwrap().into()
-        });
+        static PATTERN: LazyLock<Numbering> =
+            LazyLock::new(|| NumberingPattern::from_str("a").unwrap().into());
         Some(&*PATTERN)
     }
 }
