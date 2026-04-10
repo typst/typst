@@ -465,17 +465,29 @@ fn add_sub_equation_numbers(
 
     // Generate sub-numbers for numbered rows and create referenceable elements
     let mut sub_numbers: Vec<(usize, Frame, Size, Option<ecow::EcoString>)> = Vec::new();
-    let sub_pattern = sub_numbering_pattern.unwrap_or(main_numbering);
+    // Create a default letter-based pattern when none is specified
+    // Use "(a)" format by default for sub-numbering
+    let default_letter_pattern: typst_library::model::Numbering = {
+        use typst_library::model::{Numbering, NumberingPattern};
+        use std::str::FromStr;
+        Numbering::Pattern(NumberingPattern::from_str("(a)").unwrap())
+    };
+    let sub_pattern_ref = sub_numbering_pattern.map(|p| p).unwrap_or(&default_letter_pattern);
+    let sub_pattern: &typst_library::model::Numbering = sub_pattern_ref;
 
     // Extract main number text (e.g., "1" from "(1)")
     let main_number_text = extract_text_from_frame(main_number);
 
     for (seq_idx, (row_idx, _force_numbered, line_ref)) in numbered_rows.iter().enumerate() {
         let seq_num = seq_idx + 1;
-        let sub_label = generate_sub_number_label(sub_pattern, seq_num);
-
-        // Create the full sub-number display text (e.g., "(1a)")
-        let sub_number_text = eco_format!("({}{})", main_number_text, sub_label);
+        
+        // Create the full sub-number display text based on pattern
+        let sub_number_text = format_sub_number(
+            main_numbering, 
+            sub_pattern, 
+            &main_number_text, 
+            seq_num
+        );
         let sub_number_content =
             typst_library::text::TextElem::packed(sub_number_text.as_str());
         let sub_number_frame =
@@ -582,18 +594,103 @@ fn extract_text_from_frame(frame: &Frame) -> ecow::EcoString {
     }
 }
 
-/// Generate a sub-number label from a pattern.
-/// Supports patterns like "(1a)", "(1.1)", "a", etc.
-fn generate_sub_number_label(
-    _pattern: &typst_library::model::Numbering,
+/// Format a sub-number by combining main number and sub-number sequence.
+/// Supports various patterns like:
+/// - "(1a)", "(1.a)", "(1.1)" - combined format
+/// - "1a", "1.a", "1.1" - without outer parentheses
+/// - "(a)", "(1)" - just sub-number
+fn format_sub_number(
+    main_pattern: &typst_library::model::Numbering,
+    sub_pattern: &typst_library::model::Numbering,
+    main_number: &str,
     seq: usize,
 ) -> ecow::EcoString {
     use ecow::eco_format;
+    use typst_library::model::{Numbering, NumberingKind};
 
-    // For now, use simple letter-based sub-numbering
-    // The pattern analysis would require more complex logic to parse numbering patterns
-    let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
-    eco_format!("{}", letter)
+    // Helper to get the kind and formatting from a pattern
+    let get_format = |p: &Numbering| -> (String, NumberingKind, String) {
+        match p {
+            Numbering::Pattern(pat) => {
+                if let Some((prefix, kind)) = pat.pieces.first() {
+                    (prefix.to_string(), kind.clone(), pat.suffix.to_string())
+                } else {
+                    (String::new(), NumberingKind::LowerLatin, String::new())
+                }
+            }
+            _ => (String::new(), NumberingKind::LowerLatin, String::new()),
+        }
+    };
+
+    let (main_prefix, _, main_suffix) = get_format(main_pattern);
+    let (sub_prefix, sub_kind, sub_suffix) = get_format(sub_pattern);
+
+    // Format the sub-number part
+    let sub_part = sub_kind.apply(seq as u64);
+
+    // Check if sub-pattern has explicit parentheses or brackets (wants combined format)
+    let sub_has_parens = sub_prefix.starts_with('(') || sub_suffix.ends_with(')');
+    let sub_has_brackets = sub_prefix.starts_with('[') || sub_suffix.ends_with(']');
+
+    if sub_has_parens || sub_has_brackets {
+        // Combined format: (1a), (1.a), (1.1)
+        // Remove the outer parentheses from sub_pattern for the separator
+        let separator = if sub_prefix.len() > 1 {
+            &sub_prefix[1..]
+        } else if !sub_suffix.is_empty() && sub_suffix.len() > 1 {
+            // For pattern like "(a)", suffix is ")", so separator is empty
+            ""
+        } else {
+            ""
+        };
+        
+        // Build the result
+        if sub_has_parens {
+            eco_format!("({}{}{}{})", main_number, separator, sub_part, 
+                if sub_suffix == ")" { "" } else { &sub_suffix })
+        } else {
+            eco_format!("[{}{}{}{}]", main_number, separator, sub_part,
+                if sub_suffix == "]" { "" } else { &sub_suffix })
+        }
+    } else if !sub_prefix.is_empty() || !sub_suffix.is_empty() {
+        // Pattern has prefix/suffix but no outer parens: 1.a, 1-a
+        eco_format!("{}{}{}{}", main_number, sub_prefix, sub_part, sub_suffix)
+    } else {
+        // Simple format: just append to main number: 1a, 1b, 1c
+        eco_format!("{}{}", main_number, sub_part)
+    }
+}
+
+/// Generate a sub-number label from a pattern.
+/// Supports patterns like "a", "1", "(a)", "A", etc.
+fn generate_sub_number_label(
+    pattern: &typst_library::model::Numbering,
+    seq: usize,
+) -> ecow::EcoString {
+    use ecow::eco_format;
+    use typst_library::model::Numbering;
+
+    match pattern {
+        Numbering::Pattern(pat) => {
+            // Use the first piece of the pattern to format the sub-number
+            if let Some((prefix, kind)) = pat.pieces.first() {
+                let mut result = ecow::EcoString::new();
+                result.push_str(prefix);
+                result.push_str(&kind.apply(seq as u64));
+                result.push_str(&pat.suffix);
+                result
+            } else {
+                // Fallback to letter
+                let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
+                eco_format!("{}", letter)
+            }
+        }
+        Numbering::Func(_) => {
+            // For function-based numbering, fallback to letter
+            let letter = char::from_u32('a' as u32 + (seq - 1) as u32).unwrap_or('?');
+            eco_format!("{}", letter)
+        }
+    }
 }
 
 /// The context for math layout.
