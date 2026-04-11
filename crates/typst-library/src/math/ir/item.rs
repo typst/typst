@@ -13,7 +13,9 @@ use super::multiline::AlignedRow;
 use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::{Locator, Tag};
-use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
+use crate::layout::{
+    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Rel,
+};
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
 };
@@ -63,8 +65,9 @@ impl<'a> RawMathItem<'a> {
 pub enum MathItem<'a> {
     /// A layoutable component with associated properties and styles.
     Component(MathComponent<'a>),
-    /// Explicit spacing. The boolean indicates whether the spacing is weak.
-    Spacing(Abs, bool),
+    /// Explicit spacing with the font size at the point of creation. The
+    /// boolean indicates whether the spacing is weak.
+    Spacing(Length, Abs, bool),
     /// A regular space.
     Space,
     /// An introspection tag.
@@ -103,7 +106,7 @@ impl<'a> MathItem<'a> {
     pub(crate) fn class(&self) -> MathClass {
         match self {
             Self::Component(comp) => comp.props.class,
-            Self::Spacing(_, _) | Self::Space => MathClass::Space,
+            Self::Spacing(..) | Self::Space => MathClass::Space,
             Self::Tag(_) => MathClass::Special,
         }
     }

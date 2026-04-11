@@ -3,7 +3,8 @@ use std::vec;
 use typst_syntax::Span;
 
 use super::item::{FencedBody, FencedItem, MathItem, RawMathItem, SharedFenceSizing};
-use crate::foundations::{Resolve, StyleChain};
+use crate::foundations::StyleChain;
+use crate::text::TextElem;
 
 /// A row split at alignment points into grouped (single-item) columns.
 #[derive(Debug)]
@@ -126,9 +127,12 @@ where
                         && let MathItem::Component(ref mut comp) = item
                         && let Some(lspace) = comp.props.lspace.take()
                     {
-                        let resolved = lspace.resolve(comp.styles);
                         let idx = cols.len() - 2;
-                        cols[idx].push(MathItem::Spacing(resolved, false));
+                        cols[idx].push(MathItem::Spacing(
+                            lspace.into(),
+                            comp.styles.resolve(TextElem::size),
+                            false,
+                        ));
                     }
 
                     at_boundary = false;

@@ -12,9 +12,7 @@ use super::multiline::{AlignedRow, expand_multiline_fence};
 use super::process::{GroupResult, process_group, process_table_cell};
 use crate::diag::{SourceResult, bail, warning};
 use crate::engine::Engine;
-use crate::foundations::{
-    Content, Packed, Resolve, Style, StyleChain, Styles, SymbolElem,
-};
+use crate::foundations::{Content, Packed, Style, StyleChain, Styles, SymbolElem};
 use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spacing};
 use crate::math::*;
@@ -239,7 +237,11 @@ fn resolve_h(
     if let Spacing::Rel(rel) = elem.amount
         && rel.rel.is_zero()
     {
-        ctx.push(MathItem::Spacing(rel.abs.resolve(styles), elem.weak.get(styles)));
+        ctx.push(MathItem::Spacing(
+            rel.abs,
+            styles.resolve(TextElem::size),
+            elem.weak.get(styles),
+        ));
     }
     Ok(())
 }
@@ -916,7 +918,7 @@ fn resolve_lr<'a, 'v, 'e>(
     inner_items.retain(|item| {
         let discard = (index == 1 && opening_exists
             || index + 2 == len && closing_exists)
-            && matches!(item, RawMathItem::Item(MathItem::Spacing(_, true)));
+            && matches!(item, RawMathItem::Item(MathItem::Spacing(_, _, true)));
         index += 1;
         !discard
     });

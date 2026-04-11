@@ -1229,6 +1229,7 @@ fa4480bd94f7ebeb09a3f665d464365a math-spacing-predefined
 c8b47abed661b2b7d0690c71ab544417 math-spacing-script
 f6cdeed94f78e0efdd65666bc95f4214 math-spacing-set-comprehension
 bc493523dc744d5f9a1cf97ce0168874 math-spacing-weak
+885003e2f74554b7ba7f9c3bdd30d6e5 math-spacing-weak-script
 5b00dd5fe6144c6deb82bfd2bbc07c27 math-stretch-attach-nested-equation
 89d0cdc19014a72540b47e0946900205 math-stretch-basic
 9a1d0ecfb50d237a0fc9de93f70845b5 math-stretch-complex
