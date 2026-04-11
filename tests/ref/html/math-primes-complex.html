@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <p><math><msubsup><mi>𝑎</mi><mi>𝑏</mi><mrow><mo form="postfix">′</mo><mi>𝑐</mi></mrow></msubsup></math>, <math><msubsup><mi>𝑎</mi><msup><mi>𝑏</mi><mo>′</mo></msup><mi>𝑐</mi></msubsup></math>, <math><msubsup><mi>𝑎</mi><mi>𝑏</mi><msup><mi>𝑐</mi><mo>′</mo></msup></msubsup></math>, <math><msubsup><mi>𝑎</mi><msup><mi>𝑏</mi><mo>′</mo></msup><msup><mi>𝑐</mi><mrow><mo form="postfix">′</mo><msup><mi>𝑑</mi><mo>′</mo></msup></mrow></msup></msubsup></math></p>
+    <p><math><msup><mrow><mo>(</mo><msubsup><mi>𝑎</mi><msup><mi>𝑏</mi><mo>′</mo></msup><mo>′</mo></msubsup><mo>)</mo></mrow><msubsup><mi>𝑐</mi><msup><mi>𝑑</mi><mo>′</mo></msup><mo>′</mo></msubsup></msup></math>, <math><mfrac><msup><mi>𝑎</mi><mo>′</mo></msup><msup><mi>𝑏</mi><mo>′</mo></msup></mfrac></math>, <math><mfrac><msub><mi>𝑎</mi><msup><mi>𝑏</mi><mo>′</mo></msup></msub><msub><mi>𝑐</mi><msup><mi>𝑑</mi><mo>′</mo></msup></msub></mfrac></math></p>
+    <p><math><msup><mo form="prefix" lspace="0em" rspace="0em">∫</mo><mo>′</mo></msup></math>, <math><msup><mo form="prefix" lspace="0em" rspace="0em">∑</mo><mo>′</mo></msup></math>, <math><msup><mi>𝑎</mi><mrow><mo form="postfix">′</mo><msup><mn>2</mn><mn>2</mn></msup></mrow></msup></math>, <math><msubsup><mi>𝑎</mi><msub><mn>2</mn><mn>2</mn></msub><mo>′</mo></msubsup></math></p>
+    <p><math><msubsup><mi>𝑓</mi><msup><mi>𝑛</mi><mo>′</mo></msup><msup><mi>𝑎</mi><mo>′</mo></msup></msubsup></math>, <math><msubsup><mi>𝑓</mi><msup><mi>𝑛</mi><mo>′</mo></msup><msup><mi>𝑎</mi><mo>′</mo></msup></msubsup></math></p>
+    <math display="block">
+      <munder>
+        <msup>
+          <mo form="prefix" lspace="0em" rspace="0em">∑</mo>
+          <mo>′</mo>
+        </msup>
+        <msup>
+          <mi>𝑆</mi>
+          <mo>′</mo>
+        </msup>
+      </munder>
+    </math>
+  </body>
+</html>

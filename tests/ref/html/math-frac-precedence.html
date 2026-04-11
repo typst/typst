@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mtable class="multiline-equation">
+        <mtr>
+          <mtd>
+            <mfrac>
+              <msub>
+                <mi>𝑎</mi>
+                <mn>1</mn>
+              </msub>
+              <msub>
+                <mi>𝑏</mi>
+                <mn>2</mn>
+              </msub>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mn>1</mn>
+              <mrow>
+                <mi>𝑓</mi>
+                <mrow>
+                  <mo>(</mo>
+                  <mi>𝑥</mi>
+                  <mo>)</mo>
+                </mrow>
+              </mrow>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mrow>
+                <mi>𝜁</mi>
+                <mrow>
+                  <mo>(</mo>
+                  <mi>𝑥</mi>
+                  <mo>)</mo>
+                </mrow>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mrow>
+                <mtext>foo</mtext>
+                <mrow>
+                  <mo>⟦</mo>
+                  <mi>𝑥</mi>
+                  <mo>⟧</mo>
+                </mrow>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mfrac>
+              <mn>1.2</mn>
+              <mn>3.7</mn>
+            </mfrac>
+            <mo>,</mo>
+            <msup>
+              <mn>2.3</mn>
+              <mn>3.4</mn>
+            </msup>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mi>𝑓</mi>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑥</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mi>𝜑</mi>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑥</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mo>+</mo>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑥</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mn>1</mn>
+            <mfrac>
+              <mi>𝑥</mi>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mn>2</mn>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑥</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mi>🏳️‍🌈</mi>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑥</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mrow>
+              <mo>(</mo>
+              <mi>𝑎</mi>
+              <mo>)</mo>
+            </mrow>
+            <mfrac>
+              <mi>𝑏</mi>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mi>𝑏</mi>
+            <mrow>
+              <mo>(</mo>
+              <mi>𝑎</mi>
+              <mo>)</mo>
+            </mrow>
+            <mfrac>
+              <mrow>
+                <mo>[</mo>
+                <mi>𝑏</mi>
+                <mo>]</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mfrac>
+              <mrow>
+                <mi>𝑛</mi>
+                <mo>!</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mrow>
+                <mn>5</mn>
+                <mo>!</mo>
+              </mrow>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mi>𝑛</mi>
+            <mfrac>
+              <mo form="postfix">!</mo>
+              <mn>2</mn>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mn>1</mn>
+              <mrow>
+                <mi>𝑛</mi>
+                <mo>!</mo>
+              </mrow>
+            </mfrac>
+            <mo>,</mo>
+            <mfrac>
+              <mn>1</mn>
+              <mrow>
+                <mn>5</mn>
+                <mo>!</mo>
+              </mrow>
+            </mfrac>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

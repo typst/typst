@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mtable class="multiline-equation">
+        <mtr>
+          <mtd>
+            <msup>
+              <mi>𝐿</mi>
+              <mi>𝐴</mi>
+            </msup>
+            <msup>
+              <mi>𝑌</mi>
+              <mi>𝑐</mi>
+            </msup>
+            <msup>
+              <mi>𝑅</mi>
+              <mn>2</mn>
+            </msup>
+            <msup>
+              <mi>𝛿</mi>
+              <mi>𝑦</mi>
+            </msup>
+            <msup>
+              <mi>𝜔</mi>
+              <mi>𝑓</mi>
+            </msup>
+            <msup>
+              <mi>𝑎</mi>
+              <mn>2</mn>
+            </msup>
+            <msup>
+              <mi>𝑡</mi>
+              <mi>𝑤</mi>
+            </msup>
+            <msup>
+              <mi>𝛾</mi>
+              <mi>𝑉</mi>
+            </msup>
+            <msup>
+              <mi>𝑝</mi>
+              <mo>+</mo>
+            </msup>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <msub>
+              <mi>𝑏</mi>
+              <mi>𝜆</mi>
+            </msub>
+            <msub>
+              <mi>𝑓</mi>
+              <mi>𝑘</mi>
+            </msub>
+            <msub>
+              <mi>𝑝</mi>
+              <mi>𝑖</mi>
+            </msub>
+            <msub>
+              <mi>𝑥</mi>
+              <mn>1</mn>
+            </msub>
+            <msub>
+              <mi>𝑥</mi>
+              <mi>𝑗</mi>
+            </msub>
+            <msub>
+              <mi>𝑥</mi>
+              <mi>𝐴</mi>
+            </msub>
+            <msub>
+              <mi>𝑦</mi>
+              <mi>𝑙</mi>
+            </msub>
+            <msub>
+              <mi>𝑦</mi>
+              <mi>𝑦</mi>
+            </msub>
+            <msub>
+              <mi>𝛽</mi>
+              <mi>𝑠</mi>
+            </msub>
+            <msub>
+              <mi>𝜃</mi>
+              <mi>𝑘</mi>
+            </msub>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <msub>
+              <mi>𝐽</mi>
+              <mn>0</mn>
+            </msub>
+            <msub>
+              <mi>𝑌</mi>
+              <mn>0</mn>
+            </msub>
+            <msub>
+              <mi>𝑇</mi>
+              <mn>1</mn>
+            </msub>
+            <msub>
+              <mi>𝑇</mi>
+              <mi>𝑓</mi>
+            </msub>
+            <msub>
+              <mi>𝑉</mi>
+              <mi>𝑎</mi>
+            </msub>
+            <msub>
+              <mi>𝑉</mi>
+              <mi>𝐴</mi>
+            </msub>
+            <msub>
+              <mi>𝐹</mi>
+              <mi>𝑗</mi>
+            </msub>
+            <msub>
+              <mi>ℱ︀</mi>
+              <mi>𝑗</mi>
+            </msub>
+            <msub>
+              <mi>𝜆</mi>
+              <mi>𝑦</mi>
+            </msub>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mmultiscripts>
+              <mi>𝑊</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mrow></mrow>
+              <mi>𝑙</mi>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝐴</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mrow></mrow>
+              <mn>2</mn>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝒱︀</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mrow></mrow>
+              <mi>𝛽</mi>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝒫︀</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mrow></mrow>
+              <mi>𝜄</mi>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝑓</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mi>𝑖</mi>
+              <mrow></mrow>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝐴</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mi>𝑥</mi>
+              <mrow></mrow>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝒥︀</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mi>𝜉</mi>
+              <mrow></mrow>
+            </mmultiscripts>
+            <mmultiscripts>
+              <mi>𝒜︀</mi>
+              <mrow></mrow>
+              <mrow></mrow>
+              <mprescripts/>
+              <mi>𝑚</mi>
+              <mrow></mrow>
+            </mmultiscripts>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <p><math><munder><mo lspace="0em" rspace="0em" stretchy="true" minsize="4em">=</mo><mi>𝐴</mi></munder></math> <math><mover><mo lspace="0em" rspace="0em" stretchy="true" symmetric="true" minsize="5em">↪︎</mo><mtext>injective map</mtext></mover></math> <math><mover><mo lspace="0em" rspace="0em" stretchy="true" symmetric="true" minsize="200%">↪︎</mo><mtext>injective map</mtext></mover></math></p>
+    <math display="block">
+      <mtable class="multiline-equation">
+        <mtr>
+          <mtd>
+            <mi>𝑃</mi>
+            <mo>=</mo>
+            <mi>𝑄</mi>
+            <munderover>
+              <mo stretchy="true">=</mo>
+              <mrow>
+                <mo>∀</mo>
+                <mi>𝑖</mi>
+              </mrow>
+              <mrow>
+                <mi>𝑘</mi>
+                <mo lspace="0em" rspace="0em">=</mo>
+                <mn>0</mn>
+              </mrow>
+            </munderover>
+            <mi>𝑅</mi>
+            <munderover>
+              <mo stretchy="true" minsize="150%">=</mo>
+              <mrow>
+                <mo>∀</mo>
+                <mi>𝑖</mi>
+              </mrow>
+              <mrow>
+                <mi>𝑘</mi>
+                <mo lspace="0em" rspace="0em">=</mo>
+                <mn>0</mn>
+              </mrow>
+            </munderover>
+            <mi>𝑆</mi>
+            <munderover>
+              <mo stretchy="true" minsize="5.669291338582677pt">=</mo>
+              <mrow>
+                <mo>∀</mo>
+                <mi>𝑖</mi>
+              </mrow>
+              <mrow>
+                <mi>𝑘</mi>
+                <mo lspace="0em" rspace="0em">=</mo>
+                <mn>0</mn>
+              </mrow>
+            </munderover>
+            <mi>𝑇</mi>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mi>𝑈</mi>
+            <munderover>
+              <mo stretchy="true" symmetric="true">≡</mo>
+              <mtext>Chern-Weil</mtext>
+              <mrow>
+                <mo>∀</mo>
+                <mi>𝑖</mi>
+              </mrow>
+            </munderover>
+            <mi>𝑉</mi>
+            <munderover>
+              <mo stretchy="true" symmetric="true" minsize="calc(120% + 5.669291338582677pt)">≡</mo>
+              <mtext>Chern-Weil</mtext>
+              <mrow>
+                <mo>∀</mo>
+                <mi>𝑖</mi>
+              </mrow>
+            </munderover>
+            <mi>𝑊</mi>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

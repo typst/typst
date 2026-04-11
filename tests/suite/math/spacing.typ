@@ -1,6 +1,6 @@
 // Test spacing in math formulas.
 
---- math-spacing-basic paged ---
+--- math-spacing-basic paged html ---
 // Test spacing cases.
 $ä, +, c, (, )$ \
 $=), (+), {times}$ \
@@ -15,22 +15,25 @@ $f(x), zeta(x), "frac"(x)$ \
 $a+dots.c+b$
 $f(x) sin(y)$
 
---- math-spacing-kept-spaces paged ---
+--- math-spacing-kept-spaces paged html ---
 // Test ignored vs non-ignored spaces.
 $f (x), f(x)$ \
 $[a|b], [a | b]$ \
 $a"is"b, a "is" b$ \
 $A"B"C, A "B" C$
 
---- math-spacing-predefined paged ---
+--- math-spacing-predefined paged html ---
 // Test predefined spacings.
 $a thin b, a med b, a thick b, a quad b$ \
 $a = thin b$ \
 $a - b equiv c quad (mod 2)$
 
---- math-spacing-set-comprehension paged ---
+--- math-spacing-set-comprehension paged html ---
 // Test spacing for set comprehension.
-#set page(width: auto)
+#show: it => context {
+  set page(width: auto) if target() == "paged"
+  it
+}
 $ { x in RR | x "is natural" and x < 10 } $
 
 --- math-spacing-decorated paged ---
@@ -42,7 +45,7 @@ $a overbrace(equiv) b underline(+) c grave(-) d underbracket(=>) e circle(log) 5
 \
 $a attach(equiv, tl: a, tr: b) b attach(limits(+), t: a, b: b) c tilde(-) d breve(=>) e attach(limits(log), t: a, b: b) 5 attach(op("ln"), tr: a, bl: b) 6$
 
---- math-spacing-weak paged ---
+--- math-spacing-weak paged html ---
 // Test weak spacing
 $integral f(x) dif x$,
 // Not weak
@@ -50,12 +53,12 @@ $integral f(x) thin dif x$,
 // Both are weak, collide
 $integral f(x) #h(0.166em, weak: true)dif x$
 
---- math-spacing-weak-script paged ---
+--- math-spacing-weak-script paged html ---
 // Test weak spacing in script size
 $a #h(0.9em, weak: true) sscript(#h(1em, weak: true)) b$ \
 $a #h(0.9em) b$
 
---- math-spacing-script paged ---
+--- math-spacing-script paged html ---
 // Test spacing in script size
 $x^(a #h(1em) b) + x^x^(a #h(1em) b) + sscript(a #h(1em) b)$
 
@@ -69,7 +72,7 @@ $#place(dx: 5em)[a] + b$
 // Validate that ignorant elements are layouted
 #context test(counter("test").get(), (3,))
 
---- issue-1052-math-number-spacing paged ---
+--- issue-1052-math-number-spacing paged html ---
 // Test spacing after numbers in math.
 $
 10degree \
