@@ -268,8 +268,19 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the stretch configuration for this glyph.
-    pub(crate) fn set_stretch(&self, stretch: Stretch) {
+    /// Sets the stretch configuration for this glyph, marking it as explicit.
+    pub(crate) fn set_stretch(&self, mut stretch: Stretch) {
+        if let Some(info) = &mut stretch.0.x {
+            info.explicit = true;
+        }
+        if let Some(info) = &mut stretch.0.y {
+            info.explicit = true;
+        }
+        self.replace_stretch(stretch);
+    }
+
+    /// Sets the stretch configuration for this glyph
+    pub(crate) fn replace_stretch(&self, stretch: Stretch) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
@@ -278,10 +289,11 @@ impl<'a> MathItem<'a> {
     }
 
     /// Updates the vertical stretch info for this glyph.
-    pub(crate) fn set_y_stretch(&self, info: StretchInfo) {
+    pub(crate) fn set_y_stretch(&self, mut info: StretchInfo) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
+            info.explicit = true;
             glyph.stretch.update(|stretch| stretch.with_y(info));
         }
     }
@@ -1059,8 +1071,10 @@ impl Stretch {
         self
     }
 
-    /// Updates stretch info for both axes, combining with existing info.
-    pub(crate) fn update(mut self, info: StretchInfo) -> Self {
+    /// Updates stretch info for both axes, combining with existing info and
+    /// marking them as explicit.
+    pub(crate) fn update(mut self, mut info: StretchInfo) -> Self {
+        info.explicit = true;
         match &mut self.0.x {
             Some(val) => *val *= info,
             None => self.0.x = Some(info),
@@ -1113,6 +1127,20 @@ impl Stretch {
         }
         self.0.get(axis)
     }
+
+    /// Returns the user-requested stretch target for the given axis, if any.
+    pub fn resolve_requested(self, axis: Axis) -> Option<Rel<Length>> {
+        self.0
+            .get(axis)
+            .and_then(|info| info.requested_target)
+            .filter(|target| !target.is_one())
+    }
+
+    /// Whether the stretch along the given axis should be represented
+    /// explicitly.
+    pub fn is_explicit(self, axis: Axis) -> bool {
+        self.0.get(axis).is_some_and(|info| info.explicit)
+    }
 }
 
 /// Information about how to stretch a glyph on one axis.
@@ -1123,6 +1151,11 @@ pub struct StretchInfo {
     /// A buffer to store the latest stretch added, in case it needs to be
     /// relative to something else.
     buffer: Option<Rel<Abs>>,
+    /// Whether this stretch is explicit. That is, the stretch was not from a
+    /// large operator in display math.
+    pub(crate) explicit: bool,
+    /// The user-requested stretch target, if any.
+    pub(crate) requested_target: Option<Rel<Length>>,
     /// The short-fall amount for glyph assembly.
     pub short_fall: Em,
     /// The reference size for relative targets.
@@ -1141,6 +1174,21 @@ impl StretchInfo {
         Self {
             target,
             buffer: None,
+            explicit: false,
+            requested_target: None,
+            short_fall,
+            relative_to: None,
+            font_size: None,
+        }
+    }
+
+    /// Creates stretch info from a user-specified size.
+    pub(crate) fn from_size(size: Rel<Length>, short_fall: Em, font_size: Abs) -> Self {
+        Self {
+            target: size.map(|l| l.at(font_size)),
+            buffer: None,
+            explicit: false,
+            requested_target: (!size.is_one()).then_some(size),
             short_fall,
             relative_to: None,
             font_size: None,
@@ -1157,6 +1205,18 @@ impl MulAssign for StretchInfo {
             );
         }
         self.buffer = Some(rhs.target);
+
+        if let Some(requested) = rhs.requested_target {
+            self.requested_target =
+                Some(self.requested_target.map_or(requested, |target| {
+                    Rel::new(
+                        target.rel * requested.rel,
+                        requested.rel.of(target.abs) + requested.abs,
+                    )
+                }));
+        }
+
+        self.explicit = self.explicit || rhs.explicit;
         self.short_fall = rhs.short_fall;
     }
 }
