@@ -1271,11 +1271,21 @@ fn find_regex_match_in_str<'a>(
     })
 }
 
-/// Visit a match of a regular expression.
+/// Visit a regular expression match and any surrounding textual elements.
 ///
-/// This first revisits all elements before the match, potentially slicing up
-/// a text element, then the transformed match, and then the remaining elements
-/// after the match.
+/// This will visit the following in order:
+/// - Elements that come fully before the match: `elem <match>`
+/// - Text that was interrupted by the start of the match: `te<match>`
+/// - The matched text itself, sliced off as a new element: `<match>`
+/// - Tag elements that come between parts of the match: `mat<tag>ch`
+/// - Text that was interrupted by the end of the match: `<match>xt`
+/// - Elements that come fully after the match: `<match> elem`
+///
+/// The matched text element will always be a `TextElem` or `SymbolElem` so that
+/// user code can rely on the element having a `.text` field to access the
+/// underlying string. If the regex matched only one existing text or symbol
+/// element, then the new element will be derived from that one, otherwise it
+/// will be built fresh with the span of the first matching element.
 fn visit_regex_match<'a>(
     s: &mut State<'a, '_, '_, '_>,
     elems: &[Pair<'a>],
@@ -1287,7 +1297,8 @@ fn visit_regex_match<'a>(
     let mut m = Some(m);
 
     for &(content, styles) in elems {
-        // Just forward tags.
+        // Just forward tags. If a tag is between elements of the match, it will
+        // be visited immediately after the match.
         if content.is::<TagElem>() {
             visit(s, content, styles)?;
             continue;
@@ -1304,81 +1315,68 @@ fn visit_regex_match<'a>(
             1 // The rest are Ascii, so just one byte.
         };
         let elem_range = cursor..cursor + len;
+        cursor = elem_range.end;
 
-        // If the element starts before the start of match, visit it fully or
-        // sliced.
-        if elem_range.start < match_range.start {
-            if elem_range.end <= match_range.start {
-                visit(s, content, styles)?;
-            } else {
-                let end = match_range.start - elem_range.start;
-                visit(s, s.store(slice_textual(content, ..end)), styles)?;
-            }
+        if elem_range.end <= match_range.start || match_range.end <= elem_range.start {
+            // This element is entirely outside the matched range, visit it
+            // without slicing.
+            visit(s, content, styles)?;
+            continue;
         }
 
-        // When the match starts before this element ends, then we are at the
-        // first element that overlaps with the match and should visit the
-        // match. To visit the match only once even if it overlaps with multiple
-        // elements, we use `m.take()`.
-        // ```
-        // Match:           -----------------
-        // Elements: ---- ---- ---------- ----- -----
-        //                ^^^^ current `content` element
-        // ```
-        if match_range.start < elem_range.end
-            && let Some(m) = m.take()
-        {
+        if elem_range.start < match_range.start {
+            // This element's text begins before the start of the match, visit
+            // that initial part.
+            let end = match_range.start - elem_range.start;
+            visit(s, s.store(slice_textual(content, ..end)), styles)?;
+        }
+
+        // We visit the matched text itself when at the first element of the
+        // match. Note that we will effectively ignore the elements which
+        // compose the match.
+        if let Some(RegexMatch { text, styles, id, recipe, offset: _ }) = m.take() {
             // Otherwise, we would have overlapped with a previous element.
             debug_assert!(elem_range.start <= match_range.start);
 
-            // Produce the content that we'll provide to the user show rule.
-            let it = if match_range.end <= elem_range.end
+            let matched_text = if match_range.end <= elem_range.end
                 && (content.is::<TextElem>() || content.is::<SymbolElem>())
             {
-                // When the match also _ends_ before this element ends, it's
-                // fully contained with this element and we can slice it in the
-                // same way we do for the other part(s) of it. This means we
-                // retain whether it was a symbol or text and also its label,
-                // span, etc.
+                // If the match is fully contained within one sliceable element,
+                // we slice it to retain its element type and span/label.
                 slice_textual(
                     content,
                     match_range.start - elem_range.start
                         ..match_range.end - elem_range.start,
                 )
             } else {
-                // If we overlap with multiple elements or have an element that
-                // is not text or a symbol, we create a fresh text element, but
-                // we at least retain _some_ span. Better than nothing.
+                // Otherwise we need to create a fresh text element and can only
+                // retain the span of the first matching element.
                 //
                 // Creating a text element instead of propagating the
                 // space/linebreak/smartquote ensures we always provide an
                 // element with a `.text` field, so that users can rely on that
                 // field being accessible.
-                TextElem::packed(m.text).spanned(content.span())
+                TextElem::packed(text).spanned(content.span())
             };
 
-            let context = Context::new(None, Some(m.styles));
-            let output = m.recipe.apply(s.engine, context.track(), it)?;
-            let revocation = Style::Revocation(m.id).into();
-            let outer = s.arenas.bump.alloc(m.styles);
+            // Apply the show rule and visit the show rule's output element.
+            let context = Context::new(None, Some(styles));
+            let output = recipe.apply(s.engine, context.track(), matched_text)?;
+            let revocation = Style::Revocation(id).into();
+            let outer = s.arenas.bump.alloc(styles);
             let chained = outer.chain(s.arenas.styles.alloc(revocation));
             visit(s, s.store(output), chained)?;
         }
 
-        // If the element ends after the end of the match, visit if fully or
-        // sliced.
         if elem_range.end > match_range.end {
-            if elem_range.start >= match_range.end {
-                visit(s, content, styles)?;
-            } else {
-                let start = match_range.end - elem_range.start;
-                visit(s, s.store(slice_textual(content, start..)), styles)?;
-            }
+            // This element's text finishes after the end of the match, visit
+            // that final part.
+            let start = match_range.end - elem_range.start;
+            visit(s, s.store(slice_textual(content, start..)), styles)?;
         }
-
-        cursor = elem_range.end;
     }
 
+    debug_assert!(m.is_none());
     Ok(())
 }
 
