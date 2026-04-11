@@ -114,7 +114,7 @@ pub struct SuperElem {
     /// ```example
     /// #let tz(timezone) = text(
     ///   font: "Roboto",
-    ///   smallcaps(lower(timezone)),
+    ///   smallcaps(timezone, all: true),
     /// )
     ///
     /// #set super(
