@@ -321,7 +321,7 @@ fn resolve_symbol<'a, 'v, 'e>(
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
             let target = Rel::new(Ratio::one(), Abs::zero());
             let stretch = Stretch::new().with_y(StretchInfo::new(target, Em::zero()));
-            item.set_stretch(stretch);
+            item.replace_stretch(stretch);
         }
 
         ctx.push(item);
@@ -609,8 +609,9 @@ fn resolve_stretch<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let item = ctx.resolve_into_item(&elem.body, styles)?;
-    let size = elem.size.resolve(styles);
-    item.update_stretch(StretchInfo::new(size, Em::zero()));
+    let size = elem.size.get(styles);
+    let font_size = styles.resolve(TextElem::size);
+    item.update_stretch(StretchInfo::from_size(size, Em::zero(), font_size));
     ctx.push(item);
     Ok(())
 }
@@ -838,8 +839,10 @@ fn resolve_lr<'a, 'v, 'e>(
     let inner_range = (start + start_idx)..(start + end_idx);
     let inner_items = &mut ctx.items[inner_range.clone()];
 
-    let height = elem.size.resolve(styles);
-    let stretch = Stretch::new().with_y(StretchInfo::new(height, DELIM_SHORT_FALL));
+    let size = elem.size.get(styles);
+    let font_size = styles.resolve(TextElem::size);
+    let stretch =
+        Stretch::new().with_y(StretchInfo::from_size(size, DELIM_SHORT_FALL, font_size));
 
     let scale_if_delimiter = |item: &mut MathItem, apply: Option<MathClass>| {
         if matches!(
@@ -874,10 +877,12 @@ fn resolve_lr<'a, 'v, 'e>(
                         }
                     }
                 } else {
-                    one.set_y_stretch(StretchInfo::new(
-                        height.abs.into(),
-                        DELIM_SHORT_FALL,
-                    ));
+                    let mut info =
+                        StretchInfo::new(size.abs.at(font_size).into(), DELIM_SHORT_FALL);
+                    if !size.is_one() {
+                        info.requested_target = Some(size);
+                    }
+                    one.set_y_stretch(info);
                 }
             }
             return Ok(());
