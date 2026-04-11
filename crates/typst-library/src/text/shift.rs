@@ -117,6 +117,10 @@ pub struct SuperElem {
     ///   smallcaps(timezone, all: true),
     /// )
     ///
+    /// // Use metrics provided by each font
+    /// 0#super(tz[UTC]) vs. 0#super[not]
+    ///
+    /// // Override and unify the metrics
     /// #set super(
     ///   baseline: -0.4em,
     ///   size: 0.6em,
