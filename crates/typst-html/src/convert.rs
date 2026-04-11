@@ -140,13 +140,11 @@ fn handle(
             &arenas,
             styles,
         )?;
-        let children = convert_math_to_nodes(item, converter.engine)?;
+        let block = elem.block.get(styles);
+        let children = convert_math_to_nodes(item, converter.engine, block)?;
         converter.push(
             HtmlElement::new(tag::mathml::math)
-                .with_optional_attr(
-                    attr::mathml::display,
-                    elem.block.get(styles).then_some("block"),
-                )
+                .with_optional_attr(attr::mathml::display, block.then_some("block"))
                 .with_children(children)
                 .spanned(elem.span()),
         );

@@ -7,12 +7,14 @@ use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
 };
+use typst_library::math::EquationElem;
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
 use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
+use crate::mathml::EQUATION_CSS_STYLES;
 use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
@@ -237,6 +239,10 @@ fn finalize_dom(
 ) -> SourceResult<HtmlOutput> {
     let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
+    let has_equations = !engine
+        .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
+        .is_empty();
+
     let mut needs_body = true;
     for (idx, node) in nodes.iter().enumerate() {
         let HtmlNode::Element(elem) = node else { continue };
@@ -276,14 +282,14 @@ fn finalize_dom(
 
     let mut html = HtmlElement::new(tag::html)
         .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
-    let head = head_element(info);
+    let head = head_element(info, has_equations);
     html.children.push(head.into());
     html.children.extend(body);
     Ok(HtmlOutput { nodes: eco_vec![html.into()], root_index: 0 })
 }
 
 /// Generate a `<head>` element.
-fn head_element(info: &DocumentInfo) -> HtmlElement {
+fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
     let mut children = EcoVec::new();
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
@@ -326,6 +332,17 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
             HtmlElement::new(tag::meta)
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
+                .into(),
+        )
+    }
+
+    if has_equations {
+        children.push(
+            HtmlElement::new(tag::style)
+                .with_children(eco_vec![HtmlNode::Text(
+                    EQUATION_CSS_STYLES.into(),
+                    Span::detached(),
+                )])
                 .into(),
         )
     }
