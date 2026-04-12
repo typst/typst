@@ -68,10 +68,18 @@ pub fn eval(
     let root = source.root();
     let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
-    // Check for well-formedness unless we are in trace mode.
-    let errors = root.errors();
-    if !errors.is_empty() && vm.inspected.is_none() {
-        return Err(errors.into_iter().map(Into::into).collect());
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    // However, if we're inspecting a span, we keep going with evaluation
+    // regardless of syntax errors (although we will still add warnings).
+    let errors_and_warnings = root.errors_and_warnings().into_iter();
+    if root.erroneous().errors && vm.inspected.is_none() {
+        // Returning errors and warnings together should preserve ordering.
+        return Err(errors_and_warnings.map(Into::into).collect());
+    }
+    // Filtering is necessary since we may have syntax errors that we're
+    // ignoring.
+    for warning in errors_and_warnings.filter(|diag| !diag.is_error) {
+        vm.engine.sink.warn(warning.into());
     }
 
     // Evaluate the module.
@@ -97,7 +105,7 @@ pub fn eval(
 pub fn eval_string(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    sink: TrackedMut<Sink>,
+    mut sink: TrackedMut<Sink>,
     introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
     string: &str,
@@ -113,10 +121,15 @@ pub fn eval_string(
 
     root.synthesize(span);
 
-    // Check for well-formedness.
-    let errors = root.errors();
-    if !errors.is_empty() {
-        return Err(errors.into_iter().map(Into::into).collect());
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    let errors_and_warnings = root.errors_and_warnings();
+    if root.erroneous().errors {
+        // Returning errors and warnings together should preserve ordering.
+        return Err(errors_and_warnings.into_iter().map(Into::into).collect());
+    }
+    for diag in errors_and_warnings {
+        assert!(!diag.is_error, "we just checked for syntax errors");
+        sink.warn(diag.into());
     }
 
     // Prepare the engine.
@@ -132,7 +145,7 @@ pub fn eval_string(
 
     // Prepare VM.
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, context, scopes, root.span());
+    let mut vm = Vm::new(engine, context, scopes, span);
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.
