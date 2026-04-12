@@ -411,6 +411,9 @@ pub struct MathProperties {
     pub lspace: Option<Em>,
     /// The amount of spacing to the right of this item.
     pub rspace: Option<Em>,
+    /// Whether this item is at the start of a left-aligned column but
+    /// semantically infix.
+    pub align_form_infix: bool,
     /// The source span.
     pub span: Span,
 }
@@ -427,6 +430,7 @@ impl MathProperties {
             spaced: false,
             lspace: None,
             rspace: None,
+            align_form_infix: false,
             span,
         }
     }
