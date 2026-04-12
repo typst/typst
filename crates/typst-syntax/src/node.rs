@@ -1092,6 +1092,45 @@ mod tests {
     use super::*;
     use crate::Source;
 
+    /// Test the debug output of a `SyntaxNode`.
+    #[test]
+    fn test_debug() {
+        // A standard syntax tree:
+        assert_eq!(
+            format!("{:#?}", crate::parse("= Head <label>")),
+            "\
+Markup: 14 [
+    Heading: 6 [
+        HeadingMarker: \"=\",
+        Space: \" \",
+        Markup: 4 [
+            Text: \"Head\",
+        ],
+    ],
+    Space: \" \",
+    Label: \"<label>\",
+]"
+        );
+        // A basic syntax error:
+        assert_eq!(
+            format!("{:#?}", crate::parse("#")),
+            "\
+Markup: 1 [
+    Hash: \"#\",
+    Error: \"\" (expected expression),
+]"
+        );
+        // A syntax error with multiple hints:
+        assert_eq!(
+            format!("{:#?}", crate::parse("##")),
+            "\
+Markup: 2 [
+    Hash: \"#\",
+    Error: \"#\" (the character `#` is not valid in code),
+]"
+        );
+    }
+
     #[test]
     fn test_linked_node() {
         let source = Source::detached("#set text(12pt, red)");
