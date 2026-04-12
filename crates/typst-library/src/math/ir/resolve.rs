@@ -762,8 +762,11 @@ fn resolve_horizontal_frac<'a, 'v, 'e>(
     let num = ctx.resolve_into_item(num, styles)?;
     ctx.push(num);
 
-    let slash =
+    let mut slash =
         ctx.resolve_into_item(ctx.store(SymbolElem::packed('/').spanned(span)), styles)?;
+    slash.set_class(MathClass::Binary);
+    slash.set_lspace(Some(Em::zero()));
+    slash.set_rspace(Some(Em::zero()));
     ctx.push(slash);
 
     let denom = if denom_deparen {
