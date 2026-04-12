@@ -117,16 +117,16 @@ pub struct SuperElem {
     ///   smallcaps(timezone, all: true),
     /// )
     ///
-    /// // Use metrics provided by each font
-    /// 0#super(tz[UTC]) vs. 0#super[not]
+    /// / Per-font metrics:
+    ///   14:00#super[#tz[UTC], not #tz[CET]]
     ///
-    /// // Override and unify the metrics
     /// #set super(
     ///   baseline: -0.4em,
     ///   size: 0.6em,
     ///   typographic: false,
     /// )
-    /// 14:00#super[#tz[UTC], not #tz[CET]]
+    /// / Unified metrics:
+    ///   14:00#super[#tz[UTC], not #tz[CET]]
     /// ```
     pub baseline: Smart<Length>,
 
