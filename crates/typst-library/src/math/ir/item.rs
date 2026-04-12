@@ -235,16 +235,20 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the left spacing for this item.
+    /// Sets the left spacing for this item if not already set.
     pub(crate) fn set_lspace(&mut self, lspace: Option<Em>) {
-        if let Self::Component(comp) = self {
+        if let Self::Component(comp) = self
+            && comp.props.lspace.is_none()
+        {
             comp.props.lspace = lspace;
         }
     }
 
-    /// Sets the right spacing for this item.
+    /// Sets the right spacing for this item if not already set.
     pub(crate) fn set_rspace(&mut self, rspace: Option<Em>) {
-        if let Self::Component(comp) = self {
+        if let Self::Component(comp) = self
+            && comp.props.rspace.is_none()
+        {
             comp.props.rspace = rspace;
         }
     }
