@@ -1,10 +1,10 @@
 use std::vec;
 
 use typst_syntax::Span;
+use unicode_math_class::MathClass;
 
 use super::item::{FencedBody, FencedItem, MathItem, RawMathItem, SharedFenceSizing};
 use crate::foundations::StyleChain;
-use crate::text::TextElem;
 
 /// A row split at alignment points into grouped (single-item) columns.
 #[derive(Debug)]
@@ -36,6 +36,11 @@ impl<'a> AlignedRow<'a> {
     /// Returns an iterator over references to the math items.
     pub fn iter(&self) -> std::slice::Iter<'_, MathItem<'a>> {
         self.0.iter()
+    }
+
+    /// Returns a reference to the item at the given index.
+    pub fn get(&self, index: usize) -> Option<&MathItem<'a>> {
+        self.0.get(index)
     }
 }
 
@@ -102,9 +107,9 @@ pub(super) fn expand_multiline_fence<'a>(
     result
 }
 
-/// Splits preprocessed items at alignment point markers into columns, moving
-/// spacing between items in different columns of a (right-aligned,
-/// left-aligned) pair to the right-aligned column.
+/// Splits preprocessed items at alignment point markers into columns, marking
+/// items which should have their spacing moved in different columns of a
+/// (right-aligned, left-aligned) pair to the right-aligned column.
 pub(crate) fn split_at_align<'a, I>(items: I, styles: StyleChain<'a>) -> AlignedRow<'a>
 where
     I: IntoIterator<Item = RawMathItem<'a>>,
@@ -120,19 +125,14 @@ where
             }
             RawMathItem::Linebreak => unreachable!(),
             RawMathItem::Item(mut item) => {
-                // If we just passed an alignment point, check if this item has
-                // lspace that should be moved to the previous column.
+                // If we just passed an alignment point, check if this item is
+                // semantically infix.
                 if at_boundary && !item.is_ignorant() {
                     if cols.len().is_multiple_of(2)
+                        && matches!(item.class(), MathClass::Relation | MathClass::Binary)
                         && let MathItem::Component(ref mut comp) = item
-                        && let Some(lspace) = comp.props.lspace.take()
                     {
-                        let idx = cols.len() - 2;
-                        cols[idx].push(MathItem::Spacing(
-                            lspace.into(),
-                            comp.styles.resolve(TextElem::size),
-                            false,
-                        ));
+                        comp.props.align_form_infix = true;
                     }
 
                     at_boundary = false;
