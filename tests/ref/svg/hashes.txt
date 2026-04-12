@@ -79,12 +79,12 @@ fa1d0044dd1e0fd0aea4ae5c02d50644 closure-capture-in-lvalue
 a6faa1a6b2b7f80c2a8885b7e77d8b1f closure-without-params-non-atomic
 cf4d26f288a7caae198f57e92891e20c code-block-basic-syntax
 0b09017973a4b3e58a0e6ca508de07a1 colbreak-weak
-eef5175f26c57e6357be83557a7457a5 color-cmyk-ops
+a6ab2a2612fd7cfa2823306a486547aa color-cmyk-ops
 5dc13a74cdf22f909778dc87aa1d3d67 color-luma
 65e7062d506d1467922a03a7146ee779 color-outside-srgb-gamut
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
-5f95151d15c449ae166391d537ea482b color-spaces
+575969816062df61becf97966c5a44d1 color-spaces
 7c3c5ac6abbb0940d64d754a13834845 columns-colbreak-after-place
 0ebfece91a658f298190631141783a17 columns-empty-second-column
 0c028ea067ea7eb779e5116443f9ea19 columns-in-auto-sized-rect
@@ -819,7 +819,7 @@ cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
 6b5fd25fd3e6565cc3e1d05c66489ae1 issue-flow-trailing-leading
 dfbd05f0366f20bf22b4ab5a1de13581 issue-flow-weak-spacing
 685c2458ed2b078e14fa2b58483e5343 issue-footnotes-skip-first-page
-4b5fe79d34353e2a7994c35b5446ceed issue-gradient-cmyk-encode
+51c21f89e1de5c05f0d1d5671a6999aa issue-gradient-cmyk-encode
 7c9ddd2e13fc8e1cef6d7b2b70fe9ab1 issue-grid-base-auto-row
 c9f3c8f7c9322ebea118798787ebc19d issue-grid-base-auto-row-list
 bb9b10a74dc6965e5938851f528e3290 issue-grid-double-skip
