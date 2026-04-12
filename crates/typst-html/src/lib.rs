@@ -10,6 +10,7 @@ mod encode;
 mod fragment;
 mod introspect;
 mod link;
+mod mathml;
 mod rules;
 mod tag;
 mod typed;
