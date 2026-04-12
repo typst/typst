@@ -120,7 +120,7 @@ struct GroupingRule {
     /// be visible to `finish`.
     tags: bool,
     /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(&Content, &State) -> bool,
+    trigger: fn(&Content, &State, StyleChain) -> bool,
     /// Defines elements that may appear in the interior of the grouping, but
     /// not at the edges.
     inner: fn(&Content) -> bool,
@@ -676,7 +676,7 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, s));
+    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, s, styles));
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
@@ -688,7 +688,7 @@ fn visit_grouping_rules<'a>(
 
         // If the element can be added to the active grouping, do it.
         if !active.interrupted
-            && ((active.rule.trigger)(content, s) || (active.rule.inner)(content))
+            && ((active.rule.trigger)(content, s, styles) || (active.rule.inner)(content))
         {
             s.sink.push((content, styles));
             return Ok(true);
@@ -824,7 +824,8 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
 
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
+    let trimmed =
+        s.sink[start..].trim_end_matches(|(c, styles)| !(rule.trigger)(c, s, *styles));
     let mut end = start + trimmed.len();
 
     // Tags that are opened within or at the start boundary of the grouping
@@ -947,7 +948,7 @@ static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
 static TEXTUAL: GroupingRule = GroupingRule {
     priority: 3,
     tags: true,
-    trigger: |content, _| {
+    trigger: |content, _, _| {
         let elem = content.elem();
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
@@ -967,7 +968,7 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |content, state| {
+    trigger: |content, state, styles| {
         let elem = content.elem();
         elem == TextElem::ELEM
             || elem == HElem::ELEM
@@ -978,7 +979,7 @@ static PAR: GroupingRule = GroupingRule {
             || match state.kind {
                 RealizationKind::HtmlDocument { is_phrasing, .. }
                 | RealizationKind::HtmlFragment { is_phrasing, .. } => {
-                    is_phrasing(content)
+                    is_phrasing(content, styles)
                 }
                 _ => false,
             }
@@ -992,7 +993,7 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::ELEM,
+    trigger: |content, _, _| content.elem() == CiteElem::ELEM,
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
@@ -1014,7 +1015,7 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content, _| content.elem() == T::Item::ELEM,
+        trigger: |content, _, _| content.elem() == T::Item::ELEM,
         inner: |content| {
             let elem = content.elem();
             elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM
