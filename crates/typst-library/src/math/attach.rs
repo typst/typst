@@ -132,10 +132,9 @@ pub struct StretchElem {
     /// #for size in (
     ///   100%, // short
     ///   101%, 200%, // tall
-    ///   201%, 300%, 400%, 500%, 600%, // grande
+    ///   201%, 300%, 400%, 500%, 600%, // taller
     /// ) {
     ///   $stretch(integral, size: #size)$
-    ///   h(-0.3em, weak: true)
     /// }
     /// ```
     #[default(Rel::one())]
