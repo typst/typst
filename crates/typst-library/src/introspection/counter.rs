@@ -271,7 +271,7 @@ impl Counter {
         let context = Context::new(Some(loc), Some(styles));
         Ok(engine
             .introspect(CounterAtIntrospection(self.clone(), loc, span))?
-            .display(engine, context.track(), numbering)?
+            .display(engine, context.track(), span, numbering)?
             .display())
     }
 
@@ -437,9 +437,9 @@ impl Counter {
 
         if at.is_custom() {
             let context = Context::new(Some(location), context.styles().ok());
-            state.display(engine, context.track(), &numbering)
+            state.display(engine, context.track(), span, &numbering)
         } else {
-            state.display(engine, context, &numbering)
+            state.display(engine, context, span, &numbering)
         }
     }
 
@@ -636,9 +636,10 @@ impl CounterState {
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
+        span: Span,
         numbering: &Numbering,
     ) -> SourceResult<Value> {
-        numbering.apply(engine, context, &self.0)
+        numbering.apply(engine, context, span, &self.0)
     }
 }
 

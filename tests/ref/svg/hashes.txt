@@ -185,6 +185,7 @@ faaf35d26d560f371004dc430c9aa927 enum-numbering-full
 cd6b2f932b98dd72b23ac6b855e64da9 enum-numbering-pattern
 2731ef7b1873d4ca9302858919c4f57d enum-numbering-reversed
 dcbd9066852184b35f55ca7368de808c enum-numbering-reversed-overridden
+51a5e57c9cfc95fa5b1d4a60b516e0b8 enum-numbering-too-high
 119f74cb6d50f26d5029e3b4fb48e702 enum-par
 4dceb0a7d6b01ad950dd2ab4de474494 enum-syntax-at-start
 feaacf6adc7f48bc41901059d0d34485 enum-syntax-edge-cases
@@ -243,6 +244,7 @@ b878894a83ed11b3062efdfb369f85a8 footnote-invariant
 3f6fb1080dddf4d29edb0f0a021080a4 footnote-multiple-in-one-line
 2549a631a2e315f6f75bc3a9c5dffc22 footnote-nested
 203d3f459c514e8587207b0e2a0a118b footnote-nested-break-across-pages
+a941982fef6b93950643f8d1dcfafccd footnote-numbering-too-high
 28944233e1402f3ad61ce7a40235055c footnote-ref
 a6f9af6b6c8d6b3021731c9494b37678 footnote-ref-call
 6e31e2cb3aaecb083bed4f7a6219159d footnote-ref-forward
@@ -1288,6 +1290,8 @@ ecf555a6daf4a1d6f26c17dff6c41b8c measure-citation-deeply-nested
 d68afde4dda5695fbf241975279acc95 measure-counter-width
 9c4f734af378058ad8210a93b2a9d631 newline-continuation-code
 bac99e86f7dddaa30b4ebfc19b5a1475 newline-continuation-markup
+42aadfe6a38d783a8af08ecb9921cd82 numbering-illegal-zero
+b22c8a339cc9a2d9fb9e42c1d62cbae7 numbering-too-high
 1bff303498ddfcb9c055b12bacf675fc numbers
 bed674f5955292b07efed4a98d053d8d ops-add-content
 21725d744a002767f3b18d1142fcdbc5 ops-multiply-inf-with-length
@@ -1296,7 +1300,7 @@ bed674f5955292b07efed4a98d053d8d ops-add-content
 7c01d57a4a66ea66d418499f3ec8173d outline-entry-complex
 0cad1e6b384d088b7ab23b36577a27ce outline-entry-inner
 d57194339abd15da4a671897469187b9 outline-first-line-indent
-3c879beebb5b3f83ad1415daf83e1f40 outline-heading-start-of-page
+11dd03fe72b781bed5bfeeeb9ccb96d7 outline-heading-start-of-page
 2fa5e03a6776e05e81bb3dfc3d19f2cb outline-indent-auto
 cedeb3a773d2c31e816133b773338edb outline-indent-auto-mixed-prefix
 1b62fce64b4863b34bcb314b0457e6e6 outline-indent-auto-mixed-prefix-short
@@ -1344,6 +1348,7 @@ ca90650a7fc8325331d16fbfae69fc00 page-number-align-bottom-left
 bdb7fe8f06bec26228290c367da7b2ef page-number-align-top-right
 6544481f7aef499c1eea6b49851c4744 page-numbering-huge
 8e076c1cb328375e73ebb3a7b1660aca page-numbering-pdf-label
+878f2789324bf0180cc222f477b7280f page-numbering-too-high
 a1880dd82ec477cc9ce53f2c7e556635 page-set-empty
 cf065a2e9f6470a7791807d3c23fcc79 page-set-forces-break
 850ee236e2dbd8ebf16113d1d3e484d9 page-set-only-pagebreak
