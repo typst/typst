@@ -83,18 +83,23 @@ use crate::visualize::RelativeTo;
 /// position of the tiling. This shifts the entire tile grid without affecting
 /// the tile size or spacing. Positive x values move the pattern to the right,
 /// and positive y values move it down. Relative values are resolved against
-/// the tile size plus spacing
+/// the tile size plus spacing.
+/// 
+/// Note that the displacement caused by the offset affects the tiles themselves,
+/// while displacement of the inner contents (e.g. by using `place(dx: ..., 
+/// dy: ...)`) can cause clipping when the content moves outside the tile's
+/// bounding box.
 ///
 /// ```example
-/// #let pat = tiling(size: (40pt, 40pt))[
-///   #place(dx: 5pt, dy: 5pt, circle(radius: 5pt, fill: blue))
+/// #let pat = tiling(size: (20pt, 20pt))[
+///   #place(circle(radius: 10pt, fill: blue))
 /// ]
-///
+/// ```
 /// #let pat-offset = tiling(
-///   size: (40pt, 40pt),
-///   offset: (20pt, 20pt),
+///   size: (20pt, 20pt),
+///   offset: (50%, 50%),
 /// )[
-///   #place(dx: 5pt, dy: 5pt, circle(radius: 5pt, fill: blue))
+///   #place(circle(radius: 10pt, fill: blue))
 /// ]
 ///
 /// #grid(
