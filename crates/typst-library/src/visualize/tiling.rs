@@ -84,9 +84,9 @@ use crate::visualize::RelativeTo;
 /// the tile size or spacing. Positive x values move the pattern to the right,
 /// and positive y values move it down. Relative values are resolved against
 /// the tile size plus spacing.
-/// 
+///
 /// Note that the displacement caused by the offset affects the tiles themselves,
-/// while displacement of the inner contents (e.g. by using `place(dx: ..., 
+/// while displacement of the inner contents (e.g. by using `place(dx: ...,
 /// dy: ...)`) can cause clipping when the content moves outside the tile's
 /// bounding box.
 ///
