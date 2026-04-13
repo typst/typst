@@ -94,7 +94,6 @@ use crate::visualize::RelativeTo;
 /// #let pat = tiling(size: (20pt, 20pt))[
 ///   #place(circle(radius: 10pt, fill: blue))
 /// ]
-/// ```
 /// #let pat-offset = tiling(
 ///   size: (20pt, 20pt),
 ///   offset: (50%, 50%),
