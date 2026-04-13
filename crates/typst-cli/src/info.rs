@@ -3,8 +3,8 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use clap::builder::{FalseyValueParser, TypedValueParser};
-use clap::{CommandFactory, ValueEnum};
+use clap::builder::{BoolValueParser, TypedValueParser};
+use clap::{Command, CommandFactory, ValueEnum};
 use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use serde::Serialize;
@@ -315,12 +315,6 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         .map(PathBuf::from)
         .collect::<_>();
 
-    let boolish = |v: &String| {
-        // This is only an error if `v` is not valid UTF-8, which it
-        // always is.
-        FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
-    };
-
     let version = typst::utils::version();
     let value = Info {
         version: version.raw(),
@@ -338,12 +332,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
             system: !env
                 .typst_ignore_system_fonts
                 .as_ref()
-                .and_then(boolish)
+                .and_then(|val| parse_bool(&cmd, val, "TYPST_IGNORE_SYSTEM_FONTS"))
                 .unwrap_or(false),
             embedded: !env
                 .typst_ignore_embedded_fonts
                 .as_ref()
-                .and_then(boolish)
+                .and_then(|val| parse_bool(&cmd, val, "TYPST_IGNORE_EMBEDDED_FONTS"))
                 .unwrap_or(false),
         },
         packages: Packages {
@@ -413,6 +407,21 @@ fn get_vars() -> StrResult<Environment> {
         https_proxy: get_var("HTTPS_PROXY")?,
         all_proxy: get_var("ALL_PROXY")?,
     })
+}
+
+/// Turns an environment variable string into a boolean value.
+fn parse_bool(cmd: &Command, val: &str, key: &'static str) -> Option<bool> {
+    match BoolValueParser::new().parse_ref(cmd, None, val.as_ref()) {
+        Ok(bool) => Some(bool),
+        Err(_) => {
+            crate::print_error(&format!(
+                "invalid value `{val}` for `{key}`, expected `true` or `false`."
+            ))
+            .map_err(|e| eco_format!("{e}"))
+            .expect("failed to print error");
+            None
+        }
+    }
 }
 
 /// Turns a comma separated list of feature names into a well typed struct of

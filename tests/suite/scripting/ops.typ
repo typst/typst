@@ -385,6 +385,20 @@ $harpoon(i, dotless: #not false)$
 // Error: 10 expected expression
 #test({2*}, 2)
 
+--- ops-bad-token-rhs eval ---
+// Error: 7-10 invalid number suffix: p
+#(1 + 12p)
+// Error: 7-8 the character `~` is not valid in code
+#(1 / ~)
+
+--- ops-bad-token-lhs eval ---
+// Error: 3-4 the character `\` is not valid in code
+// Error: 5-6 unexpected star
+#(\ * 1)
+// Error: 3-7 unclosed label
+// Error: 8-11 unexpected operator `and`
+#(<lbl and 1)
+
 --- ops-unary-plus-on-content eval ---
 // Error: 3-13 cannot apply unary '+' to content
 #(+([] + []))
