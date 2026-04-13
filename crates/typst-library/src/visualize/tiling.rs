@@ -83,7 +83,7 @@ use crate::visualize::RelativeTo;
 /// position of the tiling. This shifts the entire tile grid without affecting
 /// the tile size or spacing. Positive x values move the pattern to the right,
 /// and positive y values move it down. Relative values are resolved against
-/// the tile size plus spacing
+/// the tile size plus spacing.
 ///
 /// ```example
 /// #let pat = tiling(size: (40pt, 40pt))[
