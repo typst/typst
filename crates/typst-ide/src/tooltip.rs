@@ -323,7 +323,6 @@ mod tests {
         test("#let x = 1 + 2", -1, Side::After).must_be_none();
         test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
-        test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
     }
 
     #[test]
