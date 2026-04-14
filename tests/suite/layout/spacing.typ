@@ -107,6 +107,33 @@ A #h(1fr) B
 #v(1fr, weak: true)
 2
 
+--- spacing-fr-negative-total-positive paged ---
+// a negative fraction will produce a negative spacing when the sum of fractions is positive
+// so this should look like
+// - only the red box for the first third of the width,
+// - the red, green, and blue boxes in the middle third,
+// - and only the green box in the final third
+#set page(height: 5pt, width: 40pt, margin: 0pt)
+#{
+    box(width: 2fr, stroke: red + 0.5pt, height: 100%)
+    box(width: -1fr, stroke: blue + 0.5pt, height: 50%)
+    box(width: 2fr, stroke: green + 0.5pt, height: 100%)
+}
+
+--- spacing-fr-negative-total-negative paged ---
+// a negative fraction will produce a positive spacing when the sum of fractions is positive
+// so this should look like
+// - only the red box for the first third of the width,
+// - the red, green, and blue boxes in the middle third,
+// - and only the green box in the final third
+// which is identical to spacing-fr-negative-total-positive
+#set page(height: 5pt, width: 40pt, margin: 0pt)
+#{
+    box(width: -2fr, stroke: red + 0.5pt, height: 100%)
+    box(width: 1fr, stroke: blue + 0.5pt, height: 50%)
+    box(width: -2fr, stroke: green + 0.5pt, height: 100%)
+}
+
 --- spacing-missing-amount eval ---
 // Missing spacing.
 // Error: 10-13 missing argument: amount
