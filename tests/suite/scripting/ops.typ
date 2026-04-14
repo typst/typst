@@ -355,6 +355,28 @@
 // Error: 4 expected expression
 #(-)
 
+--- ops-unary-embedded-error eval ---
+// Error: 2-3 unexpected minus
+// Hint: 2-3 to use a unary operator here, wrap the entire expression in parentheses
+#-30deg
+// Error: 2-3 unexpected plus
+// Hint: 2-3 to use a unary operator here, wrap the entire expression in parentheses
+#+.5
+// Error: 2-5 unexpected operator `not`
+// Hint: 2-5 to use a unary operator here, wrap the entire expression in parentheses
+#not
+// Error: 23-26 unexpected operator `not`
+// Hint: 23-26 to use a unary operator here, wrap the entire expression in parentheses
+$harpoon(i, dotless: #not false)$
+
+--- ops-unary-context-error eval ---
+// Error: 10-11 unexpected minus
+// Hint: 10-11 to use a unary operator here, wrap the entire expression in parentheses
+#context -text.size
+// Error: 10-13 unexpected operator `not`
+// Hint: 10-13 to use a unary operator here, wrap the entire expression in parentheses
+#context not par.justify
+
 --- ops-add-missing-rhs eval ---
 // Error: 10 expected expression
 #test({1+}, 1)

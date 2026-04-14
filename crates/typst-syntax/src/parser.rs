@@ -594,11 +594,18 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
-    if !atomic && p.at_set(set::UNARY_OP) {
-        let op = ast::UnOp::from_kind(p.current()).unwrap();
-        p.eat();
-        code_expr_prec(p, atomic, op.precedence());
-        p.wrap(m, SyntaxKind::Unary);
+    if p.at_set(set::UNARY_OP) {
+        if !atomic {
+            let op = ast::UnOp::from_kind(p.current()).unwrap();
+            p.eat();
+            code_expr_prec(p, atomic, op.precedence());
+            p.wrap(m, SyntaxKind::Unary);
+        } else {
+            p.unexpected();
+            p.hint(
+                "to use a unary operator here, wrap the entire expression in parentheses",
+            );
+        }
     } else {
         code_primary(p, atomic);
     }
@@ -659,7 +666,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     }
 }
 
-/// Parses an primary in a code expression. These are the atoms that unary and
+/// Parses a primary in a code expression. These are the atoms that unary and
 /// binary operations, functions calls, and field accesses start with / are
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
