@@ -290,9 +290,17 @@ What's *up* with *you?*
 #test-selector(selector-within(heading, <a>), ([1], [2], [3]))
 #test-selector(selector-within(heading, <b>), ([4], [5]))
 
---- query-bundle-logical-order bundle ---
-#let m(s) = [#metadata(s) <hi>]
+--- query-within-inverted paged empty ---
+// Test a case where the ancestor is fully contained in one of the children.
+#let m(l) = [#metadata(none)#l]
+#strong({
+  m(<a>)
+  m(<b>)
+  m(<c>)
+})
+#context test(query(selector-within(strong, <b>)), ())
 
+--- query-bundle-logical-order bundle ---
 #metadata(1)
 #document("hi.html")[
   #metadata("a")
