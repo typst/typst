@@ -1,2 +1,7 @@
 [alias]
+# Runs the main integration test suite.
+#
+# The test wrapper is used to support rerunning the test runner itself on a
+# different commit if test artifacts need to be regenerated to create the test
+# report.
 testit = "run --quiet --package=test-wrapper --"
