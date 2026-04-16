@@ -1091,9 +1091,6 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
         while !p.current().is_terminator() {
             if !p.at_set(set::ARRAY_OR_DICT_ITEM) {
                 p.unexpected();
-                if p.hint_percent_unit_spacing() {
-                    p.eat_if(SyntaxKind::Comma);
-                }
                 continue;
             }
 
@@ -1103,6 +1100,8 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
             if !p.current().is_terminator() {
                 if p.expect(SyntaxKind::Comma) {
                     state.maybe_just_parens = false;
+                } else if p.hint_percent_unit_spacing() {
+                    p.eat_if(SyntaxKind::Comma);
                 } else {
                     p.hint_unit_spacing();
                 }
@@ -1205,16 +1204,17 @@ fn args(p: &mut Parser) {
             while !p.current().is_terminator() {
                 if !p.at_set(set::ARG) {
                     p.unexpected();
-                    if p.hint_percent_unit_spacing() {
-                        p.eat_if(SyntaxKind::Comma);
-                    }
                     continue;
                 }
 
                 arg(p, &mut seen);
 
                 if !p.current().is_terminator() && !p.expect(SyntaxKind::Comma) {
-                    p.hint_unit_spacing();
+                    if p.hint_percent_unit_spacing() {
+                        p.eat_if(SyntaxKind::Comma);
+                    } else {
+                        p.hint_unit_spacing();
+                    }
                 }
             }
 
