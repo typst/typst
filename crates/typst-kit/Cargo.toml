@@ -76,6 +76,9 @@ system-downloader = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl
 # Enables file system watching via `watcher::Watcher`.
 watcher = ["dep:notify", "dep:same-file"]
 
+# Enables performance tracing via `timer::Timer`.
+timer = []
+
 # Enables live-reloading HTTP serving via `server::HttpServer`.
 http-server = ["dep:tiny_http", "dep:infer"]
 

@@ -66,6 +66,7 @@ features = [
     "emit-diagnostics",
     "system-downloader",
     "watcher",
+    "timer",
 ]
 
 [dev-dependencies]

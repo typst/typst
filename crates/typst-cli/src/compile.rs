@@ -14,6 +14,7 @@ use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
+use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -22,7 +23,6 @@ use crate::args::{
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
-use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
@@ -31,10 +31,8 @@ use crate::{set_failed, terminal};
 use typst_kit::server::{HttpBody, HttpServer};
 
 /// Execute a compilation command.
-pub fn compile(
-    timer: &mut Timer,
-    command: &'static CompileCommand,
-) -> HintedStrResult<()> {
+pub fn compile(command: &'static CompileCommand) -> HintedStrResult<()> {
+    let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut config = CompileConfig::new(command)?;
     let mut world = SystemWorld::new(
         Some(&command.args.input),

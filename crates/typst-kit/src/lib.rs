@@ -24,6 +24,7 @@
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
+//! - `timer`: Enables performance tracing via [`timer::Timer`].
 //! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`].
 //! - `vendor-openssl`: Whether to vendor OpenSSL for the `system-downloader`.
 //!   Not applicable to Windows and macOS build.
@@ -37,10 +38,11 @@
         feature = "system-packages",
         feature = "universe-packages",
         feature = "emit-diagnostics",
+        feature = "datetime",
         feature = "system-downloader",
         feature = "watcher",
+        feature = "timer",
         feature = "http-server",
-        feature = "datetime",
     )),
     allow(rustdoc::broken_intra_doc_links)
 )]
@@ -52,4 +54,5 @@ pub mod files;
 pub mod fonts;
 pub mod packages;
 pub mod server;
+pub mod timer;
 pub mod watcher;
