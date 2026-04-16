@@ -111,213 +111,6 @@ pub enum CompletionKind {
     Symbol(EcoString),
 }
 
-/// Complete in markup mode.
-fn complete_markup(ctx: &mut CompletionContext) -> bool {
-    debug_assert_eq!(ctx.leaf.mode(), Some(SyntaxMode::Markup));
-
-    // Start of a reference: "@|".
-    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
-        ctx.from = ctx.cursor;
-        ctx.label_completions();
-        return true;
-    }
-
-    // An existing reference: "@he|".
-    if ctx.leaf.kind() == SyntaxKind::RefMarker {
-        ctx.from = ctx.leaf.offset() + 1;
-        ctx.label_completions();
-        return true;
-    }
-
-    // Behind a half-completed binding: "#let x = |".
-    if let Some(prev) = ctx.leaf.prev_leaf()
-        && prev.kind() == SyntaxKind::Eq
-        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
-    {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, false);
-        return true;
-    }
-
-    // Behind a half-completed context block: "#context |".
-    if let Some(prev) = ctx.leaf.prev_leaf()
-        && prev.kind() == SyntaxKind::Context
-    {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, false);
-        return true;
-    }
-
-    // Directly after a raw block.
-    let mut s = Scanner::new(ctx.text);
-    s.jump(ctx.leaf.offset());
-    if s.eat_if("```") {
-        s.eat_while('`');
-        let start = s.cursor();
-        if s.eat_if(is_id_start) {
-            s.eat_while(is_id_continue);
-        }
-        if s.cursor() == ctx.cursor {
-            ctx.from = start;
-            ctx.raw_completions();
-        }
-        return true;
-    }
-
-    // Anywhere: "|".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        markup_completions(ctx);
-        return true;
-    }
-
-    false
-}
-
-/// Add completions for markup snippets.
-#[rustfmt::skip]
-fn markup_completions(ctx: &mut CompletionContext) {
-    ctx.snippet_completion(
-        "expression",
-        "#${}",
-        "Variables, function calls, blocks, and more.",
-    );
-
-    ctx.snippet_completion(
-        "linebreak",
-        "\\\n${}",
-        "Inserts a forced linebreak.",
-    );
-
-    ctx.snippet_completion(
-        "strong text",
-        "*${strong}*",
-        "Strongly emphasizes content by increasing the font weight.",
-    );
-
-    ctx.snippet_completion(
-        "emphasized text",
-        "_${emphasized}_",
-        "Emphasizes content by setting it in italic font style.",
-    );
-
-    ctx.snippet_completion(
-        "raw text",
-        "`${text}`",
-        "Displays text verbatim, in monospace.",
-    );
-
-    ctx.snippet_completion(
-        "code listing",
-        "```${lang}\n${code}\n```",
-        "Inserts computer code with syntax highlighting.",
-    );
-
-    ctx.snippet_completion(
-        "hyperlink",
-        "https://${example.com}",
-        "Links to a URL.",
-    );
-
-    ctx.snippet_completion(
-        "label",
-        "<${name}>",
-        "Makes the preceding element referenceable.",
-    );
-
-    ctx.snippet_completion(
-        "reference",
-        "@${name}",
-        "Inserts a reference to a label.",
-    );
-
-    ctx.snippet_completion(
-        "heading",
-        "= ${title}",
-        "Inserts a section heading.",
-    );
-
-    ctx.snippet_completion(
-        "list item",
-        "- ${item}",
-        "Inserts an item of a bullet list.",
-    );
-
-    ctx.snippet_completion(
-        "enumeration item",
-        "+ ${item}",
-        "Inserts an item of a numbered list.",
-    );
-
-    ctx.snippet_completion(
-        "enumeration item (numbered)",
-        "${number}. ${item}",
-        "Inserts an explicitly numbered list item.",
-    );
-
-    ctx.snippet_completion(
-        "term list item",
-        "/ ${term}: ${description}",
-        "Inserts an item of a term list.",
-    );
-
-    ctx.snippet_completion(
-        "math (inline)",
-        "$${x}$",
-        "Inserts an inline-level mathematical equation.",
-    );
-
-    ctx.snippet_completion(
-        "math (block)",
-        "$ ${sum_x^2} $",
-        "Inserts a block-level mathematical equation.",
-    );
-}
-
-/// Complete in math mode.
-fn complete_math(ctx: &mut CompletionContext) -> bool {
-    debug_assert_eq!(ctx.leaf.mode(), Some(SyntaxMode::Math));
-    // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
-        ctx.from = ctx.leaf.offset();
-        math_completions(ctx);
-        return true;
-    }
-
-    // Anywhere: "$|$".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        math_completions(ctx);
-        return true;
-    }
-
-    false
-}
-
-/// Add completions for math snippets.
-#[rustfmt::skip]
-fn math_completions(ctx: &mut CompletionContext) {
-    ctx.scope_completions(true, |_| true);
-
-    ctx.snippet_completion(
-        "subscript",
-        "${x}_${2:2}",
-        "Sets something in subscript.",
-    );
-
-    ctx.snippet_completion(
-        "superscript",
-        "${x}^${2:2}",
-        "Sets something in superscript.",
-    );
-
-    ctx.snippet_completion(
-        "fraction",
-        "${x}/${y}",
-        "Inserts a fraction.",
-    );
-}
-
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     let (after_dot, textual_dot) = match ctx.leaf.kind() {
@@ -826,6 +619,213 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (None, "path") => &[],
         _ => return None,
     })
+}
+
+/// Complete in markup mode.
+fn complete_markup(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode(), Some(SyntaxMode::Markup));
+
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
+    // An existing reference: "@he|".
+    if ctx.leaf.kind() == SyntaxKind::RefMarker {
+        ctx.from = ctx.leaf.offset() + 1;
+        ctx.label_completions();
+        return true;
+    }
+
+    // Behind a half-completed binding: "#let x = |".
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Eq
+        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
+    }
+
+    // Behind a half-completed context block: "#context |".
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Context
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
+    }
+
+    // Directly after a raw block.
+    let mut s = Scanner::new(ctx.text);
+    s.jump(ctx.leaf.offset());
+    if s.eat_if("```") {
+        s.eat_while('`');
+        let start = s.cursor();
+        if s.eat_if(is_id_start) {
+            s.eat_while(is_id_continue);
+        }
+        if s.cursor() == ctx.cursor {
+            ctx.from = start;
+            ctx.raw_completions();
+        }
+        return true;
+    }
+
+    // Anywhere: "|".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        markup_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for markup snippets.
+#[rustfmt::skip]
+fn markup_completions(ctx: &mut CompletionContext) {
+    ctx.snippet_completion(
+        "expression",
+        "#${}",
+        "Variables, function calls, blocks, and more.",
+    );
+
+    ctx.snippet_completion(
+        "linebreak",
+        "\\\n${}",
+        "Inserts a forced linebreak.",
+    );
+
+    ctx.snippet_completion(
+        "strong text",
+        "*${strong}*",
+        "Strongly emphasizes content by increasing the font weight.",
+    );
+
+    ctx.snippet_completion(
+        "emphasized text",
+        "_${emphasized}_",
+        "Emphasizes content by setting it in italic font style.",
+    );
+
+    ctx.snippet_completion(
+        "raw text",
+        "`${text}`",
+        "Displays text verbatim, in monospace.",
+    );
+
+    ctx.snippet_completion(
+        "code listing",
+        "```${lang}\n${code}\n```",
+        "Inserts computer code with syntax highlighting.",
+    );
+
+    ctx.snippet_completion(
+        "hyperlink",
+        "https://${example.com}",
+        "Links to a URL.",
+    );
+
+    ctx.snippet_completion(
+        "label",
+        "<${name}>",
+        "Makes the preceding element referenceable.",
+    );
+
+    ctx.snippet_completion(
+        "reference",
+        "@${name}",
+        "Inserts a reference to a label.",
+    );
+
+    ctx.snippet_completion(
+        "heading",
+        "= ${title}",
+        "Inserts a section heading.",
+    );
+
+    ctx.snippet_completion(
+        "list item",
+        "- ${item}",
+        "Inserts an item of a bullet list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item",
+        "+ ${item}",
+        "Inserts an item of a numbered list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item (numbered)",
+        "${number}. ${item}",
+        "Inserts an explicitly numbered list item.",
+    );
+
+    ctx.snippet_completion(
+        "term list item",
+        "/ ${term}: ${description}",
+        "Inserts an item of a term list.",
+    );
+
+    ctx.snippet_completion(
+        "math (inline)",
+        "$${x}$",
+        "Inserts an inline-level mathematical equation.",
+    );
+
+    ctx.snippet_completion(
+        "math (block)",
+        "$ ${sum_x^2} $",
+        "Inserts a block-level mathematical equation.",
+    );
+}
+
+/// Complete in math mode.
+fn complete_math(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode(), Some(SyntaxMode::Math));
+    // Behind existing atom or identifier: "$a|$" or "$abc|$".
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
+        ctx.from = ctx.leaf.offset();
+        math_completions(ctx);
+        return true;
+    }
+
+    // Anywhere: "$|$".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        math_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for math snippets.
+#[rustfmt::skip]
+fn math_completions(ctx: &mut CompletionContext) {
+    ctx.scope_completions(true, |_| true);
+
+    ctx.snippet_completion(
+        "subscript",
+        "${x}_${2:2}",
+        "Sets something in subscript.",
+    );
+
+    ctx.snippet_completion(
+        "superscript",
+        "${x}^${2:2}",
+        "Sets something in superscript.",
+    );
+
+    ctx.snippet_completion(
+        "fraction",
+        "${x}/${y}",
+        "Inserts a fraction.",
+    );
 }
 
 /// Complete in code mode.
