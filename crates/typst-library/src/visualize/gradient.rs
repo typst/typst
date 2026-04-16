@@ -71,18 +71,18 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// stops evenly which is a reasonable default in order to provide a smooth
 /// gradient.
 ///
-/// ```example:"Smooth Gradient between Red and Blue"
+/// ```example
 /// #rect(
-///   width: 100%, 
+///   width: 100%,
 ///   height: 20pt,
 ///   fill: gradient.linear(red, blue)
 /// )
 /// ```
 ///
-/// We can use manually-defined stops in order to end the gradient "early"
+/// We can use manually-defined stops in order to end the gradient early
 /// rather than in a smooth way.
 ///
-/// ```example:"Smooth Gradient with Manually-Defined Stops"
+/// ```example
 /// #block(
 ///   width: 100%,
 ///   inset: 4pt,
@@ -104,11 +104,11 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// ```
 ///
 /// We can go even further.
-/// Sometimes it is preferable to have a "gradient" that is not smooth
-/// and instead "blocky" or "stepwise". For example, you can display a progress
+/// Sometimes it is preferable to have a gradient that is not smooth
+/// and instead blocky or stepwise. For example, you can display a progress
 /// bar using a simple linear gradient with manually defined stops.
-/// 
-/// ```example:"Simple Progress Bar"
+///
+/// ```example
 /// #block(
 ///   width: 100%,
 ///   inset: 4pt,
@@ -119,7 +119,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// )[We're 2/3 done!]
 /// ```
 ///
-/// You could also use [`stack`]($stack) (with `dir: ltr`) to make a progress
+/// You could also use [`stack`]($stack) (with `{dir: ltr}`) to make a progress
 /// bar (which is probably more sensible), but this at least helps display how
 /// to write custom stops.
 ///
