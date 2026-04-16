@@ -1106,6 +1106,15 @@ fn resolve_cells<'a, 'v, 'e>(
         cells.push(resolved_row);
     }
 
+    // Pad sub-columns so that every row has the same length.
+    let ncols = cells.first().map_or(0, |row| row.len());
+    for c in 0..ncols {
+        let max = cells.iter().map(|row| row[c].len()).max().unwrap_or_default();
+        for row in &mut cells {
+            row[c].pad_to(max, cell_styles);
+        }
+    }
+
     Ok(TableItem::create(cells, gap, augment, align, alternator, styles, span))
 }
 
