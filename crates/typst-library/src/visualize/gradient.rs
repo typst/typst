@@ -72,13 +72,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///
 /// ```example
 /// #rect(
-///   width: 100%, 
+///   width: 100%,
 ///   height: 20pt,
 ///   fill: gradient.linear(red, blue)
 /// )
 /// ```
 ///
-/// We can use manually-defined stops in order to end the gradient "early"
+/// We can use manually-defined stops in order to end the gradient early
 /// rather than in a smooth way.
 ///
 /// ```example
@@ -103,10 +103,10 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// ```
 ///
 /// We can go even further.
-/// Sometimes it is preferable to have a "gradient" that is not smooth
-/// and instead "blocky" or "stepwise". For example, you can display a progress
+/// Sometimes it is preferable to have a gradient that is not smooth
+/// and instead blocky or stepwise. For example, you can display a progress
 /// bar using a simple linear gradient with manually defined stops.
-/// 
+///
 /// ```example
 /// #block(
 ///   width: 100%,
