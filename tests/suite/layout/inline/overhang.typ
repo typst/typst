@@ -104,3 +104,19 @@ And then he said: #linebreak(justify: true)
 “A well-proportioned overhang can make a paragraph look much more
 visually appealing,” #linebreak(justify: true)
 she said.
+
+--- overhang-ligatures paged ---
+// Test that named glyphs (ligatures) can be used in protrusion tables.
+#set page(width: 80pt, margin: 10pt)
+#set text(font: "Libertinus Serif", size: 9pt)
+#let protrusion-table = (
+   "/f_f_i": (100%, 100%),
+)
+#set text(
+  size: 9pt,
+  overhang: (map: protrusion-table, default: right),
+)
+#set par(justify: true)
+#block(stroke: 0.5pt + blue, width: 100%)[
+  ffi is a common ligature in many fonts.
+]

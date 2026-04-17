@@ -28,7 +28,7 @@ pub use self::smallcaps_::*;
 pub use self::smartquote::*;
 pub use self::space::*;
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -1061,9 +1061,19 @@ pub struct Overhang {
     pub default: BuiltInOverhang,
 }
 
+/// A reference to a glyph, either by its unicode code point or by its name in the font.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum GlyphReference {
+    /// Glyph referenced by Unicode code point.
+    CodePoint(char),
+    /// Glyph referenced by its name.
+    /// Some glyphs can be referenced only by name, e.g. ligatures.
+    Name(EcoString),
+}
+
 /// A table mapping glyphs to their protrusion amounts (left and right).
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ProtrusionTable(pub Vec<(char, (Protrusion, Protrusion))>);
+pub struct ProtrusionTable(pub Vec<(GlyphReference, (Protrusion, Protrusion))>);
 
 impl Default for ProtrusionTable {
     fn default() -> Self {
@@ -1138,8 +1148,8 @@ cast! {
         self
             .0
             .into_iter()
-            .map(|(ch, protrusions)| {
-                (ch.into(), protrusions.into_value())
+            .map(|(glyph_ref, protrusions)| {
+                (glyph_ref.to_string().into(), protrusions.into_value())
             })
             .collect::<Dict>()
             .into_value()
@@ -1147,11 +1157,7 @@ cast! {
     v: Dict => {
         let mut table = Vec::with_capacity(v.len());
         for (key, value) in v.into_iter() {
-            let mut chars = key.chars();
-            let (Some(c), None) = (chars.next(), chars.next()) else {
-                bail!("protrusion table keys must be single characters");
-            };
-
+            let glyph_ref = key.into_value().cast::<GlyphReference>()?;
             let value = value.cast::<Array>()?;
             if value.len() != 2 {
                 bail!("protrusion table values must be arrays of length 2");
@@ -1160,7 +1166,7 @@ cast! {
             let left = value[0].clone().cast::<Protrusion>()?;
             let right = value[1].clone().cast::<Protrusion>()?;
 
-            table.push((c, (left, right)));
+            table.push((glyph_ref, (left, right)));
         }
         ProtrusionTable(table)
     },
@@ -1197,6 +1203,44 @@ cast! {
 
         Overhang { table, default }
     }
+}
+
+impl FromStr for GlyphReference {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chars = s.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => Ok(GlyphReference::CodePoint(c)),
+            (Some('/'), Some(_)) => Ok(GlyphReference::Name(s[1..].into())),
+            _ => Err("glyph references must be a single character or start with '/' followed by the glyph name".into()),
+        }
+    }
+}
+
+impl fmt::Display for GlyphReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            GlyphReference::CodePoint(c) => f.write_char(*c),
+            GlyphReference::Name(name) => write!(f, "/{name}"),
+        }
+    }
+}
+
+cast! {
+    GlyphReference,
+    self => match self {
+        GlyphReference::CodePoint(code_point) => {
+            code_point.into_value()
+        },
+        GlyphReference::Name(name) => {
+            let mut s = EcoString::with_capacity(name.len() + 1);
+            s.push('/');
+            s.push_str(&name);
+            s.into_value()
+        }
+    },
+    v: Str => GlyphReference::from_str(v.as_str())?,
 }
 
 /// Specifies the top edge of text.

@@ -5,7 +5,9 @@ use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point, Rel};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{BuiltInOverhang, Lang, Overhang, TextElem, variant};
+use typst_library::text::{
+    BuiltInOverhang, GlyphReference, Lang, Overhang, TextElem, variant,
+};
 use typst_utils::Numeric;
 
 use super::*;
@@ -716,19 +718,27 @@ pub(crate) fn margin_kerning(
         ('\u{6D4}', 0.4),
     ];
 
-    fn is_name_of_glyph(shaped_glyph: &ShapedGlyph, glyph_code_point: char) -> bool {
-        shaped_glyph
-            .font
-            .ttf()
-            .glyph_index(glyph_code_point)
-            .is_some_and(|glyph_id| glyph_id.0 == shaped_glyph.glyph_id)
+    fn is_glyph_referenced(
+        shaped_glyph: &ShapedGlyph,
+        glyph_reference: &GlyphReference,
+    ) -> bool {
+        let face = shaped_glyph.font.ttf();
+        let glyph_id = match glyph_reference {
+            GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
+            GlyphReference::CodePoint(code_point) => face.glyph_index(*code_point),
+        };
+        glyph_id.is_some_and(|glyph_id| glyph_id.0 == shaped_glyph.glyph_id)
     }
 
     fn default_overhang(shaped_glyph: &ShapedGlyph) -> f64 {
         DEFAULT_PROTRUSION_TABLE
             .iter()
             .find_map(|(c, factor)| {
-                if is_name_of_glyph(shaped_glyph, *c) { Some(*factor) } else { None }
+                if is_glyph_referenced(shaped_glyph, &GlyphReference::CodePoint(*c)) {
+                    Some(*factor)
+                } else {
+                    None
+                }
             })
             .unwrap_or(0.0)
     }
@@ -737,8 +747,8 @@ pub(crate) fn margin_kerning(
         .table
         .0
         .iter()
-        .find_map(|(c, (left, right))| {
-            if is_name_of_glyph(glyph, *c) {
+        .find_map(|(glyph_ref, (left, right))| {
+            if is_glyph_referenced(glyph, glyph_ref) {
                 Some(if is_right_margin { *right } else { *left })
             } else {
                 None
