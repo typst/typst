@@ -499,7 +499,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some((text, glyph)) = line.items.leading_glyph()
+    if let Some((text, glyph)) = line.items.leading_visible_glyph()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -510,7 +510,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the right.
-    if let Some((text, glyph)) = line.items.trailing_glyph()
+    if let Some((text, glyph)) = line.items.trailing_visible_glyph()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -739,7 +739,7 @@ impl<'a> Items<'a> {
     }
 
     /// Access the first glyph with non-zero advance before any non-text item.
-    pub fn leading_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+    pub fn leading_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
         self.iter()
             .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
             .find_map(|item| {
@@ -764,7 +764,7 @@ impl<'a> Items<'a> {
     }
 
     /// Access the last glyph with non-zero advance before any non-text item.
-    pub fn trailing_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+    pub fn trailing_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
         self.iter()
             .rev()
             .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
