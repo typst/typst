@@ -1313,7 +1313,11 @@ a3a01f01848d5b606e50389f9b9b8369 outline-indent-fixed
 ca42c9855eda7e360b30b5f022f63dc1 outline-spacing
 447ef565acd9520c88e856fedd2e4605 outline-styled-text
 bbfd3da2ed93f0732356f82f9e98cd68 overhang
+953ef0af9206328fd98e8ecb0e74de87 overhang-custom
+da3a4043c387777c14119bc1353d91da overhang-left
 a2675e79e58db7a3cda17ac4cd0caf0d overhang-lone
+03ba198bc38e669ee3f78d46ab779f4f overhang-right
+725af2bc5a06ab266e8cee3ea4c4dc2b overhang-start
 85237d2a4ea3431005d4bff9a9c030af overline-background
 359bac5dcb5853532b6bb7552a326855 pad-basic
 e5dc3a858669bbcf402794a35a7a1cdd pad-expanding-contents
@@ -1326,7 +1330,7 @@ b80d4e7e7916b30f4a3ccc4ef8785725 page-large
 4a993069c0821e4ada4bbb194485dac4 page-margin-binding-from-text-lang
 60af86fd420ae9dcc00a819e8e40133d page-margin-individual
 25ec7b2aa9e7a6f80dc0746ea697cba1 page-margin-inside
-d4cc4c9ef765325d338a1e20e87fde84 page-margin-inside-outside-override
+864bffbc985a7dc2c5d4ac1e1f6dbac2 page-margin-inside-outside-override
 eef960ac02c87b1ec447a7e111b16100 page-margin-inside-with-binding
 c69196e3d9c300f6a2ebf6aa309773ff page-margin-uniform
 6fdbc3bda7f10c98bbeaf0fa1c34d041 page-marginal-style-context
@@ -1545,7 +1549,7 @@ a5ec73d680472c82a2ffa8a051c823a0 show-selector-element-or-label
 58ee90222c37f072456355a0ad0611a0 show-selector-replace
 1ab7bd054bd55d6e195793839d8af860 show-selector-replace-and-show-set
 92d4b1198e647836e3c8c348e6a0b318 show-selector-shadowed-builtin-with-std
-478c13acedb5b72521544fbcf97498c7 show-selector-where
+1b641597c2b580f79b30398717848362 show-selector-where
 235e99788f65a1448d2b0ebf96bc9de5 show-set-on-layoutable-element
 f1afe166b182f38a1f6f6cfa90c9f119 show-set-on-same-element
 12461c719b9e48abcf47e196670a3a1c show-set-override
