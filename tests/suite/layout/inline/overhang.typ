@@ -24,6 +24,30 @@
 #block(stroke: 0.5pt + blue, width: 4cm)[This is a text with just, the right length.]
 #block(stroke: 0.5pt + blue, width: 4cm)[This is a text with just,<label> the right length.]
 
+--- overhang-dash paged ---
+#set page(margin: 2pt)
+#set par(justify: true)
+#set text(size: 11pt)
+#block(stroke: 0.5pt + blue, width: 25pt, { h(1fr); sym.wj; sym.dash.em })
+#block(stroke: 0.5pt + blue, width: 25pt, { h(1fr); sym.dash.em })
+#set text(dir: rtl)
+#block(stroke: 0.5pt + blue, width: 25pt, { h(1fr); sym.dash.em })
+#block(stroke: 0.5pt + blue, width: 25pt, { h(1fr); sym.wj; sym.dash.em; })
+#set text(dir: ltr)
+#show "—": sym.wj + sym.dash.em
+#block(stroke: 0.5pt + blue, width: 25pt, { h(1fr); sym.dash.em })
+
+--- issue-8130-overhang-in-show-rule paged ---
+#set page(margin: 2pt)
+#set par(justify: true)
+#set text(size: 11pt)
+#let f(body) = {
+  show "x": "y"
+  body
+}
+#block(stroke: 0.5pt + blue, width: 10pt, [#h(1fr);#f[a,] b])
+#block(stroke: 0.5pt + blue, width: 10pt, [#h(1fr);a, b])
+
 --- overhang-lone paged ---
 // Test that lone punctuation doesn't overhang into the margin.
 #set page(margin: 0pt)

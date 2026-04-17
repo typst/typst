@@ -504,7 +504,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         offset -= amount;
         remaining += amount;
     }
@@ -515,7 +515,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         remaining += amount;
     }
 
@@ -666,26 +666,42 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// How much a character should hang into the end margin.
+/// How much a glyph should hang into the end margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(c: char) -> f64 {
-    match c {
-        // Dashes.
-        '–' | '—' => 0.2,
-        '-' | '\u{ad}' => 0.55,
-
-        // Punctuation.
-        '.' | ',' => 0.8,
-        ':' | ';' => 0.3,
-
-        // Arabic
-        '\u{60C}' | '\u{6D4}' => 0.4,
-
-        _ => 0.0,
-    }
+fn overhang(glyph: &ShapedGlyph) -> Abs {
+    DEFAULT_OVERHANG_TABLE
+        .iter()
+        .copied()
+        .find_map(|(c, v)| {
+            if let Some(id) = glyph.font.ttf().glyph_index(c)
+                && id.0 == glyph.glyph_id
+            {
+                Some(v)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0.0)
+        * glyph.x_advance.at(glyph.size)
 }
+
+const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+    // Dashes.
+    ('–', 0.2),
+    ('—', 0.2),
+    ('-', 0.55),
+    ('\u{ad}', 0.55),
+    // Punctuation.
+    ('.', 0.8),
+    (',', 0.8),
+    (';', 0.3),
+    (':', 0.3),
+    // Arabic
+    ('\u{60C}', 0.4),
+    ('\u{6D4}', 0.4),
+];
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
