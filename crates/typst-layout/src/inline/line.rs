@@ -10,7 +10,7 @@ use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
-use crate::inline::shaping::Adjustability;
+use crate::inline::shaping::{Adjustability, ShapedGlyph};
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -498,7 +498,7 @@ pub fn commit(
     }
 
     // Handle left margin kerning.
-    if let Some((text, glyph)) = line_side_glyph(line, false) {
+    if let Some((text, glyph)) = line_side_visible_glyph(line, false) {
         let amount = margin_kerning(
             text.styles.get_ref(TextElem::overhang),
             text.dir,
@@ -511,7 +511,7 @@ pub fn commit(
     }
 
     // Handle right margin kerning.
-    if let Some((text, glyph)) = line_side_glyph(line, true) {
+    if let Some((text, glyph)) = line_side_visible_glyph(line, true) {
         let amount = margin_kerning(
             text.styles.get_ref(TextElem::overhang),
             text.dir,
@@ -671,17 +671,15 @@ fn add_par_line_marker(
 
 /// Get the glyph and corresponding text at the start or end of the line
 /// for margin kerning calculation.
-pub(crate) fn line_side_glyph<'a>(
+pub(crate) fn line_side_visible_glyph<'a>(
     line: &'a Line,
     is_right_side: bool,
 ) -> Option<(&'a ShapedText<'a>, &'a ShapedGlyph)> {
-    let text = if is_right_side {
-        line.items.trailing_text()?
+    let (text, glyph) = if is_right_side {
+        line.items.trailing_visible_glyph()?
     } else {
-        line.items.leading_text()?
+        line.items.leading_visible_glyph()?
     };
-
-    let glyph = if is_right_side { text.glyphs.last()? } else { text.glyphs.first()? };
 
     if !(line.items.len() > 1 || text.glyphs.len() > 1) {
         return None;
@@ -690,7 +688,7 @@ pub(crate) fn line_side_glyph<'a>(
     Some((text, glyph))
 }
 
-/// How much a character should hang into the margin.
+/// How much a glyph should hang into the margin.
 ///
 /// For more discussion, see:
 ///
@@ -702,21 +700,37 @@ pub(crate) fn margin_kerning(
     is_right_margin: bool,
     glyph: &ShapedGlyph,
 ) -> Abs {
-    fn default_overhang(c: char) -> f64 {
-        match c {
-            // Dashes.
-            '–' | '—' => 0.2,
-            '-' | '\u{ad}' => 0.55,
+    const DEFAULT_PROTRUSION_TABLE: &[(char, f64)] = &[
+        // Dashes.
+        ('–', 0.2),
+        ('—', 0.2),
+        ('-', 0.55),
+        ('\u{ad}', 0.55),
+        // Punctuation.
+        ('.', 0.8),
+        (',', 0.8),
+        (';', 0.3),
+        (':', 0.3),
+        // Arabic
+        ('\u{60C}', 0.4),
+        ('\u{6D4}', 0.4),
+    ];
 
-            // Punctuation.
-            '.' | ',' => 0.8,
-            ':' | ';' => 0.3,
+    fn is_name_of_glyph(shaped_glyph: &ShapedGlyph, glyph_code_point: char) -> bool {
+        shaped_glyph
+            .font
+            .ttf()
+            .glyph_index(glyph_code_point)
+            .is_some_and(|glyph_id| glyph_id.0 == shaped_glyph.glyph_id)
+    }
 
-            // Arabic
-            '\u{60C}' | '\u{6D4}' => 0.4,
-
-            _ => 0.0,
-        }
+    fn default_overhang(shaped_glyph: &ShapedGlyph) -> f64 {
+        DEFAULT_PROTRUSION_TABLE
+            .iter()
+            .find_map(|(c, factor)| {
+                if is_name_of_glyph(shaped_glyph, *c) { Some(*factor) } else { None }
+            })
+            .unwrap_or(0.0)
     }
 
     let protrusion = overhang
@@ -724,7 +738,7 @@ pub(crate) fn margin_kerning(
         .0
         .iter()
         .find_map(|(c, (left, right))| {
-            if glyph.c == *c {
+            if is_name_of_glyph(glyph, *c) {
                 Some(if is_right_margin { *right } else { *left })
             } else {
                 None
@@ -734,19 +748,19 @@ pub(crate) fn margin_kerning(
             let factor = match overhang.default {
                 BuiltInOverhang::Side { left, right } => {
                     if (is_right_margin && right) || (!is_right_margin && left) {
-                        default_overhang(glyph.c)
+                        default_overhang(glyph)
                     } else {
                         0.0
                     }
                 }
                 BuiltInOverhang::Direction { start } => {
                     let is_line_start = dir.is_positive() != is_right_margin;
-                    if is_line_start == start { default_overhang(glyph.c) } else { 0.0 }
+                    if is_line_start == start { default_overhang(glyph) } else { 0.0 }
                 }
             };
             Smart::Custom(Rel::one() * factor)
         })
-        .unwrap_or_else(|| Rel::one() * default_overhang(glyph.c));
+        .unwrap_or_else(|| Rel::one() * default_overhang(glyph));
 
     protrusion
         .map(|length| length.at(glyph.size))
@@ -783,14 +797,24 @@ impl<'a> Items<'a> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
-    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
-    }
-
     /// Access the first item (skipping tags) mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the first glyph with non-zero advance before any non-text item.
+    pub fn leading_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        self.iter()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Access the last item (skipping tags), if it is text.
@@ -801,6 +825,23 @@ impl<'a> Items<'a> {
     /// Access the last item (skipping tags) mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the last glyph with non-zero advance before any non-text item.
+    pub fn trailing_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        self.iter()
+            .rev()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    .rev()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Reorder the items starting at the given index to RTL.

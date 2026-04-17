@@ -17,7 +17,7 @@ use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
-use crate::inline::line::{line_side_glyph, margin_kerning};
+use crate::inline::line::{line_side_visible_glyph, margin_kerning};
 
 /// The cost of a line or inline layout.
 type Cost = f64;
@@ -537,19 +537,20 @@ fn ratio_and_cost(
     //
     // For the details,
     // see Hàn Thế Thành's dissertation, p. 42 (https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
-    let margin_kerning_left = if let Some((text, glyph)) = line_side_glyph(attempt, false)
+    let margin_kerning_left = if let Some((text, glyph)) =
+        line_side_visible_glyph(attempt, false)
     {
         margin_kerning(text.styles.get_ref(TextElem::overhang), text.dir, false, glyph)
     } else {
         Abs::zero()
     };
 
-    let margin_kerning_right = if let Some((text, glyph)) = line_side_glyph(attempt, true)
-    {
-        margin_kerning(text.styles.get_ref(TextElem::overhang), text.dir, true, glyph)
-    } else {
-        Abs::zero()
-    };
+    let margin_kerning_right =
+        if let Some((text, glyph)) = line_side_visible_glyph(attempt, true) {
+            margin_kerning(text.styles.get_ref(TextElem::overhang), text.dir, true, glyph)
+        } else {
+            Abs::zero()
+        };
 
     let available_width = available_width + margin_kerning_left + margin_kerning_right;
 

@@ -811,6 +811,7 @@ df0abf320f6cb053b4258361fbc478e5 issue-7872-negative-scale
 6fb9a9922177dd422bc438d3eb97fa81 issue-7991-show-text-symbol-grapheme-sliced
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
 14e81f4542b39d400540e370ea8b3c2f issue-8058-show-text-grapheme-sliced
+cc7c5b81495fd9c4dd5eb99ed48062cc issue-8130-overhang-in-show-rule
 21a423976fd0a8c6bb7eb3593b18e365 issue-852-mat-type
 40a0c2e4d119d9f2515575c488dba6d7 issue-886-args-sink
 d1a0e13958cbbcc49ef6dfadd13c4568 issue-color-mix-luma
@@ -1313,6 +1314,8 @@ a3a01f01848d5b606e50389f9b9b8369 outline-indent-fixed
 ca42c9855eda7e360b30b5f022f63dc1 outline-spacing
 447ef565acd9520c88e856fedd2e4605 outline-styled-text
 bbfd3da2ed93f0732356f82f9e98cd68 overhang
+3b8ecc757b202fb554094deaf739e21b overhang-dash
+e52e794cfe627c00246a51f5bf92fcb4 overhang-label
 953ef0af9206328fd98e8ecb0e74de87 overhang-custom
 da3a4043c387777c14119bc1353d91da overhang-left
 a2675e79e58db7a3cda17ac4cd0caf0d overhang-lone

@@ -1078,7 +1078,7 @@ impl ProtrusionTable {
 }
 
 /// The amount of protrusion into the margin for the glyph, relative to its width.
-type Protrusion = Smart<Rel>;
+pub type Protrusion = Smart<Rel>;
 
 /// Overhang options for the built-in algorithm.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
