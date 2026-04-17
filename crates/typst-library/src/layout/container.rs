@@ -295,8 +295,8 @@ pub struct BlockElem {
     /// The spacing around the block. When `{auto}`, inherits the paragraph
     /// [`spacing`]($par.spacing).
     ///
-    /// For two adjacent blocks, the larger of the first block's `above` and the
-    /// second block's `below` spacing wins. Moreover, block spacing takes
+    /// For two adjacent blocks, the larger of the first block's `below` and the
+    /// second block's `above` spacing wins. Moreover, block spacing takes
     /// precedence over paragraph [`spacing`]($par.spacing).
     ///
     /// Note that this is only a shorthand to set `above` and `below` to the
@@ -316,8 +316,8 @@ pub struct BlockElem {
     /// A second paragraph.
     /// ```
     #[external]
-    #[default(Em::new(1.2).into())]
-    pub spacing: Spacing,
+    #[default(Smart::Custom(Em::new(1.2).into()))]
+    pub spacing: Smart<Spacing>,
 
     /// The spacing between this block and its predecessor.
     #[parse(

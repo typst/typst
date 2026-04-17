@@ -130,11 +130,11 @@ a + 0.
 + E
 + F
 
---- enum-numbering-pattern-empty paged ---
+--- enum-numbering-pattern-empty eval ---
 // Error: 22-24 invalid numbering pattern
 #set enum(numbering: "")
 
---- enum-numbering-pattern-invalid paged ---
+--- enum-numbering-pattern-invalid eval ---
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
 
@@ -181,7 +181,7 @@ a + 0.
    32. g
    64. h
 
---- enum-number-align-values paged ---
+--- enum-number-align-values paged empty ---
 // Test valid number align values (horizontal and vertical)
 #set enum(number-align: start)
 #set enum(number-align: end)
@@ -218,6 +218,12 @@ a + 0.
 
   + World // Paragraph because it's a wide enum
 ]
+
+--- enum-array-deprecated paged ---
+// Warning: 7-19 implicit conversion from array to `enum.item` is deprecated
+// Hint: 7-19 use `enum.item(number)[body]` instead
+// Hint: 7-19 this conversion was never documented and is being phased out
+#enum((1, [First]))
 
 --- issue-2530-enum-item-panic paged ---
 // Enum item (pre-emptive)

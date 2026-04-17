@@ -44,7 +44,8 @@ use crate::text::TextElem;
 /// page number at its location. You can use the
 /// [page's supplement]($page.supplement) to modify the text before the page
 /// number. Unlike a `{"normal"}` reference, the label can be attached to any
-/// element.
+/// element as long as the corresponding [page's numbering]($page.numbering) is
+/// set.
 ///
 /// # Example
 /// ```example
@@ -127,10 +128,7 @@ use crate::text::TextElem;
 ///   // Skip all other references.
 ///   if el == none or el.func() != eq { return it }
 ///   // Override equation references.
-///   link(el.location(), numbering(
-///     el.numbering,
-///     ..counter(eq).at(el.location())
-///   ))
+///   link(el.location(), counter(eq).display(at: el.location()))
 /// }
 ///
 /// = Beginnings <beginning>
@@ -270,7 +268,7 @@ impl Packed<RefElem> {
                     self.target.repr();
                     hint: "change either the {}'s label or the \
                            bibliography key to resolve the ambiguity",
-                    elem.func().name(),
+                    elem.func().name();
                 );
             }
 

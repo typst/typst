@@ -1,6 +1,7 @@
 use std::num::ParseFloatError;
 
 use ecow::{EcoString, eco_format};
+use typst_utils::Scalar;
 
 use crate::diag::{StrResult, bail};
 use crate::foundations::{
@@ -28,7 +29,7 @@ use crate::layout::Ratio;
 #[ty(scope, cast, name = "float")]
 type f64;
 
-#[scope]
+#[scope(ext)]
 impl f64 {
     /// Positive infinity.
     const INF: f64 = f64::INFINITY;
@@ -231,4 +232,10 @@ cast! {
     PositiveF64,
     self => self.get().into_value(),
     v: f64 => Self::new(v).ok_or("number must be positive")?,
+}
+
+cast! {
+    Scalar,
+    self => self.get().into_value(),
+    v: f64 => Self::new(v),
 }

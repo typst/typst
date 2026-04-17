@@ -10,6 +10,7 @@ mod locate_;
 mod location;
 mod locator;
 mod metadata;
+mod position;
 #[path = "query.rs"]
 mod query_;
 mod state;
@@ -23,6 +24,7 @@ pub use self::locate_::*;
 pub use self::location::*;
 pub use self::locator::*;
 pub use self::metadata::*;
+pub use self::position::*;
 pub use self::query_::*;
 pub use self::state::*;
 pub use self::tag::*;

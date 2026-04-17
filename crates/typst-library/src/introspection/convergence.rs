@@ -26,7 +26,7 @@ const INSTANCES: usize = MAX_ITERS + 1;
 pub fn analyze(
     world: Tracked<dyn World + '_>,
     routines: &Routines,
-    introspectors: [&Introspector; INSTANCES],
+    introspectors: [&dyn Introspector; INSTANCES],
     introspections: &[Introspection],
 ) -> EcoVec<SourceDiagnostic> {
     let mut sink = Sink::new();
@@ -63,7 +63,7 @@ pub fn analyze(
             hint: "see {} additional warning{} for more details",
                 diags.len(),
                 if diags.len() > 1 { "s" } else { "" };
-            hint: "see https://typst.app/help/convergence for help",
+            hint: "see https://typst.app/help/convergence for help";
         );
         diags.insert(0, summary);
     }
@@ -133,7 +133,7 @@ pub trait Introspect: Debug + PartialEq + Hash + Send + Sync + Sized + 'static {
     fn introspect(
         &self,
         engine: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output;
 
     /// Produces a diagnostic for non-convergence given the history of its
@@ -168,7 +168,7 @@ trait Bounds: Debug + Send + Sync + Any + 'static {
         &self,
         world: Tracked<dyn World + '_>,
         routines: &Routines,
-        introspectors: [&Introspector; INSTANCES],
+        introspectors: [&dyn Introspector; INSTANCES],
     ) -> Option<SourceDiagnostic>;
     fn dyn_eq(&self, other: &Introspection) -> bool;
     fn dyn_hash(&self, state: &mut dyn Hasher);
@@ -182,7 +182,7 @@ where
         &self,
         world: Tracked<dyn World + '_>,
         routines: &Routines,
-        introspectors: [&Introspector; INSTANCES],
+        introspectors: [&dyn Introspector; INSTANCES],
     ) -> Option<SourceDiagnostic> {
         let history =
             History::compute(world, routines, introspectors, |engine, introspector| {
@@ -192,7 +192,8 @@ where
     }
 
     fn dyn_eq(&self, other: &Introspection) -> bool {
-        let Some(other) = (&*other.0 as &dyn Any).downcast_ref::<Self>() else {
+        let inner: &dyn Bounds = &*other.0;
+        let Some(other) = (inner as &dyn Any).downcast_ref::<Self>() else {
             return false;
         };
         self == other
@@ -214,15 +215,15 @@ impl Hash for dyn Bounds {
 
 /// A history of values that were observed throughout iterations, alongside the
 /// introspectors they were observed for.
-pub struct History<'a, T>([(&'a Introspector, T); INSTANCES]);
+pub struct History<'a, T>([(&'a dyn Introspector, T); INSTANCES]);
 
 impl<'a, T> History<'a, T> {
     /// Computes the value for each introspector with an ad-hoc engine.
     fn compute(
         world: Tracked<dyn World + '_>,
         routines: &Routines,
-        introspectors: [&'a Introspector; INSTANCES],
-        f: impl Fn(&mut Engine, Tracked<'a, Introspector>) -> T,
+        introspectors: [&'a dyn Introspector; INSTANCES],
+        f: impl Fn(&mut Engine, Tracked<'a, dyn Introspector + '_>) -> T,
     ) -> Self {
         Self(introspectors.map(|introspector| {
             let tracked = introspector.track();
@@ -265,7 +266,7 @@ impl<'a, T> History<'a, T> {
     }
 
     /// Accesses the final iteration's introspector.
-    pub fn final_introspector(&self) -> &'a Introspector {
+    pub fn final_introspector(&self) -> &'a dyn Introspector {
         self.0[MAX_ITERS].0
     }
 

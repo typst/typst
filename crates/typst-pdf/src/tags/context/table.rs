@@ -471,7 +471,7 @@ fn place_explicit_lines<F>(
     ) -> Option<&mut PrioritzedStroke>,
 {
     for line in lines.iter().flat_map(|lines| lines.iter()) {
-        let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end);
+        let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end).min(inline_end);
         let explicit_stroke = || PrioritzedStroke {
             stroke: line.stroke.clone(),
             priority: StrokePriority::ExplicitLine,
@@ -607,7 +607,7 @@ fn resolve_cell_border_and_background(
 /// The parent value will be set on the table tag and is inherited by all table
 /// cells. If all present values match the parent or all are missing, the
 /// attribute can be omitted, and thus `None` is returned.
-/// If one of the present values differs from the parent value, the the cell
+/// If one of the present values differs from the parent value, the cell
 /// attribute needs to override the parent attribute, fill up the remaining
 /// sides with a `default` value if provided, or any other present value.
 ///

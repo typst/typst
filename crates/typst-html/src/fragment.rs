@@ -42,7 +42,7 @@ pub fn html_block_fragment(
 fn html_block_fragment_impl(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -122,7 +122,7 @@ fn realize_fragment<'a>(
         RealizationKind::HtmlFragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,
-            is_inline: HtmlElem::is_inline,
+            is_phrasing: HtmlElem::is_phrasing,
         },
         engine,
         locator,

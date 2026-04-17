@@ -24,7 +24,7 @@ $ underbracket([1, 2/3], "relevant stuff")
 // Test parentheses.
 $ overparen(
   underparen(x + y, "long comment"),
-  1 + 2 + ... + 5  
+  1 + 2 + ... + 5
 ) $
 
 --- math-underover-shells paged ---
@@ -52,3 +52,15 @@ $ S = overbrace(beta (alpha) S I, "one line")
     - overbrace(mu (N), "two" \  "line") $
 $ S = underbrace(beta (alpha) S I, "one line")
     - underbrace(mu (N), "two" \  "line") $
+
+--- math-underover-multiline-annotation-align paged ---
+$ x = underbrace(
+  "complexity",
+  // The alignment points are not shared between body and annotation.
+  underbrace(&1+2 \ 3+&4, a b+&c \ d+&e)
+) $
+
+--- math-underover-line-fill-stroke paged ---
+// Test that the horizontal stroke is also decorated like text glyphs
+#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$underline(Delta).overline(Delta)$] 
+#text(size: 25pt, stroke: red)[$underline(Delta).overline(Delta)$]

@@ -16,10 +16,10 @@ use image::{
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
-pub struct RasterImage(Arc<Repr>);
+pub struct RasterImage(Arc<RasterImageInner>);
 
-/// The internal representation.
-struct Repr {
+/// The internal representation of a [`RasterImage`].
+struct RasterImageInner {
     data: Bytes,
     format: RasterFormat,
     dynamic: Arc<DynamicImage>,
@@ -141,7 +141,7 @@ impl RasterImage {
             }
         };
 
-        Ok(Self(Arc::new(Repr {
+        Ok(Self(Arc::new(RasterImageInner {
             data,
             format,
             exif_rotation: exif_rot,
@@ -197,7 +197,7 @@ impl RasterImage {
     }
 }
 
-impl Hash for Repr {
+impl Hash for RasterImageInner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // The image is fully defined by data, format, and ICC profile.
         self.data.hash(state);

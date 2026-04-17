@@ -5,7 +5,7 @@ use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
-use typst::introspection::Introspector;
+use typst::introspection::EmptyIntrospector;
 use typst::syntax::{LinkedNode, SyntaxKind};
 use typst::text::{FontInfo, FontStyle};
 use typst::utils::Protected;
@@ -17,7 +17,7 @@ pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
 where
     F: FnOnce(&mut Engine) -> T,
 {
-    let introspector = Introspector::default();
+    let introspector = EmptyIntrospector;
     let traced = Traced::default();
     let mut sink = Sink::new();
     let mut engine = Engine {
@@ -30,51 +30,6 @@ where
     };
 
     f(&mut engine)
-}
-
-/// Extract the first sentence of plain text of a piece of documentation.
-///
-/// Removes Markdown formatting.
-pub fn plain_docs_sentence(docs: &str) -> EcoString {
-    let mut s = unscanny::Scanner::new(docs);
-    let mut output = EcoString::new();
-    let mut link = false;
-    while let Some(c) = s.eat() {
-        match c {
-            '`' => {
-                let mut raw = s.eat_until('`');
-                if (raw.starts_with('{') && raw.ends_with('}'))
-                    || (raw.starts_with('[') && raw.ends_with(']'))
-                {
-                    raw = &raw[1..raw.len() - 1];
-                }
-
-                s.eat();
-                output.push('`');
-                output.push_str(raw);
-                output.push('`');
-            }
-            '[' => link = true,
-            ']' if link => {
-                if s.eat_if('(') {
-                    s.eat_until(')');
-                    s.eat();
-                } else if s.eat_if('[') {
-                    s.eat_until(']');
-                    s.eat();
-                }
-                link = false
-            }
-            '*' | '_' => {}
-            '.' => {
-                output.push('.');
-                break;
-            }
-            _ => output.push(c),
-        }
-    }
-
-    output
 }
 
 /// Create a short description of a font family.

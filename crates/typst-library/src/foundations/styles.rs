@@ -110,15 +110,6 @@ impl Styles {
         self
     }
 
-    /// Whether there is a style for the given field of the given element.
-    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
-        let elem = E::ELEM;
-        self.0
-            .iter()
-            .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == I)
-    }
-
     /// Determines the styles used for content that it at the root, outside of
     /// the user-controlled content (e.g. page marginals and footnotes). This
     /// applies to both paged and HTML export.
@@ -176,6 +167,12 @@ impl Styles {
 impl From<LazyHash<Style>> for Styles {
     fn from(style: LazyHash<Style>) -> Self {
         Self(eco_vec![style])
+    }
+}
+
+impl<const N: usize> From<[LazyHash<Style>; N]> for Styles {
+    fn from(arr: [LazyHash<Style>; N]) -> Self {
+        Self(arr.into())
     }
 }
 
@@ -394,8 +391,8 @@ impl Block {
 
     /// Downcasts the block to the specified type.
     fn downcast<T: 'static>(&self, func: Element, id: u8) -> &T {
-        self.0
-            .as_any()
+        let inner: &dyn Blockable = &*self.0;
+        (inner as &dyn Any)
             .downcast_ref()
             .unwrap_or_else(|| block_wrong_type(func, id, self))
     }
@@ -417,10 +414,7 @@ impl Clone for Block {
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
-trait Blockable: Debug + Send + Sync + 'static {
-    /// Equivalent to `downcast_ref` for the block.
-    fn as_any(&self) -> &dyn Any;
-
+trait Blockable: Debug + Any + Send + Sync + 'static {
     /// Equivalent to [`Hash`] for the block.
     fn dyn_hash(&self, state: &mut dyn Hasher);
 
@@ -429,10 +423,6 @@ trait Blockable: Debug + Send + Sync + 'static {
 }
 
 impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
@@ -640,6 +630,14 @@ impl<'a> StyleChain<'a> {
         E::Type: Resolve,
     {
         self.get_cloned(field).resolve(self)
+    }
+
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
+        self.entries()
+            .filter_map(|style| style.property())
+            .any(|property| property.is_of(elem) && property.id == I)
     }
 
     /// Retrieves a reference to a field, also taking into account the
@@ -1003,35 +1001,35 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
+        fn empty<T: NativeElement>() -> ShowFn<T> {
+            |_, _, _| Ok(Content::empty())
+        }
+
         let mut rules = Self { rules: FxHashMap::default() };
 
-        // ContextElem is as special as SequenceElem and StyledElem and could,
-        // in theory, also be special cased in realization.
-        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+        for target in [Target::Paged, Target::Html, Target::Bundle] {
+            // ContextElem is as special as SequenceElem and StyledElem and
+            // could, in theory, also be special cased in realization.
+            rules.register(target, crate::foundations::CONTEXT_RULE);
 
-        // CounterDisplayElem only exists because the compiler can't currently
-        // express the equivalent of `context counter(..).display(..)` in native
-        // code (no native closures).
-        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+            // CounterDisplayElem only exists because the compiler can't
+            // currently express the equivalent of `context
+            // counter(..).display(..)` in native code (no native closures).
+            rules.register(target, crate::introspection::COUNTER_DISPLAY_RULE);
 
-        // These are all only for introspection and empty on all targets.
-        rules.register_empty::<crate::introspection::CounterUpdateElem>();
-        rules.register_empty::<crate::introspection::StateUpdateElem>();
-        rules.register_empty::<crate::introspection::MetadataElem>();
-        rules.register_empty::<crate::model::PrefixInfo>();
+            // These are all only for introspection and empty on all targets.
+            rules.register(target, empty::<crate::introspection::CounterUpdateElem>());
+            rules.register(target, empty::<crate::introspection::StateUpdateElem>());
+            rules.register(target, empty::<crate::introspection::MetadataElem>());
+            rules.register(target, empty::<crate::model::PrefixInfo>());
+        }
+
+        for target in [Target::Paged, Target::Html] {
+            rules.register(target, crate::model::ASSET_UNSUPPORTED_RULE);
+            rules.register(target, crate::model::DOCUMENT_UNSUPPORTED_RULE);
+        }
 
         rules
-    }
-
-    /// Registers a rule for all targets.
-    fn register_empty<T: NativeElement>(&mut self) {
-        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
-    }
-
-    /// Registers a rule for all targets.
-    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
-        self.register(Target::Paged, f);
-        self.register(Target::Html, f);
     }
 
     /// Registers a rule for a target.

@@ -62,6 +62,11 @@ impl Ratio {
         (self.0).get()
     }
 
+    /// Get the underlying ratio.
+    pub const fn scalar(self) -> Scalar {
+        self.0
+    }
+
     /// Whether the ratio is zero.
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
@@ -81,6 +86,11 @@ impl Ratio {
     pub fn of<T: Numeric>(self, whole: T) -> T {
         let resolved = whole * self.get();
         if resolved.is_finite() { resolved } else { T::zero() }
+    }
+
+    /// The reciprocal (inverse) of this ratio, `1/x`.
+    pub fn recip(self) -> Self {
+        Self::new(self.get().recip())
     }
 }
 

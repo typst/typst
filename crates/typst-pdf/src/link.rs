@@ -2,9 +2,10 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
-use typst_library::diag::{SourceResult, bail};
-use typst_library::layout::{Abs, Point, Position, Size};
-use typst_library::model::Destination;
+use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
+use typst_library::introspection::PagedPosition;
+use typst_library::layout::{Abs, Point, Size};
+use typst_library::model::{Destination, ResolvedLink};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
@@ -43,12 +44,27 @@ pub(crate) fn handle_link(
             Target::Destination(krilla::destination::Destination::Xyz(dest))
         }
         Destination::Location(loc) => {
-            if let Some(nd) = gc.loc_to_names.get(loc) {
+            if let Some(resolver) = gc.link_resolver
+                && let Some(kind @ ResolvedLink::Cross { .. }) = resolver.resolve(*loc)
+            {
+                // Cross-links could potentially also be emitted as Go-To Remote
+                // actions (for PDFs) or Launch actions for other files.
+                // However, this is not yet supported in krilla. Viewer support
+                // is not great either way: Link actions are good for browsers
+                // while the others work better in Acrobat.
+                Target::Action(Action::Link(LinkAction::new(kind.into_uri().into())))
+            } else if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
                 Target::Destination(krilla::destination::Destination::Named(nd.clone()))
             } else {
-                let pos = gc.document.introspector.position(*loc);
+                // TODO: Consider erroring or at least warning if the location
+                // cannot be resolved.
+                let pos = gc
+                    .document
+                    .introspector()
+                    .position(*loc)
+                    .unwrap_or(PagedPosition::ORIGIN);
                 let Some(dest) = pos_to_xyz(&gc.page_index_converter, pos) else {
                     return Ok(());
                 };
@@ -67,7 +83,7 @@ pub(crate) fn handle_link(
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "a link was used within a tiling";
                 hint: "references, citations, and footnotes \
-                       are also considered links in PDF"
+                       are also considered links in PDF";
             );
         }
 
@@ -84,7 +100,9 @@ pub(crate) fn handle_link(
         return Ok(());
     }
 
-    let (group_id, link) = gc.tags.tree.parent_link().expect("link parent");
+    let (group_id, link) = (gc.tags.tree.parent_link())
+        .expect_internal("expected link ancestor in logical tree")
+        .at(Span::detached())?;
     let alt = link.alt.as_ref().map(Into::into);
 
     if gc.tags.tree.parent_artifact().is_some() {
@@ -94,7 +112,7 @@ pub(crate) fn handle_link(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "references, citations, and footnotes \
-                       are also considered links in PDF"
+                       are also considered links in PDF";
             );
         }
 
@@ -144,7 +162,7 @@ pub(crate) fn handle_link(
     Ok(())
 }
 
-/// Compute the bouding box of the transformed rectangle for this frame.
+/// Compute the bounding box of the transformed rectangle for this frame.
 fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
     let pos = Point::zero();
     let points = [
@@ -179,7 +197,7 @@ fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
 ///   to it, the text will not be visible since it is right above.
 pub(crate) fn pos_to_xyz(
     pic: &PageIndexConverter,
-    pos: Position,
+    pos: PagedPosition,
 ) -> Option<XyzDestination> {
     let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
     let adjusted =

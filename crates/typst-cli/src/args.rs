@@ -10,8 +10,8 @@ use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use chrono::{DateTime, Utc};
-use clap::builder::{TypedValueParser, ValueParser};
+use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use semver::Version;
@@ -41,15 +41,24 @@ const AFTER_HELP: &str = color_print::cstr!("\
   <s>Forum for questions:</>      https://forum.typst.app/
 ");
 
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Blue.on_default());
+
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
+    version = format!(
+        "{} ({})",
+        typst_utils::version().raw(),
+        typst_utils::display_commit(typst_utils::version().commit()),
+    ),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
     max_term_width = 80,
+    styles = STYLES,
 )]
 pub struct CliArguments {
     /// The command to run.
@@ -267,7 +276,8 @@ pub struct CompletionsCommand {
 pub struct InfoCommand {
     /// The format to serialize in, if it should be machine-readable.
     ///
-    /// If no format is passed the output is displayed human-readable.
+    /// If no format is passed the output is displayed human-readable. Note that
+    /// human-readable format truncates the build commit hash value.
     #[arg(long = "format", short = 'f')]
     pub format: Option<SerializationFormat>,
 
@@ -405,10 +415,9 @@ pub struct WorldArgs {
     #[clap(
         long = "creation-timestamp",
         env = "SOURCE_DATE_EPOCH",
-        value_name = "UNIX_TIMESTAMP",
-        value_parser = parse_source_date_epoch,
+        value_name = "UNIX_TIMESTAMP"
     )]
-    pub creation_timestamp: Option<DateTime<Utc>>,
+    pub creation_timestamp: Option<i64>,
 }
 
 /// Arguments for configuration the process of compilation itself.
@@ -466,7 +475,7 @@ pub struct FontArgs {
     pub ignore_system_fonts: bool,
 
     /// Ensures fonts embedded into Typst won't be considered.
-    #[cfg(feature = "embed-fonts")]
+    #[cfg(feature = "embedded-fonts")]
     #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
     pub ignore_embedded_fonts: bool,
 }
@@ -581,13 +590,14 @@ impl Write for OpenOutput<'_> {
     }
 }
 
-/// Which format to use for the generated output file.
+/// Which format to use for the generated output.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum OutputFormat {
     Pdf,
     Png,
     Svg,
     Html,
+    Bundle,
 }
 
 impl OutputFormat {
@@ -639,6 +649,7 @@ display_possible_values!(DiagnosticFormat);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum, Serialize)]
 pub enum Feature {
     Html,
+    Bundle,
     A11yExtras,
 }
 
@@ -798,13 +809,4 @@ fn parse_sys_input_pair(raw: &str) -> Result<(String, String), String> {
     }
     let val = val.trim().to_owned();
     Ok((key, val))
-}
-
-/// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>
-fn parse_source_date_epoch(raw: &str) -> Result<DateTime<Utc>, String> {
-    let timestamp: i64 = raw
-        .parse()
-        .map_err(|err| format!("timestamp must be decimal integer ({err})"))?;
-    DateTime::from_timestamp(timestamp, 0)
-        .ok_or_else(|| "timestamp out of range".to_string())
 }

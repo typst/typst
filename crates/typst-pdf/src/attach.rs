@@ -3,7 +3,8 @@ use std::sync::Arc;
 use krilla::Document;
 use krilla::embed::{AssociationKind, EmbeddedFile, MimeType};
 use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{NativeElement, StyleChain};
+use typst_library::foundations::{NativeElement, Smart, StyleChain};
+use typst_library::introspection::Introspector;
 use typst_library::pdf::{AttachElem, AttachedFileRelationship};
 
 use crate::convert::GlobalContext;
@@ -13,7 +14,7 @@ pub(crate) fn attach_files(
     gc: &GlobalContext,
     document: &mut Document,
 ) -> SourceResult<()> {
-    let elements = gc.document.introspector.query(&AttachElem::ELEM.select());
+    let elements = gc.document.introspector().query(&AttachElem::ELEM.select());
 
     for elem in &elements {
         let elem = elem.to_packed::<AttachElem>().unwrap();
@@ -52,7 +53,7 @@ pub(crate) fn attach_files(
             description,
             association_kind,
             data: data.into(),
-            compress,
+            compress: compress.custom(),
             location: Some(span.into_raw()),
             modification_date: metadata::creation_date(gc),
         };
@@ -65,10 +66,10 @@ pub(crate) fn attach_files(
     Ok(())
 }
 
-fn should_compress(data: &[u8]) -> Option<bool> {
-    let ty = infer::get(data)?;
+fn should_compress(data: &[u8]) -> Smart<bool> {
+    let Some(ty) = infer::get(data) else { return Smart::Auto };
     match ty.matcher_type() {
-        infer::MatcherType::App => None,
+        infer::MatcherType::App => Smart::Auto,
         infer::MatcherType::Archive => match ty.mime_type() {
             #[rustfmt::skip]
             "application/zip"
@@ -85,8 +86,8 @@ fn should_compress(data: &[u8]) -> Option<bool> {
             | "application/x-rpm"
             | "application/zstd"
             | "application/x-lz4"
-            | "application/x-ole-storage" => Some(false),
-            _ => None,
+            | "application/x-ole-storage" => Smart::Custom(false),
+            _ => Smart::Auto,
         },
         infer::MatcherType::Audio => match ty.mime_type() {
             #[rustfmt::skip]
@@ -97,12 +98,12 @@ fn should_compress(data: &[u8]) -> Option<bool> {
             | "audio/x-flac"
             | "audio/amr"
             | "audio/aac"
-            | "audio/x-ape" => Some(false),
-            _ => None,
+            | "audio/x-ape" => Smart::Custom(false),
+            _ => Smart::Auto,
         },
-        infer::MatcherType::Book => None,
-        infer::MatcherType::Doc => None,
-        infer::MatcherType::Font => None,
+        infer::MatcherType::Book => Smart::Auto,
+        infer::MatcherType::Doc => Smart::Auto,
+        infer::MatcherType::Font => Smart::Auto,
         infer::MatcherType::Image => match ty.mime_type() {
             #[rustfmt::skip]
             "image/jpeg"
@@ -113,10 +114,10 @@ fn should_compress(data: &[u8]) -> Option<bool> {
             | "image/heif"
             | "image/avif"
             | "image/jxl"
-            | "image/vnd.djvu" => None,
-            _ => None,
+            | "image/vnd.djvu" => Smart::Auto,
+            _ => Smart::Auto,
         },
-        infer::MatcherType::Text => None,
+        infer::MatcherType::Text => Smart::Auto,
         infer::MatcherType::Video => match ty.mime_type() {
             #[rustfmt::skip]
             "video/mp4"
@@ -124,9 +125,9 @@ fn should_compress(data: &[u8]) -> Option<bool> {
             | "video/x-matroska"
             | "video/webm"
             | "video/quicktime"
-            | "video/x-flv" => Some(false),
-            _ => None,
+            | "video/x-flv" => Smart::Custom(false),
+            _ => Smart::Auto,
         },
-        infer::MatcherType::Custom => None,
+        infer::MatcherType::Custom => Smart::Auto,
     }
 }

@@ -23,7 +23,7 @@ pub struct Engine<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,
     /// Provides access to information about the document.
-    pub introspector: Protected<Tracked<'a, Introspector>>,
+    pub introspector: Protected<Tracked<'a, dyn Introspector + 'a>>,
     /// May hold a span that is currently under inspection.
     pub traced: Tracked<'a, Traced>,
     /// A pure sink for warnings, delayed errors, and spans under inspection.
@@ -349,7 +349,7 @@ impl Route<'_> {
             bail!(
                 "maximum show rule depth exceeded";
                 hint: "maybe a show rule matches its own output";
-                hint: "maybe there are too deeply nested elements"
+                hint: "maybe there are too deeply nested elements";
             );
         }
         Ok(())
@@ -360,7 +360,7 @@ impl Route<'_> {
         if !self.within(Route::MAX_LAYOUT_DEPTH) {
             bail!(
                 "maximum layout depth exceeded";
-                hint: "try to reduce the amount of nesting in your layout",
+                hint: "try to reduce the amount of nesting in your layout";
             );
         }
         Ok(())
@@ -371,7 +371,7 @@ impl Route<'_> {
         if !self.within(Route::MAX_HTML_DEPTH) {
             bail!(
                 "maximum HTML depth exceeded";
-                hint: "try to reduce the amount of nesting of your HTML",
+                hint: "try to reduce the amount of nesting of your HTML";
             );
         }
         Ok(())

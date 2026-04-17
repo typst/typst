@@ -53,7 +53,7 @@ A#super(highlight[4]) \
 A#super[#highlight[4]] B \
 A#super(highlight[4])
 
---- super-1em paged ---
+--- super-1em paged empty ---
 #set text(size: 10pt)
 #super(context test(1em.to-absolute(), 10pt))
 
@@ -89,3 +89,16 @@ A#super(highlight[4])
 1#super[st], 2#super[nd], 3#super[rd].
 
 log#sub[2], log#sub[3], log#sub[variable].
+
+--- issue-7249-multiple-lookup-tables paged ---
+// We increase the font size to make sure the difference is visible in the
+// low-resolution reference image.
+#set text(font: "Source Serif 4", size: 1.5em)
+#set super(typographic: true)
+
+A#super[test] \
+A#super[test1] \
+A#super[(test)] \
+// Source Serif 4 does not support `sups` for backticks, so this should be
+// synthesized.
+A#super[test\`]

@@ -91,7 +91,7 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
---- raw-syntaxes-invalid-sublime-syntax paged ---
+--- raw-syntaxes-invalid-sublime-syntax eval ---
 // Prevent test parser from failing on "^---" line.
 #let sublime-syntax = ```yaml
 %YAML 1.2
@@ -105,8 +105,28 @@ contexts:
     - match: '\'
 ```.text
 
-// Error: 35-56 failed to parse syntax (Error while compiling regex '/': Parsing error at position 0: Backslash without following character)
+// Error: 35-56 failed to parse syntax (Error while compiling regex '\': Parsing error at position 0: Backslash without following character)
 #raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
+
+--- raw-syntaxes-types paged empty ---
+#let sublime-syntax = ```yaml
+%YAML 1.2
+```.text + "\n---\n" + ```yaml
+name: lang
+file_extensions:
+  - a
+scope: source
+contexts:
+  main:
+    - match: ''
+```.text
+
+#set raw(syntaxes: "/assets/syntaxes/SExpressions.sublime-syntax")
+#set raw(syntaxes: path("/assets/syntaxes/SExpressions.sublime-syntax"))
+#set raw(syntaxes: (
+  path("/assets/syntaxes/SExpressions.sublime-syntax"),
+  bytes(sublime-syntax),
+))
 
 --- raw-theme paged ---
 // Test code highlighting with custom theme.
@@ -163,7 +183,7 @@ b = 324923
   "#let f(x) = x\n#align(center, line(length: 1em))",
 ))
 
---- raw-align-invalid paged ---
+--- raw-align-invalid eval ---
 // Error: 17-20 expected `start`, `left`, `center`, `right`, or `end`, found top
 #set raw(align: top)
 
@@ -183,17 +203,24 @@ for i in range(10):
 ` or otherwise e.g. `print(j)`, are colored properly.
 
 --- raw-highlight-typ paged ---
+// Highlighting for Typst markup
+#set page(width: auto)
 ```typ
-= Chapter 1
+#set heading(numbering: "1.")
+= Chapter 1 <chap:1>
 #lorem(100)
 
 #let hi = "Hello World"
 #show heading: emph
+/ Chap: @chap:1[Chapter #hi]
+- *Chap:* ch--ap
++ _*Chap:*_ ch~ap
+1. _Chap:_ ch---ap
 ```
 
 --- raw-highlight-typc paged ---
+// Highlighting for Typst code
 #set page(width: auto)
-
 ```typ
 #set hello()
 #set hello()
@@ -221,33 +248,46 @@ for i in range(10):
 ```
 
 --- raw-highlight-typm paged ---
+// Highlighting for Typst math
 #set page(width: auto)
 ```typm
 1 + 2/3
-a^b
+sum_(i=1)^n i = (n(n+1))/2
+binom(n, k) = n!/(k!(n - k)!)
+2 / √(2pi) = sqrt(2) / √pi
+3 * (1 - 2) <= #(3 * (1 + 2))
+((a+b))/((c)^(d')_(e')_(f)'/(g)'/(h)!)
+[\(a+b\)]/{\(c\)^[d']_{e'}_[|f|]'/[g]'/[\|h\|]!}
+f_zeta(x), f_zeta(x)/1, f_zeta (x)
+pi.alt + pi^arrow.l.long.double - π = ???
+"string" - + * ::= & \
+|=> & [|define(x-y_z: #1, x::= y; xyz; 0)|]
+std.text(op("Red"), fill: red)
+#std.text(math.op("Red"), fill: red)
+```
+
+--- raw-highlight-typm-idents paged ---
+// Highlighting identifiers, field accesses and function calls in math
+#set page(width: auto)
+```typm
 hello
+hello-world
 hello()
 box[]
 hello.world
 hello.world()
+hello-world()
+hello_world()
 hello.my.world()
-f_zeta(x), f_zeta(x)/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
+emph (hello.my().world())
 #hello
 #hello()
 #hello.world
 #hello.world()
 #box[]
-```
-
---- raw-highlight-typm-extra paged ---
-// Math highlighting for strings, alignments, shorthands, and named args.
-#set page(width: auto)
-```typm
-"string" - + * ::= & \
-|=> & [|define(x: #y, x::= y)|]
 ```
 
 --- raw-highlight-rust paged ---
@@ -320,7 +360,7 @@ int main() {
 </tbody>
 ```
 
---- raw-blocky paged ---
+--- raw-blocky eval ---
 // Test various raw parsing edge cases.
 
 #let empty = (
@@ -611,7 +651,7 @@ print(x)
 print(y)
 ```
 
---- raw-line-scripting paged ---
+--- raw-line-scripting paged empty ---
 
 // Test line extraction works.
 
@@ -753,17 +793,17 @@ a b c --------------------
 #let hi = "你好world"
 ```
 
---- issue-6559-equality-between-raws paged ---
+--- issue-6559-equality-between-raws eval ---
 
 #test(`foo`, `foo`)
 #assert.ne(`foo`, `bar`)
 
---- raw-theme-set-to-auto paged ---
+--- raw-theme-types paged ---
 ```typ
 #let hi = "Hello World"
 ```
 
-#set raw(theme: "/assets/themes/halcyon.tmTheme")
+#set raw(theme: path("/assets/themes/halcyon.tmTheme"))
 ```typ
 #let hi = "Hello World"
 ```
@@ -811,11 +851,11 @@ hi:
   What is this?: This is incredible text!
 ```
 
---- raw-unclosed paged ---
+--- raw-unclosed eval ---
 // Test unterminated raw text.
 //
 // Note: This test should be the final one in the file because it messes up
 // syntax highlighting.
 //
-// Error: 1-2:1 unclosed raw text
+// Error: 1:1-2:1 unclosed raw text
 `endless

@@ -127,7 +127,7 @@
   )
 }
 
---- table-cell-in-grid paged ---
+--- table-cell-in-grid eval ---
 // Error: 7-19 cannot use `table.cell` as a grid cell
 // Hint: 7-19 use `grid.cell` instead
 #grid(table.cell[])
@@ -168,7 +168,7 @@
     num.step()
     box(width: 0pt, super(numbering("1", num.get().first())))
   }
-  show regex("\w+\.?"): it => it + [#metadata(none)#word-label]
+  show regex("\\w+\\.?"): it => it + [#metadata(none)#word-label]
   body
 }
 

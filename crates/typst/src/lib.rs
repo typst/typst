@@ -13,8 +13,9 @@
 //!   order-independent and thus much better suited for further processing than
 //!   the raw markup.
 //! - **Layouting:**
-//!   Next, the content is [laid out] into a [`PagedDocument`] containing one
-//!   [frame] per page with items at fixed positions.
+//!   Next, the content is [laid out] into a
+//!   [`PagedDocument`](typst_layout::PagedDocument) containing one [frame] per
+//!   page with items at fixed positions.
 //! - **Exporting:**
 //!   These frames can finally be exported into an output format (currently PDF,
 //!   PNG, SVG, and HTML).
@@ -44,33 +45,38 @@ use arrayvec::ArrayVec;
 use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
-use typst_html::HtmlDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
-use typst_library::introspection::{ITER_NAMES, Introspector, MAX_ITERS};
-use typst_library::layout::PagedDocument;
+use typst_library::foundations::{
+    NativeRuleMap, Output, StyleChain, Styles, Target, TargetElem, Value,
+};
+use typst_library::introspection::{
+    EmptyIntrospector, ITER_NAMES, Introspector, MAX_ITERS,
+};
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};
 use typst_utils::Protected;
 
-use crate::foundations::{Target, TargetElem};
-use crate::model::DocumentInfo;
-
-/// Compile sources into a fully layouted document.
+/// Compiles sources into an output.
 ///
-/// - Returns `Ok(document)` if there were no fatal errors.
-/// - Returns `Err(errors)` if there were fatal errors.
+/// Supported outputs are
+/// - the `PagedDocument` (defined in `typst_layout`)
+/// - the `HtmlDocument` (defined in `typst_html`)
+///
+/// Returns the compilation output alongside warnings, if any. The contained
+/// result is
+/// - `Ok(output)` if there were no fatal errors.
+/// - `Err(errors)` if there were fatal errors.
 #[typst_macros::time]
-pub fn compile<D>(world: &dyn World) -> Warned<SourceResult<D>>
+pub fn compile<T>(world: &dyn World) -> Warned<SourceResult<T>>
 where
-    D: Document,
+    T: Output,
 {
     let mut sink = Sink::new();
-    let output = compile_impl::<D>(world.track(), Traced::default().track(), &mut sink)
+    let output = compile_impl::<T>(world.track(), Traced::default().track(), &mut sink)
         .map_err(deduplicate);
     Warned { output, warnings: sink.warnings() }
 }
@@ -78,32 +84,34 @@ where
 /// Compiles sources and returns all values and styles observed at the given
 /// `span` during compilation.
 #[typst_macros::time]
-pub fn trace<D>(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)>
+pub fn trace<T>(world: &dyn World, span: Span) -> EcoVec<(Value, Option<Styles>)>
 where
-    D: Document,
+    T: Output,
 {
     let mut sink = Sink::new();
     let traced = Traced::new(span);
-    compile_impl::<D>(world.track(), traced.track(), &mut sink).ok();
+    compile_impl::<T>(world.track(), traced.track(), &mut sink).ok();
     sink.values()
 }
 
 /// The internal implementation of `compile` with a bit lower-level interface
 /// that is also used by `trace`.
-fn compile_impl<D: Document>(
+fn compile_impl<T: Output>(
     world: Tracked<dyn World + '_>,
     traced: Tracked<Traced>,
     sink: &mut Sink,
-) -> SourceResult<D> {
-    if D::TARGET == Target::Html {
-        warn_or_error_for_html(world, sink)?;
+) -> SourceResult<T> {
+    match T::target() {
+        Target::Paged => {}
+        Target::Html => warn_or_error_for_html(world, sink)?,
+        Target::Bundle => warn_or_error_for_bundle(world, sink)?,
     }
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::TARGET).wrap();
+    let target = TargetElem::target.set(T::target()).wrap();
     let styles = base.chain(&target);
-    let empty_introspector = Introspector::default();
+    let empty_introspector = EmptyIntrospector;
 
     // Fetch the main source file once.
     let main = world.main();
@@ -122,8 +130,8 @@ fn compile_impl<D: Document>(
     )?
     .content();
 
-    let mut history: ArrayVec<D, { MAX_ITERS - 1 }> = ArrayVec::new();
-    let mut document: D;
+    let mut history: ArrayVec<T, { MAX_ITERS - 1 }> = ArrayVec::new();
+    let mut document: T;
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
@@ -145,7 +153,7 @@ fn compile_impl<D: Document>(
             routines: &ROUTINES,
         };
 
-        document = D::create(&mut engine, &content, styles)?;
+        document = T::create(&mut engine, &content, styles)?;
 
         if timed!("check stabilized", constraint.validate(document.introspector())) {
             sink.extend_from_sink(subsink);
@@ -153,7 +161,8 @@ fn compile_impl<D: Document>(
         }
 
         if history.is_full() {
-            let mut introspectors = [&empty_introspector; MAX_ITERS + 1];
+            let mut introspectors =
+                [&empty_introspector as &dyn Introspector; MAX_ITERS + 1];
             for i in 1..MAX_ITERS {
                 introspectors[i] = history[i - 1].introspector();
             }
@@ -210,19 +219,14 @@ fn hint_invalid_main_file(
     // mistyped the filename. For example, they could have written "file.pdf"
     // instead of "file.typ".
     if is_utf8_error {
-        let path = input.vpath();
-        let extension = path.as_rootless_path().extension();
-        if extension.is_some_and(|extension| extension == "typ") {
-            // No hints if the file is already a .typ file.
-            // The file is indeed just invalid.
-            return eco_vec![diagnostic];
-        }
+        match input.vpath().extension() {
+            // No hints if the file is already a .typ file. The file is indeed
+            // just invalid.
+            Some("typ") => return eco_vec![diagnostic],
 
-        match extension {
-            Some(extension) => {
+            Some(ext) => {
                 diagnostic.hint(eco_format!(
-                    "a file with the `.{}` extension is not usually a Typst file",
-                    extension.to_string_lossy()
+                    "a file with the `.{ext}` extension is not usually a Typst file",
                 ));
             }
 
@@ -232,7 +236,7 @@ fn hint_invalid_main_file(
             }
         };
 
-        if world.source(input.with_extension("typ")).is_ok() {
+        if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
     }
@@ -252,86 +256,40 @@ fn warn_or_error_for_html(
             "html export is under active development and incomplete";
             hint: "its behaviour may change at any time";
             hint: "do not rely on this feature for production use cases";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         ));
     } else {
         bail!(
             Span::detached(),
             "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
-            hint: "see {ISSUE} for more information"
+            hint: "see {ISSUE} for more information";
         );
     }
     Ok(())
 }
 
-/// A document is what results from compilation.
-pub trait Document: sealed::Sealed {
-    /// Get the document's metadata.
-    fn info(&self) -> &DocumentInfo;
-
-    /// Get the document's introspector.
-    fn introspector(&self) -> &Introspector;
-}
-
-impl Document for PagedDocument {
-    fn info(&self) -> &DocumentInfo {
-        &self.info
+/// Bundle export will warn or error depending on whether the feature flag is
+/// enabled.
+fn warn_or_error_for_bundle(
+    world: Tracked<dyn World + '_>,
+    sink: &mut Sink,
+) -> SourceResult<()> {
+    if world.library().features.is_enabled(Feature::Bundle) {
+        sink.warn(warning!(
+            Span::detached(),
+            "bundle export is experimental";
+            hint: "its behaviour may change at any time";
+            hint: "do not rely on this feature for production use cases";
+        ));
+    } else {
+        bail!(
+            Span::detached(),
+            "bundle export is only available when `--features bundle` is passed";
+            hint: "bundle export is experimental";
+        );
     }
-
-    fn introspector(&self) -> &Introspector {
-        &self.introspector
-    }
-}
-
-impl Document for HtmlDocument {
-    fn info(&self) -> &DocumentInfo {
-        &self.info
-    }
-
-    fn introspector(&self) -> &Introspector {
-        &self.introspector
-    }
-}
-
-mod sealed {
-    use typst_library::foundations::{Content, Target};
-
-    use super::*;
-
-    pub trait Sealed: Sized {
-        const TARGET: Target;
-
-        fn create(
-            engine: &mut Engine,
-            content: &Content,
-            styles: StyleChain,
-        ) -> SourceResult<Self>;
-    }
-
-    impl Sealed for PagedDocument {
-        const TARGET: Target = Target::Paged;
-
-        fn create(
-            engine: &mut Engine,
-            content: &Content,
-            styles: StyleChain,
-        ) -> SourceResult<Self> {
-            typst_layout::layout_document(engine, content, styles)
-        }
-    }
-
-    impl Sealed for HtmlDocument {
-        const TARGET: Target = Target::Html;
-
-        fn create(
-            engine: &mut Engine,
-            content: &Content,
-            styles: StyleChain,
-        ) -> SourceResult<Self> {
-            typst_html::html_document(engine, content, styles)
-        }
-    }
+    Ok(())
 }
 
 /// Provides ways to construct a [`Library`].

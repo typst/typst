@@ -6,13 +6,14 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
+use std::slice::SliceIndex;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
@@ -35,6 +36,9 @@ use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
 use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
+mod spaces;
+use spaces::{SpaceState, collapse_spaces, collapse_state_textual};
+
 /// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
 pub fn realize<'a>(
@@ -50,6 +54,7 @@ pub fn realize<'a>(
         locator,
         arenas,
         rules: match kind {
+            RealizationKind::Bundle => BUNDLE_RULES,
             RealizationKind::LayoutDocument { .. } => LAYOUT_RULES,
             RealizationKind::LayoutFragment { .. } => LAYOUT_RULES,
             RealizationKind::LayoutPar => LAYOUT_PAR_RULES,
@@ -177,17 +182,6 @@ struct RegexMatch<'a> {
     id: RecipeIndex,
     /// The recipe that matched.
     recipe: &'a Recipe,
-}
-
-/// State kept for space collapsing.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum SpaceState {
-    /// A following space will be collapsed.
-    Destructive,
-    /// A following space will be kept unless a destructive element follows.
-    Supportive,
-    /// A space exists at this index.
-    Space(usize),
 }
 
 impl<'a> State<'a, '_, '_, '_> {
@@ -594,30 +588,46 @@ fn visit_styled<'a>(
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
+            let local = StyleChain::new(&local);
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate(&local)
-            } else {
+                info.populate(local);
+            } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
                     style.span(),
-                    "document set rules are not allowed inside of containers"
+                    "document set rules are not allowed inside of containers",
+                );
+            }
+            if local.has(DocumentElem::format)
+                && !matches!(s.kind, RealizationKind::Bundle)
+            {
+                bail!(
+                    style.span(),
+                    "setting the document format is only supported in the bundle target"
                 );
             }
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
             if let Some(info) = s.kind.as_document_mut() {
-                info.populate_locale(&local)
+                info.populate_locale(StyleChain::new(&local));
             }
         } else if elem == PageElem::ELEM {
-            if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
-                bail!(
+            match s.kind {
+                RealizationKind::Bundle => {}
+                RealizationKind::LayoutDocument { .. } => {
+                    // When there are page styles, we "break free" from our show
+                    // rule cage.
+                    pagebreak = true;
+                    s.outside = true;
+                }
+                RealizationKind::HtmlDocument { .. } => s.engine.sink.warn(warning!(
                     style.span(),
-                    "page configuration is not allowed inside of containers"
-                );
+                    "page set rule was ignored during HTML export"
+                )),
+                _ => bail!(
+                    style.span(),
+                    "page configuration is not allowed inside of containers",
+                ),
             }
-
-            // When there are page styles, we "break free" from our show rule cage.
-            pagebreak = true;
-            s.outside = true;
         }
     }
 
@@ -747,7 +757,7 @@ fn visit_filter_rules<'a>(
 /// Finishes all grouping.
 fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
-        // If this is a fragment realization and all we've got is inline
+        // If this is a fragment realization and all we've got is phrasing
         // content, don't turn it into a paragraph.
         if is_fully_inline(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
@@ -913,6 +923,9 @@ fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
 /// number of unique priority levels.
 const MAX_GROUP_NESTING: usize = 3;
 
+/// Grouping rules used in bundle realization.
+static BUNDLE_RULES: &[&GroupingRule] = &[];
+
 /// Grouping rules used in layout realization.
 static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
 
@@ -963,8 +976,10 @@ static PAR: GroupingRule = GroupingRule {
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
             || match state.kind {
-                RealizationKind::HtmlDocument { is_inline, .. }
-                | RealizationKind::HtmlFragment { is_inline, .. } => is_inline(content),
+                RealizationKind::HtmlDocument { is_phrasing, .. }
+                | RealizationKind::HtmlFragment { is_phrasing, .. } => {
+                    is_phrasing(content)
+                }
                 _ => false,
             }
     },
@@ -1145,10 +1160,11 @@ fn visit_textual(s: &mut State, start: usize) -> SourceResult<bool> {
 /// elements.
 ///
 /// Collects the element's merged textual representation into the bump arena.
+///
 /// This merging also takes into account space collapsing so that we don't need
 /// to call `collapse_spaces` on every textual group, performing yet another
-/// linear pass. We only collapse the spaces elements themselves on the cold
-/// path where there is an actual match.
+/// linear pass. We only collapse the space elements on the cold path when there
+/// is an actual match.
 fn find_regex_match_in_elems<'a>(
     s: &State,
     elems: &[Pair<'a>],
@@ -1157,18 +1173,28 @@ fn find_regex_match_in_elems<'a>(
     let mut base = 0;
     let mut leftmost = None;
     let mut current = StyleChain::default();
-    let mut space = SpaceState::Destructive;
+    let mut state = SpaceState::Destructive;
 
     for &(content, styles) in elems {
-        if content.is::<TagElem>() {
-            continue;
-        }
+        let (new_state, text) = collapse_state_textual(content, styles);
+        state = match new_state {
+            SpaceState::Invisible => continue,
+            SpaceState::Destructive => {
+                if state == SpaceState::Space {
+                    buf.pop();
+                }
+                SpaceState::Destructive
+            }
+            SpaceState::Supportive => SpaceState::Supportive,
+            SpaceState::Space => {
+                if state != SpaceState::Supportive {
+                    continue;
+                }
+                SpaceState::Space
+            }
+        };
 
-        let linebreak = content.is::<LinebreakElem>();
-        if linebreak && let SpaceState::Space(_) = space {
-            buf.pop();
-        }
-
+        // If styles differ, we search _before_ adding the new element's text.
         if styles != current && !buf.is_empty() {
             leftmost = find_regex_match_in_str(&buf, current);
             if leftmost.is_some() {
@@ -1179,24 +1205,7 @@ fn find_regex_match_in_elems<'a>(
         }
 
         current = styles;
-        space = if content.is::<SpaceElem>() {
-            if space != SpaceState::Supportive {
-                continue;
-            }
-            buf.push(' ');
-            SpaceState::Space(0)
-        } else if linebreak {
-            buf.push('\n');
-            SpaceState::Destructive
-        } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
-            buf.push(if elem.double.get(styles) { '"' } else { '\'' });
-            SpaceState::Supportive
-        } else if let Some(elem) = content.to_packed::<TextElem>() {
-            buf.push_str(&elem.text);
-            SpaceState::Supportive
-        } else {
-            panic!("tried to find regex match in non-textual elements");
-        };
+        buf.push_str(text);
     }
 
     if leftmost.is_none() {
@@ -1262,11 +1271,21 @@ fn find_regex_match_in_str<'a>(
     })
 }
 
-/// Visit a match of a regular expression.
+/// Visit a regular expression match and any surrounding textual elements.
 ///
-/// This first revisits all elements before the match, potentially slicing up
-/// a text element, then the transformed match, and then the remaining elements
-/// after the match.
+/// This will visit the following in order:
+/// - Elements that come fully before the match: `elem <match>`
+/// - Text that was interrupted by the start of the match: `te<match>`
+/// - The matched text itself, sliced off as a new element: `<match>`
+/// - Tag elements that come between parts of the match: `mat<tag>ch`
+/// - Text that was interrupted by the end of the match: `<match>xt`
+/// - Elements that come fully after the match: `<match> elem`
+///
+/// The matched text element will always be a `TextElem` or `SymbolElem` so that
+/// user code can rely on the element having a `.text` field to access the
+/// underlying string. If the regex matched only one existing text or symbol
+/// element, then the new element will be derived from that one, otherwise it
+/// will be built fresh with the span of the first matching element.
 fn visit_regex_match<'a>(
     s: &mut State<'a, '_, '_, '_>,
     elems: &[Pair<'a>],
@@ -1274,32 +1293,12 @@ fn visit_regex_match<'a>(
 ) -> SourceResult<()> {
     let match_range = m.offset..m.offset + m.text.len();
 
-    // Replace with the correct intuitive element kind: if matching against a
-    // lone symbol, return a `SymbolElem`, otherwise return a newly composed
-    // `TextElem`. We should only match against a `SymbolElem` during math
-    // realization (`RealizationKind::Math`).
-    let piece = match elems {
-        &[(lone, _)] if lone.is::<SymbolElem>() => lone.clone(),
-        _ => TextElem::packed(m.text),
-    };
-
-    let context = Context::new(None, Some(m.styles));
-    let output = m.recipe.apply(s.engine, context.track(), piece)?;
-
     let mut cursor = 0;
-    let mut output = Some(output);
-    let mut visit_unconsumed_match = |s: &mut State<'a, '_, '_, '_>| -> SourceResult<()> {
-        if let Some(output) = output.take() {
-            let revocation = Style::Revocation(m.id).into();
-            let outer = s.arenas.bump.alloc(m.styles);
-            let chained = outer.chain(s.arenas.styles.alloc(revocation));
-            visit(s, s.store(output), chained)?;
-        }
-        Ok(())
-    };
+    let mut m = Some(m);
 
     for &(content, styles) in elems {
-        // Just forward tags.
+        // Just forward tags. If a tag is between elements of the match, it will
+        // be visited immediately after the match.
         if content.is::<TagElem>() {
             visit(s, content, styles)?;
             continue;
@@ -1316,98 +1315,92 @@ fn visit_regex_match<'a>(
             1 // The rest are Ascii, so just one byte.
         };
         let elem_range = cursor..cursor + len;
-
-        // If the element starts before the start of match, visit it fully or
-        // sliced.
-        if elem_range.start < match_range.start {
-            if elem_range.end <= match_range.start {
-                visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[..match_range.start - elem_range.start].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            }
-        }
-
-        // When the match starts before this element ends, visit it.
-        if match_range.start < elem_range.end {
-            visit_unconsumed_match(s)?;
-        }
-
-        // If the element ends after the end of the match, visit if fully or
-        // sliced.
-        if elem_range.end > match_range.end {
-            if elem_range.start >= match_range.end {
-                visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[match_range.end - elem_range.start..].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            }
-        }
-
         cursor = elem_range.end;
+
+        if elem_range.end <= match_range.start || match_range.end <= elem_range.start {
+            // This element is entirely outside the matched range, visit it
+            // without slicing.
+            visit(s, content, styles)?;
+            continue;
+        }
+
+        if elem_range.start < match_range.start {
+            // This element's text begins before the start of the match, visit
+            // that initial part.
+            let end = match_range.start - elem_range.start;
+            visit(s, s.store(slice_textual(content, ..end)), styles)?;
+        }
+
+        // We visit the matched text itself when at the first element of the
+        // match. Note that we will effectively ignore the elements which
+        // compose the match.
+        if let Some(RegexMatch { text, styles, id, recipe, offset: _ }) = m.take() {
+            // Otherwise, we would have overlapped with a previous element.
+            debug_assert!(elem_range.start <= match_range.start);
+
+            let matched_text = if match_range.end <= elem_range.end
+                && (content.is::<TextElem>() || content.is::<SymbolElem>())
+            {
+                // If the match is fully contained within one sliceable element,
+                // we slice it to retain its element type and span/label.
+                slice_textual(
+                    content,
+                    match_range.start - elem_range.start
+                        ..match_range.end - elem_range.start,
+                )
+            } else {
+                // Otherwise we need to create a fresh text element and can only
+                // retain the span of the first matching element.
+                //
+                // Creating a text element instead of propagating the
+                // space/linebreak/smartquote ensures we always provide an
+                // element with a `.text` field, so that users can rely on that
+                // field being accessible.
+                TextElem::packed(text).spanned(content.span())
+            };
+
+            // Apply the show rule and visit the show rule's output element.
+            let context = Context::new(None, Some(styles));
+            let output = recipe.apply(s.engine, context.track(), matched_text)?;
+            let revocation = Style::Revocation(id).into();
+            let outer = s.arenas.bump.alloc(styles);
+            let chained = outer.chain(s.arenas.styles.alloc(revocation));
+            visit(s, s.store(output), chained)?;
+        }
+
+        if elem_range.end > match_range.end {
+            // This element's text finishes after the end of the match, visit
+            // that final part.
+            let start = match_range.end - elem_range.start;
+            visit(s, s.store(slice_textual(content, start..)), styles)?;
+        }
     }
 
-    // If the match wasn't consumed yet, visit it. This shouldn't really happen
-    // in practice (we'd need to have an empty match at the end), but it's an
-    // extra fail-safe.
-    visit_unconsumed_match(s)?;
-
+    debug_assert!(m.is_none());
     Ok(())
 }
 
-/// Collapses all spaces within `buf[start..]` that are at the edges or in the
-/// vicinity of destructive elements.
-fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
-    let mut state = SpaceState::Destructive;
-    let mut k = start;
-
-    // We do one pass over the elements, backshifting everything as necessary
-    // when a space collapses. The variable `i` is our cursor in the original
-    // elements. The variable `k` is our cursor in the result. At all times, we
-    // have `k <= i`, so we can do it in place.
-    for i in start..buf.len() {
-        let (content, styles) = buf[i];
-
-        // Determine the next state.
-        if content.is::<TagElem>() {
-            // Nothing to do.
-        } else if content.is::<SpaceElem>() {
-            if state != SpaceState::Supportive {
-                continue;
-            }
-            state = SpaceState::Space(k);
-        } else if content.is::<LinebreakElem>() {
-            destruct_space(buf, &mut k, &mut state);
-        } else if let Some(elem) = content.to_packed::<HElem>() {
-            if elem.amount.is_fractional() || elem.weak.get(styles) {
-                destruct_space(buf, &mut k, &mut state);
-            }
-        } else {
-            state = SpaceState::Supportive;
-        };
-
-        // Copy over normal elements (in place).
-        if k < i {
-            buf[k] = buf[i];
-        }
-        k += 1;
+/// Takes a text or symbol element and returns an appropriate sliced output
+/// element.
+fn slice_textual(elem: &Content, range: impl SliceIndex<str, Output = str>) -> Content {
+    if let Some(elem) = elem.to_packed::<TextElem>() {
+        // Unfortunately, we can't apply a `TextElem::span_offset` for more
+        // precise tracking here because it creates a user-visible styled
+        // element, nesting the text element, and obscuring the `.text` field.
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
+        // Symbols are also sliced despite being a single grapheme cluster for
+        // consistency with text. We may want to more generally avoid slicing
+        // grapheme clusters in the future.
+        // See also: <https://github.com/typst/typst/issues/8058>
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else {
+        panic!("can only slice text and symbols");
     }
-
-    destruct_space(buf, &mut k, &mut state);
-
-    // Delete all the excess that's left due to the gaps produced by spaces.
-    buf.truncate(k);
-}
-
-/// Deletes a preceding space if any.
-fn destruct_space(buf: &mut [Pair], end: &mut usize, state: &mut SpaceState) {
-    if let SpaceState::Space(s) = *state {
-        buf.copy_within(s + 1..*end, s);
-        *end -= 1;
-    }
-    *state = SpaceState::Destructive;
 }
 
 /// Finds the first non-detached span in the list.

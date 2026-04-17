@@ -1,12 +1,12 @@
 use ecow::EcoString;
-use typst_utils::{Numeric, Scalar};
+use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, SourceResult};
 use crate::foundations::{
     Args, Cast, Dict, Fold, FromValue, NoneValue, Repr, Resolve, Smart, StyleChain,
     Value, cast, dict, func, scope, ty,
 };
-use crate::layout::{Abs, Length};
+use crate::layout::{Abs, Length, Ratio};
 use crate::visualize::{Color, Gradient, Paint, Tiling};
 
 /// Defines how to draw a line.
@@ -62,7 +62,7 @@ pub struct Stroke<T: Numeric = Length> {
     /// The stroke's line dash pattern.
     pub dash: Smart<Option<DashPattern<T>>>,
     /// The miter limit.
-    pub miter_limit: Smart<Scalar>,
+    pub miter_limit: Smart<Ratio>,
 }
 
 impl Stroke {
@@ -145,13 +145,55 @@ impl Stroke {
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
         ///
-        /// ```example
+        /// ```example:"Usage"
         /// #set line(length: 100%, stroke: 2pt)
         /// #stack(
         ///   spacing: 1em,
         ///   line(stroke: (dash: "dashed")),
         ///   line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
         ///   line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
+        /// )
+        /// ```
+        ///
+        /// ```example:"Inspect a predefined pattern"
+        /// #stroke(dash: "loosely-dashed").dash
+        /// ```
+        ///
+        /// ```preview:"Predefined patterns"
+        /// #set page(width: auto, height: auto)
+        ///
+        /// #let patterns = (
+        ///   ("dotted", "dashed", "dash-dotted").map(d => (
+        ///     "loosely-" + d,
+        ///     d,
+        ///     "densely-" + d,
+        ///   ))
+        /// ).flatten()
+        ///
+        ///
+        /// #let display(dash) = {
+        ///   set par(spacing: 0.3em)
+        ///
+        ///   show "loosely": set text(eastern.darken(17%))
+        ///   show "densely": set text(purple)
+        ///
+        ///   let derived = dash.starts-with("loosely-") or dash.starts-with("densely-")
+        ///   if derived { dash } else { strong(dash) }
+        ///
+        ///   rect(
+        ///     line(stroke: (dash: dash), length: 100%),
+        ///     stroke: none,
+        ///     fill: yellow.transparentize(80%),
+        ///   )
+        /// }
+        ///
+        /// #table(
+        ///   columns: 3,
+        ///   stroke: none,
+        ///   align: (left, center, left),
+        ///
+        ///   table.cell(colspan: 3, align: center, display("solid")),
+        ///   ..patterns.map(display),
         /// )
         /// ```
         #[external]
@@ -200,7 +242,7 @@ impl Stroke {
         let cap = take::<LineCap>(args, "cap")?;
         let join = take::<LineJoin>(args, "join")?;
         let dash = take::<Option<DashPattern>>(args, "dash")?;
-        let miter_limit = take::<f64>(args, "miter-limit")?.map(Scalar::new);
+        let miter_limit = take::<f64>(args, "miter-limit")?.map(Ratio::new);
 
         Ok(Self { paint, thickness, cap, join, dash, miter_limit })
     }
@@ -397,7 +439,7 @@ cast! {
             cap,
             join,
             dash,
-            miter_limit: miter_limit.map(Scalar::new),
+            miter_limit: miter_limit.map(Ratio::new),
         }
     },
 }
@@ -589,7 +631,7 @@ pub struct FixedStroke {
     /// The stroke's line dash pattern.
     pub dash: Option<DashPattern<Abs, Abs>>,
     /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
-    pub miter_limit: Scalar,
+    pub miter_limit: Ratio,
 }
 
 impl FixedStroke {
@@ -611,7 +653,7 @@ impl Default for FixedStroke {
             cap: LineCap::Butt,
             join: LineJoin::Miter,
             dash: None,
-            miter_limit: Scalar::new(4.0),
+            miter_limit: Ratio::new(4.0),
         }
     }
 }

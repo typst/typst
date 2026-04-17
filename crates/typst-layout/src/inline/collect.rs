@@ -239,7 +239,7 @@ pub fn collect<'a>(
             engine.sink.warn(warning!(
                 child.span(),
                 "{} may not occur inside of a paragraph and was ignored",
-                child.func().name()
+                child.func().name(),
             ));
         };
 

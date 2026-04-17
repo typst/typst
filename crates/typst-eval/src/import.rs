@@ -5,10 +5,10 @@ use typst_library::diag::{
     At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Content, Module, Value};
+use typst_library::foundations::{Binding, Content, Module, PathOrStr, Reflect, Value};
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
-use typst_syntax::{FileId, Span, VirtualPath};
+use typst_syntax::{FileId, RootedPath, Span, VirtualPath, VirtualRoot};
 
 use crate::{Eval, Vm, eval};
 
@@ -20,7 +20,7 @@ impl Eval for ast::ModuleImport<'_> {
         let source_span = source_expr.span();
 
         let mut source = source_expr.eval(vm)?;
-        let mut is_str = false;
+        let mut replaced_source = false;
 
         match &source {
             Value::Func(func) => {
@@ -31,14 +31,28 @@ impl Eval for ast::ModuleImport<'_> {
             Value::Type(_) => {}
             Value::Module(_) => {}
             Value::Str(path) => {
-                source = Value::Module(import(&mut vm.engine, path, source_span)?);
-                is_str = true;
+                source = Value::Module(import(&mut vm.engine, path, source_span).trace(
+                    vm.engine.world,
+                    || Tracepoint::Import(path.clone().into()),
+                    self.span(),
+                )?);
+                replaced_source = true;
+            }
+            v if RootedPath::castable(v) => {
+                let id = v.clone().cast::<RootedPath>().at(source_span)?.intern();
+                source =
+                    Value::Module(import_file(&mut vm.engine, id, source_span).trace(
+                        vm.engine.world,
+                        || Tracepoint::Import(id.get().vpath().get_with_slash().into()),
+                        self.span(),
+                    )?);
+                replaced_source = true;
             }
             v => {
                 bail!(
                     source_span,
                     "expected path, module, function, or type, found {}",
-                    v.ty()
+                    v.ty(),
                 )
             }
         }
@@ -65,9 +79,10 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
-                        // Bare dynamic string imports are not allowed.
+                        // Bare dynamic string or path imports are not allowed.
                         Ok(name)
-                            if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
+                            if !replaced_source
+                                || matches!(source_expr, ast::Expr::Str(_)) =>
                         {
                             if matches!(source_expr, ast::Expr::Ident(_)) {
                                 vm.engine.sink.warn(warning!(
@@ -79,11 +94,11 @@ impl Eval for ast::ModuleImport<'_> {
                         }
                         Ok(_) | Err(BareImportError::Dynamic) => bail!(
                             source_span, "dynamic import requires an explicit name";
-                            hint: "you can name the import with `as`"
+                            hint: "you can name the import with `as`";
                         ),
                         Err(BareImportError::PathInvalid) => bail!(
                             source_span, "module name would not be a valid identifier";
-                            hint: "you can rename the import with `as`",
+                            hint: "you can rename the import with `as`";
                         ),
                         // Bad package spec would have failed the import already.
                         Err(BareImportError::PackageInvalid) => unreachable!(),
@@ -116,7 +131,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 {
                                     error!(
                                         component.span(),
-                                        "cannot import from user-defined functions"
+                                        "cannot import from user-defined functions",
                                     )
                                 } else if !matches!(
                                     value,
@@ -125,7 +140,7 @@ impl Eval for ast::ModuleImport<'_> {
                                     error!(
                                         component.span(),
                                         "expected module, function, or type, found {}",
-                                        value.ty()
+                                        value.ty(),
                                     )
                                 } else {
                                     panic!("unexpected nested import failure")
@@ -170,12 +185,24 @@ impl Eval for ast::ModuleInclude<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.source().span();
+        let source_span = self.source().span();
         let source = self.source().eval(vm)?;
         let module = match source {
-            Value::Str(path) => import(&mut vm.engine, &path, span)?,
+            Value::Str(path) => import(&mut vm.engine, &path, source_span).trace(
+                vm.engine.world,
+                || Tracepoint::Include(path.clone().into()),
+                self.span(),
+            )?,
             Value::Module(module) => module,
-            v => bail!(span, "expected path or module, found {}", v.ty()),
+            v if RootedPath::castable(&v) => {
+                let id = v.cast::<RootedPath>().at(source_span)?.intern();
+                import_file(&mut vm.engine, id, source_span).trace(
+                    vm.engine.world,
+                    || Tracepoint::Include(id.get().vpath().get_with_slash().into()),
+                    self.span(),
+                )?
+            }
+            v => bail!(source_span, "expected path or module, found {}", v.ty()),
         };
         Ok(module.content())
     }
@@ -187,8 +214,11 @@ pub fn import(engine: &mut Engine, from: &str, span: Span) -> SourceResult<Modul
         let spec = from.parse::<PackageSpec>().at(span)?;
         import_package(engine, spec, span)
     } else {
-        let id = span.resolve_path(from).at(span)?;
-        import_file(engine, id, span)
+        let path = PathOrStr::Str(from.into())
+            .resolve_if_some(span.id())
+            .at(span)?
+            .intern();
+        import_file(engine, path, span)
     }
 }
 
@@ -204,7 +234,6 @@ fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Modu
     }
 
     // Evaluate the file.
-    let point = || Tracepoint::Import;
     eval(
         engine.routines,
         engine.world,
@@ -213,7 +242,6 @@ fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Modu
         engine.route.track(),
         &source,
     )
-    .trace(engine.world, point, span)
 }
 
 /// Import an external package.
@@ -233,7 +261,11 @@ fn resolve_package(
     span: Span,
 ) -> SourceResult<(EcoString, FileId)> {
     // Evaluate the manifest.
-    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
+    let manifest_id = RootedPath::new(
+        VirtualRoot::Package(spec.clone()),
+        VirtualPath::new("typst.toml").unwrap(),
+    )
+    .intern();
     let bytes = engine.world.file(manifest_id).at(span)?;
     let string = bytes.as_str().map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
@@ -242,5 +274,11 @@ fn resolve_package(
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    Ok((manifest.package.name, manifest_id.join(&manifest.package.entrypoint)))
+    Ok((
+        manifest.package.name,
+        PathOrStr::Str(manifest.package.entrypoint.into())
+            .resolve(manifest_id)
+            .at(span)?
+            .intern(),
+    ))
 }

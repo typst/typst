@@ -66,7 +66,7 @@ Content and code blocks can be nested arbitrarily. In the example below,
 ## Bindings and Destructuring { #bindings }
 As already demonstrated above, variables can be defined with `{let}` bindings.
 The variable is assigned the value of the expression that follows the `=` sign.
-A [valid variable name](#identifiers) may contain `-`, but cannot start with `-`.
+A [valid variable name]($syntax/#identifiers) may contain `-`, but cannot start with `-`.
 The assignment of a value is optional, if no value is assigned, the variable
 will be initialized as `{none}`. The `{let}` keyword can also be used to create
 a [custom named function]($function/#defining-functions). Variables can be
@@ -298,23 +298,24 @@ module can refer to the content and definitions of another module in multiple
 ways:
 
 - **Including:** `{include "bar.typ"}` \
-  Evaluates the file at the path `bar.typ` and returns the resulting [content].
+  Evaluates the file at the [path] `bar.typ` and returns the resulting
+  [content].
 
 - **Import:** `{import "bar.typ"}` \
-  Evaluates the file at the path `bar.typ` and inserts the resulting [module]
+  Evaluates the file at the [path] `bar.typ` and inserts the resulting [module]
   into the current scope as `bar` (filename without extension). You can use the
   `as` keyword to rename the imported module: `{import "bar.typ" as baz}`. You
   can import nested items using dot notation: `{import "bar.typ": baz.a}`.
 
 - **Import items:** `{import "bar.typ": a, b}` \
-  Evaluates the file at the path `bar.typ`, extracts the values of the variables
-  `a` and `b` (that need to be defined in `bar.typ`, e.g. through `{let}`
-  bindings) and defines them in the current file. Replacing `a, b` with `*`
-  loads all variables defined in a module. You can use the `as` keyword to
+  Evaluates the file at the [path] `bar.typ`, extracts the values of the
+  variables `a` and `b` (that need to be defined in `bar.typ`, e.g. through
+  `{let}` bindings) and defines them in the current file. Replacing `a, b` with
+  `*` loads all variables defined in a module. You can use the `as` keyword to
   rename the individual items: `{import "bar.typ": a as one, b as two}`
 
-Instead of a path, you can also use a [module value]($module), as shown in the
-following example:
+Instead of a string or [path], you can also use a [module value]($module), as
+shown in the following example:
 
 ```example
 #import emoji: face

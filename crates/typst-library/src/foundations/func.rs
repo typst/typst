@@ -1,19 +1,21 @@
 #[doc(inline)]
 pub use typst_macros::func;
+use typst_syntax::ast::AstNode;
 
 use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
-use typst_syntax::{Span, SyntaxNode, ast};
+use either::Either;
+use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{LazyHash, Static, singleton};
 
 use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Scope,
-    Selector, Type, Value, cast, repr, scope, ty,
+    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
+    Selector, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -136,14 +138,14 @@ use crate::foundations::{
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
-    repr: Repr,
+    inner: FuncInner,
     /// The span with which errors are reported when this function is called.
     span: Span,
 }
 
 /// The different kinds of function representations.
 #[derive(Clone, PartialEq, Hash)]
-enum Repr {
+enum FuncInner {
     /// A native Rust function.
     Native(Static<NativeFuncData>),
     /// A function for an element.
@@ -161,12 +163,12 @@ impl Func {
     ///
     /// Returns `None` if this is an anonymous closure.
     pub fn name(&self) -> Option<&str> {
-        match &self.repr {
-            Repr::Native(native) => Some(native.name),
-            Repr::Element(elem) => Some(elem.name()),
-            Repr::Closure(closure) => closure.name(),
-            Repr::Plugin(func) => Some(func.name()),
-            Repr::With(with) => with.0.name(),
+        match &self.inner {
+            FuncInner::Native(native) => Some(native.name),
+            FuncInner::Element(elem) => Some(elem.name()),
+            FuncInner::Closure(closure) => closure.name(),
+            FuncInner::Plugin(func) => Some(func.name()),
+            FuncInner::With(with) => with.0.name(),
         }
     }
 
@@ -174,82 +176,91 @@ impl Func {
     ///
     /// Returns `None` if this is a closure.
     pub fn title(&self) -> Option<&'static str> {
-        match &self.repr {
-            Repr::Native(native) => Some(native.title),
-            Repr::Element(elem) => Some(elem.title()),
-            Repr::Closure(_) => None,
-            Repr::Plugin(_) => None,
-            Repr::With(with) => with.0.title(),
+        match &self.inner {
+            FuncInner::Native(native) => Some(native.title),
+            FuncInner::Element(elem) => Some(elem.title()),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.title(),
         }
     }
 
     /// Documentation for the function (as Markdown).
     pub fn docs(&self) -> Option<&'static str> {
-        match &self.repr {
-            Repr::Native(native) => Some(native.docs),
-            Repr::Element(elem) => Some(elem.docs()),
-            Repr::Closure(_) => None,
-            Repr::Plugin(_) => None,
-            Repr::With(with) => with.0.docs(),
+        match &self.inner {
+            FuncInner::Native(native) => Some(native.docs),
+            FuncInner::Element(elem) => Some(elem.docs()),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.docs(),
         }
     }
 
     /// Whether the function is known to be contextual.
     pub fn contextual(&self) -> Option<bool> {
-        match &self.repr {
-            Repr::Native(native) => Some(native.contextual),
+        match &self.inner {
+            FuncInner::Native(native) => Some(native.contextual),
             _ => None,
         }
     }
 
     /// Get details about this function's parameters if available.
-    pub fn params(&self) -> Option<&'static [ParamInfo]> {
-        match &self.repr {
-            Repr::Native(native) => Some(&native.0.params),
-            Repr::Element(elem) => Some(elem.params()),
-            Repr::Closure(_) => None,
-            Repr::Plugin(_) => None,
-            Repr::With(with) => with.0.params(),
+    pub fn params(&self) -> impl Iterator<Item = ParamInfo> {
+        match &self.inner {
+            FuncInner::Native(native) => {
+                Either::Left(native.0.params.iter().map(ParamInfo::Native))
+            }
+            FuncInner::Element(elem) => {
+                Either::Left(elem.params().iter().map(ParamInfo::Native))
+            }
+            FuncInner::Closure(closure) => {
+                Either::Right(Either::Left(closure.params().map(ParamInfo::Closure)))
+            }
+            FuncInner::Plugin(_) => {
+                Either::Right(Either::Right([ParamInfo::Plugin].into_iter()))
+            }
+            // TODO: We could take into account the known arguments.
+            FuncInner::With(with) => with.0.params(),
         }
     }
 
     /// Get the parameter info for a parameter with the given name if it exist.
-    pub fn param(&self, name: &str) -> Option<&'static ParamInfo> {
-        self.params()?.iter().find(|param| param.name == name)
+    pub fn param(&self, name: &str) -> Option<ParamInfo> {
+        self.params().find(|param| param.name() == Some(name))
     }
 
     /// Get details about the function's return type.
     pub fn returns(&self) -> Option<&'static CastInfo> {
-        match &self.repr {
-            Repr::Native(native) => Some(&native.0.returns),
-            Repr::Element(_) => {
+        match &self.inner {
+            FuncInner::Native(native) => Some(&native.0.returns),
+            FuncInner::Element(_) => {
                 Some(singleton!(CastInfo, CastInfo::Type(Type::of::<Content>())))
             }
-            Repr::Closure(_) => None,
-            Repr::Plugin(_) => None,
-            Repr::With(with) => with.0.returns(),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.returns(),
         }
     }
 
     /// Search keywords for the function.
     pub fn keywords(&self) -> &'static [&'static str] {
-        match &self.repr {
-            Repr::Native(native) => native.keywords,
-            Repr::Element(elem) => elem.keywords(),
-            Repr::Closure(_) => &[],
-            Repr::Plugin(_) => &[],
-            Repr::With(with) => with.0.keywords(),
+        match &self.inner {
+            FuncInner::Native(native) => native.keywords,
+            FuncInner::Element(elem) => elem.keywords(),
+            FuncInner::Closure(_) => &[],
+            FuncInner::Plugin(_) => &[],
+            FuncInner::With(with) => with.0.keywords(),
         }
     }
 
     /// The function's associated scope of sub-definition.
     pub fn scope(&self) -> Option<&'static Scope> {
-        match &self.repr {
-            Repr::Native(native) => Some(&native.0.scope),
-            Repr::Element(elem) => Some(elem.scope()),
-            Repr::Closure(_) => None,
-            Repr::Plugin(_) => None,
-            Repr::With(with) => with.0.scope(),
+        match &self.inner {
+            FuncInner::Native(native) => Some(&native.0.scope),
+            FuncInner::Element(elem) => Some(elem.scope()),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.scope(),
         }
     }
 
@@ -271,17 +282,17 @@ impl Func {
     }
 
     /// Extract the element function, if it is one.
-    pub fn element(&self) -> Option<Element> {
-        match self.repr {
-            Repr::Element(func) => Some(func),
+    pub fn to_element(&self) -> Option<Element> {
+        match self.inner {
+            FuncInner::Element(func) => Some(func),
             _ => None,
         }
     }
 
     /// Extract the plugin function, if it is one.
     pub fn to_plugin(&self) -> Option<&PluginFunc> {
-        match &self.repr {
-            Repr::Plugin(func) => Some(func),
+        match &self.inner {
+            FuncInner::Plugin(func) => Some(func),
             _ => None,
         }
     }
@@ -304,18 +315,18 @@ impl Func {
         context: Tracked<Context>,
         mut args: Args,
     ) -> SourceResult<Value> {
-        match &self.repr {
-            Repr::Native(native) => {
+        match &self.inner {
+            FuncInner::Native(native) => {
                 let value = (native.function.0)(engine, context, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
-            Repr::Element(func) => {
+            FuncInner::Element(func) => {
                 let value = func.construct(engine, &mut args)?;
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => (engine.routines.eval_closure)(
+            FuncInner::Closure(closure) => (engine.routines.eval_closure)(
                 self,
                 closure,
                 engine.routines,
@@ -327,13 +338,13 @@ impl Func {
                 context,
                 args,
             ),
-            Repr::Plugin(func) => {
+            FuncInner::Plugin(func) => {
                 let inputs = args.all::<Bytes>()?;
                 let output = func.call(inputs).at(args.span)?;
                 args.finish()?;
                 Ok(Value::Bytes(output))
             }
-            Repr::With(with) => {
+            FuncInner::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, context, args)
             }
@@ -368,7 +379,7 @@ impl Func {
     ) -> Func {
         let span = self.span;
         Self {
-            repr: Repr::With(Arc::new((self, args.take()))),
+            inner: FuncInner::With(Arc::new((self, args.take()))),
             span,
         }
     }
@@ -395,7 +406,7 @@ impl Func {
         args.items.retain(|arg| arg.name.is_none());
 
         let element = self
-            .element()
+            .to_element()
             .ok_or("`where()` can only be called on element functions")?;
 
         let fields = fields
@@ -421,29 +432,29 @@ impl Debug for Func {
     }
 }
 
-impl repr::Repr for Func {
+impl Repr for Func {
     fn repr(&self) -> EcoString {
         const DEFAULT: &str = "(..) => ..";
-        match &self.repr {
-            Repr::Native(native) => native.name.into(),
-            Repr::Element(elem) => elem.name().into(),
-            Repr::Closure(closure) => closure.name().unwrap_or(DEFAULT).into(),
-            Repr::Plugin(func) => func.name().clone(),
-            Repr::With(_) => DEFAULT.into(),
+        match &self.inner {
+            FuncInner::Native(native) => native.name.into(),
+            FuncInner::Element(elem) => elem.name().into(),
+            FuncInner::Closure(closure) => closure.name().unwrap_or(DEFAULT).into(),
+            FuncInner::Plugin(func) => func.name().clone(),
+            FuncInner::With(_) => DEFAULT.into(),
         }
     }
 }
 
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
-        self.repr == other.repr
+        self.inner == other.inner
     }
 }
 
 impl PartialEq<&'static NativeFuncData> for Func {
     fn eq(&self, other: &&'static NativeFuncData) -> bool {
-        match &self.repr {
-            Repr::Native(native) => *native == Static(*other),
+        match &self.inner {
+            FuncInner::Native(native) => *native == Static(*other),
             _ => false,
         }
     }
@@ -451,40 +462,134 @@ impl PartialEq<&'static NativeFuncData> for Func {
 
 impl PartialEq<Element> for Func {
     fn eq(&self, other: &Element) -> bool {
-        match &self.repr {
-            Repr::Element(elem) => elem == other,
+        match &self.inner {
+            FuncInner::Element(elem) => elem == other,
             _ => false,
         }
     }
 }
 
-impl From<Repr> for Func {
-    fn from(repr: Repr) -> Self {
-        Self { repr, span: Span::detached() }
+impl From<FuncInner> for Func {
+    fn from(inner: FuncInner) -> Self {
+        Self { inner, span: Span::detached() }
     }
 }
 
 impl From<&'static NativeFuncData> for Func {
     fn from(data: &'static NativeFuncData) -> Self {
-        Repr::Native(Static(data)).into()
+        FuncInner::Native(Static(data)).into()
     }
 }
 
 impl From<Element> for Func {
     fn from(func: Element) -> Self {
-        Repr::Element(func).into()
+        FuncInner::Element(func).into()
     }
 }
 
 impl From<Closure> for Func {
     fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+        FuncInner::Closure(Arc::new(LazyHash::new(closure))).into()
     }
 }
 
 impl From<PluginFunc> for Func {
     fn from(func: PluginFunc) -> Self {
-        Repr::Plugin(Arc::new(func)).into()
+        FuncInner::Plugin(Arc::new(func)).into()
+    }
+}
+
+/// Details about a function parameter.
+#[derive(Debug, Clone)]
+pub enum ParamInfo {
+    /// Details about a parameter of a native, Rust-defined function.
+    Native(&'static NativeParamInfo),
+    /// Details about a user-defined function.
+    Closure(Spanned<ClosureParamInfo>),
+    /// A plugin's sole variadic bytes parameter.
+    Plugin,
+}
+
+impl ParamInfo {
+    /// Attempts to cast to a native parameter info.
+    pub fn to_native(&self) -> Option<&'static NativeParamInfo> {
+        match self {
+            Self::Native(native) => Some(native),
+            _ => None,
+        }
+    }
+
+    /// The parameter's name, if any.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::Native(info) => Some(info.name),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Pos { name } => name.as_deref(),
+                ClosureParamInfo::Sink { name } => name.as_deref(),
+                ClosureParamInfo::Named { name, .. } => Some(name),
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// The parameter's default value, if any.
+    pub fn default(&self) -> Option<Value> {
+        match self {
+            Self::Native(info) => info.default.map(|f| f()),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Named { default, .. } => Some(default.clone()),
+                _ => None,
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// Whether the parameter is positional (includes variadic).
+    pub fn positional(&self) -> bool {
+        match self {
+            Self::Native(info) => info.positional,
+            Self::Closure(info) => matches!(
+                &info.v,
+                ClosureParamInfo::Pos { .. } | ClosureParamInfo::Sink { .. }
+            ),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is named.
+    pub fn named(&self) -> bool {
+        match self {
+            Self::Native(info) => info.named,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Named { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is variadic.
+    pub fn variadic(&self) -> bool {
+        match self {
+            Self::Native(info) => info.variadic,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Sink { .. }),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is required.
+    pub fn required(&self) -> bool {
+        match self {
+            Self::Native(info) => info.required,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Pos { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is settable.
+    pub fn settable(&self) -> bool {
+        match self {
+            Self::Native(info) => info.settable,
+            Self::Closure(_) => false,
+            Self::Plugin => false,
+        }
     }
 }
 
@@ -518,7 +623,7 @@ pub struct NativeFuncData {
     /// Definitions in the scope of the function.
     pub scope: DynLazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: DynLazyLock<Vec<ParamInfo>>,
+    pub params: DynLazyLock<Vec<NativeParamInfo>>,
     /// Information about the return value of this function.
     pub returns: DynLazyLock<CastInfo>,
 }
@@ -552,7 +657,7 @@ type DynLazyLock<T> = LazyLock<T, &'static (dyn Fn() -> T + Send + Sync)>;
 
 /// Describes a function parameter.
 #[derive(Debug, Clone)]
-pub struct ParamInfo {
+pub struct NativeParamInfo {
     /// The parameter's name.
     pub name: &'static str,
     /// Documentation for the parameter.
@@ -609,9 +714,57 @@ impl Closure {
             _ => None,
         }
     }
+
+    /// Returns details about this closure's parameters.
+    pub fn params(&self) -> impl Iterator<Item = Spanned<ClosureParamInfo>> {
+        let params = match self.node {
+            ClosureNode::Closure(ref node) => Some(
+                node.cast::<ast::Closure>()
+                    .expect("node to be an `ast::Closure`")
+                    .params()
+                    .children(),
+            ),
+            ClosureNode::Context(_) => None,
+        };
+
+        let mut defaults = self.defaults.iter();
+        params.into_iter().flatten().map(move |param| {
+            let info = match param {
+                ast::Param::Pos(pattern) => ClosureParamInfo::Pos {
+                    name: match pattern {
+                        ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                            Some(ident.get().clone())
+                        }
+                        _ => None,
+                    },
+                },
+                ast::Param::Spread(spread) => ClosureParamInfo::Sink {
+                    name: spread.sink_ident().map(|ident| ident.get().clone()),
+                },
+                ast::Param::Named(named) => ClosureParamInfo::Named {
+                    name: named.name().get().clone(),
+                    default: defaults.next().unwrap().clone(),
+                },
+            };
+            Spanned::new(info, param.span())
+        })
+    }
 }
 
 cast! {
     Closure,
     self => Value::Func(self.into()),
+}
+
+/// Details about a closure parameter.
+#[derive(Debug, Clone)]
+pub enum ClosureParamInfo {
+    /// A positional parameter. It might have a name, but it could also be a
+    /// pattern.
+    Pos { name: Option<EcoString> },
+    /// A sink parameter. Might have a name, but could also just be a discarding
+    /// sink.
+    Sink { name: Option<EcoString> },
+    /// A named parameter with its name and default value.
+    Named { name: EcoString, default: Value },
 }

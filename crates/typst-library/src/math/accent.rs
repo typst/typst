@@ -8,16 +8,22 @@ use icu_properties::maps::CodePointMapData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
 
-use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, ParamInfo, Reflect, Scope, SymbolElem, Type, cast, elem,
+    NativeFuncPtr, NativeParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
 };
-use crate::layout::{Length, Rel};
+use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;
 
+/// How much the accent can be shorter than the base.
+pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
+
 /// Attaches an accent to a base.
+///
+/// In math mode, common accents are also available as named [symbols]($symbol)
+/// that can be directly called (like [functions]($function)) to attach them to
+/// some content.
 ///
 /// # Example
 /// ```example
@@ -66,8 +72,25 @@ pub struct AccentElem {
 
     /// The size of the accent, relative to the width of the base.
     ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// $dash(A, size: #150%)$
+    /// ```
+    ///
+    /// Note that the resulting accent may not have the exact desired size. For
+    /// example, an arrow may be either a pre-defined short glyph, or a long
+    /// glyph assembled from building blocks (arrowhead + line) provided by the
+    /// font. The sizes of the two possibilities may not cover the entire span.
+    /// Consequently, arrows of certain intermediate sizes cannot be constructed.
+    ///
+    /// ```example:"Size of arrow growing discontinuously"
+    /// >>> #set par(spacing: 0.3em)
+    /// #for i in range(6) {
+    ///   $ arrow(#box(
+    ///     width: 0.4em + 0.3em * i,
+    ///     fill: aqua,
+    ///     height: 0.4em,
+    ///   )) $
+    /// }
     /// ```
     #[default(Rel::one())]
     pub size: Rel<Length>,
@@ -89,22 +112,32 @@ pub struct AccentElem {
 pub struct Accent(pub char);
 
 impl Accent {
-    /// Normalize a character into an accent.
-    pub fn new(c: char) -> Self {
-        Self(Self::combine(c).unwrap_or(c))
+    /// Tries to select the appropriate combining accent for a string, falling
+    /// back to the string's lone character if there is no corresponding one.
+    ///
+    /// Returns `None` if there isn't one and the string has more than one
+    /// character.
+    pub fn normalize(s: &str) -> Option<Self> {
+        Self::combining(s).or_else(|| s.parse::<char>().ok().map(Self))
     }
 
-    /// Normalize an accent to a combining one.
-    pub fn combine(c: char) -> Option<char> {
+    /// Tries to select a well-known combining accent that matches for the
+    /// value.
+    pub fn combining(value: &str) -> Option<Self> {
+        let c = value.parse::<char>().ok();
         ACCENTS
             .iter()
             .copied()
-            .find(|(accent, names)| *accent == c || names.contains(&c))
-            .map(|(accent, _)| accent)
+            .find(|&(accent, names)| Some(accent) == c || names.contains(&value))
+            .map(|(accent, _)| Self(accent))
     }
 
     /// Whether this accent is a bottom accent or not.
     pub fn is_bottom(&self) -> bool {
+        if matches!(self.0, '⏟' | '⎵' | '⏝' | '⏡') {
+            return true;
+        }
+
         static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
             LazyLock::new(|| {
                 icu_properties::maps::load_canonical_combining_class(
@@ -122,47 +155,45 @@ impl Accent {
     }
 }
 
-/// Gets the accent function corresponding to a name, if any.
-pub fn get_accent_func(c: char) -> Option<Func> {
-    Some(
-        FUNCS
-            .get(&Accent::combine(c)?)
-            .expect("this accent should have a function")
-            .into(),
-    )
+/// Gets the accent function corresponding to a symbol value, if any.
+pub fn get_accent_func(value: &str) -> Option<Func> {
+    Accent::combining(value).map(|accent| (&FUNCS[&accent]).into())
 }
 
-// Keep it synced with the documenting table above.
+// Keep it synced with the documenting table above and the
+// `math-accent-sym-call` test.`
 /// A list of accents, each with a list of alternative names.
-const ACCENTS: &[(char, &[char])] = &[
-    ('\u{0300}', &['`']),
-    ('\u{0301}', &['´']),
-    ('\u{0302}', &['^', 'ˆ']),
-    ('\u{0303}', &['~', '∼', '˜']),
-    ('\u{0304}', &['¯']),
-    ('\u{0305}', &['-', '–', '‾', '−']),
-    ('\u{0306}', &['˘']),
-    ('\u{0307}', &['.', '˙', '⋅']),
-    ('\u{0308}', &['¨']),
+const ACCENTS: &[(char, &[&str])] = &[
+    // Note: Symbols that can have a text presentation must explicitly have that
+    // alternative listed here.
+    ('\u{0300}', &["`"]),
+    ('\u{0301}', &["´"]),
+    ('\u{0302}', &["^", "ˆ"]),
+    ('\u{0303}', &["~", "∼", "˜"]),
+    ('\u{0304}', &["¯"]),
+    ('\u{0305}', &["-", "–", "‾", "−"]),
+    ('\u{0306}', &["˘"]),
+    ('\u{0307}', &[".", "˙", "⋅"]),
+    ('\u{0308}', &["¨"]),
     ('\u{20db}', &[]),
     ('\u{20dc}', &[]),
-    ('\u{030a}', &['∘', '○']),
-    ('\u{030b}', &['˝']),
-    ('\u{030c}', &['ˇ']),
-    ('\u{20d6}', &['←']),
-    ('\u{20d7}', &['→', '⟶']),
-    ('\u{20e1}', &['↔', '⟷']),
-    ('\u{20d0}', &['↼']),
-    ('\u{20d1}', &['⇀']),
+    ('\u{030a}', &["∘", "○"]),
+    ('\u{030b}', &["˝"]),
+    ('\u{030c}', &["ˇ"]),
+    ('\u{20d6}', &["←"]),
+    ('\u{20d7}', &["→", "⟶"]),
+    ('\u{20e1}', &["↔", "↔\u{fe0e}", "⟷"]),
+    ('\u{20d0}', &["↼"]),
+    ('\u{20d1}', &["⇀"]),
 ];
 
 /// Lazily created accent functions.
-static FUNCS: LazyLock<HashMap<char, NativeFuncData>> = LazyLock::new(|| {
+static FUNCS: LazyLock<HashMap<Accent, NativeFuncData>> = LazyLock::new(|| {
     let bump = Box::leak(Box::new(Bump::new()));
     ACCENTS
         .iter()
         .copied()
-        .map(|(accent, _)| (accent, create_accent_func_data(accent, bump)))
+        .map(|(accent, _)| (Accent(accent), create_accent_func_data(accent, bump)))
         .collect()
 });
 
@@ -199,9 +230,9 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
 }
 
 /// Creates parameter signature metadata for an accent function.
-fn create_accent_param_info() -> Vec<ParamInfo> {
+fn create_accent_param_info() -> Vec<NativeParamInfo> {
     vec![
-        ParamInfo {
+        NativeParamInfo {
             name: "base",
             docs: "The base to which the accent is applied.",
             input: Content::input(),
@@ -212,7 +243,7 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
             required: true,
             settable: false,
         },
-        ParamInfo {
+        NativeParamInfo {
             name: "size",
             docs: "The size of the accent, relative to the width of the base.",
             input: Rel::<Length>::input(),
@@ -223,7 +254,7 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
             required: false,
             settable: false,
         },
-        ParamInfo {
+        NativeParamInfo {
             name: "dotless",
             docs: "Whether to remove the dot on top of lowercase i and j when adding a top accent.",
             input: bool::input(),
@@ -240,9 +271,13 @@ fn create_accent_param_info() -> Vec<ParamInfo> {
 cast! {
     Accent,
     self => self.0.into_value(),
-    v: char => Self::new(v),
-    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
-        Some(c) => Self::new(c),
-        _ => bail!("expected a single-codepoint symbol"),
-    },
+    // The string cast handles
+    // - strings: `accent(a, "↔")`
+    // - symbol values: `accent(a, <->)`
+    // - shorthands: `accent(a, arrow.l.r)`
+    v: Str => Self::normalize(&v).ok_or("expected exactly one character")?,
+    // The content cast is for accent uses like `accent(a, ↔)`
+    v: Content => v.to_packed::<SymbolElem>()
+        .and_then(|elem| Accent::normalize(&elem.text))
+        .ok_or("expected a single-codepoint symbol")?,
 }

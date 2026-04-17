@@ -1,35 +1,31 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
-use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format};
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
-use typst_library::engine::Engine;
+use comemo::Track;
+use ecow::{EcoVec, eco_format};
+use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
     Target,
 };
-use typst_library::introspection::{
-    Counter, History, Introspect, Introspector, Location, QueryIntrospection,
-};
+use typst_library::introspection::{Counter, DocumentIntrospection, QueryIntrospection};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, FootnoteMarker, HeadingElem, LinkElem, LinkTarget,
-    ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
+    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
+    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
-use typst_macros::elem;
-use typst_syntax::Span;
-use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -46,6 +42,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
     rules.register(Html, DIRECT_LINK_RULE);
+    rules.register(Html, DIVIDER_RULE);
     rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
@@ -63,6 +60,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, CSL_LIGHT_RULE);
     rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
+    rules.register(Html, TABLE_CELL_RULE);
 
     // Text.
     rules.register(Html, SUB_RULE);
@@ -165,23 +163,22 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let span = elem.span();
-    let dest = elem.dest.resolve(engine, span)?;
+    let dest = elem.dest.resolve_early(engine, span)?;
 
     let href = match dest {
         Destination::Url(url) => Some(url.clone().into_inner()),
-        Destination::Location(location) => {
-            let id = engine
-                .introspect(HtmlIdIntrospection(location, span))
-                .ok_or("failed to determine link anchor")
-                .at(span)?;
-            Some(eco_format!("#{id}"))
-        }
         Destination::Position(_) => {
             engine
                 .sink
                 .warn(warning!(span, "positional link was ignored during HTML export"));
             None
         }
+        Destination::Location(location) => Some(
+            EarlyLinkResolver::new(elem.location().unwrap(), span)
+                .resolve(engine, location)
+                .at(span)?
+                .into_uri(),
+        ),
     };
 
     Ok(HtmlElem::new(tag::a)
@@ -190,39 +187,6 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .pack())
 };
 
-/// Resolves the DOM element ID assigned to the linked-to element with the given
-/// location.
-#[derive(Debug, Clone, PartialEq, Hash)]
-struct HtmlIdIntrospection(Location, Span);
-
-impl Introspect for HtmlIdIntrospection {
-    type Output = Option<EcoString>;
-
-    fn introspect(
-        &self,
-        _: &mut Engine,
-        introspector: Tracked<Introspector>,
-    ) -> Self::Output {
-        introspector.html_id(self.0).cloned()
-    }
-
-    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
-        let introspector = history.final_introspector();
-        let what = match introspector.query_first(&Selector::Location(self.0)) {
-            Some(content) => content.elem().name(),
-            None => "element",
-        };
-        warning!(
-            self.1,
-            "HTML element ID assigned to the destination {what} did not stabilize"
-        )
-        .with_hint(history.hint("IDs", |id| match id {
-            Some(id) => id.clone(),
-            None => "(no ID)".into(),
-        }))
-    }
-}
-
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     Ok(LinkElem::new(
         LinkTarget::Dest(Destination::Location(elem.loc)),
@@ -230,6 +194,8 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     )
     .pack())
 };
+
+const DIVIDER_RULE: ShowFn<DividerElem> = |_elem, _, _| Ok(HtmlElem::new(tag::hr).pack());
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::h1)
@@ -263,7 +229,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             level, level + 1;
             hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
             hint: "you may want to restructure your document so that \
-                   it doesn't contain deep headings"
+                   it doesn't contain deep headings";
         ));
         HtmlElem::new(tag::div)
             .with_body(Some(realized))
@@ -336,69 +302,38 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
 
-    // Link to the footnote entry.
-    let link = LinkElem::new(dest.into(), sup)
+    // The footnote number that links to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(link)
         .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
+        .spanned(span);
 
     // Indicates the presence of a default footnote rule to emit an error when
     // no footnote container is available.
     let marker = FootnoteMarker::new().pack().spanned(span);
 
-    Ok(HElem::hole().clone() + link + marker)
+    Ok(HElem::hole().clone() + sup + marker)
 };
-
-/// This is inserted at the end of the body to display footnotes. In the future,
-/// we can expose this to allow customizing where the footnotes appear. It could
-/// also be exposed for paged export.
-#[elem]
-pub struct FootnoteContainer {}
-
-impl FootnoteContainer {
-    /// Get the globally shared footnote container element.
-    pub fn shared() -> &'static Content {
-        singleton!(Content, FootnoteContainer::new().pack())
-    }
-
-    /// Fails with an error if there are footnotes.
-    pub fn unsupported_with_custom_dom(engine: &mut Engine) -> SourceResult<()> {
-        let markers = engine.introspect(QueryIntrospection(
-            FootnoteMarker::ELEM.select(),
-            Span::detached(),
-        ));
-
-        if markers.is_empty() {
-            return Ok(());
-        }
-
-        Err(markers
-            .iter()
-            .map(|marker| {
-                error!(
-                    marker.span(),
-                    "footnotes are not currently supported in combination \
-                     with a custom `<html>` or `<body>` element";
-                    hint: "you can still use footnotes with a custom footnote show rule"
-                )
-            })
-            .collect())
-    }
-}
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
 const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
-    let notes =
-        engine.introspect(QueryIntrospection(FootnoteElem::ELEM.select(), elem.span()));
+    let mut selector = FootnoteElem::ELEM.select();
 
-    if notes.is_empty() {
-        return Ok(Content::empty());
+    // In bundle export, we only want the footnotes in the current document.
+    if let Some(doc_location) =
+        engine.introspect(DocumentIntrospection(elem.location().unwrap(), elem.span()))
+    {
+        selector = Selector::Within {
+            selector: Arc::new(FootnoteElem::ELEM.select()),
+            ancestor: Arc::new(doc_location.into()),
+        };
     }
 
     // Create entries for all footnotes in the document.
+    let notes = engine.introspect(QueryIntrospection(selector, elem.span()));
     let items = notes.into_iter().filter_map(|note| {
         let note = note.into_packed::<FootnoteElem>().unwrap();
         if note.is_ref() {
@@ -416,6 +351,12 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
                 .spanned(span),
         )
     });
+
+    // Don't create a container if we filtered out all notes.
+    let mut items = items.peekable();
+    if items.peek().is_none() {
+        return Ok(Content::empty());
+    }
 
     // There can be multiple footnotes in a container, so they semantically
     // represent an ordered list. However, the list is already numbered with the
@@ -435,18 +376,20 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
     // `doc-backlink` is the appropriate ARIA role.
-    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
+    let prefix = sup
+        .styled(HtmlElem::role.set(Some("doc-backlink".into())))
+        .spanned(elem.span());
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see
     // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
     // appropriately modelled as ARIA endnotes. This is also in line with how
     // Pandoc handles footnotes.
-    Ok(backlink + body)
+    Ok(prefix + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
@@ -692,11 +635,13 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
         attrs.push(attr::rowspan, rowspan);
     }
     HtmlElem::new(tag)
-        .with_body(Some(cell.body.clone()))
+        .with_body(Some(cell.clone().pack()))
         .with_attrs(attrs)
         .pack()
         .spanned(cell.span())
 }
+
+const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, _| Ok(elem.body.clone());
 
 const SUB_RULE: ShowFn<SubElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
@@ -793,7 +738,7 @@ const BLOCK_RULE: ShowFn<BlockElem> = |elem, _, styles| {
             bail!(
                 elem.span(),
                 "blocks with layout routines should not occur in \
-                 HTML export – this is a bug"
+                 HTML export – this is a bug";
             )
         }
     };

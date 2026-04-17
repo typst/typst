@@ -80,7 +80,12 @@ pub(crate) fn handle_image(
     Ok(())
 }
 
-struct Repr {
+/// A wrapper around `RasterImage` so that we can implement `CustomImage`.
+#[derive(Clone)]
+struct PdfRasterImage(Arc<PdfRasterImageInner>);
+
+/// The internal representation of a [`PdfRasterImage`].
+struct PdfRasterImageInner {
     /// The original, underlying raster image.
     raster: RasterImage,
     /// The alpha channel of the raster image, if existing.
@@ -91,13 +96,10 @@ struct Repr {
     actual_dynamic: OnceLock<Arc<DynamicImage>>,
 }
 
-/// A wrapper around `RasterImage` so that we can implement `CustomImage`.
-#[derive(Clone)]
-struct PdfRasterImage(Arc<Repr>);
-
 impl PdfRasterImage {
+    /// Wraps a raster image.
     pub fn new(raster: RasterImage) -> Self {
-        Self(Arc::new(Repr {
+        Self(Arc::new(PdfRasterImageInner {
             raster,
             alpha_channel: OnceLock::new(),
             actual_dynamic: OnceLock::new(),

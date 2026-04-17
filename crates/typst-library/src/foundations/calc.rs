@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 
 use az::SaturatingAs;
 use typst_syntax::{Span, Spanned};
-use typst_utils::{round_int_with_precision, round_with_precision};
+use typst_utils::{Scalar, round_int_with_precision, round_with_precision};
 
 use crate::diag::{At, HintedString, SourceResult, StrResult, bail};
 use crate::foundations::{Decimal, IntoValue, Module, Scope, Value, cast, func, ops};
@@ -29,8 +29,12 @@ pub fn module() -> Module {
     scope.define_func::<sinh>();
     scope.define_func::<cosh>();
     scope.define_func::<tanh>();
+    scope.define_func::<asinh>();
+    scope.define_func::<acosh>();
+    scope.define_func::<atanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
+    scope.define_func::<erf>();
     scope.define_func::<fact>();
     scope.define_func::<perm>();
     scope.define_func::<binom>();
@@ -133,13 +137,13 @@ pub fn pow(
             };
 
             let result = if a == std::f64::consts::E {
-                b.float().exp()
+                libm::exp(b.float())
             } else if a == 2.0 {
-                b.float().exp2()
+                libm::exp2(b.float())
             } else if let Num::Int(b) = b {
-                a.powi(b as i32)
+                Scalar::new(a).powi(b as i32).get()
             } else {
-                a.powf(b.float())
+                libm::pow(a, b.float())
             };
 
             if result.is_nan() {
@@ -172,7 +176,7 @@ pub fn exp(
         _ => {}
     }
 
-    let result = exponent.v.float().exp();
+    let result = libm::exp(exponent.v.float());
     if result.is_nan() {
         bail!(span, "the result is not a real number")
     }
@@ -218,13 +222,13 @@ pub fn root(
         if index.v % 2 == 0 {
             bail!(
                 index.span,
-                "negative numbers do not have a real nth root when n is even"
+                "negative numbers do not have a real nth root when n is even",
             );
         } else {
-            Ok(-(-radicand).powf(1.0 / index.v as f64))
+            Ok(-libm::pow(-radicand, 1.0 / index.v as f64))
         }
     } else {
-        Ok(radicand.powf(1.0 / index.v as f64))
+        Ok(libm::pow(radicand, 1.0 / index.v as f64))
     }
 }
 
@@ -244,8 +248,8 @@ pub fn sin(
 ) -> f64 {
     match angle {
         AngleLike::Angle(a) => a.sin(),
-        AngleLike::Int(n) => (n as f64).sin(),
-        AngleLike::Float(n) => n.sin(),
+        AngleLike::Int(n) => libm::sin(n as f64),
+        AngleLike::Float(n) => libm::sin(n),
     }
 }
 
@@ -265,8 +269,8 @@ pub fn cos(
 ) -> f64 {
     match angle {
         AngleLike::Angle(a) => a.cos(),
-        AngleLike::Int(n) => (n as f64).cos(),
-        AngleLike::Float(n) => n.cos(),
+        AngleLike::Int(n) => libm::cos(n as f64),
+        AngleLike::Float(n) => libm::cos(n),
     }
 }
 
@@ -286,8 +290,8 @@ pub fn tan(
 ) -> f64 {
     match angle {
         AngleLike::Angle(a) => a.tan(),
-        AngleLike::Int(n) => (n as f64).tan(),
-        AngleLike::Float(n) => n.tan(),
+        AngleLike::Int(n) => libm::tan(n as f64),
+        AngleLike::Float(n) => libm::tan(n),
     }
 }
 
@@ -306,7 +310,7 @@ pub fn asin(
     if val < -1.0 || val > 1.0 {
         bail!(value.span, "value must be between -1 and 1");
     }
-    Ok(Angle::rad(val.asin()))
+    Ok(Angle::asin(val))
 }
 
 /// Calculates the arccosine of a number.
@@ -324,7 +328,7 @@ pub fn acos(
     if val < -1.0 || val > 1.0 {
         bail!(value.span, "value must be between -1 and 1");
     }
-    Ok(Angle::rad(val.acos()))
+    Ok(Angle::acos(val))
 }
 
 /// Calculates the arctangent of a number.
@@ -338,7 +342,7 @@ pub fn atan(
     /// The number whose arctangent to calculate.
     value: Num,
 ) -> Angle {
-    Angle::rad(value.float().atan())
+    Angle::atan(value.float())
 }
 
 /// Calculates the four-quadrant arctangent of a coordinate.
@@ -356,7 +360,7 @@ pub fn atan2(
     /// The Y coordinate.
     y: Num,
 ) -> Angle {
-    Angle::rad(f64::atan2(y.float(), x.float()))
+    Angle::atan2(y.float(), x.float())
 }
 
 /// Calculates the hyperbolic sine of a hyperbolic angle.
@@ -370,7 +374,7 @@ pub fn sinh(
     /// The hyperbolic angle whose hyperbolic sine to calculate.
     value: f64,
 ) -> f64 {
-    value.sinh()
+    libm::sinh(value)
 }
 
 /// Calculates the hyperbolic cosine of a hyperbolic angle.
@@ -384,7 +388,7 @@ pub fn cosh(
     /// The hyperbolic angle whose hyperbolic cosine to calculate.
     value: f64,
 ) -> f64 {
-    value.cosh()
+    libm::cosh(value)
 }
 
 /// Calculates the hyperbolic tangent of a hyperbolic angle.
@@ -398,7 +402,59 @@ pub fn tanh(
     /// The hyperbolic angle whose hyperbolic tangent to calculate.
     value: f64,
 ) -> f64 {
-    value.tanh()
+    libm::tanh(value)
+}
+
+/// Calculates the inverse hyperbolic sine of a number.
+///
+/// ```example
+/// #calc.asinh(0) \
+/// #calc.asinh(1)
+/// ```
+#[func(title = "Inverse Hyperbolic Sine")]
+pub fn asinh(
+    /// The number whose inverse hyperbolic sine to calculate.
+    value: f64,
+) -> f64 {
+    libm::asinh(value)
+}
+
+/// Calculates the inverse hyperbolic cosine of a number.
+///
+/// ```example
+/// #calc.acosh(1) \
+/// #calc.acosh(2.5)
+/// ```
+#[func(title = "Inverse Hyperbolic Cosine")]
+pub fn acosh(
+    /// The number whose inverse hyperbolic cosine to calculate. Must be greater
+    /// than or equal to 1.
+    value: Spanned<f64>,
+) -> SourceResult<f64> {
+    let val = value.v;
+    if val < 1.0 {
+        bail!(value.span, "value must be greater than or equal to 1");
+    }
+    Ok(libm::acosh(val))
+}
+
+/// Calculates the inverse hyperbolic tangent of a number.
+///
+/// ```example
+/// #calc.atanh(0) \
+/// #calc.atanh(0.5)
+/// ```
+#[func(title = "Inverse Hyperbolic Tangent")]
+pub fn atanh(
+    /// The number whose inverse hyperbolic tangent to calculate. Must be
+    /// between -1 and 1 (exclusive).
+    value: Spanned<f64>,
+) -> SourceResult<f64> {
+    let val = value.v;
+    if val <= -1.0 || val >= 1.0 {
+        bail!(value.span, "value must be between -1 and 1 (exclusive)");
+    }
+    Ok(libm::atanh(val))
 }
 
 /// Calculates the logarithm of a number.
@@ -415,7 +471,7 @@ pub fn log(
     value: Spanned<Num>,
     /// The base of the logarithm. May not be zero.
     #[named]
-    #[default(Spanned::new(10.0, Span::detached()))]
+    #[default(Spanned::detached(10.0))]
     base: Spanned<f64>,
 ) -> SourceResult<f64> {
     let number = value.v.float();
@@ -428,13 +484,13 @@ pub fn log(
     }
 
     let result = if base.v == std::f64::consts::E {
-        number.ln()
+        libm::log(number)
     } else if base.v == 2.0 {
-        number.log2()
+        libm::log2(number)
     } else if base.v == 10.0 {
-        number.log10()
+        libm::log10(number)
     } else {
-        number.log(base.v)
+        libm::log(number) / libm::log(base.v)
     };
 
     if result.is_infinite() || result.is_nan() {
@@ -460,12 +516,25 @@ pub fn ln(
         bail!(value.span, "value must be strictly positive")
     }
 
-    let result = number.ln();
+    let result = libm::log(number);
     if result.is_infinite() {
         bail!(span, "result close to -inf")
     }
 
     Ok(result)
+}
+
+/// Applies the error function to a number.
+///
+/// ```example
+/// #calc.erf(0.2)
+/// ```
+#[func(title = "Error function")]
+pub fn erf(
+    /// The number whose error function to calculate.
+    value: f64,
+) -> f64 {
+    libm::erf(value)
 }
 
 /// Calculates the factorial of a number.
@@ -564,6 +633,9 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 
 /// Calculates the greatest common divisor of two integers.
 ///
+/// This will error if the result of integer division would be larger than the
+/// maximum 64-bit signed integer.
+///
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
@@ -573,15 +645,15 @@ pub fn gcd(
     a: i64,
     /// The second integer.
     b: i64,
-) -> i64 {
+) -> StrResult<i64> {
     let (mut a, mut b) = (a, b);
     while b != 0 {
         let temp = b;
-        b = a % b;
+        b = a.checked_rem(b).ok_or_else(too_large)?;
         a = temp;
     }
 
-    a.abs()
+    Ok(a.abs())
 }
 
 /// Calculates the least common multiple of two integers.
@@ -600,7 +672,7 @@ pub fn lcm(
         return Ok(a.abs());
     }
 
-    Ok(a.checked_div(gcd(a, b))
+    Ok(a.checked_div(gcd(a, b)?)
         .and_then(|gcd| gcd.checked_mul(b))
         .map(|v| v.abs())
         .ok_or_else(too_large)?)
@@ -918,7 +990,9 @@ pub fn rem(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a % b)),
+            // `checked_rem` can only overflow on `i64::MIN % -1` which is
+            // mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a % b)),
             |a, b| a.checked_rem(b).map(DecNum::Decimal),
         )
@@ -931,7 +1005,11 @@ pub fn rem(
 /// Performs euclidean division of two numbers.
 ///
 /// The result of this computation is that of a division rounded to the integer
-/// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+/// `{n}` such that the dividend is greater than or equal to `{n}` times
+/// the divisor.
+///
+/// This can error if the resulting number is larger than the maximum value or
+/// smaller than the minimum value for its type.
 ///
 /// ```example
 /// #calc.div-euclid(7, 3) \
@@ -956,7 +1034,7 @@ pub fn div_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.div_euclid(b))),
+            |a, b| a.checked_div_euclid(b).map(DecNum::Int),
             |a, b| Some(DecNum::Float(a.div_euclid(b))),
             |a, b| a.checked_div_euclid(b).map(DecNum::Decimal),
         )
@@ -999,7 +1077,9 @@ pub fn rem_euclid(
     dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a.rem_euclid(b))),
+            // `checked_rem_euclid` can only overflow on `i64::MIN % -1` which
+            // is mathematically zero.
+            |a, b| Some(DecNum::Int(a.checked_rem_euclid(b).unwrap_or(0))),
             |a, b| Some(DecNum::Float(a.rem_euclid(b))),
             |a, b| a.checked_rem_euclid(b).map(DecNum::Decimal),
         )
@@ -1012,8 +1092,8 @@ pub fn rem_euclid(
 /// Calculates the quotient (floored division) of two numbers.
 ///
 /// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// error if the resulting number is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
@@ -1035,7 +1115,15 @@ pub fn quo(
     let divided = dividend
         .apply2(
             divisor.v,
-            |a, b| Some(DecNum::Int(a / b)),
+            |a, b| {
+                let q = a.checked_div(b)?;
+                // Round towards negative infinity if the fraction is negative.
+                Some(DecNum::Int(if (a < 0) != (b < 0) && a % b != 0 {
+                    q - 1
+                } else {
+                    q
+                }))
+            },
             |a, b| Some(DecNum::Float(a / b)),
             |a, b| a.checked_div(b).map(DecNum::Decimal),
         )
@@ -1057,7 +1145,7 @@ pub fn quo(
 pub fn norm(
     /// The p value to calculate the p-norm of.
     #[named]
-    #[default(Spanned::new(2.0, Span::detached()))]
+    #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
     /// The sequence of values from which to calculate the p-norm.
     /// Returns `0.0` if empty.
@@ -1075,7 +1163,7 @@ pub fn norm(
         // When p is infinity, the p-norm is the maximum of the absolute values.
         abs.max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0)
     } else {
-        abs.map(|v| v.powf(p.v)).sum::<f64>().powf(1.0 / p.v)
+        libm::pow(abs.map(|v| libm::pow(v, p.v)).sum::<f64>(), 1.0 / p.v)
     })
 }
 

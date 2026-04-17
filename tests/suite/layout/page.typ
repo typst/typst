@@ -1,6 +1,6 @@
 // Test the page class.
 
---- page-call-empty paged ---
+--- page-call-empty paged empty ---
 // Just empty page.
 // Should result in auto-sized page, just like nothing.
 #page[]
@@ -129,11 +129,11 @@
 #pagebreak()
 #rect(width: 100%)[Right]
 
---- page-margin-left-and-outside paged ---
+--- page-margin-left-and-outside eval ---
 // Error: 19-44 `inside` and `outside` are mutually exclusive with `left` and `right`
 #set page(margin: (left: 1cm, outside: 2cm))
 
---- page-margin-binding-bad paged ---
+--- page-margin-binding-bad eval ---
 // Error: 20-23 must be `left` or `right`
 #set page(binding: top)
 
@@ -177,7 +177,7 @@ Z
 
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
---- page-number-align-left-horizon paged ---
+--- page-number-align-left-horizon eval ---
 // Error: 25-39 expected `top` or `bottom`, found horizon
 #set page(number-align: left + horizon)
 
@@ -233,8 +233,8 @@ Z
 --- page-numbering-hint paged ---
 = Heading <intro>
 
-// Error: 1:21-1:47 cannot reference without page numbering
-// Hint: 1:21-1:47 you can enable page numbering with `#set page(numbering: "1")`
+// Error: 21-47 cannot reference without page numbering
+// Hint: 21-47 you can enable page numbering with `#set page(numbering: "1")`
 Can not be used as #ref(<intro>, form: "page")
 
 --- page-suppress-headers-and-footers paged ---
@@ -348,6 +348,16 @@ A
   A
 ]
 
+--- page-show-warning paged empty ---
+// Warning: 2-17 `show page` is not supported and has no effect
+// Hint: 2-17 customize pages with `set page(..)` instead
+#show page: none
+
+--- page-set-html html ---
+// Warning: 2-16 page set rule was ignored during HTML export
+#set page("a4")
+Hi
+
 --- issue-2631-page-header-ordering paged ---
 #set text(6pt)
 #show heading: set text(6pt, weight: "regular")
@@ -382,7 +392,7 @@ text
   On page #here().page()
 ]
 
---- issue-3671-get-from-page-call paged ---
+--- issue-3671-get-from-page-call paged empty ---
 #set page(margin: 5pt)
 #context test(page.margin, 5pt)
 #page(margin: 10pt, context test(page.margin, 10pt))
@@ -394,3 +404,12 @@ text
 #metadata(none)
 #set page(fill: red)
 2
+
+--- issue-7292-page-width-auto-margin-zero paged ---
+#set page(width: auto, height: 100pt, margin: 0pt)
+
+--- issue-7292-page-height-auto-margin-zero paged ---
+#set page(width: 100pt, height: auto, margin: 0pt)
+
+--- issue-7292-page-size-auto-margin-zero paged ---
+#set page(width: auto, height: auto, margin: 0pt)

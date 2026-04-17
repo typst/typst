@@ -1,8 +1,8 @@
---- content-at-default paged ---
+--- content-at-default eval ---
 // Test .at() default values for content.
 #test(auto, [a].at("doesn't exist", default: auto))
 
---- content-field-syntax paged ---
+--- content-field-syntax paged empty ---
 // Test fields on elements.
 #show list: it => {
   test(it.children.len(), 3)
@@ -17,12 +17,12 @@
 #show heading: it => it.fun
 = A
 
---- content-fields paged ---
+--- content-fields eval ---
 // Test content fields method.
 #test([a].fields(), (text: "a"))
 #test([a *b*].fields(),  (children: ([a], [ ], strong[b])))
 
---- content-fields-mutable-invalid paged ---
+--- content-fields-mutable-invalid eval ---
 #{
   let object = [hi]
   // Error: 3-9 cannot mutate fields on content
@@ -59,7 +59,7 @@
     let func = elem.func()
     if elem.has("text") {
       let text = elem.text
-      if regex("^\d+$") in text {
+      if regex("^\\d+$") in text {
         int(text)
       } else if text in vars {
         int(vars.at(text))
@@ -123,14 +123,14 @@
 
 = Hello, world! <my-label>
 
---- content-fields-unset paged ---
+--- content-fields-unset eval ---
 // Error: 10-15 field "block" in raw is not known at this point
 #raw("").block
 
---- content-fields-unset-no-default paged ---
+--- content-fields-unset-no-default eval ---
 // Error: 2-21 field "block" in raw is not known at this point and no default was specified
 #raw("").at("block")
 
---- content-try-to-access-internal-field paged ---
+--- content-try-to-access-internal-field eval ---
 // Error: 9-15 hide does not have field "hidden"
 #hide[].hidden

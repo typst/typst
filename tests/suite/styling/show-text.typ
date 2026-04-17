@@ -42,27 +42,27 @@ AA (8)
 
 --- show-text-regex-word-boundary paged ---
 // Test caseless match and word boundaries.
-#show regex("(?i)\bworld\b"): [🌍]
+#show regex("(?i)\\bworld\\b"): [🌍]
 
 Treeworld, the World of worlds, is a world.
 
---- show-text-empty paged ---
+--- show-text-empty eval ---
 // Test there is no crashing on empty strings
-// Error: 1:7-1:9 text selector is empty
+// Error: 7-9 text selector is empty
 #show "": []
 
---- show-text-regex-empty paged ---
-// Error: 1:7-1:16 regex selector is empty
+--- show-text-regex-empty eval ---
+// Error: 7-16 regex selector is empty
 #show regex(""): [AA]
 
---- show-text-regex-matches-empty paged ---
-// Error: 1:7-1:42 regex matches empty text
+--- show-text-regex-matches-empty eval ---
+// Error: 7-42 regex matches empty text
 #show regex("(VAR_GLOBAL|END_VAR||BOOL)") : []
 
 --- show-text-regex-character-class paged ---
 // This is a fun one.
 #set par(justify: true)
-#show regex("\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
+#show regex("\\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))
 #lorem(5)
 
 --- show-text-regex-case-insensitive paged ---
@@ -212,6 +212,33 @@ a \ #h(0pt, weak: true)
 b \ #h(0pt, weak: true)
 $x$ c $y$
 
+--- show-text-styled-space paged ---
+// Differently styled spaces between text are not matched by regex rules.
+// This is solely due to grouping rules, not space collapsing.
+#show " ": "B"
+#show "X": "B"
+A C \
+A#text(red)[ ]C \
+A#text(red)[X]C
+
+--- show-text-isolated-space paged ---
+#show " ": it => {
+  test(it.func(), text)
+  test(it.text, " ")
+  [-]
+}
+// We split up the text run into three separate elements to see what kind of
+// element we get in the match (space vs text). We want text so that a `.text`
+// field is available.
+A#[ ]B
+
+--- show-text-where-text-is-space paged ---
+// Spaces in `text` match even if differently styled, unlike the previous test.
+#show text.where(text: " "): [B]
+A#text(" ")C \
+A#text([ ])C \ // Space elements don't magically become `text`
+A#text(" ", red)C
+
 --- issue-5014-show-text-tags paged ---
 #{
   let c = counter("c")
@@ -220,3 +247,33 @@ $x$ c $y$
   c.step()
   [bc]
 }
+
+--- issue-7991-show-text-symbol-grapheme-sliced paged ---
+#show "*": set text(red)
+$ast.basic$
+
+--- issue-8058-show-text-grapheme-sliced paged ---
+// The issue is not yet fixed, so this test demonstrates the current undesirable
+// behavior.
+
+#set text(font: "New Computer Modern Math")
+
+#let emptyset = sym.emptyset
+#let narrowemptysettext = emptyset + "\u{fe00}"
+#let narrowemptyset = symbol(narrowemptysettext)
+
+// This should still be narrow, but it's currently not because the symbol is
+// split up and the shaper gets both parts separately. This could probably also
+// be fixed in the inline layout.
+//
+// See also https://github.com/typst/typst/issues/8058.
+#[
+  #show emptyset: it => it
+  #narrowemptysettext, $narrowemptyset$
+]
+
+// Same here.
+#[
+  #show "\u{fe00}": it => it
+  #narrowemptysettext, $narrowemptyset$
+]

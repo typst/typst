@@ -35,7 +35,7 @@ multiline.
 = This
   is not.
 
---- heading-trailing-whitespace paged ---
+--- heading-trailing-whitespace eval ---
 // Whether headings contain trailing whitespace with or without comments/labels.
 // Labels are special cased to immediately end headings in the parser, but also
 // #strike[have unique whitespace behavior] Now their behavior is consistent!
@@ -64,7 +64,7 @@ multiline.
 // #strike[The first space attaches, but not the second] Now neither attaches!
 #test(join(head(join[h]))[ ][ ], [= h  /**/  <g>])
 
---- heading-leading-whitespace paged ---
+--- heading-leading-whitespace eval ---
 // Test that leading whitespace and comments don't matter.
 #test[= h][=        h]
 #test[= h][=   /**/  /**/   h]
@@ -129,8 +129,8 @@ Not in heading
 --- heading-numbering-hint paged ---
 = Heading <intro>
 
-// Error: 1:19-1:25 cannot reference heading without numbering
-// Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
+// Error: 19-25 cannot reference heading without numbering
+// Hint: 19-25 you can enable heading numbering with `#set heading(numbering: "1.")`
 Cannot be used as @intro
 
 --- heading-par paged ---
@@ -162,3 +162,12 @@ Cannot be used as @intro
 --- issue-5719-heading-nested paged ---
 // Headings may not be nested like this.
 = = A
+
+--- issue-7428-heading-numbering-errors paged ---
+// Ensure that the error from the first layout iteration is silenced.
+#set heading(numbering: (n, ..nums) => {
+  assert(n > 0)
+  [#n]
+})
+
+= A

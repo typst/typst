@@ -66,7 +66,7 @@ impl<'a> Vm<'a> {
                 "`is` will likely become a keyword in future versions and will \
                 not be allowed as an identifier";
                 hint: "rename this variable to avoid future errors";
-                hint: "try `is_` instead"
+                hint: "try `is_` instead";
             ));
         }
 

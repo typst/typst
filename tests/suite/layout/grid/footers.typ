@@ -141,16 +141,16 @@
 )
 
 --- grid-footer-not-at-last-row paged ---
-// Error: 2:3-2:19 footer must end at the last row
 #grid(
+  // Error: 3-19 footer must end at the last row
   grid.footer([a]),
   [b],
 )
 
 --- grid-footer-not-at-last-row-two-columns paged ---
-// Error: 3:3-3:19 footer must end at the last row
 #grid(
   columns: 2,
+  // Error: 3-19 footer must end at the last row
   grid.footer([a]),
   [b],
 )
@@ -175,74 +175,74 @@
 )
 
 --- grid-footer-multiple paged ---
-// Error: 4:3-4:19 cannot have more than one footer
 #grid(
   [a],
   grid.footer([a]),
+  // Error: 3-19 cannot have more than one footer
   grid.footer([b]),
 )
 
---- table-footer-in-grid paged ---
-// Error: 3:3-3:20 cannot use `table.footer` as a grid footer
-// Hint: 3:3-3:20 use `grid.footer` instead
+--- table-footer-in-grid eval ---
 #grid(
   [a],
+  // Error: 3-20 cannot use `table.footer` as a grid footer
+  // Hint: 3-20 use `grid.footer` instead
   table.footer([a]),
 )
 
---- grid-footer-in-table paged ---
-// Error: 3:3-3:19 cannot use `grid.footer` as a table footer
-// Hint: 3:3-3:19 use `table.footer` instead
+--- grid-footer-in-table eval ---
 #table(
   [a],
+  // Error: 3-19 cannot use `grid.footer` as a table footer
+  // Hint: 3-19 use `table.footer` instead
   grid.footer([a]),
 )
 
---- grid-footer-in-grid-header paged ---
+--- grid-footer-in-grid-header eval ---
 // Error: 14-28 cannot place a grid footer within another footer or header
 #grid.header(grid.footer[a])
 
---- table-footer-in-grid-header paged ---
+--- table-footer-in-grid-header eval ---
 // Error: 14-29 cannot place a table footer within another footer or header
 #grid.header(table.footer[a])
 
---- grid-footer-in-table-header paged ---
+--- grid-footer-in-table-header eval ---
 // Error: 15-29 cannot place a grid footer within another footer or header
 #table.header(grid.footer[a])
 
---- table-footer-in-table-header paged ---
+--- table-footer-in-table-header eval ---
 // Error: 15-30 cannot place a table footer within another footer or header
 #table.header(table.footer[a])
 
---- grid-footer-in-grid-footer paged ---
+--- grid-footer-in-grid-footer eval ---
 // Error: 14-28 cannot place a grid footer within another footer or header
 #grid.footer(grid.footer[a])
 
---- table-footer-in-grid-footer paged ---
+--- table-footer-in-grid-footer eval ---
 // Error: 14-29 cannot place a table footer within another footer or header
 #grid.footer(table.footer[a])
 
---- grid-footer-in-table-footer paged ---
+--- grid-footer-in-table-footer eval ---
 // Error: 15-29 cannot place a grid footer within another footer or header
 #table.footer(grid.footer[a])
 
---- table-footer-in-table-footer paged ---
+--- table-footer-in-table-footer eval ---
 // Error: 15-30 cannot place a table footer within another footer or header
 #table.footer(table.footer[a])
 
---- grid-header-in-grid-footer paged ---
+--- grid-header-in-grid-footer eval ---
 // Error: 14-28 cannot place a grid header within another header or footer
 #grid.footer(grid.header[a])
 
---- table-header-in-grid-footer paged ---
+--- table-header-in-grid-footer eval ---
 // Error: 14-29 cannot place a table header within another header or footer
 #grid.footer(table.header[a])
 
---- grid-header-in-table-footer paged ---
+--- grid-header-in-table-footer eval ---
 // Error: 15-29 cannot place a grid header within another header or footer
 #table.footer(grid.header[a])
 
---- table-header-in-table-footer paged ---
+--- table-header-in-table-footer eval ---
 // Error: 15-30 cannot place a table header within another header or footer
 #table.footer(table.header[a])
 

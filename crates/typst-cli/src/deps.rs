@@ -35,7 +35,7 @@ fn write_deps_json(
         dep.into_os_string().into_string().map_err(|dep| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("{kind} {dep:?} is not valid utf-8"),
+                format!("{kind} {dep:?} is not valid UTF-8"),
             )
         })
     };

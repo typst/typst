@@ -17,8 +17,8 @@ use typst_library::layout::{
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
+    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
+    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
     OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
 };
@@ -30,8 +30,8 @@ use typst_library::text::{
     TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
-    RectElem, SquareElem, Stroke,
+    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
+    SquareElem, Stroke,
 };
 use typst_utils::{Get, Numeric};
 
@@ -48,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
     rules.register(Paged, DIRECT_LINK_RULE);
+    rules.register(Paged, DIVIDER_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -100,7 +101,6 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, CIRCLE_RULE);
     rules.register(Paged, POLYGON_RULE);
     rules.register(Paged, CURVE_RULE);
-    rules.register(Paged, PATH_RULE);
 
     // Math.
     rules.register(Paged, EQUATION_RULE);
@@ -222,7 +222,7 @@ const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let span = elem.span();
     let body = elem.body.clone();
-    let dest = elem.dest.resolve(engine, span)?;
+    let dest = elem.dest.resolve_early(engine, span)?;
     let alt = dest.alt_text(engine, styles, span)?;
     // Manually construct link marker that spans the whole link elem, not just
     // the body.
@@ -236,6 +236,9 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     let dest = Destination::Location(elem.loc);
     Ok(elem.body.clone().linked(dest, elem.alt.clone()))
 };
+
+const DIVIDER_RULE: ShowFn<DividerElem> =
+    |elem, _, _| Ok(LineElem::new().pack().spanned(elem.span()));
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(BlockElem::new()
@@ -340,7 +343,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
         bail!(
             span,
             "parent-scoped placement is only available for floating figures";
-            hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
         );
     }
 
@@ -395,19 +398,19 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num) = elem.realize(engine, styles)?;
-    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+    // The footnote number that links to the footnote entry.
+    let link = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(link).pack().spanned(elem.span());
     Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let number_gap = Em::new(0.05);
-    let (prefix, body) = elem.realize(engine, styles)?;
+    let (sup, body) = elem.realize(engine, styles)?;
+    let prefix = PdfMarkerTag::Label(sup);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        PdfMarkerTag::Label(prefix),
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
@@ -815,10 +818,6 @@ const POLYGON_RULE: ShowFn<PolygonElem> = |elem, _, _| {
 
 const CURVE_RULE: ShowFn<CurveElem> = |elem, _, _| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_curve).pack())
-};
-
-const PATH_RULE: ShowFn<PathElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_path).pack())
 };
 
 const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {

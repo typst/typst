@@ -27,10 +27,10 @@ use crate::text::{
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone)]
-pub struct Font(Arc<Repr>);
+pub struct Font(Arc<FontInner>);
 
-/// The internal representation of a font.
-struct Repr {
+/// The internal representation of a [`Font`].
+struct FontInner {
     /// The font's index in the buffer.
     index: u32,
     /// Metadata about the font.
@@ -68,7 +68,7 @@ impl Font {
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
     }
 
     /// Parse all fonts in the given data.
@@ -359,6 +359,16 @@ impl FontMetrics {
                         .to_em(constants.lower_limit_gap_min().value),
                     lower_limit_baseline_drop_min: font
                         .to_em(constants.lower_limit_baseline_drop_min().value),
+                    stack_top_shift_up: font.to_em(constants.stack_top_shift_up().value),
+                    stack_top_display_style_shift_up: font
+                        .to_em(constants.stack_top_display_style_shift_up().value),
+                    stack_bottom_shift_down: font
+                        .to_em(constants.stack_bottom_shift_down().value),
+                    stack_bottom_display_style_shift_down: font
+                        .to_em(constants.stack_bottom_display_style_shift_down().value),
+                    stack_gap_min: font.to_em(constants.stack_gap_min().value),
+                    stack_display_style_gap_min: font
+                        .to_em(constants.stack_display_style_gap_min().value),
                     fraction_numerator_shift_up: font
                         .to_em(constants.fraction_numerator_shift_up().value),
                     fraction_numerator_display_style_shift_up: font.to_em(
@@ -454,6 +464,12 @@ impl FontMetrics {
                     upper_limit_baseline_rise_min: Em::zero(),
                     lower_limit_gap_min: Em::zero(),
                     lower_limit_baseline_drop_min: Em::zero(),
+                    stack_top_shift_up: Em::zero(),
+                    stack_top_display_style_shift_up: Em::zero(),
+                    stack_bottom_shift_down: Em::zero(),
+                    stack_bottom_display_style_shift_down: Em::zero(),
+                    stack_gap_min: 3.0 * metrics.underline.thickness,
+                    stack_display_style_gap_min: 7.0 * metrics.underline.thickness,
                     fraction_numerator_shift_up: Em::zero(),
                     fraction_numerator_display_style_shift_up: Em::zero(),
                     fraction_denominator_shift_down: Em::zero(),
@@ -552,6 +568,12 @@ pub struct MathConstants {
     pub upper_limit_baseline_rise_min: Em,
     pub lower_limit_gap_min: Em,
     pub lower_limit_baseline_drop_min: Em,
+    pub stack_top_shift_up: Em,
+    pub stack_top_display_style_shift_up: Em,
+    pub stack_bottom_shift_down: Em,
+    pub stack_bottom_display_style_shift_down: Em,
+    pub stack_gap_min: Em,
+    pub stack_display_style_gap_min: Em,
     pub fraction_numerator_shift_up: Em,
     pub fraction_numerator_display_style_shift_up: Em,
     pub fraction_denominator_shift_down: Em,

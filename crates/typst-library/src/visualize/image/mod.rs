@@ -10,14 +10,13 @@ pub use self::raster::{
 };
 pub use self::svg::SvgImage;
 
-use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{Span, Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
@@ -53,8 +52,8 @@ use crate::visualize::image::pdf::PdfDocument;
 /// ```
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
-    /// image in one of the supported [formats]($image.format).
+    /// A path to an image file or raw bytes making up an image in one of the
+    /// supported [formats]($image.format).
     ///
     /// Bytes can be used to specify raw pixel data in a row-major,
     /// left-to-right, top-to-bottom format.
@@ -296,14 +295,18 @@ impl Packed<ImageElem> {
                     engine.sink.warn(warning!(
                         span,
                         "image contains foreign object";
-                        hint: "SVG images with foreign objects might render incorrectly in Typst";
-                        hint: "see https://github.com/typst/typst/issues/1421 for more information"
+                        hint: "SVG images with foreign objects might render incorrectly \
+                               in Typst";
+                        hint: "see https://github.com/typst/typst/issues/1421 for more \
+                               information";
                     ));
                 }
 
                 // Identify the SVG file in case contained hrefs need to be resolved.
-                let svg_file = match self.source.source {
-                    DataSource::Path(ref path) => span.resolve_path(path).ok(),
+                let svg_file = match &self.source.source {
+                    DataSource::Path(path) => {
+                        path.resolve_if_some(span.id()).ok().map(|v| v.intern())
+                    }
                     DataSource::Bytes(_) => span.id(),
                 };
                 ImageKind::Svg(
@@ -326,14 +329,14 @@ impl Packed<ImageElem> {
                                 span,
                                 "the PDF is encrypted or password-protected";
                                 hint: "such PDFs are currently not supported";
-                                hint: "preprocess the PDF to remove the encryption"
+                                hint: "preprocess the PDF to remove the encryption";
                             );
                         }
                         LoadPdfError::Invalid => {
                             bail!(
                                 span,
                                 "the PDF could not be loaded";
-                                hint: "perhaps the PDF file is malformed"
+                                hint: "perhaps the PDF file is malformed";
                             );
                         }
                     },
@@ -345,7 +348,8 @@ impl Packed<ImageElem> {
                         span,
                         "PDF contains optional content groups";
                         hint: "the image might display incorrectly in PDF export";
-                        hint: "preprocess the PDF to flatten or remove optional content groups"
+                        hint: "preprocess the PDF to flatten or remove optional content \
+                               groups";
                     ));
                 }
 
@@ -360,7 +364,7 @@ impl Packed<ImageElem> {
                     bail!(
                         span,
                         "page {page_num} does not exist";
-                        hint: "the document only has {num_pages} page{s}"
+                        hint: "the document only has {num_pages} page{s}";
                     );
                 };
 
@@ -380,7 +384,8 @@ impl Packed<ImageElem> {
 
         let Derived { source, derived: loaded } = &self.source;
         if let DataSource::Path(path) = source
-            && let Some(format) = determine_format_from_path(path.as_str())
+            && let Ok(id) = path.resolve_if_some(self.span().id())
+            && let Some(format) = determine_format_from_path(id.vpath())
         {
             return Ok(format);
         }
@@ -390,14 +395,8 @@ impl Packed<ImageElem> {
 }
 
 /// Derive the image format from the file extension of a path.
-fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
-    let ext = std::path::Path::new(path)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or_default()
-        .to_lowercase();
-
-    match ext.as_str() {
+fn determine_format_from_path(path: &VirtualPath) -> Option<ImageFormat> {
+    match path.extension()? {
         // Raster formats
         "png" => Some(ExchangeFormat::Png.into()),
         "jpg" | "jpeg" => Some(ExchangeFormat::Jpg.into()),
@@ -437,11 +436,11 @@ pub enum ImageFit {
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Image(Arc<LazyHash<Repr>>);
+pub struct Image(Arc<LazyHash<ImageInner>>);
 
-/// The internal representation.
+/// The internal representation of an [`Image`].
 #[derive(Hash)]
-struct Repr {
+struct ImageInner {
     /// The raw, undecoded image data.
     kind: ImageKind,
     /// A text describing the image.
@@ -480,7 +479,7 @@ impl Image {
         alt: Option<EcoString>,
         scaling: Smart<ImageScaling>,
     ) -> Image {
-        Self(Arc::new(LazyHash::new(Repr { kind, alt, scaling })))
+        Self(Arc::new(LazyHash::new(ImageInner { kind, alt, scaling })))
     }
 
     /// The format of the image.

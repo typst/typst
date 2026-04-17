@@ -19,16 +19,20 @@ use ecow::EcoVec;
 use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
+use typst_layout::PagedDocument;
+use typst_library::diag::{
+    At, ExpectInternal, SourceDiagnostic, SourceResult, assert_internal, bail, error,
+    panic_internal,
+};
 use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
-    PagedDocument, PlaceElem, RepeatElem,
+    PlaceElem, RepeatElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
     HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
     StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
@@ -72,7 +76,7 @@ pub struct TreeBuilder<'a> {
 
 impl<'a> TreeBuilder<'a> {
     pub fn new(document: &PagedDocument, options: &'a PdfOptions) -> Self {
-        let doc_lang = document.info.locale.custom();
+        let doc_lang = document.info().locale.custom();
         let mut groups = Groups::new();
         let doc = groups.new_virtual(
             GroupId::INVALID,
@@ -174,22 +178,28 @@ struct StackEntry {
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
     let mut tree = TreeBuilder::new(document, options);
-    for page in document.pages.iter() {
+    for page in document.pages() {
         visit_frame(&mut tree, &page.frame)?;
     }
 
-    assert!(tree.stack.is_empty(), "tags weren't properly closed");
-    assert!(tree.unfinished_stacks.is_empty(), "tags weren't properly closed");
-    assert_eq!(
-        tree.progressions.first(),
-        tree.progressions.last(),
-        "tags weren't properly closed"
-    );
+    if let Some(last) = tree.stack.last() {
+        panic_internal("tags weren't properly closed")
+            .at(tree.groups.get(last.id).span)?;
+    }
+    assert_internal(tree.unfinished_stacks.is_empty(), "tags weren't properly closed")
+        .at(Span::detached())?;
+    assert_internal(
+        tree.progressions.first() == tree.progressions.last(),
+        "tags weren't properly closed",
+    )
+    .at(Span::detached())?;
 
     // Insert logical children into the tree.
     #[allow(clippy::iter_over_hash_type)]
     for (loc, children) in tree.logical_children.iter() {
-        let located = tree.groups.by_loc(loc).expect("parent group");
+        let located = (tree.groups.by_loc(loc))
+            .expect_internal("parent group")
+            .at(Span::detached())?;
 
         if options.is_pdf_ua() && located.multiple_parents {
             let validator = options.standards.config.validator().as_str();
@@ -197,7 +207,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             bail!(
                 group.span,
                 "{validator} error: ambiguous logical parent";
-                hint: "please report this as a bug"
+                hint: "please report this as a bug";
             );
         }
 
@@ -253,7 +263,7 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 /// can have children set by this mechanism must be handled in [`handle_start`]
 /// and must produce a located [`Group`], so the children can be inserted there.
 ///
-/// Currently the the frame parent is only set for:
+/// Currently the frame parent is only set for:
 /// - place elements [`PlaceElem`]
 /// - footnote entries [`FootnoteEntry`]
 /// - broken table/grid cells [`TableCell`]/[`GridCell`]
@@ -453,8 +463,10 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
                 error!(
                     heading.span(),
                     "{validator} error: heading title could not be determined";
-                    hint: "this seems to be caused by a context expression within the heading";
-                    hint: "consider wrapping the entire heading in a context expression instead"
+                    hint: "this seems to be caused by a context expression within the \
+                           heading";
+                    hint: "consider wrapping the entire heading in a context expression \
+                           instead";
                 )
             } else {
                 error!(heading.span(), "{validator} error: heading title is empty")
@@ -642,14 +654,14 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                     "{validator} error: invalid document structure, \
                      this element's PDF tag would be split up";
                     hint: "this is probably caused by paragraph grouping";
-                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`"
+                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`";
                 );
             } else {
                 bail!(
                     non_breakable_span,
                     "invalid document structure, \
                      this element's PDF tag would be split up";
-                    hint: "please report this as a bug"
+                    hint: "please report this as a bug";
                 );
             }
         }

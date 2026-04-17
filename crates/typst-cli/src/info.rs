@@ -3,12 +3,13 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use clap::builder::{FalseyValueParser, TypedValueParser};
-use clap::{CommandFactory, ValueEnum};
+use clap::builder::{BoolValueParser, TypedValueParser};
+use clap::{Command, CommandFactory, ValueEnum};
 use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::StrResult;
+use typst_kit::packages::FsPackages;
 
 use crate::CliArguments;
 use crate::args::{Feature, InfoCommand};
@@ -41,8 +42,8 @@ struct Info {
 #[derive(Default, Serialize)]
 #[serde(rename_all = "kebab-case")]
 struct Build {
-    /// The commit this binary was compiled with.
-    commit: &'static str,
+    /// The commit this binary was compiled from. May be `None` if unknown.
+    commit: Option<&'static str>,
 
     /// The platform this binary was compiled for.
     platform: Platform,
@@ -108,16 +109,17 @@ impl Settings {
 #[serde(rename_all = "kebab-case")]
 struct Features {
     html: bool,
+    bundle: bool,
     a11y_extras: bool,
 }
 
 impl Features {
     /// Return the runtime features with human readable information.
     fn features(&self) -> impl Iterator<Item = KeyValDesc<'_>> {
-        let Self { html, a11y_extras } = self;
-
+        let Self { html, bundle, a11y_extras } = self;
         [
-            ("html", html, "Experimental HTML support"),
+            ("html", html, "Experimental HTML export"),
+            ("bundle", bundle, "Experimental bundle export"),
             ("a11y-extras", a11y_extras, "Experimental accessibility additions"),
         ]
         .into_iter()
@@ -313,16 +315,11 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         .map(PathBuf::from)
         .collect::<_>();
 
-    let boolish = |v: &String| {
-        // This is only an error if `v` is not valid UTF-8, which it
-        // always is.
-        FalseyValueParser::new().parse_ref(&cmd, None, v.as_ref()).ok()
-    };
-
+    let version = typst::utils::version();
     let value = Info {
-        version: crate::typst_version(),
+        version: version.raw(),
         build: Build {
-            commit: crate::typst_commit_sha(),
+            commit: version.commit(),
             platform: Platform::new(),
             settings: Settings {
                 self_update: cfg!(feature = "self-update"),
@@ -335,12 +332,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
             system: !env
                 .typst_ignore_system_fonts
                 .as_ref()
-                .and_then(boolish)
+                .and_then(|val| parse_bool(&cmd, val, "TYPST_IGNORE_SYSTEM_FONTS"))
                 .unwrap_or(false),
             embedded: !env
                 .typst_ignore_embedded_fonts
                 .as_ref()
-                .and_then(boolish)
+                .and_then(|val| parse_bool(&cmd, val, "TYPST_IGNORE_EMBEDDED_FONTS"))
                 .unwrap_or(false),
         },
         packages: Packages {
@@ -348,12 +345,12 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
                 .typst_package_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_path),
+                .or_else(|| FsPackages::system_data().map(|fs| fs.path().into())),
             package_cache_path: env
                 .typst_package_cache_path
                 .as_ref()
                 .map(PathBuf::from)
-                .or_else(typst_kit::package::default_package_cache_path),
+                .or_else(|| FsPackages::system_cache().map(|fs| fs.path().into())),
         },
         env,
     };
@@ -412,19 +409,35 @@ fn get_vars() -> StrResult<Environment> {
     })
 }
 
+/// Turns an environment variable string into a boolean value.
+fn parse_bool(cmd: &Command, val: &str, key: &'static str) -> Option<bool> {
+    match BoolValueParser::new().parse_ref(cmd, None, val.as_ref()) {
+        Ok(bool) => Some(bool),
+        Err(_) => {
+            crate::print_error(&format!(
+                "invalid value `{val}` for `{key}`, expected `true` or `false`."
+            ))
+            .map_err(|e| eco_format!("{e}"))
+            .expect("failed to print error");
+            None
+        }
+    }
+}
+
 /// Turns a comma separated list of feature names into a well typed struct of
 /// feature flags.
 fn parse_features(feature_list: &str) -> StrResult<Features> {
-    let mut features = Features { html: false, a11y_extras: false };
+    let mut features = Features { html: false, bundle: false, a11y_extras: false };
 
     for feature in feature_list.split(',').filter(|s| !s.is_empty()) {
         match Feature::from_str(feature, true) {
             Ok(feature) => match feature {
                 Feature::Html => features.html = true,
+                Feature::Bundle => features.bundle = true,
                 Feature::A11yExtras => features.a11y_extras = true,
             },
             Err(_) => {
-                crate::print_error(&format!("Unknown runtime feature: `{feature}`"))
+                crate::print_error(&format!("unknown runtime feature: `{feature}`"))
                     .map_err(|e| eco_format!("{e}"))?;
                 continue;
             }
@@ -511,13 +524,13 @@ fn write_value_simple(
     Ok(())
 }
 
-/// Writes a special value in magenta with optional right padding.
+/// Writes a special value in blue with optional right padding.
 fn write_value_special(
     out: &mut TermOut,
     val: impl Display,
     pad: Option<usize>,
 ) -> io::Result<()> {
-    out.set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))?;
+    out.set_color(ColorSpec::new().set_fg(Some(Color::Blue)))?;
     if let Some(pad) = pad {
         write!(out, "{val: <pad$}")?;
     } else {
@@ -535,7 +548,7 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write!(out, " ")?;
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
-    write_value_simple(&mut out, value.build.commit, None)?;
+    write_value_simple(&mut out, typst_utils::display_commit(value.build.commit), None)?;
     write!(out, ", ")?;
     write_value_simple(&mut out, value.build.platform.os, None)?;
     write!(out, " on ")?;

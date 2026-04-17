@@ -2,8 +2,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
 
-use ecow::EcoString;
-
 use crate::FileId;
 
 /// Defines a range in a file.
@@ -163,14 +161,6 @@ impl Span {
         iter.into_iter()
             .find(|span| !span.is_detached())
             .unwrap_or(Span::detached())
-    }
-
-    /// Resolve a file location relative to this span's source.
-    pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
-        let Some(file) = self.id() else {
-            return Err("cannot access file system from here".into());
-        };
-        Ok(file.join(path))
     }
 }
 

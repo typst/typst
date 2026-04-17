@@ -38,7 +38,7 @@ pub struct TitleElem {
     /// `{set document(title: [..])}`.
     ///
     /// ```example
-    /// #set document(title: "Course ABC, Homework 1")
+    /// #set document(title: [Course ABC, Homework 1])
     /// #title[Homework 1]
     ///
     /// ...

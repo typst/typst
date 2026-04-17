@@ -2,15 +2,15 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
-use std::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
-};
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use crate::Numeric;
 
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
 /// Panics if it's `NaN` during any of those operations.
+///
+/// All operations implemented for this type are cross-platform deterministic.
 #[derive(Default, Copy, Clone)]
 pub struct Scalar(f64);
 
@@ -34,6 +34,37 @@ impl Scalar {
     /// Gets the value of this [`Scalar`].
     pub const fn get(self) -> f64 {
         self.0
+    }
+
+    /// Returns the square root of this scalar.
+    pub fn sqrt(self) -> Self {
+        Self::new(self.get().sqrt())
+    }
+
+    /// Raises a number to an integer power.
+    pub fn powi(self, mut b: i32) -> Self {
+        // Ported from https://github.com/llvm/llvm-project/blob/0ee439b/compiler-rt/lib/builtins/powidf2.c
+        // Copyright: The LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        // See NOTICE for full attribution.
+        let mut a = self.get();
+        let recip = b < 0;
+        let mut r = 1.0;
+        loop {
+            if (b & 1) != 0 {
+                r *= a;
+            }
+            b /= 2;
+            if b == 0 {
+                break;
+            }
+            a *= a;
+        }
+
+        if recip {
+            r = 1.0 / r;
+        }
+
+        Self::new(r)
     }
 }
 
@@ -107,73 +138,123 @@ impl Neg for Scalar {
     }
 }
 
-impl<T: Into<Self>> Add<T> for Scalar {
+impl Add<Self> for Scalar {
     type Output = Self;
 
-    fn add(self, rhs: T) -> Self::Output {
-        Self::new(self.0 + rhs.into().0)
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 + rhs.0)
     }
 }
 
-impl<T: Into<Self>> AddAssign<T> for Scalar {
-    fn add_assign(&mut self, rhs: T) {
-        *self = *self + rhs.into();
-    }
-}
-
-impl<T: Into<Self>> Sub<T> for Scalar {
+impl Add<f64> for Scalar {
     type Output = Self;
 
-    fn sub(self, rhs: T) -> Self::Output {
-        Self::new(self.0 - rhs.into().0)
+    fn add(self, rhs: f64) -> Self::Output {
+        Self::new(self.0 + rhs)
     }
 }
 
-impl<T: Into<Self>> SubAssign<T> for Scalar {
-    fn sub_assign(&mut self, rhs: T) {
-        *self = *self - rhs.into();
+impl Add<Scalar> for f64 {
+    type Output = Scalar;
+
+    fn add(self, rhs: Scalar) -> Self::Output {
+        Scalar::new(self + rhs.0)
     }
 }
 
-impl<T: Into<Self>> Mul<T> for Scalar {
+impl Sub<Self> for Scalar {
     type Output = Self;
 
-    fn mul(self, rhs: T) -> Self::Output {
-        Self::new(self.0 * rhs.into().0)
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 - rhs.0)
     }
 }
 
-impl<T: Into<Self>> MulAssign<T> for Scalar {
-    fn mul_assign(&mut self, rhs: T) {
-        *self = *self * rhs.into();
-    }
-}
-
-impl<T: Into<Self>> Div<T> for Scalar {
+impl Sub<f64> for Scalar {
     type Output = Self;
 
-    fn div(self, rhs: T) -> Self::Output {
-        Self::new(self.0 / rhs.into().0)
+    fn sub(self, rhs: f64) -> Self::Output {
+        Self::new(self.0 - rhs)
     }
 }
 
-impl<T: Into<Self>> DivAssign<T> for Scalar {
-    fn div_assign(&mut self, rhs: T) {
-        *self = *self / rhs.into();
+impl Sub<Scalar> for f64 {
+    type Output = Scalar;
+
+    fn sub(self, rhs: Scalar) -> Self::Output {
+        Scalar::new(self - rhs.0)
     }
 }
 
-impl<T: Into<Self>> Rem<T> for Scalar {
+impl Mul<Self> for Scalar {
     type Output = Self;
 
-    fn rem(self, rhs: T) -> Self::Output {
-        Self::new(self.0 % rhs.into().0)
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 * rhs.0)
     }
 }
 
-impl<T: Into<Self>> RemAssign<T> for Scalar {
-    fn rem_assign(&mut self, rhs: T) {
-        *self = *self % rhs.into();
+impl Mul<f64> for Scalar {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self::new(self.0 * rhs)
+    }
+}
+
+impl Mul<Scalar> for f64 {
+    type Output = Scalar;
+
+    fn mul(self, rhs: Scalar) -> Self::Output {
+        Scalar::new(self * rhs.0)
+    }
+}
+
+impl Div<Self> for Scalar {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 / rhs.0)
+    }
+}
+
+impl Div<f64> for Scalar {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Self::new(self.0 / rhs)
+    }
+}
+
+impl Div<Scalar> for f64 {
+    type Output = Scalar;
+
+    fn div(self, rhs: Scalar) -> Self::Output {
+        Scalar::new(self / rhs.0)
+    }
+}
+
+impl Rem<Self> for Scalar {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 % rhs.0)
+    }
+}
+
+impl Rem<f64> for Scalar {
+    type Output = Self;
+
+    fn rem(self, rhs: f64) -> Self::Output {
+        Self::new(self.0 % rhs)
+    }
+}
+
+impl Rem<Scalar> for f64 {
+    type Output = Scalar;
+
+    fn rem(self, rhs: Scalar) -> Self::Output {
+        Scalar::new(self % rhs.0)
     }
 }
 
@@ -188,3 +269,14 @@ impl<'a> Sum<&'a Self> for Scalar {
         Self::new(iter.map(|s| s.0).sum())
     }
 }
+
+assign_impl!(Scalar += Scalar);
+assign_impl!(Scalar += f64);
+assign_impl!(Scalar -= Scalar);
+assign_impl!(Scalar -= f64);
+assign_impl!(Scalar *= Scalar);
+assign_impl!(Scalar *= f64);
+assign_impl!(Scalar /= Scalar);
+assign_impl!(Scalar /= f64);
+assign_impl!(Scalar %= Scalar);
+assign_impl!(Scalar %= f64);

@@ -29,7 +29,7 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem}
 /// #set text(font: "New Computer Modern")
 ///
 /// Let $a$, $b$, and $c$ be the side
-/// lengths of right-angled triangle.
+/// lengths of a right-angled triangle.
 /// Then, we know that:
 /// $ a^2 + b^2 = c^2 $
 ///
@@ -111,6 +111,7 @@ pub struct EquationElem {
     /// ```example
     /// #math.equation(
     ///   alt: "integral from 1 to infinity of a x squared plus b with respect to x",
+    ///   block: true,
     ///   $ integral_1^oo a x^2 + b dif x $,
     /// )
     /// ```

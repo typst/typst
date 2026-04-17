@@ -2,20 +2,19 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::WorldExt;
 use typst::diag::{
-    At, HintedStrResult, HintedString, Severity, SourceDiagnostic, SourceResult,
-    StrResult, Warned, bail,
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, Warned,
+    bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Lines, Span};
+use typst::layout::PageRanges;
+use typst::syntax::Span;
+use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
+use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
@@ -23,16 +22,13 @@ use crate::args::{
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
-#[cfg(feature = "http-server")]
-use crate::server::HtmlServer;
 use crate::timings::Timer;
-
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
 
-type CodespanResult<T> = Result<T, CodespanError>;
-type CodespanError = codespan_reporting::files::Error;
+#[cfg(feature = "http-server")]
+use typst_kit::server::{HttpBody, HttpServer};
 
 /// Execute a compilation command.
 pub fn compile(
@@ -85,7 +81,7 @@ pub struct CompileConfig {
     pub export_cache: ExportCache,
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
-    pub server: Option<HtmlServer>,
+    pub server: Option<HttpServer>,
 }
 
 impl CompileConfig {
@@ -119,7 +115,7 @@ impl CompileConfig {
                 _ => bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
-                    output.display()
+                    output.display(),
                 ),
             }
         } else {
@@ -136,6 +132,7 @@ impl CompileConfig {
                     OutputFormat::Png => "png",
                     OutputFormat::Svg => "svg",
                     OutputFormat::Html => "html",
+                    OutputFormat::Bundle => "",
                 },
             ))
         });
@@ -169,7 +166,7 @@ impl CompileConfig {
                     } else {
                         bail!(
                             "cannot disable PDF tags when exporting a {name} document";
-                            hint: "using --pages implies --no-pdf-tags"
+                            hint: "using --pages implies --no-pdf-tags";
                         );
                     }
                 }
@@ -181,13 +178,17 @@ impl CompileConfig {
         )?;
 
         #[cfg(feature = "http-server")]
-        let server = match watch {
-            Some(command)
-                if output_format == OutputFormat::Html && !command.server.no_serve =>
-            {
-                Some(HtmlServer::new(&input, &command.server)?)
-            }
-            _ => None,
+        let server = if let Some(command) = watch
+            && !command.server.no_serve
+            && matches!(output_format, OutputFormat::Html | OutputFormat::Bundle)
+        {
+            Some(HttpServer::new(
+                &eco_format!("{input}"),
+                command.server.port,
+                !command.server.no_reload,
+            )?)
+        } else {
+            None
         };
 
         let mut deps = args.deps.clone();
@@ -225,7 +226,14 @@ impl CompileConfig {
             pages,
             pdf_standards,
             tagged,
-            creation_timestamp: args.world.creation_timestamp,
+            creation_timestamp: args
+                .world
+                .creation_timestamp
+                .map(|time| {
+                    chrono::DateTime::from_timestamp(time, 0)
+                        .ok_or("creation timestamp is out of range")
+                })
+                .transpose()?,
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
@@ -306,6 +314,11 @@ fn compile_and_export(
     config: &mut CompileConfig,
 ) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
+        OutputFormat::Pdf | OutputFormat::Png | OutputFormat::Svg => {
+            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
+            let result = output.and_then(|document| export_paged(&document, config));
+            Warned { output: result, warnings }
+        }
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
             let result = output.and_then(|document| export_html(&document, config));
@@ -314,9 +327,9 @@ fn compile_and_export(
                 warnings,
             }
         }
-        _ => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_paged(&document, config));
+        OutputFormat::Bundle => {
+            let Warned { output, warnings } = typst::compile::<Bundle>(world);
+            let result = output.and_then(|bundle| export_bundle(bundle, config));
             Warned { output: result, warnings }
         }
     }
@@ -329,7 +342,7 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 
     #[cfg(feature = "http-server")]
     if let Some(server) = &config.server {
-        server.update(html);
+        server.set_html(html);
     }
 
     result
@@ -352,12 +365,24 @@ fn export_paged(
         OutputFormat::Svg => {
             export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
         }
-        OutputFormat::Html => unreachable!(),
+        OutputFormat::Html | OutputFormat::Bundle => unreachable!(),
     }
 }
 
 /// Export to a PDF.
 fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+    let options = pdf_options(config);
+    let buffer = typst_pdf::pdf(document, &options)?;
+    config
+        .output
+        .write(&buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
+        .at(Span::detached())?;
+    Ok(())
+}
+
+/// Creates options for PDF export.
+fn pdf_options(config: &CompileConfig) -> PdfOptions<'static> {
     // If the timestamp is provided through the CLI, use UTC suffix,
     // else, use the current local time and timezone.
     let timestamp = match config.creation_timestamp {
@@ -373,20 +398,79 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         }
     };
 
-    let options = PdfOptions {
+    PdfOptions {
         ident: Smart::Auto,
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
         tagged: config.tagged,
+    }
+}
+
+/// Export to a bundle, a collection of files in a directory.
+fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Output>> {
+    let options = BundleOptions {
+        pixel_per_pt: config.ppi / 72.0,
+        pdf: pdf_options(config),
     };
-    let buffer = typst_pdf::pdf(document, &options)?;
-    config
-        .output
-        .write(&buffer)
-        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
-        .at(Span::detached())?;
-    Ok(())
+
+    let fs = typst_bundle::export(&bundle, &options)?;
+    let root = match &config.output {
+        Output::Path(path) => path,
+        Output::Stdout => {
+            bail!(Span::detached(), "cannot write bundle to standard output")
+        }
+    };
+
+    let outputs = write_virtual_fs(root, &fs).at(Span::detached())?;
+
+    #[cfg(feature = "http-server")]
+    if let Some(server) = &config.server {
+        server.set_router(move |route| {
+            let path = typst::syntax::VirtualPath::new(route).ok()?;
+            let with_index = path.join("index.html").unwrap();
+            for path in [path, with_index] {
+                let Some(data) = fs.get(&path) else { continue };
+                let body = if matches!(
+                    bundle.files.get(&path),
+                    Some(typst_bundle::BundleFile::Document(
+                        typst_bundle::BundleDocument::Html(_)
+                    ))
+                ) && let Ok(string) = data.as_str()
+                {
+                    HttpBody::Html(string.to_owned())
+                } else {
+                    HttpBody::Raw(data.clone())
+                };
+                return Some(body);
+            }
+
+            None
+        });
+    }
+
+    Ok(outputs)
+}
+
+/// Writes a bundle's files to disk.
+fn write_virtual_fs(root: &Path, fs: &VirtualFs) -> StrResult<Vec<Output>> {
+    std::fs::create_dir_all(root)
+        .map_err(|err| eco_format!("failed to create output directory ({err})"))?;
+
+    fs.par_iter()
+        .map(|(path, data)| {
+            let realized = path.realize(root);
+
+            if let Some(parent) = realized.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| eco_format!("failed to create directory ({err})"))?;
+            }
+
+            std::fs::write(&realized, data)
+                .map_err(|err| eco_format!("failed to write file ({err})"))?;
+            Ok(Output::Path(realized))
+        })
+        .collect()
 }
 
 /// Convert [`chrono::DateTime`] to [`Datetime`]
@@ -425,7 +509,7 @@ fn export_image(
     };
 
     let exported_pages = document
-        .pages
+        .pages()
         .iter()
         .enumerate()
         .filter(|(i, _)| {
@@ -457,7 +541,7 @@ fn export_image(
                         storage = output_template::format(
                             path.to_str().unwrap_or_default(),
                             i + 1,
-                            document.pages.len(),
+                            document.pages().len(),
                         );
                         Path::new(&storage)
                     } else {
@@ -624,121 +708,17 @@ pub fn print_diagnostics(
     world: &SystemWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
-    diagnostic_format: DiagnosticFormat,
+    format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut config = term::Config { tab_width: 2, ..Default::default() };
-    if diagnostic_format == DiagnosticFormat::Short {
-        config.display_style = term::DisplayStyle::Short;
-    }
-
-    for diagnostic in warnings.iter().chain(errors) {
-        let diag = match diagnostic.severity {
-            Severity::Error => Diagnostic::error(),
-            Severity::Warning => Diagnostic::warning(),
-        }
-        .with_message(diagnostic.message.clone())
-        .with_notes(
-            diagnostic
-                .hints
-                .iter()
-                .filter(|s| s.span.is_detached())
-                .map(|s| (eco_format!("hint: {}", s.v)).into())
-                .collect(),
-        )
-        .with_labels(
-            label(world, diagnostic.span)
-                .into_iter()
-                .chain(diagnostic.hints.iter().filter_map(|hint| {
-                    let id = hint.span.id()?;
-                    let range = world.range(hint.span)?;
-                    Some(Label::secondary(id, range).with_message(&hint.v))
-                }))
-                .collect(),
-        );
-
-        term::emit(&mut terminal::out(), &config, world, &diag)?;
-
-        // Stacktrace-like helper diagnostics.
-        for point in &diagnostic.trace {
-            let message = point.v.to_string();
-            let help = Diagnostic::help()
-                .with_message(message)
-                .with_labels(label(world, point.span).into_iter().collect());
-
-            term::emit(&mut terminal::out(), &config, world, &help)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Create a label for a span.
-fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
-    Some(Label::primary(span.id()?, world.range(span)?))
-}
-
-impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
-    type FileId = FileId;
-    type Name = String;
-    type Source = Lines<String>;
-
-    fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        let vpath = id.vpath();
-        Ok(if let Some(package) = id.package() {
-            format!("{package}{}", vpath.as_rooted_path().display())
-        } else {
-            // Try to express the path relative to the working directory.
-            vpath
-                .resolve(self.root())
-                .and_then(|abs| pathdiff::diff_paths(abs, self.workdir()))
-                .as_deref()
-                .unwrap_or_else(|| vpath.as_rootless_path())
-                .to_string_lossy()
-                .into()
-        })
-    }
-
-    fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {
-        Ok(self.lookup(id))
-    }
-
-    fn line_index(&'a self, id: FileId, given: usize) -> CodespanResult<usize> {
-        let source = self.lookup(id);
-        source
-            .byte_to_line(given)
-            .ok_or_else(|| CodespanError::IndexTooLarge {
-                given,
-                max: source.len_bytes(),
-            })
-    }
-
-    fn line_range(
-        &'a self,
-        id: FileId,
-        given: usize,
-    ) -> CodespanResult<std::ops::Range<usize>> {
-        let source = self.lookup(id);
-        source
-            .line_to_range(given)
-            .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
-    }
-
-    fn column_number(
-        &'a self,
-        id: FileId,
-        _: usize,
-        given: usize,
-    ) -> CodespanResult<usize> {
-        let source = self.lookup(id);
-        source.byte_to_column(given).ok_or_else(|| {
-            let max = source.len_bytes();
-            if given <= max {
-                CodespanError::InvalidCharBoundary { given }
-            } else {
-                CodespanError::IndexTooLarge { given, max }
-            }
-        })
-    }
+    typst_kit::diagnostics::emit(
+        &mut terminal::out(),
+        world,
+        errors.iter().chain(warnings),
+        match format {
+            DiagnosticFormat::Human => typst_kit::diagnostics::DiagnosticFormat::Human,
+            DiagnosticFormat::Short => typst_kit::diagnostics::DiagnosticFormat::Short,
+        },
+    )
 }
 
 impl From<PdfStandard> for typst_pdf::PdfStandard {

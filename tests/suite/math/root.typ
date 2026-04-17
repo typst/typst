@@ -55,3 +55,12 @@ $ √a/b ∛a_b ∜f' √n! \
 $ a root(, 3)         & a root(., 3) \
   a sqrt(3)           & a root(2, 3) \
   a root(#h(-1em), 3) & a root(123, 3) $
+
+--- math-root-line-fill-stroke paged ---
+// Test that the horizontal stroke is also decorated like text glyphs
+#text(size: 20pt, fill: yellow, stroke: red + .5pt)[$sqrt(Delta)$]
+#text(size: 25pt, stroke: red)[$root(3, Delta)$]
+
+--- math-root-index-cramped paged ---
+// Test whether the index has cramped styles.
+$ root(x^2^2, 1) $

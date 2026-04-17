@@ -203,6 +203,7 @@ Finally, you can specify an alternative description on math using [`math.equatio
 ```typ
 #math.equation(
   alt: "a squared plus b squared equals c squared",
+  block: true,
   $ a^2 + b^2 = c^2 $,
 )
 ```
@@ -246,7 +247,7 @@ Titling your document makes it easier to retrieve it and to navigate between it 
 To do so in Typst, place this set rule in your document before any content:
 
 ```typ
-#set document(title: "GlorboCorp Q1 2023 Revenue Report")
+#set document(title: [GlorboCorp Q1 2023 Revenue Report])
 ```
 
 This will set the [title in the document's metadata]($document.title) and in the title bar of the PDF viewer or web browser. If this results in an error when using a template, consider whether your template may provide an alternative way to set the document title.

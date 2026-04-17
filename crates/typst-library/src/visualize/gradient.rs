@@ -11,7 +11,7 @@ use crate::diag::{SourceResult, bail};
 use crate::foundations::{
     Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
-use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
+use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
 
 /// A color gradient.
@@ -243,7 +243,7 @@ impl Gradient {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -319,7 +319,7 @@ impl Gradient {
         /// By default, it is set to `{50%}`. The ending radius must be bigger
         /// than the focal radius.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
+        #[default(Spanned::detached(Ratio::new(0.5)))]
         radius: Spanned<Ratio>,
         /// The center of the focal circle of the gradient.
         ///
@@ -339,13 +339,13 @@ impl Gradient {
         /// By default, it is set to `{0%}`. The focal radius must be smaller
         /// than the ending radius`.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
+        #[default(Spanned::detached(Ratio::new(0.0)))]
         focal_radius: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -353,18 +353,20 @@ impl Gradient {
             bail!(
                 focal_radius.span,
                 "the focal radius must be smaller than the end radius";
-                hint: "try using a focal radius of `0%` instead"
+                hint: "try using a focal radius of `0%` instead";
             );
         }
 
         let focal_center = focal_center.unwrap_or(center);
-        let d_center_sqr = (focal_center.x - center.x).get().powi(2)
-            + (focal_center.y - center.y).get().powi(2);
-        if d_center_sqr.sqrt() >= (radius.v - focal_radius.v).get() {
+        let dist_center = Vec2::new(
+            (focal_center.x - center.x).get(),
+            (focal_center.y - center.y).get(),
+        );
+        if dist_center.hypot() >= (radius.v - focal_radius.v).get() {
             bail!(
                 span,
                 "the focal circle must be inside of the end circle";
-                hint: "try using a focal center of `auto` instead"
+                hint: "try using a focal center of `auto` instead";
             );
         }
 
@@ -436,7 +438,7 @@ impl Gradient {
         if stops.len() < 2 {
             bail!(
                 span, "a gradient must have at least two stops";
-                hint: "try filling the shape with a single color instead"
+                hint: "try filling the shape with a single color instead";
             );
         }
 
@@ -470,7 +472,7 @@ impl Gradient {
         steps: Spanned<usize>,
         /// How much to smooth the gradient.
         #[named]
-        #[default(Spanned::new(Ratio::zero(), Span::detached()))]
+        #[default(Spanned::detached(Ratio::zero()))]
         smoothness: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if steps.v < 2 {
@@ -817,6 +819,70 @@ impl Gradient {
         }
     }
 
+    /// Generates additional stops to replicate a gradient in
+    /// rgb color space interpolation by bisecting
+    pub fn generate_intermediate_stops_for_rgb_interpolation(
+        &self,
+        first: GradientStop,
+        second: GradientStop,
+    ) -> impl Iterator<Item = (Color, Ratio)> {
+        const THRESHOLD: f32 = 0.001;
+        const MAX_SUBDIVISIONS: u64 = 64;
+
+        let t0 = first.offset.unwrap().get();
+        let dt = second.offset.unwrap().get() - t0;
+        let mut prev_color = first.color;
+        let mut next_stop = second.offset.unwrap();
+        let mut next_color = second.color;
+        let mut n: u64 = 1; // number of subdivisions
+        let mut i: u64 = 1; // next stop at this subdivision
+
+        std::iter::from_fn(move || {
+            let mut intermediate_stop = None;
+            loop {
+                // linear interpolation error at midpoint
+                let euclidean_error = {
+                    let mid = Ratio::new(t0 + dt * (i as f64 - 0.5) / n as f64);
+                    let exact = self.sample(RatioOrAngle::Ratio(mid));
+                    let approx = Color::mix_iter(
+                        [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
+                        ColorSpace::LinearRgb,
+                    )
+                    .unwrap();
+                    let exact_color = exact.to_linear_rgb().premultiply().color;
+                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let delta = (exact_color - approx_color).into_components();
+                    (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
+                };
+
+                if n < MAX_SUBDIVISIONS && euclidean_error > THRESHOLD {
+                    // deviation to large -> subdivide again
+                    n *= 2;
+                    i = 2 * i - 1;
+                } else if i >= n {
+                    // second stop reached -> done
+                    break None;
+                } else {
+                    // intermediate stop found -> yield
+                    intermediate_stop = Some((next_color, next_stop));
+                    prev_color = next_color;
+                    // next subdivision (largest possible)
+                    let shift = i.trailing_zeros();
+                    n >>= shift;
+                    i >>= shift;
+                    i += 1;
+                }
+
+                next_stop = Ratio::new(t0 + dt * i as f64 / n as f64);
+                next_color = self.sample(RatioOrAngle::Ratio(next_stop));
+
+                if intermediate_stop.is_some() {
+                    return intermediate_stop;
+                }
+            }
+        })
+    }
+
     /// Samples the gradient at a given position, in the given container.
     /// Handles the aspect ratio and angle directly.
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
@@ -828,20 +894,19 @@ impl Gradient {
                 let angle = Gradient::correct_aspect_ratio(
                     linear.angle,
                     Ratio::new((width / height) as f64),
-                )
-                .to_rad();
-                let (sin, cos) = angle.sin_cos();
+                );
+                let (sin, cos) = (angle.sin(), angle.cos());
 
-                let length = sin.abs() + cos.abs();
-                if angle > FRAC_PI_2 && angle < 3.0 * FRAC_PI_2 {
+                let factor = sin.abs() + cos.abs();
+                if angle.to_rad() > FRAC_PI_2 && angle.to_rad() < 3.0 * FRAC_PI_2 {
                     x = 1.0 - x;
                 }
 
-                if angle > PI {
+                if angle.to_rad() > PI {
                     y = 1.0 - y;
                 }
 
-                (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
+                (x as f64 * cos.abs() + y as f64 * sin.abs()) / factor
             }
             Self::Radial(radial) => {
                 // Source: @Enivex - https://typst.app/project/pYLeS0QyCCe8mf0pdnwoAI
@@ -859,20 +924,27 @@ impl Gradient {
                 } else {
                     let uz = (z - q).normalize();
                     let az = (q - p).dot(uz);
-                    let rho = cr.powi(2) - (q - p).hypot().powi(2);
-                    let bz = (az.powi(2) + rho).sqrt() - az;
+                    let rho = (cr * cr) - (q - p).hypot2();
+                    let bz = ((az * az) + rho).sqrt() - az;
 
                     ((z - q).hypot() - fr) / (bz - fr)
                 }
             }
             Self::Conic(conic) => {
-                let (x, y) =
-                    (x as f64 - conic.center.x.get(), y as f64 - conic.center.y.get());
-                let angle = Gradient::correct_aspect_ratio(
-                    conic.angle,
+                // The x and y coordinates have been transformed into ratios to
+                // compute the position relative to the gradient center.
+                let x = x as f64 - conic.center.x.get();
+                let y = y as f64 - conic.center.y.get();
+
+                // Transform the angle computed from the ratio positions back
+                // into the screen space, to correct for the aspect ratio.
+                let sample_angle = Gradient::correct_aspect_ratio(
+                    Angle::atan2(y, x),
                     Ratio::new((width / height) as f64),
                 );
-                ((-y.atan2(x) + PI + angle.to_rad()) % TAU) / TAU
+
+                // Negate conic angle for clockwise rotation.
+                (Angle::rad(PI) + sample_angle - conic.angle).normalized().to_rad() / TAU
             }
         };
 
@@ -900,14 +972,7 @@ impl Gradient {
     ///
     /// This is used specifically for gradients.
     pub fn correct_aspect_ratio(angle: Angle, aspect_ratio: Ratio) -> Angle {
-        let rad = (angle.to_rad().rem_euclid(TAU).tan() / aspect_ratio.get()).atan();
-        let rad = match angle.quadrant() {
-            Quadrant::First => rad,
-            Quadrant::Second => rad + PI,
-            Quadrant::Third => rad + PI,
-            Quadrant::Fourth => rad + TAU,
-        };
-        Angle::rad(rad.rem_euclid(TAU))
+        Angle::atan2(angle.sin() / aspect_ratio.get().abs(), angle.cos()).normalized()
     }
 }
 
@@ -1227,7 +1292,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             let Some(stop) = stop.offset else {
                 bail!(
                     *span, "either all stops must have an offset or none of them can";
-                    hint: "try adding an offset to all stops"
+                    hint: "try adding an offset to all stops";
                 );
             };
 
@@ -1252,7 +1317,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             bail!(
                 stops[0].span,
                 "first stop must have an offset of 0";
-                hint: "try setting this stop to `0%`"
+                hint: "try setting this stop to `0%`";
             );
         }
 
@@ -1260,7 +1325,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             bail!(
                 stops[out.len() - 1].span,
                 "last stop must have an offset of 100%";
-                hint: "try setting this stop to `100%`"
+                hint: "try setting this stop to `100%`";
             );
         }
 
