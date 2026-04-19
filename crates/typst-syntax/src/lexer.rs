@@ -186,8 +186,7 @@ impl Lexer<'_> {
 /// Raw.
 impl Lexer<'_> {
     /// We parse entire raw segments in the lexer as a convenience to avoid
-    /// going to and from the parser for each raw section. See comments in
-    /// [`Self::blocky_raw`] and [`Self::inline_raw`] for specific details.
+    /// going to and from the parser for each raw section.
     fn raw(&mut self) -> (SyntaxKind, SyntaxNode) {
         let start = self.s.cursor() - 1;
 
@@ -221,31 +220,56 @@ impl Lexer<'_> {
         }
         let end = self.s.cursor();
 
-        let mut nodes = Vec::with_capacity(3); // Will have at least 3.
-
-        // A closure for pushing a node onto our raw vector. Assumes the caller
-        // will move the scanner to the next location at each step.
-        let mut prev_start = start;
-        let mut push_raw = |kind, s: &Scanner| {
-            nodes.push(SyntaxNode::leaf(kind, s.from(prev_start)));
-            prev_start = s.cursor();
-        };
+        let mut inner = Scanner::new(self.s.get(start + backticks..end - backticks));
+        let inner_len = inner.string().len();
 
         // Opening delimiter.
-        self.s.jump(start + backticks);
-        push_raw(SyntaxKind::RawDelim, &self.s);
+        let delim = SyntaxNode::leaf(SyntaxKind::RawDelim, self.s.from(end - backticks));
+        let mut nodes = vec![delim.clone()];
 
-        if backticks >= 3 {
-            self.blocky_raw(end - backticks, &mut push_raw);
+        let mut tag = None;
+        let mut diff_future_tag_len = None;
+        if delim.len() >= 3 {
+            (tag, diff_future_tag_len) = Self::raw_lang_tag(&mut inner);
+            if let Some(tag) = tag {
+                nodes.push(SyntaxNode::leaf(SyntaxKind::RawLang, tag));
+            }
+            Self::blocky_raw(&mut inner, &mut nodes);
         } else {
-            self.inline_raw(end - backticks, &mut push_raw);
+            Self::inline_raw(&mut inner, &mut nodes);
         }
 
         // Closing delimiter.
-        self.s.jump(end);
-        push_raw(SyntaxKind::RawDelim, &self.s);
+        nodes.push(delim);
 
-        (SyntaxKind::Raw, SyntaxNode::inner(SyntaxKind::Raw, nodes))
+        let mut raw = SyntaxNode::inner(SyntaxKind::Raw, nodes);
+
+        Self::add_raw_warnings(&mut raw, backticks, diff_future_tag_len, tag, inner_len);
+
+        (SyntaxKind::Raw, raw)
+    }
+
+    /// Lex the raw language tag into an optional string and return the length
+    /// of the future language tag if it will differ in the next version.
+    ///
+    /// See [`Self::add_raw_warnings`] for more.
+    fn raw_lang_tag<'a>(s: &mut Scanner<'a>) -> (Option<&'a str>, Option<usize>) {
+        let start = s.cursor();
+        let future_tag = s.eat_until(|c: char| c.is_whitespace() || c == '`');
+        if future_tag.is_empty() {
+            // Future tag is always longer than current tag, if empty, we have
+            // no current tag either.
+            return (None, None);
+        }
+        s.jump(start);
+        let tag = s.eat_if(is_id_start).then(|| {
+            s.eat_while(is_id_continue);
+            s.from(start)
+        });
+        let diff_future_tag_len = tag
+            .is_none_or(|tag| tag.len() != future_tag.len())
+            .then_some(future_tag.len());
+        (tag, diff_future_tag_len)
     }
 
     /// Raw blocks parse a language tag, have smart behavior for trimming
@@ -254,7 +278,7 @@ impl Lexer<'_> {
     /// below.
     ///
     /// ### The initial line:
-    /// - Text until the first whitespace or backtick is parsed as the language tag.
+    /// - The language tag is already handled above.
     /// - We check the rest of the line and if all characters are whitespace,
     ///   trim it. Otherwise we trim a single leading space if present.
     ///   - If more trimmed characters follow on future lines, they will be
@@ -276,18 +300,9 @@ impl Lexer<'_> {
     /// - Otherwise its text is kept like an inner line. However, if the last
     ///   non-whitespace character of the final line is a backtick, then one
     ///   ascii space (if present) is trimmed from the end.
-    fn blocky_raw<F>(&mut self, inner_end: usize, mut push_raw: F)
-    where
-        F: FnMut(SyntaxKind, &Scanner),
-    {
-        // Language tag.
-        let tag = self.s.eat_until(|c: char| c.is_whitespace() || c == '`');
-        if !tag.is_empty() {
-            push_raw(SyntaxKind::RawLang, &self.s);
-        }
-
-        // The rest of the function operates on the lines between the backticks.
-        let mut lines = split_newlines(self.s.to(inner_end));
+    fn blocky_raw(s: &mut Scanner, nodes: &mut Vec<SyntaxNode>) {
+        // The lines between the backticks.
+        let mut lines = split_newlines(s.after());
 
         // Determine dedent level.
         let dedent = lines
@@ -313,6 +328,14 @@ impl Lexer<'_> {
             }
         }
 
+        // A closure for pushing a leaf node and updating the cursor in one
+        // step.
+        let mut prev = s.cursor();
+        let mut push_leaf = |kind, s: &Scanner| {
+            nodes.push(SyntaxNode::leaf(kind, s.from(prev)));
+            prev = s.cursor();
+        };
+
         let mut lines = lines.into_iter();
 
         // Handle the first line: trim if all whitespace, or trim a single space
@@ -320,11 +343,11 @@ impl Lexer<'_> {
         // value.
         if let Some(first_line) = lines.next() {
             if first_line.chars().all(char::is_whitespace) {
-                self.s.advance(first_line.len());
+                s.advance(first_line.len());
                 // This is the only spot we advance the scanner, but don't
-                // immediately call `push_raw`. But the rest of the function
+                // immediately call `push_leaf`. But the rest of the function
                 // ensures we will always add this text to a `RawTrimmed` later.
-                debug_assert!(self.s.cursor() != inner_end);
+                debug_assert!(!s.done());
                 // A proof by cases follows:
                 // # First case: The loop runs
                 // If the loop runs, there must be a newline following, so
@@ -342,51 +365,120 @@ impl Lexer<'_> {
                 //    by the last line must include at least a newline, so
                 //    `cursor != inner_end` here.
             } else {
-                let line_end = self.s.cursor() + first_line.len();
-                if self.s.eat_if(' ') {
-                    // Trim a single space after the lang tag on the first line.
-                    push_raw(SyntaxKind::RawTrimmed, &self.s);
+                let line_end = s.cursor() + first_line.len();
+                if s.eat_if(' ') {
+                    // Trim a single space after the lang tag or backticks on
+                    // the first line.
+                    push_leaf(SyntaxKind::RawTrimmed, s);
                 }
                 // We know here that the rest of the line is non-empty.
-                self.s.jump(line_end);
-                push_raw(SyntaxKind::Text, &self.s);
+                s.jump(line_end);
+                push_leaf(SyntaxKind::Text, s);
             }
         }
 
         // Add lines.
         for line in lines {
             let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
-            self.s.eat_newline();
-            self.s.advance(offset);
-            push_raw(SyntaxKind::RawTrimmed, &self.s);
-            self.s.advance(line.len() - offset);
-            push_raw(SyntaxKind::Text, &self.s);
+            s.eat_newline();
+            s.advance(offset);
+            push_leaf(SyntaxKind::RawTrimmed, s);
+            s.advance(line.len() - offset);
+            push_leaf(SyntaxKind::Text, s);
         }
 
         // Add final trimmed.
-        if self.s.cursor() < inner_end {
-            self.s.jump(inner_end);
-            push_raw(SyntaxKind::RawTrimmed, &self.s);
+        if !s.done() {
+            nodes.push(SyntaxNode::leaf(SyntaxKind::RawTrimmed, s.after()));
         }
     }
 
     /// Inline raw text is split on lines with non-newlines as `Text` kinds and
     /// newlines as `RawTrimmed`. Inline raw text does not dedent the text, all
     /// non-newline whitespace is kept.
-    fn inline_raw<F>(&mut self, inner_end: usize, mut push_raw: F)
-    where
-        F: FnMut(SyntaxKind, &Scanner),
-    {
-        while self.s.cursor() < inner_end {
-            if self.s.at(is_newline) {
-                push_raw(SyntaxKind::Text, &self.s);
-                self.s.eat_newline();
-                push_raw(SyntaxKind::RawTrimmed, &self.s);
+    fn inline_raw(s: &mut Scanner, nodes: &mut Vec<SyntaxNode>) {
+        let mut prev = s.cursor();
+        while !s.done() {
+            if s.at(is_newline) {
+                nodes.push(SyntaxNode::leaf(SyntaxKind::Text, s.from(prev)));
+                prev = s.cursor();
+                s.eat_newline();
+                nodes.push(SyntaxNode::leaf(SyntaxKind::RawTrimmed, s.from(prev)));
+                prev = s.cursor();
                 continue;
             }
-            self.s.eat();
+            s.eat();
         }
-        push_raw(SyntaxKind::Text, &self.s);
+        nodes.push(SyntaxNode::leaf(SyntaxKind::Text, s.from(prev)));
+    }
+
+    /// Add warnings if the raw language tag will differ in the next version of
+    /// Typst or if there is a language tag but the raw text is empty.
+    ///
+    /// Currently, we parse the language tag only up to the end of a valid
+    /// identifier or the first whitespace. So if we start with `C++`, the
+    /// identifier `C` will be the language tag, and the raw text will start
+    /// with `++`. If we start with `++C`, we will have no language tag and the
+    /// raw text will start with `++C`.
+    ///
+    /// In the next version of Typst, we will parse all text up to the first
+    /// whitespace or backtick, so tags like `C++` or `html.j2` or `$!#%@` can
+    /// be written without issue
+    ///
+    /// However, this may cause some documents relying on the behavior of raw
+    /// text starting like `C++` or `++C` to change, so we are giving a warning
+    /// for those cases.
+    fn add_raw_warnings(
+        raw: &mut SyntaxNode,
+        backticks: usize,
+        diff_future_tag_len: Option<usize>,
+        tag: Option<&str>,
+        inner_len: usize,
+    ) {
+        // Add a warning if the tag will differ in the next version.
+        if let Some(future_tag_len) = diff_future_tag_len {
+            let future_range = backticks..backticks + future_tag_len;
+            if let Some(tag) = tag {
+                raw.warn_at(
+                    future_range,
+                    "no whitespace between language tag and raw text",
+                );
+                raw.hint(eco_format!(
+                    "currently, Typst is treating `{tag}` as the language tag"
+                ));
+                raw.hint(
+                    "in the next version of Typst, this will change and we will treat \
+                        all text until the first whitespace as the language tag",
+                );
+                let tag_range = backticks..backticks + tag.len();
+                raw.hint_at(tag_range.clone(), eco_format!(
+                    "if the current behavior is correct, please add a space after `{tag}`"
+                ));
+                raw.hint_at(
+                    tag_range,
+                    "otherwise, add a space or newline after the initial backticks",
+                );
+            } else {
+                raw.warn_at(future_range, "no whitespace before raw text");
+                raw.hint(
+                    "in the next version of Typst, this text will be treated as \
+                        the language tag for this element",
+                );
+                raw.hint("to avoid this, add a space after the initial backticks");
+            }
+        } else if let Some(tag) = tag
+            && inner_len == tag.len()
+        {
+            // Empty with no tag/ws is only possible with exactly two backticks,
+            // which is handled by the caller.
+            raw.warn("empty raw text");
+            raw.hint(eco_format!("Typst is treating `{tag}` as the language tag"));
+            let tag_range = backticks..backticks + tag.len();
+            raw.hint_at(
+                tag_range,
+                "to treat this as text, add a space after the initial backticks",
+            );
+        }
     }
 }
 
