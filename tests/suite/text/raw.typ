@@ -101,26 +101,61 @@ The keyword ```rust let```.
 #test(raw.block, false)
 
 --- raw-lang-backtick eval ---
-#let raw = ```js ` ```
-#test(raw.lang, "js")
+#let raw = ```lang ` ```
+#test(raw.lang, "lang")
 #test(raw.text, "`")
+#test(raw.block, false)
+
+--- raw-lang-backtick-no-space eval ---
+// The language tag stops at a backtick even without whitespace.
+// TODO: Do we want this behavior? It was not discussed in #7337.
+#let raw = ```lang`test ` ```
+#test(raw.lang, "lang")
+#test(raw.text, "`test `")
 #test(raw.block, false)
 
 --- raw-lang-space eval ---
 // The language tag stops at a space.
-#let raw = ```js test ```
-#test(raw.lang, "js")
+#let raw = ```lang test ```
+#test(raw.lang, "lang")
 #test(raw.text, "test ")
+#test(raw.block, false)
+
+--- raw-lang--multi-space eval ---
+// The language tag only discards one space.
+#let raw = ```lang  test```
+#test(raw.lang, "lang")
+#test(raw.text, " test")
 #test(raw.block, false)
 
 --- raw-lang-newline eval ---
 // The language tag stops at a newline.
-#let raw = ```js
+#let raw = ```lang
 test
 ```
-#test(raw.lang, "js")
+#test(raw.lang, "lang")
 #test(raw.text, "test")
 #test(raw.block, true)
+
+--- raw-lang-no-text eval ---
+#let raw = ```lang```
+#test(raw.lang, "lang")
+#test(raw.text, "")
+#test(raw.block, false)
+
+--- raw-lang-non-ident eval ---
+// The language tag does not have to be a valid identifier.
+#let raw = ```lang.tag++ test```
+#test(raw.lang, "lang.tag++")
+#test(raw.text, "test")
+#test(raw.block, false)
+
+--- raw-lang-starts-non-ident eval ---
+// Test the language tag starting with non-identifier characters.
+#let raw = ```!@#$%^&*()_+lang test```
+#test(raw.lang, "!@#$%^&*()_+lang")
+#test(raw.text, "test")
+#test(raw.block, false)
 
 --- raw-blocky eval ---
 // The first line and the last line are ignored.
