@@ -1195,6 +1195,7 @@ e5d8e50741055c15181f3c74f5cd9cd0 math-primes-merge-top
 bc14916fccb25fccc54978245cdff7bc math-primes-merge-top-nested
 ce9b9e612d4981bbc1c257f69591325e math-primes-scripts
 5bf0331805a04b80d4df78774fbbcc7a math-primes-show-rule
+3ebc24f90de57e75c11aae8309863b76 math-primes-show-rules
 7b6175d7a2492ea0e2b224a73f50378e math-primes-spaces
 0fc12a7fdca1b8bb27f6aad43210b115 math-primes-with-superscript
 b6425fa8e9dcf6ffa55f25b45a9dd12a math-root-basic

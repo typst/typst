@@ -379,7 +379,7 @@ pub enum MathKind<'a> {
     /// A base with a line drawn above or below.
     Line(Box<LineItem<'a>>),
     /// Grouped prime symbols.
-    Primes(Box<PrimesItem<'a>>),
+    Primes(Box<PrimesItem>),
     /// A text string.
     Text(TextItem<'a>),
     /// A number.
@@ -820,26 +820,23 @@ impl<'a> LineItem<'a> {
     }
 }
 
+/// The prime character used by [`PrimesItem`].
+pub const PRIME_CHAR: char = '′';
+
 /// Grouped prime symbols.
 ///
 /// This is for more than four prime symbols, since there are only dedicated
 /// Unicode codepoints up to four.
 #[derive(Debug)]
-pub struct PrimesItem<'a> {
-    /// The prime symbol item.
-    pub prime: MathItem<'a>,
+pub struct PrimesItem {
     /// The number of primes to display. Always at least five.
     pub count: usize,
 }
 
-impl<'a> PrimesItem<'a> {
+impl PrimesItem {
     /// Creates a new primes item.
-    pub(crate) fn create(
-        prime: MathItem<'a>,
-        count: usize,
-        styles: StyleChain<'a>,
-    ) -> MathItem<'a> {
-        let kind = MathKind::Primes(Box::new(Self { prime, count }));
+    pub(crate) fn create<'a>(count: usize, styles: StyleChain<'a>) -> MathItem<'a> {
+        let kind = MathKind::Primes(Box::new(Self { count }));
         let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
     }
