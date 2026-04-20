@@ -130,7 +130,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
 /// strings, converting with `repr` if necessary.
 ///
 /// # Example
-/// The code below produces the error `panicked with: "this is wrong"`.
+/// The code below produces the error `panicked with: this is wrong`.
 /// ```typ
 /// #panic("this is wrong")
 /// ```
@@ -147,7 +147,10 @@ pub fn panic(
             if i > 0 {
                 msg.push_str(", ");
             }
-            msg.push_str(&value.repr());
+            match value {
+                Value::Str(s) => msg.push_str(s),
+                _ => msg.push_str(&value.repr()),
+            }
         }
     }
     Err(msg)
