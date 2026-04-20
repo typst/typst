@@ -38,10 +38,10 @@ c3be983a199a95106caffe0572463a58 html-style
 f9671e4e56820cd2f5fbd767d04eabc0 html-textarea-starting-with-newline
 32384d981e4ee5b9ba51251e447dcf31 html-typed
 58895c458693621c61d4d498ab0f8b64 html-untyped-style-content
-7d05ff4786d4e199a0964303418d3347 image-jpg-html-base64
-934a6ea8c0b0a089ae6b85d720f8855c image-pdf-basic
-d5b7eaa1581f0f4a2c2cfbb67b708db7 image-scaling-methods
-306d8254faffbba501fdb84e8b908be7 image-sizing-html-css
+2de3be3f0dbfa160e245c8f69aa74d45 image-jpg-html-base64
+7ec40ca9ce2a8477e71dbef84942cfdd image-pdf-basic
+0d91b680b8b489b2efbd58305809f304 image-scaling-methods
+b4fa758083a286496c9edcbe6dcdc002 image-sizing-html-css
 3277fec377f92a3ca4d6d78ad5bccfcc issue-7751-table-cell-show-rules
 44fbc75996ca7154896d82a2cc32da32 link-basic
 7958585bce8c5ddabbcf61103aeb8bf2 link-html-frame

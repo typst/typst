@@ -3097,6 +3097,7 @@ dependencies = [
 name = "typst-html"
 version = "0.14.2"
 dependencies = [
+ "az",
  "bumpalo",
  "comemo",
  "ecow",
