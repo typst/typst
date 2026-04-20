@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/introspection",
+#show: docs-category.with(
+  title: "Introspection",
+  description: "Documentation for functionality that enables interactions between different parts of a document.",
+  category: "introspection",
 )
 
 Interactions between document parts.

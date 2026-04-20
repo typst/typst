@@ -1,7 +1,142 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/math",
+#show: docs-category.with(
+  title: "Math",
+  description: "Documentation for math mode and the `math` module, which together enable high-quality math typesetting.",
+  category: "math",
+  scope: math,
+  groups: (
+    (
+      name: "variants",
+      title: "Variants",
+      items: (
+        math.serif,
+        math.sans,
+        math.frak,
+        math.mono,
+        math.bb,
+        math.cal,
+        math.scr,
+      ),
+      description: "Documentation for functions which allow switching to alternative math typefaces.",
+      docs: [
+        Alternate typefaces within formulas.
+
+        These functions are distinct from the @text function because math fonts contain multiple variants of each letter.
+      ],
+    ),
+    (
+      name: "styles",
+      title: "Styles",
+      items: (math.upright, math.italic, math.bold),
+      description: "Documentation for functions which allow switching to alternative math letterforms.",
+      docs: [
+        Alternate letterforms within formulas.
+
+        These functions are distinct from the @text function because math fonts contain multiple variants of each letter.
+      ],
+    ),
+    (
+      name: "sizes",
+      title: "Sizes",
+      items: (math.display, math.inline, math.script, math.sscript),
+      description: "Documentation for functions which allow switching to alternative math text sizes.",
+      docs: [
+        Forced size styles for expressions within formulas.
+
+        These functions allow manual configuration of the size of equation elements to make them look as in a display/inline equation or as if used in a root or sub/superscripts.
+      ],
+    ),
+    (
+      name: "underover",
+      title: "Under/Over",
+      items: (
+        math.underline,
+        math.overline,
+        math.underbrace,
+        math.overbrace,
+        math.underbracket,
+        math.overbracket,
+        math.underparen,
+        math.overparen,
+        math.undershell,
+        math.overshell,
+      ),
+      description: "Documentation for functions that add delimiters above or below parts of an equation.",
+      docs: [
+        Delimiters above or below parts of an equation.
+
+        The braces and brackets further allow you to add an optional annotation below or above themselves.
+      ],
+    ),
+    (
+      name: "roots",
+      title: "Roots",
+      items: (math.root, math.sqrt),
+      description: "Documentation for functions that typeset mathematical roots.",
+      docs: [
+        Square and non-square roots.
+
+        = Example <example>
+        ```example
+        $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
+        $ root(3, x) $
+        ```
+      ],
+    ),
+    (
+      name: "attach",
+      title: "Attach",
+      items: (math.attach, math.scripts, math.limits),
+      description: "Documentation for functions that allows to precisely attach sub-, superscripts, and limits to parts of an equation.",
+      docs: [
+        Subscript, superscripts, and limits.
+
+        Attachments can be displayed either as sub/superscripts, or limits. Typst automatically decides which is more suitable depending on the base, but you can also control this manually with the `scripts` and `limits` functions.
+
+        If you want the base to stretch to fit long top and bottom attachments (for example, an arrow with text above it), use the @math.stretch[`stretch`] function.
+
+        = Example <example>
+        ```example
+        $ sum_(i=0)^n a_i = 2^(1+i) $
+        ```
+
+        = Syntax <syntax>
+        This function also has dedicated syntax for attachments after the base: Use the underscore (`_`) to indicate a subscript i.e. bottom attachment and the hat (`^`) to indicate a superscript i.e. top attachment.
+      ],
+    ),
+    (
+      name: "lr",
+      title: "Left/Right",
+      items: (
+        math.lr,
+        math.mid,
+        math.abs,
+        math.norm,
+        math.floor,
+        math.ceil,
+        math.round,
+      ),
+      description: "Documentation for functions that enable typesetting of matched, potentially scaled, delimiters.",
+      docs: [
+        Delimiter matching.
+
+        The `lr` function allows you to match two delimiters and scale them with the content they contain. While this also happens automatically for delimiters that match syntactically, `lr` allows you to match two arbitrary delimiters and control their size exactly. Apart from the `lr` function, Typst provides a few more functions that create delimiter pairings for absolute, ceiled, and floored values as well as norms.
+
+        To prevent a delimiter from being matched by Typst, and thus auto-scaled, escape it with a backslash. To instead disable auto-scaling completely, use `{set math.lr(size: 1em)}`.
+
+        = Example <example>
+        ```example
+        $ [a, b/2] $
+        $ lr(]sum_(x=1)^n], size: #50%) x $
+        $ abs((x + y) / 2) $
+        $ \{ (x / y) \} $
+        #set math.lr(size: 1em)
+        $ { (a / b), a, b in (0; 1/2] } $
+        ```
+      ],
+    ),
+  ),
 )
 
 Typst has special @reference:syntax:math[syntax] and library functions to typeset mathematical formulas. Math formulas can be displayed inline with text or as separate blocks. They will be typeset into their own block if they start and end with at least one space (e.g. `[$ x^2 $]`).

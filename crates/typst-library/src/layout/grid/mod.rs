@@ -710,7 +710,7 @@ pub struct GridVLine {
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
 
-    /// The position at which the line is placed, given its column (`x`) -
+    /// The position at which the line is placed, given its column (`x`) --
     /// either `{start}` to draw before it or `{end}` to draw after it.
     ///
     /// The values `{left}` and `{right}` are also accepted, but discouraged as
@@ -718,7 +718,7 @@ pub struct GridVLine {
     /// right-to-left documents.
     ///
     /// This setting is only relevant when column gutter is enabled (and
-    /// shouldn't be used otherwise - prefer just increasing the `x` field by
+    /// shouldn't be used otherwise -- prefer just increasing the `x` field by
     /// one instead), since then the position after a column becomes different
     /// from the position before the next column due to the spacing between
     /// both.
@@ -784,7 +784,8 @@ pub struct GridCell {
     ///
     /// ```example
     /// #let circ(c) = circle(
-    ///     fill: c, width: 5mm
+    ///   fill: c,
+    ///   width: 5mm,
     /// )
     ///
     /// #grid(

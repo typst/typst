@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/data-loading",
+#show: docs-category.with(
+  title: "Data Loading",
+  description: "Documentation for data loading functionality.",
+  category: "data-loading",
 )
 
 Data loading from external files.

@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/export/png",
+#show: docs-category.with(
+  title: "PNG",
+  description: "Documentation for Typst's PNG export target.",
+  category: "png",
 )
 
 Instead of creating a PDF, Typst can also directly render pages to PNG raster graphics. PNGs are losslessly compressed images that can contain one page at a time. When exporting a multi-page document, Typst will emit multiple PNGs. PNGs are a good choice when you want to use Typst's output in an image editing software or when you can use none of Typst's other export formats.

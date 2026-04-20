@@ -2,7 +2,7 @@
 
 #show: docs-chapter.with(
   title: "Styling",
-  route: "/reference/language/styling",
+  route: "/reference/styling",
   description: "All concepts needed to style your document with Typst.",
 )
 

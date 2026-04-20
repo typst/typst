@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/export/svg",
+#show: docs-category.with(
+  title: "SVG",
+  description: "Documentation for Typst's SVG export target.",
+  category: "svg",
 )
 
 Instead of creating a PDF, Typst can also directly render pages to scalable vector graphics (SVGs), which are the preferred format for embedding vector graphics in web pages. Like PDF files, SVGs display your document exactly how you have laid it out in Typst. Likewise, they share the benefit of not being bound to a specific resolution. Hence, you can print or view SVG files on any device without incurring a loss of quality. (Note that font printing quality may be better with a PDF.) In contrast to a PDF, an SVG cannot contain multiple pages. When exporting a multi-page document, Typst will emit multiple SVGs.

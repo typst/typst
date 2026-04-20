@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/text",
+#show: docs-category.with(
+  title: "Text",
+  description: "Documentation for text styling functionality.",
+  category: "text",
 )
 
 Text styling.

@@ -1,7 +1,48 @@
-#import "../../../components/index.typ": docs-chapter, info
+#import "../../../components/index.typ": docs-category, info
 
-#show: docs-chapter.with(
-  route: "/reference/export/html",
+#show: docs-category.with(
+  title: "HTML",
+  description: "Documentation for Typst's HTML export target.",
+  category: "html",
+  scope: html,
+  groups: (
+    (
+      name: "typed",
+      title: "Typed HTML",
+      items: {
+        dictionary(html)
+          .values()
+          .filter(val => {
+            let info = docs.describe(val)
+            info != none and "typed-html" in info.keywords
+          })
+      },
+      description: "Documentation for the typed HTML API.",
+      docs: [
+        A typed layer over raw HTML elements.
+
+        The `html` module provides a typed layer over the raw @html.elem function that allows you to conveniently create HTML elements. HTML attributes are exposed as function parameters that accept Typst types and automatically take care of converting those into the appropriate HTML.
+
+        Some parameters are common to all typed HTML functions. These are listed at the bottom in the @html:typed:global-attributes[Global Attributes] section instead of explicitly on each element for readability.
+
+        = Example <example>
+        ```typ
+        #html.video(
+          controls: true,
+          width: 1280,
+          height: 720,
+          src: "sunrise.mp4",
+        )[
+          Your browser does not support the video tag.
+        ]
+        ```
+      ],
+      epilogue: [
+        = Global Attributes <global-attributes>
+        These parameters are common to all typed HTML functions. They are listed here once instead of explicitly on each element for readability.
+      ],
+    ),
+  ),
 )
 
 #info[

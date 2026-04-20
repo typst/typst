@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/model",
+#show: docs-category.with(
+  title: "Model",
+  description: "Documentation for definitions related to document structure and semantics.",
+  category: "model",
 )
 
 Document structuring.

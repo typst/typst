@@ -1,8 +1,10 @@
-#import "../../components/index.typ": details, docs-chapter, docs-figure, example, info
+#import "../../components/index.typ": (
+  details, docs-chapter, docs-figure, example, info,
+)
 
 #show: docs-chapter.with(
   title: "Advanced Styling",
-  route: "/tutorial/3-advanced",
+  route: "/tutorial/advanced-styling",
   description: "Typst's tutorial.",
 )
 
@@ -13,6 +15,7 @@ Before we start, let's create a team, invite your supervisor and add them to the
 #docs-figure(
   "3-advanced-team-settings.png",
   alt: "The team settings",
+  shadow: false,
 )
 
 Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the owners dropdown. Don't forget to save your changes!
@@ -296,10 +299,8 @@ Next, take a look at the header. Instead of the title in square parentheses, we 
 
 #info[
   #details[
-    #summary[
-      Why is the context keyword required to access element properties?
-    ]
-
+    Why is the context keyword required to access element properties?
+  ][
     Normally, when we access a variable, we know exactly what its value is going to be:
 
     - The variable could be a constant built into Typst, like `[#sym.pi]`
@@ -566,6 +567,7 @@ We are now in compliance with all of these styles and can submit the paper to th
 #docs-figure(
   "3-advanced-paper.png",
   alt: "The finished paper",
+  width: 400,
 )
 
 = Review <review>

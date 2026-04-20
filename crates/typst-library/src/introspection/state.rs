@@ -172,12 +172,15 @@ use crate::routines::Routines;
 /// should be `3`, and so on. This example displays a finite value because Typst
 /// simply gives up after a few attempts.
 ///
-/// ```example
-/// // This is bad!
-/// #let x = state("key", 1)
-/// #context x.update(x.final() + 1)
-/// #context x.get()
-/// ```
+/// #example(
+///   ```
+///   // This is bad!
+///   #let x = state("key", 1)
+///   #context x.update(x.final() + 1)
+///   #context x.get()
+///   ```,
+///   warnings: false,
+/// )
 ///
 /// In general, you should try not to generate state updates from within context
 /// expressions. If possible, try to express your updates as non-contextual

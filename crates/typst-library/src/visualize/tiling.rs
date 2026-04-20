@@ -32,10 +32,10 @@ use crate::visualize::RelativeTo;
 /// ```
 ///
 /// Tilings are also supported on text, but only when setting the
-/// @tiling.relative[relativeness] to either `{auto}` (the default value) or
-/// `{"parent"}`. To create word-by-word or glyph-by-glyph tilings, you can wrap
-/// the words or characters of your text in @box[boxes] manually or through a
-/// @reference:styling:show-rules[show rule].
+/// @tiling.constructor.relative[relativeness] to either `{auto}` (the default
+/// value) or `{"parent"}`. To create word-by-word or glyph-by-glyph tilings,
+/// you can wrap the words or characters of your text in @box[boxes] manually or
+/// through a @reference:styling:show-rules[show rule].
 ///
 /// ```example
 /// #let pat = tiling(
@@ -53,9 +53,10 @@ use crate::visualize::RelativeTo;
 /// ```
 ///
 /// You can also space the elements further or closer apart using the
-/// @tiling.spacing[`spacing`] feature of the tiling. If the spacing is lower
-/// than the size of the tiling, the tiling will overlap. If it is higher, the
-/// tiling will have gaps of the same color as the background of the tiling.
+/// @tiling.constructor.spacing[`spacing`] feature of the tiling. If the spacing
+/// is lower than the size of the tiling, the tiling will overlap. If it is
+/// higher, the tiling will have gaps of the same color as the background of the
+/// tiling.
 ///
 /// ```example
 /// #let pat = tiling(
