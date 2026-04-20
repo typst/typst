@@ -8,6 +8,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
+use crate::ast::NonDecimalBase;
 use crate::{SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// An iterator over a source code string which returns tokens.
@@ -963,14 +964,14 @@ impl Lexer<'_> {
     fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {
         // Handle alternative integer bases.
         let base = match first_c {
-            '0' if self.s.eat_if('b') => 2,
-            '0' if self.s.eat_if('o') => 8,
-            '0' if self.s.eat_if('x') => 16,
-            _ => 10,
+            '0' if self.s.eat_if('x') => Some(NonDecimalBase::Hex),
+            '0' if self.s.eat_if('o') => Some(NonDecimalBase::Octal),
+            '0' if self.s.eat_if('b') => Some(NonDecimalBase::Binary),
+            _ => None,
         };
 
         // Read the initial digits.
-        if base == 16 {
+        if base == Some(NonDecimalBase::Hex) {
             self.s.eat_while(char::is_ascii_alphanumeric);
         } else {
             self.s.eat_while(char::is_ascii_digit);
@@ -978,7 +979,7 @@ impl Lexer<'_> {
 
         // Read floating point digits and exponents.
         let mut is_float = false;
-        if base == 10 {
+        if base.is_none() {
             // Read digits following a dot. Make sure not to confuse a spread
             // operator or a method call for the decimal separator.
             if first_c == '.' {
@@ -1002,37 +1003,24 @@ impl Lexer<'_> {
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
-        // Parse large integer literals as floats
-        if base == 10
-            && !is_float
-            && let Err(e) = i64::from_str_radix(number, base)
-            && matches!(e.kind(), IntErrorKind::PosOverflow | IntErrorKind::NegOverflow)
-            && number.parse::<f64>().is_ok()
-        {
-            is_float = true;
-        }
-
         let mut suffix_result = match suffix {
             "" => Ok(None),
             "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Ok(Some(())),
             _ => Err(eco_format!("invalid number suffix: `{suffix}`")),
         };
 
-        let number_result = if is_float && number.parse::<f64>().is_err() {
-            // The only invalid case should be when a float lacks digits after
-            // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
-            Err(eco_format!("invalid floating point number: `{number}`"))
-        } else if base == 10 {
-            Ok(())
-        } else {
-            let name = match base {
-                2 => "binary",
-                8 => "octal",
-                16 => "hexadecimal",
-                _ => unreachable!(),
-            };
+        let number_result = if is_float {
+            if number.parse::<f64>().is_err() {
+                // The only invalid case should be when a float lacks digits after
+                // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
+                Err(eco_format!("invalid floating point number: `{number}`"))
+            } else {
+                Ok(())
+            }
+        } else if let Some(non_decimal) = base {
+            let name = non_decimal.name();
             // The index `[2..]` skips the leading `0b`/`0o`/`0x`.
-            match i64::from_str_radix(&number[2..], base) {
+            match i64::from_str_radix(&number[2..], non_decimal as u32) {
                 Ok(_) if suffix.is_empty() => Ok(()),
                 Ok(value) => {
                     if suffix_result.is_ok() {
@@ -1044,10 +1032,15 @@ impl Lexer<'_> {
                 }
                 Err(e) if *e.kind() == IntErrorKind::Empty => Err(eco_format!(
                     "expected a{} {name} number",
-                    if base == 8 { "n" } else { "" },
+                    if non_decimal == NonDecimalBase::Octal { "n" } else { "" },
                 )),
                 Err(_) => Err(eco_format!("invalid {name} number: `{number}`")),
             }
+        } else {
+            // Decimal integer errors are handled in the AST. Note that
+            // too-large decimal integers that have suffixes will be silently
+            // treated as floats.
+            Ok(())
         };
 
         // Return our number or write an error with helpful hints.
