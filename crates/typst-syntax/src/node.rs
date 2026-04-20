@@ -103,10 +103,19 @@ impl SyntaxNode {
     pub fn into_text(self) -> EcoString {
         match self.0 {
             NodeKind::Leaf(leaf) => leaf.text,
-            NodeKind::Inner(inner) => {
-                inner.children.iter().cloned().map(Self::into_text).collect()
-            }
             NodeKind::Error(node) => node.text.clone(),
+            NodeKind::Inner(_) => {
+                let mut text = EcoString::with_capacity(self.len());
+                self.traverse(|node| {
+                    match &node.0 {
+                        NodeKind::Leaf(leaf) => text.push_str(&leaf.text),
+                        NodeKind::Inner(_) => {}
+                        NodeKind::Error(node) => text.push_str(&node.text),
+                    }
+                    node.children()
+                });
+                text
+            }
         }
     }
 
@@ -129,18 +138,16 @@ impl SyntaxNode {
 
     /// The error messages for this node and its descendants.
     pub fn errors(&self) -> Vec<SyntaxError> {
-        if !self.erroneous() {
-            return vec![];
-        }
-
-        if let NodeKind::Error(node) = &self.0 {
-            vec![node.error.clone()]
-        } else {
-            self.children()
-                .filter(|node| node.erroneous())
-                .flat_map(|node| node.errors())
-                .collect()
-        }
+        let mut vec = Vec::new();
+        self.traverse(|node| match &node.0 {
+            NodeKind::Inner(inner) if inner.erroneous => inner.children.iter(),
+            NodeKind::Inner(_) | NodeKind::Leaf(_) => [].iter(),
+            NodeKind::Error(node) => {
+                vec.push(node.error.clone());
+                [].iter()
+            }
+        });
+        vec
     }
 
     /// Add a user-presentable hint if this is an error node.
@@ -228,6 +235,23 @@ impl SyntaxNode {
         }
 
         Ok(())
+    }
+
+    /// Traverse the tree in-order, calling `f` on each node and recursing on
+    /// the returned nodes. Note that `f` can prune the traversal at any point
+    /// by yielding `[].iter()` instead of the actual children slice of an inner
+    /// node.
+    fn traverse(&self, mut f: impl FnMut(&Self) -> std::slice::Iter<'_, Self>) {
+        fn recursive_step(
+            node: &SyntaxNode,
+            f: &mut impl FnMut(&SyntaxNode) -> std::slice::Iter<'_, SyntaxNode>,
+        ) {
+            for child in f(node) {
+                recursive_step(child, f);
+            }
+        }
+        // We pass in `&mut impl FnMut` so our caller doesn't have to.
+        recursive_step(self, &mut f);
     }
 
     /// Whether this is a leaf node.
