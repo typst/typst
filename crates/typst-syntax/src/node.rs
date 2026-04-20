@@ -1,5 +1,5 @@
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Deref, Range};
+use std::ops::{ControlFlow, Deref, Range};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -103,10 +103,19 @@ impl SyntaxNode {
     pub fn into_text(self) -> EcoString {
         match self.0 {
             NodeKind::Leaf(leaf) => leaf.text,
-            NodeKind::Inner(inner) => {
-                inner.children.iter().cloned().map(Self::into_text).collect()
-            }
             NodeKind::Error(node) => node.text.clone(),
+            NodeKind::Inner(_) => {
+                let mut text = String::with_capacity(self.len());
+                self.traverse::<()>(|node| {
+                    match &node.0 {
+                        NodeKind::Inner(_) => {}
+                        NodeKind::Leaf(leaf) => text.push_str(&leaf.text),
+                        NodeKind::Error(node) => text.push_str(&node.text),
+                    }
+                    ControlFlow::Continue(())
+                });
+                text.into()
+            }
         }
     }
 
@@ -129,18 +138,16 @@ impl SyntaxNode {
 
     /// The error messages for this node and its descendants.
     pub fn errors(&self) -> Vec<SyntaxError> {
-        if !self.erroneous() {
-            return vec![];
-        }
-
-        if let NodeKind::Error(node) = &self.0 {
-            vec![node.error.clone()]
-        } else {
-            self.children()
-                .filter(|node| node.erroneous())
-                .flat_map(|node| node.errors())
-                .collect()
-        }
+        let mut vec = Vec::new();
+        self.traverse(|node| match &node.0 {
+            NodeKind::Inner(inner) if inner.erroneous => ControlFlow::Continue(()),
+            NodeKind::Error(node) => {
+                vec.push(node.error.clone());
+                ControlFlow::Continue(())
+            }
+            NodeKind::Inner(_) | NodeKind::Leaf(_) => ControlFlow::Break(()),
+        });
+        vec
     }
 
     /// Add a user-presentable hint if this is an error node.
@@ -228,6 +235,27 @@ impl SyntaxNode {
         }
 
         Ok(())
+    }
+
+    /// Traverse the tree, calling `f` on each node before recursing into inner
+    /// nodes.
+    fn traverse<T>(&self, mut f: impl FnMut(&Self) -> ControlFlow<T>) -> Option<T> {
+        fn recursive_step<T>(
+            node: &SyntaxNode,
+            f: &mut impl FnMut(&SyntaxNode) -> ControlFlow<T>,
+        ) -> ControlFlow<T> {
+            f(node)?;
+            match &node.0 {
+                NodeKind::Leaf(_) | NodeKind::Error(_) => {}
+                NodeKind::Inner(inner) => {
+                    for child in &inner.children {
+                        recursive_step(child, f)?;
+                    }
+                }
+            }
+            ControlFlow::Continue(())
+        }
+        recursive_step(self, &mut f).break_value()
     }
 
     /// Whether this is a leaf node.
