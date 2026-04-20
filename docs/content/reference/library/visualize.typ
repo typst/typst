@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/library/visualize",
+#show: docs-category.with(
+  title: "Visualize",
+  description: "Documentation for drawing and data visualization functionality.",
+  category: "visualize",
 )
 
 Drawing and data visualization.

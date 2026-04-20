@@ -1,9 +1,12 @@
-#import "../../components/index.typ": docs-chapter, docs-figure, docs-table
+#import "../../components/index.typ": (
+  docs-chapter, docs-figure, docs-table, side-by-side,
+)
 
 #show: docs-chapter.with(
   title: "Accessibility Guide",
   route: "/guides/accessibility",
   description: "Learn how to create accessible documents with Typst. This guide covers semantic markup, reading order, alt text, color contrast, language settings, and PDF/UA compliance to ensure your files work for all readers and Assistive Technology.",
+  class: "a11y",
 )
 
 Making a document accessible means that it can be used and understood by everyone. That not only includes people with permanent or temporary disabilities, but also those with different devices or preferences. To underscore why accessibility is important, consider that people might read your document in more contexts than you expected:
@@ -101,12 +104,17 @@ Please note that Typst will mark shapes and paths like @square and @circle as ar
 = Color use and contrast <color-use-and-contrast>
 Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eyesight. Not only does aging often come with worse sight, a significant portion of people have problems differentiating color: About 8% of men and 0.5% of women are color blind.
 
-#docs-figure(
-  "chart-bad-regular.png",
-  alt: "Bar chart showing Energy production in Germany by kind in terawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels",
-) #docs-figure(
-  "chart-bad-deuteranopia.png",
-  alt: "The same bar chart with changed colors, with the segments for Nuclear and Other in a very similar dark blue, and the neighboring segments of Renewables and Fossil Fuels in two almost indistinguishable shades of sickly yellow",
+#side-by-side(
+  docs-figure(
+    "chart-bad-regular.png",
+    alt: "Bar chart showing Energy production in Germany by kind in terawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels",
+    width: 300,
+  ),
+  docs-figure(
+    "chart-bad-deuteranopia.png",
+    alt: "The same bar chart with changed colors, with the segments for Nuclear and Other in a very similar dark blue, and the neighboring segments of Renewables and Fossil Fuels in two almost indistinguishable shades of sickly yellow",
+    width: 300,
+  ),
 )
 
 This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. Our example shows a chart of the domestic energy production in Germany by kind #footnote[Dataset from the German Federal Statistics Authority (Statistisches Bundesamt, Destatis). #link("https://www.destatis.de/DE/Themen/Branchen-Unternehmen/Energie/Erzeugung/bar-chart-race.html")["Bruttostromerzeugung nach Energieträgern in Deutschland ab 1990"], 2025, available under the _Data licence Germany – attribution – version 2.0._]. In the picture, you can see the chart as it would normally appear and a simulation of how it would appear to people with deuteranopia-type color blindness. You can see that the two pairs of the first and last segment both look blue and the center pair looks yellow-ish. The first challenge for the colorblind user is thus to make out the boundary of the "Renewable" and "Fossil Fuels" bar. Then, they must keep track of which bar is which by only their order, adding to their mental load. A way to make this chart even less accessible would be to make the order of segments not match their order in the legend.
@@ -116,6 +124,7 @@ How can we improve the chart? First, make sure that no information is solely com
 #docs-figure(
   "chart-good.png",
   alt: "The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern.",
+  width: 400,
 )
 
 This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
@@ -127,6 +136,7 @@ Also consider the color contrast between background and foreground. For example,
 #docs-figure(
   "color-contrast.png",
   alt: "Two callout boxes with the text 'Caution: Keep hands away from active stapler' with different designs. Each box has a contrast gauge for its text and graphical elements below it. The left box is shaded in a light red and the text is a regular shade of red. It has a text contrast of 2.8:1 and a graphics contrast of 1.4:1. The right box is white with a red outline and dark red text. It has a text contrast of 5.9:1 and a graphics contrast of 3.9:1.",
+  width: 400,
 )
 
 In our example, we can see two designs for callout boxes. Because these boxes aim to help the user avoid a hazard, it is paramount that they can actually read them. However, in the first box, the background is fairly light, making it hard to make out the box. Worse, the red text is difficult to read on the light red background. The text has a 2.8:1 contrast ratio, failing the bar of 4.5:1 contrast the Web Content Accessibility Guidelines (WCAG) set. Likewise, the box has an 1.4:1 contrast ratio with the white page background, falling short of the 3:1 threshold for graphical objects.

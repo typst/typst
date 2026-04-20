@@ -1,7 +1,9 @@
-#import "../../../components/index.typ": docs-chapter, info
+#import "../../../components/index.typ": docs-category, info
 
-#show: docs-chapter.with(
-  route: "/reference/export/bundle",
+#show: docs-category.with(
+  title: "Bundle",
+  description: "Documentation for Typst's bundle export target.",
+  category: "bundle",
 )
 
 #info[

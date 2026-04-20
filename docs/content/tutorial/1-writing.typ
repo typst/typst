@@ -2,7 +2,7 @@
 
 #show: docs-chapter.with(
   title: "Writing in Typst",
-  route: "/tutorial/1-writing",
+  route: "/tutorial/writing-in-typst",
   description: "Typst's tutorial.",
 )
 
@@ -11,6 +11,7 @@ Let's get started! Suppose you got assigned to write a technical report for univ
 #docs-figure(
   "1-writing-app.png",
   alt: "Typst app screenshot",
+  shadow: false,
 )
 
 You already have a good angle for your report in mind. So let's start by writing the introduction. Enter some text in the editor panel. You'll notice that the text immediately appears on the previewed page.
@@ -62,6 +63,7 @@ You think that your report would benefit from a figure. Let's add one. Typst sup
 #docs-figure(
   "1-writing-upload.png",
   alt: "Upload dialog",
+  shadow: false,
 )
 
 We have seen before that specific symbols (called _markup_) have specific meaning in Typst. We can use `=`, `-`, `+`, and `_` to create headings, lists and emphasized text, respectively. However, having a special symbol for everything we want to insert into our document would soon become cryptic and unwieldy. For this reason, Typst reserves markup symbols only for the most common things. Everything else is inserted with _functions._ For our image to show up on the page, we use Typst's @image function.

@@ -62,7 +62,7 @@ PDF export was fully rewritten to use the new #link("https://github.com/LaurenzV
 - The @document.author[`authors`] and @document.keywords[`keywords`] properties of the `document` function now yield corresponding HTML `<meta>` tags #pr(6134)
 - The @html.elem function now supports custom HTML element names #pr(6676)
 - Improved encoding of @html.frame #pr(6605)
-- Empty attributes are now encoded with shorthand syntax (e.g. `<div hidden></div>`) #pr(6479)
+- Empty attributes are now encoded with shorthand syntax (e.g. ```html <div hidden></div>```) #pr(6479)
 - Zero-sized horizontal weak spacing (`{h(0pt, weak: true)}`) does not cause a "was ignored during HTML export" warning anymore, so it can be used to destruct surrounding spaces without producing any output, as in paged export #pr(6917)
 - Fixed encoding of `<pre>` and `<textarea>` elements that start with a newline #pr(6487) #pr(6497)
 - Fixed encoding of #link("https://html.spec.whatwg.org/#raw-text-elements")[raw text elements] #pr(6487) #pr(6720)

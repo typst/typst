@@ -87,14 +87,17 @@ use crate::introspection::Introspector;
 /// same words of caution also apply to other introspection features like
 /// @counter[counters] and @state[state].
 ///
-/// ```example
-/// = Real
-/// #context {
-///   let elems = query(heading)
-///   let count = elems.len()
-///   count * [= Fake]
-/// }
-/// ```
+/// #example(
+///   ```
+///   = Real
+///   #context {
+///     let elems = query(heading)
+///     let count = elems.len()
+///     count * [= Fake]
+///   }
+///   ```,
+///   warnings: false,
+/// )
 ///
 /// = Command line queries <command-line-queries>
 /// You can also perform queries from the command line, using the `typst eval`

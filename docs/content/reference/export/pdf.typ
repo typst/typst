@@ -1,7 +1,10 @@
-#import "../../../components/index.typ": docs-chapter
+#import "../../../components/index.typ": docs-category
 
-#show: docs-chapter.with(
-  route: "/reference/export/pdf",
+#show: docs-category.with(
+  title: "PDF",
+  description: "Documentation for Typst's PDF export target.",
+  category: "pdf",
+  scope: pdf,
 )
 
 PDF files focus on accurately describing documents visually, but also have facilities for annotating their structure. This hybrid approach makes them a good fit for document exchange: They render exactly the same on every device, but also support extraction of a document's content and structure (at least to an extent). Unlike PNG files, PDFs are not bound to a specific resolution. Hence, you can view them at any size without incurring a loss of quality.

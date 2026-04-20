@@ -87,11 +87,11 @@ pub struct AccentElem {
     ///
     ///   [Triple dot],
     ///   [`dot.triple`],
-    ///   [`◌⃛`],
+    ///   raw("\u{20db}"),
     ///
     ///   [Quadruple dot],
     ///   [`dot.quad`],
-    ///   [`◌⃜`],
+    ///   raw("\u{20dc}"),
     ///
     ///   [Circle],
     ///   [`circle`],

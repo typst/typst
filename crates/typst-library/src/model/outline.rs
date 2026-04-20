@@ -107,7 +107,8 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// match these to compose an entry from just the parts you like.
 ///
 /// The default show rule for an outline entry looks like this
-/// #footnote[The outline of equations is the exception to this rule as it does not have a body and thus does not use indented layout.]:
+/// #footnote[The outline of equations is the exception to this rule as it does
+/// not have a body and thus does not use indented layout.]:
 ///
 /// ```typ
 /// #show outline.entry: it => link(
