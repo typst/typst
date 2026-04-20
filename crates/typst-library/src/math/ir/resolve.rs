@@ -574,11 +574,7 @@ fn resolve_primes<'a, 'v, 'e>(
         }
         count => {
             // Custom amount of primes
-            let prime = ctx.resolve_into_item(
-                ctx.store(SymbolElem::packed('′').spanned(elem.span())),
-                styles,
-            )?;
-            ctx.push(PrimesItem::create(prime, count, styles));
+            ctx.push(PrimesItem::create(count, styles));
         }
     }
     Ok(())

@@ -109,3 +109,9 @@ $
   sqrt(f'^2)/f'^2
   sqrt(f''_n^2)/f''^2_n
 $
+
+--- math-primes-show-rules paged ---
+#show math.primes: set text(red)
+$ x' x'' x''' x'''' x''''' x'''''' $
+#show math.prime: set text(blue)
+$ x' x'' x''' x'''' x''''' x'''''' $
