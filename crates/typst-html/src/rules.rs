@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+use az::SaturatingAs;
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
@@ -763,6 +764,14 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     if let Some(alt) = elem.alt.get_cloned(styles) {
         attrs.push(attr::alt, alt);
     }
+
+    // The `width` and `height` properties on the HTML element are only used to
+    // reserve space while the browser is fetching. They are integers. Still, in
+    // case of fractional image sizes, rounding is better than nothing and will
+    // not disrupt the aspect ratio of the final image.
+    let cast = |v: f64| eco_format!("{}", v.round().saturating_as::<i64>());
+    attrs.push(attr::width, cast(image.width()));
+    attrs.push(attr::height, cast(image.height()));
 
     let mut inline = css::Properties::new();
 
