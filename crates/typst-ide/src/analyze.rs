@@ -21,7 +21,7 @@ pub fn analyze_expr(
         ast::Expr::None(_) => Value::None,
         ast::Expr::Auto(_) => Value::Auto,
         ast::Expr::Bool(v) => Value::Bool(v.get()),
-        ast::Expr::Int(v) => Value::Int(v.get()),
+        ast::Expr::Int(v) if v.get().is_ok() => Value::Int(v.get().unwrap()),
         ast::Expr::Float(v) => Value::Float(v.get()),
         ast::Expr::Numeric(v) => Value::numeric(v.get()),
         ast::Expr::Str(v) => Value::Str(v.get().into()),
