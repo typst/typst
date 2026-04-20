@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
-use crate::model::{CslSource, CslStyle};
+use crate::model::{CslSource, CslStyle, FootnoteElem};
 use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
@@ -115,6 +115,11 @@ pub struct CiteElem {
     #[internal]
     #[synthesized]
     pub region: Option<Region>,
+
+    /// Whether this citation is inside a footnote.
+    #[internal]
+    #[synthesized]
+    pub infootnote: bool,
 }
 
 impl Synthesize for Packed<CiteElem> {
@@ -122,6 +127,7 @@ impl Synthesize for Packed<CiteElem> {
         let elem = self.as_mut();
         elem.lang = Some(styles.get(TextElem::lang));
         elem.region = Some(styles.get(TextElem::region));
+        elem.infootnote = Some(styles.get(FootnoteElem::infootnote));
         Ok(())
     }
 }
