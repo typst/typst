@@ -1,0 +1,528 @@
+/*
+This file contains styles which are already present on typst.app via its
+page-wide style sheets. Meanwhile, `docs.css` is also used by typst.app. If
+you're making style changes to the docs and not working at Typst, you'll
+probably want to edit `docs.css` instead.
+*/
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 200;
+  font-display: swap;
+  src:
+    local("HKGrotesk-ExtraLight"),
+    url("/assets/fonts/HKGrotesk-ExtraLight.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("HK Grotesk"),
+    local("HKGrotesk-Regular"),
+    url("/assets/fonts/HKGrotesk-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src:
+    local("HKGrotesk-Italic"),
+    url("/assets/fonts/HKGrotesk-Italic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 500;
+  font-display: swap;
+  src:
+    local("HKGrotesk-Medium"),
+    url("/assets/fonts/HKGrotesk-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 600;
+  font-display: swap;
+  src:
+    local("HKGrotesk-SemiBold"),
+    url("/assets/fonts/HKGrotesk-SemiBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+  src:
+    local("HKGrotesk-SemiBoldItalic"),
+    url("/assets/fonts/HKGrotesk-SemiBoldItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local("HKGrotesk-Bold"),
+    url("/assets/fonts/HKGrotesk-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  src:
+    local("HKGrotesk-BoldItalic"),
+    url("/assets/fonts/HKGrotesk-BoldItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 800;
+  font-display: swap;
+  src:
+    local("HKGrotesk-ExtraBold"),
+    url("/assets/fonts/HKGrotesk-ExtraBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 900;
+  font-display: swap;
+  src:
+    local("HKGrotesk-Black"),
+    url("/assets/fonts/HKGrotesk-Black.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HK Grotesk";
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+  src:
+    local("HKGrotesk-BlackItalic"),
+    url("/assets/fonts/HKGrotesk-BlackItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Cascadia Mono";
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("Cascadia Mono"),
+    local("CascadiaMono-Regular"),
+    url("/assets/fonts/CascadiaMono-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Cascadia Mono";
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local("CascadiaMono-Bold"),
+    url("/assets/fonts/CascadiaMono-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Noto Sans Symbols 2";
+  src: url("/assets/fonts/NotoSansSymbols2-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "NewComputerModernMath";
+  font-weight: normal;
+  font-display: swap;
+  src:
+    local("NewComputerModernMath-Regular"),
+    local("NewComputerModernMath"),
+    url("/assets/fonts/NewCMMath-Regular.otf") format("truetype");
+}
+
+:root {
+  --max-viewport-width: 1221px;
+  --action-secondary-plain: rgba(253, 253, 253, 1);
+  --action-secondary-shaded: rgba(239, 240, 243, 1);
+  --action-secondary-hover: rgba(228, 229, 234, 1);
+  --brand: #239dad;
+  --text-primary: rgba(25, 24, 31, 1);
+  --text-c-comment: #74747c;
+  --text-c-monospace: #6b6b6f;
+  --text-c-math-delim: #198810;
+  --text-c-math-op: #1d6c76;
+  --text-c-list-marker: #8b41b1;
+  --text-c-escape: #1d6c76;
+  --text-c-keyword: #d73948;
+  --text-c-null: #d73948;
+  --text-c-atom: #d73948;
+  --text-c-bool: #d73948;
+  --text-c-number: #b60157;
+  --text-c-string: #198810;
+  --text-c-func: #4b69c6;
+  --text-c-interpolated: #8b41b1;
+  --border-secondary-rgb: 189, 191, 204;
+  --border-secondary: rgba(var(--border-secondary-rgb), 1);
+  --border-focus: rgba(0, 122, 255, 0.5);
+}
+
+html,
+body {
+  font-family:
+    "HK Grotesk",
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: 18px;
+  color: #19181f;
+  background-color: #fdfdfd;
+  scroll-behavior: smooth;
+  scroll-padding-top: min(max(65px, 8vh), 128px);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0px;
+  margin: 0px;
+}
+
+header {
+  padding: 24px;
+  padding-bottom: 0;
+}
+
+main a:link,
+section a:link {
+  color: #007aff;
+}
+
+main a:visited,
+section a:visited {
+  color: #5d25c6;
+}
+
+body > * {
+  max-width: var(--max-viewport-width);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+h2,
+h3,
+h4 {
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 24px;
+  margin-block-start: 16px;
+  margin-block-end: 12px;
+}
+
+@media (hover: hover) {
+  button:hover,
+  input[type="submit"]:hover {
+    background-color: #e4e5ea;
+  }
+}
+
+button {
+  padding: 8px 16px;
+  border: 1px solid rgb(189, 191, 204);
+  background-color: #fdfdfd;
+  border-radius: 6px;
+  margin: 0px;
+  color: inherit;
+  appearance: none;
+  user-select: none;
+}
+
+nav a {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration 0.2s ease-in-out;
+}
+
+nav a:hover,
+nav a:focus {
+  text-decoration: underline;
+}
+
+button:-moz-focusring,
+input:-moz-focusring,
+textarea:-moz-focusring {
+  outline: 3px solid rgba(0, 122, 255, 0.5);
+  outline-offset: 0px;
+}
+
+button:focus-visible,
+button:focus,
+input:focus-visible,
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.5);
+  outline-offset: 0px;
+}
+
+input::placeholder {
+  color: #565565;
+}
+
+button:active,
+input[type="submit"]:active {
+  background-color: #d7d9e0 !important;
+}
+
+.code,
+pre,
+code {
+  font-family: "Cascadia Mono", "Courier New", Courier, monospace;
+  font-size: 15px;
+}
+
+main {
+  padding: 0px 32px;
+}
+
+h1 {
+  font-weight: 700;
+  font-size: 36px;
+  margin-block-end: 24px;
+}
+
+h1 small {
+  font-size: 24px;
+  margin-inline-start: 0.2em;
+  color: #565565;
+}
+
+h3 {
+  font-size: inherit;
+}
+
+p {
+  margin-block-start: 0.5rem;
+  margin-block-end: 0.5rem;
+}
+
+address {
+  font-style: inherit;
+}
+
+strong {
+  font-weight: 600;
+}
+
+section > * > h2:first-child {
+  margin-block-start: 0;
+}
+
+main > ol > li,
+main > ul > li {
+  margin-block-end: 4px;
+  margin-block-start: 4px;
+}
+
+.previewed-code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block-end: 24px;
+}
+
+p + .previewed-code,
+div + .previewed-code {
+  margin-block-start: 24px;
+}
+
+.previewed-code > * {
+  flex-basis: 0;
+  flex-grow: 1;
+  min-width: 250px;
+}
+
+.previewed-code pre,
+pre:has(code) {
+  overflow-x: auto;
+}
+
+.previewed-code pre.big {
+  box-sizing: border-box;
+  min-width: 100%;
+}
+
+.preview {
+  background: #e4e5ea;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  gap: 16px;
+}
+
+.preview > * {
+  background: #fff;
+  box-shadow: 0px 4px 12px rgba(89, 85, 101, 0.2);
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+pre,
+.code-definition {
+  border-radius: 6px;
+  box-shadow: 0px 4px 12px rgba(89, 85, 101, 0.2);
+  padding: 16px;
+  margin: 0px;
+}
+
+.info-box {
+  background: #e8f9ff;
+  border: #007aff 1px solid;
+  border-radius: 6px;
+  padding: 12px 16px 8px 16px;
+}
+
+.info-box::before {
+  content: "Info";
+  display: block;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 14px;
+  margin-block-end: 8px;
+  text-align: left;
+  color: #001666;
+}
+
+.typ-comment,
+.hljs-comment {
+  color: var(--text-c-comment);
+}
+
+.typ-escape {
+  color: var(--text-c-escape);
+}
+
+.typ-strong {
+  font-weight: bold;
+}
+
+.typ-emph {
+  font-style: italic;
+}
+
+.typ-link {
+  text-decoration: underline;
+}
+.typ-raw {
+  color: var(--text-c-monospace);
+}
+
+.typ-label {
+  color: var(--text-c-escape);
+}
+
+.typ-ref {
+  color: var(--text-c-escape);
+}
+
+.typ-heading {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.typ-marker {
+  color: var(--text-c-list-marker);
+}
+
+.typ-term {
+  font-weight: bold;
+}
+
+.typ-math-delim {
+  color: var(--text-c-math-delim);
+}
+
+.typ-math-op {
+  color: var(--text-c-math-op);
+}
+
+.typ-key,
+.hljs-tag .hljs-name,
+.hljs-section {
+  color: var(--text-c-keyword);
+}
+
+.typ-num {
+  color: var(--text-c-number);
+}
+
+.typ-str,
+.hljs-string {
+  color: var(--text-c-string);
+}
+
+.typ-func,
+.hljs-attr {
+  color: var(--text-c-func);
+}
+
+.typ-pol {
+  color: var(--text-c-interpolated);
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media screen and (max-width: 768px) {
+  html,
+  body {
+    font-size: 16px;
+  }
+
+  body section {
+    padding: 40px 24px 40px 24px;
+  }
+
+  main {
+    padding: 0px 24px;
+  }
+}
+
+@media screen and (max-width: 365px) {
+  .previewed-code > * {
+    min-width: 120px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  input::placeholder,
+  input::-moz-placeholder {
+    opacity: 0.8;
+    color: #21212a;
+  }
+}
