@@ -360,7 +360,14 @@ fn resolve_accent<'a, 'v, 'e>(
     let width = elem.size.resolve(styles);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(width, ACCENT_SHORT_FALL)));
 
-    ctx.push(AccentItem::create(base, accent, position, false, styles));
+    ctx.push(AccentItem::create(
+        base,
+        accent,
+        position,
+        elem.dotless.get(styles),
+        false,
+        styles,
+    ));
     Ok(())
 }
 
@@ -1400,7 +1407,7 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
     accent.set_class(MathClass::Diacritic);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(Rel::one(), Em::zero())));
 
-    let base = AccentItem::create(base, accent, position, true, styles);
+    let base = AccentItem::create(base, accent, position, false, true, styles);
 
     let Some(annotation) = annotation else {
         ctx.push(base);

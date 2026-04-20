@@ -719,6 +719,8 @@ pub struct AccentItem<'a> {
     pub accent: MathItem<'a>,
     /// Whether this is a top or bottom accent.
     pub position: Position,
+    /// Whether dotless styles have been added.
+    pub dotless: bool,
     /// Whether the item's width should include the accent's width.
     ///
     /// Only used in paged export.
@@ -733,6 +735,7 @@ impl<'a> AccentItem<'a> {
         base: MathItem<'a>,
         accent: MathItem<'a>,
         position: Position,
+        dotless: bool,
         exact_frame_width: bool,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
@@ -741,6 +744,7 @@ impl<'a> AccentItem<'a> {
             base,
             accent,
             position,
+            dotless,
             exact_frame_width,
         }));
         MathComponent { kind, props, styles }.into()
