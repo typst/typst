@@ -1042,6 +1042,10 @@ impl Lexer<'_> {
                     }
                     Err(eco_format!("{name} numbers cannot have a suffix"))
                 }
+                Err(e) if *e.kind() == IntErrorKind::Empty => Err(eco_format!(
+                    "expected a{} {name} number",
+                    if base == 8 { "n" } else { "" },
+                )),
                 Err(_) => Err(eco_format!("invalid {name} number: `{number}`")),
             }
         };

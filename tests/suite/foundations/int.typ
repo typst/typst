@@ -8,9 +8,25 @@
 // Error: 2-7 invalid binary number: `0b123`
 #0b123
 
+--- int-base-octal-invalid eval ---
+// Error: 2-11 invalid octal number: `0o1078970`
+#0o1078970
+
 --- int-base-hex-invalid eval ---
-// Error: 2-8 invalid hexadecimal number: `0x123z`
-#0x123z
+// Error: 2-9 invalid hexadecimal number: `0x123z4`
+#0x123z4
+
+--- int-base-hex-invalid-non-ascii eval ---
+// Error: 9 expected comma
+#(0xabcdéf)
+
+--- int-base-empty eval ---
+// Error: 2-4 expected a hexadecimal number
+#0x
+// Error: 2-4 expected an octal number
+#0o
+// Error: 2-4 expected a binary number
+#0b
 
 --- int-bounds-max-plus-one eval ---
 #test(type(9223372036854775808), float)
