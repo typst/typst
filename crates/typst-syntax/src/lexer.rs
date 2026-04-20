@@ -952,6 +952,14 @@ impl Lexer<'_> {
         if ident == "_" { SyntaxKind::Underscore } else { SyntaxKind::Ident }
     }
 
+    /// Lex a single number, either an integer or a float, possibly with a
+    /// numeric suffix (`pt`, `deg`, `%`, etc.). Integers may also have a prefix
+    /// for binary, octal, or hexadecimal bases, but only base-10 integers can
+    /// have a numeric suffix (if so, they will be treated as floats in the
+    /// AST).
+    ///
+    /// Floating point numbers can use exponent notation with `e` or `E`, such
+    /// as `5.0e-3in` for `0.005in`.
     fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {
         // Handle alternative integer bases.
         let base = match first_c {
@@ -1007,13 +1015,13 @@ impl Lexer<'_> {
         let mut suffix_result = match suffix {
             "" => Ok(None),
             "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Ok(Some(())),
-            _ => Err(eco_format!("invalid number suffix: {suffix}")),
+            _ => Err(eco_format!("invalid number suffix: `{suffix}`")),
         };
 
         let number_result = if is_float && number.parse::<f64>().is_err() {
             // The only invalid case should be when a float lacks digits after
             // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
-            Err(eco_format!("invalid floating point number: {number}"))
+            Err(eco_format!("invalid floating point number: `{number}`"))
         } else if base == 10 {
             Ok(())
         } else {
@@ -1029,12 +1037,12 @@ impl Lexer<'_> {
                 Ok(value) => {
                     if suffix_result.is_ok() {
                         suffix_result = Err(eco_format!(
-                            "try using a decimal number: {value}{suffix}"
+                            "try using a decimal number: `{value}{suffix}`"
                         ));
                     }
                     Err(eco_format!("{name} numbers cannot have a suffix"))
                 }
-                Err(_) => Err(eco_format!("invalid {name} number: {number}")),
+                Err(_) => Err(eco_format!("invalid {name} number: `{number}`")),
             }
         };
 

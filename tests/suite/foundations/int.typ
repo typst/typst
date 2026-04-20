@@ -5,11 +5,11 @@
 #test(0xA + 0xa, 0x14)
 
 --- int-base-binary-invalid eval ---
-// Error: 2-7 invalid binary number: 0b123
+// Error: 2-7 invalid binary number: `0b123`
 #0b123
 
 --- int-base-hex-invalid eval ---
-// Error: 2-8 invalid hexadecimal number: 0x123z
+// Error: 2-8 invalid hexadecimal number: `0x123z`
 #0x123z
 
 --- int-constructor eval ---
@@ -183,5 +183,5 @@
 #test(int(x), x)
 
 --- number-invalid-suffix eval ---
-// Error: 2-4 invalid number suffix: u
+// Error: 2-4 invalid number suffix: `u`
 #1u

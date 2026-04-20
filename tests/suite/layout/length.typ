@@ -77,22 +77,21 @@
 
 --- issue-5519-nondecimal-suffix eval ---
 // Error: 2-9 binary numbers cannot have a suffix
-// Hint: 2-9 try using a decimal number: 4pt
+// Hint: 2-9 try using a decimal number: `4pt`
 #0b100pt
 
 --- nondecimal-suffix-edge-cases eval ---
 // Error: 2-7 octal numbers cannot have a suffix
-// Hint: 2-7 try using a decimal number: 50%
+// Hint: 2-7 try using a decimal number: `50%`
 #0o62%
 // Error: 2-8 hexadecimal numbers cannot have a suffix
-// Hint: 2-8 try using a decimal number: 2748%
+// Hint: 2-8 try using a decimal number: `2748%`
 #0xabc%
-// Error: 2-9 invalid hexadecimal number: 0xabcem
+// Error: 2-9 invalid hexadecimal number: `0xabcem`
 #0xabcem
 // Error: 2-11 binary numbers cannot have a suffix
-// Hint: 2-11 invalid number suffix: dag
+// Hint: 2-11 invalid number suffix: `dag`
 #0b0101dag
-
 
 --- number-syntax-edge-cases eval ---
 // Test numeric syntax edge cases with suffixes and which spans of text are
@@ -107,22 +106,22 @@
 #1.2e-0%
 #0.0e0deg
 #0.%
-// Error: 2-6 invalid number suffix: in%
+// Error: 2-6 invalid number suffix: `in%`
 #5in%
-// Error: 2-6 invalid number suffix: %in
+// Error: 2-6 invalid number suffix: `%in`
 #5%in
-// Error: 2-8 invalid number suffix: hello
+// Error: 2-8 invalid number suffix: `hello`
 #1hello
-// Error: 2-7 invalid number suffix: infr
+// Error: 2-7 invalid number suffix: `infr`
 #1infr
-// Error: 2-5 invalid floating point number: 2E
-// Hint: 2-5 invalid number suffix: M
+// Error: 2-5 invalid floating point number: `2E`
+// Hint: 2-5 invalid number suffix: `M`
 #2EM
-// Error: 2-8 invalid floating point number: .1E-
+// Error: 2-8 invalid floating point number: `.1E-`
 #.1E-fr
-// Error: 2-16 invalid floating point number: 0.1E+
-// Hint: 2-16 invalid number suffix: fr123e456
+// Error: 2-16 invalid floating point number: `0.1E+`
+// Hint: 2-16 invalid number suffix: `fr123e456`
 #0.1E+fr123e456
-// Error: 2-11 invalid floating point number: .1e-
-// Hint: 2-11 invalid number suffix: fr123
+// Error: 2-11 invalid floating point number: `.1e-`
+// Hint: 2-11 invalid number suffix: `fr123`
 #.1e-fr123.456

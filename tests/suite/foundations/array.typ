@@ -26,7 +26,7 @@
 #(1*/2)
 
 --- array-bad-number-suffix eval ---
-// Error: 6-8 invalid number suffix: u
+// Error: 6-8 invalid number suffix: `u`
 #(1, 1u 2)
 
 --- array-leading-comma eval ---

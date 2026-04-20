@@ -386,7 +386,7 @@ $harpoon(i, dotless: #not false)$
 #test({2*}, 2)
 
 --- ops-bad-token-rhs eval ---
-// Error: 7-10 invalid number suffix: p
+// Error: 7-10 invalid number suffix: `p`
 #(1 + 12p)
 // Error: 7-8 the character `~` is not valid in code
 #(1 / ~)
