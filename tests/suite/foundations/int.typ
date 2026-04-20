@@ -12,6 +12,26 @@
 // Error: 2-8 invalid hexadecimal number: `0x123z`
 #0x123z
 
+--- int-bounds-max-plus-one eval ---
+#test(type(9223372036854775808), float)
+
+--- int-bounds-max-plus-one-hex eval ---
+// Error: 2-20 invalid hexadecimal number: `0x8000000000000000`
+#0x8000000000000000
+
+--- int-bounds-max-plus-two eval ---
+#test(type(9223372036854775809), float)
+
+--- int-bounds-max-u64 eval ---
+#test(type(18446744073709551615), float)
+
+--- int-bounds-manual-min eval ---
+#test(type(-9223372036854775808), float)
+
+--- int-bounds-manual-min-hex eval ---
+// Error: 4-22 invalid hexadecimal number: `0x8000000000000000`
+#(-0x8000000000000000)
+
 --- int-constructor eval ---
 // Test conversion to numbers.
 #test(int(false), 0)
@@ -27,6 +47,8 @@
 #test(int("\u{2212}79"), -79)
 #test(int("9223372036854775807"), 9223372036854775807)
 #test(int("-9223372036854775808"), -9223372036854775807 - 1)
+#test(int("7FFFFFFFFFFFFFFF", base: 16), 9223372036854775807)
+#test(int("-8000000000000000", base: 16), -9223372036854775807 - 1)
 #test(int(10 / 3), 3)
 #test(int(-58.34), -58)
 #test(int(decimal("92492.193848921")), 92492)
@@ -129,40 +151,6 @@
 #test(repr(-9876543210), "-9876543210")
 #test(repr(-0987654321), "-987654321")
 #test(repr(4 - 8), "-4")
-
---- int-parse-large-literals eval ---
-#import "../loading/edge-case.typ": large-integer, representable-integer
-
-#for (name, source) in representable-integer {
-  if name == "i64-min" {
-    // i64-min will be parsed as a float
-    assert.eq(
-      type(eval(source)),
-      float,
-      message: "failed to approximately parse " + name,
-    )
-    // but can still be obtained through integer arithmetic
-    let n = -1 - eval(representable-integer.i64-max)
-    assert(
-      type(n) == int and n < 0,
-      message: "failed to obtained i64-min through integer arithmetic",
-    )
-  } else {
-    assert.eq(
-      type(eval(source)),
-      int,
-      message: "failed to parse " + name,
-    )
-  }
-}
-
-#for (name, source) in large-integer {
-  assert.eq(
-    type(eval(source)),
-    float,
-    message: "failed to approximately parse " + name,
-  )
-}
 
 --- int-display paged ---
 // Test integers.
