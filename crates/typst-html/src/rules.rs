@@ -163,6 +163,7 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     ))
 };
 
+// Also check `PATCHED_LINK_RULE` in `docs/src/main.rs` when editing this.
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let span = elem.span();
     let dest = elem.dest.resolve_early(engine, span)?;
@@ -759,6 +760,7 @@ pub fn html_span_filled(content: Content, color: Color) -> Content {
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
 
+// Also check `PATCHED_IMAGE_RULE` in `docs/src/main.rs` when editing this.
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     let image = elem.decode(engine, styles)?;
 
