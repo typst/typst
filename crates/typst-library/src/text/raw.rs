@@ -522,6 +522,11 @@ impl PlainText for Packed<RawElem> {
     }
 }
 
+cast! {
+    RawElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected raw text")?
+}
+
 /// The content of the raw text.
 #[derive(Debug, Clone, Hash)]
 pub enum RawContent {
