@@ -846,11 +846,11 @@ impl Gradient {
                     let exact = self.sample(RatioOrAngle::Ratio(mid));
                     let approx = Color::mix_iter(
                         [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
-                        ColorSpace::LinearRgb,
+                        ColorSpace::Srgb,
                     )
                     .unwrap();
-                    let exact_color = exact.to_linear_rgb().premultiply().color;
-                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let exact_color = exact.to_rgb().premultiply().color;
+                    let approx_color = approx.to_rgb().premultiply().color;
                     let delta = (exact_color - approx_color).into_components();
                     (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
                 };
