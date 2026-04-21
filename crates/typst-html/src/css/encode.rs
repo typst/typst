@@ -71,6 +71,14 @@ impl Deref for Properties {
     }
 }
 
+impl FromIterator<Property> for Properties {
+    fn from_iter<T: IntoIterator<Item = Property>>(iter: T) -> Self {
+        let mut props = iter.into_iter().collect::<EcoVec<_>>();
+        props.make_mut().sort_by_key(|p| p.name);
+        Self(props)
+    }
+}
+
 /// A builder for [`Properties`].
 ///
 /// Allows serializing Typst types into CSS while producing warnings for
