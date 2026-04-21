@@ -163,10 +163,11 @@
       (fill: colors.dark-gray.shade-10, weight: 500, style: "italic")
     }
     box(width: 5em, h(1fr) + text(font: symbol-fonts, ..style, body) + h(1em))
+    let wrapper = if deprecation != none { strike } else { it => it }
     if title == auto {
-      raw(full)
+      wrapper(raw(full))
     } else {
-      text(fill: colors.text.syntax.teal, raw(title))
+      text(fill: colors.text.syntax.teal, wrapper(raw(title)))
     }
   } else {
     let title = title
