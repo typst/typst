@@ -333,10 +333,17 @@ impl FsRoot {
 
     /// Loads file data from the given virtual path in this root.
     pub fn load(&self, path: &VirtualPath) -> FileResult<Bytes> {
-        // Join the path to the root. If it tries to escape, deny access. Note:
-        // It can still escape via symlinks.
+        // Join the path to the root. If it tries to escape, deny access.
         let path = self.resolve(path);
         let f = |e| FileError::from_io(e, &path);
+        // Canonicalize the resolved path and verify it is still within the
+        // root directory. This prevents symlinks from escaping the sandbox.
+        let canonical = fs::canonicalize(&path).map_err(f)?;
+        let canonical_root = fs::canonicalize(&self.0)
+            .map_err(|e| FileError::from_io(e, &self.0))?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err(FileError::AccessDenied);
+        }
         if fs::metadata(&path).map_err(f)?.is_dir() {
             Err(FileError::IsDirectory)
         } else {
