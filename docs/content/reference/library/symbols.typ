@@ -68,7 +68,7 @@
       html.div({
         html.h3(html.span(class: "unic-name"))
         html.p(class: "sym-deprecation", {
-          use-icon(16, "warn", "Warning")
+          docs.inline(use-icon(16, "warn", "Warning"))
           html.span(class: "text")[This symbol is deprecated]
         })
         html.p(class: "sym-name", {
