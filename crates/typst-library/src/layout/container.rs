@@ -1,13 +1,13 @@
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Construct, Content, NativeElement, Packed, Smart, StyleChain, Value,
-    cast, elem,
+    Args, AutoValue, Construct, Content, Dict, Fold, FromValue, IntoValue, NativeElement,
+    Packed, Smart, StyleChain, Value, cast, elem,
 };
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Corners, Em, Fr, Fragment, Frame, Length, Region, Regions, Rel, Sides, Size,
-    Spacing,
+    Spacing, VAlignment,
 };
 use crate::visualize::{Paint, Stroke};
 
@@ -46,12 +46,33 @@ pub struct BoxElem {
     /// The height of the box.
     pub height: Smart<Rel<Length>>,
 
-    /// An amount to shift the box's baseline by.
+    /// The vertical position of the box's baseline. This is used to align the
+    /// box with the text surrounding it in a paragraph, as the baseline is
+    /// meant to go right below text by default.
+    ///
+    /// By default, the box's baseline will match the baseline of its contents
+    /// (for example, of the text or equation inside it) - this is the `{auto}`
+    /// option. However, the baseline can be adjusted in two ways. The first
+    /// one is to simply pick a vertical [alignment]($alignment), such as
+    /// `{top}`, `{horizon}` or `{bottom}`, to place the baseline at that
+    /// position, relative to the total height of the box (including inset).
+    ///
+    /// The other way to adjust it is to shift the default baseline vertically
+    /// by some amount, specified as a relative length. For example, a value of
+    /// `{2pt}` will move it up by that exact [length]($length) (causing the
+    /// contents to go _down_, as the alignment point moves _up_), whereas
+    /// `{-40%}` will shift the baseline _down_ by 40% of the box's total
+    /// height, including inset (thus causing the contents to move _up_).
+    ///
+    /// Both options can be specified at the same time through a dictionary with
+    /// the keys `at` and `shift`, respectively. For example, when specifying
+    /// `{(at: bottom, shift: 10pt)}`, the box's baseline will be set to the
+    /// height exactly `{10pt}` above the bottom of its contents.
     ///
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    pub baseline: Rel<Length>,
+    pub baseline: BaselinePos,
 
     /// The box's background color. See the
     /// [rectangle's documentation]($rect.fill) for more details.
@@ -489,6 +510,81 @@ cast! {
     _: AutoValue => Self::Auto,
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
+}
+
+/// Configuration for a box's baseline.
+///
+/// Here `None` means unspecified and fields set to it are inherited.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+pub struct BaselinePos {
+    /// Baseline's reference position relative to the height of the box's
+    /// contents.
+    at: Option<Smart<VAlignment>>,
+    /// Amount to shift the baseline by.
+    shift: Option<Rel<Length>>,
+}
+
+cast! {
+    BaselinePos,
+    self => Value::Dict(self.into()),
+    at: Smart<VAlignment> => Self { at: Some(at), shift: None, },
+    shift: Rel<Length> => Self { at: None, shift: Some(shift) },
+    mut dict: Dict => {
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
+        }
+
+        let at = take(&mut dict, "at")?;
+        let shift = take(&mut dict, "shift")?;
+        dict.finish(&["at", "shift"])?;
+        Self { at, shift }
+    },
+}
+
+impl From<BaselinePos> for Dict {
+    fn from(baseline: BaselinePos) -> Self {
+        let mut dict = Dict::new();
+        if let Some(at) = baseline.at {
+            dict.insert("at".into(), at.into_value());
+        }
+        if let Some(shift) = baseline.shift {
+            dict.insert("shift".into(), shift.into_value());
+        }
+        dict
+    }
+}
+
+impl BaselinePos {
+    /// Baseline position relative to frame height, or `auto` to align with the
+    /// inner baseline.
+    pub fn at(&self) -> Smart<VAlignment> {
+        self.at.unwrap_or_default()
+    }
+
+    /// Amount to shift by, with default resolved.
+    pub fn shift(&self) -> Rel<Length> {
+        self.shift.unwrap_or_default()
+    }
+}
+
+impl Default for BaselinePos {
+    fn default() -> Self {
+        Self {
+            at: Some(Default::default()),
+            shift: Some(Default::default()),
+        }
+    }
+}
+
+impl Fold for BaselinePos {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            at: self.at.or(outer.at),
+            shift: self.shift.or(outer.shift),
+        }
+    }
 }
 
 /// Manual closure implementations for layout callbacks.
