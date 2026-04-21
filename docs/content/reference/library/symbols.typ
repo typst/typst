@@ -118,7 +118,7 @@
   })
 }
 
-// Once list entry in symbol list / cell in a symbol grid.
+// One list entry in a symbol list or cell in a symbol grid.
 #let symbol-entry(
   name,
   info,
