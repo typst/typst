@@ -2,23 +2,22 @@
 //! are specified for each element. Existing classes and tags are used where
 //! possible, otherwise custom classes are generated and assigned to elements.
 
-use std::borrow::Borrow;
 use std::cell::Cell;
-use std::fmt::{Display, Write as _};
+use std::collections::VecDeque;
+use std::fmt::{Debug, Display, Write as _};
 use std::hash::Hash;
-use std::ops::Deref;
 
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use ecow::EcoString;
 use ecow::string::ToEcoString;
 use indexmap::IndexMap;
-use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
-use typst_utils::{Id, IdMap, IdVec, KeyFor};
+use rustc_hash::{FxBuildHasher, FxHashSet};
+use typst_utils::{Id, IdMap, IdRange, IdVec, KeyFor, ListSet};
 
 use crate::css::resolve::idqueue::IdQueue;
 use crate::css::{Properties, Property};
-use crate::{HtmlAttrs, HtmlNode, HtmlTag, attr};
+use crate::{HtmlAttrs, HtmlElement, HtmlNode, HtmlTag, attr};
 
 mod idqueue;
 
@@ -47,223 +46,411 @@ impl Stylesheet {
     }
 }
 
-/// TODO: Should the hash for [`Properties`] be cached, similar to [`LazyHash`]?
-struct Resolver<'a> {
-    bump: &'a Bump,
-    /// Elements grouped by their CSS properties.
-    groups: IdMap<&'a Properties, Group<'a>>,
-    /// Lookup table for groups that contain at least one element with a tag.
-    by_tag: FxHashMap<HtmlTag, FxHashSet<GroupId>>,
-    /// Lookup table for groups that contain at least one element with a class.
-    ///
-    /// Simultaneously acts as a string interner for bump allocated class names.
-    by_class: FxHashMap<&'a str, FxHashSet<GroupId>>,
+/// Resolve a stylesheet from the CSS styles specified for each element.
+pub fn resolve_stylesheet(root: &mut HtmlElement) -> Stylesheet {
+    let bump = Bump::new();
+    let mut temp = Bump::new();
+
+    let (mut elems, props, selectors) = collect_elems(&bump, root);
+    let groups = collect_prop_groups(&bump, &mut temp, &elems, &props);
+    let targetable = find_group_selectors(&bump, &mut temp, &elems, &props, &selectors);
+    identify_groups(
+        &bump,
+        &mut temp,
+        &mut elems,
+        &props,
+        &selectors,
+        &groups,
+        &targetable,
+    )
 }
 
-impl<'a> Resolver<'a> {
-    fn new(bump: &'a Bump) -> Self {
-        Self {
-            bump,
-            groups: IdMap::new(),
-            by_tag: FxHashMap::default(),
-            by_class: FxHashMap::default(),
-        }
-    }
-}
-
-/// Index into [`Resolver::groups`].
-type GroupId = Id<GroupKey>;
-struct GroupKey;
-impl<'a> KeyFor<Group<'a>> for GroupKey {}
-
-#[derive(Debug, Default)]
-struct Group<'a> {
-    /// The elements in this group.
-    elems: IdVec<Elem<'a>>,
-}
-
-/// Index into [`Group::elems`].
 type ElemId = Id<ElemKey>;
 struct ElemKey;
-impl<'a> KeyFor<Elem<'a>> for ElemKey {}
+impl KeyFor<Elem<'_, '_>> for ElemKey {}
 
-/// The whole [`HtmlElement`] cannot be borrowed, because that would also
-/// include its children.
+/// The whole [`HtmlElement`] cannot be mutably borrowed, because that would
+/// also include its children.
 #[derive(Debug)]
-struct Elem<'a> {
-    tag: HtmlTag,
+struct Elem<'a, 'b> {
+    parent: Option<ElemId>,
+    children: Option<IdRange<ElemId>>,
     attrs: &'a mut HtmlAttrs,
+    props: BumpVec<'b, PropId>,
+    selectors: BumpVec<'b, SelectorId>,
 }
 
-impl<'a> Elem<'a> {
-    fn new(tag: HtmlTag, attrs: &'a mut HtmlAttrs) -> Self {
-        Self { tag, attrs }
+impl<'a, 'b> Elem<'a, 'b> {
+    fn new(
+        parent: Option<ElemId>,
+        props: BumpVec<'b, PropId>,
+        selectors: BumpVec<'b, SelectorId>,
+        attrs: &'a mut HtmlAttrs,
+    ) -> Self {
+        Self { parent, children: None, attrs, props, selectors }
+    }
+
+    fn push_child(&mut self, id: ElemId) {
+        match &mut self.children {
+            Some(range) => range.include(id),
+            None => self.children = Some(IdRange::new(id)),
+        }
     }
 }
 
-/// Resolve a stylesheet from the CSS styles specified for each element.
-pub fn resolve_stylesheet(nodes: &mut [HtmlNode]) -> Stylesheet {
-    let bump = Bump::new();
-    let mut rs = Resolver::new(&bump);
+/// Collect all elements in the document into a bi-directional tree.
+fn collect_elems<'a, 'b>(
+    bump: &'b Bump,
+    root: &'a mut HtmlElement,
+) -> (IdVec<Elem<'a, 'b>>, IdMap<&'a Property, PropRefs>, IdMap<Selector<'b>, SelectorKey>)
+{
+    // TODO: Is a tree struct wrapper around the `IdVec` convenient?
+    let mut elems = IdVec::new();
+    let mut props = IdMap::new();
+    let mut selectors = IdMap::new();
 
-    for node in nodes.iter_mut() {
-        visit_node(&mut rs, node);
+    let root_id = elems.next_id();
+    elems.push(Elem::new(
+        None,
+        intern_props(bump, &mut props, root_id, &root.css),
+        intern_scalar_selectors(bump, &mut selectors, root),
+        &mut root.attrs,
+    ));
+
+    // Traverse the tree breadth first, so children are contiguous in memory and
+    // can be indexed by a simple range.
+    let mut work = VecDeque::from([(root_id, root.children.make_mut())]);
+    while let Some((parent, children)) = work.pop_front() {
+        for node in children {
+            let HtmlNode::Element(element) = node else { continue };
+
+            let id = elems.next_id();
+            elems.push(Elem::new(
+                Some(parent),
+                intern_props(bump, &mut props, id, &element.css),
+                intern_scalar_selectors(bump, &mut selectors, element),
+                &mut element.attrs,
+            ));
+
+            // Add to parent.
+            elems.get_mut(parent).push_child(id);
+
+            // Queue children.
+            work.push_back((id, element.children.make_mut()));
+        }
     }
 
-    // TODO: Consider preprocessing groups. Maybe have categories of attributes
-    // that belong together and split the properties based on that.
-
-    identify_groups(&mut rs)
+    (elems, props, selectors)
 }
 
-/// Build lookup tables to efficiently identify groups of elements sharing the
-/// same properties.
-fn visit_node<'a>(rs: &mut Resolver<'a>, node: &'a mut HtmlNode) {
-    match node {
-        HtmlNode::Element(element) => {
-            let entry = rs.groups.entry(&element.css);
-            let id = entry.id();
-            let group = entry.or_default();
+fn intern_props<'a, 'b>(
+    bump: &'b Bump,
+    interner: &mut IdMap<&'a Property, PropRefs>,
+    elem_id: ElemId,
+    props: &'a Properties,
+) -> BumpVec<'b, PropId> {
+    props
+        .iter()
+        .map(|prop| {
+            let entry = interner.entry(prop);
+            let prop_id = entry.id();
+            entry.or_default().elems.push(elem_id);
+            prop_id
+        })
+        .collect_in(bump)
+}
 
-            // Tags
-            rs.by_tag.entry(element.tag).or_default().insert(id);
+fn intern_scalar_selectors<'a>(
+    bump: &'a Bump,
+    interner: &mut IdMap<Selector<'a>, SelectorKey>,
+    element: &HtmlElement,
+) -> BumpVec<'a, SelectorId> {
+    let mut elem_selectors = BumpVec::new_in(bump);
 
-            // Classes
-            if let Some(class) = element.attrs.get(attr::class) {
-                for class in class.split_whitespace() {
-                    if let Some(class_groups) = rs.by_class.get_mut(class) {
-                        class_groups.insert(id);
-                    } else {
-                        // Lazily bump allocate the class strings.
-                        let class = rs.bump.alloc_str(class);
-                        rs.by_class.entry(class).or_default().insert(id);
-                    }
+    {
+        let entry = interner.entry(Selector::ty(element.tag));
+        elem_selectors.push(entry.id());
+        entry.or_insert(SelectorKey);
+    }
+
+    if let Some(role) = element.attrs.get(attr::role) {
+        let id = if let Some(id) = interner.lookup_id(&Selector::role(role)) {
+            id
+        } else {
+            let id = interner.next_id();
+            interner.insert(Selector::role(bump.alloc_str(role)), SelectorKey);
+            id
+        };
+        elem_selectors.push(id);
+    }
+
+    if let Some(classes) = element.attrs.get(attr::class) {
+        for class in classes.split_whitespace() {
+            // Don't use the entry API so each selector class is only bump
+            // allocated once.
+            let id = if let Some(id) = interner.lookup_id(&Selector::class(class)) {
+                id
+            } else {
+                let id = interner.next_id();
+                interner.insert(Selector::class(bump.alloc_str(class)), SelectorKey);
+                id
+            };
+            elem_selectors.push(id);
+        }
+    }
+
+    elem_selectors.sort_unstable();
+    elem_selectors.dedup();
+
+    elem_selectors
+}
+
+struct Groups<'a, 'b, 'c> {
+    props: &'c IdMap<&'a Property, PropRefs>,
+    groups: IdVec<PropGroup<'b>>,
+}
+
+impl<'b> Groups<'_, 'b, '_> {
+    /// Create a new group and update the [`Self::group_by_prop`] lookup table.
+    fn create_group(&mut self, props: BumpVec<'b, PropId>) {
+        let group_id = self.groups.next_id();
+        for &prop in props.iter() {
+            self.props.get_id(prop).set_group(group_id);
+        }
+        self.groups.push(PropGroup::new(props));
+    }
+}
+
+type PropId = Id<PropRefs>;
+
+#[derive(Default)]
+struct PropRefs {
+    /// The elements are inserted in iteration order and thus the [`ElemId`] is
+    /// monotonically increasing.
+    elems: Vec<ElemId>,
+
+    /// This is late initialized and updated during property grouping, but is
+    /// guaranteed to be set after [`collect_prop_groups`].
+    group: Cell<Option<GroupId>>,
+}
+
+impl PropRefs {
+    fn set_group(&self, group: GroupId) {
+        self.group.set(Some(group));
+    }
+
+    /// This must only be used after the properties have been grouped.
+    #[cfg_attr(debug_assertions, track_caller)]
+    fn group(&self) -> GroupId {
+        self.group.get().expect("group should be set after property grouping")
+    }
+}
+
+type GroupId = Id<GroupKey>;
+struct GroupKey;
+impl KeyFor<PropGroup<'_>> for GroupKey {}
+
+/// A group of properties.
+#[derive(Debug)]
+struct PropGroup<'b> {
+    /// The properties in this group.
+    /// Due to the way this is constructed, all properties in the same group
+    /// have the exact same set of elements, and the list is neve empty.
+    props: BumpVec<'b, PropId>,
+}
+
+impl<'a> PropGroup<'a> {
+    fn new(props: BumpVec<'a, PropId>) -> Self {
+        Self { props }
+    }
+
+    fn first(&self) -> PropId {
+        *self.props.first().unwrap()
+    }
+}
+
+fn collect_prop_groups<'a, 'b>(
+    bump: &'b Bump,
+    temp: &mut Bump,
+    elems: &IdVec<Elem<'a, 'b>>,
+    props: &IdMap<&'a Property, PropRefs>,
+) -> IdVec<PropGroup<'b>> {
+    let mut ctx = Groups { props, groups: IdVec::new() };
+
+    for elem in elems.iter() {
+        temp.reset();
+
+        let mut existing_props = BumpVec::from_iter_in(elem.props.iter().copied(), temp);
+        let mut existing_groups = BumpVec::new_in(temp);
+        let new_props = existing_props
+            .drain_filter(|prop_id| {
+                let group = props.get_id(*prop_id).group.get();
+                if let Some(group_id) = group {
+                    existing_groups.push(group_id);
                 }
-            }
+                group.is_none()
+            })
+            .collect_in::<BumpVec<_>>(&bump);
 
-            group.elems.push(Elem::new(element.tag, &mut element.attrs));
+        let existing_props = ListSet::new(existing_props);
 
-            for child in element.children.make_mut() {
-                visit_node(rs, child);
+        existing_groups.sort();
+        existing_groups.dedup();
+
+        // Initially create a new group with all newly seen properties of a
+        // group.
+        if !new_props.is_empty() {
+            ctx.create_group(new_props);
+        }
+
+        // Incrementally split up groups. If an element only has a subset of the
+        // group's properties, split the group.
+        for &group_id in existing_groups.iter() {
+            // Found an existing group, check if it needs to be split up.
+            let group = ctx.groups.get_mut(group_id);
+
+            // Remove properties that aren't shared between the group
+            // and the element.
+            let split_off_props = group
+                .props
+                .drain_filter(|group_prop| !existing_props.contains(group_prop))
+                .collect_in::<BumpVec<_>>(bump);
+
+            // Create a new group with the split off properties.
+            if !split_off_props.is_empty() {
+                ctx.create_group(split_off_props);
             }
         }
-        HtmlNode::Tag(..) | HtmlNode::Text(..) | HtmlNode::Frame(..) => (),
     }
+
+    ctx.groups
 }
 
-fn identify_groups(rs: &mut Resolver) -> Stylesheet {
-    let mut styles = IdMap::new();
+/// whether groups are taretable by selectors.
+#[derive(Default, Clone)]
+struct Targetable<'b> {
+    /// Sparse sorted list of groups that can be targeted by the selectors.
+    /// This is the intersection of all elements matching the selector.
+    groups: Option<BumpVec<'b, GroupId>>,
+}
 
-    let mut class_number: u32 = 1;
+impl<'b> Targetable<'b> {
+    /// Whether a group is targetable by the selector.
+    fn is_targetable(&self, group: GroupId) -> bool {
+        let Some(groups) = &self.groups else { return false };
+        groups.binary_search(&group).is_ok()
+    }
 
-    let mut bump = Bump::new();
-    let mut unidentified = Vec::new();
-    for (&props, group) in rs.groups.iter_mut() {
-        bump.reset();
-        unidentified.clear();
+    /// Computes the intersection between the targetable groups and the element
+    /// groups. If there is no targetable list of groups yet, the element's
+    /// groups are bump allocated and used as the initial targetable set.
+    fn intersect(&mut self, bump: &'b Bump, elem_groups: &[GroupId]) {
+        let Some(targetable) = &mut self.groups else {
+            let mut groups = BumpVec::new_in(bump);
+            groups.extend_from_slice_copy(elem_groups);
+            self.groups = Some(groups);
+            return;
+        };
 
-        // The group with an empty set of properties is only included to check
-        // for uniqueness of selectors.
-        if props.is_empty() {
-            continue;
-        }
+        // Iterate the two sorted lists in tandem.
+        let mut elem_groups = elem_groups.iter().copied().peekable();
+        targetable.retain(|&target| {
+            // Skip all group IDs smaller than the target one.
+            while elem_groups.next_if(|&g| g < target).is_some() {}
 
-        // TODO: Maybe have some sort of niceness metric at which point we
-        // generate our own classes instead of using existing tags and classes.
-        // Possibly mixing both. The problem with adding a heuristic like this
-        // is that the output may switch unexpectedly.
-        let mut identifier =
-            indentify_group(&bump, &rs.by_tag, &rs.by_class, group, &mut unidentified);
-
-        // Only add a custom class to `unidentified` elements, and reuse
-        // existing selectors for other ones. Otherwise there might be
-        // unexpected cases where creating an unrelated element with the same
-        // properties will force custom class assignment for an otherwise well
-        // identified subset of the group.
-        if !unidentified.is_empty() {
-            // TODO: Derive better names if possible.
-            let mut name = BumpString::new_in(&bump);
-            // Naively generate a custom class name.
-            while {
-                name.clear();
-                write!(name, "typst-{class_number}").ok();
-                class_number += 1;
-                rs.by_class.contains_key(name.as_str())
-            } {}
-
-            // Add the class attribute.
-            for &elem_id in unidentified.iter() {
-                let elem = group.elems.get_mut(elem_id);
-                if let Some(classes) = elem.attrs.get_mut(attr::class) {
-                    classes.push(' ');
-                    classes.push_str(&name);
-                } else {
-                    elem.attrs.push_front(attr::class, EcoString::from(name.as_str()));
-                }
-            }
-
-            identifier.push(Selector::Class(name.into_bump_str()));
-        }
-
-        identifier.sort_by(|a, b| match (a, b) {
-            (Selector::Type(a), Selector::Type(b)) => {
-                // The `Ord` implementation of `HtmlTagKey` doesn't sort by
-                // string contents, for performance reasons. For the CSS
-                // generation it's preferable to sort alphabetically even though
-                // it will be slower.
-                a.0.resolve().as_str().cmp(b.0.resolve().as_str())
-            }
-            _ => a.cmp(b),
+            // Retain the target if it is also inside the element groups.
+            elem_groups.next_if(|&g| g == target).is_some()
         });
-
-        let selector_list = SelectorList(&identifier).to_eco_string();
-        styles.insert(selector_list, props.clone());
     }
-
-    // Sort the stylesheet
-    let mut styles = styles.into_inner();
-    styles.sort_by(|a, _, b, _| a.cmp(b));
-    Stylesheet { styles }
 }
 
 /// A list of CSS selectors.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct SelectorList<'a>(&'a [Selector<&'a str>]);
-
-impl<'a> Borrow<[Selector<&'a str>]> for SelectorList<'a> {
-    fn borrow(&self) -> &'a [Selector<&'a str>] {
-        self.0
-    }
-}
-
-impl<'a> Deref for SelectorList<'a> {
-    type Target = [Selector<&'a str>];
-
-    fn deref(&self) -> &'a Self::Target {
-        self.0
-    }
-}
+struct SelectorList<'a>(&'a [Selector<'a>]);
 
 impl Display for SelectorList<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, selector) in self.iter().enumerate() {
+        for (i, selector) in self.0.iter().enumerate() {
             if i > 0 {
                 f.write_str(", ")?;
             }
-            match selector {
-                Selector::Type(tag) => f.write_str(&tag.0.resolve())?,
-                Selector::Class(class) => write!(f, ".{class}")?,
-            }
+            Display::fmt(selector, f)?;
         }
         Ok(())
     }
 }
 
+type SelectorId = Id<SelectorKey>;
+struct SelectorKey;
+impl KeyFor<Selector<'_>> for SelectorKey {}
+impl KeyFor<Targetable<'_>> for SelectorKey {}
+
 /// A CSS selector.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-enum Selector<S> {
+enum Selector<'a> {
+    /// E.g. `.parent .child`
+    Descendant(ScalarSelector<'a>, ScalarSelector<'a>),
+    Scalar(ScalarSelector<'a>),
+}
+
+impl<'a> Selector<'a> {
+    fn ty(tag: HtmlTag) -> Self {
+        ScalarSelector::Type(HtmlTagKey(tag)).into()
+    }
+
+    fn role(role: &'a str) -> Self {
+        ScalarSelector::Role(role).into()
+    }
+
+    fn class(class: &'a str) -> Self {
+        ScalarSelector::Class(class).into()
+    }
+
+    fn first_selector(&self) -> ScalarSelector<'a> {
+        match self {
+            Selector::Descendant(first, _) => *first,
+            Selector::Scalar(scalar) => *scalar,
+        }
+    }
+}
+
+impl<'a> From<ScalarSelector<'a>> for Selector<'a> {
+    fn from(v: ScalarSelector<'a>) -> Self {
+        Self::Scalar(v)
+    }
+}
+
+impl Display for Selector<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Selector::Descendant(parent, child) => write!(f, "{parent} {child}"),
+            Selector::Scalar(selector) => write!(f, "{selector}"),
+        }
+    }
+}
+
+/// A CSS selector.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+enum ScalarSelector<'a> {
+    /// A HTML tag.
+    /// E.g. `li`
     Type(HtmlTagKey),
-    Class(S),
+    /// An ARIA role.
+    /// E.g. `[role=hidden]`
+    Role(&'a str),
+    /// A CSS class.
+    /// E.g. `.class`
+    Class(&'a str),
+}
+
+impl Display for ScalarSelector<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScalarSelector::Type(tag) => f.write_str(&tag.0.resolve()),
+            ScalarSelector::Role(role) => write!(f, "[role={role}]"),
+            ScalarSelector::Class(class) => write!(f, ".{class}"),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -281,6 +468,130 @@ impl PartialOrd for HtmlTagKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
+}
+
+/// A [`PropGroup`] is targetable by a [`Selector`] $s$, if all [`Elem`]s that
+/// are selected by $s$ are part of the group. By extension, if there is a
+/// single element that isn't part of the property group, the selector can't be
+/// used to target the group. And all selectors that select an element without
+/// any properties, can be ruled out directly.
+fn find_group_selectors<'a, 'b>(
+    bump: &'b Bump,
+    temp: &mut Bump,
+    elems: &IdVec<Elem<'a, 'b>>,
+    props: &IdMap<&Property, PropRefs>,
+    selectors: &IdMap<Selector<'b>, SelectorKey>,
+) -> IdVec<Targetable<'b>> {
+    let mut targetable_by_selector =
+        IdVec::from_iter(std::iter::repeat_n(Targetable::default(), selectors.len()));
+
+    // Find the intersection of groups for each selector.
+    for elem in elems.iter() {
+        temp.reset();
+
+        let mut groups = (elem.props.iter())
+            .map(|prop_id| props.get_id(*prop_id).group())
+            .collect_in::<BumpVec<_>>(temp);
+        groups.sort();
+        groups.dedup();
+
+        for &selector in elem.selectors.iter() {
+            let targetable = targetable_by_selector.get_mut(selector);
+            targetable.intersect(bump, &groups);
+        }
+    }
+
+    targetable_by_selector
+}
+
+fn identify_groups<'a, 'b>(
+    bump: &'b Bump,
+    temp: &mut Bump,
+    elem_tree: &mut IdVec<Elem<'a, 'b>>,
+    props: &IdMap<&Property, PropRefs>,
+    selectors: &IdMap<Selector<'b>, SelectorKey>,
+    groups: &IdVec<PropGroup<'b>>,
+    targetable: &IdVec<Targetable>,
+) -> Stylesheet {
+    let mut styles = IdMap::new();
+
+    let mut class_number: u32 = 1;
+
+    let mut unidentified = Vec::new();
+    for (group_id, group) in groups.id_iter() {
+        unidentified.clear();
+        temp.reset();
+
+        // The group with an empty set of properties is only included to check
+        // for uniqueness of selectors.
+        if props.is_empty() {
+            continue;
+        }
+
+        let mut identifier = identify_group(
+            bump,
+            temp,
+            elem_tree,
+            props,
+            selectors,
+            targetable,
+            group_id.downcast(),
+            group,
+            &mut unidentified,
+        );
+
+        // Only add a custom class to `unidentified` elements, and reuse
+        // existing selectors for other ones. Otherwise there might be
+        // unexpected cases where creating an unrelated element with the same
+        // properties will force custom class assignment for an otherwise well
+        // identified subset of the group.
+        if !unidentified.is_empty() {
+            // TODO: Derive better names if possible.
+            let mut name = BumpString::new_in(temp);
+            // Naively generate a custom class name.
+            while {
+                name.clear();
+                write!(name, "typst-{class_number}").ok();
+                class_number += 1;
+                selectors.contains_key(&Selector::class(name.as_str()))
+            } {}
+
+            // Add the generated class.
+            for &elem_id in unidentified.iter() {
+                let elem = elem_tree.get_mut(elem_id);
+                if let Some(classes) = elem.attrs.get_mut(attr::class) {
+                    classes.push(' ');
+                    classes.push_str(&name);
+                } else {
+                    elem.attrs.push_front(attr::class, EcoString::from(name.as_str()));
+                }
+            }
+
+            identifier.push(Selector::class(name.into_bump_str()));
+        }
+
+        identifier.sort_by(|a, b| match (a.first_selector(), b.first_selector()) {
+            (ScalarSelector::Type(a), ScalarSelector::Type(b)) => {
+                // The `Ord` implementation of `HtmlTagKey` doesn't sort by
+                // string contents for performance reasons. For the CSS
+                // generation it's preferable to sort alphabetically even though
+                // it will be slower.
+                a.0.resolve().as_str().cmp(b.0.resolve().as_str())
+            }
+            _ => a.cmp(b),
+        });
+
+        let selector_list = SelectorList(&identifier).to_eco_string();
+        let group_props = (group.props.iter())
+            .map(|&prop| (*props.get_id_key(prop)).clone())
+            .collect();
+        styles.insert(selector_list, group_props);
+    }
+
+    // Sort the stylesheet
+    let mut styles = styles.into_inner();
+    styles.sort_by(|a, _, b, _| a.cmp(b));
+    Stylesheet { styles }
 }
 
 /// Index into `selectcor_candidates`.
@@ -355,69 +666,61 @@ struct Bucket {
 /// all buckets of elements have been covered.
 ///
 /// ["Set cover problem"]: https://en.wikipedia.org/wiki/Set_cover_problem
-fn indentify_group<'a>(
-    bump: &'a Bump,
-    by_tag: &FxHashMap<HtmlTag, FxHashSet<GroupId>>,
-    by_class: &FxHashMap<&'a str, FxHashSet<GroupId>>,
-    group: &Group<'a>,
+fn identify_group<'a, 'b>(
+    bump: &'b Bump,
+    temp: &Bump,
+    elem_tree: &IdVec<Elem<'a, 'b>>,
+    props: &IdMap<&Property, PropRefs>,
+    selectors: &IdMap<Selector<'b>, SelectorKey>,
+    targetable: &IdVec<Targetable>,
+    group_id: GroupId,
+    group: &PropGroup,
     unidentified: &mut Vec<ElemId>,
-) -> BumpVec<'a, Selector<&'a str>> {
+) -> BumpVec<'b, Selector<'b>> {
     // PERF: Consider adding some cutoff optimizations here.
 
-    // PERF: Somehow make use of the bump allocator, reuse allocations, or use
-    // some other more efficient allocation strategy.
+    let elems = &props.get_id(group.first()).elems;
 
     // Buckets of elements are identified by an exact intersection of selectors.
     //   => All buckets are mutually exclusive (disjoint) sets of elements.
-    let mut buckets = IdMap::<SelectorList, Bucket>::new();
+    let mut buckets = IdMap::<&[SelectorId], Bucket>::new();
 
     // Maps from each selector to a list of buckets with elements.
-    let mut selector_candidates = IdMap::<Selector<&'a str>, SelectorCandidate>::new();
+    let mut selector_candidates = IdMap::<SelectorId, SelectorCandidate>::new();
 
     // Find class or type selectors that identify buckets of elements within the
     // current group, but no elements from other groups.
-    for (i, elem) in group.elems.iter().enumerate() {
-        let mut selector_list = BumpVec::new_in(bump);
+    for &elem_id in elems.iter() {
+        let elem = elem_tree.get(elem_id);
 
-        if let Some(classes) = elem.attrs.get(attr::class) {
-            for class in classes.split_whitespace() {
-                let (class, groups) = by_class.get_key_value(class).unwrap();
-                if groups.len() == 1 {
-                    selector_list.push(Selector::Class(*class));
-                }
+        // TODO: consider removing type and possibly role selectors, when more precise
+        // selectors are available, or scoring scalar type and role selectors
+        // lower than class and combinators.
+        let mut selector_list = BumpVec::new_in(temp);
+
+        for &selector in elem.selectors.iter() {
+            if targetable.get(selector).is_targetable(group_id) {
+                selector_list.push(selector);
             }
         }
 
-        // TODO: also use aria roles here?
-
-        // Only use tag if there is no class that can uniquely identify this
-        // group.
-        if selector_list.is_empty() {
-            let groups = by_tag.get(&elem.tag).unwrap();
-            if groups.len() == 1 {
-                selector_list.push(Selector::Type(HtmlTagKey(elem.tag)));
-            }
-        }
+        // TODO: generate selectors with descendant or parent combinators.
 
         if selector_list.is_empty() {
-            unidentified.push(ElemId::new(i));
+            unidentified.push(elem_id);
         } else {
-            // Make sure the selector lists are consistently sorted, so we can
-            // use them as unique keys.
-            selector_list.sort_unstable();
-            selector_list.dedup();
-
             // PERF: Avoid unnecessary bump allocations, free the selector list, if
-            // it's already present in the selector map.
-            let selector_list = SelectorList(selector_list.into_bump_slice());
+            // it's already present in the selector map. (Not that bad, since
+            // it's in the temporary bump allocator)
+            let selector_list = selector_list.into_bump_slice();
             let entry = buckets.entry(selector_list);
             let first_inserted = entry.is_vacant();
             let bucket_id = entry.id();
             entry.or_default().num_elems += 1;
 
             if first_inserted {
-                for selector in selector_list.iter() {
-                    let candidate = selector_candidates.entry(*selector).or_default();
+                for &selector in selector_list.iter() {
+                    let candidate = selector_candidates.entry(selector).or_default();
                     candidate.buckets.insert(bucket_id);
                 }
             }
@@ -428,6 +731,8 @@ fn indentify_group<'a>(
     // compute the identifiers for those.
     // Disjoint meaning that there is no path between two selectors when
     // recursively visiting all selectors that point to the same bucket.
+    // Would that change results? Probably no, but not sure.
+    // Would it be more efficient?
 
     let mut identifier = BumpVec::new_in(bump);
 
@@ -441,10 +746,10 @@ fn indentify_group<'a>(
 
     // Eliminiate all buckets that only have a single possible selector.
     for bucket_id in buckets.ids() {
-        let (list, _) = buckets.get_id_full(bucket_id);
-        if let [selector] = list.0 {
+        if let [selector] = buckets.get_id_key(bucket_id) {
             let candidate_id = selector_candidates.lookup_id(selector).unwrap();
             choose_selector_candidate(
+                selectors,
                 &mut identifier,
                 &selector_candidates,
                 &buckets,
@@ -470,6 +775,7 @@ fn indentify_group<'a>(
     // selector that will cover the most remaining elements.
     while let Some(candidate_id) = selector_queue.pop() {
         choose_selector_candidate(
+            selectors,
             &mut identifier,
             &selector_candidates,
             &buckets,
@@ -489,10 +795,11 @@ fn indentify_group<'a>(
 
 /// Choose a selector and recursively update the
 /// [`SelectorCandidate::remaining_elems`] count of all affected selectors.
-fn choose_selector_candidate<'a, F>(
-    selector_list: &mut BumpVec<Selector<&'a str>>,
-    selector_candidates: &IdMap<Selector<&'a str>, SelectorCandidate>,
-    buckets: &IdMap<SelectorList<'a>, Bucket>,
+fn choose_selector_candidate<'a, 'b, F>(
+    selectors: &IdMap<Selector<'b>, SelectorKey>,
+    selector_list: &mut BumpVec<Selector<'b>>,
+    selector_candidates: &IdMap<SelectorId, SelectorCandidate>,
+    buckets: &IdMap<&[SelectorId], Bucket>,
     candidate_id: SelectorCandidateId,
     mut update_queue: F,
 ) where
@@ -506,7 +813,7 @@ fn choose_selector_candidate<'a, F>(
     // updated.
     debug_assert_ne!(candidate.remaining_elems.get(), 0);
 
-    selector_list.push(selector);
+    selector_list.push(*selectors.get_id_key(selector));
 
     candidate.remaining_elems.set(0);
 

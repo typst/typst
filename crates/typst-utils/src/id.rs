@@ -200,6 +200,12 @@ impl<T> IdVec<T> {
         self.ids().zip(self.inner.iter())
     }
 
+    pub fn id_iter_mut(
+        &mut self,
+    ) -> impl ExactSizeIterator<Item = (Id<T>, &mut T)> + DoubleEndedIterator {
+        self.ids().zip(self.inner.iter_mut())
+    }
+
     pub fn ids(
         &self,
     ) -> impl ExactSizeIterator<Item = Id<T>> + DoubleEndedIterator + use<T> {
@@ -253,6 +259,14 @@ impl<K, V> IdMap<K, V> {
         U: KeyFor<V>,
     {
         self.inner.get_index(id.idx()).unwrap()
+    }
+
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn get_id_key<U>(&self, id: Id<U>) -> &K
+    where
+        U: KeyFor<V>,
+    {
+        self.inner.get_index(id.idx()).unwrap().0
     }
 
     #[cfg_attr(debug_assertions, track_caller)]
@@ -334,6 +348,13 @@ where
         self.inner.get_mut(key)
     }
 
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Equivalent<K>,
+    {
+        self.inner.contains_key(key)
+    }
+
     pub fn entry(&mut self, key: K) -> Entry<'_, K, V> {
         Entry { inner: self.inner.entry(key) }
     }
@@ -344,6 +365,10 @@ pub struct Entry<'a, K, V> {
 }
 
 impl<'a, K, V> Entry<'a, K, V> {
+    pub fn or_insert(self, default: V) -> &'a mut V {
+        self.inner.or_insert(default)
+    }
+
     pub fn or_default(self) -> &'a mut V
     where
         V: Default,
