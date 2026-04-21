@@ -11,41 +11,8 @@
   ))
 )
 
-
---- gradient-linear-oklab paged ---
-// The tests below test whether hue rotation works correctly.
-// Here we test in Oklab space for reference.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklab)
-)
-
---- gradient-linear-oklch paged ---
-// Test in OkLCH space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklch)
-)
-
---- gradient-linear-hsv paged ---
-// Test in HSV space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsv)
-)
-
---- gradient-linear-hsl paged ---
-// Test in HSL space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsl)
-)
-
 --- gradient-linear-spaces paged ---
+// The tests below test whether hue rotation works correctly.
 #set page(height: auto, margin: 0pt)
 #set block(spacing: 0pt)
 #let spaces = (

@@ -274,11 +274,7 @@ eb34692785c32c0970fb0baf79ad948f gradient-curve-stroke
 29ebb1f6c5e57da2dc552c5de5ff2b7c gradient-line-stroke
 fb26ede30bbebf76a288188c27a2bb70 gradient-linear-angled
 32d665e252b5597564437c59fe6656ac gradient-linear-angled-aspect-ratio
-db0989426b5200e53a76f71de2f91bb7 gradient-linear-hsl
-515ece6ff67a7d8a8eb7269af9c4a39e gradient-linear-hsv
 8cb59a554e6ebac944544b989f116442 gradient-linear-line
-49e0b6d3436fa3a7e64235133f9ba690 gradient-linear-oklab
-f0a616a1dd608a7b1f2bc683fb36672b gradient-linear-oklch
 d39c627c77254f746090659f7e657768 gradient-linear-relative-parent
 09709f8a436e653f0f2927df7e0c3886 gradient-linear-relative-parent-block
 15d207ac034dc54c322eea7c11c1f6e9 gradient-linear-relative-self
