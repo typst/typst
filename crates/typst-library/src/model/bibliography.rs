@@ -261,6 +261,7 @@ pub struct BibliographyEntry {
 }
 
 #[scope]
+#[allow(clippy::too_many_arguments)]
 impl BibliographyEntry {
     /// Produces the fully formatted inline content for the bibliography entry.
     #[func]

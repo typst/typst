@@ -66,7 +66,7 @@ f446498df4ad17e6384800b50b61ace4 circle-beyond-page-width-overflows
 0bce11a5670a46114079a5c14344a5fb circle-relative-sizing
 fe1b2a552937dc8993331e92bfffe377 circle-size-beyond-default
 76a25bffe4c8d6c5777e07016ae1b81e circle-sizing-options
-59983bc29be50b0e80be466894eb6434 cite-chicago-fullnotes-warning
+b3e51a16b568cabe0cda1d1c9245998b cite-chicago-fullnotes-warning
 52b27de80029ea5025d9a3e1ccc9bb49 cite-footnote
 91317e1c15e8a7c0cb36d9a9fb73167d cite-form
 2144fa86a0928aee0238785f1272e660 cite-group
@@ -770,7 +770,7 @@ cf923aec0f11da2bf7deafbe3be66d5f issue-5705-gradient-border-stroke
 dd888ba474911eb97b8c1040abc0a5e3 issue-5719-terms-nested
 eb2605229b4895be885789f65aab4b9f issue-5723-grid-heading-numbering
 26faba785bf3776f4c9f279e0d47d21f issue-5760-disable-cjk-latin-spacing-in-raw
-b6bdfc3ee31e5818e8ac5dd961b24730 issue-5775-cite-order-rtl
+aceca7fdd7fee6e6d38e904895fcb6a0 issue-5775-cite-order-rtl
 15593b4fc8a9b8960001a7f6655ad7fa issue-5831-par-constructor-args
 4e6121cd624835d40985e57dc3c7a737 issue-5930-symbol-label
 2f57cf25cda31091c6c313b6668ce5a2 issue-5940-text-negative-size-panic
@@ -893,7 +893,7 @@ f530bcd7a82e407bc9d52aa72cae38bc line-numbers-page-scope-quasi-empty-first-colum
 b3afe5cb8156606245cecd08d5a6d63f line-stroke
 4c8816bd0944188ee805feb1031a4b5a line-stroke-dash
 b12031fe8c7b57bebe5f727c445c4005 line-stroke-set
-4f452c4a7c13cce02e8d68abe941ffab linebreak-cite-punctuation
+2ab619170f4c83bf9b0c2fd50b257c65 linebreak-cite-punctuation
 0bb2b06c44486c6717f77682212d8409 linebreak-default-ignorables
 037fb28d9a87f00408d46c67ff3b77c0 linebreak-hyphen-nbsp
 a7106f5b82bc8b6b1de9ddff186367ae linebreak-link
