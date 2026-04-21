@@ -46,7 +46,7 @@
 
 #for path in fonts {
   asset(
-    "assets/" + path,
+    "assets/fonts/" + path,
     docs.read-dev-asset(path),
   )
 }
