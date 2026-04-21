@@ -164,7 +164,7 @@ impl WorldFiles<'_> {
     }
 
     /// Lookup line metadata for a file by id. If a source file was remembered,
-    /// it will be used. Otherwise, we load as a file as compute line metadata.
+    /// it will be used. Otherwise, we load as a file and compute line metadata.
     fn lines(&self, id: FileId) -> CodespanResult<Lines<String>> {
         match self.sources.get(&id) {
             Some(source) => Ok(source.lines().clone()),
