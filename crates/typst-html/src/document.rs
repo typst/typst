@@ -189,7 +189,7 @@ fn html_document_common(
 
     // Since `finalize_dom` might insert more dom nodes that have styles, the
     // stylesheet must be generated last.
-    let stylesheet = css::resolve_stylesheet(output.nodes.make_mut());
+    let stylesheet = css::resolve_stylesheet(output.root_mut());
     if !stylesheet.is_empty() {
         let root = output.root_mut();
 
