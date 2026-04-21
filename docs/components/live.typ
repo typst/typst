@@ -38,8 +38,7 @@
     return eval(markup, scope: scope, mode: "markup")
   }
 
-  let path = "/" + def-site.path
-  let live = live-docs-at-path(path)
+  let live = live-docs-at-path(def-site.path)
   if def-site.key not in live {
     panic("def site was not found:", def-site)
   }
@@ -47,7 +46,7 @@
   let (markup, ranges) = live.at(def-site.key)
   docs.eval-mapped(
     markup,
-    path,
+    def-site.path,
     ranges,
     mode: "markup",
     scope: scope,

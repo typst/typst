@@ -445,7 +445,9 @@ pub fn defer<T, F: FnOnce(&mut T)>(
 /// definition site in the presence of edits (for hot reload).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct DefSite {
-    /// The path to the file.
+    /// The path to the file as returned by the `file!()` macro.
+    ///
+    /// Note that the path separator may vary across platforms.
     pub path: &'static str,
     /// An identifying key associated with the definition. Can be used to find
     /// the definition in the file.
