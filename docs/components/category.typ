@@ -111,7 +111,7 @@
 
   raw(param.name)
 
-  let default = {
+  let default = if not param.required and "default" in param {
     [Default: ]
     raw(lang: "typc", repr(param.default))
   }
@@ -124,7 +124,7 @@
     pills.join[ #small[or] ]
     gap
     text(style: "italic", modifiers.map(small).join(gap))
-    if not param.required {
+    if default != none {
       // The following four lines ensure that there the default has a minimum
       // distances to the modifiers, while being flush-right even if it is alone
       // in its line.
@@ -138,7 +138,7 @@
     html.div(class: "additional-info", {
       html.div(pills.join[ #small[or] ])
       modifiers.map(small).join()
-      if not param.required {
+      if default != none {
         html.small(class: "default", default)
       }
     })

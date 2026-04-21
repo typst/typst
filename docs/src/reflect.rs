@@ -66,18 +66,24 @@ fn describe_func(func: &Func) -> Dict {
 
 /// Provides details about a parameter of a native function.
 fn describe_param(param: &NativeParamInfo) -> Dict {
-    dict! {
+    let mut dict = dict! {
         "name" => param.name,
         "docs" => param.docs,
         "def-site" => param.def_site.map(describe_def_site),
         "input" => describe_cast_info(&param.input),
-        "default" => param.default.map(|f| f()),
         "positional" => param.positional,
         "named" => param.named,
         "variadic" => param.variadic,
         "required" => param.required,
         "settable" => param.settable,
+    };
+    // Since the default can be _any_ Typst value (including `none`), we
+    // indicate the absence of a default with absence from the dictionary rather
+    // than `none`.
+    if let Some(f) = param.default {
+        dict.insert("default".into(), f())
     }
+    dict
 }
 
 /// Provides details about a native type.
