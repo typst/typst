@@ -63,7 +63,7 @@
       radius: 0.3em,
       // Make the pill contents a little smaller because the pill itself also
       // adds visual weight.
-      text(0.9em, body),
+      text(0.9em, weight: "regular", body),
     )
   } else {
     let class = classnames("pill", "pill-" + c)
