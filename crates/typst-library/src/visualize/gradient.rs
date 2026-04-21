@@ -1351,7 +1351,7 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
         while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
             j += 1;
         }
-        return stops[j].0;
+        return stops[j].0.to_space(mixing_space);
     }
 
     let (col_0, pos_0) = stops[j - 1];
