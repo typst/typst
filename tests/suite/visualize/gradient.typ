@@ -45,6 +45,28 @@
   fill: gradient.linear(red, purple, space: color.hsl)
 )
 
+--- gradient-linear-spaces paged ---
+#set page(height: auto, margin: 0pt)
+#set block(spacing: 0pt)
+#let spaces = (
+  ("HSV", color.hsv),
+  ("HSL", color.hsl),
+  ("Oklch", color.oklch),
+  ("Oklab", color.oklab),
+  ("sRGB", color.rgb),
+  ("linear-RGB", color.linear-rgb),
+  ("CMYK", color.cmyk),
+  ("Luma", color.luma),
+)
+#for (name, space) in spaces {
+  block(
+    width: 100%,
+    inset: 4pt,
+    fill: gradient.linear(yellow, blue, space: space),
+    name,
+  )
+}
+
 --- gradient-linear-relative-parent paged ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
