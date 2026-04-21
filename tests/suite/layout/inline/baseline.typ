@@ -11,9 +11,26 @@ that ever learned to mimic a human voice.
 --- baseline-box paged ---
 Hey #box(baseline: 40%, image("/assets/images/tiger.jpg", width: 1.5cm)) there!
 
+How #box(baseline: (at: auto, shift: -1em))[are] you?
+
+Doing #box(baseline: (at: auto, shift: 1em))[just\ fine]!
+
+--- baseline-box-align paged ---
+#bounds[Hey #box(baseline: auto, rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: top, rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: horizon, rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: bottom, rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: (at: horizon, shift: -5pt), rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: (at: bottom, shift: 50%), rect(width: 1.5cm, height: 3em, fill: green)) there!]
+#bounds[Hey #box(baseline: (at: auto, shift: -0.5em), rect(width: 1.5cm, height: 3em, fill: green)) there!]
 
 --- baseline-inline-math paged ---
 #bounds[$sum_(i = 1)^n i/pi = 10$]
+
+It is $a_j = sum_(i in A_j) q_i$ of value $(p_i)/(q_i)$ and $abs({X_(i_j)})$.
+
+#show math.equation: box
+It is $a_j = sum_(i in A_j) q_i$ of value $(p_i)/(q_i)$ and $abs({X_(i_j)})$.
 
 --- baseline-display-math paged ---
 #bounds[$ sum_(i = 1)^n i/pi = 10 $]

@@ -4,10 +4,11 @@ b7ad515c15227c9866d667fcc2cd0fb3 align-right
 4a33a98618da7e7c463970fb613b7877 align-start-and-end
 eaa2b0f8075ea08f4c00a34fcfa782bf array-basic-syntax
 261e80e8575c3673459b111b3206fb19 array-join-content
-49fa44fd8e510e66604da5f762213735 baseline-box
+9c6d42d65e3447a30a30090970cda2a2 baseline-box
+39d505fad4a3b3812296748bc2a6eadf baseline-box-align
 2044ad35782dd18491b8f379ecbaf796 baseline-breakable-display-math
 5f460f4be5172b8981eee21faad7a69c baseline-display-math
-4c9cef71ed1c3fcbf584142926f7d113 baseline-inline-math
+4eff896ad3615d697b80b331fe8f972d baseline-inline-math
 9c823c1e2767f241dec82395cd160422 baseline-isolated-box
 29120ceb97805198aafe9ff7221a5f10 baseline-move
 c0d372053962191d2ba94211b5019252 baseline-paragraph
