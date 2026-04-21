@@ -2,7 +2,7 @@ use std::cell::LazyCell;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, StyleChain};
+use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{BoxElem, Frame, FrameKind, Size};
 use typst_library::visualize::Stroke;
@@ -79,7 +79,12 @@ pub fn layout_box(
     // Apply baseline shift. Do this after setting the size and applying the
     // inset, so that a relative shift is resolved relative to the final
     // height.
-    let shift = elem.baseline.resolve(styles).relative_to(frame.height());
+    let baseline = elem.baseline.get(styles);
+    let align = baseline.at();
+    if let Smart::Custom(align) = align {
+        frame.set_baseline(align.position(frame.height()));
+    }
+    let shift = baseline.shift().resolve(styles).relative_to(frame.height());
     if !shift.is_zero() {
         frame.set_baseline(frame.baseline() - shift);
     }
