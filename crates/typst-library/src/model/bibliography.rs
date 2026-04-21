@@ -16,7 +16,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::World;
 use crate::diag::{
@@ -26,14 +26,17 @@ use crate::diag::{
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, Value, elem,
+    NativeElement, OneOrMultiple, Packed, Reflect, Resolve, Scope, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value, cast, elem, func, scope,
 };
 use crate::introspection::{
-    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
-    QueryIntrospection,
+    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location, Locator,
+    LocatorLink, QueryIntrospection, Tagged,
 };
-use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
+use crate::layout::{
+    Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, PadElem, Region as LayoutRegion,
+    Sides,
+};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
@@ -84,7 +87,7 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, ShowSet, LocalName)]
+#[elem(scope, Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
@@ -228,6 +231,128 @@ impl ShowSet for Packed<BibliographyElem> {
 
 impl LocalName for Packed<BibliographyElem> {
     const KEY: &'static str = "bibliography";
+}
+
+#[scope]
+impl BibliographyElem {
+    #[elem]
+    type BibliographyEntry;
+}
+
+/// Represents an entry in the bibliography.
+#[elem(scope, name = "entry", title = "Bibliography Entry", Locatable, Tagged)]
+pub struct BibliographyEntry {
+    /// The citation key of this bibliography entry.
+    #[required]
+    pub key: EcoString,
+
+    /// The optional prefix of this bibliography entry.
+    #[required]
+    pub prefix: Option<Content>,
+
+    /// The main content of this bibliography entry.
+    #[required]
+    pub body: Content,
+
+    /// Whether this bibliography uses hanging indentation.
+    #[ghost]
+    #[internal]
+    pub hanging: bool,
+}
+
+#[scope]
+impl BibliographyEntry {
+    /// Produces the fully formatted inline content for the bibliography entry.
+    #[func]
+    pub fn inner(
+        &self,
+        /// The prefix to use for this bibliography entry.
+        prefix: Option<Content>,
+        /// The body to use for this bibliography entry.
+        body: Content,
+    ) -> Content {
+        match prefix {
+            Some(prefix) => Content::sequence([prefix, TextElem::packed(" "), body]),
+            None => body,
+        }
+    }
+
+    /// Produces an entry layout with aligned prefixes or hanging indentation.
+    #[func(contextual)]
+    pub fn indented(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        span: Span,
+        /// The prefix to use for this bibliography entry.
+        prefix: Option<Content>,
+        /// The body to use for this bibliography entry.
+        body: Content,
+        /// The gap between prefix and body when a prefix is present.
+        #[named]
+        #[default(Em::new(0.65).into())]
+        gap: Length,
+        /// The hanging indent applied when no prefix is present.
+        #[named]
+        #[default(Em::new(1.5).into())]
+        indent: Length,
+    ) -> SourceResult<Content> {
+        let styles = context.styles().at(span)?;
+        let hanging = styles.get(Self::hanging);
+
+        if let Some(prefix) = prefix {
+            let loc = Location::new(0);
+            let gap = gap.resolve(styles);
+            let prefix_width =
+                measure_bibliography_prefix(engine, &prefix, loc, styles, span)?;
+            let aligned =
+                bibliography_prefix_width(engine, styles, span)?.max(prefix_width);
+
+            let seq = Content::sequence([
+                // Start the prefix flush-left and align only the body column.
+                // This matches the previous bibliography behavior more
+                // closely, especially for single-item numeric bibliographies.
+                HElem::new((-(aligned + gap)).into()).pack(),
+                prefix,
+                HElem::new((aligned + gap - prefix_width).into()).pack(),
+                body,
+            ]);
+
+            let inset = Sides::default().with(
+                styles.resolve(TextElem::dir).start(),
+                Some((aligned + gap).into()),
+            );
+
+            return Ok(BlockElem::new()
+                .with_inset(inset)
+                .with_body(Some(BlockBody::Content(seq)))
+                .pack()
+                .spanned(span));
+        }
+
+        if hanging {
+            let indent = indent.resolve(styles);
+            let body = HElem::new((-indent).into()).pack() + body;
+            let inset = Sides::default()
+                .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
+
+            return Ok(BlockElem::new()
+                .with_inset(inset)
+                .with_body(Some(BlockBody::Content(body)))
+                .pack()
+                .spanned(span));
+        }
+
+        Ok(BlockElem::new()
+            .with_body(Some(BlockBody::Content(body)))
+            .pack()
+            .spanned(span))
+    }
+}
+
+cast! {
+    BibliographyEntry,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected bibliography entry")?
 }
 
 /// A loaded bibliography.
@@ -543,9 +668,11 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
-    /// Lists all references in the bibliography, with optional prefix, or
-    /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content, Location)>>,
+    /// Lists all references in the bibliography, or `None` if the citation
+    /// style can't be used for bibliographies.
+    pub references: Option<Vec<Content>>,
+    /// Whether any bibliography entries have prefixes.
+    pub has_prefixes: bool,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -589,7 +716,7 @@ impl Works {
         &'a self,
         elem: &Packed<BibliographyElem>,
         styles: StyleChain,
-    ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
+    ) -> SourceResult<&'a [Content]> {
         self.references
             .as_deref()
             .ok_or_else(|| match elem.style.get_ref(styles).source {
@@ -815,7 +942,17 @@ impl<'a> Generator<'a> {
         let references = self.display_references(rendered)?;
         let hanging_indent =
             rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Ok(Works { citations, references, hanging_indent })
+        let has_prefixes = references.as_ref().is_some_and(|_| {
+            rendered.bibliography.as_ref().is_some_and(|bib| {
+                bib.items.iter().any(|item| item.first_field.is_some())
+            })
+        });
+        Ok(Works {
+            citations,
+            references,
+            has_prefixes,
+            hanging_indent,
+        })
     }
 
     /// Display the citation groups.
@@ -872,7 +1009,7 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
+    ) -> StrResult<Option<Vec<Content>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
@@ -927,11 +1064,48 @@ impl<'a> Generator<'a> {
                 }
             });
 
-            output.push((prefix, reference, backlink));
+            let entry =
+                BibliographyEntry::new(item.key.as_str().into(), prefix, reference)
+                    .pack()
+                    .set(BibliographyEntry::hanging, rendered.hanging_indent)
+                    .located(backlink)
+                    .spanned(self.bibliography.span());
+            output.push(entry);
         }
 
         Ok(Some(output))
     }
+}
+
+fn measure_bibliography_prefix(
+    engine: &mut Engine,
+    prefix: &Content,
+    loc: Location,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Abs> {
+    let pod = LayoutRegion::new(Axes::splat(Abs::inf()), Axes::splat(false));
+    let link = LocatorLink::measure(loc, span);
+    Ok((engine.routines.layout_frame)(engine, prefix, Locator::link(&link), styles, pod)?
+        .width())
+}
+
+fn bibliography_prefix_width(
+    engine: &mut Engine,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Abs> {
+    let mut width = Abs::zero();
+    for elem in
+        engine.introspect(QueryIntrospection(BibliographyEntry::ELEM.select(), span))
+    {
+        let entry = elem.to_packed::<BibliographyEntry>().unwrap();
+        let Some(prefix) = &entry.prefix else { continue };
+        let loc = entry.location().unwrap();
+        width.set_max(measure_bibliography_prefix(engine, prefix, loc, styles, span)?);
+    }
+
+    Ok(width)
 }
 
 /// Renders hayagriva elements into content.

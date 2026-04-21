@@ -180,3 +180,19 @@ hi:
   title: none,
   full: true,
 )
+
+--- bibliography-entry-show paged ---
+#set page(width: 220pt)
+
+#show bibliography.entry: it => block(
+  stroke: luma(180),
+  inset: 4pt,
+  above: 0.5em,
+)[
+  #text(size: 8pt)[key: #it.key]
+  #it.indented(it.prefix, it.body)
+]
+
+@arrgh
+@distress
+#bibliography("/assets/bib/works.bib", title: none)

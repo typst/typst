@@ -15,9 +15,9 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
-    FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
+    Attribution, BibliographyElem, BibliographyEntry, CiteElem, CiteGroup, CslIndentElem,
+    CslLightElem, Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem,
+    EnumElem, FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
     FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
     OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
@@ -58,6 +58,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
     rules.register(Html, BIBLIOGRAPHY_RULE);
+    rules.register(Html, BIBLIOGRAPHY_ENTRY_RULE);
     rules.register(Html, CSL_LIGHT_RULE);
     rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
@@ -469,49 +470,44 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // properly overridden. For those, we currently emit classes so that a user can
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
-    let span = elem.span();
     let works = Works::with_bibliography(engine, elem.clone())?;
     let references = works.references(elem, styles)?;
-
-    let items = references.iter().map(|(prefix, reference, loc)| {
-        let mut realized = reference.clone();
-
-        if let Some(mut prefix) = prefix.clone() {
-            // If we have a link back to the first citation referencing this
-            // entry, attach the appropriate role.
-            if prefix.is::<DirectLinkElem>() {
-                prefix = prefix.set(HtmlElem::role, Some("doc-backlink".into()));
-            }
-
-            let wrapped = HtmlElem::new(tag::span)
-                .with_attr(attr::class, "prefix")
-                .with_body(Some(prefix))
-                .pack()
-                .spanned(span);
-
-            let separator = SpaceElem::shared().clone();
-            realized = Content::sequence([wrapped, separator, realized]);
-        }
-
-        HtmlElem::new(tag::li)
-            .with_body(Some(realized))
-            .pack()
-            .located(*loc)
-            .spanned(span)
-    });
-
     let title = elem.realize_title(styles);
     let list = HtmlElem::new(tag::ul)
         .with_styles(css::Properties::new().with("list-style-type", "none"))
-        .with_body(Some(Content::sequence(items)))
+        .with_body(Some(Content::sequence(references.iter().cloned())))
         .pack()
-        .spanned(span);
+        .spanned(elem.span());
 
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
         .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
         .with_body(Some(title.unwrap_or_default() + list))
         .pack())
+};
+
+const BIBLIOGRAPHY_ENTRY_RULE: ShowFn<BibliographyEntry> = |elem, _, _| {
+    let mut realized = elem.body.clone();
+
+    if let Some(mut prefix) = elem.prefix.clone() {
+        if prefix.is::<DirectLinkElem>() {
+            prefix = prefix.set(HtmlElem::role, Some("doc-backlink".into()));
+        }
+
+        let wrapped = HtmlElem::new(tag::span)
+            .with_attr(attr::class, "prefix")
+            .with_body(Some(prefix))
+            .pack()
+            .spanned(elem.span());
+
+        realized = Content::sequence([wrapped, SpaceElem::shared().clone(), realized]);
+    }
+
+    Ok(HtmlElem::new(tag::li)
+        .with_body(Some(realized))
+        .pack()
+        .located(elem.location().unwrap())
+        .spanned(elem.span()))
 };
 
 const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
