@@ -306,7 +306,8 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
                 // issues with native color spaces.
                 if second.offset.unwrap() > first.offset.unwrap()
                     && (gradient.space().hue_index().is_some()
-                        || gradient.space() == ColorSpace::Oklab)
+                        || gradient.space() == ColorSpace::Oklab
+                        || gradient.space() == ColorSpace::LinearRgb)
                 {
                     gradient
                         .generate_intermediate_stops_for_rgb_interpolation(first, second)
