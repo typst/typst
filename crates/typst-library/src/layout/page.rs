@@ -780,7 +780,11 @@ macro_rules! papers {
             Paper,
             self => self.name.into_value(),
             $(
-                /// Produces a paper of the respective size.
+                /// A paper that is
+                #[doc = stringify!($width)]
+                /// ×
+                #[doc = stringify!($height)]
+                /// millimeters in size.
                 $name => Self::$var,
             )*
         }
