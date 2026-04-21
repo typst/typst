@@ -15,7 +15,7 @@
   set text(font: fonts.body, size: sizes.body)
   set list(marker: [--])
   set underline(offset: 0.2em)
-  set footnote(numbering: "A")
+  set footnote(numbering: "[A]")
   set table.cell(inset: 4pt)
 
   show title: set text(28pt)
