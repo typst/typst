@@ -49,7 +49,7 @@ pub fn autocomplete(
         &leaf,
         cursor,
         explicit,
-    )?;
+    );
 
     // Getting the syntax mode also ensures we are not in a comment.
     let mode = ctx.leaf.mode_after()?;
@@ -1076,9 +1076,9 @@ impl<'a> CompletionContext<'a> {
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
         explicit: bool,
-    ) -> Option<Self> {
+    ) -> Self {
         let text = source.text();
-        Some(Self {
+        Self {
             world,
             output,
             text,
@@ -1090,7 +1090,7 @@ impl<'a> CompletionContext<'a> {
             from: cursor,
             completions: vec![],
             seen_casts: FxHashSet::default(),
-        })
+        }
     }
 
     /// A small window of context before the cursor.
