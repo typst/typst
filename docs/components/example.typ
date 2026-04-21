@@ -133,7 +133,8 @@
   if target() == "paged" {
     layout(region => {
       let source = text(size: sizes.mono, with-hidden-lines(it))
-      let wide = measure(source).width / region.width > 0.5
+      let available = region.width / 2 - 2 * padding.to-absolute()
+      let wide = measure(source).width > available
       block(
         stroke: border,
         radius: radius,
