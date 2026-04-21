@@ -274,6 +274,7 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
     let use_cmyk = gradient.stops().iter().all(|s| s.color.space() == ColorSpace::Cmyk);
 
     let mut add_single = |color: &Color, offset: Ratio| {
+        let color = &color.to_space(gradient.space());
         let (color, opacity) = if use_cmyk {
             (convert_cmyk(color).into(), 255)
         } else {
