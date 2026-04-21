@@ -353,13 +353,13 @@
     prose-styling(live-docs(info.docs, info.def-site), base-target: func)
   }
 
-  heading-offset(1, params-section(
+  params-section(
     func,
     (info.name,),
     info.params,
     info.returns,
     base-label,
-  ))
+  )
 }
 
 // Renders a section that documents definitions on a type or function.
