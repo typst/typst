@@ -159,7 +159,10 @@
   let body = symbol-overrides.at(value, default: value)
 
   context if target() == "paged" {
-    box(width: 5em, h(1fr) + text(font: symbol-fonts, body) + h(1em))
+   let style = if value in symbol-overrides {
+      (fill: colors.dark-gray.shade-10, weight: 500, style: "italic")
+    }
+    box(width: 5em, h(1fr) + text(font: symbol-fonts, ..style, body) + h(1em))
     if title == auto {
       raw(full)
     } else {
