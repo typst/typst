@@ -2,6 +2,7 @@
 //!
 //! Cooperates with `docs/components/reflect.typ`.
 
+use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
@@ -12,6 +13,7 @@ use typst::foundations::{
     Array, CastInfo, Dict, Func, IntoValue, Module, NativeParamInfo, Repr, Str, Symbol,
     Type, Value, cast, dict, func,
 };
+use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
@@ -110,8 +112,12 @@ fn describe_symbol(symbol: &Symbol) -> Dict {
 
 /// Provides details where a native definition is located in the sources.
 fn describe_def_site(site: DefSite) -> Dict {
+    let path = RootedPath::new(
+        VirtualRoot::Project,
+        VirtualPath::virtualize(Path::new(""), Path::new(site.path)).unwrap(),
+    );
     dict! {
-        "path" => site.path,
+        "path" => path,
         "key" => site.key,
     }
 }
