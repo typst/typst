@@ -60,16 +60,24 @@ impl Eval for ast::MathFieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let target_expr = self.target();
-        let target = match target_expr {
+        let target = self.target().eval(vm)?;
+        let field = self.field();
+        crate::code::access_field(vm, target, field.as_str(), field.span())
+    }
+}
+
+impl Eval for ast::MathAccess<'_> {
+    type Output = Value;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let value = match self {
             ast::MathAccess::MathIdent(ident) => ident.eval(vm)?,
             ast::MathAccess::MathFieldAccess(inner) => inner.eval(vm)?,
         };
         // We need to call `trace_at` for the callee manually because we did not
         // evaluate via `ast::Expr::eval()`.
-        vm.trace_at(target_expr.span(), &target);
-        let field = self.field();
-        crate::code::access_field(vm, target, field.as_str(), field.span())
+        vm.trace_at(self.span(), &value);
+        Ok(value)
     }
 }
 

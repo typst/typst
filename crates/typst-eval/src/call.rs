@@ -111,14 +111,8 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
         ast::MathAccess::MathFieldAccess(access) => {
             let target_expr = access.target();
             target_span = target_expr.span();
+            let target = target_expr.eval(vm)?;
             let field = access.field();
-            let target = match target_expr {
-                ast::MathAccess::MathIdent(ident) => ident.eval(vm)?,
-                ast::MathAccess::MathFieldAccess(inner) => inner.eval(vm)?,
-            };
-            // We need to call `trace_at` for the callee manually because we did
-            // not evaluate via `ast::Expr::eval()`.
-            vm.trace_at(target_span, &target);
             if is_mutating_method(field.as_str())
                 && matches!(target, Value::Array(_) | Value::Dict(_))
             {
