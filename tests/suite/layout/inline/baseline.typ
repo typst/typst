@@ -122,6 +122,12 @@ $]
 #bounds([abc] + box(skew(ax: 30deg, reflow: true)[Hi\ World!]))
 #bounds([abc] + box(skew(ay: 30deg, reflow: true)[Hi\ World!]))
 
+--- baseline-shapes paged ---
+#bounds[abc #box(circle[Hey]) #box(circle())]
+#bounds[abc #box(square[hey!]) #box(square())]
+#bounds[abc #box(ellipse[hey!]) #box(ellipse(width: 2em, height: 1em))]
+
+
 --- issue-2214-baseline-math paged ---
 // The math content should also be affected by the TextElem baseline.
 hello #text(baseline: -5pt)[123 #sym.WW\orld]\
