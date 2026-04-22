@@ -9,7 +9,7 @@ use typst_library::model::{Destination, ResolvedLink};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
-use crate::tags::{self, AnnotationId, GroupId};
+use crate::tags::{self, AnnotationId, Group};
 use crate::util::PointExt;
 
 pub(crate) struct LinkAnnotation {
@@ -88,7 +88,7 @@ pub(crate) fn handle_link(
         }
 
         fc.push_link_annotation(
-            GroupId::INVALID,
+            Group::INVALID,
             LinkAnnotation {
                 kind: LinkAnnotationKind::Artifact,
                 alt: None,

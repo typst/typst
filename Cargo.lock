@@ -3440,6 +3440,7 @@ dependencies = [
 name = "typst-utils"
 version = "0.14.2"
 dependencies = [
+ "indexmap",
  "libm",
  "once_cell",
  "portable-atomic",

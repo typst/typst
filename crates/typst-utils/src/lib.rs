@@ -8,6 +8,7 @@ mod bitset;
 mod deferred;
 mod duration;
 mod hash;
+mod id;
 mod listset;
 mod pico;
 mod protected;
@@ -26,6 +27,7 @@ pub use self::protected::Protected;
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
 pub use self::version_::{TypstVersion, display_commit, version};
+pub use id::{Entry, Id, IdMap, IdRange, IdVec, KeyFor};
 
 #[doc(hidden)]
 pub use once_cell;
