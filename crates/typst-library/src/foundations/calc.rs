@@ -1159,11 +1159,17 @@ pub fn norm(
     // Create an iterator over the absolute values.
     let abs = values.into_iter().map(f64::abs);
 
+    let max = abs.clone().max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0);
+
     Ok(if p.v.is_infinite() {
         // When p is infinity, the p-norm is the maximum of the absolute values.
-        abs.max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0)
+        max
+    } else if max == 0.0 {
+        0.0
     } else {
-        libm::pow(abs.map(|v| libm::pow(v, p.v)).sum::<f64>(), 1.0 / p.v)
+        // We compute: max * (sum_i (x_i / max)^p)^(1 / p). This is to reduce
+        // the range of overflow compared to computing x_i^p directly.
+        max * libm::pow(abs.map(|v| libm::pow(v / max, p.v)).sum::<f64>(), 1.0 / p.v)
     })
 }
 
