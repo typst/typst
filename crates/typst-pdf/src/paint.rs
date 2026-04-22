@@ -271,17 +271,8 @@ fn convert_gradient(
 fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
     let mut stops = vec![];
 
-    let use_cmyk = gradient.stops().iter().all(|s| s.color.space() == ColorSpace::Cmyk);
-
     let mut add_single = |color: &Color, offset: Ratio| {
-        let color = &color.to_space(gradient.space());
-        let (color, opacity) = if use_cmyk {
-            (convert_cmyk(color).into(), 255)
-        } else {
-            let (c, a) = convert_rgb(color);
-            (c.into(), a)
-        };
-
+        let (color, opacity) = convert_solid(&color.to_space(gradient.space()));
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = Stop { offset, color, opacity };
