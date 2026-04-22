@@ -1,11 +1,12 @@
 use std::fmt;
 use std::sync::LazyLock;
 
-use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::mathml::*;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::Content;
+use typst_library::foundations::{Content, NativeElement};
+use typst_library::introspection::TagElem;
 use typst_library::layout::{Axis, Em, FixedAlignment};
 use typst_library::math::ir::{
     AccentItem, FencedItem, FractionItem, GlyphItem, MathItem, MathKind, MathProperties,
@@ -13,12 +14,13 @@ use typst_library::math::ir::{
     ScriptsItem, Stretch, TableItem, TextItem,
 };
 use typst_library::math::{FRAC_PADDING, LeftRightAlternator, MathSize};
+use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
+use crate::HtmlElem;
 use crate::tag::mathml as tag;
-use crate::{HtmlElement, HtmlNode};
 use crate::{attr::mathml as attr, css};
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].
@@ -194,23 +196,25 @@ pub(crate) fn convert_math_to_nodes(
     item: MathItem,
     engine: &mut Engine,
     block: bool,
-) -> SourceResult<EcoVec<HtmlNode>> {
+) -> SourceResult<Vec<Content>> {
     let mut ctx = MathContext::new(engine, block);
     ctx.handle_into_nodes(&item)
 }
 
 /// Collapses a collection of nodes into a single node, wrapping multiple nodes
 /// in an `mrow`.
-trait HtmlNodesExt {
-    fn into_node(self) -> HtmlNode;
+trait ContentExt {
+    fn into_content(self) -> Content;
 }
 
-impl HtmlNodesExt for EcoVec<HtmlNode> {
-    fn into_node(self) -> HtmlNode {
+impl ContentExt for Vec<Content> {
+    fn into_content(self) -> Content {
         if self.len() == 1 {
             self.into_iter().next().unwrap()
         } else {
-            HtmlElement::new(tag::mrow).with_children(self).into()
+            HtmlElem::new(tag::mrow)
+                .with_body(Some(Content::sequence(self)))
+                .pack()
         }
     }
 }
@@ -346,7 +350,7 @@ impl CssContext {
 /// The context for math handling.
 struct MathContext<'v, 'e> {
     engine: &'v mut Engine<'e>,
-    nodes: EcoVec<HtmlNode>,
+    content: Vec<Content>,
     embellishment: Option<EmbellishmentContext>,
     css: CssContext,
 }
@@ -356,15 +360,15 @@ impl<'v, 'e> MathContext<'v, 'e> {
     fn new(engine: &'v mut Engine<'e>, block: bool) -> Self {
         Self {
             engine,
-            nodes: EcoVec::new(),
+            content: Vec::new(),
             embellishment: None,
             css: CssContext::new(block),
         }
     }
 
     /// Push a node.
-    fn push(&mut self, node: impl Into<HtmlNode>) {
-        self.nodes.push(node.into());
+    fn push(&mut self, content: Content) {
+        self.content.push(content);
     }
 
     /// Run `f` with the CSS context temporarily replaced.
@@ -381,21 +385,21 @@ impl<'v, 'e> MathContext<'v, 'e> {
         &mut self,
         item: &MathItem,
         only: Option<Form>,
-    ) -> SourceResult<EcoVec<HtmlNode>> {
-        let prev = std::mem::take(&mut self.nodes);
+    ) -> SourceResult<Vec<Content>> {
+        let prev = std::mem::take(&mut self.content);
         self.handle_into_self(item, only)?;
-        Ok(std::mem::replace(&mut self.nodes, prev))
+        Ok(std::mem::replace(&mut self.content, prev))
     }
 
     /// Handle the given item and return the resulting nodes.
-    fn handle_into_nodes(&mut self, item: &MathItem) -> SourceResult<EcoVec<HtmlNode>> {
+    fn handle_into_nodes(&mut self, item: &MathItem) -> SourceResult<Vec<Content>> {
         self.handle_into_nodes_with_only_form(item, None)
     }
 
     /// Handle the given item and collapse the resulting nodes into a single
     /// node.
-    fn handle_into_node(&mut self, item: &MathItem) -> SourceResult<HtmlNode> {
-        Ok(self.handle_into_nodes(item)?.into_node())
+    fn handle_into_node(&mut self, item: &MathItem) -> SourceResult<Content> {
+        Ok(self.handle_into_nodes(item)?.into_content())
     }
 
     /// Handle the given item and collapse the resulting nodes into a single
@@ -405,8 +409,10 @@ impl<'v, 'e> MathContext<'v, 'e> {
         &mut self,
         item: &MathItem,
         only: Form,
-    ) -> SourceResult<HtmlNode> {
-        Ok(self.handle_into_nodes_with_only_form(item, Some(only))?.into_node())
+    ) -> SourceResult<Content> {
+        Ok(self
+            .handle_into_nodes_with_only_form(item, Some(only))?
+            .into_content())
     }
 
     /// Handle the given item as a lone child and strip form/spacing attributes
@@ -417,7 +423,7 @@ impl<'v, 'e> MathContext<'v, 'e> {
     /// [§ 3.3.1.2 Layout of `<mrow>`][layout].
     ///
     /// [layout]: https://www.w3.org/TR/mathml-core/#layout-of-mrow
-    fn handle_into_node_lone(&mut self, item: &MathItem) -> SourceResult<HtmlNode> {
+    fn handle_into_node_lone(&mut self, item: &MathItem) -> SourceResult<Content> {
         Ok(strip_inert_mo_attrs(
             self.handle_into_node_with_only_form(item, Form::Postfix)?,
         ))
@@ -461,21 +467,23 @@ fn handle_realized(
         MathItem::Component(comp) => comp,
         MathItem::Spacing(amount, _, _) => {
             ctx.push(
-                HtmlElement::new(tag::mspace)
-                    .with_attr(attr::width, eco_format!("{}", css::length(*amount))),
+                HtmlElem::new(tag::mspace)
+                    .with_attr(attr::width, eco_format!("{}", css::length(*amount)))
+                    .pack(),
             );
             return Ok(());
         }
         MathItem::Space => {
             // We hard-code the space width as `(4/18)em`.
             ctx.push(
-                HtmlElement::new(tag::mspace)
-                    .with_attr(attr::width, eco_format!("{}", css::length(SPACE_WIDTH))),
+                HtmlElem::new(tag::mspace)
+                    .with_attr(attr::width, eco_format!("{}", css::length(SPACE_WIDTH)))
+                    .pack(),
             );
             return Ok(());
         }
         MathItem::Tag(tag) => {
-            ctx.push(HtmlNode::Tag(tag.clone()));
+            ctx.push(TagElem::new(tag.clone()).pack());
             return Ok(());
         }
     };
@@ -502,9 +510,10 @@ fn handle_realized(
         && !lspace.is_zero()
     {
         ctx.push(
-            HtmlElement::new(tag::mspace)
+            HtmlElem::new(tag::mspace)
                 .with_attr(attr::width, eco_format!("{}em", lspace.get()))
-                .with_optional_attr(attr::scriptlevel, scriptlevel.clone()),
+                .with_optional_attr(attr::scriptlevel, scriptlevel.clone())
+                .pack(),
         );
     }
 
@@ -525,24 +534,20 @@ fn handle_realized(
 
     let css = if target != ctx.css { target } else { ctx.css };
     // Element's own context, established by the attributes emitted on it below.
-    if let Some(node) = ctx.with_css(css, |ctx| -> SourceResult<Option<HtmlNode>> {
+    if let Some(node) = ctx.with_css(css, |ctx| -> SourceResult<Option<Content>> {
         Ok(match &comp.kind {
-            MathKind::Glyph(item) => {
-                Some(handle_glyph(item, ctx, props, position)?.into())
-            }
-            MathKind::Radical(item) => Some(handle_radical(item, ctx, props)?.into()),
-            MathKind::Accent(item) => Some(handle_accent(item, ctx, props)?.into()),
+            MathKind::Glyph(item) => Some(handle_glyph(item, ctx, props, position)?),
+            MathKind::Radical(item) => Some(handle_radical(item, ctx, props)?),
+            MathKind::Accent(item) => Some(handle_accent(item, ctx, props)?),
             MathKind::Scripts(item) => Some(handle_scripts(item, ctx, props)?),
-            MathKind::Primes(item) => {
-                Some(handle_primes(item, ctx, props, position)?.into())
-            }
-            MathKind::Table(item) => Some(handle_table(item, ctx, props)?.into()),
-            MathKind::Fraction(item) => Some(handle_fraction(item, ctx, props)?.into()),
-            MathKind::Text(item) => Some(handle_text(item, ctx, props, position)?.into()),
-            MathKind::Number(item) => Some(handle_number(item, ctx, props)?.into()),
-            MathKind::Fenced(item) => Some(handle_fenced(item, ctx, props)?.into()),
+            MathKind::Primes(item) => Some(handle_primes(item, ctx, props, position)?),
+            MathKind::Table(item) => Some(handle_table(item, ctx, props)?),
+            MathKind::Fraction(item) => Some(handle_fraction(item, ctx, props)?),
+            MathKind::Text(item) => Some(handle_text(item, ctx, props, position)?),
+            MathKind::Number(item) => Some(handle_number(item, ctx, props)?),
+            MathKind::Fenced(item) => Some(handle_fenced(item, ctx, props)?),
             MathKind::Group(_) => Some(ctx.handle_into_node(item)?),
-            MathKind::Multiline(item) => Some(handle_multiline(item, ctx, props)?.into()),
+            MathKind::Multiline(item) => Some(handle_multiline(item, ctx, props)?),
 
             // Polyfill required for MathML Core.
             MathKind::SkewedFraction(item) => Some(ignored_math_item(
@@ -561,37 +566,32 @@ fn handle_realized(
                 Some(ignored_math_item(ctx, &item.base, props.span, "cancel")?)
             }
 
-            // Arbitrary content is not allowed, as per the HTML spec.
-            // Only MathML token elements (mi, mo, mn, ms, and mtext),
-            // when descendants of HTML elements, may contain
-            // [phrasing content] from the HTML namespace.
+            // TODO: enforce phrasing content.
+            //
+            // Arbitrary content is not allowed, as per the HTML spec. Only
+            // MathML token elements (mi, mo, mn, ms, and mtext), when
+            // descendants of HTML elements, may contain phrasing content from
+            // the HTML namespace. See
             // https://html.spec.whatwg.org/#phrasing-content-2
             //
-            // In MathML 3, nothing is allowed except MathML elements.
-            // Further, nesting root-level math elements is disallowed.
-            //
-            // Since the math element is considered phrasing content,
-            // it can be nested in MathML Core (as long as it is itself
-            // within a MathML token element).
-            MathKind::Box(item) => {
-                ignored_external_item(ctx, item.elem.pack_ref(), props.span)
-            }
-            MathKind::External(item) => {
-                ignored_external_item(ctx, item.content, props.span)
-            }
+            // In MathML 3, nothing is allowed except MathML elements. Further,
+            // nesting root-level math elements is disallowed. Since the math
+            // element is considered phrasing content, it can be nested in
+            // MathML Core (as long as it is itself within a MathML token
+            // element).
+            MathKind::Box(item) => Some(item.elem.clone().pack()),
+            MathKind::External(item) => Some(item.content.clone()),
         })
     })? {
-        ctx.push(match node {
-            // TODO: Try be more smart and only emit these things when necessary
-            // (i.e. it actually contains something affected by them).
-            // TODO: Group multiple elements together that share the same
-            // attributes where possible.
-            HtmlNode::Element(elem) => elem
+        ctx.push(if let Some(elem) = node.to_packed::<HtmlElem>() {
+            elem.clone()
+                .unpack()
                 .with_optional_attr(attr::scriptlevel, scriptlevel.clone())
                 .with_optional_attr(attr::displaystyle, displaystyle)
                 .with_styles(properties)
-                .into(),
-            other => other,
+                .pack()
+        } else {
+            node
         })
     }
 
@@ -601,9 +601,10 @@ fn handle_realized(
         && !rspace.is_zero()
     {
         ctx.push(
-            HtmlElement::new(tag::mspace)
+            HtmlElem::new(tag::mspace)
                 .with_attr(attr::width, eco_format!("{}em", rspace.get()))
-                .with_optional_attr(attr::scriptlevel, scriptlevel),
+                .with_optional_attr(attr::scriptlevel, scriptlevel)
+                .pack(),
         );
     }
 
@@ -614,7 +615,7 @@ fn handle_multiline(
     item: &MultilineItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     let cells = item
         .rows
         .iter()
@@ -622,15 +623,19 @@ fn handle_multiline(
             let cell_nodes = row
                 .iter()
                 .map(|cell| {
-                    Ok(HtmlElement::new(tag::mtd)
-                        .with_children(ctx.handle_into_nodes(cell)?)
-                        .into())
+                    Ok(HtmlElem::new(tag::mtd)
+                        .with_body(Some(Content::sequence(ctx.handle_into_nodes(cell)?)))
+                        .pack())
                 })
-                .collect::<SourceResult<EcoVec<HtmlNode>>>();
+                .collect::<SourceResult<Vec<Content>>>();
 
-            cell_nodes.map(|nodes| HtmlElement::new(tag::mtr).with_children(nodes).into())
+            cell_nodes.map(|nodes| {
+                HtmlElem::new(tag::mtr)
+                    .with_body(Some(Content::sequence(nodes)))
+                    .pack()
+            })
         })
-        .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
+        .collect::<SourceResult<Vec<Content>>>()?;
 
     let mut class = EcoString::from(MULTILINE_EQUATION_CLASS);
     if item.rows.first().is_some_and(|row| row.len() > 1) {
@@ -638,16 +643,17 @@ fn handle_multiline(
         class.push_str(ALIGNED_CLASS);
     }
 
-    Ok(HtmlElement::new(tag::mtable)
+    Ok(HtmlElem::new(tag::mtable)
         .with_attr(crate::attr::class, class)
-        .with_children(cells))
+        .with_body(Some(Content::sequence(cells)))
+        .pack())
 }
 
 fn handle_fraction(
     item: &FractionItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     // UA stylesheet.
     let num = ctx.with_css(ctx.css.depth_auto_add().style_compact(), |ctx| {
         ctx.handle_into_node(&item.numerator)
@@ -658,16 +664,17 @@ fn handle_fraction(
             ctx.handle_into_node(&item.denominator)
         })?;
     let line = (!item.line).then_some("0");
-    Ok(HtmlElement::new(tag::mfrac)
-        .with_children(eco_vec![num, denom])
-        .with_optional_attr(attr::linethickness, line))
+    Ok(HtmlElem::new(tag::mfrac)
+        .with_body(Some(num + denom))
+        .with_optional_attr(attr::linethickness, line)
+        .pack())
 }
 
 fn handle_radical(
     item: &RadicalItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     // UA stylesheet.
     let radicand = ctx
         .with_css(ctx.css.shift_compact(), |ctx| ctx.handle_into_nodes(&item.radicand))?;
@@ -681,12 +688,12 @@ fn handle_radical(
             })
         })
         .transpose()?;
-    let (tag, children) = if let Some(index) = index {
-        (tag::mroot, eco_vec![radicand.into_node(), index])
+    let (tag, body) = if let Some(index) = index {
+        (tag::mroot, radicand.into_content() + index)
     } else {
-        (tag::msqrt, radicand)
+        (tag::msqrt, radicand.into_content())
     };
-    Ok(HtmlElement::new(tag).with_children(children))
+    Ok(HtmlElem::new(tag).with_body(Some(body)).pack())
 }
 
 fn handle_glyph(
@@ -694,7 +701,7 @@ fn handle_glyph(
     ctx: &mut MathContext,
     props: &MathProperties,
     position: NodePosition,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     let text = &item.text;
 
     // Prime and factorial characters have math class Normal but are
@@ -726,9 +733,10 @@ fn handle_glyph(
         | MathClass::GlyphPart
         | MathClass::Space => {
             let mathvariant = will_auto_transform(text).then_some("normal");
-            return Ok(HtmlElement::new(tag::mi)
-                .with_children(eco_vec![HtmlNode::text(text, props.span)])
-                .with_optional_attr(attr::mathvariant, mathvariant));
+            return Ok(HtmlElem::new(tag::mi)
+                .with_body(Some(TextElem::packed(text).spanned(props.span)))
+                .with_optional_attr(attr::mathvariant, mathvariant)
+                .pack());
         }
         MathClass::Diacritic => form = Some(Form::Postfix),
         MathClass::Binary | MathClass::Relation => form = Some(Form::Infix),
@@ -767,7 +775,7 @@ fn handle_accent(
     item: &AccentItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     let (tag, attr, css) = if item.position == Position::Below {
         (tag::munder, attr::accentunder, ctx.css)
     } else {
@@ -791,17 +799,18 @@ fn handle_accent(
     // See https://github.com/w3c/mathml-core/issues/311.
     let accent = ctx.handle_into_node_lone(&item.accent)?;
 
-    Ok(HtmlElement::new(tag)
-        .with_children(eco_vec![base, accent])
+    Ok(HtmlElem::new(tag)
+        .with_body(Some(base + accent))
         .with_attr(attr, "true")
-        .with_optional_attr(crate::attr::class, dotted))
+        .with_optional_attr(crate::attr::class, dotted)
+        .pack())
 }
 
 fn handle_scripts(
     item: &ScriptsItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlNode> {
+) -> SourceResult<Content> {
     let mut base = ctx.handle_into_node(&item.base)?;
 
     // UA stylesheet + Typst stylesheet making bottom attachments cramped.
@@ -826,28 +835,27 @@ fn handle_scripts(
 
     if let Some((tag, other_children)) = match (tl, tr, bl, br) {
         (None, None, None, None) => None,
-        (None, None, None, Some(br)) => Some((tag::msub, eco_vec![br])),
-        (None, Some(tr), None, None) => Some((tag::msup, eco_vec![tr])),
-        (None, Some(tr), None, Some(br)) => Some((tag::msubsup, eco_vec![br, tr])),
+        (None, None, None, Some(br)) => Some((tag::msub, vec![br])),
+        (None, Some(tr), None, None) => Some((tag::msup, vec![tr])),
+        (None, Some(tr), None, Some(br)) => Some((tag::msubsup, vec![br, tr])),
         (tl, tr, bl, br) => {
-            let unwrap = |node: Option<HtmlNode>| {
-                node.unwrap_or(HtmlElement::new(tag::mrow).into())
-            };
+            let unwrap =
+                |node: Option<Content>| node.unwrap_or(HtmlElem::new(tag::mrow).pack());
             Some((
                 tag::mmultiscripts,
-                eco_vec![
+                vec![
                     unwrap(br),
                     unwrap(tr),
-                    HtmlElement::new(tag::mprescripts).into(),
+                    HtmlElem::new(tag::mprescripts).pack(),
                     unwrap(bl),
                     unwrap(tl),
                 ],
             ))
         }
     } {
-        let mut children = eco_vec![base];
+        let mut children = vec![base];
         children.extend(other_children);
-        base = HtmlElement::new(tag).with_children(children).into();
+        base = HtmlElem::new(tag).with_body(Some(Content::sequence(children))).pack();
     }
 
     if let Some((tag, other_children)) = match (t, b) {
@@ -856,9 +864,9 @@ fn handle_scripts(
         (None, Some(b)) => Some((tag::munder, eco_vec![b])),
         (Some(t), Some(b)) => Some((tag::munderover, eco_vec![b, t])),
     } {
-        let mut children = eco_vec![base];
+        let mut children = vec![base];
         children.extend(other_children);
-        base = HtmlElement::new(tag).with_children(children).into();
+        base = HtmlElem::new(tag).with_body(Some(Content::sequence(children))).pack();
     }
 
     Ok(base)
@@ -868,7 +876,7 @@ fn handle_table(
     item: &TableItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     let (ncols, has_sub_cols) = item
         .cells
         .first()
@@ -886,20 +894,22 @@ fn handle_table(
                     cell.iter().enumerate().map(|(i, sub_col)| (i, cell.len(), sub_col))
                 })
                 .map(|(i, count, sub_col)| {
-                    Ok(HtmlElement::new(tag::mtd)
-                        .with_children(
+                    Ok(HtmlElem::new(tag::mtd)
+                        .with_body(Some(Content::sequence(
                             ctx.with_css(css, |ctx| ctx.handle_into_nodes(sub_col))?,
-                        )
+                        )))
                         .with_optional_attr(
                             crate::attr::class,
                             table_mtd_class(i, count, ncols, item.alternator),
                         )
-                        .into())
+                        .pack())
                 })
-                .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
-            Ok(HtmlElement::new(tag::mtr).with_children(nodes).into())
+                .collect::<SourceResult<Vec<Content>>>()?;
+            Ok(HtmlElem::new(tag::mtr)
+                .with_body(Some(Content::sequence(nodes)))
+                .pack())
         })
-        .collect::<SourceResult<EcoVec<HtmlNode>>>()?;
+        .collect::<SourceResult<Vec<Content>>>()?;
 
     let class = match (item.alternator, item.align) {
         (LeftRightAlternator::None, _) if ncols == 1 => Some(CASES_CLASS),
@@ -911,9 +921,10 @@ fn handle_table(
         (_, FixedAlignment::Center) => None,
     };
 
-    Ok(HtmlElement::new(tag::mtable)
-        .with_children(cells)
-        .with_optional_attr(crate::attr::class, class))
+    Ok(HtmlElem::new(tag::mtable)
+        .with_body(Some(Content::sequence(cells)))
+        .with_optional_attr(crate::attr::class, class)
+        .pack())
 }
 
 fn handle_text(
@@ -921,7 +932,7 @@ fn handle_text(
     ctx: &mut MathContext,
     props: &MathProperties,
     position: NodePosition,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     Ok(if props.class == MathClass::Large {
         make_mo(
             &item.text,
@@ -936,8 +947,9 @@ fn handle_text(
             None,
         )
     } else {
-        HtmlElement::new(tag::mtext)
-            .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)])
+        HtmlElem::new(tag::mtext)
+            .with_body(Some(TextElem::packed(item.text.clone()).spanned(props.span)))
+            .pack()
     })
 }
 
@@ -945,9 +957,10 @@ fn handle_number(
     item: &NumberItem,
     _ctx: &mut MathContext,
     props: &MathProperties,
-) -> SourceResult<HtmlElement> {
-    Ok(HtmlElement::new(tag::mn)
-        .with_children(eco_vec![HtmlNode::Text(item.text.clone(), props.span)]))
+) -> SourceResult<Content> {
+    Ok(HtmlElem::new(tag::mn)
+        .with_body(Some(TextElem::packed(item.text.clone()).spanned(props.span)))
+        .pack())
 }
 
 fn handle_primes(
@@ -955,7 +968,7 @@ fn handle_primes(
     ctx: &mut MathContext,
     props: &MathProperties,
     position: NodePosition,
-) -> SourceResult<HtmlElement> {
+) -> SourceResult<Content> {
     let text: EcoString = std::iter::repeat_n(PRIME_CHAR, item.count).collect();
     Ok(make_mo(
         &text,
@@ -975,8 +988,8 @@ fn handle_fenced(
     item: &FencedItem,
     ctx: &mut MathContext,
     _props: &MathProperties,
-) -> SourceResult<HtmlElement> {
-    let mut children = EcoVec::new();
+) -> SourceResult<Content> {
+    let mut children = Vec::new();
     if let Some(open) = item
         .open
         .as_ref()
@@ -1002,7 +1015,9 @@ fn handle_fenced(
     // `<math>...</math>`. For example:
     // https://bugzilla.mozilla.org/show_bug.cgi?id=236963
     // https://bugzilla.mozilla.org/show_bug.cgi?id=2018403
-    Ok(HtmlElement::new(tag::mrow).with_children(children))
+    Ok(HtmlElem::new(tag::mrow)
+        .with_body(Some(Content::sequence(children)))
+        .pack())
 }
 
 /// Creates an `mo` element.
@@ -1018,7 +1033,7 @@ fn make_mo(
     separator: bool,
     largeop: bool,
     stretch: Option<Stretch>,
-) -> HtmlElement {
+) -> Content {
     // If this is the core operator of an embellished operator, use the spacing
     // and position stored in the context.
     let (mut lspace, rspace, position, limits) = ctx
@@ -1107,8 +1122,8 @@ fn make_mo(
         (None, None)
     };
 
-    HtmlElement::new(tag::mo)
-        .with_children(eco_vec![HtmlNode::text(text, span)])
+    HtmlElem::new(tag::mo)
+        .with_body(Some(TextElem::packed(text).spanned(span)))
         .with_optional_attr(attr::form, form)
         .with_optional_attr(attr::fence, fence)
         .with_optional_attr(attr::separator, separator)
@@ -1119,6 +1134,7 @@ fn make_mo(
         .with_optional_attr(attr::minsize, minsize)
         .with_optional_attr(attr::largeop, largeop)
         .with_optional_attr(attr::movablelimits, movablelimits)
+        .pack()
 }
 
 /// The class for an `mtd` that is one of multiple sub-columns in a table.
@@ -1149,13 +1165,15 @@ fn table_mtd_class(
 }
 
 /// Strips `form`, `lspace`, and `rspace` from a singleton `mo`.
-fn strip_inert_mo_attrs(mut node: HtmlNode) -> HtmlNode {
-    if let HtmlNode::Element(elem) = &mut node
+fn strip_inert_mo_attrs(node: Content) -> Content {
+    if let Some(elem) = node.to_packed::<HtmlElem>()
+        && let mut elem = elem.clone().unpack()
         && elem.tag == tag::mo
     {
-        elem.attrs.0.retain(|(a, _)| {
+        elem.attrs.as_option_mut().get_or_insert_default().0.retain(|(a, _)| {
             *a != attr::form && *a != attr::lspace && *a != attr::rspace
         });
+        return elem.pack();
     }
     node
 }
@@ -1241,23 +1259,9 @@ fn ignored_math_item(
     body: &MathItem,
     span: Span,
     name: &str,
-) -> SourceResult<HtmlNode> {
+) -> SourceResult<Content> {
     ctx.engine
         .sink
         .warn(warning!(span, "{} was ignored during MathML export", name));
     ctx.handle_into_node(body)
-}
-
-/// Warn and ignore all external items.
-fn ignored_external_item(
-    ctx: &mut MathContext,
-    content: &Content,
-    span: Span,
-) -> Option<HtmlNode> {
-    ctx.engine.sink.warn(warning!(
-        span,
-        "{} was ignored during MathML export",
-        content.elem().name()
-    ));
-    None
 }

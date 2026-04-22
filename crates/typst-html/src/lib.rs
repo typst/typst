@@ -26,7 +26,6 @@ use ecow::EcoString;
 use typst_library::Category;
 use typst_library::foundations::{Content, Module, Scope, StyleChain};
 use typst_library::introspection::Location;
-use typst_library::math::EquationElem;
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -126,9 +125,9 @@ impl HtmlElem {
 
     /// Checks whether the given element is "phrasing content" in HTML.
     fn is_phrasing(elem: &Content, styles: StyleChain) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
-            || is_inline_equation(elem, styles)
+        elem.to_packed::<HtmlElem>().is_some_and(|elem| {
+            tag::is_phrasing_content(elem.tag) || is_inline_equation(elem, styles)
+        })
     }
 }
 
@@ -150,8 +149,18 @@ pub struct FrameElem {
     pub body: Content,
 }
 
-/// Checks whether the given element is an inline EquationElem.
-fn is_inline_equation(elem: &Content, styles: StyleChain) -> bool {
-    elem.to_packed::<EquationElem>()
-        .is_some_and(|elem| !elem.block.get(styles))
+/// Checks whether the given HTML element is an inline equation.
+///
+/// A `math` element is considered inline if the `display` attribute is absent
+/// or has a value that is not an ASCII case-insensitive match to `block`. See
+/// [§ 2.1.1 The Top-Level `<math>` Element][mathml].
+///
+/// [mathml]: https://www.w3.org/TR/mathml-core/#the-top-level-math-element
+fn is_inline_equation(elem: &HtmlElem, styles: StyleChain) -> bool {
+    elem.tag == tag::mathml::math
+        && elem
+            .attrs
+            .get_ref(styles)
+            .get(attr::mathml::display)
+            .is_none_or(|value| value.to_ascii_lowercase() != "block")
 }
