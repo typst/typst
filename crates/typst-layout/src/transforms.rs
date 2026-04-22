@@ -87,7 +87,11 @@ pub fn layout_scale(
         Transform::scale(scale.x, scale.y),
         elem.origin.resolve(styles),
         elem.reflow.get(styles),
-        true,
+        // TODO: Figure out where the baseline should go after a vertical flip.
+        // Similar problem to >90deg rotation, as following the baseline would
+        // lead text to go below the typical baseline. For now, simply do not
+        // preserve the baseline if vertical scale is negative.
+        scale.y.get() >= 0.0,
     )
 }
 
