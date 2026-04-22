@@ -4,7 +4,7 @@ db801611f5fdda742bb1176b26711912 align-right
 3b8e76e52efce3982fbdd2661f3ac5de align-start-and-end
 fe705ebcd178f80fc17b893ec9926ac4 array-basic-syntax
 57d07491b5cae5d1ce59cb00c465e24a array-join-content
-d965aaa0c51b99670b692eed7340d001 baseline-box
+94e1524e1f02488c705f19900d1afe64 baseline-box
 c4a4d5aa3b88c274e9ffd3ac523f59ed baseline-box-align
 30c32228baeed60d1467ebb4e03ff2e7 baseline-breakable-display-math
 85725b3e6768d87b4a638c96334e64ea baseline-display-math
@@ -780,6 +780,7 @@ eb2605229b4895be885789f65aab4b9f issue-5723-grid-heading-numbering
 26faba785bf3776f4c9f279e0d47d21f issue-5760-disable-cjk-latin-spacing-in-raw
 aceca7fdd7fee6e6d38e904895fcb6a0 issue-5775-cite-order-rtl
 15593b4fc8a9b8960001a7f6655ad7fa issue-5831-par-constructor-args
+280cb181de0dafe34709b77b67f333d3 issue-5855-misaligned-descender
 4e6121cd624835d40985e57dc3c7a737 issue-5930-symbol-label
 2f57cf25cda31091c6c313b6668ce5a2 issue-5940-text-negative-size-panic
 10a4d332c7e8421f32e03b399b46d94b issue-6062-justify-cjk-latin-spacing
