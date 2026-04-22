@@ -53,7 +53,7 @@ impl Tree {
     pub fn parent_link(&self) -> Option<(GroupId, &Packed<LinkMarker>)> {
         let mut current = self.current();
 
-        while current != GroupId::INVALID {
+        while current != Group::INVALID {
             let group = self.groups.get(current);
             if let Some(link) = group.kind.as_link() {
                 return Some((current, link));
@@ -231,7 +231,7 @@ pub fn enter_logical_child(
     let mut new_state = TraversalState::new();
     let mut current = next;
     let rev_iter = std::iter::from_fn(|| {
-        if current == GroupId::INVALID {
+        if current == Group::INVALID {
             return None;
         }
         let id = current;
@@ -425,7 +425,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 // tree.
                 let logical_parent_is_in_artifact = 'artifact: {
                     let mut current = tree.groups.get(*logical_parent).parent;
-                    while current != GroupId::INVALID {
+                    while current != Group::INVALID {
                         let group = tree.groups.get(current);
                         if group.kind.is_artifact() {
                             break 'artifact true;
