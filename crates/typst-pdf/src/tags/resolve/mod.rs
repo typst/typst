@@ -7,6 +7,7 @@ use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
 use typst_syntax::Span;
+use typst_utils::IdVec;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
@@ -14,7 +15,7 @@ use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
-use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
+use crate::tags::util::{self, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 
 mod accumulator;
@@ -59,7 +60,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         context::finish(&mut gc.tags.tree);
     }
 
-    let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
+    let root = gc.tags.tree.groups.list.get(Group::ROOT);
     let GroupKind::Root(mut doc_lang) = root.kind else { unreachable!() };
 
     if disabled(gc) {
