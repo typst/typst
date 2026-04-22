@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::LazyLock;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_assets::mathml::*;
@@ -11,7 +12,7 @@ use typst_library::math::ir::{
     MultilineItem, NumberItem, PRIME_CHAR, Position, PrimesItem, RadicalItem,
     ScriptsItem, Stretch, TableItem, TextItem,
 };
-use typst_library::math::{LeftRightAlternator, MathSize};
+use typst_library::math::{FRAC_PADDING, LeftRightAlternator, MathSize};
 use typst_syntax::Span;
 use typst_utils::Numeric;
 use unicode_math_class::MathClass;
@@ -19,15 +20,6 @@ use unicode_math_class::MathClass;
 use crate::tag::mathml as tag;
 use crate::{HtmlElement, HtmlNode};
 use crate::{attr::mathml as attr, css};
-
-pub(crate) const MULTILINE_EQUATION_CLASS: &str = "multiline-equation";
-pub(crate) const ALIGNED_CLASS: &str = "aligned";
-pub(crate) const LEFT_ALIGN_CLASS: &str = "left-align";
-pub(crate) const RIGHT_ALIGN_CLASS: &str = "right-align";
-pub(crate) const CASES_CLASS: &str = "cases";
-pub(crate) const FLUSHED_CLASS: &str = "flushed";
-pub(crate) const LEFT_FLUSH_CLASS: &str = "left-flush";
-pub(crate) const RIGHT_FLUSH_CLASS: &str = "right-flush";
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].
 ///
@@ -100,80 +92,101 @@ pub(crate) const RIGHT_FLUSH_CLASS: &str = "right-flush";
 /// [denom]: typst_library::math::style_for_denominator
 /// [alignment]: https://github.com/w3c/mathml-core/issues/156
 /// [cramped]: typst_library::math::style_cramped
-pub(crate) const EQUATION_CSS_STYLES: &str = "\
+pub(crate) static EQUATION_CSS_STYLES: LazyLock<EcoString> = LazyLock::new(|| {
+    eco_format!(
+        "\
 /* Alignment */
-mtable.right-align mtd,
-mtable mtd.right-align,
-mtable.left-align mtd.right-align,
-mtable.aligned mtd:nth-child(odd) {
-  text-align: -webkit-right;
-}
-mtable.cases mtd,
-mtable.left-align mtd,
-mtable mtd.left-align,
-mtable.aligned mtd:nth-child(even),
-math:is(:not([display])) > mtable.multiline-equation mtd {
-  text-align: -webkit-left;
-}
-mtable.cases mtd,
-mtable.aligned mtd,
-mtable mtd.flushed,
-mtable mtd.left-flush {
+mtable.{RIGHT_ALIGN_CLASS} mtd,
+mtable mtd.{RIGHT_ALIGN_CLASS},
+mtable.{LEFT_ALIGN_CLASS} mtd.{RIGHT_ALIGN_CLASS},
+mtable.{ALIGNED_CLASS} mtd:nth-child(odd) {{
+  text-align: {TEXT_ALIGN_RIGHT};
+}}
+mtable.{CASES_CLASS} mtd,
+mtable.{LEFT_ALIGN_CLASS} mtd,
+mtable mtd.{LEFT_ALIGN_CLASS},
+mtable.{ALIGNED_CLASS} mtd:nth-child(even),
+math:is(:not([display])) > mtable.{MULTILINE_EQUATION_CLASS} mtd {{
+  text-align: {TEXT_ALIGN_LEFT};
+}}
+mtable.{CASES_CLASS} mtd,
+mtable.{ALIGNED_CLASS} mtd,
+mtable mtd.{FLUSHED_CLASS},
+mtable mtd.{LEFT_FLUSH_CLASS} {{
   padding-left: 0;
-}
-mtable.cases mtd,
-mtable.aligned mtd,
-mtable mtd.flushed,
-mtable mtd.right-flush {
+}}
+mtable.{CASES_CLASS} mtd,
+mtable.{ALIGNED_CLASS} mtd,
+mtable mtd.{FLUSHED_CLASS},
+mtable mtd.{RIGHT_FLUSH_CLASS} {{
   padding-right: 0;
-}
+}}
 
 /* Tables */
-mtable {
+mtable {{
   math-style: inherit;
-}
-mtd {
+}}
+mtd {{
   math-depth: auto-add;
   math-style: compact;
   math-shift: compact;
-}
+}}
 
 /* Equations */
-mtable.multiline-equation mtd {
+mtable.{MULTILINE_EQUATION_CLASS} mtd {{
   math-depth: inherit;
   math-style: inherit;
   math-shift: inherit;
   padding: 0;
-}
-math > mtable.multiline-equation mtr:not(:last-child) mtd {
-  padding-bottom: 0.5em;
-}
+}}
+math > mtable.{MULTILINE_EQUATION_CLASS} mtr:not(:last-child) mtd {{
+  padding-bottom: {};
+}}
 
 /* Fractions */
-mfrac {
+mfrac {{
   padding-inline: 0;
-  margin-inline: 0.1em;
-}
+  margin-inline: {};
+}}
 
 /* Accents */
-mover[accent=\"true\" i] > :first-child {
-    font-feature-settings: \"dtls\";
-}
-mover.dotted[accent=\"true\" i] > :first-child {
-    font-feature-settings: \"dtls\" 0;
-}
+mover[accent=\"true\" i] > :first-child {{
+  font-feature-settings: \"dtls\";
+}}
+mover.dotted[accent=\"true\" i] > :first-child {{
+  font-feature-settings: \"dtls\" 0;
+}}
 
 /* Other rules for scriptlevel, displaystyle and math-shift */
 munder > :nth-child(2),
-munderover > :nth-child(2) {
+munderover > :nth-child(2) {{
   math-shift: compact
-}
+}}
 munder[accentunder=\"true\" i] > :not(:first-child),
-mover[accent=\"true\" i] > :not(:first-child) {
+mover[accent=\"true\" i] > :not(:first-child) {{
   math-depth: inherit;
   math-style: inherit;
   math-shift: inherit;
-}";
+}}",
+        css::length(EQUATION_ROW_GAP),
+        css::length(FRAC_PADDING)
+    )
+});
+
+// CSS classes.
+const MULTILINE_EQUATION_CLASS: &str = "multiline-equation";
+const ALIGNED_CLASS: &str = "aligned";
+const LEFT_ALIGN_CLASS: &str = "left-align";
+const RIGHT_ALIGN_CLASS: &str = "right-align";
+const CASES_CLASS: &str = "cases";
+const FLUSHED_CLASS: &str = "flushed";
+const LEFT_FLUSH_CLASS: &str = "left-flush";
+const RIGHT_FLUSH_CLASS: &str = "right-flush";
+
+// CSS values.
+const TEXT_ALIGN_RIGHT: &str = "-webkit-right";
+const TEXT_ALIGN_LEFT: &str = "-webkit-left";
+const EQUATION_ROW_GAP: Em = Em::new(0.5);
 
 const SPACE_WIDTH: Em = Em::new(4.0 / 18.0);
 
@@ -1114,7 +1127,7 @@ fn table_mtd_class(
     count: usize,
     ncols: usize,
     alternator: LeftRightAlternator,
-) -> Option<ecow::EcoString> {
+) -> Option<EcoString> {
     if count <= 1 || ncols <= 1 || !matches!(alternator, LeftRightAlternator::Right) {
         return None;
     }

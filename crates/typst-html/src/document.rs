@@ -340,7 +340,7 @@ fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
         children.push(
             HtmlElement::new(tag::style)
                 .with_children(eco_vec![HtmlNode::Text(
-                    EQUATION_CSS_STYLES.into(),
+                    EQUATION_CSS_STYLES.clone(),
                     Span::detached(),
                 )])
                 .into(),
