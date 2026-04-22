@@ -11,6 +11,8 @@ that ever learned to mimic a human voice.
 --- baseline-box paged ---
 Hey #box(baseline: 40%, image("/assets/images/tiger.jpg", width: 1.5cm)) there!
 
+Nice to #box(inset: 1em, stroke: red)[meet] you.
+
 How #box(baseline: (at: auto, shift: -1em))[are] you?
 
 Doing #box(baseline: (at: auto, shift: 1em))[just\ fine]!
