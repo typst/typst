@@ -16,6 +16,7 @@ c0d372053962191d2ba94211b5019252 baseline-paragraph
 c649150479c5aed6149da7264bd042dc baseline-rotate-multiline
 e546329b4aabcc681e0966e5729e6766 baseline-scale
 b4b1bdd59fa3910762144e85ddb46c27 baseline-scale-multiline
+6cf6571fc51c60dce9472bcbdd965c89 baseline-shapes
 02375fb18dac645a617bafbe8e0bbe14 baseline-skew
 0c63fe2351c443d9b90c78916af5b6cb baseline-skew-multiline
 fe5a4ef28f152f504fa01046f2fb9438 baseline-text
@@ -41,7 +42,7 @@ bdf79f230f173ac2f02ee4a7375401ec bidi-obj
 d4b08781a4c09711ac86c9096cc38b51 bidi-spacing
 bd517a70f29aa27f939f7d8b910e0238 bidi-whitespace-reset
 5646c2d6c4a79919722a48ff1e3323e6 block-box-fill
-52e8064c086fd92708f9bfb5e9020b8a block-clip-svg-glyphs
+c58d654b7930b912a0acecf5eea3279d block-clip-svg-glyphs
 15c62a3cc0cd3e0ed7c0ed63213d4dda block-clip-text
 6937a215861d82e54839e2c42d2fc7e8 block-clipping-multiple-pages
 e1a6d6176e19da76fdc66f7a9dde1c53 block-consistent-width
@@ -71,7 +72,7 @@ e2a87c71f41228aeafc0d05c2e79c16f box-fr-width
 f1db845dc13110a03a41d600da27c593 call-basic
 7bf4c6febda8b6ce8bbb2b37c21de1b7 cases-content-symbol
 7250e7052013a9e721929273402b5075 cases-content-text
-11a80584dd2d1e461295f347db69da2b circle
+0261eaac7c40a614c6d3f69a6d653210 circle
 d5ecbb617b636e08f249222411778b0b circle-auto-sizing
 a74c4e7e01177baec7e7e77de1a919de circle-beyond-page-width-overflows
 cf38333b2576f53fdfd128e1536157dc circle-directly-in-rect
@@ -719,7 +720,7 @@ c7b902f57107bb5e70194a99fb1daa22 issue-3973-math-equation-align
 2f84eae27855c9d32c47feec55ac7695 issue-4029-locate-after-par-and-pagebreak
 1b4e4025a88dcb279f184c3ae733b418 issue-4029-locate-after-spacing
 632103bfbd16584ff6016bc17497f6db issue-4087
-bde975c77473280621e34c039d63ccc3 issue-4187-alignment-point-affects-row-height
+efd1197fd5264a59d8926d685d4d5252 issue-4187-alignment-point-affects-row-height
 26ab9f98cf8f168fc60598c8d13d0b4e issue-4188-lr-corner-brackets
 5dabc957ae322d7779c4bd13ad6f599b issue-4278-par-trim-before-equation
 4384613a485b357535ddcc78f97b0a4d issue-4340-set-document-and-page
@@ -1085,7 +1086,7 @@ eb55117790e675d03d23aaffe1071e2a math-equation-number-align-end
 9893de1d419c91a3b9290f5ac6431c3e math-equation-number-align-monoline
 be0b43fc8ea8fab0f9914648232c4ed0 math-equation-number-align-multiline
 f48ea539f3fe2ec21151ddac73257aca math-equation-number-align-multiline-bottom
-d1da21d504037feaf3de38bf81edba83 math-equation-number-align-multiline-expand
+3e87d7841f34b4dbf38af75dd9301917 math-equation-number-align-multiline-expand
 ea96a0987dc2a719d4b6bae49799014d math-equation-number-align-multiline-no-expand
 b537f9b536a2da7313dfcc284d7d5271 math-equation-number-align-multiline-top-start
 29d275b0dda2de988edbc991855fffd1 math-equation-number-align-right
@@ -1093,7 +1094,7 @@ b537f9b536a2da7313dfcc284d7d5271 math-equation-number-align-multiline-top-start
 481820e9bdcb4de7162fb60a84b5220d math-equation-number-empty
 ef4ffddaf8ad5c347e0ea5cd57d152cf math-equation-numbering
 39173e7adf27486cad321f536b5aa7ad math-equation-show-rule
-08157212b7e12a5552bd1d57b7777804 math-equation-tag-affects-row-height
+de11f5f9f07d769aab64f4e631cf65cb math-equation-tag-affects-row-height
 82804860b19bfaab5c9fbf80815e657d math-font-covers
 1f2a6f15bee8f9b8842eb329891e3395 math-font-fallback
 c2b3afc9f54fdd8d4640ff6a35410b55 math-font-fallback-class
@@ -1129,7 +1130,7 @@ f0ed1751cb160f3e2e4f248010ebeaac math-linebreaking-lr
 466fc7de918f1492d5c384ea600acb57 math-lr-color
 97ee8eb4b16a224f03223d34c7df51b5 math-lr-fences
 83d8ff258c559bd49cb422f1f9ea9ff7 math-lr-half
-e25055c41d17ea05af790f438cb86741 math-lr-ignore-ignorant
+e690c5830c8395a259b2ce8151279c5e math-lr-ignore-ignorant
 6b5546e6352d4c390d3b580daa665c47 math-lr-matching
 13e0586d88117b6b9e791974b79d6e53 math-lr-mid
 8a185f1e21e13006977027fadccc28c5 math-lr-mid-class
@@ -1662,10 +1663,10 @@ bd123804651c3b32d038fe8b6f436e6e spacing-fr-weak-with-fr-block
 9c11addd4666eadb7de26ffbdd235347 spacing-h-and-v
 d1c6b37b6053e22b57c7dfcd42b81dea spacing-rtl
 b0eeb009eee45154bb5cd59e4ced93e2 spacing-weak-versus-block-spacing
-ddb9cd6a2cd2a12dc2a12d63cdfce0e5 square
+91756e008394cb08f50e598bd338c7f4 square
 c5c207b9af2c3d59e945eec63ea345dc square-auto-sized
 d652c079d03f25a23f9879d5bdd1d1e4 square-base
-35c0020eca66bae787cf66a882b6827d square-circle-alignment
+8f965de857815536d2a9a38f23f7bfb7 square-circle-alignment
 6032f95f9673a4ac872f868ee5c1fb01 square-circle-overspecified
 80796156b7aad72f2b1895deaf5f3971 square-contents-overflow
 35475f379e52e4123178d0c31a908d09 square-height-limited
