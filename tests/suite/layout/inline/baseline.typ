@@ -73,13 +73,38 @@ $]
 #bounds[Hello #box(move(dy: 1em)[Test])]
 #bounds[Hello #box(move(dy: 1em)[Test]) #box(move(dy: 2em)[Testt])]
 
+--- baseline-scale paged ---
+#bounds([abc] + box(scale(50%)[World!]))
+#bounds([abc] + box(scale(x: 50%)[World!]))
+#bounds([abc] + box(scale(y: 50%)[World!]))
+#bounds([abc] + box(scale(y: -100%)[World!]))
+
+#bounds([abc] + box(scale(50%, reflow: true)[World!]))
+#bounds([abc] + box(scale(x: 50%, reflow: true)[World!]))
+#bounds([abc] + box(scale(y: 50%, reflow: true)[World!]))
+#bounds([abc] + box(scale(y: -100%, reflow: true)[World!]))
+
+--- baseline-scale-multiline paged ---
+#bounds([abc] + box(scale(50%)[Hi\ World!]))
+#bounds([abc] + box(scale(y: -100%)[Hi\ World!]))
+#bounds([abc] + box(scale(50%, reflow: true)[Hi\ World!]))
+#bounds([abc] + box(scale(y: -100%, reflow: true)[Hi\ World!]))
+
 --- baseline-rotate paged ---
 #bounds([abc] + box(rotate(30deg, origin: top)[World!]))
 #bounds([abc] + box(rotate(30deg)[World!]))
+#bounds([abc] + box(rotate(180deg)[World!]))
 #bounds([abc] + box(rotate(30deg, origin: bottom)[World!]))
 #bounds([abc] + box(rotate(30deg, reflow: true, origin: top)[World!]))
 #bounds([abc] + box(rotate(30deg, reflow: true)[World!]))
+#bounds([abc] + box(rotate(180deg, reflow: true)[World!]))
 #bounds([abc] + box(rotate(30deg, reflow: true, origin: bottom)[World!]))
+
+--- baseline-rotate-multiline paged ---
+#bounds([abc] + box(rotate(30deg)[Hi\ World!]))
+#bounds([abc] + box(rotate(180deg)[Hi\ World!]))
+#bounds([abc] + box(rotate(30deg, reflow: true)[Hi\ World!]))
+#bounds([abc] + box(rotate(180deg, reflow: true)[Hi\ World!]))
 
 --- baseline-skew paged ---
 #bounds([abc] + box(skew(ax: 30deg)[World!]))
@@ -89,6 +114,13 @@ $]
 #bounds([abc] + box(skew(ax: 30deg, reflow: true)[World!]))
 #bounds([abc] + box(skew(ay: 30deg, reflow: true)[World!]))
 #bounds([abc] + box(skew(ax: 200deg, ay: 200deg, reflow: true)[World!]))
+
+--- baseline-skew-multiline paged ---
+#bounds([abc] + box(skew(ax: 30deg)[Hi\ World!]))
+#bounds([abc] + box(skew(ay: 30deg)[Hi\ World!]))
+
+#bounds([abc] + box(skew(ax: 30deg, reflow: true)[Hi\ World!]))
+#bounds([abc] + box(skew(ay: 30deg, reflow: true)[Hi\ World!]))
 
 --- issue-2214-baseline-math paged ---
 // The math content should also be affected by the TextElem baseline.
