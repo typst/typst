@@ -120,16 +120,26 @@ struct GroupingRule {
     /// realization will transparently take care of tags and they will not
     /// be visible to `finish`.
     tags: bool,
-    /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(&Content) -> bool,
-    /// Defines elements that may appear in the interior of the grouping, but
-    /// not at the edges.
-    inner: fn(&Content) -> bool,
+    /// Defines how the element relates to this kind of grouping.
+    effect: fn(&Content) -> GroupingEffect,
     /// Defines whether styles for this kind of element interrupt the grouping.
     interrupt: fn(Element) -> bool,
     /// Should convert the accumulated elements in `s.sink[start..]` into
     /// the grouped element.
     finish: fn(Grouped) -> SourceResult<()>,
+}
+
+/// Defines the effect of an element on a grouping.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum GroupingEffect {
+    /// The element will trigger this kind of grouping.
+    Trigger,
+    /// Defines elements that may appear in the interior of the grouping, but
+    /// not at the edges. In particular, those elements also don't trigger the
+    /// grouping.
+    Inner,
+    /// The element will stop this kind of grouping.
+    Interrupt,
 }
 
 /// A started grouping of some elements.
@@ -677,7 +687,10 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content));
+    let matching = s
+        .rules
+        .iter()
+        .find(|&rule| (rule.effect)(content) == GroupingEffect::Trigger);
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
@@ -689,7 +702,7 @@ fn visit_grouping_rules<'a>(
 
         // If the element can be added to the active grouping, do it.
         if !active.interrupted
-            && ((active.rule.trigger)(content) || (active.rule.inner)(content))
+            && (active.rule.effect)(content) != GroupingEffect::Interrupt
         {
             s.sink.push((content, styles));
             return Ok(true);
@@ -825,7 +838,8 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
 
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c));
+    let trimmed = s.sink[start..]
+        .trim_end_matches(|(c, _)| (rule.effect)(c) != GroupingEffect::Trigger);
     let mut end = start + trimmed.len();
 
     // Tags that are opened within or at the start boundary of the grouping
@@ -948,16 +962,22 @@ static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
 static TEXTUAL: GroupingRule = GroupingRule {
     priority: 3,
     tags: true,
-    trigger: |content| {
+    effect: |content| {
         let elem = content.elem();
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
         // math realization, so we don't check for it here.
-        elem == TextElem::ELEM
+        if elem == TextElem::ELEM
             || elem == LinebreakElem::ELEM
             || elem == SmartQuoteElem::ELEM
+        {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
     },
-    inner: |content| content.elem() == SpaceElem::ELEM,
     // Any kind of style interrupts this kind of grouping since regex show
     // rules cannot match over style changes anyway.
     interrupt: |_| true,
@@ -968,9 +988,9 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |content| {
+    effect: |content| {
         let elem = content.elem();
-        elem == TextElem::ELEM
+        if elem == TextElem::ELEM
             || elem == HElem::ELEM
             || elem == LinebreakElem::ELEM
             || elem == SmartQuoteElem::ELEM
@@ -979,8 +999,14 @@ static PAR: GroupingRule = GroupingRule {
             || content
                 .to_packed::<HtmlElem>()
                 .is_some_and(|elem| typst_html::tag::is_phrasing_content(elem.tag))
+        {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
     },
-    inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,
     finish: finish_par,
 };
@@ -989,8 +1015,16 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content| content.elem() == CiteElem::ELEM,
-    inner: |content| content.elem() == SpaceElem::ELEM,
+    effect: |content| {
+        let elem = content.elem();
+        if elem == CiteElem::ELEM {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
+    },
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
@@ -1011,10 +1045,15 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content| content.elem() == T::Item::ELEM,
-        inner: |content| {
+        effect: |content| {
             let elem = content.elem();
-            elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM
+            if elem == T::Item::ELEM {
+                GroupingEffect::Trigger
+            } else if elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM {
+                GroupingEffect::Inner
+            } else {
+                GroupingEffect::Interrupt
+            }
         },
         interrupt: |elem| elem == T::ELEM || elem == AlignElem::ELEM,
         finish: finish_list_like::<T>,
