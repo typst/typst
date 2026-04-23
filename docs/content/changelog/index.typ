@@ -79,7 +79,7 @@
 
   #context if target() == "paged" {
     info[
-      Some changelog items contain references like this one: #pr(5017). These refer to a _pull request_ or _issue_ on #link("https://github.com")[GitHub] related to the change.
+      Some changelog items contain references like this one: #pr(5017). These refer to a _pull request_ or _issue_ on #link("https://github.com/typst/typst")[GitHub] related to the change. If the reference refers to another repository than `typst/typst`, the repository is explicitly listed like this: #pr(350, repo: "typst/hayagriva").
     ]
   }
 
