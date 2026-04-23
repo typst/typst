@@ -429,6 +429,8 @@ impl<'a> Protector<'a> {
                 HtmlNode::Element(element) => {
                     if tag::is_block_by_default(element.tag) || element.tag == tag::br {
                         self.collapsing();
+                    } else if tag::is_replaced(element.tag) {
+                        self.supportive();
                     } else if !element.pre_span {
                         // Recursively visit the children of inline-level
                         // elements while making sure to not revisit pre-wrapped
