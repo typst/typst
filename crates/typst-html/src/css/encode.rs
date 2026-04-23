@@ -36,6 +36,13 @@ impl Properties {
         }
     }
 
+    /// Removes a property if it exists.
+    pub fn remove(&mut self, property: &'static str) {
+        if let Ok(i) = self.0.binary_search_by_key(&property, |p| p.name) {
+            self.0.remove(i);
+        }
+    }
+
     /// Adds a new, already serialized property in builder style.
     pub fn with(mut self, property: &'static str, value: impl Into<EcoString>) -> Self {
         self.push(property, value);

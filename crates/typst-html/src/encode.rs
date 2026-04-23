@@ -370,6 +370,7 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
         &frame.inner,
         frame.text_size,
         frame.id.as_deref(),
+        &eco_format!("{}", frame.css.to_inline()),
         &frame.anchors,
         w.link_resolver,
     );

@@ -497,6 +497,8 @@ pub struct HtmlFrame {
     pub text_size: Abs,
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
+    /// The element's CSS properties.
+    pub css: css::Properties,
     /// IDs to assign to destination jump points within the SVG.
     pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
@@ -510,6 +512,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
+            css: css::Properties::new(),
             anchors: EcoVec::new(),
             span,
         }
