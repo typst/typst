@@ -898,7 +898,7 @@ ca9dbd3a2be105f0ca6df4609901f597 line-numbers-margin
 38348a9fbed0fb14778782412f5b413a line-numbers-multi-columns
 9d812dec62e26da653688662557d417f line-numbers-nested-content
 f97ca7802fdab6a8b7c2ab30bd6dce9d line-numbers-page-scope
-f530bcd7a82e407bc9d52aa72cae38bc line-numbers-page-scope-quasi-empty-first-column
+1bb4b18941bca4b61394b1fc7cc8a67f line-numbers-page-scope-quasi-empty-first-column
 329e86fe234a72714132005d95b84e51 line-numbers-page-scope-with-columns
 5ff94894236b096db7690544f8a394a2 line-numbers-place-out-of-order
 89046d962f11f59f54501d53692b5d73 line-numbers-rtl
