@@ -286,6 +286,7 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
         if let Some(attribution) = attribution.as_ref() {
             realized += attribution.realize(span);
+            realized += ParbreakElem::shared();
         }
     } else if let Some(Attribution::Label(label)) = attribution {
         realized += SpaceElem::shared().clone();
