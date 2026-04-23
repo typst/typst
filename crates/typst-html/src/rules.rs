@@ -11,7 +11,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, DocumentIntrospection, QueryIntrospection};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
-use typst_library::layout::{HElem, OuterVAlignment, Sizing};
+use typst_library::layout::{BlockElem, HElem, OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
@@ -25,6 +25,7 @@ use typst_library::text::{
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
+use typst_syntax::Span;
 
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -91,19 +92,22 @@ const EMPH_RULE: ShowFn<EmphElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::em).with_body(Some(elem.body.clone())).pack());
 
 const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
-    Ok(HtmlElem::new(tag::ul)
-        .with_body(Some(Content::sequence(elem.children.iter().map(|item| {
-            // Text in wide lists shall always turn into paragraphs.
-            let mut body = item.body.clone();
-            if !elem.tight.get(styles) {
-                body += ParbreakElem::shared();
-            }
-            HtmlElem::new(tag::li)
-                .with_body(Some(body))
-                .pack()
-                .spanned(item.span())
-        }))))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::ul)
+            .with_body(Some(Content::sequence(elem.children.iter().map(|item| {
+                // Text in wide lists shall always turn into paragraphs.
+                let mut body = item.body.clone();
+                if !elem.tight.get(styles) {
+                    body += ParbreakElem::shared();
+                }
+                HtmlElem::new(tag::li)
+                    .with_body(Some(body))
+                    .pack()
+                    .spanned(item.span())
+            }))))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
@@ -130,30 +134,33 @@ const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
         li.with_body(Some(body)).pack().spanned(item.span())
     }));
 
-    Ok(ol.with_body(Some(body)).pack())
+    Ok(BlockElem::packed(ol.with_body(Some(body)).pack().spanned(elem.span())))
 };
 
 const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
-    Ok(HtmlElem::new(tag::dl)
-        .with_body(Some(Content::sequence(elem.children.iter().flat_map(|item| {
-            // Text in wide term lists shall always turn into paragraphs.
-            let mut description = item.description.clone();
-            if !elem.tight.get(styles) {
-                description += ParbreakElem::shared();
-            }
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::dl)
+            .with_body(Some(Content::sequence(elem.children.iter().flat_map(|item| {
+                // Text in wide term lists shall always turn into paragraphs.
+                let mut description = item.description.clone();
+                if !elem.tight.get(styles) {
+                    description += ParbreakElem::shared();
+                }
 
-            [
-                HtmlElem::new(tag::dt)
-                    .with_body(Some(item.term.clone()))
-                    .pack()
-                    .spanned(item.term.span()),
-                HtmlElem::new(tag::dd)
-                    .with_body(Some(description))
-                    .pack()
-                    .spanned(item.description.span()),
-            ]
-        }))))
-        .pack())
+                [
+                    HtmlElem::new(tag::dt)
+                        .with_body(Some(item.term.clone()))
+                        .pack()
+                        .spanned(item.term.span()),
+                    HtmlElem::new(tag::dd)
+                        .with_body(Some(description))
+                        .pack()
+                        .spanned(item.description.span()),
+                ]
+            }))))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
@@ -190,12 +197,17 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     .pack())
 };
 
-const DIVIDER_RULE: ShowFn<DividerElem> = |_elem, _, _| Ok(HtmlElem::new(tag::hr).pack());
+const DIVIDER_RULE: ShowFn<DividerElem> = |elem, _, _| {
+    Ok(BlockElem::packed(HtmlElem::new(tag::hr).pack().spanned(elem.span())))
+};
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
-    Ok(HtmlElem::new(tag::h1)
-        .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::h1)
+            .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -215,7 +227,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     // reason, levels are offset by one: A Typst level 1 heading becomes
     // a `<h2>`.
     let level = elem.resolve_level(styles).get();
-    Ok(if level >= 6 {
+    Ok(BlockElem::packed(if level >= 6 {
         engine.sink.warn(warning!(
             span,
             "heading of level {} was transformed to \
@@ -231,10 +243,11 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .with_attr(attr::role, "heading")
             .with_attr(attr::aria_level, eco_format!("{}", level + 1))
             .pack()
+            .spanned(elem.span())
     } else {
         let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-        HtmlElem::new(t).with_body(Some(realized)).pack()
-    })
+        HtmlElem::new(t).with_body(Some(realized)).pack().spanned(elem.span())
+    }))
 };
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
@@ -252,13 +265,21 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     // Ensure that the body is considered a paragraph.
     realized += ParbreakElem::shared().clone().spanned(span);
 
-    Ok(HtmlElem::new(tag::figure).with_body(Some(realized)).pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::figure)
+            .with_body(Some(realized))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
-    Ok(HtmlElem::new(tag::figcaption)
-        .with_body(Some(elem.realize(engine, styles)?))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::figcaption)
+            .with_body(Some(elem.realize(engine, styles)?))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
@@ -282,7 +303,7 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
             blockquote = blockquote.with_attr(attr::cite, url.clone().into_inner());
         }
 
-        realized = blockquote.pack().spanned(span);
+        realized = BlockElem::packed(blockquote.pack().spanned(span));
 
         if let Some(attribution) = attribution.as_ref() {
             realized += attribution.realize(span);
@@ -365,10 +386,13 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
     // The user may want to style the whole footnote element so we wrap it in an
     // additional selectable container. This is also how it's done in the ARIA
     // spec (although there, the section also contains an additional heading).
-    Ok(HtmlElem::new(tag::section)
-        .with_attr(attr::role, "doc-endnotes")
-        .with_body(Some(list))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::section)
+            .with_attr(attr::role, "doc-endnotes")
+            .with_body(Some(list))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -418,10 +442,13 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let tree = elem.realize_tree(engine, styles)?;
     let list = convert_list(tree);
 
-    Ok(HtmlElem::new(tag::nav)
-        .with_attr(attr::role, "doc-toc")
-        .with_body(Some(title.unwrap_or_default() + list))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::nav)
+            .with_attr(attr::role, "doc-toc")
+            .with_body(Some(title.unwrap_or_default() + list))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
@@ -502,11 +529,17 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         .pack()
         .spanned(span);
 
-    Ok(HtmlElem::new(tag::section)
-        .with_attr(attr::role, "doc-bibliography")
-        .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
-        .with_body(Some(title.unwrap_or_default() + list))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::section)
+            .with_attr(attr::role, "doc-bibliography")
+            .with_optional_attr(
+                attr::class,
+                works.hanging_indent.then_some("hanging-indent"),
+            )
+            .with_body(Some(title.unwrap_or_default() + list))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
@@ -517,19 +550,22 @@ const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
 };
 
 const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::div)
-        .with_attr(attr::class, "indent")
-        .with_body(Some(elem.body.clone()))
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::div)
+            .with_attr(attr::class, "indent")
+            .with_body(Some(elem.body.clone()))
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, styles| {
     let grid = elem.grid.as_ref().unwrap();
-    Ok(show_cellgrid(grid, styles))
+    Ok(show_cellgrid(grid, styles, elem.span()))
 };
 
-fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
-    let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
+fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
+    let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack().spanned(span);
     let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
     let tr = |tag, row: &[Entry]| {
@@ -616,7 +652,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     }
 
     let content = header.into_iter().chain(core::iter::once(body)).chain(footer);
-    elem(tag::table, Content::sequence(content))
+    BlockElem::packed(elem(tag::table, Content::sequence(content)))
 }
 
 fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
@@ -696,7 +732,12 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         .spanned(elem.span());
 
     Ok(if elem.block.get(styles) {
-        HtmlElem::new(tag::pre).with_body(Some(code)).pack()
+        BlockElem::packed(
+            HtmlElem::new(tag::pre)
+                .with_body(Some(code))
+                .pack()
+                .spanned(elem.span()),
+        )
     } else {
         code
     })
@@ -756,8 +797,11 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
         Sizing::Fr(_) => {}
     }
 
-    Ok(HtmlElem::new(tag::img)
-        .with_attrs(attrs)
-        .with_css(css.finish())
-        .pack())
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::img)
+            .with_attrs(attrs)
+            .with_css(css.finish())
+            .pack()
+            .spanned(elem.span()),
+    ))
 };
