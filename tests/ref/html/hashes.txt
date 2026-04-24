@@ -46,6 +46,7 @@ eeecf9598691783d361c20acf47a8775 html-elem-alone-context
 1e1005b4ac5db07bd074e5d12aa2162e html-pre-starting-with-newline
 9ddbaca4b63c936215a967cb76b0327a html-script
 de4b0b9e9a41128ffdb982bae7550178 html-space-collapsing
+dbe6c87ce3f9f79373ddff2a67f20c23 html-space-protection-br
 9aefaa50d4f4f7a8e2c20feec6b8e7db html-space-protection-replaced
 c3be983a199a95106caffe0572463a58 html-style
 568cbc99dba4312ba440431d779ec70a html-style-str

@@ -149,6 +149,9 @@ A#"  "B#"   C"
 --- html-space-protection-replaced html ---
 A #html.input(type: "text")
 
+--- html-space-protection-br html ---
+A #html.br() B
+
 --- html-pre-starting-with-newline html ---
 #html.pre("hello")
 #html.pre("\nhello")

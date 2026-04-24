@@ -476,6 +476,14 @@ pub fn is_replaced(tag: HtmlTag) -> bool {
 
 // Non-standard sets.
 
+/// Whether HTML whitespace next to an element with this tag will be collapsed
+/// (assuming normal user agent styles).
+pub fn is_whitespace_collapsing(tag: HtmlTag) -> bool {
+    // TODO: Reconsider this check. What about e.g. tables?
+    property::Display::default_for(tag) == Some(property::Display::Block)
+        || tag == self::br
+}
+
 /// Whether we group this kind of HTML element into paragraphs _if_ paragraphs
 /// are forced in some way (either through being top-level or due to being in
 /// the same flow as a Typst-native `block` element or `parbreak`). When using

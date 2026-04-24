@@ -603,10 +603,7 @@ impl<'a> Protector<'a> {
                     }
                 }
                 HtmlNode::Element(element) => {
-                    if property::Display::default_for(element.tag)
-                        == Some(property::Display::Block)
-                        || element.tag == tag::br
-                    {
+                    if tag::is_whitespace_collapsing(element.tag) {
                         self.collapsing();
                     } else if tag::is_replaced(element.tag) {
                         self.supportive();
