@@ -998,7 +998,7 @@ static PAR: GroupingRule = GroupingRule {
             || elem == BoxElem::ELEM
             || content
                 .to_packed::<HtmlElem>()
-                .is_some_and(|elem| typst_html::tag::is_phrasing_content(elem.tag))
+                .is_some_and(|elem| typst_html::tag::should_group_into_pars(elem.tag))
         {
             GroupingEffect::Trigger
         } else if elem == SpaceElem::ELEM {

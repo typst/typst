@@ -44,13 +44,13 @@ eeecf9598691783d361c20acf47a8775 html-elem-alone-context
 0a1d1443e72ef554d74d15ae49cd076c html-escapable-raw-text-contains-closing-tag
 30c425a860c27388ccda71cdd5d49e5f html-frame
 1e1005b4ac5db07bd074e5d12aa2162e html-pre-starting-with-newline
-9fc3a113490cc039e8ba83bf734a6b59 html-script
+9ddbaca4b63c936215a967cb76b0327a html-script
 de4b0b9e9a41128ffdb982bae7550178 html-space-collapsing
 9aefaa50d4f4f7a8e2c20feec6b8e7db html-space-protection-replaced
 c3be983a199a95106caffe0572463a58 html-style
 568cbc99dba4312ba440431d779ec70a html-style-str
 f9671e4e56820cd2f5fbd767d04eabc0 html-textarea-starting-with-newline
-32384d981e4ee5b9ba51251e447dcf31 html-typed
+ef0240dc3bcbfe913b36392d52c60577 html-typed
 58895c458693621c61d4d498ab0f8b64 html-untyped-style-content
 f7eaf53ac8ae30b69426912e83ff1b43 image-blocky-html
 59e349bb0bd41fb1a37a6d575c12b41e image-jpg-html-base64
