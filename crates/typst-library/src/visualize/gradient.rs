@@ -164,15 +164,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///
 /// Gradients can be quite large, especially if they have many stops. This is
 /// because gradients are stored as a list of colors and offsets, which can
-/// take up a lot of space. If you are concerned about file sizes, you should
-/// consider the following:
-/// - SVG gradients are currently inefficiently encoded. This will be improved
-///   in the future.
-/// - PDF gradients in the [`color.oklab`], [`color.hsv`], [`color.hsl`], and
-///   [`color.oklch`] color spaces are stored as a list of [`color.rgb`] colors
-///   with extra stops in between. This avoids needing to encode these color
-///   spaces in your PDF file, but it does add extra stops to your gradient,
-///   which can increase the file size.
+/// take up a lot of space. For SVG export, gradients are stored as a list of
+/// [`color.rgb`] colors replicating the original color space with an optimized
+/// number of extra stops in between. For PDF exports, the same applies to gradients
+/// in the [`color.oklab`], [`color.oklch`], [`color.hsv`], [`color.hsl`],
+/// and [`color.linear-rgb`] color spaces. This avoids needing to encode these color
+/// spaces in your PDF file, but it does add extra stops to your gradient,
+/// which can increase the file size.
 #[ty(scope, cast)]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
