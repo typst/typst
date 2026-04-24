@@ -3097,6 +3097,7 @@ dependencies = [
 name = "typst-html"
 version = "0.14.2"
 dependencies = [
+ "az",
  "bumpalo",
  "comemo",
  "ecow",
@@ -3155,6 +3156,7 @@ dependencies = [
  "tar",
  "tiny_http",
  "typst-assets",
+ "typst-bundle",
  "typst-library",
  "typst-syntax",
  "typst-timing",

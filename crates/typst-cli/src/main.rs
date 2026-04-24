@@ -11,7 +11,6 @@ mod init;
 mod packages;
 mod query;
 mod terminal;
-mod timings;
 #[cfg(feature = "self-update")]
 mod update;
 mod watch;
@@ -31,7 +30,6 @@ use serde::Serialize;
 use typst::diag::{HintedStrResult, StrResult};
 
 use crate::args::{CliArguments, Command, SerializationFormat};
-use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
@@ -69,11 +67,9 @@ fn main() -> ExitCode {
 
 /// Execute the requested command.
 fn dispatch() -> HintedStrResult<()> {
-    let mut timer = Timer::new(&ARGS);
-
     match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(&mut timer, command)?,
-        Command::Watch(command) => crate::watch::watch(&mut timer, command)?,
+        Command::Compile(command) => crate::compile::compile(command)?,
+        Command::Watch(command) => crate::watch::watch(command)?,
         Command::Init(command) => crate::init::init(command)?,
         Command::Query(command) => crate::query::query(command)?,
         Command::Eval(command) => crate::eval::eval(command)?,
@@ -82,7 +78,6 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Completions(command) => crate::completions::completions(command),
         Command::Info(command) => crate::info::info(command)?,
     }
-
     Ok(())
 }
 
