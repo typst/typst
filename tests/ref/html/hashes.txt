@@ -46,6 +46,7 @@ eeecf9598691783d361c20acf47a8775 html-elem-alone-context
 1e1005b4ac5db07bd074e5d12aa2162e html-pre-starting-with-newline
 9ddbaca4b63c936215a967cb76b0327a html-script
 de4b0b9e9a41128ffdb982bae7550178 html-space-collapsing
+7a7b5493193f51a6636205fdb42217da html-space-collapsing-mixed-flow
 dbe6c87ce3f9f79373ddff2a67f20c23 html-space-protection-br
 9aefaa50d4f4f7a8e2c20feec6b8e7db html-space-protection-replaced
 c3be983a199a95106caffe0572463a58 html-style
@@ -75,6 +76,13 @@ a2f8476b6a959f51028a2531b16059e5 multi-header-table-gutter
 ba29f08348366fb1fb788b35ba1883c7 outline-html
 de2024fd87b523ac07b7b94ec86c343a page-set-html
 fd1da4256fac4f0d6585d235f395ba7d par-semantic-html
+e0f41d4c8b6dc348c1153f45a86177a1 par-semantic-html-blocky
+643de0e3e92663a1cdc6e6b789f15122 par-semantic-html-fully-inline
+ece5ab4a1d0162b9e1da100cb126064f par-semantic-html-mixed
+ad987718b189a7a4f9de0f75c8aa9e29 par-semantic-html-parbreak
+04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level
+04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level-typed
+ee1af2d796df103c690536cc76abaae8 par-semantic-metadata-elements
 ad4a2b75b2ae315d25efe30c36b3abfc query-within
 70fea5f21b3073a8dcb3d7537bbd50d2 quote-attribution-html
 3c61b759029c8ca2236b7e1ac3f13db7 quote-attribution-link

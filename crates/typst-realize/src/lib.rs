@@ -138,6 +138,14 @@ enum GroupingEffect {
     /// not at the edges. In particular, those elements also don't trigger the
     /// grouping.
     Inner,
+    /// Defines elements that may appear intertwined with group elements without
+    /// triggering finishing of the grouping. Once finishing is otherwise
+    /// triggered, the neutral elements are segmented away and runs of other
+    /// grouping elements are finished separately.
+    ///
+    /// The purpose of neutral elements is to allow for mixed flows of inline
+    /// and blocky HTML elements (which is common in HTML).
+    Neutral,
     /// The element will stop this kind of grouping.
     Interrupt,
 }
@@ -150,6 +158,8 @@ struct Grouping<'a> {
     /// interrupted, but not yet finished because it may be ignored due to being
     /// fully inline.
     interrupted: bool,
+    /// Whether the group contains neutral elements.
+    contains_neutral: bool,
     /// The rule used for this grouping.
     rule: &'a GroupingRule,
 }
@@ -694,16 +704,16 @@ fn visit_grouping_rules<'a>(
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
-    while let Some(active) = s.groupings.last() {
+    while let Some(active) = s.groupings.last_mut() {
         // Start a nested group if a rule with higher priority matches.
         if matching.is_some_and(|rule| rule.priority > active.rule.priority) {
             break;
         }
 
         // If the element can be added to the active grouping, do it.
-        if !active.interrupted
-            && (active.rule.effect)(content) != GroupingEffect::Interrupt
-        {
+        let effect = (active.rule.effect)(content);
+        if !active.interrupted && effect != GroupingEffect::Interrupt {
+            active.contains_neutral |= effect == GroupingEffect::Neutral;
             s.sink.push((content, styles));
             return Ok(true);
         }
@@ -724,7 +734,12 @@ fn visit_grouping_rules<'a>(
     // Start a new grouping.
     if let Some(rule) = matching {
         let start = s.sink.len();
-        s.groupings.push(Grouping { start, rule, interrupted: false });
+        s.groupings.push(Grouping {
+            start,
+            rule,
+            interrupted: false,
+            contains_neutral: false,
+        });
         s.sink.push((content, styles));
         return Ok(true);
     }
@@ -771,9 +786,9 @@ fn visit_filter_rules<'a>(
 /// Finishes all grouping.
 fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
-        // If this is a fragment realization and all we've got is phrasing
-        // content, don't turn it into a paragraph.
-        if is_fully_inline(s) {
+        // If this is a fragment realization and all we've got is inline and
+        // neutral content, don't turn it into a paragraph.
+        if is_fully_inline_or_neutral(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
             s.groupings.pop();
             collapse_spaces(&mut s.sink, 0);
@@ -800,7 +815,7 @@ fn finish_interrupted(s: &mut State, local: &Styles) -> SourceResult<()> {
         }
         finish_grouping_while(s, |s| {
             s.groupings.iter().any(|grouping| (grouping.rule.interrupt)(elem))
-                && if is_fully_inline(s) {
+                && if is_fully_inline_or_neutral(s) {
                     s.groupings[0].interrupted = true;
                     false
                 } else {
@@ -834,8 +849,38 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
+    let Grouping { start, rule, contains_neutral, .. } = s.groupings.pop().unwrap();
+    if contains_neutral {
+        // If the grouping collected neutral elements, we segment them out and
+        // then finish the individual subgroups separately.
+        let elems = s.store_slice(&s.sink[start..]);
+        s.sink.truncate(start);
+        for (is_neutral, slice) in
+            elems.group_by_key(|(c, _)| (rule.effect)(c) == GroupingEffect::Neutral)
+        {
+            if is_neutral {
+                for &(content, styles) in slice {
+                    visit(s, content, styles)?;
+                }
+            } else {
+                let start = s.sink.len();
+                s.sink.extend_from_slice(slice);
+                finish_grouping(s, rule, start)?;
+            }
+        }
+        Ok(())
+    } else {
+        finish_grouping(s, rule, start)
+    }
+}
 
+/// Finishes a grouping with the given `rule` that starts at a given position in
+/// the sink.
+fn finish_grouping(
+    s: &mut State,
+    rule: &GroupingRule,
+    mut start: usize,
+) -> SourceResult<()> {
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
     let trimmed = s.sink[start..]
@@ -996,13 +1041,16 @@ static PAR: GroupingRule = GroupingRule {
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
-            || content
-                .to_packed::<HtmlElem>()
-                .is_some_and(|elem| typst_html::tag::should_group_into_pars(elem.tag))
         {
             GroupingEffect::Trigger
         } else if elem == SpaceElem::ELEM {
             GroupingEffect::Inner
+        } else if let Some(elem) = content.to_packed::<HtmlElem>() {
+            if typst_html::tag::should_group_into_pars(elem.tag) {
+                GroupingEffect::Trigger
+            } else {
+                GroupingEffect::Neutral
+            }
         } else {
             GroupingEffect::Interrupt
         }
@@ -1090,7 +1138,12 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
     //    transparently become part of it.
     // 2. There is no group at all. In this case, we create one.
     if s.groupings.is_empty() && s.rules.iter().any(|&rule| std::ptr::eq(rule, &PAR)) {
-        s.groupings.push(Grouping { start, rule: &PAR, interrupted: false });
+        s.groupings.push(Grouping {
+            start,
+            rule: &PAR,
+            interrupted: false,
+            contains_neutral: false,
+        });
     }
 
     Ok(())
@@ -1104,13 +1157,16 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 }
 
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
-/// spans the whole sink (with the exception of leading tags).
-fn is_fully_inline(s: &State) -> bool {
+/// spans the whole sink (with the exception of leading tags and neutral
+/// elements).
+fn is_fully_inline_or_neutral(s: &State) -> bool {
     if s.kind.is_fragment()
         && !s.saw_parbreak
         && let [grouping] = s.groupings.as_slice()
         && std::ptr::eq(grouping.rule, &PAR)
-        && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
+        && s.sink[..grouping.start].iter().all(|(c, _)| {
+            c.is::<TagElem>() || (grouping.rule.effect)(c) == GroupingEffect::Neutral
+        })
     {
         true
     } else {

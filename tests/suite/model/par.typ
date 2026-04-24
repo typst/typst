@@ -77,6 +77,168 @@ I'm a paragraph.
   So we are paragraphs.
 ]
 
+--- par-semantic-html-fully-inline html ---
+// No paragraphs because everything contained in the divs is fully inline.
+
+#html.div(html.span[A])
+#html.div({
+  [A ]
+  html.span[B]
+})
+#html.div({
+  html.span[A]
+  [ B]
+})
+#html.div({
+  html.span[A]
+  html.mark[B]
+})
+
+#html.div({
+  html.label[Text:]
+  [ ]
+  html.input(type: "text")
+})
+
+#html.div[Hello *there*]
+
+--- par-semantic-html-mixed html ---
+// Still no paragraphs because the divs contain a mix of inline and neutral
+// elements.
+
+#html.div({
+  [A]
+  html.div[B]
+})
+#html.div({
+  html.span[A]
+  html.div[B]
+})
+
+#html.div({
+  html.div[B]
+  [C]
+})
+#html.div({
+  html.div[B]
+  html.span[C]
+})
+
+#html.div({
+  [A]
+  html.div[B]
+  [C]
+})
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+})
+
+#html.div[
+  #html.h2[Heading]
+  A
+]
+
+--- par-semantic-html-parbreak html ---
+// Test that parbreaks force inline elements into paragraphs.
+
+#html.div({
+  [Hello ]
+  html.strong[there]
+  parbreak()
+})
+
+#html.div({
+  parbreak()
+  [A]
+})
+
+#html.div[
+  Hello *there*
+
+]
+
+#html.div[
+  #html.h2[Heading]
+  A
+
+  B
+]
+
+#html.div({
+  parbreak()
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+})
+
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+  parbreak()
+})
+
+--- par-semantic-html-blocky html ---
+// Test that elements with blocky show rules force neighbour inline elements
+// into paragraphs.
+
+#html.div({
+  heading[Heading]
+  [A]
+})
+
+#html.div[
+  = Heading
+  #html.span[A]
+]
+
+#html.div[
+  A
+  #figure[B]
+]
+
+#html.div[
+  A
+  #quote(block: true)[B]
+  C
+]
+
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+  block[F]
+})
+
+#html.div({
+  block[A]
+  html.span[B]
+  html.div[C]
+  html.span[D]
+  html.div[E]
+  html.span[F]
+})
+
+--- par-semantic-html-top-level html ---
+A few _top-level_ *elements*.
+
+--- par-semantic-html-top-level-typed html ---
+A few
+#html.em[top-level]
+#html.strong[elements].
+
+--- par-semantic-metadata-elements html ---
+#html.script("...")
+#html.link(rel: "stylesheet", href: "...")
+
 --- par-semantic-tag paged ---
 #show par: highlight
 #block[

@@ -152,6 +152,12 @@ A #html.input(type: "text")
 --- html-space-protection-br html ---
 A #html.br() B
 
+--- html-space-collapsing-mixed-flow html ---
+// Test that elements that have `display: block` by default
+// don't force space protection in a mixed flow.
+#block("A" + [ ] + html.div[B])
+#block(html.div[A] + [ ] + "B")
+
 --- html-pre-starting-with-newline html ---
 #html.pre("hello")
 #html.pre("\nhello")
