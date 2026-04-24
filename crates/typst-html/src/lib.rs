@@ -1,6 +1,8 @@
 //! Typst's HTML exporter.
 
-mod attr;
+pub mod attr;
+pub mod tag;
+
 mod charsets;
 mod convert;
 mod css;
@@ -11,7 +13,6 @@ mod fragment;
 mod introspect;
 mod link;
 mod rules;
-mod tag;
 mod typed;
 
 pub use self::document::{html_document, html_document_for_bundle};
