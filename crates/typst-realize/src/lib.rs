@@ -1067,15 +1067,16 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
 /// spans the whole sink (with the exception of leading tags).
 fn is_fully_inline(s: &State) -> bool {
-    s.kind.is_fragment()
+    if s.kind.is_fragment()
         && !s.saw_parbreak
-        && match s.groupings.as_slice() {
-            [grouping] => {
-                std::ptr::eq(grouping.rule, &PAR)
-                    && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
-            }
-            _ => false,
-        }
+        && let [grouping] = s.groupings.as_slice()
+        && std::ptr::eq(grouping.rule, &PAR)
+        && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
+    {
+        true
+    } else {
+        false
+    }
 }
 
 /// Builds the `ParElem` from inline-level elements.
