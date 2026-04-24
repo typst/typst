@@ -13,6 +13,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+use typst_html::HtmlElem;
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -120,7 +121,7 @@ struct GroupingRule {
     /// be visible to `finish`.
     tags: bool,
     /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(&Content, &State) -> bool,
+    trigger: fn(&Content) -> bool,
     /// Defines elements that may appear in the interior of the grouping, but
     /// not at the edges.
     inner: fn(&Content) -> bool,
@@ -676,7 +677,7 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, s));
+    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content));
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
@@ -688,7 +689,7 @@ fn visit_grouping_rules<'a>(
 
         // If the element can be added to the active grouping, do it.
         if !active.interrupted
-            && ((active.rule.trigger)(content, s) || (active.rule.inner)(content))
+            && ((active.rule.trigger)(content) || (active.rule.inner)(content))
         {
             s.sink.push((content, styles));
             return Ok(true);
@@ -824,7 +825,7 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
 
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
+    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c));
     let mut end = start + trimmed.len();
 
     // Tags that are opened within or at the start boundary of the grouping
@@ -947,7 +948,7 @@ static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
 static TEXTUAL: GroupingRule = GroupingRule {
     priority: 3,
     tags: true,
-    trigger: |content, _| {
+    trigger: |content| {
         let elem = content.elem();
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
@@ -967,7 +968,7 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |content, state| {
+    trigger: |content| {
         let elem = content.elem();
         elem == TextElem::ELEM
             || elem == HElem::ELEM
@@ -975,13 +976,9 @@ static PAR: GroupingRule = GroupingRule {
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
-            || match state.kind {
-                RealizationKind::HtmlDocument { is_phrasing, .. }
-                | RealizationKind::HtmlFragment { is_phrasing, .. } => {
-                    is_phrasing(content)
-                }
-                _ => false,
-            }
+            || content
+                .to_packed::<HtmlElem>()
+                .is_some_and(|elem| typst_html::tag::is_phrasing_content(elem.tag))
     },
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,
@@ -992,7 +989,7 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::ELEM,
+    trigger: |content| content.elem() == CiteElem::ELEM,
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
@@ -1014,7 +1011,7 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content, _| content.elem() == T::Item::ELEM,
+        trigger: |content| content.elem() == T::Item::ELEM,
         inner: |content| {
             let elem = content.elem();
             elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM

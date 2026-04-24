@@ -3312,6 +3312,7 @@ dependencies = [
  "comemo",
  "ecow",
  "regex",
+ "typst-html",
  "typst-library",
  "typst-macros",
  "typst-syntax",

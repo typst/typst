@@ -119,12 +119,6 @@ impl HtmlElem {
     ) -> Self {
         if let Some(value) = value { self.with_attr(attr, value) } else { self }
     }
-
-    /// Checks whether the given element is "phrasing content" in HTML.
-    fn is_phrasing(elem: &Content) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
-    }
 }
 
 /// An element that lays out its content as an inline SVG.
