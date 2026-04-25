@@ -1,5 +1,5 @@
 use codex::styling::MathVariant;
-use ttf_parser::Tag;
+use read_fonts::types::Tag;
 use typst_utils::LazyHash;
 
 use crate::foundations::{Cast, Content, Style, StyleChain, func};
@@ -269,14 +269,14 @@ pub fn style_cramped() -> LazyHash<Style> {
 /// Sets flac OpenType feature.
 pub fn style_flac() -> LazyHash<Style> {
     TextElem::features
-        .set(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)]))
+        .set(FontFeatures(vec![(Tag::new(b"flac"), 1)]))
         .wrap()
 }
 
 /// Sets dtls OpenType feature.
 pub fn style_dtls() -> LazyHash<Style> {
     TextElem::features
-        .set(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)]))
+        .set(FontFeatures(vec![(Tag::new(b"dtls"), 1)]))
         .wrap()
 }
 
