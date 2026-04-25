@@ -56,7 +56,7 @@ impl i64 {
     /// #int(2.7) \
     /// #int(decimal("3.8")) \
     /// #(int("27") + int("4")) \
-    /// #(int("beef", base: 16))
+    /// #int("beef", base: 16)
     /// ```
     #[func(constructor)]
     pub fn construct(

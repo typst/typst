@@ -7,6 +7,11 @@ $ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
   acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
   harpoon(a), harpoon.lt(a) $
 
+--- math-accent-sym-call-error eval ---
+#test(math.tilde(math.pi), math.accent(math.pi, math.tilde))
+// Error: 2-9 symbol π is not callable
+#math.pi(math.tilde)
+
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $
 
@@ -88,6 +93,16 @@ $ accent(integral, \u{20EC}), accent(integral, \u{20EC})_a^b, accent(integral_a^
 --- math-accent-bottom-sized paged ---
 // Test bottom accent size.
 $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, size: #200%)$
+
+--- math-accent-cramped paged ---
+// Test whether cramped styles applied to the base of top accents.
+$ hat(x^2) x^2 $
+$ breve(scripts(sum)^X^X) scripts(sum)^X^X $
+
+--- math-accent-bottom-cramped paged ---
+// Test whether cramped styles applied to the base of bottom accents.
+$ accent(x^2, \u{0330}) x^2 $
+$ accent(scripts(sum)^X^X, \u{032D}) scripts(sum)^X^X $
 
 --- math-accent-nested paged ---
 // Test nested top and bottom accents.

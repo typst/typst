@@ -762,7 +762,7 @@ fn segmented_rect(
     let mut res = vec![];
     let stroke_widths = strokes.as_ref().map(|s| s.as_ref().map(|s| s.thickness / 2.0));
 
-    let base_radius = size.x.min(size.y) / 2.0;
+    let base_radius = size.x.abs().min(size.y.abs()) / 2.0;
     let corner_max =
         stroke_widths.map_corners(|a, b| base_radius + a.min(b).unwrap_or(Abs::zero()));
 
@@ -1079,12 +1079,22 @@ impl ControlPoints {
     /// Move and rotate the point from top-left to the required corner.
     fn rotate(&self, point: Point) -> Point {
         match self.corner {
-            Corner::TopLeft => point,
-            Corner::TopRight => Point { x: self.size.x - point.y, y: point.x },
-            Corner::BottomRight => {
-                Point { x: self.size.x - point.x, y: self.size.y - point.y }
-            }
-            Corner::BottomLeft => Point { x: point.y, y: self.size.y - point.x },
+            Corner::TopLeft => Point {
+                x: self.size.x.signum() * point.x,
+                y: self.size.y.signum() * point.y,
+            },
+            Corner::TopRight => Point {
+                x: self.size.x - self.size.x.signum() * point.y,
+                y: self.size.y.signum() * point.x,
+            },
+            Corner::BottomRight => Point {
+                x: self.size.x - self.size.x.signum() * point.x,
+                y: self.size.y - self.size.y.signum() * point.y,
+            },
+            Corner::BottomLeft => Point {
+                x: self.size.x.signum() * point.y,
+                y: self.size.y - self.size.y.signum() * point.x,
+            },
         }
     }
 

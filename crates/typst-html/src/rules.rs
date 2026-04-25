@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+use az::SaturatingAs;
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
@@ -15,11 +16,11 @@ use typst_library::layout::{
 };
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EarlyLinkResolver, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry, FootnoteMarker,
-    HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
-    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
-    TermsElem, TitleElem, Works,
+    Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
+    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
+    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -42,6 +43,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
     rules.register(Html, DIRECT_LINK_RULE);
+    rules.register(Html, DIVIDER_RULE);
     rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
@@ -193,6 +195,8 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     )
     .pack())
 };
+
+const DIVIDER_RULE: ShowFn<DividerElem> = |_elem, _, _| Ok(HtmlElem::new(tag::hr).pack());
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::h1)
@@ -760,6 +764,14 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     if let Some(alt) = elem.alt.get_cloned(styles) {
         attrs.push(attr::alt, alt);
     }
+
+    // The `width` and `height` properties on the HTML element are only used to
+    // reserve space while the browser is fetching. They are integers. Still, in
+    // case of fractional image sizes, rounding is better than nothing and will
+    // not disrupt the aspect ratio of the final image.
+    let cast = |v: f64| eco_format!("{}", v.round().saturating_as::<i64>());
+    attrs.push(attr::width, cast(image.width()));
+    attrs.push(attr::height, cast(image.height()));
 
     let mut inline = css::Properties::new();
 

@@ -14,6 +14,7 @@ use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
+use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -22,19 +23,16 @@ use crate::args::{
     OutputFormat, PdfStandard, WatchCommand,
 };
 use crate::deps::write_deps;
-use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{set_failed, terminal};
 
 #[cfg(feature = "http-server")]
-use typst_kit::server::{HttpBody, HttpServer};
+use typst_kit::server::HttpServer;
 
 /// Execute a compilation command.
-pub fn compile(
-    timer: &mut Timer,
-    command: &'static CompileCommand,
-) -> HintedStrResult<()> {
+pub fn compile(command: &'static CompileCommand) -> HintedStrResult<()> {
+    let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut config = CompileConfig::new(command)?;
     let mut world = SystemWorld::new(
         Some(&command.args.input),
@@ -226,7 +224,14 @@ impl CompileConfig {
             pages,
             pdf_standards,
             tagged,
-            creation_timestamp: args.world.creation_timestamp,
+            creation_timestamp: args
+                .world
+                .creation_timestamp
+                .map(|time| {
+                    chrono::DateTime::from_timestamp(time, 0)
+                        .ok_or("creation timestamp is out of range")
+                })
+                .transpose()?,
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
@@ -419,27 +424,7 @@ fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Out
 
     #[cfg(feature = "http-server")]
     if let Some(server) = &config.server {
-        server.set_router(move |route| {
-            let path = typst::syntax::VirtualPath::new(route).ok()?;
-            let with_index = path.join("index.html").unwrap();
-            for path in [path, with_index] {
-                let Some(data) = fs.get(&path) else { continue };
-                let body = if matches!(
-                    bundle.files.get(&path),
-                    Some(typst_bundle::BundleFile::Document(
-                        typst_bundle::BundleDocument::Html(_)
-                    ))
-                ) && let Ok(string) = data.as_str()
-                {
-                    HttpBody::Html(string.to_owned())
-                } else {
-                    HttpBody::Raw(data.clone())
-                };
-                return Some(body);
-            }
-
-            None
-        });
+        server.set_bundle(bundle, fs);
     }
 
     Ok(outputs)

@@ -10,6 +10,11 @@ pub(crate) fn is_mutating_method(method: &str) -> bool {
     matches!(method, "push" | "pop" | "insert" | "remove")
 }
 
+/// Mutating methods for dictionaries.
+pub(crate) fn is_dict_mutating_method(method: &str) -> bool {
+    matches!(method, "insert" | "remove")
+}
+
 /// Whether a specific method is an accessor.
 pub(crate) fn is_accessor_method(method: &str) -> bool {
     matches!(method, "first" | "last" | "at")

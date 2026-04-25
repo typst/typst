@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use chrono::{Datelike, FixedOffset, TimeZone, Utc};
 use comemo::Tracked;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
@@ -19,6 +18,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Features, Library, LibraryExt, World};
+use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
 use typst_syntax::package::PackageSpec;
 use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
@@ -78,32 +78,8 @@ impl World for TestWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        // Create a fixed UTC date value by implementing a chrono-based approach similar to
-        // `typst-cli`. This ensures that test cases will more closely mimic CLI's behavior,
-        // compared to directly constructing the result using our Datetime and Duration types.
-
-        let now = Utc.with_ymd_and_hms(1970, 1, 1, 12, 0, 0).unwrap().fixed_offset();
-
-        let with_offset = match offset {
-            None => now,
-            Some(offset) => {
-                let seconds = offset.seconds().trunc();
-                // Check whether we can convert seconds from f64 to i32
-                if !seconds.is_finite()
-                    || seconds < f64::from(i32::MIN)
-                    || seconds > f64::from(i32::MAX)
-                {
-                    return None;
-                }
-                now.with_timezone(&FixedOffset::east_opt(seconds as i32)?)
-            }
-        };
-
-        Datetime::from_ymd(
-            with_offset.year(),
-            with_offset.month().try_into().ok()?,
-            with_offset.day().try_into().ok()?,
-        )
+        let datetime = Datetime::from_ymd_hms(1970, 1, 1, 12, 0, 0).unwrap();
+        Time::fixed(datetime).unwrap().today(offset)
     }
 }
 
@@ -260,7 +236,7 @@ fn lines(
     numbering: Numbering,
 ) -> SourceResult<Value> {
     (1..=count)
-        .map(|n| numbering.apply(engine, context, &[n]))
+        .map(|n| numbering.apply(engine, context, span, &[n]))
         .collect::<SourceResult<Array>>()?
         .join(Some('\n'.into_value()), None, None)
         .at(span)

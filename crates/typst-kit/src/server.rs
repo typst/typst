@@ -50,6 +50,32 @@ impl HttpServer {
         self.bucket.put(html_single_fs(html));
     }
 
+    /// Updates the served contents to a bundle.
+    #[cfg(feature = "bundle")]
+    pub fn set_bundle(&self, bundle: typst_bundle::Bundle, fs: typst_bundle::VirtualFs) {
+        self.set_router(move |route| {
+            let path = typst_syntax::VirtualPath::new(route).ok()?;
+            let with_index = path.join("index.html").unwrap();
+            for path in [path, with_index] {
+                let Some(data) = fs.get(&path) else { continue };
+                let body = if matches!(
+                    bundle.files.get(&path),
+                    Some(typst_bundle::BundleFile::Document(
+                        typst_bundle::BundleDocument::Html(_)
+                    ))
+                ) && let Ok(string) = data.as_str()
+                {
+                    HttpBody::Html(string.to_owned())
+                } else {
+                    HttpBody::Raw(data.clone())
+                };
+                return Some(body);
+            }
+
+            None
+        });
+    }
+
     /// Updates the content handler, triggering a reload in all connected browsers.
     pub fn set_router<R>(&self, router: R)
     where
@@ -115,17 +141,22 @@ fn start_server(port: Option<u16>) -> StrResult<(SocketAddr, tiny_http::Server)>
 
 /// Handles a request.
 fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<()> {
-    let path = req.url();
+    let base = url::Url::parse("http://localhost").unwrap();
+    let Ok(url) = base.join(req.url()) else {
+        return req.respond(Response::empty(StatusCode(400)));
+    };
+
+    let path = url.path();
     if path == "/__events" {
         return handle_events(req, bucket.clone());
     }
 
     let fs = bucket.get();
-    if let Some(body) = fs(path) {
-        handle_body(req, reload, body)
-    } else {
-        req.respond(Response::new_empty(StatusCode(404)))
-    }
+    let Some(body) = fs(path) else {
+        return req.respond(Response::empty(StatusCode(404)));
+    };
+
+    handle_body(req, reload, body)
 }
 
 /// Handles for the `/` route. Serves the compiled HTML.
@@ -196,6 +227,8 @@ fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
         Some("pdf") => Some("application/pdf"),
         Some("png") => Some("image/png"),
         Some("svg") => Some("image/svg+xml"),
+        Some("css") => Some("text/css"),
+        Some("js") => Some("text/javascript"),
         _ => infer::get(buf).map(|ty| ty.mime_type()),
     }
 }

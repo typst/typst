@@ -129,8 +129,8 @@ Not in heading
 --- heading-numbering-hint paged ---
 = Heading <intro>
 
-// Error: 1:19-1:25 cannot reference heading without numbering
-// Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
+// Error: 19-25 cannot reference heading without numbering
+// Hint: 19-25 you can enable heading numbering with `#set heading(numbering: "1.")`
 Cannot be used as @intro
 
 --- heading-par paged ---

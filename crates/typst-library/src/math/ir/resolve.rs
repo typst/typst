@@ -73,8 +73,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         base: StyleChain<'a>,
         new: impl Into<Styles>,
     ) -> StyleChain<'a> {
-        let new = self.arenas.styles.alloc(new.into());
-        self.arenas.bump.alloc(base).chain(new)
+        self.store_chain(base).chain(self.store_styles(new))
     }
 
     /// Lifetime-extends some style chain.
@@ -330,7 +329,7 @@ fn resolve_symbol<'a, 'v, 'e>(
 
 /// Resolves an accent element.
 ///
-/// The base is resolved in cramped style.
+/// The base is resolved in cramped style if the accent is above.
 fn resolve_accent<'a, 'v, 'e>(
     elem: &'a Packed<AccentElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
@@ -340,10 +339,13 @@ fn resolve_accent<'a, 'v, 'e>(
     let position = if accent.is_bottom() { Position::Below } else { Position::Above };
 
     let mut new_styles = Styles::new();
-    new_styles.apply(style_cramped().into());
-    // Try to replace the base glyph with its dotless variant.
-    if position == Position::Above && elem.dotless.get(styles) {
-        new_styles.apply(style_dtls().into());
+    if position == Position::Above {
+        new_styles.apply(style_cramped().into());
+
+        // Try to replace the base glyph with its dotless variant.
+        if elem.dotless.get(styles) {
+            new_styles.apply(style_dtls().into());
+        }
     }
 
     let base_styles = ctx.chain_styles(styles, new_styles);
@@ -438,7 +440,7 @@ fn resolve_inner_attach<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<MathItem<'a>> {
     // Lifetime-extend the super/subscript styles.
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
     let sup_style = ctx.store_styles(style_for_superscript(styles));
     let sup_style_chain = bumped_styles.chain(sup_style);
     let sub_style = ctx.store_styles(style_for_subscript(styles));
@@ -693,7 +695,7 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
 
@@ -789,7 +791,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
     let denominator = ctx.resolve_into_item(denom, bumped_styles.chain(denom_style))?;
@@ -1170,25 +1172,23 @@ fn resolve_op<'a, 'v, 'e>(
 /// Resolves a root (radical) element.
 ///
 /// The radicand is resolved in cramped style, and the index in
-/// scriptscript size.
+/// scriptscript size and cramped style.
 fn resolve_root<'a, 'v, 'e>(
     elem: &'a Packed<RootElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
-    let radicand = {
-        let cramped = ctx.store_styles(style_cramped());
-        ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
-            .with_multiline_centering()
-    };
+    let cramped_styles = ctx.store_chain(ctx.chain_styles(styles, style_cramped()));
+    let radicand = ctx
+        .resolve_into_item(&elem.radicand, *cramped_styles)?
+        .with_multiline_centering();
     let index = {
         let sscript =
             ctx.store_styles(EquationElem::size.set(MathSize::ScriptScript).wrap());
         elem.index
             .get_ref(styles)
             .as_ref()
-            .map(|elem| ctx.resolve_into_item(elem, bumped_styles.chain(sscript)))
+            .map(|elem| ctx.resolve_into_item(elem, cramped_styles.chain(sscript)))
             .transpose()?
     };
     let sqrt = ctx.resolve_into_item(

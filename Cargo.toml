@@ -41,14 +41,13 @@ base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
 bumpalo = { version = "3.15.4", features = ["boxed", "collections"] }
 bytemuck = "1"
-chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.2.0"
+codex = { git = "https://github.com/typst/codex", rev = "0426b6a" }
 color-print = "0.3.6"
 comemo = "0.5.1"
 csv = "1"
@@ -85,6 +84,7 @@ libfuzzer-sys = "0.4"
 libm = "0.2.11"
 lipsum = "0.9"
 memchr = "2"
+moxcms = "0.7.5"
 native-tls = "0.2"
 notify = "8"
 once_cell = "1"
@@ -100,7 +100,6 @@ png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
-qcms = "0.3.0"
 quote = "1"
 rayon = "1.7.0"
 regex = "1"
@@ -125,7 +124,7 @@ smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_n
 stacker = "0.1.19"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
-tar = "0.4"
+tar = "0.4.45"
 tempfile = "3.7.0"
 thin-vec = "0.2.13"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
@@ -143,6 +142,7 @@ unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
+url = "2.5"
 usvg = { version = "0.45", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"

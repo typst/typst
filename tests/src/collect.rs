@@ -13,7 +13,7 @@ use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
 use crate::notes::{TestBody, parse_test_body};
-use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
+use crate::output::{self, HashOutputType, HashStore, HashedRef, HashedRefs};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -21,7 +21,7 @@ use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 /// Returns:
 /// - the tests and the number of skipped tests in the success case.
 /// - parsing errors in the failure case.
-pub fn collect() -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
+pub fn collect() -> Result<(HashStore, Vec<Test>, usize), Vec<TestParseError>> {
     Collector::new().collect()
 }
 
@@ -379,12 +379,11 @@ impl TestOutput {
     /// The output kind.
     pub fn kind(&self) -> TestOutputKind {
         match self {
-            TestOutput::Render
-            | TestOutput::Pdftags
-            | TestOutput::Html
-            | TestOutput::Bundle => TestOutputKind::File,
+            TestOutput::Render | TestOutput::Bundle => TestOutputKind::File,
             TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),
+            TestOutput::Pdftags => TestOutputKind::Hash(output::Pdftags::INDEX),
             TestOutput::Svg => TestOutputKind::Hash(output::Svg::INDEX),
+            TestOutput::Html => TestOutputKind::Hash(output::Html::INDEX),
         }
     }
 }
@@ -420,7 +419,7 @@ impl Display for FileSize {
 
 /// Collects all tests from all files.
 struct Collector {
-    hashes: [HashedRefs; 2],
+    hashes: HashStore,
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
     seen: FxHashMap<EcoString, (FilePos, Attrs)>,
@@ -431,7 +430,7 @@ impl Collector {
     /// Creates a new test collector.
     fn new() -> Self {
         Self {
-            hashes: std::array::from_fn(|_| HashedRefs::default()),
+            hashes: HashStore::default(),
             tests: vec![],
             errors: vec![],
             seen: FxHashMap::default(),
@@ -440,9 +439,7 @@ impl Collector {
     }
 
     /// Collects tests from all files.
-    fn collect(
-        mut self,
-    ) -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
+    fn collect(mut self) -> Result<(HashStore, Vec<Test>, usize), Vec<TestParseError>> {
         self.walk_files();
         self.walk_references();
 

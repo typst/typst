@@ -4,11 +4,11 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, EcoVec, eco_format};
+use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
 use palette::encoding::{self, Linear};
 use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
-use qcms::Profile;
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{At, SourceResult, StrResult, bail};
@@ -33,27 +33,26 @@ pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
 /// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
-static CMYK_TO_XYZ: LazyLock<Box<Profile>> = LazyLock::new(|| {
-    Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap()
+static CMYK_TO_XYZ: LazyLock<ColorProfile> = LazyLock::new(|| {
+    ColorProfile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ).unwrap()
 });
 
 /// The target sRGB profile.
-static SRGB_PROFILE: LazyLock<Box<Profile>> = LazyLock::new(|| {
-    let mut out = Profile::new_sRGB();
-    out.precache_output_transform();
-    out
-});
+static SRGB_PROFILE: LazyLock<ColorProfile> = LazyLock::new(ColorProfile::new_srgb);
 
-static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
-    qcms::Transform::new_to(
-        &CMYK_TO_XYZ,
-        &SRGB_PROFILE,
-        qcms::DataType::CMYK,
-        qcms::DataType::RGB8,
-        // Our input profile only supports perceptual intent.
-        qcms::Intent::Perceptual,
-    )
-    .unwrap()
+static TO_SRGB: LazyLock<Box<moxcms::Transform8BitExecutor>> = LazyLock::new(|| {
+    CMYK_TO_XYZ
+        .create_transform_8bit(
+            Layout::Rgba,
+            &SRGB_PROFILE,
+            Layout::Rgb,
+            TransformOptions {
+                // Our input profile only supports perceptual intent.
+                rendering_intent: RenderingIntent::Perceptual,
+                ..TransformOptions::default()
+            },
+        )
+        .unwrap()
 });
 
 /// A color in a specific color space.
@@ -1705,8 +1704,8 @@ impl Cmyk {
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
-    // This still uses naive conversion, because qcms does not support
-    // converting to CMYK yet.
+    // This still uses naive conversion, because the profile doesn't
+    // support converting _to_ CMYK.
     fn from_rgba(rgba: Rgb) -> Self {
         let r = rgba.red;
         let g = rgba.green;
@@ -1726,15 +1725,17 @@ impl Cmyk {
 
     fn to_rgba(self) -> Rgb {
         let mut dest: [u8; 3] = [0; 3];
-        TO_SRGB.convert(
-            &[
-                (self.c * 255.0).round() as u8,
-                (self.m * 255.0).round() as u8,
-                (self.y * 255.0).round() as u8,
-                (self.k * 255.0).round() as u8,
-            ],
-            &mut dest,
-        );
+        TO_SRGB
+            .transform(
+                &[
+                    (self.c * 255.0).round() as u8,
+                    (self.m * 255.0).round() as u8,
+                    (self.y * 255.0).round() as u8,
+                    (self.k * 255.0).round() as u8,
+                ],
+                &mut dest,
+            )
+            .unwrap();
 
         Rgb::new(
             f32::from(dest[0]) / 255.0,

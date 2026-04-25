@@ -58,13 +58,16 @@ zip = { workspace = true, optional = true }
 [dependencies.typst-kit]
 workspace = true
 features = [
+    "bundle",
     "embedded-fonts",
     "scan-fonts",
     "system-packages",
     "universe-packages",
+    "datetime",
     "emit-diagnostics",
     "system-downloader",
     "watcher",
+    "timer",
 ]
 
 [dev-dependencies]

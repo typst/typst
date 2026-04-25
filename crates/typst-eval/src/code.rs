@@ -103,6 +103,7 @@ impl Eval for ast::Expr<'_> {
             Self::MathIdent(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
+            Self::MathCall(v) => v.eval(vm),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathPrimes(v) => v.eval(vm).map(Value::Content),
@@ -224,15 +225,47 @@ impl Eval for ast::Array<'_> {
     type Output = Array;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let items = self.items();
+        let mut items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
-        for item in items {
+
+        // We raise an error when one of the array items is the spread of a
+        // dictionary. If _all_ of the array items are spreads of dictionaries,
+        // the user probably wanted to write `(: ..dict_a, ..dict_b)` instead
+        // to create a dictionary, not an array.
+        let mut all_dict_spreads = true;
+
+        while let Some(item) = items.next() {
             match item {
-                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Pos(expr) => {
+                    all_dict_spreads = false;
+                    vec.push(expr.eval(vm)?)
+                }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Array(array) => vec.extend(array.into_iter()),
+                    Value::Array(array) => {
+                        all_dict_spreads = false;
+                        vec.extend(array.into_iter())
+                    }
+                    v @ Value::Dict(_)
+                        if all_dict_spreads
+                        // Lookahead to see whether remaining items are spreads
+                        // of dicts
+                        && items.all(|item| matches!(
+                            item,
+                            ast::ArrayItem::Spread(spread) if matches!(
+                                spread.expr().eval(vm),
+                                Ok(Value::Dict(_)),
+                            ),
+                        )) =>
+                    {
+                        let fixed =
+                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        bail!(
+                            spread.span(), "cannot spread {} into array", v.ty();
+                            hint: "add a colon to create a dictionary instead: `{fixed}`";
+                        )
+                    }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }

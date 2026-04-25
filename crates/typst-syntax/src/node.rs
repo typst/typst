@@ -235,6 +235,11 @@ impl SyntaxNode {
         matches!(self.0, NodeKind::Leaf(_))
     }
 
+    /// Whether this is an inner node.
+    pub(super) fn is_inner(&self) -> bool {
+        matches!(self.0, NodeKind::Inner(_))
+    }
+
     /// The number of descendants, including the node itself.
     pub(super) fn descendants(&self) -> usize {
         match &self.0 {
