@@ -31,6 +31,7 @@ either = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
 glidesort = { workspace = true }
+harfrust = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
 icu_properties = { workspace = true }
@@ -54,7 +55,6 @@ regex-syntax = { workspace = true }
 roxmltree = { workspace = true }
 rust_decimal = { workspace = true }
 rustc-hash = { workspace = true }
-rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

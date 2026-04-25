@@ -28,7 +28,7 @@ const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified b
 /// At most two inline items must be created individually for this line: The
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
-/// the break index is safe-to-break per rustybuzz.
+/// the break index is safe-to-break per harfrust.
 pub struct Line<'a> {
     /// The items the line is made of.
     pub items: Items<'a>,

@@ -943,6 +943,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "harfrust"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9ce5e848d21ba97a324266e41c70e0eb5e2577a610c1fbd546e15096f2e8e37"
+dependencies = [
+ "bitflags 2.9.1",
+ "bytemuck",
+ "core_maths",
+ "read-fonts 0.39.2",
+ "smallvec",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3195,6 +3208,7 @@ dependencies = [
  "comemo",
  "ecow",
  "either",
+ "harfrust",
  "hypher",
  "icu_properties",
  "icu_provider",
@@ -3204,8 +3218,8 @@ dependencies = [
  "kurbo 0.12.0",
  "libm",
  "memchr",
+ "read-fonts 0.39.2",
  "rustc-hash",
- "rustybuzz",
  "smallvec",
  "ttf-parser",
  "typst-assets",
@@ -3237,6 +3251,7 @@ dependencies = [
  "flate2",
  "fontdb",
  "glidesort",
+ "harfrust",
  "hayagriva",
  "hayro-syntax",
  "icu_properties",
@@ -3260,7 +3275,6 @@ dependencies = [
  "roxmltree",
  "rust_decimal",
  "rustc-hash",
- "rustybuzz",
  "serde",
  "serde_json",
  "serde_yaml",
