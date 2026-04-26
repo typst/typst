@@ -9,11 +9,11 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Size};
 use typst_library::math::EquationElem;
-use typst_library::math::ir::{MathProperties, PrimesItem, ScriptsItem};
+use typst_library::math::ir::{MathProperties, PRIME_CHAR, PrimesItem, ScriptsItem};
 use typst_library::text::Font;
 
 use super::MathContext;
-use super::fragment::{FrameFragment, MathFragment};
+use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
 
 macro_rules! measure {
     ($e: ident, $attr: ident) => {
@@ -67,7 +67,10 @@ pub fn layout_primes(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    let prime = ctx.layout_into_fragment(&item.prime, styles)?.into_frame();
+    let Some(prime) = GlyphFragment::new_char(ctx, styles, PRIME_CHAR, props.span) else {
+        return Ok(());
+    };
+    let prime = MathFragment::from(prime).into_frame();
     let width = prime.width() * (item.count + 1) as f64 / 2.0;
     let mut frame = Frame::soft(Size::new(width, prime.height()));
     frame.set_baseline(prime.ascent());

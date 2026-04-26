@@ -1,8 +1,9 @@
 use ecow::EcoString;
+use unicode_math_class::MathClass;
 
 use crate::foundations::{Content, NativeElement, Scope, SymbolElem, elem};
 use crate::layout::HElem;
-use crate::math::{Mathy, THIN, upright};
+use crate::math::{ClassElem, Mathy, THIN, upright};
 use crate::text::TextElem;
 
 /// A text operator in an equation.
@@ -47,7 +48,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + upright(SymbolElem::packed(d))
+                    + ClassElem::new(MathClass::Unary, upright(SymbolElem::packed(d))).pack()
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mtable class="multiline-equation">
+        <mtr>
+          <mtd>
+            <mrow>
+              <mo>{</mo>
+              <mrow>
+                <mi>𝑥</mi>
+                <mo fence="false" stretchy="true" symmetric="true">|</mo>
+                <munderover>
+                  <mo form="prefix" lspace="0em">∑</mo>
+                  <mrow>
+                    <mi>𝑖</mi>
+                    <mo lspace="0em" rspace="0em">=</mo>
+                    <mn>1</mn>
+                  </mrow>
+                  <mi>∞</mi>
+                </munderover>
+                <msub>
+                  <mi>𝜑</mi>
+                  <mi>𝑖</mi>
+                </msub>
+                <mrow>
+                  <mo>(</mo>
+                  <mi>𝑥</mi>
+                  <mo>)</mo>
+                </mrow>
+                <mo>&lt;</mo>
+                <mn>1</mn>
+              </mrow>
+              <mo>}</mo>
+            </mrow>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mrow>
+              <mo>{</mo>
+              <mrow>
+                <mo lspace="0em" rspace="0em">∫</mo>
+                <mo lspace="0em" rspace="0em">|</mo>
+                <mo lspace="0.2222222222222222em" rspace="0.2222222222222222em">⋅</mo>
+                <mo lspace="0em" rspace="0em">|</mo>
+                <mo fence="false" lspace="0.2777777777777778em" rspace="0.2777777777777778em">‖</mo>
+                <mrow>
+                  <mo>⌊</mo>
+                  <mrow>
+                    <mover accent="true">
+                      <mi>𝐼</mi>
+                      <mo>̂</mo>
+                    </mover>
+                    <mo lspace="0.2777777777777778em" rspace="0.2777777777777778em" stretchy="true" symmetric="true">/</mo>
+                    <mrow>
+                      <mo>{</mo>
+                      <mrow>
+                        <mo form="infix" lspace="0em" rspace="0em">⋅</mo>
+                        <mo fence="false" stretchy="true" symmetric="true">|</mo>
+                        <mo form="infix" lspace="0em" rspace="0em">⋅</mo>
+                      </mrow>
+                      <mo>}</mo>
+                    </mrow>
+                    <mo fence="false" stretchy="true" symmetric="true">|</mo>
+                    <mfrac>
+                      <mi>𝐼</mi>
+                      <mi>𝑛</mi>
+                    </mfrac>
+                  </mrow>
+                  <mo>⌋</mo>
+                </mrow>
+              </mrow>
+              <mo>}</mo>
+            </mrow>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

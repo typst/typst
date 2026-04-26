@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      /* Alignment */
+      mtable.right-align mtd,
+      mtable mtd.right-align,
+      mtable.left-align mtd.right-align,
+      mtable.aligned mtd:nth-child(odd) {
+        text-align: -webkit-right;
+      }
+      mtable.cases mtd,
+      mtable.left-align mtd,
+      mtable mtd.left-align,
+      mtable.aligned mtd:nth-child(even),
+      math:is(:not([display])) > mtable.multiline-equation mtd {
+        text-align: -webkit-left;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.left-flush {
+        padding-left: 0;
+      }
+      mtable.cases mtd,
+      mtable.aligned mtd,
+      mtable mtd.flushed,
+      mtable mtd.right-flush {
+        padding-right: 0;
+      }
+      
+      /* Tables */
+      mtable {
+        math-style: inherit;
+      }
+      mtd {
+        math-depth: auto-add;
+        math-style: compact;
+        math-shift: compact;
+      }
+      
+      /* Equations */
+      mtable.multiline-equation mtd {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+        padding: 0;
+      }
+      math > mtable.multiline-equation mtr:not(:last-child) mtd {
+        padding-bottom: 0.5em;
+      }
+      
+      /* Fractions */
+      mfrac {
+        padding-inline: 0;
+        margin-inline: 0.1em;
+      }
+      
+      /* Accents */
+      mover[accent="true" i] > :first-child {
+        font-feature-settings: "dtls";
+      }
+      mover.dotted[accent="true" i] > :first-child {
+        font-feature-settings: "dtls" 0;
+      }
+      
+      /* Other rules for scriptlevel, displaystyle and math-shift */
+      munder > :nth-child(2),
+      munderover > :nth-child(2) {
+        math-shift: compact
+      }
+      munder[accentunder="true" i] > :not(:first-child),
+      mover[accent="true" i] > :not(:first-child) {
+        math-depth: inherit;
+        math-style: inherit;
+        math-shift: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <math display="block">
+      <mtable class="multiline-equation">
+        <mtr>
+          <mtd>
+            <msup>
+              <mi>𝑓</mi>
+              <mo>′</mo>
+            </msup>
+            <mfrac>
+              <mi>𝑥</mi>
+              <msub>
+                <mi>𝑓</mi>
+                <mrow>
+                  <mi>𝜋</mi>
+                  <mrow>
+                    <mo>{</mo>
+                    <mi>𝑥</mi>
+                    <mo>}</mo>
+                  </mrow>
+                </mrow>
+              </msub>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <msup>
+              <mo lspace="0em" rspace="0.16666666666666666em">sin</mo>
+              <mn>2</mn>
+            </msup>
+            <mfrac>
+              <mi>𝑥</mi>
+              <msub>
+                <mi>𝑓</mi>
+                <mn>0</mn>
+              </msub>
+            </mfrac>
+            <mrow>
+              <mo>(</mo>
+              <mi>𝑥</mi>
+              <mo>)</mo>
+            </mrow>
+            <mspace width="1em"/>
+            <mi>𝑓</mi>
+            <mo form="postfix">!</mo>
+            <mfrac>
+              <mi>𝑥</mi>
+              <msup>
+                <mi>𝑔</mi>
+                <mrow>
+                  <mo>−</mo>
+                  <mn>1</mn>
+                </mrow>
+              </msup>
+            </mfrac>
+            <mrow>
+              <mo>(</mo>
+              <mi>𝑥</mi>
+              <mo>)</mo>
+            </mrow>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mfrac>
+              <msub>
+                <mi>𝑎</mi>
+                <mrow>
+                  <mi>*</mi>
+                  <mrow>
+                    <mo>⟦</mo>
+                    <mi>𝑥</mi>
+                    <mo>}</mo>
+                  </mrow>
+                </mrow>
+              </msub>
+              <msub>
+                <mi>𝑎</mi>
+                <mrow>
+                  <mtext>2a</mtext>
+                  <mrow>
+                    <mo>{</mo>
+                    <mi>𝑥</mi>
+                    <mo>⟧</mo>
+                  </mrow>
+                </mrow>
+              </msub>
+            </mfrac>
+            <mspace width="1em"/>
+            <mfrac>
+              <msub>
+                <mi>𝑓</mi>
+                <mrow>
+                  <mi>𝜛</mi>
+                  <mrow>
+                    <mo>{</mo>
+                    <mi>𝑥</mi>
+                    <mo>}</mo>
+                  </mrow>
+                </mrow>
+              </msub>
+              <msub>
+                <mi>𝑓</mi>
+                <mi>𝜛</mi>
+              </msub>
+            </mfrac>
+            <mrow>
+              <mo>{</mo>
+              <mi>𝑥</mi>
+              <mo>}</mo>
+            </mrow>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <mfrac>
+              <msubsup>
+                <mrow>
+                  <mi>𝑎</mi>
+                  <mrow>
+                    <mo>(</mo>
+                    <mi>𝑏</mi>
+                    <mo>)</mo>
+                  </mrow>
+                </mrow>
+                <mrow>
+                  <mi>𝑐</mi>
+                  <mrow>
+                    <mo>(</mo>
+                    <mi>𝑑</mi>
+                    <mo>)</mo>
+                  </mrow>
+                </mrow>
+                <mrow>
+                  <mi>𝑒</mi>
+                  <mrow>
+                    <mo>(</mo>
+                    <mi>𝑓</mi>
+                    <mo>)</mo>
+                  </mrow>
+                </mrow>
+              </msubsup>
+              <msubsup>
+                <mrow>
+                  <mi>𝑔</mi>
+                  <mrow>
+                    <mo>(</mo>
+                    <mi>ℎ</mi>
+                    <mo>)</mo>
+                  </mrow>
+                </mrow>
+                <msup>
+                  <mrow>
+                    <mi>𝑖</mi>
+                    <mrow>
+                      <mo>(</mo>
+                      <mi>𝑗</mi>
+                      <mo>)</mo>
+                    </mrow>
+                  </mrow>
+                  <mo>′</mo>
+                </msup>
+                <mo>′</mo>
+              </msubsup>
+            </mfrac>
+          </mtd>
+        </mtr>
+        <mtr>
+          <mtd>
+            <msup>
+              <mrow>
+                <mo>(</mo>
+                <mi>𝑥</mi>
+                <mo>)</mo>
+              </mrow>
+              <mo>′</mo>
+            </msup>
+            <msup>
+              <mrow>
+                <mo>(</mo>
+                <mi>𝑥</mi>
+                <mo>)</mo>
+              </mrow>
+              <mo>′</mo>
+            </msup>
+            <mfrac>
+              <msup>
+                <mrow>
+                  <mo>(</mo>
+                  <mi>𝑥</mi>
+                  <mo>)</mo>
+                </mrow>
+                <mo>′</mo>
+              </msup>
+              <msup>
+                <mrow>
+                  <mo>(</mo>
+                  <mi>𝑥</mi>
+                  <mo>)</mo>
+                </mrow>
+                <mo>′</mo>
+              </msup>
+            </mfrac>
+            <msup>
+              <mrow>
+                <mo>(</mo>
+                <mi>𝑥</mi>
+                <mo>)</mo>
+              </mrow>
+              <mo>′</mo>
+            </msup>
+            <msup>
+              <mrow>
+                <mo>(</mo>
+                <mi>𝑥</mi>
+                <mo>)</mo>
+              </mrow>
+              <mo>′</mo>
+            </msup>
+          </mtd>
+        </mtr>
+      </mtable>
+    </math>
+  </body>
+</html>

@@ -17,85 +17,85 @@ $ sum_(i=#emoji.apple)^#emoji.apple.red i + monkey/2 $
 $ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
      = #table[A][B][C] $
 
---- math-equation-auto-wrapping paged ---
+--- math-equation-auto-wrapping paged html ---
 // Test non-equation math directly in content.
 #math.attach($a$, t: [b])
 
---- math-font-switch paged ---
+--- math-font-switch paged html ---
 // Test font switch.
 // Warning: 29-40 unknown font family: noto sans
 #let here = text.with(font: "Noto Sans")
 $#here[f] := #here[Hi there]$.
 
---- math-root-show-rule-1 paged ---
+--- math-root-show-rule-1 paged html ---
 #show "√": set text(red, font: "Noto Sans Math")
 $ root(2, (a + b) / c) $
 
---- math-root-show-rule-2 paged ---
+--- math-root-show-rule-2 paged html ---
 #show "√": set text(2em)
 $ sqrt(2) $
 
---- math-root-show-rule-3 paged ---
+--- math-root-show-rule-3 paged html ---
 // Test cursed show rule.
 #show "√": "!"
 $ sqrt(2) root(2, 2) $
 
---- math-root-show-rule-4 paged ---
+--- math-root-show-rule-4 paged html ---
 #show math.root: set text(red)
 $ sqrt(x + y) root(4, 2) $
 
---- math-root-show-rule-5 paged ---
+--- math-root-show-rule-5 paged html ---
 #show math.root: it => {
   show "√": set text(purple) if it.index == none
   it
 }
 $ sqrt(1/2) root(3, 1/2) $
 
---- math-delim-show-rule-1 paged ---
+--- math-delim-show-rule-1 paged html ---
 #show regex("\\[|\\]"): set text(green, font: "Noto Sans Math")
 $ mat(delim: \[, a, b, c; d, e, f; g, h, i) quad [x + y] $
 
---- math-delim-show-rule-2 paged ---
+--- math-delim-show-rule-2 paged html ---
 #show math.vec: it => {
   show regex("\\(|\\)"): set text(blue)
   it
 }
 $ vec(1, 0, 0), mat(1; 0; 0), (1), binom(n, k) $
 
---- math-delim-show-rule-3 paged ---
+--- math-delim-show-rule-3 paged html ---
 #show "⏟": set text(fuchsia)
 $ underbrace(1 + 1 = 2, "obviously") $
 
---- math-delim-show-rule-4 paged ---
+--- math-delim-show-rule-4 paged html ---
 #show "{": set text(navy)
 $ cases(x + y + z = 0, 2x - y = 0, -5y + 2z = 0) $
 
---- math-delim-show-rule-5 paged ---
+--- math-delim-show-rule-5 paged html ---
 #show regex("\\(|\\)"): set text(1.5em)
 $ 10 dot (9 - 5) dot (1/2 - 1) $
 
---- math-primes-show-rule paged ---
+--- math-primes-show-rule paged html ---
 #show math.primes: set text(maroon)
 $f'(x), f''''''(x)$
 
---- math-glyph-show-rule paged ---
+--- math-glyph-show-rule paged html ---
 #show "+": set text(orange, font: "Noto Sans Math")
 $ 1 + 1 = +2 $
 #show "+": text(2em)[#sym.plus.o]
 $ 1 + 1 = +2 $
 
---- math-accent-show-rule-1 paged ---
+--- math-accent-show-rule-1 paged html ---
 #show "\u{0302}": set text(blue, font: "XITS Math")
 $hat(x)$, $hat(hat(x))$, x\u{0302}
 
---- math-accent-show-rule-2 paged ---
+--- math-accent-show-rule-2 paged html ---
 #let rhat(x) = {
   show "\u{0302}": set text(red)
   math.hat(x)
 }
 $hat(x)$, $rhat(x)$, $hat(rhat(x))$, $rhat(hat(x))$, x\u{0302}
 
---- math-accent-show-rule-3 paged ---
+--- math-accent-show-rule-3 paged html ---
 #show math.accent: it => {
   show "\u{0300}": set text(green)
   it
@@ -120,11 +120,11 @@ $hat(X)$, $hat(x)$
 // Test boxes with a baseline are respected
 #box(stroke: 0.2pt, $a #box(baseline:0.5em, stroke: 0.2pt, $a$)$)
 
---- math-at-par-start paged ---
+--- math-at-par-start paged html ---
 // Test that equation at start of paragraph works fine.
 $x$ is a variable.
 
---- math-at-par-end paged ---
+--- math-at-par-end paged html ---
 // Test that equation at end of paragraph works fine.
 One number is $1$
 
@@ -136,11 +136,11 @@ One number is $1$
 // Test math at the natural end of a line.
 #h(50pt) Number $1$ exists.
 
---- math-consecutive paged ---
+--- math-consecutive paged html ---
 // Test immediately consecutive equations.
 $x$$y$
 
---- math-symbol-show-rule paged ---
+--- math-symbol-show-rule paged html ---
 // Test using rules for symbols
 #show sym.tack: it => $#h(1em) it #h(1em)$
 $ a tack b $
@@ -165,7 +165,7 @@ $ x^2 #hide[$(>= phi.alt) union y^2 0$] z^2 $
 Hello #hide[there $x$]
 and #hide[$ f(x) := x^2 $]
 
---- issue-math-realize-scripting paged ---
+--- issue-math-realize-scripting paged html ---
 // Test equations can embed equation pieces built by functions
 #let foo(v1, v2) = {
   // Return an equation piece that would've been rendered in
@@ -192,11 +192,11 @@ $ 2 foo(alpha, (M+foo(a, b))) $
 $ 2 bar(alpha, (M+foo(a, b))) $
 $ 2 baz(x,y,baz(u, v)) $
 
---- math-size-resolve paged ---
+--- math-size-resolve paged html ---
 #let length = context repr(measure("--").width)
 $ a length a ^ length $
 
---- math-size-space paged ---
+--- math-size-space paged html ---
 $ x space x script(space) x sscript(space) x \
   x^inline(space) x^space x^sscript(space) x $
 
