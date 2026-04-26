@@ -178,8 +178,10 @@ fn library() -> Library {
     let mut lib = typst::Library::builder().with_features(Features::all()).build();
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
     lib.styles.set(PageElem::height, Smart::Auto);
-    lib.styles
-        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(
+        PageElem::margin,
+        Smart::Custom(Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into())))),
+    );
     lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
     lib
 }

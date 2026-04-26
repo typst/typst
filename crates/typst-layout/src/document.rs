@@ -6,7 +6,7 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Output, Smart, StyleChain, Target};
 use typst_library::introspection::Introspector;
-use typst_library::layout::Frame;
+use typst_library::layout::{Abs, Frame, Sides};
 use typst_library::model::{Document, DocumentInfo, Numbering};
 use typst_library::visualize::{Color, Paint};
 
@@ -83,6 +83,9 @@ impl Output for PagedDocument {
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
+    /// The bleed amount to be added on each side of the page. The bleed is not
+    /// included in frame.
+    pub bleed: Sides<Abs>,
     /// How the page is filled.
     ///
     /// - When `None`, the background is transparent.

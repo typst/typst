@@ -10,6 +10,7 @@ use typst_library::foundations::Bytes;
 use typst_library::introspection::Location;
 use typst_library::model::{LateLinkResolver, PagedFormat};
 use typst_pdf::PdfOptions;
+use typst_render::RenderOptions;
 use typst_syntax::{Span, VirtualPath};
 use typst_utils::Scalar;
 
@@ -81,11 +82,17 @@ fn export_pdf(
 #[comemo::memoize]
 #[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> {
-    typst_render::render(&doc.pages()[0], pixel_per_pt.get() as f32)
-        .encode_png()
-        .map(Bytes::new)
-        .map_err(|_| "failed to encode PNG")
-        .at(Span::detached())
+    typst_render::render(
+        &doc.pages()[0],
+        &RenderOptions {
+            pixel_per_pt: pixel_per_pt.get() as f32,
+            render_bleed: false,
+        },
+    )
+    .encode_png()
+    .map(Bytes::new)
+    .map_err(|_| "failed to encode PNG")
+    .at(Span::detached())
 }
 
 /// Exports an SVG document.

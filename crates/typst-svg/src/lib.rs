@@ -18,7 +18,7 @@ use std::hash::Hash;
 use ecow::EcoString;
 use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
+    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
@@ -35,13 +35,17 @@ const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
 
 /// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(page: &Page) -> String {
+pub fn svg(page: &Page, opts: &SvgOptions) -> String {
+    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
+    let size = page.frame.size() + bleed.sum_by_axis();
+
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, page.frame.size());
 
-    let state = State::new(page.frame.size());
-    renderer.render_page(&mut svg, &state, Transform::identity(), page);
+    let state = State::new(size);
+    let ts = Transform::translate(bleed.left, bleed.top);
+    renderer.render_page(&mut svg, &state, ts, page);
     renderer.finalize(svg);
     xml.end_document()
 }
@@ -148,6 +152,17 @@ pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
 
     renderer.finalize(svg);
     xml.end_document()
+}
+
+/// Settings for SVG export.
+#[derive(Default, Clone)]
+pub struct SvgOptions {
+    /// By default, SVG documents are bounded to the page size. In some
+    /// circumstances, such as when preparing documents for print, it may be
+    /// desirable to include content beyond these bounds to account for bleed
+    /// margins. This field allows expanding the document area to include such
+    /// bleed.
+    pub render_bleed: bool,
 }
 
 /// Renders one or multiple frames to an SVG file.
@@ -262,7 +277,10 @@ impl<'a> SVGRenderer<'a> {
         }
 
         if let Some(fill) = page.fill_or_white() {
-            let shape = Geometry::Rect(page.frame.size()).filled(fill);
+            let shape =
+                Geometry::Rect(page.frame.size() + page.bleed.sum_by_axis()).filled(fill);
+            let state =
+                &state.pre_translate(Point { x: -page.bleed.left, y: -page.bleed.top });
             self.render_shape(svg.lazy(), state, &shape);
         }
 

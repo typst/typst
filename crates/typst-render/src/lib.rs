@@ -8,7 +8,7 @@ mod text;
 use tiny_skia as sk;
 use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Sides, Size, Transform,
 };
 use typst_library::visualize::{Color, Geometry, Paint};
 
@@ -17,8 +17,11 @@ use typst_library::visualize::{Color, Geometry, Paint};
 /// This renders the page at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
-    let size = page.frame.size();
+pub fn render(page: &Page, opts: &RenderOptions) -> sk::Pixmap {
+    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
+
+    let size = page.frame.size() + bleed.sum_by_axis();
+    let pixel_per_pt = opts.pixel_per_pt;
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
@@ -31,10 +34,12 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
         if let Paint::Solid(color) = fill {
             canvas.fill(paint::to_sk_color(color));
         } else {
-            let rect = Geometry::Rect(page.frame.size()).filled(fill);
+            let rect = Geometry::Rect(size).filled(fill);
             shape::render_shape(&mut canvas, state, &rect);
         }
     }
+
+    let state = state.pre_translate(Point { x: bleed.left, y: bleed.top });
 
     render_frame(&mut canvas, state, &page.frame);
 
@@ -44,17 +49,14 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
 /// Export a document with potentially multiple pages into a single raster image.
 pub fn render_merged(
     document: &PagedDocument,
-    pixel_per_pt: f32,
+    opts: &RenderOptions,
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> = document
-        .pages()
-        .iter()
-        .map(|page| render(page, pixel_per_pt))
-        .collect();
+    let pixmaps: Vec<_> =
+        document.pages().iter().map(|page| render(page, opts)).collect();
 
-    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
+    let gap = (opts.pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
         + gap * pixmaps.len().saturating_sub(1) as u32;
@@ -79,6 +81,31 @@ pub fn render_merged(
     }
 
     canvas
+}
+
+/// Settings for raster image export.
+#[derive(Clone)]
+pub struct RenderOptions {
+    /// Controls the scale of the rendered output in pixels per typographic
+    /// point. By default, a value of `1.0` is used, meaning one pixel is
+    /// generated per point. Increasing this value produces higher-resolution
+    /// images, while lower  values reduce the output size and rendering cost.
+    /// This can be useful when adjusting the final image quality for display or
+    /// printing purposes.
+    pub pixel_per_pt: f32,
+
+    /// By default, rendered pages are limited to the bounds of the Media Box.
+    /// In some circumstances, such as when preparing documents for print, it
+    /// may be desirable to include content beyond these bounds to account for
+    /// bleed margins. This field allows expanding the rendered area to include
+    /// such bleed.
+    pub render_bleed: bool,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        Self { pixel_per_pt: 1.0, render_bleed: false }
+    }
 }
 
 /// Additional metadata carried through the rendering process.
