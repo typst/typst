@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 
-use crate::{FileId, Span, SyntaxKind};
+use crate::kind::ModeAfter;
+use crate::{FileId, Span, SyntaxKind, SyntaxMode};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -750,6 +751,47 @@ impl<'a> LinkedNode<'a> {
         }
 
         None
+    }
+
+    /// Get the [`SyntaxMode`] we will be in when immediately after this node.
+    ///
+    /// Unlike some other `LinkedNode` methods, this does not treat all trivia
+    /// the same: it returns `None` for comments and returns `Some` for
+    /// whitespace (based on the parent's mode). The only other way this would
+    /// return `None` is when inside a partial tree, i.e. one not rooted in
+    /// `Markup`, `Math`, or `Code`.
+    ///
+    /// Also note that errors inherit the mode of their parent.
+    pub fn mode_after(&self) -> Option<SyntaxMode> {
+        match self.kind().mode_after() {
+            ModeAfter::Known(mode) => Some(mode),
+            ModeAfter::Comment => None,
+            // An opening dollar sign starts math mode.
+            ModeAfter::Dollar if self.index == 0 => Some(SyntaxMode::Math),
+            // Spaces at the left/right of an equation are still in math mode.
+            ModeAfter::Space if self.parent_kind() == Some(SyntaxKind::Equation) => {
+                Some(SyntaxMode::Math)
+            }
+            // The position after something embedded with a hash is still code.
+            ModeAfter::Embeddable
+                if self
+                    .prev_sibling_with_trivia()
+                    .is_some_and(|prev| prev.kind() == SyntaxKind::Hash) =>
+            {
+                Some(SyntaxMode::Code)
+            }
+            // Otherwise, we're simply based on our parent's mode.
+            ModeAfter::Parent
+            | ModeAfter::Space
+            | ModeAfter::Dollar
+            | ModeAfter::Embeddable => self.parent_mode(),
+        }
+    }
+
+    /// Get the [`SyntaxMode`] we will be in when immediately after the parent
+    /// of this node.
+    pub fn parent_mode(&self) -> Option<SyntaxMode> {
+        self.parent().and_then(Self::mode_after)
     }
 }
 

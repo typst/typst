@@ -42,7 +42,14 @@ impl Eval for ast::FuncCall<'_> {
             } else {
                 (target_expr.eval(vm)?, None)
             };
-            match eval_field_callee(vm, access, target, false)? {
+            match eval_field_callee(
+                vm,
+                access.to_untyped(),
+                field.as_str(),
+                field.span(),
+                target,
+                false,
+            )? {
                 FieldCallee::Func(func) => {
                     let args = match maybe_args {
                         Some(args) => args,
@@ -91,14 +98,17 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
     vm.engine.route.check_call_depth().at(span)?;
 
     let math_call_result = match callee {
-        ast::MathCallee::MathIdent(ident) => {
+        ast::MathAccess::MathIdent(ident) => {
             let callee_value = ident.eval(vm)?;
+            // We need to call `trace_at` for the callee manually because we did
+            // not evaluate via `ast::Expr::eval()`.
+            vm.trace_at(ident.span(), &callee_value);
             match callee_value.clone().cast::<Func>() {
                 Ok(func) => FieldCallee::Func(func),
                 Err(err) => FieldCallee::NonFunc(callee_value, err),
             }
         }
-        ast::MathCallee::FieldAccess(access) => {
+        ast::MathAccess::MathFieldAccess(access) => {
             let target_expr = access.target();
             target_span = target_expr.span();
             let field = access.field();
@@ -123,7 +133,14 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
                         math_call.to_untyped().clone().into_text();
                 );
             }
-            eval_field_callee(vm, access, target, true)?
+            eval_field_callee(
+                vm,
+                access.to_untyped(),
+                field.as_str(),
+                field.span(),
+                target,
+                true,
+            )?
         }
     };
 
@@ -222,13 +239,12 @@ enum FieldCallee {
 ///   e.g. `(at: x => ...).at(key)`.
 fn eval_field_callee<'a, 'b>(
     vm: &'a mut Vm<'b>,
-    access: ast::FieldAccess,
+    access: &SyntaxNode,
+    field: &str,
+    field_span: Span,
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let field_node = access.field();
-    let field_span = field_node.span();
-    let field = field_node.as_str();
     let sink = (&mut vm.engine, field_span);
 
     let mut is_method_call = false;
@@ -248,7 +264,7 @@ fn eval_field_callee<'a, 'b>(
         target.field(field, sink).at(field_span)?
     } else {
         // Otherwise we cannot call this field and produce an error.
-        let full_text = || access.to_untyped().clone().into_text();
+        let full_text = || access.clone().into_text();
         match target.field(field, sink) {
             // The field does exist.
             Ok(callee_value) => {
@@ -313,9 +329,7 @@ fn eval_field_callee<'a, 'b>(
         }
     };
 
-    if vm.inspected == Some(access.span()) {
-        vm.trace(callee_value.clone());
-    }
+    vm.trace_at(access.span(), &callee_value);
 
     match callee_value.clone().cast::<Func>() {
         Ok(func) if is_method_call => Ok(FieldCallee::Method(func, target)),
@@ -478,7 +492,7 @@ impl Eval for ast::MathArgs<'_> {
 fn unparse_math_args(
     vm: &mut Vm,
     args: ast::MathArgs,
-    callee: ast::MathCallee,
+    callee: ast::MathAccess,
 ) -> SourceResult<Content> {
     let mut body = Vec::new();
     let mut errors = EcoVec::new();
@@ -725,6 +739,9 @@ impl<'a> CapturesVisitor<'a> {
 
             // Don't capture the field of a field access.
             Some(ast::Expr::FieldAccess(access)) => {
+                self.visit(access.target().to_untyped());
+            }
+            Some(ast::Expr::MathFieldAccess(access)) => {
                 self.visit(access.target().to_untyped());
             }
 
