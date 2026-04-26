@@ -270,7 +270,7 @@ pub enum Expr<'a> {
     Emph(Emph<'a>),
     /// Raw text with optional syntax highlighting: `` `...` ``.
     Raw(Raw<'a>),
-    /// A hyperlink: `https://typst.org`.
+    /// A hyperlink: `https://typst.org`, `https://typst.org[..]`.
     Link(Link<'a>),
     /// A label: `<intro>`.
     Label(Label<'a>),
@@ -736,14 +736,23 @@ node! {
 }
 
 node! {
-    /// A hyperlink: `https://typst.org`.
+    /// A hyperlink: `https://typst.org`, `https://typst.org[..]`.
     struct Link
 }
 
 impl<'a> Link<'a> {
     /// Get the URL.
-    pub fn get(self) -> &'a EcoString {
-        self.0.text()
+    pub fn dest(self) -> EcoString {
+        self.0
+            .children()
+            .find(|node| node.kind() == SyntaxKind::LinkMarker)
+            .map(|node| node.text().clone())
+            .unwrap_or_default()
+    }
+
+    /// Get the link's body.
+    pub fn body(self) -> Option<ContentBlock<'a>> {
+        self.0.try_cast_last()
     }
 }
 

@@ -108,7 +108,6 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
         | SyntaxKind::Escape
         | SyntaxKind::Shorthand
         | SyntaxKind::SmartQuote
-        | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
         SyntaxKind::Raw => p.eat(), // Raw is handled entirely in the Lexer.
@@ -120,6 +119,7 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
         SyntaxKind::ListMarker if at_start => list_item(p),
         SyntaxKind::EnumMarker if at_start => enum_item(p),
         SyntaxKind::TermMarker if at_start => term_item(p),
+        SyntaxKind::LinkMarker => link(p),
         SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => equation(p),
 
@@ -197,6 +197,16 @@ fn term_item(p: &mut Parser) {
         markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::TermItem);
     });
+}
+
+/// Parses a link: `https://typst.org`, `https://typst.org[..]`.
+fn link(p: &mut Parser) {
+    let m = p.marker();
+    p.assert(SyntaxKind::LinkMarker);
+    if p.directly_at(SyntaxKind::LeftBracket) {
+        content_block(p);
+    }
+    p.wrap(m, SyntaxKind::Link);
 }
 
 /// Parses a reference: `@target`, `@target[..]`.

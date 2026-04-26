@@ -46,8 +46,10 @@ pub enum SyntaxKind {
     RawDelim,
     /// A sequence of whitespace to ignore in a raw text: `    `.
     RawTrimmed,
-    /// A hyperlink: `https://typst.org`.
+    /// A hyperlink with optional body: `https://typst.org`, `https://typst.org[..]`.
     Link,
+    /// Introduces a hyperlink: `https://typst.org`.
+    LinkMarker,
     /// A label: `<intro>`.
     Label,
     /// A reference: `@target`, `@target[..]`.
@@ -401,6 +403,7 @@ impl SyntaxKind {
             Self::RawTrimmed => "raw trimmed",
             Self::RawDelim => "raw delimiter",
             Self::Link => "link",
+            Self::LinkMarker => "link marker",
             Self::Label => "label",
             Self::Ref => "reference",
             Self::RefMarker => "reference marker",

@@ -22,21 +22,27 @@ Wahttp://link \
 Nohttps:\//link \
 Nohttp\://comment
 
---- link-bracket-balanced paged ---
-// Verify that brackets are included in links.
-https://[::1]:8080/ \
+--- link-parenthesis-balanced paged ---
+// Verify that parentheses are included in links.
 https://example.com/(paren) \
 https://example.com/#(((nested))) \
 
---- link-bracket-unbalanced-closing paged ---
-// Check that unbalanced brackets are not included in links.
+--- link-parenthesis-unbalanced-closing paged ---
+// Check that unbalanced parentheses are not included in links.
 #[https://example.com/] \
 https://example.com/)
 
---- link-bracket-unbalanced-opening eval ---
-// Verify that opening brackets without closing brackets throw an error.
-// Error: 1-22 automatic links cannot contain unbalanced brackets, use the `link` function instead
+--- link-parenthesis-unbalanced-opening eval ---
+// Verify that opening parentheses without closing parentheses throw an error.
+// Error: 1-22 automatic links cannot contain unbalanced parentheses, use the `link` function instead
 https://exam(ple.com/
+// Error: 1-22 automatic links cannot contain unbalanced parentheses, use the `link` function instead
+https://exam(ple.com/[text]
+
+--- link-body paged ---
+// Verify that trailing content is parsed as the link's body.
+https://example.com[*text*]\
+A https://typst.org[link with multiple words] ending here.
 
 --- link-show paged ---
 // Styled with underline and color.
