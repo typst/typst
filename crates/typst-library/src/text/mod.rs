@@ -28,7 +28,7 @@ pub use self::smallcaps_::*;
 pub use self::smartquote::*;
 pub use self::space::*;
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -52,7 +52,7 @@ use crate::foundations::{
     NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
-use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
+use crate::layout::{Abs, Alignment, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
@@ -357,9 +357,9 @@ pub struct TextElem {
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
-    #[default(true)]
+    #[default(Overhang::END)]
     #[ghost]
-    pub overhang: bool,
+    pub overhang: Overhang,
 
     /// The top end of the conceptual frame around the text used for layout and
     /// positioning. This affects the size of containers that hold text.
@@ -1050,6 +1050,197 @@ cast! {
     TextSize,
     self => self.0.into_value(),
     v: Length => Self(v),
+}
+
+/// Whether certain glyphs can hang over into the margin.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Overhang {
+    /// The per-glyph protrusion table.
+    pub table: ProtrusionTable,
+    /// The default behaviour for glyphs not in the map.
+    pub default: BuiltInOverhang,
+}
+
+/// A reference to a glyph, either by its unicode code point or by its name in the font.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum GlyphReference {
+    /// Glyph referenced by Unicode code point.
+    CodePoint(char),
+    /// Glyph referenced by its name.
+    /// Some glyphs can be referenced only by name, e.g. ligatures.
+    Name(EcoString),
+}
+
+/// A table mapping glyphs to their protrusion amounts (left and right).
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ProtrusionTable(pub Vec<(GlyphReference, (Protrusion, Protrusion))>);
+
+impl Default for ProtrusionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ProtrusionTable {
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+}
+
+/// The amount of protrusion into the margin for the glyph, relative to its width.
+pub type Protrusion = Smart<Rel>;
+
+/// Overhang options for the built-in algorithm.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BuiltInOverhang {
+    /// Overhang specified per side.
+    Side { left: bool, right: bool },
+    /// Overhang specified by text direction.
+    Direction { start: bool },
+}
+
+impl Overhang {
+    pub const DISABLED: Overhang = Overhang {
+        table: ProtrusionTable::new(),
+        default: BuiltInOverhang::Side { left: false, right: false },
+    };
+    pub const END: Overhang = Overhang {
+        table: ProtrusionTable::new(),
+        default: BuiltInOverhang::Direction { start: false },
+    };
+}
+
+cast! {
+    BuiltInOverhang,
+    self => match self {
+        BuiltInOverhang::Side { left, right } => {
+            if left && right {
+                true.into_value()
+            } else if left {
+                Alignment::LEFT.into_value()
+            } else if right {
+                Alignment::RIGHT.into_value()
+            } else {
+                false.into_value()
+            }
+        },
+        BuiltInOverhang::Direction { start } => {
+            if start {
+                Alignment::START.into_value()
+            } else {
+                Alignment::END.into_value()
+            }
+        },
+    },
+    v: bool => BuiltInOverhang::Side { left: v, right: v },
+    v: Alignment => match v {
+        Alignment::LEFT => BuiltInOverhang::Side { left: true, right: false },
+        Alignment::RIGHT => BuiltInOverhang::Side { left: false, right: true },
+        Alignment::START => BuiltInOverhang::Direction { start: true },
+        Alignment::END => BuiltInOverhang::Direction { start: false },
+        _ => bail!("expected `left`, `right`, `start` or `end`"),
+    },
+}
+
+cast! {
+    ProtrusionTable,
+    self => {
+        self
+            .0
+            .into_iter()
+            .map(|(glyph_ref, protrusions)| {
+                (glyph_ref.to_string().into(), protrusions.into_value())
+            })
+            .collect::<Dict>()
+            .into_value()
+    },
+    v: Dict => {
+        let mut table = Vec::with_capacity(v.len());
+        for (key, value) in v.into_iter() {
+            let glyph_ref = key.into_value().cast::<GlyphReference>()?;
+            let value = value.cast::<Array>()?;
+            if value.len() != 2 {
+                bail!("protrusion table values must be arrays of length 2");
+            }
+            let value = value.as_slice();
+            let left = value[0].clone().cast::<Protrusion>()?;
+            let right = value[1].clone().cast::<Protrusion>()?;
+
+            table.push((glyph_ref, (left, right)));
+        }
+        ProtrusionTable(table)
+    },
+}
+
+cast! {
+    Overhang,
+    self => {
+        let mut dict = Dict::new();
+        dict.insert("default".into(), self.default.into_value());
+        dict.insert("map".into(), self.table.into_value());
+        dict.into_value()
+    },
+    v: BuiltInOverhang => Overhang {
+        table: ProtrusionTable::new(),
+        default: v,
+    },
+    mut v: Dict => {
+        let default = v
+            .take("default")
+            .ok()
+            .map(BuiltInOverhang::from_value)
+            .transpose()?
+            .unwrap_or(BuiltInOverhang::Side { left: false, right: false });
+
+        let table = v
+            .take("map")
+            .ok()
+            .map(ProtrusionTable::from_value)
+            .transpose()?
+            .unwrap_or(ProtrusionTable::new());
+
+        v.finish(&["default", "map"])?;
+
+        Overhang { table, default }
+    }
+}
+
+impl FromStr for GlyphReference {
+    type Err = EcoString;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chars = s.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => Ok(GlyphReference::CodePoint(c)),
+            (Some('/'), Some(_)) => Ok(GlyphReference::Name(s[1..].into())),
+            _ => Err("glyph references must be a single character or start with '/' followed by the glyph name".into()),
+        }
+    }
+}
+
+impl fmt::Display for GlyphReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            GlyphReference::CodePoint(c) => f.write_char(*c),
+            GlyphReference::Name(name) => write!(f, "/{name}"),
+        }
+    }
+}
+
+cast! {
+    GlyphReference,
+    self => match self {
+        GlyphReference::CodePoint(code_point) => {
+            code_point.into_value()
+        },
+        GlyphReference::Name(name) => {
+            let mut s = EcoString::with_capacity(name.len() + 1);
+            s.push('/');
+            s.push_str(&name);
+            s.into_value()
+        }
+    },
+    v: Str => GlyphReference::from_str(v.as_str())?,
 }
 
 /// Specifies the top edge of text.
