@@ -164,15 +164,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///
 /// Gradients can be quite large, especially if they have many stops. This is
 /// because gradients are stored as a list of colors and offsets, which can
-/// take up a lot of space. If you are concerned about file sizes, you should
-/// consider the following:
-/// - SVG gradients are currently inefficiently encoded. This will be improved
-///   in the future.
-/// - PDF gradients in the [`color.oklab`], [`color.hsv`], [`color.hsl`], and
-///   [`color.oklch`] color spaces are stored as a list of [`color.rgb`] colors
-///   with extra stops in between. This avoids needing to encode these color
-///   spaces in your PDF file, but it does add extra stops to your gradient,
-///   which can increase the file size.
+/// take up a lot of space. For SVG export, gradients are stored as a list of
+/// [`color.rgb`] colors replicating the original color space with an optimized
+/// number of extra stops in between. For PDF exports, the same applies to gradients
+/// in the [`color.oklab`], [`color.oklch`], [`color.hsv`], [`color.hsl`],
+/// and [`color.linear-rgb`] color spaces. This avoids needing to encode these color
+/// spaces in your PDF file, but it does add extra stops to your gradient,
+/// which can increase the file size.
 #[ty(scope, cast)]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
@@ -846,11 +844,11 @@ impl Gradient {
                     let exact = self.sample(RatioOrAngle::Ratio(mid));
                     let approx = Color::mix_iter(
                         [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
-                        ColorSpace::LinearRgb,
+                        ColorSpace::Srgb,
                     )
                     .unwrap();
-                    let exact_color = exact.to_linear_rgb().premultiply().color;
-                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let exact_color = exact.to_rgb().premultiply().color;
+                    let approx_color = approx.to_rgb().premultiply().color;
                     let delta = (exact_color - approx_color).into_components();
                     (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
                 };
@@ -1351,7 +1349,7 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
         while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
             j += 1;
         }
-        return stops[j].0;
+        return stops[j].0.to_space(mixing_space);
     }
 
     let (col_0, pos_0) = stops[j - 1];
