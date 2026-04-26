@@ -1,9 +1,12 @@
+use ecow::EcoString;
+use hayagriva::citationberg::taxonomy::Locator;
 use typst_syntax::Spanned;
 
-use crate::diag::SourceResult;
+use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
+    Array, Cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, Packed,
+    Reflect, Smart, StyleChain, Synthesize, Value, cast, elem,
 };
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
@@ -65,7 +68,7 @@ pub struct CiteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
-    pub supplement: Option<Content>,
+    pub supplement: Option<CitationSupplement>,
 
     /// The kind of citation to produce. Different forms are useful in different
     /// scenarios: A normal citation is useful as a source at the end of a
@@ -128,6 +131,73 @@ impl Synthesize for Packed<CiteElem> {
 cast! {
     CiteElem,
     v: Content => v.unpack::<Self>().map_err(|_| "expected citation")?,
+}
+
+/// The supplement of the citation.
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
+pub struct CitationSupplement {
+    pub locator: Option<EcoString>,
+    pub content: Content,
+}
+
+impl CitationSupplement {
+    pub fn realize(self) -> (Option<Locator>, Content) {
+        return (
+            self.locator.and_then(|locator| {
+                serde_json::from_str::<Locator>(&format!("\"{}\"", &locator)).ok()
+            }),
+            self.content,
+        );
+    }
+}
+
+impl FromValue for CitationSupplement {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if let Value::Array(array) = &value {
+            if array.len() == 2 {
+                if let Ok(locator) = array.at(0, None)?.clone().cast::<EcoString>() {
+                    if let Ok(content) = array.at(1, None)?.clone().cast::<Content>() {
+                        return Ok(CitationSupplement {
+                            locator: Some(locator),
+                            content,
+                        });
+                    }
+                }
+            }
+        }
+
+        if let Ok(content) = value.cast::<Content>() {
+            Ok(CitationSupplement { locator: None, content })
+        } else {
+            bail!(
+                "Citation Supplement must either be of type (string, content) or content"
+            );
+        }
+    }
+}
+
+impl IntoValue for CitationSupplement {
+    fn into_value(self) -> Value {
+        if let Some(locator) = self.locator {
+            vec![locator.into_value(), self.content.into_value()].into_value()
+        } else {
+            self.content.into_value()
+        }
+    }
+}
+
+impl Reflect for CitationSupplement {
+    fn input() -> CastInfo {
+        CastInfo::Union(vec![Content::input(), Array::input()])
+    }
+
+    fn output() -> CastInfo {
+        CastInfo::Any
+    }
+
+    fn castable(value: &Value) -> bool {
+        Content::castable(value) || matches!(value, Value::Array(arr) if arr.len() == 2)
+    }
 }
 
 /// The form of the citation.

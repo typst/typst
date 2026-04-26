@@ -37,8 +37,8 @@ use crate::introspection::{
 use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    CitationForm, CitationSupplement, CiteElem, CiteGroup, Destination, DirectLinkElem,
+    FootnoteElem, HeadingElem, LinkElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -1135,12 +1135,22 @@ fn citation_item<'a>(
     child: &'a Packed<CiteElem>,
 ) -> CitationItem<'a, hayagriva::Entry> {
     let supplement = child.supplement.get_cloned(StyleChain::default());
-    let locator = supplement.as_ref().map(|c| {
-        SpecificLocator(
-            citationberg::taxonomy::Locator::Custom,
-            hayagriva::LocatorPayload::Transparent(TransparentLocator::new(c.clone())),
-        )
-    });
+
+    let (locator, supplement) = match supplement {
+        Some(supplement) => {
+            let (locator, content) = supplement.realize();
+            (
+                Some(SpecificLocator(
+                    locator.unwrap_or(citationberg::taxonomy::Locator::Custom),
+                    hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
+                        content.clone(),
+                    )),
+                )),
+                Some(content),
+            )
+        }
+        None => (None, None),
+    };
 
     let mut hidden = false;
     let special_form = match child.form.get(StyleChain::default()) {
@@ -1365,7 +1375,7 @@ struct ShowCtx<'a> {
     /// The span that is attached to all of the resulting content.
     span: Span,
     /// Resolves the supplement of i-th citation in the request.
-    supplement: &'a dyn Fn(usize) -> Option<Content>,
+    supplement: &'a dyn Fn(usize) -> Option<CitationSupplement>,
     /// Resolves where the i-th citation in the request should link to.
     link: &'a dyn Fn(usize) -> Option<Location>,
 }
@@ -1499,7 +1509,7 @@ fn show_link(
 
 /// Displays transparent pass-through content.
 fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
-    let content = (ctx.supplement)(i).unwrap_or_default();
+    let (_, content) = (ctx.supplement)(i).unwrap_or_default().realize();
     show_with_formatting(content, format)
 }
 
