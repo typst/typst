@@ -22,7 +22,7 @@ use parking_lot::{Mutex, RwLock};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use rustc_hash::FxHashMap;
 
-use crate::args::{CliArguments, Command};
+use crate::args::{CliArguments, Command, PdftagsCommand};
 use crate::collect::{Test, TestParseErrorKind};
 use crate::logger::{Logger, TestResult};
 use crate::output::{HASH_OUTPUTS, HashedRefs};
@@ -55,6 +55,8 @@ fn main() {
         None => test(),
         Some(Command::Clean) => clean(),
         Some(Command::Undangle) => undangle(),
+        Some(Command::Pdftags(command)) => pdftags(command),
+        Some(Command::OpenReport) => open_report(),
     }
 }
 
@@ -66,7 +68,7 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for dir in ["render", "html", "pdf", "pdftags", "svg", "by-hash"] {
+    for dir in ["render", "html", "pdf", "pdftags", "svg", "bundle", "by-hash"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 
@@ -167,7 +169,9 @@ fn test() {
 
     if ARGS.update {
         run::update_hash_refs::<output::Pdf>(&hashes);
+        run::update_hash_refs::<output::Pdftags>(&hashes);
         run::update_hash_refs::<output::Svg>(&hashes);
+        run::update_hash_refs::<output::Html>(&hashes);
     }
 
     if let Err(err) = logger.into_inner().finish() {
@@ -210,6 +214,27 @@ fn undangle() {
                 std::fs::write(path, hashed_refs.to_string()).unwrap();
             }
         }
+    }
+}
+
+fn pdftags(command: &PdftagsCommand) {
+    let bytes = match std::fs::read(&command.path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return;
+        }
+    };
+    match pdftags::format(&bytes) {
+        Ok(tags) => println!("{tags}"),
+        Err(err) => eprintln!("error: {err}"),
+    }
+}
+
+fn open_report() {
+    let res = open::that("tests/store/report.html");
+    if let Err(err) = res {
+        eprintln!("failed to open `tests/store/report.html`: {err}");
     }
 }
 

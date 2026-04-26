@@ -54,11 +54,11 @@ fn render_outline_glyph(
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
     if ppem > 100.0
+        || ppem < 0.0
         || ts.kx != 0.0
         || ts.ky != 0.0
         || ts.sx != ts.sy
         || text.stroke.is_some()
-        || text.size < Abs::zero()
     {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
@@ -76,15 +76,8 @@ fn render_outline_glyph(
         // system is Y-up.
         let ts = ts.pre_scale(scale, -scale);
         let state_ts = state.pre_concat(sk::Transform::from_scale(scale, -scale));
-        let paint = paint::to_sk_paint(
-            &text.fill,
-            state_ts,
-            Size::zero(),
-            true,
-            None,
-            &mut pixmap,
-            None,
-        );
+        let paint =
+            paint::to_sk_paint(&text.fill, state_ts, true, &mut pixmap, None, false);
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
 
         if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
@@ -93,15 +86,8 @@ fn render_outline_glyph(
         {
             let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
-            let paint = paint::to_sk_paint(
-                paint,
-                state_ts,
-                Size::zero(),
-                true,
-                None,
-                &mut pixmap,
-                None,
-            );
+            let paint =
+                paint::to_sk_paint(paint, state_ts, true, &mut pixmap, None, false);
             let stroke = sk::Stroke {
                 width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
                 line_cap: shape::to_sk_line_cap(*cap),

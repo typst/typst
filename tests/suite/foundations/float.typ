@@ -12,11 +12,11 @@
 #test(float(decimal("-79228162514264337593543950335")), -79228162514264340000000000000.0)
 #test(type(float(10)), float)
 
---- float-constructor-bad-type paged ---
+--- float-constructor-bad-type eval ---
 // Error: 8-13 expected float, boolean, integer, decimal, ratio, or string, found type
 #float(float)
 
---- float-constructor-bad-value paged ---
+--- float-constructor-bad-value eval ---
 // Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
@@ -58,7 +58,7 @@
 #test(2.5.to-bytes(size: 4), bytes((0, 0, 32, 64)))
 #test(2.5.to-bytes(size: 4, endian: "big"), bytes((64, 32, 0, 0)))
 
---- float-from-bytes-bad-length paged ---
+--- float-from-bytes-bad-length eval ---
 // Error: 2-54 bytes must have a length of 4 or 8
 #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1, 0)))
 
@@ -96,7 +96,7 @@
 #(-float.inf) \
 #float.nan
 
---- float-syntax-edge-cases paged ---
+--- float-syntax-edge-cases eval ---
 // Test float syntax edge cases and which spans of text are highlighted. Valid
 // items are those not annotated with an error comment since syntax is handled
 // at parse time.

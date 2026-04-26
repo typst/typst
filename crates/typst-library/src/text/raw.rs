@@ -848,7 +848,7 @@ fn styled(
         let color = to_typst(style.foreground);
         body = match target {
             Target::Html => (routines.html_span_filled)(body, color),
-            Target::Paged => body.set(TextElem::fill, color.into()),
+            _ => body.set(TextElem::fill, color.into()),
         };
     }
 
@@ -940,7 +940,7 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("markup.raw", Some("#6b6b6f"), None),
         item("string.other.math.typst", None, None),
         item("punctuation.definition.math", Some("#198810"), None),
-        item("keyword.operator.math", Some("#1d6c76"), None),
+        item("keyword.operator.math, punctuation.math.typst", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
             "markup.heading.typst",

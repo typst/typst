@@ -126,8 +126,8 @@ $integral.inter_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator paged ---
 // Test default of limit attachments on large operators at display size only.
-$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
-$tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$
+$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad bowtie.big_0^1 $
+$tack.t.big_0^1 quad \u{02A0A}_0^1 quad bowtie.big_0^1$
 
 --- math-attach-limit-long paged ---
 // Test long limit attachments.
@@ -199,7 +199,7 @@ $
 $lr(size: #240%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 
---- math-attach-missing-sides paged ---
+--- math-attach-missing-sides eval ---
 // Test attachments that are missing a side.
 // Error: 23-24 unexpected underscore
 $ a _ b (d _) (d'_ ) (_ c) $

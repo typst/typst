@@ -17,20 +17,20 @@
 #test(data.at(2).Weight, "150kg")
 #test(data.at(1).Species, "Tiger")
 
---- csv-file-not-found paged ---
+--- csv-file-not-found eval ---
 // Error: 6-16 file not found (searched at tests/suite/loading/nope.csv)
 #csv("nope.csv")
 
---- csv-invalid paged ---
+--- csv-invalid eval ---
 // Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv")
 
---- csv-invalid-row-type-dict paged ---
+--- csv-invalid-row-type-dict eval ---
 // Test error numbering with dictionary rows.
 // Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv", row-type: dictionary)
 
---- csv-invalid-delimiter paged ---
+--- csv-invalid-delimiter eval ---
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
 

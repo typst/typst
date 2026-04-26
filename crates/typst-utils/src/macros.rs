@@ -64,3 +64,12 @@ macro_rules! assign_impl {
         }
     };
 }
+
+/// Accecpts the same arguments as the [format!](format!) macro and forwards them to
+/// [`crate::display()`].
+#[macro_export]
+macro_rules! display {
+    ($($arg:tt)*) => {
+        $crate::display(|f| write!(f, $($arg)*))
+    };
+}

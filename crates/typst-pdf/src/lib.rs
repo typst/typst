@@ -16,24 +16,45 @@ mod util;
 pub use self::metadata::{Timestamp, Timezone};
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 
-use ecow::eco_format;
+use comemo::Tracked;
+use ecow::{EcoString, eco_format};
 use krilla::configure::Validator;
 use serde::{Deserialize, Serialize};
+use typst_layout::PagedDocument;
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
-use typst_library::layout::{PageRanges, PagedDocument};
+use typst_library::introspection::Location;
+use typst_library::layout::PageRanges;
+use typst_library::model::LateLinkResolver;
 
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options)
+    convert::convert(document, options, &[], None)
+}
+
+/// Export a document into a PDF file as part of a bundle.
+///
+/// Takes additional `anchor` locations that will be serialized as named
+/// destinations. This enables other documents in the bundle to link into the
+/// resulting PDF. Also takes a `link_resolver` for resolving cross-document
+/// links.
+#[typst_macros::time(name = "pdf in bundle")]
+pub fn pdf_in_bundle(
+    document: &PagedDocument,
+    options: &PdfOptions,
+    anchors: &[(Location, EcoString)],
+    link_resolver: Tracked<LateLinkResolver>,
+) -> SourceResult<Vec<u8>> {
+    convert::convert(document, options, anchors, Some(link_resolver))
 }
 
 /// Settings for PDF export.
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub struct PdfOptions<'a> {
     /// If not `Smart::Auto`, shall be a string that uniquely and stably
     /// identifies the document. It should not change between compilations of
@@ -169,6 +190,15 @@ impl Default for PdfStandards {
         Self {
             config: Configuration::new_with_version(PdfVersion::Pdf17),
         }
+    }
+}
+
+// Could be turned into a derive if krilla's `Configuration` ever implements
+// `Hash`.
+impl Hash for PdfStandards {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.config.version() as usize).hash(state);
+        (self.config.validator() as usize).hash(state);
     }
 }
 

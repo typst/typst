@@ -42,6 +42,10 @@ pub struct SubElem {
     /// If set to `{auto}`, the baseline is shifted according to the metrics
     /// provided by the font, with a fallback to `{0.2em}` in case the font does
     /// not define the necessary metrics.
+    ///
+    /// When using multiple fonts, it might be necessary to set `baseline` and
+    /// [`size`]($sub.size) explicitly. See [`super`]($super.baseline) for an
+    /// example.
     pub baseline: Smart<Length>,
 
     /// The font size for synthesized subscripts.
@@ -101,6 +105,29 @@ pub struct SuperElem {
     /// Note that, since the baseline shift is applied downward, you will need
     /// to provide a negative value for the content to appear as raised above
     /// the normal baseline.
+    ///
+    /// Sometimes it is necessary to set `baseline` and [`size`]($super.size)
+    /// explicitly. In the following example, the superscripted text uses
+    /// multiple fonts with incompatible metrics. To avoid misalignment, we
+    /// override the metrics for all fonts.
+    ///
+    /// ```example
+    /// #let tz(timezone) = text(
+    ///   font: "Roboto",
+    ///   smallcaps(timezone, all: true),
+    /// )
+    ///
+    /// / Per-font metrics:
+    ///   14:00#super[#tz[UTC], not #tz[CET]]
+    ///
+    /// #set super(
+    ///   baseline: -0.4em,
+    ///   size: 0.6em,
+    ///   typographic: false,
+    /// )
+    /// / Unified metrics:
+    ///   14:00#super[#tz[UTC], not #tz[CET]]
+    /// ```
     pub baseline: Smart<Length>,
 
     /// The font size for synthesized superscripts.

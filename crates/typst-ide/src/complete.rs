@@ -5,8 +5,8 @@ use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value, fields_on, repr,
+    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
+    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -16,7 +16,6 @@ use typst::syntax::{
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
-use typst::{AsDocument, Document};
 use unscanny::Scanner;
 
 use crate::analyze::analyze_expr_with_fallback;
@@ -32,12 +31,12 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items}
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
 ///
-/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// Passing an `output` (from a previous compilation) is optional, but enhances
 /// the autocompletions. Label completions, for instance, are only generated
 /// when the document is available.
 pub fn autocomplete(
     world: &dyn IdeWorld,
-    document: Option<impl AsDocument>,
+    output: Option<impl AsOutput>,
     source: &Source,
     cursor: usize,
     explicit: bool,
@@ -45,7 +44,7 @@ pub fn autocomplete(
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor, Side::Before)?;
     let mut ctx = CompletionContext::new(
         world,
-        document.as_ref().map(|v| v.as_document()),
+        output.as_ref().map(|v| v.as_output()),
         source,
         &leaf,
         cursor,
@@ -1095,7 +1094,7 @@ fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
-    document: Option<&'a dyn Document>,
+    output: Option<&'a dyn Output>,
     text: &'a str,
     before: &'a str,
     after: &'a str,
@@ -1111,7 +1110,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn IdeWorld + 'a),
-        document: Option<&'a dyn Document>,
+        output: Option<&'a dyn Output>,
         source: &'a Source,
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
@@ -1120,7 +1119,7 @@ impl<'a> CompletionContext<'a> {
         let text = source.text();
         Some(Self {
             world,
-            document,
+            output,
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1207,7 +1206,7 @@ impl<'a> CompletionContext<'a> {
             .files()
             .iter()
             .filter(|&&id| id != current_id && filter(id))
-            .filter_map(|id| id.vpath().relative_from(&current_dir))
+            .map(|id| id.vpath().relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1259,8 +1258,8 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let Some(document) = self.document else { return };
-        let (labels, split) = analyze_labels(document);
+        let Some(output) = self.output else { return };
+        let (labels, split) = analyze_labels(output);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');
@@ -1539,8 +1538,8 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::AsDocument;
-    use typst::layout::PagedDocument;
+    use typst::foundations::AsOutput;
+    use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -1670,13 +1669,13 @@ mod tests {
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
-        doc: Option<impl AsDocument>,
+        output: Option<impl AsOutput>,
         explicit: bool,
     ) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let (source, cursor) = pos.resolve(world);
-        autocomplete(world, doc, &source, cursor, explicit)
+        autocomplete(world, output, &source, cursor, explicit)
     }
 
     #[test]

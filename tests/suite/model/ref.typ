@@ -92,7 +92,7 @@ Text seen on #ref(<text>, form: "page", supplement: "Page").
 // and not produce a reference to a label with an empty name.
 @
 
---- ref-function-empty-label paged ---
+--- ref-function-empty-label eval ---
 // using ref() should also not be possible
 // Error: 6-7 unexpected less-than operator
 // Error: 7-8 unexpected greater-than operator

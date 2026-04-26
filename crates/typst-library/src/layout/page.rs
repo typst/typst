@@ -10,14 +10,13 @@ use crate::foundations::{
     Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
     Value, cast, elem,
 };
-use crate::introspection::Introspector;
 use crate::layout::{
-    Abs, Alignment, FlushElem, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel,
-    Sides, SpecificAlignment,
+    Abs, Alignment, FlushElem, HAlignment, Length, OuterVAlignment, Ratio, Rel, Sides,
+    SpecificAlignment,
 };
-use crate::model::{DocumentInfo, Numbering};
+use crate::model::Numbering;
 use crate::text::LocalName;
-use crate::visualize::{Color, Paint};
+use crate::visualize::Paint;
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -524,56 +523,6 @@ impl PagebreakElem {
     }
 }
 
-/// A finished document with metadata and page frames.
-#[derive(Debug, Default, Clone)]
-pub struct PagedDocument {
-    /// The document's finished pages.
-    pub pages: Vec<Page>,
-    /// Details about the document.
-    pub info: DocumentInfo,
-    /// Provides the ability to execute queries on the document.
-    pub introspector: Introspector,
-}
-
-/// A finished page.
-#[derive(Debug, Clone, Hash)]
-pub struct Page {
-    /// The frame that defines the page.
-    pub frame: Frame,
-    /// How the page is filled.
-    ///
-    /// - When `None`, the background is transparent.
-    /// - When `Auto`, the background is transparent for PDF and white
-    ///   for raster and SVG targets.
-    ///
-    /// Exporters should access the resolved value of this property through
-    /// `fill_or_transparent()` or `fill_or_white()`.
-    pub fill: Smart<Option<Paint>>,
-    /// The page's numbering.
-    pub numbering: Option<Numbering>,
-    /// The page's supplement.
-    pub supplement: Content,
-    /// The logical page number (controlled by `counter(page)` and may thus not
-    /// match the physical number).
-    pub number: u64,
-}
-
-impl Page {
-    /// Get the configured background or `None` if it is `Auto`.
-    ///
-    /// This is used in PDF export.
-    pub fn fill_or_transparent(&self) -> Option<Paint> {
-        self.fill.clone().unwrap_or(None)
-    }
-
-    /// Get the configured background or white if it is `Auto`.
-    ///
-    /// This is used in raster and SVG export.
-    pub fn fill_or_white(&self) -> Option<Paint> {
-        self.fill.clone().unwrap_or_else(|| Some(Color::WHITE.into()))
-    }
-}
-
 /// Specification of the page's margins.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Margin {
@@ -720,7 +669,7 @@ cast! {
 }
 
 /// A list of page ranges to be exported.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct PageRanges(Vec<PageRange>);
 
 /// A range of pages to export.
@@ -969,7 +918,7 @@ papers! {
     (US_LETTER:         215.9,  279.4, "us-letter")
     (US_LEGAL:          215.9,  355.6, "us-legal")
     (US_TABLOID:        279.4,  431.8, "us-tabloid")
-    (US_EXECUTIVE:      84.15,  266.7, "us-executive")
+    (US_EXECUTIVE:      184.15, 266.7, "us-executive")
     (US_FOOLSCAP_FOLIO: 215.9,  342.9, "us-foolscap-folio")
     (US_STATEMENT:      139.7,  215.9, "us-statement")
     (US_LEDGER:         431.8,  279.4, "us-ledger")
@@ -987,15 +936,4 @@ papers! {
     (NEWSPAPER_BROADSHEET: 381.0,    578.0, "newspaper-broadsheet")
     (PRESENTATION_16_9:    297.0, 167.0625, "presentation-16-9")
     (PRESENTATION_4_3:     280.0,    210.0, "presentation-4-3")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_paged_document_is_send_and_sync() {
-        fn ensure_send_and_sync<T: Send + Sync>() {}
-        ensure_send_and_sync::<PagedDocument>();
-    }
 }

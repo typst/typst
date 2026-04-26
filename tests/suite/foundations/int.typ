@@ -4,11 +4,11 @@
 #test(0b1101, 13)
 #test(0xA + 0xa, 0x14)
 
---- int-base-binary-invalid paged ---
+--- int-base-binary-invalid eval ---
 // Error: 2-7 invalid binary number: 0b123
 #0b123
 
---- int-base-hex-invalid paged ---
+--- int-base-hex-invalid eval ---
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
 
@@ -32,63 +32,63 @@
 #test(int(decimal("92492.193848921")), 92492)
 #test(int(decimal("-224.342211")), -224)
 
---- int-constructor-bad-type paged ---
+--- int-constructor-bad-type eval ---
 // Error: 6-10 expected integer, boolean, float, decimal, or string, found length
 #int(10pt)
 
---- int-constructor-str-empty paged ---
+--- int-constructor-str-empty eval ---
 // Error: 6-8 string must not be empty
 #int("")
 
---- int-constructor-str-empty-based paged ---
+--- int-constructor-str-empty-based eval ---
 // Error: 6-8 string must not be empty
 #int("", base: 16)
 
---- int-constructor-bad-value paged ---
+--- int-constructor-bad-value eval ---
 // Error: 6-12 string contains invalid digits
 #int("nope")
 
---- int-constructor-bad-value-based paged ---
+--- int-constructor-bad-value-based eval ---
 // Error: 6-11 string contains invalid digits for a base 3 integer
 #int("123", base: 3)
 
---- int-constructor-base-with-non-string paged ---
+--- int-constructor-base-with-non-string eval ---
 // Error: 16-18 base is only supported for strings
 #int(40, base: 16)
 
---- int-constructor-str-small-base paged ---
+--- int-constructor-str-small-base eval ---
 // Error: 17-18 base must be between 2 and 36
 #int("0", base: 1)
 
---- int-constructor-str-large-base paged ---
+--- int-constructor-str-large-base eval ---
 // Error: 17-19 base must be between 2 and 36
 #int("0", base: 42)
 
---- int-constructor-str-too-large paged ---
+--- int-constructor-str-too-large eval ---
 // Error: 6-27 integer value is too large
 // Hint: 6-27 value does not fit into a signed 64-bit integer
 // Hint: 6-27 try using a floating point number
 #int("9223372036854775808")
 
---- int-constructor-str-too-small paged ---
+--- int-constructor-str-too-small eval ---
 // Error: 6-28 integer value is too small
 // Hint: 6-28 value does not fit into a signed 64-bit integer
 // Hint: 6-28 try using a floating point number
 #int("-9223372036854775809")
 
---- int-constructor-float-too-large paged ---
+--- int-constructor-float-too-large eval ---
 // Error: 6-27 number too large
 #int(9223372036854775809.5)
 
---- int-constructor-float-too-large-min paged ---
+--- int-constructor-float-too-large-min eval ---
 // Error: 6-28 number too large
 #int(-9223372036854775809.5)
 
---- int-constructor-decimal-too-large paged ---
+--- int-constructor-decimal-too-large eval ---
 // Error: 6-38 number too large
 #int(decimal("9223372036854775809.5"))
 
---- int-constructor-decimal-too-large-min paged ---
+--- int-constructor-decimal-too-large-min eval ---
 // Error: 6-39 number too large
 #int(decimal("-9223372036854775809.5"))
 
@@ -114,7 +114,7 @@
 #test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: true), 1000)
 #test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: false), 1000)
 
---- int-from-and-to-bytes-too-many paged ---
+--- int-from-and-to-bytes-too-many eval ---
 // Error: 2-34 too many bytes to convert to a 64 bit number
 #int.from-bytes(bytes((0,) * 16))
 
@@ -182,6 +182,6 @@
 #test(type(x), int)
 #test(int(x), x)
 
---- number-invalid-suffix paged ---
+--- number-invalid-suffix eval ---
 // Error: 2-4 invalid number suffix: u
 #1u

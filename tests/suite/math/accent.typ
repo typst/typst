@@ -7,6 +7,11 @@ $ grave(a), acute(b), hat(f), tilde(§), macron(ä), dash(ä), breve(ä), \
   acute.double(a), caron(@), arrow(Z), arrow.l(Z), arrow.l.r(Z), \
   harpoon(a), harpoon.lt(a) $
 
+--- math-accent-sym-call-error eval ---
+#test(math.tilde(math.pi), math.accent(math.pi, math.tilde))
+// Error: 2-9 symbol π is not callable
+#math.pi(math.tilde)
+
 --- math-accent-align paged ---
 $ x &= p \ dot(x) &= v \ dot.double(x) &= a \ dot.triple(x) &= j \ dot.quad(x) &= s $
 
@@ -89,17 +94,27 @@ $ accent(integral, \u{20EC}), accent(integral, \u{20EC})_a^b, accent(integral_a^
 // Test bottom accent size.
 $accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, size: #200%)$
 
+--- math-accent-cramped paged ---
+// Test whether cramped styles applied to the base of top accents.
+$ hat(x^2) x^2 $
+$ breve(scripts(sum)^X^X) scripts(sum)^X^X $
+
+--- math-accent-bottom-cramped paged ---
+// Test whether cramped styles applied to the base of bottom accents.
+$ accent(x^2, \u{0330}) x^2 $
+$ accent(scripts(sum)^X^X, \u{032D}) scripts(sum)^X^X $
+
 --- math-accent-nested paged ---
 // Test nested top and bottom accents.
 $hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
   macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
   breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$
 
---- math-accent-string-too-long paged ---
+--- math-accent-string-too-long eval ---
 // Error: 17-21 expected exactly one character
 $ accent(x + y, "..") $
 
---- math-accent-content-too-long paged ---
+--- math-accent-content-too-long eval ---
 // Error: 17-19 expected a single-codepoint symbol
 $ accent(x + y, ..) $
 
@@ -123,7 +138,7 @@ $ accent(x + y, <->) $
 // Ensure that function call works.
 $ arrow.l.r(x + y) $
 
---- issue-7437-math-accent-emoji-presentation paged ---
+--- issue-7437-math-accent-emoji-presentation eval ---
 // Check that we do not normalize an accent character with emoji presentation
 // variation selector to an accent.
 //
@@ -135,7 +150,7 @@ $ arrow.l.r(x + y) $
 // Error: 12-31 expected exactly one character
 $accent(A, std.emoji.arrow.l.r)$
 
---- issue-7437-math-accent-trailing-text paged ---
+--- issue-7437-math-accent-trailing-text eval ---
 // Test that we don't allow extra text after the text variation selector.
 
 // Error: 13-47 expected exactly one character

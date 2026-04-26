@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Write as _};
 use std::option::Option;
 use std::path::Path;
 use std::str::FromStr;
@@ -9,33 +9,23 @@ use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::Document;
 use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem};
-use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
+use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
 use typst::text::SpaceElem;
 use typst::visualize::Color;
+use typst_bundle::{BundleOptions, VirtualFs};
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::Span;
 
-use crate::collect::{Test, TestOutput, TestTarget};
-use crate::report::{DiffKind, File, Old, ReportFile};
+use crate::collect::{Test, TestOutput};
+use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
 
-pub trait TestDocument: Document {
-    /// The target of the document.
-    const TARGET: TestTarget;
-}
-
-impl TestDocument for PagedDocument {
-    const TARGET: TestTarget = TestTarget::Paged;
-}
-
-impl TestDocument for HtmlDocument {
-    const TARGET: TestTarget = TestTarget::Html;
-}
+pub type HashStore = [HashedRefs; HASH_OUTPUTS.len()];
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
@@ -179,7 +169,8 @@ pub trait HashOutputType: OutputType {
 /// the [`HashOutputType::INDEX`].
 ///
 /// NOTE: This has to be kept in sync with the [`HashOutputType::INDEX`].
-pub const HASH_OUTPUTS: [TestOutput; 2] = [TestOutput::Pdf, TestOutput::Svg];
+pub const HASH_OUTPUTS: [TestOutput; 4] =
+    [TestOutput::Pdf, TestOutput::Pdftags, TestOutput::Svg, TestOutput::Html];
 
 pub struct Render;
 
@@ -286,7 +277,7 @@ impl OutputType for Pdf {
             svg_buf_b = pdf_to_svg(bytes);
             svg_buf_b.as_bytes()
         });
-        let diffs = [DiffKind::Image(report::image_diff(svg_a, svg_b, "svg+xml"))];
+        let diffs = [Diff::Image(report::image_diff(svg_a, svg_b, "svg+xml"))];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
@@ -379,14 +370,8 @@ impl OutputType for Pdftags {
     }
 }
 
-impl FileOutputType for Pdftags {
-    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
-    }
-
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
-    }
+impl HashOutputType for Pdftags {
+    const INDEX: usize = 1;
 }
 
 pub struct Svg;
@@ -423,7 +408,7 @@ impl OutputType for Svg {
 }
 
 impl HashOutputType for Svg {
-    const INDEX: usize = 1;
+    const INDEX: usize = 2;
 }
 
 pub struct Html;
@@ -465,43 +450,101 @@ impl OutputType for Html {
         a: Option<(&Path, Old<&[u8]>)>,
         b: Result<(&Path, &[u8]), ()>,
     ) -> ReportFile {
-        // TODO: HTML preview in iframe.
+        let diffs = [html_diff(a, b), text_diff(a, b)];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
+}
+
+impl HashOutputType for Html {
+    const INDEX: usize = 3;
+}
+
+pub struct Bundle;
+
+impl OutputType for Bundle {
+    type Doc = typst_bundle::Bundle;
+    type Live = VirtualFs;
+
+    const OUTPUT: TestOutput = TestOutput::Bundle;
+
+    fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
+        live.is_empty()
+    }
+
+    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
+        let options = BundleOptions {
+            pixel_per_pt: 1.0,
+            pdf: PdfOptions { standards, ..Default::default() },
+        };
+        typst_bundle::export(doc, &options)
+    }
+
+    fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
+        let mut builder = tar::Builder::new(Vec::new());
+        builder.mode(tar::HeaderMode::Deterministic);
+        for (path, data) in live {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            builder
+                .append_data(&mut header, path.get_without_slash(), data.as_slice())
+                .unwrap();
+        }
+        builder.into_inner().unwrap()
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live.as_slice()))
+    }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> ReportFile {
+        // TODO: Bundle diff.
         let diffs = [text_diff(a, b)];
         file_report(Self::OUTPUT, a, b, diffs)
     }
 }
 
-impl FileOutputType for Html {
+impl FileOutputType for Bundle {
     fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
+        hashed_fs_list(live)
     }
 
     fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
+        old == hashed_fs_list(new).as_bytes()
     }
+}
+
+fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
+    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
+    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
+    Diff::Text(report::text_diff(a, b))
 }
 
 fn image_diff(
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
     format: &str,
-) -> DiffKind {
+) -> Diff {
     let a = a.map(|(_, old)| old);
     let b = b.map(|(_, bytes)| bytes);
-    DiffKind::Image(report::image_diff(a, b, format))
+    Diff::Image(report::image_diff(a, b, format))
 }
 
-fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> DiffKind {
-    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
-    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
-    DiffKind::Text(report::text_diff(a, b))
+fn html_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
+    let a = a.map(|(_, old)| old);
+    let b = b.map(|(_, bytes)| bytes);
+    Diff::Html(report::html_diff(a, b))
 }
 
 fn file_report(
     output: TestOutput,
     a: Option<(&Path, Old<&[u8]>)>,
     b: Result<(&Path, &[u8]), ()>,
-    diffs: impl IntoIterator<Item = DiffKind>,
+    diffs: impl IntoIterator<Item = Diff>,
 ) -> ReportFile {
     let old = a.map(|(path, old)| File {
         path: eco_format!("{}", path.display()),
@@ -516,7 +559,7 @@ fn file_report(
 
 /// Draw all frames into one image with padding in between.
 fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
-    for page in &document.pages {
+    for page in document.pages() {
         let limit = Abs::cm(100.0);
         if page.frame.width() > limit || page.frame.height() > limit {
             panic!("overlarge frame: {:?}", page.frame.size());
@@ -530,7 +573,7 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     let gap = (pixel_per_pt * gap.to_pt() as f32).round();
 
     let mut y = 0.0;
-    for page in &document.pages {
+    for page in document.pages() {
         let ts =
             sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(0.0, y);
         render_links(&mut pixmap, ts, &page.frame);
@@ -582,6 +625,21 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
     )
 }
 
+/// Turns a virtual file system into a listing of hashes alongside file names.
+fn hashed_fs_list(fs: &VirtualFs) -> String {
+    let mut output = String::new();
+    for (path, data) in fs {
+        writeln!(
+            output,
+            "{} {}",
+            HashedRef(typst_utils::hash128(data)),
+            path.get_without_slash(),
+        )
+        .unwrap();
+    }
+    output
+}
+
 /// Whether this content can be considered empty.
 pub fn is_empty_content(content: &Content) -> bool {
     if let Some(sequence) = content.to_packed::<SequenceElem>() {
@@ -602,7 +660,7 @@ pub fn is_empty_paged_document(doc: &PagedDocument) -> bool {
         })
     }
 
-    match doc.pages.as_slice() {
+    match doc.pages() {
         [] => true,
         [page] => {
             page.frame.width().approx_eq(Abs::pt(120.0))

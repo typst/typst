@@ -531,7 +531,7 @@ Numbers and single characters are displayed verbatim, while multiple consecutive
 (non-number) characters will be interpreted as Typst variables.
 
 Typst pre-defines a lot of useful variables in math mode. All Greek (`alpha`,
-`beta`, ...) and some Hebrew letters (`alef`, `bet`, ...) are available through
+`beta`, ...) and some Hebrew letters (`aleph`, `beth`, ...) are available through
 their name. Some symbols are additionally available through shorthands, such as
 `<=`, `>=`, and `->`.
 
@@ -555,7 +555,9 @@ prevent a pair of delimiters from scaling, you can escape them with backslashes.
 
 Typst will automatically set terms around a slash `/` as a fraction while
 honoring operator precedence. All round parentheses not made redundant by the
-fraction will appear in the output.
+fraction will appear in the output. Fractions are typeset vertically unless
+customized with [`frac.style`]($math.frac.style). You can also produce a slash
+as is by escaping it with a backslash (`\/`).
 
 ```example
 $ f(x) = (x + 1) / x $

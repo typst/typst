@@ -226,7 +226,7 @@ We can clearly see that @fig-cylinder and
 --- figure-caption-position paged empty ---
 #set figure.caption(position: top)
 
---- figure-caption-position-bad paged ---
+--- figure-caption-position-bad eval ---
 // Error: 31-38 expected `top` or `bottom`, found horizon
 #set figure.caption(position: horizon)
 

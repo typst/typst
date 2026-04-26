@@ -142,6 +142,16 @@ pub enum Command {
     Clean,
     /// Deletes all dangling reference output.
     Undangle,
+    /// Prints the tags from a PDF file.
+    Pdftags(PdftagsCommand),
+    /// Open the last generated HTML test report in a browser.
+    OpenReport,
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct PdftagsCommand {
+    /// The PDF file containing the tags.
+    pub path: PathBuf,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
@@ -153,6 +163,7 @@ pub enum TestStage {
     Pdftags,
     Svg,
     Html,
+    Bundle,
 }
 
 impl From<TestStage> for TestStages {
@@ -165,6 +176,7 @@ impl From<TestStage> for TestStages {
             TestStage::Pdftags => TestStages::PDFTAGS,
             TestStage::Svg => TestStages::SVG,
             TestStage::Html => TestStages::HTML,
+            TestStage::Bundle => TestStages::BUNDLE,
         }
     }
 }

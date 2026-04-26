@@ -166,13 +166,20 @@
 #align(center + top, square(size: 50pt, fill: black, stroke: 5pt + gradient.linear(red, blue)))
 
 --- gradient-fill-and-stroke paged ---
-#align(
-  center + bottom,
-  square(
-    size: 50pt,
-    fill: gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%)),
-    stroke: 10pt + gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%))
-  )
+#set page(width: auto)
+#let stroke = 10pt + gradient.linear(green, yellow, blue).sharp(5)
+#let fill = gradient.linear(lime, yellow.lighten(60%), aqua).sharp(5)
+#let scale = gradient.linear(black, white, black, white, black).sharp(5)
+#let marked = (shape) => {
+  shape
+  place(center + top, line(length: 60pt, stroke: scale))
+  place(center + horizon, line(length: 50pt, stroke: scale))
+}
+#grid(columns: 2, gutter: 15pt,
+  marked(rect(width: 50pt, height: 50pt, radius: 0pt, stroke: stroke, fill: fill)),
+  marked(rect(width: 50pt, height: 50pt, radius: 20pt, stroke: stroke, fill: fill)),
+  marked(curve(stroke: stroke, fill: fill, curve.line((50pt, 0pt)), curve.line((50pt, 50pt)), curve.line((0pt, 50pt)), curve.close())),
+  marked(circle(radius: 25pt, stroke: stroke, fill: fill)),
 )
 
 --- gradient-linear-stroke-relative-parent paged ---
@@ -309,6 +316,41 @@
   fill: gradient.conic(..color.map.rainbow, space: color.hsv, angle: 90deg),
 )
 
+--- gradient-linear-angled-aspect-ratio paged ---
+#let grad = gradient.linear(angle: 135deg, ..color.map.inferno).sharp(6)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
+--- gradient-conic-angled-aspect-ratio paged ---
+#let grad = gradient.conic(center: (70%, 30%), angle: 135deg, ..color.map.inferno)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
+--- gradient-radial-aspect-ratio paged ---
+#let grad = gradient.radial(
+  center: (70%, 30%),
+  focal-center: (50%, 50%),
+  focal-radius: 10%,
+  ..color.map.inferno
+).sharp(5)
+#grid(
+  columns: 2,
+  gutter: 5pt,
+  rect(width: 70pt, height: 70pt, fill: grad),
+  rect(width: 25pt, height: 70pt, fill: grad),
+  rect(width: 70pt, height: 25pt, fill: grad),
+)
+
 --- gradient-conic-oklab paged ---
 // Test in Oklab space for reference.
 #set page(
@@ -387,7 +429,7 @@
 #set text(fill: gradient.conic(red, blue, angle: 45deg))
 #lorem(30)
 
---- gradient-text-bad-relative paged ---
+--- gradient-text-bad-relative eval ---
 // Make sure they don't work when `relative: "self"`.
 // Hint: 17-61 make sure to set `relative: auto` on your text fill
 // Error: 17-61 gradients and tilings on text must be relative to the parent
@@ -696,3 +738,128 @@ $ A = mat(
 
 --- issue-6680-gradient-linear-with-aspect-correction paged ---
 #set page(width: 200pt, height: auto, margin: 10pt, fill: gradient.linear(red, blue, angle: 45deg).sharp(2))
+
+--- issue-6597-gradient-angle-negative-size paged ---
+#set rect(fill: gradient.linear(angle: 45deg, ..color.map.viridis))
+#grid(columns: (1cm, 1cm), rows: 5mm, gutter: 1mm, align: center + horizon,
+  rect(width: +1cm, height: +5mm), rect(width: -1cm, height: +5mm),
+  rect(width: +1cm, height: -5mm), rect(width: -1cm, height: -5mm),
+)
+
+--- gradient-angle-rotation-aspect paged ---
+#grid(columns: (1cm, 1cm), rows: 5mm, gutter: 1mm, align: center + horizon,
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 60deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 120deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 300deg, ..color.map.spectral)),
+  rect(width: 1cm, height: 5mm, fill: gradient.linear(angle: 240deg, ..color.map.spectral)),
+)
+
+--- gradient-negative-square-angles paged ---
+#grid(columns: 12, ..for i in range(-24,24){(
+  rect(width: 3mm, height: 3mm, fill: gradient.linear(yellow, black, angle: i * 15deg).sharp(3)),
+)})
+
+--- gradient-line-stroke paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        line(length: 36pt, angle: i*30deg, stroke: g + 10pt)
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-curve-stroke paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        curve(
+          curve.line((36pt * calc.cos(i*30deg), 36pt * calc.sin(i*30deg))),
+          stroke: g + 10pt,
+        )
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-curve-stroke-quad paged ---
+#set page(width: auto, height: auto, margin: 5pt)
+#let test = g => {
+  box(width: 100pt, height: 100pt, {
+    place(dx: 40pt, dy: 40pt, circle(radius: 10pt, fill: g))
+    for i in range(0,12){
+      place(dx: 50pt + 12pt*calc.cos(i*30deg), dy: 50pt + 12pt*calc.sin(i*30deg),
+        curve(
+          curve.quad((18pt * calc.cos((i+1)*30deg), 18pt * calc.sin((i+1)*30deg)), (36pt * calc.cos(i*30deg), 36pt * calc.sin(i*30deg))),
+          stroke: g + 10pt,
+        )
+      )
+    }
+  })
+}
+#grid(columns: 4,
+  ..(0deg, 30deg, 45deg, 90deg, 180deg, -125deg).map(
+    a => test(gradient.linear(yellow, black, angle: a).sharp(4))),
+  test(gradient.radial(blue, orange).sharp(4)),
+  test(gradient.conic(..color.map.spectral).sharp(12)),
+)
+
+--- gradient-line-cap paged ---
+// Test that line caps are taken into account for gradient fills.
+#for cap in ("square", "butt", "round"){
+  box(line(length: 10pt, stroke: (
+    thickness: 20pt,
+    paint: gradient.radial(blue, orange).sharp(4),
+    cap: cap
+  )), width: 30pt)
+}
+
+--- issue-6068-curve-stroke-gradient paged ---
+#let stroke = gradient.linear(blue, red).sharp(2)
+#line(start: (0pt, 0pt), end: (100pt, 0pt), stroke: stroke)
+#curve(curve.line((100pt, 0pt)), stroke: stroke)
+#curve(curve.quad(none, (100pt, 0pt)), stroke: stroke)
+#curve(
+  curve.quad(none, (100pt, 0pt)),
+  curve.quad(none, (100pt, 10pt)),
+  stroke: stroke
+)
+#line(start: (10pt, 0pt), end: (90pt, 0pt), stroke: stroke)
+#curve(
+  curve.move((10pt, 0pt)),
+  curve.quad(none, (90pt, 0pt)),
+  curve.quad(none, (90pt, 10pt)),
+  stroke: stroke
+)
+
+--- issue-5705-gradient-border-stroke paged ---
+#let stroke = (
+  top: gradient.linear(green, black, yellow, angle: 90deg) + 15pt,
+  right: gradient.linear(green, black, yellow, angle: 180deg) + 15pt,
+  bottom: gradient.linear(green, black, yellow, angle: 270deg) + 15pt,
+  left: gradient.linear(green, black, yellow, angle: 0deg) + 15pt,
+)
+#set align(center + horizon)
+#rect(width: 100pt, height: 100pt, radius: 15pt, stroke: stroke,
+  rect(width: 65pt, height: 65pt, radius: 0pt, stroke: stroke,
+    rect(width: 30pt, height: 30pt, radius: 30pt, stroke: stroke)
+  )
+)

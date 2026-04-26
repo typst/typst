@@ -1,5 +1,7 @@
 //! Convert paint types from Typst to krilla.
 
+use std::f64::consts::PI;
+
 use krilla::color::{self, cmyk, luma, rgb};
 use krilla::num::NormalizedF32;
 use krilla::paint::{
@@ -8,10 +10,10 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{
-    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RatioOrAngle,
-    RelativeTo, Tiling, WeightedColor,
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
+    RelativeTo, Shape, Tiling, WeightedColor,
 };
 use typst_utils::Numeric;
 
@@ -26,9 +28,10 @@ pub(crate) fn convert_fill(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    size: Size,
+    shape: Option<&Shape>,
 ) -> SourceResult<Fill> {
-    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, size)?;
+    let (paint, opacity) =
+        convert_paint(gc, paint_, on_text, surface, state, shape, false)?;
 
     Ok(Fill {
         paint,
@@ -43,10 +46,10 @@ pub(crate) fn convert_stroke(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    size: Size,
+    shape: Option<&Shape>,
 ) -> SourceResult<Stroke> {
     let (paint, opacity) =
-        convert_paint(fc, &stroke.paint, on_text, surface, state, size)?;
+        convert_paint(fc, &stroke.paint, on_text, surface, state, shape, true)?;
 
     Ok(Stroke {
         paint,
@@ -65,13 +68,31 @@ fn convert_paint(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-    mut size: Size,
+    shape: Option<&Shape>,
+    include_stroke_in_bbox: bool,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    // Edge cases for strokes.
+    let (offset, mut size) = if let Some(s) = shape {
+        let bbox = s.bbox(include_stroke_in_bbox);
+        let (mut offset, mut size) = (bbox.min, bbox.size());
+        // Special handling for rectangles (mirrors gradients for negative sizes)
+        if let Geometry::Rect(rect) = s.geometry {
+            if rect.x.signum() < 1.0 {
+                offset.x += size.x;
+                size.x *= -1.0;
+            }
+            if rect.y.signum() < 1.0 {
+                offset.y += size.y;
+                size.y *= -1.0;
+            }
+        }
+        (offset, size)
+    } else {
+        (Point::zero(), Size::zero())
+    };
+
     if size.x.is_zero() {
         size.x = Abs::pt(1.0);
     }
-
     if size.y.is_zero() {
         size.y = Abs::pt(1.0);
     }
@@ -81,7 +102,7 @@ fn convert_paint(
             let (c, a) = convert_solid(c);
             Ok((c.into(), a))
         }
-        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size)),
+        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size, offset)),
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
 }
@@ -149,10 +170,11 @@ fn convert_gradient(
     on_text: bool,
     state: &State,
     size: Size,
+    offset: Point,
 ) -> (krilla::paint::Paint, u8) {
-    let size = match gradient.unwrap_relative(on_text) {
-        RelativeTo::Self_ => size,
-        RelativeTo::Parent => state.container_size(),
+    let (size, offset) = match gradient.unwrap_relative(on_text) {
+        RelativeTo::Self_ => (size, offset),
+        RelativeTo::Parent => (state.container_size(), Point::zero()),
     };
 
     let angle = gradient.angle().unwrap_or_else(Angle::zero);
@@ -182,6 +204,7 @@ fn convert_gradient(
                 y2,
                 // x and y coordinates are normalized, so need to scale by the size.
                 transform: base_transform
+                    .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
                         Ratio::new(size.x.to_f32() as f64),
                         Ratio::new(size.y.to_f32() as f64),
@@ -203,6 +226,7 @@ fn convert_gradient(
                 cy: radial.center.y.get() as f32,
                 cr: radial.radius.get() as f32,
                 transform: base_transform
+                    .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
                         Ratio::new(size.x.to_f32() as f64),
                         Ratio::new(size.y.to_f32() as f64),
@@ -222,18 +246,11 @@ fn convert_gradient(
             let actual_transform = base_transform
                 // Adjust for the angle.
                 .pre_concat(Transform::rotate_at(
-                    angle,
+                    angle + Angle::rad(PI),
                     Abs::pt(cx as f64),
                     Abs::pt(cy as f64),
                 ))
-                // Default start point in krilla and Typst are at the opposite side, so we need
-                // to flip it horizontally.
-                .pre_concat(Transform::scale_at(
-                    -Ratio::one(),
-                    Ratio::one(),
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ));
+                .pre_concat(Transform::translate(offset.x, offset.y));
 
             let sweep = SweepGradient {
                 cx,
@@ -281,25 +298,23 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
             for window in gradient.stops().windows(2) {
                 let (first, second) = (window[0], window[1]);
 
+                add_single(&first.color, first.offset.unwrap());
+
                 // If we have a hue index or are using Oklab, we will create several
                 // stops in-between to make the gradient smoother without interpolation
                 // issues with native color spaces.
-                if gradient.space().hue_index().is_some()
-                    || gradient.space() == ColorSpace::Oklab
+                if second.offset.unwrap() > first.offset.unwrap()
+                    && (gradient.space().hue_index().is_some()
+                        || gradient.space() == ColorSpace::Oklab)
                 {
-                    for i in 0..=32 {
-                        let t = i as f64 / 32.0;
-                        let real_t = Ratio::new(
-                            first.offset.unwrap().get() * (1.0 - t)
-                                + second.offset.unwrap().get() * t,
-                        );
-
-                        let c = gradient.sample(RatioOrAngle::Ratio(real_t));
-                        add_single(&c, real_t);
-                    }
+                    gradient
+                        .generate_intermediate_stops_for_rgb_interpolation(first, second)
+                        .for_each(|(color, at)| add_single(&color, at));
                 }
+            }
 
-                add_single(&second.color, second.offset.unwrap());
+            if let Some(last) = gradient.stops().last() {
+                add_single(&last.color, last.offset.unwrap());
             }
         }
         Gradient::Conic(conic) => {

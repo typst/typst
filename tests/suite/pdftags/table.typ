@@ -68,10 +68,10 @@
 )
 
 --- table-tags-show-rule-error pdftags pdfstandard(ua-1) ---
-// Error: 2:2-2:30 PDF/UA-1 error: invalid table (Table) structure
-// Hint: 2:2-2:30 table (Table) may not contain raw text (Code)
-// Hint: 2:2-2:30 this is probably caused by a show rule
 #set table(columns: (10pt, auto))
+// Error: 2-30 PDF/UA-1 error: invalid table (Table) structure
+// Hint: 2-30 table (Table) may not contain raw text (Code)
+// Hint: 2-30 this is probably caused by a show rule
 #show table: it => it.columns
 #table[A][B][C][D]
 
@@ -100,10 +100,10 @@
 )
 
 --- table-tags-citation-in-repeated-header pdftags pdfstandard(ua-1) ---
-// Error: 3:16-3:23 PDF/UA-1 error: PDF artifacts may not contain links
-// Hint: 3:16-3:23 references, citations, and footnotes are also considered links in PDF
 #set page(height: 60pt)
 #table(
+  // Error: 16-23 PDF/UA-1 error: PDF artifacts may not contain links
+  // Hint: 16-23 references, citations, and footnotes are also considered links in PDF
   table.header[@netwok],
   [A],
   [A],
@@ -112,14 +112,14 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- table-tags-private-table-summary pdftags pdfstandard(ua-1) ---
-// Error: 2:3-2:18 unexpected argument: summary
+--- table-tags-private-table-summary eval pdfstandard(ua-1) ---
 #table(
+  // Error: 3-18 unexpected argument: summary
   summary: "nope",
   [A],
 )
 
---- table-tags-private-cell-kind pdftags pdfstandard(ua-1) ---
+--- table-tags-private-cell-kind eval pdfstandard(ua-1) ---
 // Error: 13-25 unexpected argument: kind
 #table.cell(kind: "nope")[A]
 

@@ -11,7 +11,7 @@ use crate::diag::{SourceResult, bail};
 use crate::foundations::{
     Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
-use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
+use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
 
 /// A color gradient.
@@ -819,6 +819,70 @@ impl Gradient {
         }
     }
 
+    /// Generates additional stops to replicate a gradient in
+    /// rgb color space interpolation by bisecting
+    pub fn generate_intermediate_stops_for_rgb_interpolation(
+        &self,
+        first: GradientStop,
+        second: GradientStop,
+    ) -> impl Iterator<Item = (Color, Ratio)> {
+        const THRESHOLD: f32 = 0.001;
+        const MAX_SUBDIVISIONS: u64 = 64;
+
+        let t0 = first.offset.unwrap().get();
+        let dt = second.offset.unwrap().get() - t0;
+        let mut prev_color = first.color;
+        let mut next_stop = second.offset.unwrap();
+        let mut next_color = second.color;
+        let mut n: u64 = 1; // number of subdivisions
+        let mut i: u64 = 1; // next stop at this subdivision
+
+        std::iter::from_fn(move || {
+            let mut intermediate_stop = None;
+            loop {
+                // linear interpolation error at midpoint
+                let euclidean_error = {
+                    let mid = Ratio::new(t0 + dt * (i as f64 - 0.5) / n as f64);
+                    let exact = self.sample(RatioOrAngle::Ratio(mid));
+                    let approx = Color::mix_iter(
+                        [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
+                        ColorSpace::LinearRgb,
+                    )
+                    .unwrap();
+                    let exact_color = exact.to_linear_rgb().premultiply().color;
+                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let delta = (exact_color - approx_color).into_components();
+                    (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
+                };
+
+                if n < MAX_SUBDIVISIONS && euclidean_error > THRESHOLD {
+                    // deviation to large -> subdivide again
+                    n *= 2;
+                    i = 2 * i - 1;
+                } else if i >= n {
+                    // second stop reached -> done
+                    break None;
+                } else {
+                    // intermediate stop found -> yield
+                    intermediate_stop = Some((next_color, next_stop));
+                    prev_color = next_color;
+                    // next subdivision (largest possible)
+                    let shift = i.trailing_zeros();
+                    n >>= shift;
+                    i >>= shift;
+                    i += 1;
+                }
+
+                next_stop = Ratio::new(t0 + dt * i as f64 / n as f64);
+                next_color = self.sample(RatioOrAngle::Ratio(next_stop));
+
+                if intermediate_stop.is_some() {
+                    return intermediate_stop;
+                }
+            }
+        })
+    }
+
     /// Samples the gradient at a given position, in the given container.
     /// Handles the aspect ratio and angle directly.
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
@@ -867,13 +931,20 @@ impl Gradient {
                 }
             }
             Self::Conic(conic) => {
-                let (x, y) =
-                    (x as f64 - conic.center.x.get(), y as f64 - conic.center.y.get());
-                let angle = Gradient::correct_aspect_ratio(
-                    conic.angle,
+                // The x and y coordinates have been transformed into ratios to
+                // compute the position relative to the gradient center.
+                let x = x as f64 - conic.center.x.get();
+                let y = y as f64 - conic.center.y.get();
+
+                // Transform the angle computed from the ratio positions back
+                // into the screen space, to correct for the aspect ratio.
+                let sample_angle = Gradient::correct_aspect_ratio(
+                    Angle::atan2(y, x),
                     Ratio::new((width / height) as f64),
                 );
-                ((-Angle::atan2(y, x) + Angle::rad(PI) + angle).to_rad() % TAU) / TAU
+
+                // Negate conic angle for clockwise rotation.
+                (Angle::rad(PI) + sample_angle - conic.angle).normalized().to_rad() / TAU
             }
         };
 
@@ -901,14 +972,7 @@ impl Gradient {
     ///
     /// This is used specifically for gradients.
     pub fn correct_aspect_ratio(angle: Angle, aspect_ratio: Ratio) -> Angle {
-        let corrected = Angle::atan(angle.tan() / aspect_ratio.get());
-        let corrected = match angle.quadrant() {
-            Quadrant::First => corrected,
-            Quadrant::Second => corrected + Angle::rad(PI),
-            Quadrant::Third => corrected + Angle::rad(PI),
-            Quadrant::Fourth => corrected,
-        };
-        corrected.normalized()
+        Angle::atan2(angle.sin() / aspect_ratio.get().abs(), angle.cos()).normalized()
     }
 }
 

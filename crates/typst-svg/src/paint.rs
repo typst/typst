@@ -4,7 +4,9 @@ use typst_library::foundations::Repr;
 use typst_library::layout::{
     Abs, Angle, Axes, Frame, Point, Quadrant, Ratio, Size, Transform,
 };
-use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
+use typst_library::visualize::{
+    Color, FillRule, Gradient, GradientStop, Paint, RatioOrAngle, Tiling,
+};
 use xmlwriter::XmlWriter;
 
 use crate::path::SvgPathBuilder;
@@ -109,7 +111,7 @@ impl SVGRenderer<'_> {
         }
 
         let mut defs = svg.elem("defs");
-        for (id, (gradient, ratio)) in self.gradients.iter() {
+        for (id, (gradient, aspect_ratio)) in self.gradients.iter() {
             let mut svg = match &gradient {
                 Gradient::Linear(linear) => {
                     let mut gradient = defs.elem("linearGradient");
@@ -117,7 +119,8 @@ impl SVGRenderer<'_> {
                     gradient.attr("spreadMethod", "pad");
                     gradient.attr("gradientUnits", "userSpaceOnUse");
 
-                    let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
+                    let angle =
+                        Gradient::correct_aspect_ratio(linear.angle, *aspect_ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
 
                     // Scale to edges of unit square.
@@ -164,15 +167,25 @@ impl SVGRenderer<'_> {
                     pattern.attr("x", "-0.5");
                     pattern.attr("y", "-0.5");
 
-                    // The rotation angle, negated to match rotation in PNG.
-                    let angle = -Gradient::correct_aspect_ratio(conic.angle, *ratio);
                     let center = conic.center;
+
+                    // Correct the angles with the inverse aspect-ratio, to
+                    // compensate for the transformation that is applied later
+                    // on to the gradient fill.
+                    let inverse_ratio = aspect_ratio.recip();
 
                     // We build an arg segment for each segment of a circle.
                     let dtheta = Angle::rad(TAU / NUM_CONIC_SEGMENTS as f64);
                     for i in 0..NUM_CONIC_SEGMENTS {
-                        let theta1 = angle + (dtheta * i as f64);
-                        let theta2 = angle + (dtheta * (i + 1) as f64);
+                        // Negate the angle for clockwise gradient rotation.
+                        let theta1 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * i as f64),
+                            inverse_ratio,
+                        );
+                        let theta2 = -Gradient::correct_aspect_ratio(
+                            conic.angle + (dtheta * (i + 1) as f64),
+                            inverse_ratio,
+                        );
 
                         // Create the path for the segment.
                         let mut builder = SvgPathBuilder::empty();
@@ -229,30 +242,26 @@ impl SVGRenderer<'_> {
                     .attr("offset", start_t.repr())
                     .attr("stop-color", start_c.to_hex());
 
-                // Generate (256 / len) stops between the two stops.
+                // Generate intermediate stops between the two stops.
                 // This is a workaround for a bug in many readers:
                 // They tend to just ignore the color space of the gradient.
-                // The goal is to have smooth gradients but not to balloon the file size
-                // too much if there are already a lot of stops as in most presets.
-                let len = if gradient.anti_alias() {
-                    (256 / gradient.stops_ref().len() as u32).max(2)
-                } else {
-                    2
-                };
-
-                for i in 1..(len - 1) {
-                    let t0 = i as f64 / (len - 1) as f64;
-                    let t = start_t + (end_t - start_t) * t0;
-                    let c = gradient.sample(RatioOrAngle::Ratio(t));
-
-                    svg.elem("stop")
-                        .attr("offset", t.repr())
-                        .attr("stop-color", c.to_hex());
+                if end_t > start_t && gradient.anti_alias() {
+                    let start = GradientStop::new(start_c, start_t);
+                    let end = GradientStop::new(end_c, end_t);
+                    gradient
+                        .generate_intermediate_stops_for_rgb_interpolation(start, end)
+                        .for_each(|(c, t)| {
+                            svg.elem("stop")
+                                .attr("offset", t.repr())
+                                .attr("stop-color", c.to_hex());
+                        });
                 }
+            }
 
+            if let Some((last_c, last_t)) = gradient.stops_ref().last() {
                 svg.elem("stop")
-                    .attr("offset", end_t.repr())
-                    .attr("stop-color", end_c.to_hex());
+                    .attr("offset", last_t.repr())
+                    .attr("stop-color", last_c.to_hex());
             }
         }
     }

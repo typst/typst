@@ -30,7 +30,8 @@ use crate::foundations::{
     Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
-    History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
+    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
+    QueryIntrospection,
 };
 use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
@@ -174,7 +175,9 @@ impl BibliographyElem {
     }
 
     /// Find all bibliography keys.
-    pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
+    pub fn keys(
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
         for elem in introspector.query(&Self::ELEM.select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
@@ -616,7 +619,7 @@ impl Introspect for CiteGroupIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query(&CiteGroup::ELEM.select())
     }
@@ -1073,7 +1076,7 @@ impl ElemRenderer<'_> {
             self.world,
             // TODO: propagate warnings
             Sink::new().track_mut(),
-            Introspector::default().track(),
+            EmptyIntrospector.track(),
             Context::none().track(),
             math,
             self.span,

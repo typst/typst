@@ -275,9 +275,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chinese-number"
-version = "0.7.7"
+version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49fccaef6346f6d6a741908d3b79fe97c2debe2fbb5eb3a7d00ff5981b52bb6c"
+checksum = "3e964125508474a83c95eb935697abbeb446ff4e9d62c71ce880e3986d1c606b"
 dependencies = [
  "chinese-variant",
  "enum-ordinalize",
@@ -287,9 +287,9 @@ dependencies = [
 
 [[package]]
 name = "chinese-variant"
-version = "1.1.3"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7588475145507237ded760e52bf2f1085495245502033756d28ea72ade0e498b"
+checksum = "58b52a9840ffff5d4d0058ae529fa066a75e794e3125546acfc61c23ad755e49"
 
 [[package]]
 name = "chrono"
@@ -425,8 +425,10 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9589e1effc5cacbea347899645c654158b03b2053d24bb426fd3128ced6e423c"
+source = "git+https://github.com/typst/codex?rev=0426b6a#0426b6a97414064ad31d0b97d822566fe9df8b65"
+dependencies = [
+ "chinese-number",
+]
 
 [[package]]
 name = "color-print"
@@ -463,9 +465,9 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "comemo"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "649d7b2d867b569729c03c0f6968db10bc95921182a1f2b2012b1b549492f39d"
+checksum = "3c963350b2b08aa4b725d7802593245380ab53dacfedcaa971385fc33306c0d4"
 dependencies = [
  "comemo-macros",
  "parking_lot",
@@ -476,9 +478,9 @@ dependencies = [
 
 [[package]]
 name = "comemo-macros"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51c87fc7e85487493ddedae1a3a34b897c77ad8825375b79265a8a162c28d535"
+checksum = "a3c400139ba1389ef9e20ad2d87cda68b437a66483aa0da616bdf2cea7413853"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -667,18 +669,18 @@ checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "enum-ordinalize"
-version = "4.3.0"
+version = "4.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea0dcfa4e54eeb516fe454635a95753ddd39acda650ce703031c6973e315dd5"
+checksum = "4a1091a7bb1f8f2c4b28f1fe2cef4980ca2d410a3d727d67ecc3178c9b0800f0"
 dependencies = [
  "enum-ordinalize-derive",
 ]
 
 [[package]]
 name = "enum-ordinalize-derive"
-version = "4.3.1"
+version = "4.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d28318a75d4aead5c4db25382e8ef717932d0346600cacae6357eb5941bc5ff"
+checksum = "8ca9601fb2d62598ee17836250842873a413586e5d7ed88b356e38ddbb0ec631"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1434,7 +1436,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.6.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=84c6332#84c6332a4d6459427b02bb40c8eb7e46b6a173d1"
+source = "git+https://github.com/LaurenzV/krilla?rev=88483e2#88483e26b6c56d55463910ee4e300ab149df9c36"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1465,12 +1467,11 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=84c6332#84c6332a4d6459427b02bb40c8eb7e46b6a173d1"
+source = "git+https://github.com/LaurenzV/krilla?rev=88483e2#88483e26b6c56d55463910ee4e300ab149df9c36"
 dependencies = [
  "flate2",
  "fontdb",
  "krilla",
- "png",
  "resvg",
  "tiny-skia",
  "usvg",
@@ -2107,12 +2108,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qcms"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edecfcd5d755a5e5d98e24cf43113e7cdaec5a070edd0f6b250c03a573da30fa"
-
-[[package]]
 name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2704,9 +2699,9 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tar"
-version = "0.4.43"
+version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c65998313f8e17d0d553d28f91a0df93e4dbbbf770279c7bc21ca0f09ea1a1f6"
+checksum = "22692a6476a21fa75fdfc11d452fda482af402c008cdbaf3476414e122040973"
 dependencies = [
  "filetime",
  "libc",
@@ -2966,6 +2961,28 @@ version = "0.14.2"
 source = "git+https://github.com/typst/typst-assets?rev=57a38ca#57a38ca98236748ad83c806a48096b281686a7de"
 
 [[package]]
+name = "typst-bundle"
+version = "0.14.2"
+dependencies = [
+ "comemo",
+ "ecow",
+ "either",
+ "indexmap",
+ "rayon",
+ "rustc-hash",
+ "typst-html",
+ "typst-layout",
+ "typst-library",
+ "typst-macros",
+ "typst-pdf",
+ "typst-render",
+ "typst-svg",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+]
+
+[[package]]
 name = "typst-cli"
 version = "0.14.2"
 dependencies = [
@@ -2995,10 +3012,12 @@ dependencies = [
  "tempfile",
  "toml",
  "typst",
+ "typst-bundle",
  "typst-dev-assets",
  "typst-eval",
  "typst-html",
  "typst-kit",
+ "typst-layout",
  "typst-macros",
  "typst-pdf",
  "typst-render",
@@ -3033,6 +3052,7 @@ dependencies = [
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-layout",
  "typst-render",
  "typst-utils",
  "unicode-math-class",
@@ -3066,6 +3086,7 @@ dependencies = [
  "typst",
  "typst-assets",
  "typst-html",
+ "typst-layout",
  "typst-pdf",
  "typst-render",
  "typst-svg",
@@ -3076,6 +3097,7 @@ dependencies = [
 name = "typst-html"
 version = "0.14.2"
 dependencies = [
+ "az",
  "bumpalo",
  "comemo",
  "ecow",
@@ -3105,6 +3127,7 @@ dependencies = [
  "typst-dev-assets",
  "typst-eval",
  "typst-html",
+ "typst-layout",
  "unscanny",
 ]
 
@@ -3112,6 +3135,7 @@ dependencies = [
 name = "typst-kit"
 version = "0.14.2"
 dependencies = [
+ "chrono",
  "codespan-reporting",
  "dirs",
  "ecow",
@@ -3119,6 +3143,7 @@ dependencies = [
  "fastrand",
  "flate2",
  "fontdb",
+ "infer",
  "native-tls",
  "notify",
  "once_cell",
@@ -3131,11 +3156,13 @@ dependencies = [
  "tar",
  "tiny_http",
  "typst-assets",
+ "typst-bundle",
  "typst-library",
  "typst-syntax",
  "typst-timing",
  "typst-utils",
  "ureq",
+ "url",
 ]
 
 [[package]]
@@ -3181,7 +3208,6 @@ dependencies = [
  "az",
  "bitflags 2.9.1",
  "bumpalo",
- "chinese-number",
  "ciborium",
  "codex",
  "comemo",
@@ -3203,10 +3229,10 @@ dependencies = [
  "libm",
  "lipsum",
  "memchr",
+ "moxcms",
  "palette",
  "phf",
  "png",
- "qcms",
  "rayon",
  "regex",
  "regex-syntax",
@@ -3257,6 +3283,7 @@ version = "0.14.2"
 dependencies = [
  "az",
  "bytemuck",
+ "codex",
  "comemo",
  "ecow",
  "image",
@@ -3268,6 +3295,7 @@ dependencies = [
  "serde",
  "smallvec",
  "typst-assets",
+ "typst-layout",
  "typst-library",
  "typst-macros",
  "typst-syntax",
@@ -3305,6 +3333,7 @@ dependencies = [
  "tiny-skia",
  "ttf-parser",
  "typst-assets",
+ "typst-layout",
  "typst-library",
  "typst-macros",
  "typst-timing",
@@ -3327,6 +3356,7 @@ dependencies = [
  "ryu",
  "ttf-parser",
  "typst-assets",
+ "typst-layout",
  "typst-library",
  "typst-macros",
  "typst-timing",
@@ -3374,14 +3404,17 @@ dependencies = [
  "serde_yaml",
  "similar",
  "smallvec",
+ "tar",
  "time",
  "tiny-skia",
  "typst",
  "typst-assets",
+ "typst-bundle",
  "typst-dev-assets",
  "typst-eval",
  "typst-html",
  "typst-kit",
+ "typst-layout",
  "typst-library",
  "typst-pdf",
  "typst-render",

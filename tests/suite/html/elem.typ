@@ -20,18 +20,18 @@ Text
 #html.elem("multi-word-component")[Hi]
 #html.elem("element-")[Hi]
 
---- html-elem-invalid html ---
+--- html-elem-invalid eval ---
 // Error: 12-24 the character "@" is not valid in a tag name
 #html.elem("my@element")
 
---- html-elem-custom-bad-start html ---
+--- html-elem-custom-bad-start eval ---
 // Error: 12-22 custom element name must start with a lowercase letter
 #html.elem("1-custom")
 
---- html-elem-custom-uppercase html ---
+--- html-elem-custom-uppercase eval ---
 // Error: 12-21 custom element name must not contain uppercase letters
 #html.elem("my-ELEM")
 
---- html-elem-custom-reserved html ---
+--- html-elem-custom-reserved eval ---
 // Error: 12-28 name is reserved and not valid for a custom element
 #html.elem("annotation-xml")

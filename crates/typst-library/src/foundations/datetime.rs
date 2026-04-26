@@ -83,6 +83,8 @@ use crate::foundations::{
 /// follows:
 ///
 /// - `year`: Displays the year of the datetime.
+///   - `base`: Can be either `calendar` or `iso_week`. Specifies whether the
+///     year is based on the Gregorian calendar or the ISO week number.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     year is padded.
 ///   - `repr` Can be either `full` in which case the full year is displayed or
@@ -127,6 +129,9 @@ use crate::foundations::{
 /// - `second`: Displays the second of the date.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
+///
+/// [See here](https://time-rs.github.io/book/api/format-description.html#components)
+/// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
 /// create a new datetime with `{datetime(year: 2023, month: 10, day: 13)}`, it
@@ -526,7 +531,13 @@ impl Add<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime + rhs),
-            Self::Date(date) => Self::Date(date + rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) + rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time + rhs),
         }
     }
@@ -539,7 +550,13 @@ impl Sub<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime - rhs),
-            Self::Date(date) => Self::Date(date - rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) - rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time - rhs),
         }
     }

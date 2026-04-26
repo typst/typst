@@ -41,7 +41,7 @@
 )
 
 // Symbols.
-#t(pat: "*", "-", "*", "†", "‡", "§", "¶", "‖", "**")
+#t(pat: "*", 1, "*", "†", "‡", "§", "¶", "‖", "**")
 
 // Hebrew.
 #t(pat: "א", step: 2, 9, "ט", "יא", "יג", 15, "טו", 16, "טז")
@@ -51,14 +51,14 @@
 #t(pat: "壹", step: 2, 9, "玖", "拾壹", "拾叁", "拾伍", "拾柒", "拾玖")
 
 // Japanese.
-#t(pat: "イ", "-", "イ", "ロ", "ハ", 47, "ス", "イイ", "イロ", "イハ", 2256, "スス", "イイイ")
-#t(pat: "い", "-", "い", "ろ", "は", 47, "す", "いい", "いろ", "いは")
-#t(pat: "あ", "-", "あ", "い", "う", "え", "お", "か", "き", "く")
-#t(pat: "ア", "-", "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク")
+#t(pat: "イ", 1, "イ", "ロ", "ハ", 47, "ス", "イイ", "イロ", "イハ", 2256, "スス", "イイイ")
+#t(pat: "い", 1, "い", "ろ", "は", 47, "す", "いい", "いろ", "いは")
+#t(pat: "あ", 1, "あ", "い", "う", "え", "お", "か", "き", "く")
+#t(pat: "ア", 1, "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク")
 
 // Korean.
-#t(pat: "가", "-", "가", "나", "다", 47, "다마", "다바", "다사", "다아")
-#t(pat: "ㄱ", "-", "ㄱ", "ㄴ", "ㄷ", 47, "ㄷㅁ")
+#t(pat: "가", 1, "가", "나", "다", 47, "다마", "다바", "다사", "다아")
+#t(pat: "ㄱ", 1, "ㄱ", "ㄴ", "ㄷ", 47, "ㄷㅁ")
 
 // Arabic Indic.
 #t(pat: "\u{0661}", 1475, "١٤٧٥")
@@ -91,6 +91,46 @@
 #t(pat: "⓵", 1, "⓵")
 #t(pat: "⓵", 10, "⓾")
 
---- numbering-negative paged ---
+--- numbering-negative eval ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
+
+--- numbering-illegal-zero paged ---
+#test(numbering("१", 0), "०")
+// Warning: 2-19 the numeral system `korean.syllable` cannot represent zero
+// Hint: 2-19 this will become a hard error in the future
+#numbering("가", 0)
+
+--- numbering-too-high paged ---
+// Warning: 2-20 the number 51 is too large to be represented with the `arabic.o` numeral system
+// Hint: 2-20 this will become a hard error in the future
+#numbering("①", 51)
+
+--- enum-numbering-too-high paged ---
+#set enum(numbering: "⓵")
+// Warning: 1-9 the number 11 is too large to be represented with the `arabic.oo` numeral system
+// Hint: 1-9 this will become a hard error in the future
+11. Test
+
+--- page-numbering-too-high paged ---
+// Warning: the number 100 is too large to be represented with the `arabic.o` numeral system
+// Hint: this will become a hard error in the future
+#set page(numbering: "①")
+#counter(page).update(100)
+Hello
+
+--- page-numbering-too-high-pdf pdf ---
+// The page number is not displayed on the page. Instead, it is only computed to
+// be embedded in the PDF metadata so the error is triggered in `typst-pdf`
+// instead of `typst-layout`. For now, we ignore it and generate the PDF anyway,
+// without using the user-provided page numbering.
+#set page(numbering: "①", footer: none)
+#counter(page).update(100)
+Hello
+
+--- footnote-numbering-too-high paged ---
+#set footnote(numbering: "①")
+#counter(footnote).update(100)
+// Warning: 2-12 the number 101 is too large to be represented with the `arabic.o` numeral system
+// Hint: 2-12 this will become a hard error in the future
+#footnote[]

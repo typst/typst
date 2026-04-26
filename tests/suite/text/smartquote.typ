@@ -148,15 +148,15 @@ Does not apply across #html.div["block-level] elements".
 #set smartquote(quotes: (single: "a\u{0301}a\u{0301}"))
 "Double and 'Single' Quotes"
 
---- smartquote-custom-bad-string paged ---
+--- smartquote-custom-bad-string eval ---
 // Error: 25-28 expected 2 characters, found 1 character
 #set smartquote(quotes: "'")
 
---- smartquote-custom-bad-array paged ---
+--- smartquote-custom-bad-array eval ---
 // Error: 25-35 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: ("'",) * 4)
 
---- smartquote-custom-bad-dict paged ---
+--- smartquote-custom-bad-dict eval ---
 // Error: 25-45 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: (single: ("'",) * 4))
 

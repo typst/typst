@@ -23,7 +23,7 @@
   test(array, (1, "baz", 3, 4))
 }
 
---- destructuring-dict-bad paged ---
+--- destructuring-dict-bad eval ---
 // Error: 7-10 expected identifier, found group
 // Error: 12-14 expected pattern, found integer
 #let ((a): 10) = "world"
@@ -95,7 +95,7 @@
 #let (..a) = ()
 #test(a, ())
 
---- destructuring-let-array-with-unnamed-sink paged ---
+--- destructuring-let-array-with-unnamed-sink eval ---
 // Destructuring with unnamed sink.
 #let (a, .., b) = (1, 2, 3, 4)
 #test(a, 1)
@@ -122,27 +122,27 @@
 --- destructuring-let-empty-array eval ---
 #let () = ()
 
---- destructuring-let-empty-array-too-many-elements paged ---
+--- destructuring-let-empty-array-too-many-elements eval ---
 // Error: 6-8 too many elements to destructure
 // Hint: 6-8 the provided array has a length of 2, but the pattern expects an empty array
 #let () = (1, 2)
 
---- destructuring-let-array-too-few-elements paged ---
+--- destructuring-let-array-too-few-elements eval ---
 // Error: 6-15 not enough elements to destructure
 // Hint: 6-15 the provided array has a length of 2, but the pattern expects 3 elements
 #let (a, b, c) = (1, 2)
 
---- destructuring-let-array-too-few-elements-with-sink paged ---
+--- destructuring-let-array-too-few-elements-with-sink eval ---
 // Error: 6-20 not enough elements to destructure
 // Hint: 6-20 the provided array has a length of 2, but the pattern expects at least 3 elements
 #let (..a, b, c, d) = (1, 2)
 
---- destructuring-let-array-too-few-elements-with-sink-1-element paged ---
+--- destructuring-let-array-too-few-elements-with-sink-1-element eval ---
 // Error: 6-14 not enough elements to destructure
 // Hint: 6-14 the provided array has a length of 0, but the pattern expects at least 1 element
 #let (..a, b) = ()
 
---- destructuring-let-array-bool-invalid paged ---
+--- destructuring-let-array-bool-invalid eval ---
 // Error: 6-12 cannot destructure boolean
 #let (a, b) = true
 
@@ -183,39 +183,39 @@
 #let ((a, b), (key: c)) = ((1, 2), (key: 3))
 #test((a, b, c), (1, 2, 3))
 
---- destructuring-let-dict-key-string-invalid paged ---
+--- destructuring-let-dict-key-string-invalid eval ---
 // Keyed destructuring is not currently supported.
 // Error: 7-18 expected pattern, found string
 #let ("spacy key": val) = ("spacy key": 123)
 #val
 
---- destructuring-let-dict-key-expr-invalid paged ---
+--- destructuring-let-dict-key-expr-invalid eval ---
 // Keyed destructuring is not currently supported.
 #let x = "spacy key"
 // Error: 7-10 expected identifier, found group
 #let ((x): v) = ("spacy key": 123)
 
---- destructuring-let-array-trailing-placeholders paged ---
+--- destructuring-let-array-trailing-placeholders eval ---
 // Trailing placeholders.
 // Error: 6-21 not enough elements to destructure
 // Hint: 6-21 the provided array has a length of 1, but the pattern expects 5 elements
 #let (a, _, _, _, _) = (1,)
 #test(a, 1)
 
---- destructuring-let-dict-patterns-invalid paged ---
+--- destructuring-let-dict-patterns-invalid eval ---
 // Error: 10-13 expected pattern, found string
 // Error: 18-19 expected pattern, found integer
 #let (a: "a", b: 2) = (a: 1, b: 2)
 
---- destructuring-let-dict-shorthand-missing-key paged ---
+--- destructuring-let-dict-shorthand-missing-key eval ---
 // Error: 10-11 dictionary does not contain key "b"
 #let (a, b) = (a: 1)
 
---- destructuring-let-dict-missing-key paged ---
+--- destructuring-let-dict-missing-key eval ---
 // Error: 10-11 dictionary does not contain key "b"
 #let (a, b: b) = (a: 1)
 
---- destructuring-let-dict-from-array paged ---
+--- destructuring-let-dict-from-array eval ---
 // Error: 7-11 cannot destructure named pattern from an array
 #let (a: a, b) = (1, 2, 3)
 
@@ -301,7 +301,7 @@
 #(((a, b), (key: c)) = ((1, 2), (key: 3)))
 #test((a, b, c), (1, 2, 3))
 
---- destructuring-assign-nested-invalid paged ---
+--- destructuring-assign-nested-invalid eval ---
 #let array = (1, 2, 3)
 // Error: 3-17 cannot destructure string
 #((array.at(1),) = ("hi"))
@@ -328,53 +328,53 @@
 #for (k, v)  in (a: 1, b: 2, c: 3) {}
 #for (.., v) in (a: 1, b: 2, c: 3) {}
 
---- issue-3275-loop-over-content paged ---
+--- issue-3275-loop-over-content eval ---
 // Error: 11-17 cannot loop over content
 #for x in [1, 2] {}
 
---- issue-3275-loop-over-arguments paged ---
+--- issue-3275-loop-over-arguments eval ---
 // Error: 11-25 cannot loop over arguments
 #for _ in arguments("a") {}
 
---- issue-3275-loop-over-integer paged ---
+--- issue-3275-loop-over-integer eval ---
 // Error: 16-21 cannot loop over integer
 #for (x, y) in 12306 {}
 
---- issue-3275-destructuring-loop-over-content paged ---
+--- issue-3275-destructuring-loop-over-content eval ---
 // Error: 16-22 cannot loop over content
 #for (x, y) in [1, 2] {}
 
---- issue-3275-destructuring-loop-over-string paged ---
+--- issue-3275-destructuring-loop-over-string eval ---
 // Error: 6-12 cannot destructure values of string
 #for (x, y) in "foo" {}
 
---- issue-3275-destructuring-loop-over-string-array paged ---
+--- issue-3275-destructuring-loop-over-string-array eval ---
 // Error: 6-12 cannot destructure string
 #for (x, y) in ("foo", "bar") {}
 
---- issue-3275-destructuring-loop-over-bytes paged ---
+--- issue-3275-destructuring-loop-over-bytes eval ---
 // Error: 6-12 cannot destructure values of bytes
 #for (x, y) in bytes("😊") {}
 
---- issue-3275-destructuring-loop-over-bytes-array paged ---
+--- issue-3275-destructuring-loop-over-bytes-array eval ---
 // Error: 6-12 cannot destructure bytes
 #for (x, y) in (bytes((1,2)), bytes((1,2))) {}
 
---- issue-3275-destructuring-loop-over-int-array paged ---
+--- issue-3275-destructuring-loop-over-int-array eval ---
 // Error: 6-12 cannot destructure integer
 #for (x, y) in (1, 2) {}
 
---- issue-3275-destructuring-loop-over-2d-array-1 paged ---
+--- issue-3275-destructuring-loop-over-2d-array-1 eval ---
 // Error: 6-12 not enough elements to destructure
 // Hint: 6-12 the provided array has a length of 1, but the pattern expects 2 elements
 #for (x, y) in ((1,), (2,)) {}
 
---- issue-3275-destructuring-loop-over-2d-array-2 paged ---
+--- issue-3275-destructuring-loop-over-2d-array-2 eval ---
 // Error: 6-12 too many elements to destructure
 // Hint: 6-12 the provided array has a length of 3, but the pattern expects 2 elements
 #for (x, y) in ((1,2,3), (4,5,6)) {}
 
---- issue-4573-destructuring-unclosed-delimiter paged ---
+--- issue-4573-destructuring-unclosed-delimiter eval ---
 // Tests a case where parsing within an incorrectly predicted paren expression
 // (the "outer" assignment) would put the parser in an invalid state when
 // reloading a stored prediction (the "inner" assignment) and cause a panic when

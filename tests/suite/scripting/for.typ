@@ -76,19 +76,19 @@
 #test(for v in "" [], none)
 #test(type(for v in "1" []), content)
 
---- for-loop-over-bool paged ---
+--- for-loop-over-bool eval ---
 // Uniterable expression.
 // Error: 11-15 cannot loop over boolean
 #for v in true {}
 
---- for-loop-over-string paged ---
+--- for-loop-over-string eval ---
 // Keys and values of strings.
 // Error: 6-12 cannot destructure values of string
 #for (k, v) in "hi" {
   dont-care
 }
 
---- for-loop-destructuring-without-parentheses paged ---
+--- for-loop-destructuring-without-parentheses eval ---
 // Destructuring without parentheses.
 // Error: 7-8 unexpected comma
 // Hint: 7-8 destructuring patterns must be wrapped in parentheses
@@ -96,12 +96,12 @@
   dont-care
 }
 
---- for-loop-destructuring-half paged ---
+--- for-loop-destructuring-half eval ---
 // Error: 7-8 unexpected comma
 // Hint: 7-8 destructuring patterns must be wrapped in parentheses
 #for k, in () {}
 
---- for-loop-incomplete paged ---
+--- for-loop-incomplete eval ---
 // Error: 5 expected pattern
 #for
 
@@ -133,3 +133,8 @@ A#for "v" thing
 
 // Error: 7 expected keyword `in`
 #for a + b in iter {}
+
+// Error: 1:8-4:1 unclosed string
+#for x "a
+b
+c
