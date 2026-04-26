@@ -727,8 +727,26 @@ impl<'a> Generator<'a> {
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
                 let locator = supplement.as_ref().map(|c| {
+                    let dedashed_text = c.plain_text().replace("-", "").replace("–", "");
+                    let locator_type = if u64::from_str_radix(&dedashed_text, 10).is_ok()
+                    {
+                        citationberg::taxonomy::Locator::Page
+                    } else if u64::from_str_radix(&dedashed_text.replace(":", ""), 10)
+                        .is_ok()
+                    {
+                        citationberg::taxonomy::Locator::Timestamp
+                    } else if u64::from_str_radix(&dedashed_text.replace(".", ""), 10)
+                        .is_ok()
+                    {
+                        citationberg::taxonomy::Locator::Line
+                    } else if dedashed_text.chars().all(|c| "IVXLCDM".contains(c)) {
+                        citationberg::taxonomy::Locator::Page
+                    } else {
+                        citationberg::taxonomy::Locator::Custom
+                    };
+
                     SpecificLocator(
-                        citationberg::taxonomy::Locator::Custom,
+                        locator_type,
                         hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
                             c.clone(),
                         )),
