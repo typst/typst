@@ -72,6 +72,12 @@ $tilde(w) tilde(W)$
 $grave(i) grave(j)$
 $grave(I) grave(J)$
 
+--- math-accent-flattened-fallback paged ---
+// Test falling back from flattened accent glyph variants when stretching.
+#show math.equation: set text(font: "STIX Two Math")
+$ hat(A, size: #2em) quad hat(A) quad hat(A, size: #200%) \
+  grave(I, size: #2em) quad grave(I) quad grave(I, size: #200%) $
+
 --- math-accent-bottom paged ---
 // Test bottom accents.
 $accent(a, \u{20EE}), accent(T, \u{0323}), accent(xi, \u{0332}),
