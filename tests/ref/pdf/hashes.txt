@@ -968,8 +968,8 @@ ba5040d560e6f6a0bb5f994deb131aca math-accent-cramped
 dd0a9742a5b70fe8fa4e987f21cc1172 math-accent-dotless-disabled
 44d2dc562a386f412183cd0ac70b9ea5 math-accent-dotless-greedy
 4a03aeba0cecf042a8f0b9c5e87471b5 math-accent-dotless-set-rule
-da913feaeab16cbcef8e2ecd0475e8c9 math-accent-flattened
-98f2a2d117f79e466b54a59223eebaa1 math-accent-flattened-fallback
+37663ddfd4fc39f7681a1a030175a666 math-accent-flattened
+44b1cdc662b02104e43ce940b5bf5771 math-accent-flattened-fallback
 ae7b869d9f47f398416f1aa878a19ccb math-accent-func
 3e04debce31d9ca0de08cdc190ff677a math-accent-high-base
 39f2468e7024c4f83bc23346f33ca5ca math-accent-nested
@@ -1234,8 +1234,8 @@ e8cd8a2ca006d109edb96970d6b24171 math-spacing-set-comprehension
 fc041e03a030ad9cdc1a8efa2971eb89 math-stretch-attach-nested-equation
 e69bb14de7d8235be85af7212899a744 math-stretch-basic
 15f4afb5adcca4fa3b8f091b61fc7cbd math-stretch-complex
-32f81178c43214f84fa2ce04c46d7bf7 math-stretch-fallback
-5a50e3f5bfe2fac74fd86833fc9e60bf math-stretch-fallback-explicit
+79b4470ac2849c346867dc511f424697 math-stretch-fallback
+5854bc5ecf6f4920525a7c7ee9739f12 math-stretch-fallback-explicit
 185f353bfe0fa9fccbd72407b61d05d8 math-stretch-horizontal
 8a685e438e47ee54540cd453adb5fd7e math-stretch-horizontal-attach
 eed10172b618b21ce04734a254650e9a math-stretch-lr-nested-horizontal
