@@ -290,6 +290,10 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
+--- box-baseline-context paged empty ---
+
+#context test(box.baseline, (at: auto, shift: 0pt))
+
 --- box-html html ---
 Text #box[Span].
 

@@ -7,7 +7,7 @@ use crate::foundations::{
     Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
 use crate::introspection::{Locatable, Tagged};
-use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
+use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
 /// A numbered list.
@@ -166,15 +166,24 @@ pub struct EnumElem {
 
     /// The alignment that enum numbers should have.
     ///
-    /// By default, this is set to `{end + top}`, which aligns enum numbers
-    /// towards end of the current text direction (in left-to-right script,
-    /// for example, this is the same as `{right}`) and at the top of the line.
+    /// By default, this is set to `{end}`, which aligns enum numbers
+    /// horizontally towards end of the current text direction (in left-to-right
+    /// script, for example, this is the same as `{right}`). In addition, the
+    /// lack of a vertical alignment places each number vertically just above
+    /// the baseline of the item, as if it were part of its first line of text.
+    ///
     /// The choice of `{end}` for horizontal alignment of enum numbers is
     /// usually preferred over `{start}`, as numbers then grow away from the
     /// text instead of towards it, avoiding certain visual issues. This option
     /// lets you override this behaviour, however. (Also to note is that the
     /// [unordered list]($list) uses a different method for this, by giving the
-    /// `marker` content an alignment directly.)
+    /// `marker` content an alignment directly, albeit it possesses a similar
+    /// option named `marker-align` instead.)
+    ///
+    /// As for vertical alignment, it can be overridden if baseline alignment is
+    /// not desired. For example, an alignment of `{end + top}` would always
+    /// place the marker vertically near the top of the item, whereas `{end +
+    /// bottom}` would move it near the bottom.
     ///
     /// ````example
     /// #set enum(number-align: start + bottom)
@@ -187,7 +196,7 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlignment::End + VAlignment::Top)]
+    #[default(Alignment::H(HAlignment::End))]
     pub number_align: Alignment,
 
     /// The numbered list's items.

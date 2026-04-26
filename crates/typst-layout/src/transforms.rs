@@ -22,7 +22,7 @@ pub fn layout_move(
     let mut frame = crate::layout_frame(engine, &elem.body, locator, styles, region)?;
     let delta = Axes::new(elem.dx.resolve(styles), elem.dy.resolve(styles));
     let delta = delta.zip_map(region.size, Rel::relative_to);
-    frame.translate(delta.to_point());
+    frame.translate_visual(delta.to_point());
     Ok(frame)
 }
 
@@ -56,6 +56,8 @@ pub fn layout_rotate(
         Transform::rotate(angle),
         align,
         elem.reflow.get(styles),
+        // TODO: Calculate new baseline after rotation
+        false,
     )
 }
 
@@ -85,6 +87,11 @@ pub fn layout_scale(
         Transform::scale(scale.x, scale.y),
         elem.origin.resolve(styles),
         elem.reflow.get(styles),
+        // TODO: Figure out where the baseline should go after a vertical flip.
+        // Similar problem to >90deg rotation, as following the baseline would
+        // lead text to go below the typical baseline. For now, simply do not
+        // preserve the baseline if vertical scale is negative.
+        scale.y.get() >= 0.0,
     )
 }
 
@@ -173,6 +180,7 @@ pub fn layout_skew(
         Transform::skew(ax, ay),
         align,
         elem.reflow.get(styles),
+        true,
     )
 }
 
@@ -188,6 +196,7 @@ fn measure_and_layout(
     transform: Transform,
     align: Axes<FixedAlignment>,
     reflow: bool,
+    keep_baseline: bool,
 ) -> SourceResult<Frame> {
     if reflow {
         // Measure the size of the body.
@@ -204,11 +213,41 @@ fn measure_and_layout(
             .pre_concat(transform)
             .pre_concat(Transform::translate(-x, -y));
 
+        // Compute a new baseline that goes through the transformed baseline
+        // (when seen as a hypothetical line crossing the frame at the baseline
+        // height). To do this, we use the height of one point at baseline
+        // height after it undergoes transformation - in this case, the middle
+        // point.
+        //
+        // Note that, when only scaling, the chosen point doesn't matter as the
+        // height of all transformed points at baseline height will be the same,
+        // but, when skewing, this would ensure the new baseline will cross the
+        // middle of the old baseline.
+        //
+        // For now, however, rotation with reflow, in particular, does not yet
+        // preserve baselines as it's not yet clear that such a baseline change
+        // would be an expected outcome of rotation. (For example, a 180-degree
+        // rotation would cause the baseline to be above the text!)
+        let new_baseline = if frame.has_baseline() && keep_baseline {
+            let p = Point::new(frame.width() / 2.0, frame.baseline()).transform(ts);
+            Some(p.y)
+        } else {
+            None
+        };
+
         // Compute the bounding box and offset and wrap in a new frame.
         let (offset, size) = compute_bounding_box(frame.size(), ts);
         frame.transform(ts);
-        frame.translate(offset);
+        frame.translate_visual(offset);
         frame.set_size(size);
+
+        if let Some(new_baseline) = new_baseline {
+            frame.set_baseline(new_baseline + offset.y);
+        } else if !keep_baseline {
+            // Post-transformation baseline is not clear.
+            frame.clear_baseline();
+        }
+
         Ok(frame)
     } else {
         // Layout the body.

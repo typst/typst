@@ -175,6 +175,55 @@ Not in list
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
 
+--- list-marker-align-horizontal paged ---
+#set list(marker: {
+  counter("list").update(n => calc.max(n * 10, 1))
+  context counter("list").display()
+})
+
+- Item
+- Item
+- Item
+
+#set list(marker-align: start)
+#counter("list").update(0)
+
+- Item
+- Item
+- Item
+
+--- list-marker-align-vertical paged ---
+#set list(marker-align: horizon)
+- #box(fill: teal, inset: 10pt )[a]
+- #box(fill: teal, inset: 10pt )[b]
+- #box(fill: teal,inset: 10pt )[c]
+
+--- list-marker-align-unfolded paged ---
+// Marker align option should not be affected by the context.
+#[
+  #set align(top)
+  #set list(marker-align: horizon)
+
+  - #box(fill: teal, inset: 10pt )[]
+]
+
+#[
+  #set align(horizon)
+  - #box(fill: teal, inset: 10pt)[]
+]
+
+--- list-marker-align-values paged empty ---
+// Test valid marker align values (horizontal and vertical)
+#set enum(number-align: start)
+#set enum(number-align: end)
+#set enum(number-align: left)
+#set enum(number-align: center)
+#set enum(number-align: right)
+#set enum(number-align: top)
+#set enum(number-align: horizon)
+#set enum(number-align: bottom)
+
+
 --- list-attached paged ---
 // Test basic attached list.
 Attached to:
@@ -237,6 +286,56 @@ World
 - Hello
 #text(red)[- World]
 #text(green)[- What up?]
+
+--- list-baseline-table paged ---
+- #table(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+- #table(
+    inset: 10pt,
+    columns: 2,
+    stroke: none,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-grid paged ---
+- #grid(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-curve paged ---
+#let dy = 15pt
+- #curve(
+    stroke: 5pt,
+    curve.move((0pt,  30pt + dy)),
+    curve.line((30pt, 30pt + dy)),
+    curve.line((15pt, dy)),
+    curve.close()
+  )
+
+--- list-baseline-text-with-math paged ---
+#set page(width: auto, height: auto)
+- Text
+  - Text $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+  - $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+
+--- list-baseline-math-fraction paged ---
+- $ (7 "O1" + 3 (display((sum_(i = 5)^8 L_i)/4)))/10 $
+
+--- list-baseline-multiline-math paged ---
+- $
+    sum_(i = 1)^n (x_i)^5 &= 0 \
+    y_1 + y_2 &= 10 \
+    (a b c)/x^2 &= 5
+  $
 
 --- list-par paged html ---
 // Check whether the contents of list items become paragraphs.
@@ -312,3 +411,15 @@ World
   - B
   - C
 - C
+
+--- issue-529-list-center-alignment paged ---
+#set page(width: 2cm)
+- A
+- #align(center)[B]
+- $ C $
+
+--- issue-1204-list-baseline-alignment paged ---
+- A
+- $ sum_(i = 1)^n overbrace(x^6, y) $
+- #box(baseline: 1cm)[C]
+- #v(1cm) D

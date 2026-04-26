@@ -129,3 +129,10 @@ My text has spaces.
 // Test word spacing relative to the font's space width.
 #set text(spacing: 50% + 1pt)
 This is tight.
+
+--- issue-5855-misaligned-descender paged ---
+foo #box[foo] foo
+
+#set text(bottom-edge: "descender")
+
+foo #box[foo] foo
