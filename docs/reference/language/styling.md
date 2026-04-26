@@ -31,10 +31,10 @@ your document.
 ```
 
 A top level set rule stays in effect until the end of the file. When nested
-inside of a block, it is only in effect until the end of that block. With a
-block, you can thus restrict the effect of a rule to a particular segment of
-your document. Below, we use a content block to scope the list styling to one
-particular list.
+inside of a content or code block, it is only in effect until the end of that
+block. With a block, you can thus restrict the effect of a rule to a particular
+segment of your document. Below, we use a content block to scope the list
+styling to one particular list.
 
 ```example
 This list is affected: #[
