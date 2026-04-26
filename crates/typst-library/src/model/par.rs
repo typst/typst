@@ -15,30 +15,30 @@ use crate::model::Numbering;
 /// A logical subdivison of textual content.
 ///
 /// Typst automatically collects _inline-level_ elements into paragraphs.
-/// Inline-level elements include [text], [horizontal spacing]($h),
-/// [boxes]($box), and [inline equations]($math.equation).
+/// Inline-level elements include @text[text], @h[horizontal spacing],
+/// @box[boxes], and @math.equation[inline equations].
 ///
-/// To separate paragraphs, use a blank line (or an explicit [`parbreak`]).
+/// To separate paragraphs, use a blank line (or an explicit @parbreak).
 /// Paragraphs are also automatically interrupted by any block-level element
-/// (like [`block`], [`place`], or anything that shows itself as one of these).
+/// (like @block, @place, or anything that shows itself as one of these).
 ///
 /// The `par` element is primarily used in set rules to affect paragraph
 /// properties, but it can also be used to explicitly display its argument as a
 /// paragraph of its own. Then, the paragraph's body may not contain any
 /// block-level content.
 ///
-/// # Boxes and blocks
+/// = Boxes and blocks <boxes-and-blocks>
 /// As explained above, usually paragraphs only contain inline-level content.
 /// However, you can integrate any kind of block-level content into a paragraph
-/// by wrapping it in a [`box`].
+/// by wrapping it in a @box.
 ///
 /// Conversely, you can separate inline-level content from a paragraph by
-/// wrapping it in a [`block`]. In this case, it will not become part of any
+/// wrapping it in a @block. In this case, it will not become part of any
 /// paragraph at all. Read the following section for an explanation of why that
 /// matters and how it differs from just adding paragraph breaks around the
 /// content.
 ///
-/// # What becomes a paragraph?
+/// = What becomes a paragraph? <what-becomes-a-paragraph>
 /// When you add inline-level content to your document, Typst will automatically
 /// wrap it in paragraphs. However, a typical document also contains some text
 /// that is not semantically part of a paragraph, for example in a heading or
@@ -65,17 +65,18 @@ use crate::model::Numbering;
 ///   understand the document properly.
 ///
 /// - PDF export will generate a `P` tag only for paragraphs.
+///
 /// - HTML export will generate a `<p>` tag only for paragraphs.
 ///
 /// When creating custom reusable components, you can and should take charge
-/// over whether Typst creates paragraphs. By wrapping text in a [`block`]
-/// instead of just adding paragraph breaks around it, you can force the absence
-/// of a paragraph. Conversely, by adding a [`parbreak`] after some content in a
+/// over whether Typst creates paragraphs. By wrapping text in a @block instead
+/// of just adding paragraph breaks around it, you can force the absence of a
+/// paragraph. Conversely, by adding a @parbreak after some content in a
 /// container, you can force it to become a paragraph even if it's just one
-/// word. This is, for example, what [non-`tight`]($list.tight) lists do to
-/// force their items to become paragraphs.
+/// word. This is, for example, what @list.tight[non-`tight`] lists do to force
+/// their items to become paragraphs.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set par(
 ///   first-line-indent: 1em,
@@ -98,8 +99,8 @@ use crate::model::Numbering;
 pub struct ParElem {
     /// The spacing between lines.
     ///
-    /// Leading defines the spacing between the [bottom edge]($text.bottom-edge)
-    /// of one line and the [top edge]($text.top-edge) of the following line. By
+    /// Leading defines the spacing between the @text.bottom-edge[bottom edge]
+    /// of one line and the @text.top-edge[top edge] of the following line. By
     /// default, these two properties are up to the font, but they can also be
     /// configured manually with a text set rule.
     ///
@@ -215,27 +216,27 @@ pub struct ParElem {
     /// paragraph's last line and the top edge of the next paragraph's first
     /// line.
     ///
-    /// When a paragraph is adjacent to a [`block`] that is not a paragraph,
-    /// that block's [`above`]($block.above) or [`below`]($block.below) property
-    /// takes precedence over the paragraph spacing. Headings, for instance,
-    /// reduce the spacing below them by default for a better look.
+    /// When a paragraph is adjacent to a @block that is not a paragraph, that
+    /// block's @block.above[`above`] or @block.below[`below`] property takes
+    /// precedence over the paragraph spacing. Headings, for instance, reduce
+    /// the spacing below them by default for a better look.
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
     /// Whether to justify text in its line.
     ///
     /// Hyphenation will be enabled for justified paragraphs if the
-    /// [text function's `hyphenate` property]($text.hyphenate) is set to
-    /// `{auto}` and the current language is known.
+    /// @text.hyphenate[text function's `hyphenate` property] is set to `{auto}`
+    /// and the current language is known.
     ///
-    /// Note that the current [alignment]($align.alignment) still has an effect
-    /// on the placement of the last line except if it ends with a
-    /// [justified line break]($linebreak.justify).
+    /// Note that the current @align.alignment[alignment] still has an effect on
+    /// the placement of the last line except if it ends with a
+    /// @linebreak.justify[justified line break].
     ///
     /// By default, Typst only changes the spacing between words to achieve
     /// justification. However, you can also allow it to adjust the spacing
     /// between individual characters using the
-    /// [`justification-limits` property]($par.justification-limits).
+    /// @par.justification-limits[`justification-limits` property].
     #[default(false)]
     pub justify: bool,
 
@@ -254,9 +255,9 @@ pub struct ParElem {
     /// the `max` keys define up to which upper bound they may be stretched.
     ///
     /// - The `spacing` entry defines how much the width of spaces between words
-    ///   may be adjusted. It is closely related to [`text.spacing`] and its
-    ///   `min` and `max` keys accept [relative lengths]($relative), just like
-    ///   the `spacing` property.
+    ///   may be adjusted. It is closely related to @text.spacing and its `min`
+    ///   and `max` keys accept @relative[relative lengths], just like the
+    ///   `spacing` property.
     ///
     ///   A `min` value of `{100%}` means that spaces should retain their normal
     ///   size (i.e. not be shrunk), while a value of `{90% - 0.01em}` would
@@ -273,12 +274,12 @@ pub struct ParElem {
     ///   is configured accordingly) are first used to their maximum.
     ///
     /// - The `tracking` entry defines how much the spacing between letters may
-    ///   be adjusted. It is closely related to [`text.tracking`] and its `min`
-    ///   and `max` keys accept [lengths]($length), just like the `tracking`
-    ///   property. Unlike `spacing`, it does not accept relative lengths
-    ///   because the base of the relative length would vary for each character,
-    ///   leading to an uneven visual appearance. The behavior compared to
-    ///   `spacing` is as if the base was `{100%}`.
+    ///   be adjusted. It is closely related to @text.tracking and its `min` and
+    ///   `max` keys accept @length[lengths], just like the `tracking` property.
+    ///   Unlike `spacing`, it does not accept relative lengths because the base
+    ///   of the relative length would vary for each character, leading to an
+    ///   uneven visual appearance. The behavior compared to `spacing` is as if
+    ///   the base was `{100%}`.
     ///
     ///   Otherwise, the `min` and `max` values work just like for `spacing`. A
     ///   `max` value of `{0.01em}` means that additional spacing amounting to
@@ -304,45 +305,48 @@ pub struct ParElem {
     /// letters. Using character-level justification would lead to jagged
     /// connections.
     ///
-    /// ```example:"Character-level justification"
-    /// #let example(name) = columns(2, gutter: 10pt)[
-    ///   #place(top, float: true, scope: "parent", strong(name))
-    /// >>> Anne Christine Bayley (1~June 1934 – 31~December 2024) was an
-    /// >>> English surgeon. She was awarded the Order of the British Empire
-    /// >>> for her research into HIV/AIDS patients in Zambia and for
-    /// >>> documenting the spread of the disease among heterosexual patients in
-    /// >>> Africa. In addition to her clinical work, she was a lecturer and
-    /// >>> head of the surgery department at the University of Zambia School of
-    /// >>> Medicine. In the 1990s, she returned to England, where she was
-    /// >>> ordained as an Anglican priest. She continued to be active in Africa
-    /// >>> throughout her retirement years.
-    /// <<<   /* Text from https://en.wikipedia.org/wiki/Anne_Bayley */
-    /// ]
+    /// #example(
+    ///   title: "Character-level justification",
+    ///   ```
+    ///   #let example(name) = columns(2, gutter: 10pt)[
+    ///     #place(top, float: true, scope: "parent", strong(name))
+    ///   >>> Anne Christine Bayley (1~June 1934 – 31~December 2024) was an
+    ///   >>> English surgeon. She was awarded the Order of the British Empire
+    ///   >>> for her research into HIV/AIDS patients in Zambia and for
+    ///   >>> documenting the spread of the disease among heterosexual patients in
+    ///   >>> Africa. In addition to her clinical work, she was a lecturer and
+    ///   >>> head of the surgery department at the University of Zambia School of
+    ///   >>> Medicine. In the 1990s, she returned to England, where she was
+    ///   >>> ordained as an Anglican priest. She continued to be active in Africa
+    ///   >>> throughout her retirement years.
+    ///   <<<   /* Text from https://en.wikipedia.org/wiki/Anne_Bayley */
+    ///   ]
     ///
-    /// #set page(width: 440pt, height: 21em, margin: 15pt)
-    /// #set par(justify: true)
-    /// #set text(size: 0.8em)
+    ///   #set page(width: 440pt, height: 21em, margin: 15pt)
+    ///   #set par(justify: true)
+    ///   #set text(size: 0.8em)
     ///
-    /// #grid(
-    ///   columns: (1fr, 1fr),
-    ///   gutter: 20pt,
-    ///   {
-    ///     // These are Typst's default limits.
-    ///     set par(justification-limits: (
-    ///       spacing: (min: 100% * 2 / 3, max: 150%),
-    ///       tracking: (min: 0em, max: 0em),
-    ///     ))
-    ///     example[Word-level justification]
-    ///   },
-    ///   {
-    ///     // These are our custom character-level limits.
-    ///     set par(justification-limits: (
-    ///       tracking: (min: -0.01em, max: 0.02em),
-    ///     ))
-    ///     example[Character-level justification]
-    ///   },
+    ///   #grid(
+    ///     columns: (1fr, 1fr),
+    ///     gutter: 20pt,
+    ///     {
+    ///       // These are Typst's default limits.
+    ///       set par(justification-limits: (
+    ///         spacing: (min: 100% * 2 / 3, max: 150%),
+    ///         tracking: (min: 0em, max: 0em),
+    ///       ))
+    ///       example[Word-level justification]
+    ///     },
+    ///     {
+    ///       // These are our custom character-level limits.
+    ///       set par(justification-limits: (
+    ///         tracking: (min: -0.01em, max: 0.02em),
+    ///       ))
+    ///       example[Character-level justification]
+    ///     },
+    ///   )
+    ///   ```
     /// )
-    /// ```
     #[fold]
     pub justification_limits: JustificationLimits,
 
@@ -382,9 +386,9 @@ pub struct ParElem {
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider
-    /// - reducing the [paragraph `spacing`]($par.spacing) to the
-    ///   [`leading`]($par.leading) using `{set par(spacing: 0.65em)}`
-    /// - increasing the [block `spacing`]($block.spacing) (which inherits the
+    /// - reducing the @par.spacing[paragraph `spacing`] to the
+    ///   @par.leading[`leading`] using `{set par(spacing: 0.65em)}`
+    /// - increasing the @block.spacing[block `spacing`] (which inherits the
     ///   paragraph spacing by default) to the original paragraph spacing using
     ///   `{set block(spacing: 1.2em)}`
     ///
@@ -705,10 +709,10 @@ impl Fold for FirstLineIndent {
 /// A paragraph break.
 ///
 /// This starts a new paragraph. Especially useful when used within code like
-/// [for loops]($scripting/#loops). Multiple consecutive
-/// paragraph breaks collapse into a single one.
+/// @reference:scripting:loops[for loops]. Multiple consecutive paragraph breaks
+/// collapse into a single one.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
@@ -717,7 +721,7 @@ impl Fold for FirstLineIndent {
 /// }
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
 #[elem(title = "Paragraph Break", Unlabellable)]
@@ -737,8 +741,8 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// This element is exclusively used for line number configuration through set
 /// rules and cannot be placed.
 ///
-/// The [`numbering`]($par.line.numbering) option is used to enable line
-/// numbers by specifying a numbering format.
+/// The @par.line.numbering[`numbering`] option is used to enable line numbers
+/// by specifying a numbering format.
 ///
 /// ```example
 /// >>> #set page(margin: (left: 3em))
@@ -749,10 +753,10 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// Typst is there for you.
 /// ```
 ///
-/// The `numbering` option takes either a predefined
-/// [numbering pattern]($numbering) or a function returning styled content. You
-/// can disable line numbers for text inside certain elements by setting the
-/// numbering to `{none}` using show-set rules.
+/// The `numbering` option takes either a predefined @numbering[numbering
+///   pattern] or a function returning styled content. You can disable line
+/// numbers for text inside certain elements by setting the numbering to
+/// `{none}` using show-set rules.
 ///
 /// ```example
 /// >>> #set page(margin: (left: 3em))
@@ -781,14 +785,14 @@ impl Unlabellable for Packed<ParbreakElem> {}
 /// ```
 ///
 /// This element exposes further options which may be used to control other
-/// aspects of line numbering, such as its [alignment]($par.line.number-align)
-/// or [margin]($par.line.number-margin). In addition, you can control whether
-/// the numbering is reset on each page through the
-/// [`numbering-scope`]($par.line.numbering-scope) option.
+/// aspects of line numbering, such as its @par.line.number-align[alignment] or
+/// @par.line.number-margin[margin]. In addition, you can control whether the
+/// numbering is reset on each page through the
+/// @par.line.numbering-scope[`numbering-scope`] option.
 #[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
-    /// How to number each line. Accepts a
-    /// [numbering pattern or function]($numbering) taking a single number.
+    /// How to number each line. Accepts a @numbering[numbering pattern or
+    ///   function] taking a single number.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
@@ -921,8 +925,8 @@ pub enum LineNumberingScope {
 
 /// A marker used to indicate the presence of a line.
 ///
-/// This element is added to each line in a paragraph and later searched to
-/// find out where to add line numbers.
+/// This element is added to each line in a paragraph and later searched to find
+/// out where to add line numbers.
 #[elem(Construct, Unqueriable, Locatable, Count)]
 pub struct ParLineMarker {
     #[internal]

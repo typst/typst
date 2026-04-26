@@ -82,8 +82,8 @@ impl Target {
     }
 }
 
-/// This element exists solely to host the `target` style chain field.
-/// It is never constructed and not visible to users.
+/// This element exists solely to host the `target` style chain field. It is
+/// never constructed and not visible to users.
 #[elem]
 pub struct TargetElem {
     /// The compilation target.
@@ -98,22 +98,22 @@ pub struct TargetElem {
 ///
 /// The design of this function is not yet finalized and for this reason it is
 /// guarded behind the `html` and `bundle` features (enabling either one makes
-/// the function available). Visit the [HTML documentation page]($html) for more
+/// the function available). Visit the @html[HTML documentation page] for more
 /// details.
 ///
-/// # When to use it
+/// = When to use it <when-to-use-it>
 /// This function allows you to format your document properly across both HTML
 /// and paged export targets. It should primarily be used in templates and show
 /// rules, rather than directly in content. This way, the document's contents
 /// can be fully agnostic to the export target and content can be shared between
 /// PDF and HTML export.
 ///
-/// # Varying targets
-/// This function is [contextual]($context) as the target can vary within a
-/// single compilation: When exporting to HTML, the target will be `{"paged"}`
-/// while within an [`html.frame`].
+/// = Varying targets <varying-targets>
+/// This function is @reference:context[contextual] as the target can vary
+/// within a single compilation: When exporting to HTML, the target will be
+/// `{"paged"}` while within an @html.frame.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let kbd(it) = context {
 ///   if target() == "html" {

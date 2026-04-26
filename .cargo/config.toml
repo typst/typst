@@ -1,2 +1,14 @@
 [alias]
+# Runs the main integration test suite.
+#
+# The test wrapper is used to support rerunning the test runner itself on a
+# different commit if test artifacts need to be regenerated to create the test
+# report.
 testit = "run --quiet --package=test-wrapper --"
+
+# Runs the documentation generator.
+#
+# We use the `dev-fast` profile as a reasonable trade-off between Rust and Typst
+# compilation speed. Just `dev` makes the Typst compilation very slow, while
+# `release` makes the Rust compilation very slow.
+docit = "run --profile dev-fast --package=typst-docs --"

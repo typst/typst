@@ -14,12 +14,11 @@ use crate::introspection::Introspector;
 ///
 /// The `query` function lets you search your document for elements of a
 /// particular type or with a particular label. To use it, you first need to
-/// ensure that [context] is available.
+/// ensure that @reference:context[context] is available.
 ///
-
-/// # Finding elements
+/// = Finding elements <finding-elements>
 /// In the example below, we manually create a table of contents instead of
-/// using the [`outline`] function.
+/// using the @outline function.
 ///
 /// To do this, we first query for all headings in the document at level 1 and
 /// where `outlined` is true. Querying only for headings at level 1 ensures
@@ -66,12 +65,11 @@ use crate::introspection::Introspector;
 /// ```
 ///
 /// To get the page numbers, we first get the location of the elements returned
-/// by `query` with [`location`]($content.location). We then also retrieve the
-/// [page numbering]($location.page-numbering) and [page
-/// counter]($counter/#page-counter) at that location and apply the numbering to
-/// the counter.
+/// by `query` with @content.location[`location`]. We then also retrieve the
+/// @location.page-numbering[page numbering] and @counter:page-counter[page
+///   counter] at that location and apply the numbering to the counter.
 ///
-/// # A word of caution { #caution }
+/// = A word of caution <caution>
 /// To resolve all your queries, Typst evaluates and layouts parts of the
 /// document multiple times. However, there is no guarantee that your queries
 /// can actually be completely resolved. If you aren't careful a query can
@@ -87,18 +85,21 @@ use crate::introspection::Introspector;
 ///
 /// In general, you should try not to write queries that affect themselves. The
 /// same words of caution also apply to other introspection features like
-/// [counters]($counter) and [state].
+/// @counter[counters] and @state[state].
 ///
-/// ```example
-/// = Real
-/// #context {
-///   let elems = query(heading)
-///   let count = elems.len()
-///   count * [= Fake]
-/// }
-/// ```
+/// #example(
+///   ```
+///   = Real
+///   #context {
+///     let elems = query(heading)
+///     let count = elems.len()
+///     count * [= Fake]
+///   }
+///   ```,
+///   warnings: false,
+/// )
 ///
-/// # Command line queries
+/// = Command line queries <command-line-queries>
 /// You can also perform queries from the command line, using the `typst eval`
 /// command. This command evaluates Typst code, potentially in the context of a
 /// document, and outputs the resulting value in serialized form. It takes the
@@ -106,13 +107,14 @@ use crate::introspection::Introspector;
 /// document via `--in`.
 ///
 /// Consider the following `example.typ` file which contains some invisible
-/// [metadata]:
+/// @metadata[metadata]:
 ///
 /// ```typ
 /// #metadata("This is a note") <note>
 /// ```
 ///
 /// You can execute a query on it as follows using Typst's CLI.
+///
 /// ```sh
 /// $ typst eval 'query(<note>)' --in example.typ
 /// [
@@ -127,12 +129,11 @@ use crate::introspection::Introspector;
 /// This command tells Typst to compile `example.typ` and then run the code
 /// `{query(<note>)}` with access to the resulting document.
 ///
-/// **Note:** The code is surrounded with quotes to avoid special characters
-/// being interpreted by the shell. How to quote strings depends on your
+/// *Note:* The code is surrounded with quotes to avoid special characters being
+/// interpreted by the shell. How to quote strings depends on your
 /// platform/shell.
 ///
-/// ## Retrieving a specific field
-///
+/// == Retrieving a specific field <retrieving-a-specific-field>
 /// Frequently, you're interested in only one specific field of the resulting
 /// elements. In the case of the `metadata` element, the `value` field is the
 /// interesting one. You can extract just this field by adjusting the code.
@@ -143,18 +144,17 @@ use crate::introspection::Introspector;
 /// ```
 ///
 /// If you are interested in just a single element, you can also use the
-/// [`first()`]($array.first) method to extract just it.
+/// @array.first[`first()`] method to extract just it.
 ///
 /// ```sh
 /// $ typst eval 'query(<note>).first().value' --in example.typ
 /// "This is a note"
 /// ```
 ///
-/// ## Querying for a specific export target
-///
+/// == Querying for a specific export target <querying-for-a-specific-export-target>
 /// In case you need to query a document when exporting for a specific target,
 /// you can use the `--target` argument. Valid values are `paged`, and `html`
-/// (if the [`html`] feature is enabled).
+/// (if the @html feature is enabled).
 #[func(contextual)]
 pub fn query(
     engine: &mut Engine,
@@ -166,7 +166,7 @@ pub fn query(
     /// - a more complex selector like `{heading.where(level: 1)}`,
     /// - or `{selector(heading).before(here())}`.
     ///
-    /// Only [locatable]($location/#locatable) element functions are supported.
+    /// Only @location:locatable[locatable] element functions are supported.
     target: LocatableSelector,
 ) -> HintedStrResult<Array> {
     context.introspect()?;

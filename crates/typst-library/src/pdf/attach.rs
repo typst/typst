@@ -15,7 +15,7 @@ use crate::introspection::Locatable;
 /// data (e.g., ZUGFeRD/Factur-X for invoices) that mirrors the visual content
 /// of the PDF.
 ///
-/// # Example
+/// = Example <example>
 /// ```typ
 /// #pdf.attach(
 ///   "experiment.csv",
@@ -25,7 +25,7 @@ use crate::introspection::Locatable;
 /// )
 /// ```
 ///
-/// # Notes
+/// = Notes <notes>
 /// - This element is ignored if exporting to a format other than PDF.
 /// - File attachments are not currently supported for PDF/A-2, even if the
 ///   attached file conforms to PDF/A-1 or PDF/A-2.

@@ -23,7 +23,7 @@ use crate::layout::{Abs, Em};
 ///
 /// You can multiply lengths with and divide them by integers and floats.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #rect(width: 20pt)
 /// #rect(width: 2em)
@@ -35,10 +35,10 @@ use crate::layout::{Abs, Em};
 /// #(5em).abs
 /// ```
 ///
-/// # Fields
+/// = Fields <fields>
 /// - `abs`: A length with just the absolute component of the current length
 ///   (that is, excluding the `em` component).
-/// - `em`: The amount of `em` units in this length, as a [float].
+/// - `em`: The amount of `em` units in this length, as a @float[float].
 #[ty(scope, cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Length {
@@ -110,7 +110,7 @@ impl Length {
     /// Converts this length to millimeters.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
+    /// @length.pt[`pt`] method for more details.
     #[func(name = "mm", title = "Millimeters")]
     pub fn to_mm(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "mm")?;
@@ -120,7 +120,7 @@ impl Length {
     /// Converts this length to centimeters.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
+    /// @length.pt[`pt`] method for more details.
     #[func(name = "cm", title = "Centimeters")]
     pub fn to_cm(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "cm")?;
@@ -130,7 +130,7 @@ impl Length {
     /// Converts this length to inches.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
+    /// @length.pt[`pt`] method for more details.
     #[func(name = "inches")]
     pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "inches")?;

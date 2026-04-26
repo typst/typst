@@ -27,11 +27,10 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// A table of contents, figures, or other elements.
 ///
 /// This function generates a list of all occurrences of an element in the
-/// document, up to a given [`depth`]($outline.depth). The element's numbering
-/// and page number will be displayed in the outline alongside its title or
-/// caption.
+/// document, up to a given @outline.depth[`depth`]. The element's numbering and
+/// page number will be displayed in the outline alongside its title or caption.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set heading(numbering: "1.")
 /// #outline()
@@ -44,7 +43,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// # Alternative outlines
+/// = Alternative outlines <alternative-outlines>
 /// In its default configuration, this function generates a table of contents.
 /// By setting the `target` parameter, the outline can be used to generate a
 /// list of other kinds of elements than headings.
@@ -53,9 +52,9 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// `target` to `{figure.where(kind: image)}`. Just the same, we could have set
 /// it to `{figure.where(kind: table)}` to generate a list of tables.
 ///
-/// We could also set it to just `figure`, without using a [`where`]($function.where)
-/// selector, but then the list would contain _all_ figures, be it ones
-/// containing images, tables, or other material.
+/// We could also set it to just `figure`, without using a
+/// @function.where[`where`] selector, but then the list would contain _all_
+/// figures, be it ones containing images, tables, or other material.
 ///
 /// ```example
 /// #outline(
@@ -69,19 +68,19 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// )
 /// ```
 ///
-/// # Styling the outline
+/// = Styling the outline <styling-the-outline>
 /// At the most basic level, you can style the outline by setting properties on
 /// it and its entries. This way, you can customize the outline's
-/// [title]($outline.title), how outline entries are
-/// [indented]($outline.indent), and how the space between an entry's text and
-/// its page number should be [filled]($outline.entry.fill).
+/// @outline.title[title], how outline entries are @outline.indent[indented],
+/// and how the space between an entry's text and its page number should be
+/// @outline.entry.fill[filled].
 ///
 /// Richer customization is possible through configuration of the outline's
-/// [entries]($outline.entry). The outline generates one entry for each outlined
+/// @outline.entry[entries]. The outline generates one entry for each outlined
 /// element.
 ///
-/// ## Spacing the entries { #entry-spacing }
-/// Outline entries are [blocks]($block), so you can adjust the spacing between
+/// == Spacing the entries <entry-spacing>
+/// Outline entries are @block[blocks], so you can adjust the spacing between
 /// them with normal block-spacing rules:
 ///
 /// ```example
@@ -98,7 +97,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// == ACME Tools
 /// ```
 ///
-/// ## Building an outline entry from its parts { #building-an-entry }
+/// == Building an outline entry from its parts <building-an-entry>
 /// For full control, you can also write a transformational show rule on
 /// `outline.entry`. However, the logic for properly formatting and indenting
 /// outline entries is quite complex and the outline entry itself only contains
@@ -107,7 +106,10 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// For this reason, various helper functions are provided. You can mix and
 /// match these to compose an entry from just the parts you like.
 ///
-/// The default show rule for an outline entry looks like this[^1]:
+/// The default show rule for an outline entry looks like this
+/// #footnote[The outline of equations is the exception to this rule as it does
+/// not have a body and thus does not use indented layout.]:
+///
 /// ```typ
 /// #show outline.entry: it => link(
 ///   it.element.location(),
@@ -115,17 +117,16 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// )
 /// ```
 ///
-/// - The [`indented`]($outline.entry.indented) function takes an optional
-///   prefix and inner content and automatically applies the proper indentation
-///   to it, such that different entries align nicely and long headings wrap
-///   properly.
+/// - The @outline.entry.indented[`indented`] function takes an optional prefix
+///   and inner content and automatically applies the proper indentation to it,
+///   such that different entries align nicely and long headings wrap properly.
 ///
-/// - The [`prefix`]($outline.entry.prefix) function formats the element's
+/// - The @outline.entry.prefix[`prefix`] function formats the element's
 ///   numbering (if any). It also appends a supplement for certain elements.
 ///
-/// - The [`inner`]($outline.entry.inner) function combines the element's
-///   [`body`]($outline.entry.body), the filler, and the
-///   [`page` number]($outline.entry.page).
+/// - The @outline.entry.inner[`inner`] function combines the element's
+///   @outline.entry.body[`body`], the filler, and the
+///   @outline.entry.page[`page` number].
 ///
 /// You can use these individual functions to format the outline entry in
 /// different ways. Let's say, you'd like to fully remove the filler and page
@@ -144,29 +145,26 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// = About ACME Corp.
 /// == History
 /// ```
-///
-/// [^1]: The outline of equations is the exception to this rule as it does not
-///       have a body and thus does not use indented layout.
 #[elem(scope, keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable, Tagged)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
-    /// - When set to `{auto}`, an appropriate title for the
-    ///   [text language]($text.lang) will be used.
+    /// - When set to `{auto}`, an appropriate title for the @text.lang[text
+    ///     language] will be used.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     ///
-    /// The outline's heading will not be numbered by default, but you can
-    /// force it to be with a show-set rule:
+    /// The outline's heading will not be numbered by default, but you can force
+    /// it to be with a show-set rule:
     /// `{show outline: set heading(numbering: "1.")}`
     pub title: Smart<Option<Content>>,
 
     /// The type of element to include in the outline.
     ///
     /// To list figures containing a specific kind of element, like an image or
-    /// a table, you can specify the desired kind in a [`where`]($function.where)
-    /// selector. See the section on [alternative outlines]($outline/#alternative-outlines)
-    /// for more details.
+    /// a table, you can specify the desired kind in a @function.where[`where`]
+    /// selector. See the section on @outline:alternative-outlines[alternative
+    ///   outlines] for more details.
     ///
     /// ```example
     /// #outline(
@@ -208,16 +206,16 @@ pub struct OutlineElem {
     ///
     /// - `{auto}`: Indents the numbering/prefix of a nested entry with the
     ///   title of its parent entry. If the entries are not numbered (e.g., via
-    ///   [heading numbering]($heading.numbering)), this instead simply inserts
-    ///   a fixed amount of `{1.2em}` indent per level.
+    ///   @heading.numbering[heading numbering]), this instead simply inserts a
+    ///   fixed amount of `{1.2em}` indent per level.
     ///
-    /// - [Relative length]($relative): Indents the entry by the specified
-    ///   length per nesting level. Specifying `{2em}`, for instance, would
-    ///   indent top-level headings by `{0em}` (not nested), second level
-    ///   headings by `{2em}` (nested once), third-level headings by `{4em}`
-    ///   (nested twice) and so on.
+    /// - @relative[Relative length]: Indents the entry by the specified length
+    ///   per nesting level. Specifying `{2em}`, for instance, would indent
+    ///   top-level headings by `{0em}` (not nested), second level headings by
+    ///   `{2em}` (nested once), third-level headings by `{4em}` (nested twice)
+    ///   and so on.
     ///
-    /// - [Function]($function): You can further customize this setting with a
+    /// - @function[Function]: You can further customize this setting with a
     ///   function. That function receives the nesting level as a parameter
     ///   (starting at 0 for top-level headings/elements) and should return a
     ///   (relative) length. For example, `{n => n * 2em}` would be equivalent
@@ -468,8 +466,8 @@ pub trait Outlinable: Refable {
 /// Represents an entry line in an outline.
 ///
 /// With show-set and show rules on outline entries, you can richly customize
-/// the outline's appearance. See the
-/// [section on styling the outline]($outline/#styling-the-outline) for details.
+/// the outline's appearance. See the @outline:styling-the-outline[section on
+///   styling the outline] for details.
 #[elem(scope, name = "entry", title = "Outline Entry", Locatable, Tagged)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
@@ -477,9 +475,9 @@ pub struct OutlineEntry {
     #[required]
     pub level: NonZeroUsize,
 
-    /// The element this entry refers to. Its location will be available
-    /// through the [`location`]($content.location) method on the content
-    /// and can be [linked]($link) to.
+    /// The element this entry refers to. Its location will be available through
+    /// the @content.location[`location`] method on the content and can be
+    /// @link[linked] to.
     #[required]
     pub element: Content,
 
@@ -489,11 +487,10 @@ pub struct OutlineEntry {
     /// The `fill` will be placed into a fractionally sized box that spans the
     /// space between the entry's body and the page number. When using show
     /// rules to override outline entries, it is thus recommended to wrap the
-    /// fill in a [`box`] with fractional width, i.e.
-    /// `{box(width: 1fr, it.fill)}`.
+    /// fill in a @box with fractional width, i.e. `{box(width: 1fr, it.fill)}`.
     ///
-    /// When using [`repeat`], the [`gap`]($repeat.gap) property can be useful
-    /// to tweak the visual weight of the fill.
+    /// When using @repeat, the @repeat.gap[`gap`] property can be useful to
+    /// tweak the visual weight of the fill.
     ///
     /// ```example
     /// #set outline.entry(fill: line(length: 100%))
@@ -520,16 +517,16 @@ impl OutlineEntry {
     /// A helper function for producing an indented entry layout: Lays out a
     /// prefix and the rest of the entry in an indent-aware way.
     ///
-    /// If the parent outline's [`indent`]($outline.indent) is `{auto}`, the
-    /// inner content of all entries at level `N` is aligned with the prefix of
-    /// all entries at level `N + 1`, leaving at least `gap` space between the
+    /// If the parent outline's @outline.indent[`indent`] is `{auto}`, the inner
+    /// content of all entries at level `N` is aligned with the prefix of all
+    /// entries at level `N + 1`, leaving at least `gap` space between the
     /// prefix and inner parts. Furthermore, the `inner` contents of all entries
     /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
     /// indented, but the inner contents are simply offset from the prefix by
     /// the specified `gap`, rather than aligning outline-wide. For a visual
-    /// explanation, see [`outline.indent`].
+    /// explanation, see @outline.indent.
     #[func(contextual)]
     pub fn indented(
         &self,
@@ -660,9 +657,8 @@ impl OutlineEntry {
     }
 
     /// The content which is displayed in place of the referred element at its
-    /// entry in the outline. For a heading, this is its
-    /// [`body`]($heading.body); for a figure a caption and for equations, it is
-    /// empty.
+    /// entry in the outline. For a heading, this is its @heading.body[`body`];
+    /// for a figure a caption and for equations, it is empty.
     #[func]
     pub fn body(&self) -> StrResult<Content> {
         Ok(self.outlinable()?.body())

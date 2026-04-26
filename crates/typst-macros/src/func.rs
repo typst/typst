@@ -5,9 +5,9 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Ident, Result, parse_quote};
 
 use crate::util::{
-    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
-    parse_flag, parse_key_value, parse_string, parse_string_array, quote_option,
-    validate_attrs,
+    determine_name_and_title, documentation, foundations, has_attr, kw, oneliner,
+    parse_attr, parse_flag, parse_key_value, parse_string, parse_string_array,
+    quote_option, validate_attrs,
 };
 
 /// Expand the `#[func]` macro.
@@ -248,6 +248,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     let item = rewrite_fn_item(item);
     let ty = create_func_ty(func);
     let data = create_func_data(func);
+    let oneliner = oneliner(docs);
 
     let creator = if ty.is_some() {
         quote! {
@@ -271,7 +272,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     };
 
     quote! {
-        #[doc = #docs]
+        #[doc = #oneliner]
         #[allow(dead_code)]
         #[allow(rustdoc::broken_intra_doc_links)]
         #item
@@ -298,6 +299,14 @@ fn create_func_data(func: &Func) -> TokenStream {
         ..
     } = func;
 
+    let def_site_key = if let Some(syn::Type::Path(path)) = parent
+        && let Some(parent) = path.path.get_ident()
+    {
+        format!("{parent}::{ident}")
+    } else {
+        ident.to_string()
+    };
+
     let scope = if *scope {
         quote! { <#ident as #foundations::NativeScope>::scope() }
     } else {
@@ -305,7 +314,12 @@ fn create_func_data(func: &Func) -> TokenStream {
     };
 
     let closure = create_wrapper_closure(func);
-    let params = func.special.self_.iter().chain(&func.params).map(create_param_info);
+    let params = func
+        .special
+        .self_
+        .iter()
+        .chain(&func.params)
+        .map(|param| create_param_info(param, &def_site_key));
 
     let name = if *constructor {
         quote! { <#parent as #foundations::NativeType>::NAME }
@@ -319,6 +333,7 @@ fn create_func_data(func: &Func) -> TokenStream {
             name: #name,
             title: #title,
             docs: #docs,
+            def_site: Some(::typst_utils::DefSite { path: file!(), key: #def_site_key }),
             keywords: &[#(#keywords),*],
             contextual: #contextual,
             scope: ::std::sync::LazyLock::new(&|| #scope),
@@ -394,8 +409,11 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
 }
 
 /// Create a parameter info for a field.
-fn create_param_info(param: &Param) -> TokenStream {
-    let Param { name, docs, named, variadic, ty, default, .. } = param;
+fn create_param_info(param: &Param, parent_def_site_key: &str) -> TokenStream {
+    let Param {
+        ident, name, docs, named, variadic, ty, default, ..
+    } = param;
+    let def_site_key = format!("{parent_def_site_key}::{ident}");
     let positional = !named;
     let required = !named && default.is_none();
     let ty = if *variadic || (*named && default.is_none()) {
@@ -415,6 +433,7 @@ fn create_param_info(param: &Param) -> TokenStream {
         #foundations::NativeParamInfo {
             name: #name,
             docs: #docs,
+            def_site: Some(::typst_utils::DefSite { path: file!(), key: #def_site_key }),
             input: <#ty as #foundations::Reflect>::input(),
             default: #default,
             positional: #positional,

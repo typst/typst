@@ -10,16 +10,16 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// The file must contain a valid YAML object or array. The YAML values will be
 /// converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// @yaml:conversion[table below].
 ///
 /// The function returns a dictionary, an array or, depending on the YAML file,
 /// another YAML data type.
 ///
-/// The YAML files in the example contain objects with authors as keys,
-/// each with a sequence of their own submapping with the keys
-/// "title" and "published".
+/// The YAML files in the example contain objects with authors as keys, each
+/// with a sequence of their own submapping with the keys "title" and
+/// "published".
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let bookshelf(contents) = {
 ///   for (author, works) in contents {
@@ -35,38 +35,62 @@ use crate::loading::{DataSource, Load, Readable};
 /// )
 /// ```
 ///
-/// # Conversion details { #conversion }
+/// = Conversion details <conversion>
+/// #docs-table(
+///   table.header[YAML value][Converted into Typst],
 ///
-/// | YAML value                             | Converted into Typst |
-/// | -------------------------------------- | -------------------- |
-/// | null-values (`null`, `~` or empty ` `) | `{none}`             |
-/// | boolean                                | [`bool`]             |
-/// | number                                 | [`float`] or [`int`] |
-/// | string                                 | [`str`]              |
-/// | sequence                               | [`array`]            |
-/// | mapping                                | [`dictionary`]       |
+///   [null-values (`null`, `~` or empty ` `)],
+///   [`{none}`],
 ///
-/// | Typst value                           | Converted into YAML              |
-/// | ------------------------------------- | -------------------------------- |
-/// | types that can be converted from YAML | corresponding YAML value         |
-/// | [`bytes`]                             | string via [`repr`]              |
-/// | [`symbol`]                            | string                           |
-/// | [`content`]                           | a mapping describing the content |
-/// | other types ([`length`], etc.)        | string via [`repr`]              |
+///   [boolean],
+///   [@bool],
 ///
-/// ## Notes
+///   [number],
+///   [@float or @int],
+///
+///   [string],
+///   [@str],
+///
+///   [sequence],
+///   [@array],
+///
+///   [mapping],
+///   [@dictionary],
+/// )
+///
+/// #docs-table(
+///   table.header[Typst value][Converted into YAML],
+///
+///   [types that can be converted from YAML],
+///   [corresponding YAML value],
+///
+///   [@bytes],
+///   [string via @repr],
+///
+///   [@symbol],
+///   [string],
+///
+///   [@content],
+///   [a mapping describing the content],
+///
+///   [other types (@length, etc.)],
+///   [string via @repr],
+/// )
+///
+/// == Notes <notes>
 /// - In most cases, YAML numbers will be converted to floats or integers
 ///   depending on whether they are whole numbers. However, be aware that
-///   integers larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will
-///   be converted to floating-point numbers, which may result in an
-///   approximative value.
+///   integers larger than 2#super[63]-1 or smaller than -2#super[63] will be
+///   converted to floating-point numbers, which may result in an approximative
+///   value.
 ///
-/// - Custom YAML tags are ignored, though the loaded value will still be present.
+/// - Custom YAML tags are ignored, though the loaded value will still be
+///   present.
 ///
 /// - Bytes are not encoded as YAML sequences for performance and readability
-///   reasons. Consider using [`cbor.encode`] for binary data.
+///   reasons. Consider using @cbor.encode for binary data.
 ///
-/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+/// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "YAML")]
 pub fn yaml(

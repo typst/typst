@@ -9,7 +9,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
 use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
-use typst_utils::{LazyHash, Static, singleton};
+use typst_utils::{DefSite, LazyHash, Static, singleton};
 
 use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -22,16 +22,16 @@ use crate::foundations::{
 ///
 /// You can call a function by writing a comma-separated list of function
 /// _arguments_ enclosed in parentheses directly after the function name.
-/// Additionally, you can pass any number of trailing content block arguments
-/// to a function _after_ the normal argument list. If the normal argument list
+/// Additionally, you can pass any number of trailing content block arguments to
+/// a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
 /// arguments. The former are identified by position and type, while the latter
 /// are written as `name: value`.
 ///
-/// Within math mode, function calls have special behaviour. See the
-/// [math documentation]($category/math) for more details.
+/// Within math mode, function calls have special behaviour. See the @math[math
+///   documentation] for more details.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Call a function.
 /// #list([A], [B])
@@ -48,43 +48,43 @@ use crate::foundations::{
 /// functions for a variety of typesetting tasks. Moreover, the markup you write
 /// is backed by functions and all styling happens through functions. This
 /// reference lists all available functions and how you can use them. Please
-/// also refer to the documentation about [set]($styling/#set-rules) and
-/// [show]($styling/#show-rules) rules to learn about additional ways you can
-/// work with functions in Typst.
+/// also refer to the documentation about @reference:styling:set-rules[set] and
+/// @reference:styling:show-rules[show] rules to learn about additional ways you
+/// can work with functions in Typst.
 ///
-/// # Element functions
-/// Some functions are associated with _elements_ like [headings]($heading) or
-/// [tables]($table). When called, these create an element of their respective
-/// kind. In contrast to normal functions, they can further be used in [set
-/// rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
-/// [selectors]($selector).
+/// = Element functions <element-functions>
+/// Some functions are associated with _elements_ like @heading[headings] or
+/// @table[tables]. When called, these create an element of their respective
+/// kind. In contrast to normal functions, they can further be used in
+/// @reference:styling:set-rules[set rules], @reference:styling:show-rules[show
+///   rules], and @selector[selectors].
 ///
-/// # Function scopes
+/// = Function scopes <function-scopes>
 /// Functions can hold related definitions in their own scope, similar to a
-/// [module]($scripting/#modules). Examples of this are [`assert.eq`] or
-/// [`list.item`]. However, this feature is currently only available for
-/// built-in functions.
+/// @reference:scripting:modules[module]. Examples of this are @assert.eq or
+/// @list.item. However, this feature is currently only available for built-in
+/// functions.
 ///
-/// # Defining functions
-/// You can define your own function with a [let binding]($scripting/#bindings)
-/// that has a parameter list after the binding's name. The parameter list can
-/// contain mandatory positional parameters, named parameters with default
-/// values and [argument sinks]($arguments).
+/// = Defining functions <defining-functions>
+/// You can define your own function with a @reference:scripting:bindings[let
+///   binding] that has a parameter list after the binding's name. The parameter
+/// list can contain mandatory positional parameters, named parameters with
+/// default values and @arguments[argument sinks].
 ///
 /// The right-hand side of a function binding is the function body, which can be
 /// a block or any other expression. It defines the function's return value and
-/// can depend on the parameters. If the function body is a [code
-/// block]($scripting/#blocks), the return value is the result of joining the
-/// values of each expression in the block.
+/// can depend on the parameters. If the function body is a
+/// @reference:scripting:blocks[code block], the return value is the result of
+/// joining the values of each expression in the block.
 ///
 /// Within a function body, the `return` keyword can be used to exit early and
 /// optionally specify a return value. If no explicit return value is given, the
 /// body evaluates to the result of joining all expressions preceding the
 /// `return`.
 ///
-/// Functions that don't return any meaningful value return [`none`] instead.
-/// The return type of such functions is not explicitly specified in the
-/// documentation. (An example of this is [`array.push`]).
+/// Functions that don't return any meaningful value return @none instead. The
+/// return type of such functions is not explicitly specified in the
+/// documentation. (An example of this is @array.push).
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
@@ -107,32 +107,33 @@ use crate::foundations::{
 /// ]
 /// ```
 ///
-/// # Importing functions
-/// Functions can be imported from one file ([`module`]($scripting/#modules)) into
-/// another using `{import}`. For example, assume that we have defined the `alert`
-/// function from the previous example in a file called `foo.typ`. We can import
-/// it into another file by writing `{import "foo.typ": alert}`.
+/// = Importing functions <importing-functions>
+/// Functions can be imported from one file
+/// (@reference:scripting:modules[`module`]) into another using `{import}`. For
+/// example, assume that we have defined the `alert` function from the previous
+/// example in a file called `foo.typ`. We can import it into another file by
+/// writing `{import "foo.typ": alert}`.
 ///
-/// # Unnamed functions { #unnamed }
+/// = Unnamed functions <unnamed>
 /// You can also create an unnamed function without creating a binding by
 /// specifying a parameter list followed by `=>` and the function body. If your
 /// function has just one parameter, the parentheses around the parameter list
 /// are optional. Unnamed functions are mainly useful for show rules, but also
 /// for settable properties that take functions like the page function's
-/// [`footer`]($page.footer) property.
+/// @page.footer[`footer`] property.
 ///
 /// ```example
 /// #show "once?": it => [#it #it]
 /// once?
 /// ```
 ///
-/// # Note on function purity
-/// In Typst, all functions are _pure._ This means that for the same
-/// arguments, they always return the same result. They cannot "remember" things to
-/// produce another value when they are called a second time.
+/// = Note on function purity <note-on-function-purity>
+/// In Typst, all functions are _pure._ This means that for the same arguments,
+/// they always return the same result. They cannot "remember" things to produce
+/// another value when they are called a second time.
 ///
 /// The only exception are built-in methods like
-/// [`array.push(value)`]($array.push). These can modify the values they are
+/// @array.push[`array.push(value)`]. These can modify the values they are
 /// called on.
 #[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
@@ -250,6 +251,17 @@ impl Func {
             FuncInner::Closure(_) => &[],
             FuncInner::Plugin(_) => &[],
             FuncInner::With(with) => with.0.keywords(),
+        }
+    }
+
+    /// Where the function is defined in the Rust source code (only `Some(_)` if
+    /// it is native, and even then it can be `None` if the function is
+    /// generated, like the typed HTML API).
+    pub fn def_site(&self) -> Option<DefSite> {
+        match &self.inner {
+            FuncInner::Native(native) => native.def_site,
+            FuncInner::Element(elem) => Some(elem.def_site()),
+            _ => None,
         }
     }
 
@@ -616,6 +628,8 @@ pub struct NativeFuncData {
     pub title: &'static str,
     /// The documentation for this function as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// A list of alternate search terms for this function.
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
@@ -662,6 +676,8 @@ pub struct NativeParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
+    /// Where the parameter is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// Describe what values this parameter accepts.
     pub input: CastInfo,
     /// Creates an instance of the parameter's default value.

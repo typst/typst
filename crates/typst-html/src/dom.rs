@@ -5,7 +5,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+    Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
@@ -382,6 +382,13 @@ impl HtmlAttrs {
     /// Finds an attribute value.
     pub fn get(&self, attr: HtmlAttr) -> Option<&EcoString> {
         self.0.iter().find(|&&(k, _)| k == attr).map(|(_, v)| v)
+    }
+}
+
+impl Fold for HtmlAttrs {
+    fn fold(mut self, outer: Self) -> Self {
+        self.0.extend(outer.0);
+        self
     }
 }
 

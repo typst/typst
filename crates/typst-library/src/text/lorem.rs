@@ -12,7 +12,7 @@ use crate::foundations::{Str, func};
 /// the same but randomly chosen. As usual for blind texts, it does not make any
 /// sense. Use it as a placeholder to try layouts.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// = Blind Text
 /// #lorem(30)

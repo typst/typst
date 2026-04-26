@@ -28,8 +28,9 @@ use crate::visualize::ImageElem;
 /// example, figures containing images will be numbered separately from figures
 /// containing tables.
 ///
-/// # Examples
+/// = Examples <examples>
 /// The example below shows a basic figure with an image:
+///
 /// ```example
 /// @glacier shows a glacier. Glaciers
 /// are complex systems.
@@ -40,8 +41,8 @@ use crate::visualize::ImageElem;
 /// ) <glacier>
 /// ```
 ///
-/// You can also insert [tables]($table) into figures to give them a caption.
-/// The figure will detect this and automatically use a separate counter.
+/// You can also insert @table[tables] into figures to give them a caption. The
+/// figure will detect this and automatically use a separate counter.
 ///
 /// ```example
 /// #figure(
@@ -57,25 +58,26 @@ use crate::visualize::ImageElem;
 /// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
-/// # Figure behaviour
+/// = Figure behaviour <figure-behaviour>
 /// By default, figures are placed within the flow of content. To make them
 /// float to the top or bottom of the page, you can use the
-/// [`placement`]($figure.placement) argument.
+/// @figure.placement[`placement`] argument.
 ///
 /// If your figure is too large and its contents are breakable across pages
 /// (e.g. if it contains a large table), then you can make the figure itself
 /// breakable across pages as well with this show rule:
+///
 /// ```typ
 /// #show figure: set block(breakable: true)
 /// ```
 ///
-/// See the [block]($block.breakable) documentation for more information about
+/// See the @block.breakable[block] documentation for more information about
 /// breakable and non-breakable blocks.
 ///
-/// # Caption customization
+/// = Caption customization <caption-customization>
 /// You can modify the appearance of the figure's caption with its associated
-/// [`caption`]($figure.caption) function. In the example below, we emphasize
-/// all captions:
+/// @figure.caption[`caption`] function. In the example below, we emphasize all
+/// captions:
 ///
 /// ```example
 /// #show figure.caption: emph
@@ -86,7 +88,7 @@ use crate::visualize::ImageElem;
 /// )
 /// ```
 ///
-/// By using a [`where`]($function.where) selector, we can scope such rules to
+/// By using a @function.where[`where`] selector, we can scope such rules to
 /// specific kinds of figures. For example, to position the caption above
 /// tables, but keep it below for all other kinds of figures, we could write the
 /// following show-set rule:
@@ -102,24 +104,24 @@ use crate::visualize::ImageElem;
 /// )
 /// ```
 ///
-/// # Accessibility
-/// You can use the [`alt`]($figure.alt) parameter to provide an [alternative
-/// description]($guides/accessibility/#textual-representations) of the figure
-/// for screen readers and other Assistive Technology (AT). Refer to [its
-/// documentation]($figure.alt) to learn more.
+/// = Accessibility <accessibility>
+/// You can use the @figure.alt[`alt`] parameter to provide an
+/// @guides:accessibility:textual-representations[alternative description] of
+/// the figure for screen readers and other Assistive Technology (AT). Refer to
+/// @figure.alt[its documentation] to learn more.
 ///
 /// You can use figures to add alternative descriptions to paths, shapes, or
 /// visualizations that do not have their own `alt` parameter. If your graphic
 /// is purely decorative and does not have a semantic meaning, consider wrapping
-/// it in [`pdf.artifact`] instead, which will hide it from AT when exporting to
+/// it in @pdf.artifact instead, which will hide it from AT when exporting to
 /// PDF.
 ///
 /// AT will always read the figure at the point where it appears in the
-/// document, regardless of its [`placement`]($figure.placement). Put its markup
+/// document, regardless of its @figure.placement[`placement`]. Put its markup
 /// where it would make the most sense in the reading order.
 #[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
-    /// The content of the figure. Often, an [image].
+    /// The content of the figure. Often, an @image[image].
     #[required]
     pub body: Content,
 
@@ -129,29 +131,29 @@ pub struct FigureElem {
     /// caption (if any). However, the content of the figure itself will be
     /// skipped.
     ///
-    /// When the body of your figure is an [image]($image) with its own `alt`
-    /// text set, this parameter should not be used on the figure element.
-    /// Likewise, do not use this parameter when the figure contains a table,
-    /// code, or other content that is already accessible. In such cases, the
-    /// content of the figure will be read by AT, and adding an alternative
-    /// description would lead to a loss of information.
+    /// When the body of your figure is an @image[image] with its own `alt` text
+    /// set, this parameter should not be used on the figure element. Likewise,
+    /// do not use this parameter when the figure contains a table, code, or
+    /// other content that is already accessible. In such cases, the content of
+    /// the figure will be read by AT, and adding an alternative description
+    /// would lead to a loss of information.
     ///
     /// You can learn how to write good alternative descriptions in the
-    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
+    /// @guides:accessibility:textual-representations[Accessibility Guide].
     pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
     ///
-    /// - `{none}`: The figure stays in-flow exactly where it was specified
-    ///   like other content.
-    /// - `{auto}`: The figure picks `{top}` or `{bottom}` depending on which
-    ///   is closer.
+    /// - `{none}`: The figure stays in-flow exactly where it was specified like
+    ///   other content.
+    /// - `{auto}`: The figure picks `{top}` or `{bottom}` depending on which is
+    ///   closer.
     /// - `{top}`: The figure floats to the top of the page.
     /// - `{bottom}`: The figure floats to the bottom of the page.
     ///
     /// The gap between the main flow content and the floating figure is
-    /// controlled by the [`clearance`]($place.clearance) argument on the
-    /// `place` function.
+    /// controlled by the @place.clearance[`clearance`] argument on the `place`
+    /// function.
     ///
     /// ```example
     /// #set page(height: 200pt)
@@ -199,69 +201,75 @@ pub struct FigureElem {
     ///
     /// If set to `{auto}`, the figure will try to automatically determine its
     /// kind based on the type of its body. Automatically detected kinds are
-    /// [tables]($table) and [code]($raw). In other cases, the inferred kind is
-    /// that of an [image].
+    /// @table[tables] and @raw[code]. In other cases, the inferred kind is that
+    /// of an @image[image].
     ///
     /// Setting this to something other than `{auto}` will override the
     /// automatic detection. This can be useful if
-    /// - you wish to create a custom figure type that is not an
-    ///   [image], a [table] or [code]($raw),
+    /// - you wish to create a custom figure type that is not an @image[image],
+    ///   a @table[table] or @raw[code],
     /// - you want to force the figure to use a specific counter regardless of
     ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
-    /// it to an element function other than [`table`], [`raw`], or [`image`],
-    /// you will need to manually specify the figure's supplement.
+    /// it to an element function other than @table, @raw, or @image, you will
+    /// need to manually specify the figure's supplement.
     ///
-    /// ```example:"Customizing the figure kind"
-    /// #figure(
-    ///   circle(radius: 10pt),
-    ///   caption: [A curious atom.],
-    ///   kind: "atom",
-    ///   supplement: [Atom],
+    /// #example(
+    ///   title: "Customizing the figure kind",
+    ///   ```
+    ///   #figure(
+    ///     circle(radius: 10pt),
+    ///     caption: [A curious atom.],
+    ///     kind: "atom",
+    ///     supplement: [Atom],
+    ///   )
+    ///   ```
     /// )
-    /// ```
     ///
     /// If you want to modify a counter to skip a number or reset the counter,
-    /// you can access the [counter] of each kind of figure with a
-    /// [`where`]($function.where) selector:
+    /// you can access the @counter[counter] of each kind of figure with a
+    /// @function.where[`where`] selector:
     ///
-    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
-    /// - For [images]($image): `{counter(figure.where(kind: image))}`
+    /// - For @table[tables]: `{counter(figure.where(kind: table))}`
+    /// - For @image[images]: `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
-    /// ```example:"Modifying the figure counter for specific kinds"
-    /// #figure(
-    ///   table(columns: 2, $n$, $1$),
-    ///   caption: [The first table.],
-    /// )
+    /// #example(
+    ///   title: "Modifying the figure counter for specific kinds",
+    ///   ```
+    ///   #figure(
+    ///     table(columns: 2, $n$, $1$),
+    ///     caption: [The first table.],
+    ///   )
     ///
-    /// #counter(
-    ///   figure.where(kind: table)
-    /// ).update(41)
+    ///   #counter(
+    ///     figure.where(kind: table)
+    ///   ).update(41)
     ///
-    /// #figure(
-    ///   table(columns: 2, $n$, $42$),
-    ///   caption: [The 42nd table],
-    /// )
+    ///   #figure(
+    ///     table(columns: 2, $n$, $42$),
+    ///     caption: [The 42nd table],
+    ///   )
     ///
-    /// #figure(
-    ///   rect[Image],
-    ///   caption: [Does not affect images],
+    ///   #figure(
+    ///     rect[Image],
+    ///     caption: [Does not affect images],
+    ///   )
+    ///   ```
     /// )
-    /// ```
     ///
     /// To conveniently use the correct counter in a show rule, you can access
     /// the `counter` field. There is an example of this in the documentation
-    /// [of the `figure.caption` element's `body` field]($figure.caption.body).
+    /// @figure.caption.body[of the `figure.caption` element's `body` field].
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
     ///
     /// If set to `{auto}`, the figure will try to automatically determine the
-    /// correct supplement based on the `kind` and the active
-    /// [text language]($text.lang). If you are using a custom figure type, you
-    /// will need to manually specify the supplement.
+    /// correct supplement based on the `kind` and the active @text.lang[text
+    ///   language]. If you are using a custom figure type, you will need to
+    /// manually specify the supplement.
     ///
     /// If a function is specified, it is passed the first descendant of the
     /// specified `kind` (typically, the figure's body) and should return
@@ -277,8 +285,8 @@ pub struct FigureElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// How to number the figure. Accepts a
-    /// [numbering pattern or function]($numbering) taking a single number.
+    /// How to number the figure. Accepts a @numbering[numbering pattern or
+    ///   function] taking a single number.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
@@ -286,15 +294,15 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
-    /// Whether the figure should appear in an [`outline`] of figures.
+    /// Whether the figure should appear in an @outline of figures.
     #[default(true)]
     pub outlined: bool,
 
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
-    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
-    /// - For [images]($image): `{counter(figure.where(kind: image))}`
+    /// - For @table[tables]: `{counter(figure.where(kind: table))}`
+    /// - For @image[images]: `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
     /// These are the counters you'll need to modify if you want to skip a
@@ -480,7 +488,7 @@ impl Outlinable for Packed<FigureElem> {
 ///
 /// In addition to its `position` and `body`, the `caption` also provides the
 /// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
-/// parts can be used in [`where`]($function.where) selectors and show rules to
+/// parts can be used in @function.where[`where`] selectors and show rules to
 /// build a completely custom caption.
 ///
 /// ```example
@@ -524,7 +532,7 @@ pub struct FigureCaption {
     /// The separator which will appear between the number and body.
     ///
     /// If set to `{auto}`, the separator will be adapted to the current
-    /// [language]($text.lang) and [region]($text.region).
+    /// @text.lang[language] and @text.region[region].
     ///
     /// ```example
     /// #set figure.caption(separator: [ --- ])

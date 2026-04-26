@@ -38,25 +38,25 @@ use crate::text::UnderlineElem;
 /// A piece of document content.
 ///
 /// This type is at the heart of Typst. All markup you write and most
-/// [functions]($function) you call produce content values. You can create a
+/// @function[functions] you call produce content values. You can create a
 /// content value by enclosing markup in square brackets. This is also how you
 /// pass content to functions.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Type of *Hello!* is
 /// #type([*Hello!*])
 /// ```
 ///
 /// Content can be added with the `+` operator,
-/// [joined together]($scripting/#blocks) and multiplied with integers. Wherever
-/// content is expected, you can also pass a [string]($str) or `{none}`.
+/// @reference:scripting:blocks[joined together] and multiplied with integers.
+/// Wherever content is expected, you can also pass a @str[string] or `{none}`.
 ///
-/// # Representation
+/// = Representation <representation>
 /// Content consists of elements with fields. When constructing an element with
 /// its _element function,_ you provide these fields as arguments and when you
-/// have a content value, you can access its fields with [field access
-/// syntax]($scripting/#field-access).
+/// have a content value, you can access its fields with
+/// @reference:scripting:fields[field access syntax].
 ///
 /// Some fields are required: These must be provided when constructing an
 /// element and as a consequence, they are always available through field access
@@ -65,19 +65,19 @@ use crate::text::UnderlineElem;
 ///
 /// Most fields are optional: Like required fields, they can be passed to the
 /// element function to configure them for a single element. However, these can
-/// also be configured with [set rules]($styling/#set-rules) to apply them to
-/// all elements within a scope. Optional fields are only available with field
-/// access syntax when they were explicitly passed to the element function, not
-/// when they result from a set rule.
+/// also be configured with @reference:styling:set-rules[set rules] to apply
+/// them to all elements within a scope. Optional fields are only available with
+/// field access syntax when they were explicitly passed to the element
+/// function, not when they result from a set rule.
 ///
 /// Each element has a default appearance. However, you can also completely
-/// customize its appearance with a [show rule]($styling/#show-rules). The show
-/// rule is passed the element. It can access the element's field and produce
-/// arbitrary content from it.
+/// customize its appearance with a @reference:styling:show-rules[show rule].
+/// The show rule is passed the element. It can access the element's field and
+/// produce arbitrary content from it.
 ///
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
-/// Alternatively, you can inspect the output of the [`repr`] function.
+/// Alternatively, you can inspect the output of the @repr function.
 #[ty(scope, cast)]
 #[derive(Clone, PartialEq, Hash)]
 #[repr(transparent)]
@@ -509,11 +509,10 @@ impl Content {
 
 #[scope]
 impl Content {
-    /// The content's element function. This function can be used to create the element
-    /// contained in this content. It can be used in set and show rules for the
-    /// element. Can be compared with global functions to check whether you have
-    /// a specific
-    /// kind of element.
+    /// The content's element function. This function can be used to create the
+    /// element contained in this content. It can be used in set and show rules
+    /// for the element. Can be compared with global functions to check whether
+    /// you have a specific kind of element.
     #[func]
     pub fn func(&self) -> Element {
         self.elem()
@@ -580,9 +579,9 @@ impl Content {
     }
 
     /// The location of the content. This is only available on content returned
-    /// by [query] or provided by a [show rule]($reference/styling/#show-rules),
-    /// for other content it will be `{none}`. The resulting location can be
-    /// used with [counters]($counter), [state] and [queries]($query).
+    /// by @query[query] or provided by a @reference:styling:show-rules[show
+    ///   rule], for other content it will be `{none}`. The resulting location
+    /// can be used with @counter[counters], @state[state] and @query[queries].
     #[func]
     pub fn location(&self) -> Option<Location> {
         self.0.meta().location

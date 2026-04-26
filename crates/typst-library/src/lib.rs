@@ -34,7 +34,7 @@ use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{
-    Array, Binding, Bytes, Datetime, Dict, Duration, Module, Scope, Styles,
+    Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
 };
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
@@ -156,6 +156,7 @@ impl<T: World + ?Sized> WorldExt for T {
 /// - `Library::default()` for a standard configuration
 /// - `Library::builder().build()` if you want to customize the library
 #[derive(Debug, Clone, Hash)]
+#[non_exhaustive]
 pub struct Library {
     /// The module that contains the definitions that are available everywhere.
     pub global: Module,
@@ -164,6 +165,8 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
+    /// The built-in show rules.
+    pub rules: NativeRuleMap,
     /// The standard library as a value. Used to provide the `std` module.
     pub std: Binding,
     /// In-development features that were enabled.
@@ -214,6 +217,7 @@ impl LibraryBuilder {
             global: global.clone(),
             math,
             styles: Styles::new(),
+            rules: (self.routines.rules)(),
             std: Binding::detached(global),
             features: self.features,
         }

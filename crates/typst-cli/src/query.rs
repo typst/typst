@@ -9,6 +9,7 @@ use typst::foundations::{
     Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
 };
 use typst::introspection::{EmptyIntrospector, Introspector};
+use typst::routines::SpanMode;
 use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
@@ -78,7 +79,7 @@ fn retrieve(
         EmptyIntrospector.track(),
         Context::none().track(),
         &command.selector,
-        Span::detached(),
+        SpanMode::Uniform(Span::detached()),
         SyntaxMode::Code,
         Scope::default(),
     )

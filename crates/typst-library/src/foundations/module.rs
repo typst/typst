@@ -7,19 +7,19 @@ use typst_syntax::FileId;
 use crate::diag::{DeprecationSink, StrResult, bail};
 use crate::foundations::{Content, Repr, Scope, Value, ty};
 
-/// A collection of variables and functions that are commonly related to
-/// a single theme.
+/// A collection of variables and functions that are commonly related to a
+/// single theme.
 ///
 /// A module can
 /// - be built-in
-/// - stem from a [file import]($scripting/#modules)
-/// - stem from a [package import]($scripting/#packages) (and thus indirectly
-///   its entrypoint file)
-/// - result from a call to the [plugin]($plugin) function
+/// - stem from a @reference:scripting:modules[file import]
+/// - stem from a @reference:scripting:packages[package import] (and thus
+///   indirectly its entrypoint file)
+/// - result from a call to the @plugin[plugin] function
 ///
-/// You can access definitions from the module using [field access
-/// notation]($scripting/#fields) and interact with it using the [import and
-/// include syntaxes]($scripting/#modules).
+/// You can access definitions from the module using
+/// @reference:scripting:fields[field access notation] and interact with it
+/// using the @reference:scripting:modules[import and include syntaxes].
 ///
 /// ```example
 /// <<< #import "utils.typ"
@@ -34,8 +34,7 @@ use crate::foundations::{Content, Repr, Scope, Value, ty};
 ///
 /// You can check whether a definition is present in a module using the `{in}`
 /// operator, with a string on the left-hand side. This can be useful to
-/// [conditionally access]($category/foundations/std/#conditional-access)
-/// definitions in a module.
+/// @std:conditional-access[conditionally access] definitions in a module.
 ///
 /// ```example
 /// #("table" in std) \
@@ -43,8 +42,8 @@ use crate::foundations::{Content, Repr, Scope, Value, ty};
 /// ```
 ///
 /// Alternatively, it is possible to convert a module to a dictionary, and
-/// therefore access its contents dynamically, using the [dictionary
-/// constructor]($dictionary/#constructor).
+/// therefore access its contents dynamically, using the
+/// @dictionary.constructor[dictionary constructor].
 #[ty(cast)]
 #[derive(Clone, Hash)]
 pub struct Module {

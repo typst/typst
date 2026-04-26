@@ -1,6 +1,8 @@
 //! Typst's HTML exporter.
 
-mod attr;
+pub mod attr;
+pub mod tag;
+
 mod charsets;
 mod convert;
 mod css;
@@ -11,7 +13,6 @@ mod fragment;
 mod introspect;
 mod link;
 mod rules;
-mod tag;
 mod typed;
 
 pub use self::document::{html_document, html_document_for_bundle};
@@ -23,7 +24,7 @@ pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
-use typst_library::foundations::{Content, Module, Scope};
+use typst_library::foundations::{Content, Module, Scope, cast};
 use typst_library::introspection::Location;
 use typst_macros::elem;
 
@@ -65,6 +66,7 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
+    #[fold]
     pub attrs: HtmlAttrs,
 
     /// The contents of the HTML element.
@@ -87,11 +89,19 @@ pub struct HtmlElem {
     /// This is ignored for `<p>` elements as it otherwise tends to
     /// unintentionally attach to paragraphs resulting from grouping of a single
     /// element instead of attaching to that element. This is a bit of a hack,
-    /// but good enough for now as the `role` property is purely internal and
-    /// we control what it is used for.
+    /// but good enough for now as the `role` property is purely internal and we
+    /// control what it is used for.
     #[internal]
     #[ghost]
     pub role: Option<EcoString>,
+
+    /// Marks the element as inline for the purposes of paragraph
+    /// detection/collection.
+    ///
+    /// This property is temporary and will be removed in the future.
+    #[internal]
+    #[synthesized]
+    pub inline: bool,
 }
 
 impl HtmlElem {
@@ -124,9 +134,15 @@ impl HtmlElem {
 
     /// Checks whether the given element is "phrasing content" in HTML.
     fn is_phrasing(elem: &Content) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
+        elem.to_packed::<HtmlElem>().is_some_and(|elem| {
+            tag::is_phrasing_content(elem.tag) || elem.inline == Some(true)
+        })
     }
+}
+
+cast! {
+    HtmlElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected html elem")?,
 }
 
 /// An element that lays out its content as an inline SVG.

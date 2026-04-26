@@ -13,6 +13,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+use typst_library::World;
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -489,7 +490,7 @@ fn verdict<'a>(
     // If we found no user-defined rule, also consider the built-in show rule.
     if step.is_none() {
         let target = styles.get(TargetElem::target);
-        if let Some(rule) = engine.routines.rules.get(target, elem) {
+        if let Some(rule) = engine.world.library().rules.get(target, elem) {
             step = Some(ShowStep::Builtin(rule));
         }
     }
