@@ -562,6 +562,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut fr_frames = fr_frames.into_iter();
 
         // Position all items.
+        let mut baseline_set = false;
         for item in self.items {
             match item {
                 Item::Tag(tag) => {
@@ -589,6 +590,18 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     let y = offset + ruler.position(free);
                     let pos = Point::new(x, y);
                     offset += frame.height();
+
+                    // The baseline of the whole region will be the set to the
+                    // baseline of the first in-flow frame. For example, of the
+                    // first paragraph, if there is more than one. But also,
+                    // inside the paragraph itself, this will be the first line
+                    // (since each line is laid out as a separate frame).
+                    if !baseline_set {
+                        if frame.has_baseline() {
+                            output.set_baseline(y + frame.baseline());
+                        }
+                        baseline_set = true;
+                    }
 
                     output.push_frame(pos, frame);
                 }
