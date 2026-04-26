@@ -220,3 +220,19 @@ $ stretch(size: #200%, \/) quad
   class("large", \/) quad
   class("large", stretch(size: #200%, \/)) quad
   stretch(size: #200%, class("large", \/)) $
+
+--- math-stretch-fallback paged ---
+// Test that stretching works in fonts with ssty variants.
+#show math.equation: set text(font: "STIX Two Math")
+$ lr(a / b|)_sqrt(c / d) $
+$ integral_(-oo)^oo e^(-(m omega)/(2 planck) (x^2 + (2 i p)/(m omega) x)) dif x $
+
+--- math-stretch-fallback-explicit paged ---
+// Test stretching fallback when features are applied.
+#show math.equation: set text(font: "STIX Two Math")
+$ sscript(sqrt(a / b) quad (c / d)) $
+
+--- math-no-stretch-fallback paged ---
+// Test that stretching fallback doesn't happen if the original size suffices.
+#show math.equation: set text(font: "STIX Two Math")
+$ script(sqrt(x) (a)) $

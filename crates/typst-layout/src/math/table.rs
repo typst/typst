@@ -69,7 +69,7 @@ pub fn layout_table(
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
     let (ascent, descent) = GlyphFragment::synthetic(
-        ctx.engine.world,
+        ctx.engine,
         styles.chain(&denom_style),
         '(',
         Span::detached(),
