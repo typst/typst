@@ -1,8 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 
+use comemo::Tracked;
 use ecow::EcoString;
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use typst_library::World;
 use typst_library::diag::warning;
 use typst_library::engine::Engine;
 use typst_library::foundations::StyleChain;
@@ -248,20 +250,20 @@ impl GlyphFragment {
         c: char,
         span: Span,
     ) -> Option<Self> {
-        shaping::shape(
+        let class = styles
+            .get(EquationElem::class)
+            .or_else(|| default_math_class(c))
+            .unwrap_or(MathClass::Normal);
+        let math_size = styles.get(EquationElem::size);
+        Self::base(
             ctx.engine.world,
             styles,
             &features(styles),
             c.encode_utf8(&mut [0; 4]),
+            class,
+            math_size,
         )
-        .map(|shaped| {
-            let class = styles
-                .get(EquationElem::class)
-                .or_else(|| default_math_class(c))
-                .unwrap_or(MathClass::Normal);
-            let math_size = styles.get(EquationElem::size);
-            Self::from_shaped(styles, c.into(), span, class, math_size, shaped)
-        })
+        .map(|glyph| glyph.with_span(span))
     }
 
     /// Creates a glyph fragment from the given text, stretching it if needed.
@@ -272,40 +274,9 @@ impl GlyphFragment {
         styles: StyleChain,
         props: &MathProperties,
     ) -> Option<GlyphFragment> {
-        let features = features(styles);
-        let shape = |feats: &[rustybuzz::Feature]| {
-            shaping::shape(engine.world, styles, feats, text).map(|shaped| {
-                Self::from_shaped(
-                    styles,
-                    text.into(),
-                    props.span,
-                    props.class,
-                    props.size,
-                    shaped,
-                )
-            })
-        };
-
-        let mut glyph = shape(&features)?;
-        let mut action = decide(&glyph, stretch);
-
-        // If the initial glyph isn't sufficient, keep retrying shaping, by
-        // removing `ssty` and `flac` features, until one satisfies the stretch
-        // requirements (or until we exhaust them all, in which case we keep
-        // the original glyph, unstretched)
-        if matches!(action, Action::Fallback) {
-            shaping::fallback(features, |feats| {
-                let Some(new) = shape(feats) else { return false };
-                match decide(&new, stretch) {
-                    Action::Fallback => false,
-                    other => {
-                        glyph = new;
-                        action = other;
-                        true
-                    }
-                }
-            });
-        }
+        let PlannedGlyph { mut glyph, action } =
+            Self::planned(engine.world, styles, text, props.class, props.size, *stretch)?
+                .with_span(props.span);
 
         match action {
             Action::Stretch { axis, target, short_fall } => {
@@ -331,21 +302,66 @@ impl GlyphFragment {
         Some(glyph)
     }
 
-    /// Construct a glyph fragment from the shaped text.
     #[comemo::memoize]
+    fn planned(
+        world: Tracked<dyn World + '_>,
+        styles: StyleChain,
+        text: &str,
+        class: MathClass,
+        math_size: MathSize,
+        stretch: Stretch,
+    ) -> Option<PlannedGlyph> {
+        let features = features(styles);
+        let shape = |feats: &[rustybuzz::Feature]| {
+            Self::base(world, styles, feats, text, class, math_size)
+        };
+
+        let mut glyph = shape(&features)?;
+        let mut action = decide(&glyph, &stretch);
+
+        // If the initial glyph isn't sufficient, keep retrying shaping, by
+        // removing `ssty` and `flac` features, until one satisfies the stretch
+        // requirements (or until we exhaust them all, in which case we keep
+        // the original glyph, unstretched)
+        if matches!(action, Action::Fallback) {
+            shaping::fallback(features, |feats| {
+                let Some(new) = shape(feats) else { return false };
+                match decide(&new, &stretch) {
+                    Action::Fallback => false,
+                    other => {
+                        glyph = new;
+                        action = other;
+                        true
+                    }
+                }
+            });
+        }
+
+        Some(PlannedGlyph { glyph, action })
+    }
+
+    #[comemo::memoize]
+    fn base(
+        world: Tracked<dyn World + '_>,
+        styles: StyleChain,
+        features: &[rustybuzz::Feature],
+        text: &str,
+        class: MathClass,
+        math_size: MathSize,
+    ) -> Option<GlyphFragment> {
+        let shaped = shaping::shape(world, styles, features, text)?;
+        Some(Self::from_shaped(styles, text.into(), class, math_size, shaped))
+    }
+
+    /// Construct a glyph fragment from the shaped text.
     fn from_shaped(
         styles: StyleChain,
         text: EcoString,
-        span: Span,
         class: MathClass,
         math_size: MathSize,
         shaped: (Font, Vec<Glyph>),
     ) -> GlyphFragment {
-        let (font, mut glyphs) = shaped;
-
-        for glyph in &mut glyphs {
-            glyph.span = (span, 0);
-        }
+        let (font, glyphs) = shaped;
 
         let item = TextItem {
             text,
@@ -376,6 +392,13 @@ impl GlyphFragment {
         };
         fragment.update_glyph();
         fragment
+    }
+
+    fn with_span(mut self, span: Span) -> Self {
+        for glyph in &mut self.item.glyphs {
+            glyph.span = (span, 0);
+        }
+        self
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -528,6 +551,19 @@ impl Debug for GlyphFragment {
     }
 }
 
+#[derive(Clone)]
+struct PlannedGlyph {
+    glyph: GlyphFragment,
+    action: Action,
+}
+
+impl PlannedGlyph {
+    fn with_span(mut self, span: Span) -> Self {
+        self.glyph = self.glyph.with_span(span);
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FrameFragment {
     frame: Frame,
@@ -582,6 +618,7 @@ impl FrameFragment {
 }
 
 /// How to proceed with the freshly-shaped glyph fragment.
+#[derive(Clone, Copy)]
 enum Action {
     /// Use this glyph as-is (no stretching is needed).
     Keep,

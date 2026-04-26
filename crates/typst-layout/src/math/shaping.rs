@@ -16,7 +16,6 @@ use typst_syntax::Span;
 use crate::inline::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 /// Shape some text in math.
-#[comemo::memoize]
 pub fn shape(
     world: Tracked<dyn World + '_>,
     styles: StyleChain,
