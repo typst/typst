@@ -2,11 +2,10 @@ use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
-use typst_library::layout::{Abs, Axis, Size};
+use typst_library::layout::{Abs, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, NumberItem, TextItem};
-use typst_library::math::{EquationElem, MathSize, style_dtls, style_flac};
+use typst_library::math::{EquationElem, style_dtls, style_flac};
 use typst_library::text::{Font, TextElem};
-use typst_utils::Get;
 use unicode_math_class::MathClass;
 
 use super::MathContext;
@@ -106,36 +105,8 @@ pub fn layout_glyph(
         };
 
     if let Some(mut glyph) =
-        GlyphFragment::new(ctx.engine.world, styles, &text, props.span)
+        GlyphFragment::new(ctx.engine, &text, &item.stretch.get(), styles, props)
     {
-        glyph.class = props.class;
-
-        if let Some(axis) = glyph.stretch_axis(ctx.engine)
-            && let Some(stretch) = item.stretch.get().resolve(axis)
-        {
-            let relative_to_size = stretch.relative_to.unwrap_or_else(|| {
-                if axis == Axis::Y
-                    && glyph.class == MathClass::Large
-                    && props.size == MathSize::Display
-                {
-                    glyph.item.font.math().display_operator_min_height.at(glyph.item.size)
-                } else {
-                    glyph.size.get(axis)
-                }
-            });
-
-            glyph.stretch(
-                ctx.engine,
-                stretch.target.relative_to(relative_to_size),
-                stretch.short_fall.at(stretch.font_size.unwrap_or(glyph.item.size)),
-                axis,
-            );
-
-            if axis == Axis::Y {
-                glyph.center_on_axis();
-            }
-        }
-
         if glyph.class == MathClass::Large {
             // TeXbook p 155. Large operators are always vertically centered on
             // the axis.

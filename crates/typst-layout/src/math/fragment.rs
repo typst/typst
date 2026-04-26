@@ -1,9 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 
-use comemo::Tracked;
+use ecow::EcoString;
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
-use typst_library::World;
 use typst_library::diag::warning;
 use typst_library::engine::Engine;
 use typst_library::foundations::StyleChain;
@@ -11,16 +10,16 @@ use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
-use typst_library::math::ir::MathProperties;
-use typst_library::math::{EquationElem, MathSize, families};
-use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language, variant};
+use typst_library::math::ir::{MathProperties, Stretch};
+use typst_library::math::{EquationElem, MathSize};
+use typst_library::text::{Font, Glyph, TextElem, TextItem, features};
 use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
 use super::MathContext;
-use super::shaping::shape;
+use super::shaping;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
 /// Maximum number of times extenders can be repeated.
@@ -232,7 +231,7 @@ pub struct GlyphFragment {
     baseline: Option<Abs>,
     italics_correction: Abs,
     accent_attach: (Abs, Abs),
-    math_size: MathSize,
+    pub math_size: MathSize,
     pub class: MathClass,
     extended_shape: bool,
     // External frame stuff.
@@ -242,40 +241,114 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
-    /// Calls `new` with the given character.
+    /// Creates a glyph fragment from the given character.
     pub fn new_char(
         ctx: &MathContext,
         styles: StyleChain,
         c: char,
         span: Span,
     ) -> Option<Self> {
-        Self::new(ctx.engine.world, styles, c.encode_utf8(&mut [0; 4]), span)
+        shaping::shape(
+            ctx.engine.world,
+            styles,
+            &features(styles),
+            c.encode_utf8(&mut [0; 4]),
+        )
+        .map(|shaped| {
+            let class = styles
+                .get(EquationElem::class)
+                .or_else(|| default_math_class(c))
+                .unwrap_or(MathClass::Normal);
+            let math_size = styles.get(EquationElem::size);
+            Self::from_shaped(styles, c.into(), span, class, math_size, shaped)
+        })
     }
 
-    /// Selects a font to use and then shapes text.
-    #[comemo::memoize]
+    /// Creates a glyph fragment from the given text, stretching it if needed.
     pub fn new(
-        world: Tracked<dyn World + '_>,
-        styles: StyleChain,
+        engine: &mut Engine,
         text: &str,
-        span: Span,
+        stretch: &Stretch,
+        styles: StyleChain,
+        props: &MathProperties,
     ) -> Option<GlyphFragment> {
-        let (font, mut glyphs) = shape(
-            world,
-            variant(styles),
-            features(styles),
-            language(styles),
-            styles.get(TextElem::fallback),
-            text,
-            families(styles).collect(),
-        )?;
+        let features = features(styles);
+        let shape = |feats: &[rustybuzz::Feature]| {
+            shaping::shape(engine.world, styles, feats, text).map(|shaped| {
+                Self::from_shaped(
+                    styles,
+                    text.into(),
+                    props.span,
+                    props.class,
+                    props.size,
+                    shaped,
+                )
+            })
+        };
+
+        let mut glyph = shape(&features)?;
+        let mut action = decide(&glyph, stretch);
+
+        // If the initial glyph isn't sufficient, keep retrying shaping, by
+        // removing `ssty` and `flac` features, until one satisfies the stretch
+        // requirements (or until we exhaust them all, in which case we keep
+        // the original glyph, unstretched)
+        if matches!(action, Action::Fallback) {
+            shaping::fallback(features, |feats| {
+                let Some(new) = shape(feats) else { return false };
+                match decide(&new, stretch) {
+                    Action::Fallback => false,
+                    other => {
+                        glyph = new;
+                        action = other;
+                        true
+                    }
+                }
+            });
+        }
+
+        match action {
+            Action::Stretch { axis, target, short_fall } => {
+                glyph.stretch(engine, target, short_fall, axis);
+                if axis == Axis::Y {
+                    glyph.center_on_axis();
+                }
+            }
+            Action::WarnBothAxes => {
+                // As far as we know, there aren't any glyphs that have both
+                // vertical and horizontal constructions. So for the time
+                // being, we will assume that a glyph cannot have both.
+                engine.sink.warn(warning!(
+                   props.span,
+                   "glyph has both vertical and horizontal constructions";
+                   hint: "this is probably a font bug";
+                   hint: "please file an issue at https://github.com/typst/typst/issues";
+                ));
+            }
+            Action::Keep | Action::Fallback => {}
+        }
+
+        Some(glyph)
+    }
+
+    /// Construct a glyph fragment from the shaped text.
+    #[comemo::memoize]
+    fn from_shaped(
+        styles: StyleChain,
+        text: EcoString,
+        span: Span,
+        class: MathClass,
+        math_size: MathSize,
+        shaped: (Font, Vec<Glyph>),
+    ) -> GlyphFragment {
+        let (font, mut glyphs) = shaped;
 
         for glyph in &mut glyphs {
             glyph.span = (span, 0);
         }
 
         let item = TextItem {
-            text: text.into(),
+            text,
             font,
             size: styles.resolve(TextElem::size),
             fill: styles.get_ref(TextElem::fill).as_decoration(),
@@ -285,16 +358,10 @@ impl GlyphFragment {
             glyphs,
         };
 
-        let c = text.chars().next().unwrap();
-        let class = styles
-            .get(EquationElem::class)
-            .or_else(|| default_math_class(c))
-            .unwrap_or(MathClass::Normal);
-
         let mut fragment = Self {
             item,
             // Math
-            math_size: styles.get(EquationElem::size),
+            math_size,
             class,
             // Math in need of updating.
             extended_shape: false,
@@ -308,7 +375,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Some(fragment)
+        fragment
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -371,29 +438,6 @@ impl GlyphFragment {
         frame
     }
 
-    pub fn stretch_axis(&self, engine: &mut Engine) -> Option<Axis> {
-        // Return if we attempt to stretch along an axis which isn't stretchable,
-        // so that the original fragment isn't modified.
-        let axes = stretch_axes(&self.item.font, self.item.glyphs[0].id);
-        match (axes.x, axes.y) {
-            (true, false) => Some(Axis::X),
-            (false, true) => Some(Axis::Y),
-            (false, false) => None,
-            (true, true) => {
-                // As far as we know, there aren't any glyphs that have both
-                // vertical and horizontal constructions. So for the time being, we
-                // will assume that a glyph cannot have both.
-                engine.sink.warn(warning!(
-                   self.item.glyphs[0].span.0,
-                   "glyph has both vertical and horizontal constructions";
-                   hint: "this is probably a font bug";
-                   hint: "please file an issue at https://github.com/typst/typst/issues";
-                ));
-                None
-            }
-        }
-    }
-
     /// Try to stretch a glyph to a desired width or height.
     ///
     /// The resulting frame may not have the exact desired width or height.
@@ -405,12 +449,7 @@ impl GlyphFragment {
         axis: Axis,
     ) {
         // If the base glyph is good enough, use it.
-        let mut advance = self.size.get(axis);
-        if axis == Axis::X && !self.extended_shape {
-            // For consistency, we subtract the italics correction from the
-            // glyph's width if it was added in `update_glyph`.
-            advance -= self.italics_correction;
-        }
+        let advance = self.stretch_advance(axis);
         let short_target = target - short_fall;
         if short_target <= advance {
             return;
@@ -453,6 +492,17 @@ impl GlyphFragment {
             .unwrap_or_default()
             .at(self.item.size);
         assemble(engine, self, assembly, min_overlap, target, axis);
+    }
+
+    /// Advance of the glyph along the given axis used during stretching.
+    fn stretch_advance(&self, axis: Axis) -> Abs {
+        let mut advance = self.size.get(axis);
+        if axis == Axis::X && !self.extended_shape {
+            // For consistency, we subtract the italics correction from the
+            // glyph's width if it was added in `update_glyph`.
+            advance -= self.italics_correction;
+        }
+        advance
     }
 
     /// Vertically adjust the fragment's frame so that it is centered
@@ -529,6 +579,107 @@ impl FrameFragment {
     pub fn with_text_like(self, text_like: bool) -> Self {
         Self { text_like, ..self }
     }
+}
+
+/// How to proceed with the freshly-shaped glyph fragment.
+enum Action {
+    /// Use this glyph as-is (no stretching is needed).
+    Keep,
+    /// Use this glyph and stretch it with the given information.
+    Stretch { axis: Axis, target: Abs, short_fall: Abs },
+    /// Use this glyph, but warn that it claims stretchability on both axes.
+    WarnBothAxes,
+    /// The glyph isn't stretchable on the axes we need and isn't wide enough
+    /// to skip stretching (try falling back without some features).
+    Fallback,
+}
+
+/// Decide how to proceed with the freshly-shaped glyph fragment based on the
+/// stretch required.
+fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
+    /// The glyph's status for the stretch request on a single axis.
+    enum AxisStatus {
+        /// No stretching needed (none requested, or the glyph is already wide
+        /// enough).
+        Sufficient,
+        /// The glyph is stretchable on this axis.
+        Stretchable { target: Abs, short_fall: Abs },
+        /// Stretching is needed but the glyph isn't stretchable and isn't wide
+        /// enough (fallback and retry).
+        Fallback,
+    }
+
+    let font = &glyph.item.font;
+    let id = glyph.item.glyphs[0].id;
+    let axes = stretch_axes(font, id);
+
+    let assess = |axis| {
+        let Some((target, short_fall)) = resolve_stretch(glyph, stretch, axis) else {
+            return AxisStatus::Sufficient;
+        };
+
+        if axes.get(axis) {
+            return AxisStatus::Stretchable { target, short_fall };
+        }
+        // Glyph isn't stretchable on this axis, but might be wide enough.
+
+        let mut advance = glyph.stretch_advance(axis);
+
+        // Combining marks (e.g. accent glyphs) typically have zero advance in
+        // `hmtx`, so the advance above is no good. We explicitly compute the
+        // bounding box, just in case.
+        if let Some(bbox) = font.ttf().glyph_bounding_box(GlyphId(id)) {
+            let extents = Axes::new(
+                font.to_em(bbox.x_max - bbox.x_min),
+                font.to_em(bbox.y_max - bbox.y_min),
+            );
+            advance.set_max(extents.get(axis).at(glyph.item.size));
+        }
+
+        if target - short_fall <= advance {
+            AxisStatus::Sufficient
+        } else {
+            AxisStatus::Fallback
+        }
+    };
+
+    match (assess(Axis::X), assess(Axis::Y)) {
+        (AxisStatus::Stretchable { .. }, AxisStatus::Stretchable { .. }) => {
+            Action::WarnBothAxes
+        }
+        (AxisStatus::Stretchable { target, short_fall }, _) => {
+            Action::Stretch { axis: Axis::X, target, short_fall }
+        }
+        (_, AxisStatus::Stretchable { target, short_fall }) => {
+            Action::Stretch { axis: Axis::Y, target, short_fall }
+        }
+        (AxisStatus::Sufficient, AxisStatus::Sufficient) => Action::Keep,
+        _ => Action::Fallback,
+    }
+}
+
+/// Returns the absolute target and short fall of the stretch along the given
+/// axis, if it exists.
+fn resolve_stretch(
+    glyph: &GlyphFragment,
+    stretch: &Stretch,
+    axis: Axis,
+) -> Option<(Abs, Abs)> {
+    let stretch = stretch.resolve(axis)?;
+    let relative_to_size = stretch.relative_to.unwrap_or_else(|| {
+        if axis == Axis::Y
+            && glyph.class == MathClass::Large
+            && glyph.math_size == MathSize::Display
+        {
+            glyph.item.font.math().display_operator_min_height.at(glyph.item.size)
+        } else {
+            glyph.size.get(axis)
+        }
+    });
+
+    let target = stretch.target.relative_to(relative_to_size);
+    let short_fall = stretch.short_fall.at(stretch.font_size.unwrap_or(glyph.item.size));
+    Some((target, short_fall))
 }
 
 fn ascent_descent(font: &Font, id: GlyphId) -> Option<(Em, Em)> {
