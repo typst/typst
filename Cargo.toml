@@ -174,3 +174,6 @@ wildcard_in_or_patterns = "allow"
 # See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
 derived_hash_with_manual_eq = "allow"
 disallowed_methods = "warn"
+
+[patch.crates-io]
+hayagriva = { git = "https://github.com/thuiop/hayagriva", branch = "add-number-offset" }
