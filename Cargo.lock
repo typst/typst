@@ -1019,7 +1019,7 @@ dependencies = [
  "phf",
  "rustc-hash",
  "siphasher",
- "skrifa",
+ "skrifa 0.37.0",
  "smallvec",
  "yoke 0.8.0",
 ]
@@ -1477,7 +1477,7 @@ dependencies = [
  "rustc-hash",
  "rustybuzz",
  "siphasher",
- "skrifa",
+ "skrifa 0.37.0",
  "smallvec",
  "subsetter",
  "tiny-skia-path",
@@ -2013,10 +2013,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 [[package]]
 name = "pixglyph"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c1106193bc18a4b840eb075ff6664c8a0b0270f0531bb12a7e9c803e53b55c5"
+source = "git+https://github.com/mkorje/pixglyph?rev=c588ad4#c588ad439473709cee1402712dc1881ce8db0f59"
 dependencies = [
- "ttf-parser",
+ "skrifa 0.42.1",
 ]
 
 [[package]]
@@ -2578,6 +2577,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "skrifa"
+version = "0.42.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c34617370ae968efb7161bb2beb517d9084659aae19e24b89e3db25b46e4564"
+dependencies = [
+ "bytemuck",
+ "core_maths",
+ "read-fonts 0.39.2",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2667,7 +2677,7 @@ checksum = "cb6895a12ac5599bb6057362f00e8a3cf1daab4df33f553a55690a44e4fed8d0"
 dependencies = [
  "kurbo 0.12.0",
  "rustc-hash",
- "skrifa",
+ "skrifa 0.37.0",
  "write-fonts",
 ]
 
@@ -3365,8 +3375,8 @@ dependencies = [
  "libm",
  "pixglyph",
  "resvg",
+ "skrifa 0.42.1",
  "tiny-skia",
- "ttf-parser",
  "typst-assets",
  "typst-layout",
  "typst-library",

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use pixglyph::Bitmap;
+use skrifa::outline::{DrawSettings, OutlinePen};
+use skrifa::{GlyphId, MetadataProvider};
 use tiny_skia as sk;
-use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Axes, Point, Size};
 use typst_library::text::color::{glyph_frame, should_outline};
 use typst_library::text::{Font, TextItem};
@@ -16,11 +17,11 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
     let mut x = Abs::zero();
     let mut y = Abs::zero();
     for glyph in &text.glyphs {
-        let id = GlyphId(glyph.id);
+        let id = GlyphId::new(glyph.id.into());
         let x_offset = x + glyph.x_offset.at(text.size);
         let y_offset = y + glyph.y_offset.at(text.size);
 
-        if should_outline(&text.font, id.0) {
+        if should_outline(&text.font, glyph.id) {
             let state = state.pre_translate(Point::new(x_offset, -y_offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
@@ -62,7 +63,18 @@ fn render_outline_glyph(
     {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
-            text.font.ttf().outline_glyph(id, &mut builder)?;
+            text.font
+                .fontations()
+                .outline_glyphs()
+                .get(id)?
+                .draw(
+                    DrawSettings::unhinted(
+                        skrifa::instance::Size::unscaled(),
+                        skrifa::instance::LocationRef::default(),
+                    ),
+                    &mut builder,
+                )
+                .ok()?;
             builder.0.finish()?
         };
 
@@ -110,7 +122,7 @@ fn render_outline_glyph(
         y: u32,
         size: u32,
     ) -> Option<Arc<Bitmap>> {
-        let glyph = pixglyph::Glyph::load(font.ttf(), id)?;
+        let glyph = pixglyph::Glyph::load(font.fontations(), id)?;
         Some(Arc::new(glyph.rasterize(
             f32::from_bits(x),
             f32::from_bits(y),
@@ -241,7 +253,7 @@ fn write_bitmap<S: PaintSampler>(
 /// Allows to build tiny-skia paths from glyph outlines.
 struct WrappedPathBuilder(sk::PathBuilder);
 
-impl OutlineBuilder for WrappedPathBuilder {
+impl OutlinePen for WrappedPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         self.0.move_to(x, y);
     }

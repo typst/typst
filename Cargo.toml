@@ -96,7 +96,7 @@ palette = { version = "0.7.3", default-features = false, features = ["approx", "
 parking_lot = "0.12.1"
 pathdiff = "0.2"
 phf = { version = "0.13", features = ["macros"] }
-pixglyph = "0.6"
+pixglyph = { git = "https://github.com/mkorje/pixglyph", rev = "c588ad4" }
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"
@@ -121,6 +121,7 @@ shell-escape = "0.1.5"
 sigpipe = "0.1"
 similar = { version = "2.7.0", features = ["inline", "unicode"] }
 siphasher = "1"
+skrifa = { version = "0.42", features = ["libm"] }
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.19"
 syn = { version = "2", features = ["full", "extra-traits"] }
