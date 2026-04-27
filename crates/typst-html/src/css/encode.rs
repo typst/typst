@@ -9,6 +9,8 @@ use typst_library::layout::{Abs, Angle, Em, Length, Ratio, Rel};
 use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Paint, Rgb};
 use typst_utils::Numeric;
 
+use crate::property;
+
 /// A list of CSS properties with values.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Properties(EcoVec<Property>);
@@ -460,6 +462,12 @@ impl ToCss for Hsl {
             .arg(to_ratio(self.saturation))
             .arg(to_ratio(self.lightness))
             .maybe_alpha_arg(self.alpha);
+    }
+}
+
+impl ToCss for property::Display {
+    fn emit(&self, w: &mut CssWriter) {
+        w.write(self.as_str());
     }
 }
 

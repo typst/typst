@@ -8,7 +8,8 @@ use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, tag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, property,
+    tag,
 };
 
 /// Encodes an HTML document into a string.
@@ -324,9 +325,11 @@ impl RawMode {
 /// rules to `<p>` can make it sensitive to whitespace. For this reason, we
 /// should also respect the `style` tag in the future.
 fn allows_pretty_inside(tag: HtmlTag) -> bool {
-    (tag::is_block_by_default(tag) && tag != tag::pre)
-        || tag::is_tabular_by_default(tag)
-        || tag == tag::li
+    let Some(display) = property::Display::default_for(tag) else { return false };
+    (display == property::Display::Block && tag != tag::pre)
+        || display.is_tabular()
+        || display == property::Display::ListItem
+        || tag == tag::head
 }
 
 /// Whether newlines should be added before and after the element if the parent

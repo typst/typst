@@ -12,7 +12,9 @@ use typst_library::text::{
 use typst_syntax::Span;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment};
-use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, tag};
+use crate::{
+    FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
+};
 
 /// What and how to convert.
 pub enum ConversionLevel<'a> {
@@ -181,7 +183,7 @@ fn handle_html_elem(
             styles
         };
 
-        if tag::is_block_by_default(elem.tag) {
+        if property::Display::default_for(elem.tag) == Some(property::Display::Block) {
             children = html_block_fragment(
                 converter.engine,
                 body,
@@ -428,7 +430,10 @@ impl<'a> Protector<'a> {
                     }
                 }
                 HtmlNode::Element(element) => {
-                    if tag::is_block_by_default(element.tag) || element.tag == tag::br {
+                    if property::Display::default_for(element.tag)
+                        == Some(property::Display::Block)
+                        || element.tag == tag::br
+                    {
                         self.collapsing();
                     } else if tag::is_replaced(element.tag) {
                         self.supportive();

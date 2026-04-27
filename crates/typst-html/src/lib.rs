@@ -1,6 +1,7 @@
 //! Typst's HTML exporter.
 
 pub mod attr;
+pub mod property;
 pub mod tag;
 
 mod charsets;
