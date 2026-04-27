@@ -19,12 +19,12 @@ impl Properties {
         Self::default()
     }
 
-    /// Creates an empty list.
+    /// Creates a builder for adding properties that implement `ToCss`.
     pub fn build<S: WarningSink>(sink: S) -> PropertiesBuilder<S> {
         PropertiesBuilder::new(sink)
     }
 
-    /// Adds a new property to the list.
+    /// Adds a new, already serialized property to the list.
     pub fn push(&mut self, property: &'static str, value: impl Into<EcoString>) {
         let property = Property::new(property, value.into());
         let res = self.0.binary_search_by_key(&property.name, |p| p.name);
@@ -34,12 +34,13 @@ impl Properties {
         }
     }
 
-    /// Adds a new property in builder-style.
+    /// Adds a new, already serialized property in builder style.
     pub fn with(mut self, property: &'static str, value: impl Into<EcoString>) -> Self {
         self.push(property, value);
         self
     }
 
+    /// Converts the CSS properties into an inline style.
     pub fn to_inline(&self) -> impl Display + use<'_> {
         typst_utils::display(move |f| {
             for (i, Property { name, value }) in self.iter().enumerate() {
@@ -61,6 +62,10 @@ impl Deref for Properties {
     }
 }
 
+/// A builder for [`Properties`].
+///
+/// Allows serializing Typst types into CSS while producing warnings for
+/// unsupported constructs.
 #[derive(Debug)]
 pub struct PropertiesBuilder<S> {
     sink: S,
@@ -68,11 +73,13 @@ pub struct PropertiesBuilder<S> {
 }
 
 impl<S: WarningSink> PropertiesBuilder<S> {
+    /// Create a new builder that emits any warnings that may occur during
+    /// serialization into the given `sink`.
     pub fn new(sink: S) -> Self {
         Self { sink, props: Properties::default() }
     }
 
-    /// Adds a new property to the list.
+    /// Serializes a new property and adds it to the property list.
     pub fn push(&mut self, property: &'static str, value: impl ToCss) {
         let mut writer = CssWriter::new(&mut self.sink);
         writer.emit(value);
@@ -82,7 +89,8 @@ impl<S: WarningSink> PropertiesBuilder<S> {
         }
     }
 
-    /// Adds a new property in builder-style.
+    /// Serializes a new property and adds it to the property list in builder
+    /// style.
     pub fn with(mut self, property: &'static str, value: impl ToCss) -> Self {
         self.push(property, value);
         self
@@ -94,14 +102,18 @@ impl<S: WarningSink> PropertiesBuilder<S> {
     }
 }
 
+/// A CSS property pair such as `display: block`.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Property {
+    /// The property's name, e.g. `display`.
     // TODO: Use something similar to `HtmlAttr`.
     pub name: &'static str,
+    /// The property's serialized value, e.g. `block`.
     pub value: EcoString,
 }
 
 impl Property {
+    /// Creates a new property pair from its parts.
     pub fn new(name: &'static str, value: EcoString) -> Self {
         Self { name, value }
     }

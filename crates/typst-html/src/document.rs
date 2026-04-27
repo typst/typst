@@ -186,8 +186,8 @@ fn html_document_common(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    // Since `finalize_dom` might insert more dom nodes that have styles, the
-    // styles must be resolved last.
+    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
+    // the styles must be resolved last.
     css::resolve_inline_styles(output.root_mut());
 
     Ok(HtmlDocument::new(output, info))
@@ -247,8 +247,6 @@ fn finalize_dom(
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
-                // TODO: Stylesheet isn't included in the final output. Either
-                // warn or add some other mechanism to retrieve/insert it.
                 footnotes_unsupported_with_custom_dom(engine)?;
                 return Ok(HtmlOutput { nodes, root_index: idx });
             }

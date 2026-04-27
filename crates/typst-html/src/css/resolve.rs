@@ -2,6 +2,12 @@ use ecow::eco_format;
 
 use crate::{HtmlElement, HtmlNode, attr};
 
+/// Turns CSS properties on all elements in the DOM into inline `style`
+/// attributes.
+///
+/// This by itself would not need a separate pass over the DOM, but it will be
+/// supplanted by more advanced CSS handling, so it makes sense to already
+/// organize the code like this.
 pub fn resolve_inline_styles(root: &mut HtmlElement) {
     visit_elem(root);
 }
@@ -20,7 +26,7 @@ fn visit_elem(elem: &mut HtmlElement) {
             generated.push_str(style);
             *style = generated;
         } else {
-            elem.attrs.push_front(attr::style, generated);
+            elem.attrs.push(attr::style, generated);
         }
     }
 
