@@ -122,6 +122,13 @@ impl Frame {
         self.baseline = Some(baseline);
     }
 
+    /// Remove the frame's natural baseline. This might be needed after
+    /// applying a certain transformation that would invalidate the baseline
+    /// position, in such a way that the ideal new position is not clear.
+    pub fn clear_baseline(&mut self) {
+        self.baseline = None;
+    }
+
     /// The distance from the baseline to the top of the frame.
     ///
     /// This is the same as `baseline()`, but more in line with the terminology
@@ -294,6 +301,15 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
+            for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
+                *point += offset;
+            }
+        }
+    }
+
+    /// Move the contents of the frame without changing the baseline.
+    pub fn translate_visual(&mut self, offset: Point) {
+        if !offset.is_zero() {
             for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
                 *point += offset;
             }
