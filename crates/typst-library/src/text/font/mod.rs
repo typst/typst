@@ -39,6 +39,8 @@ struct FontInner {
     metrics: FontMetrics,
     /// The underlying ttf-parser face.
     ttf: ttf_parser::Face<'static>,
+    /// The underlying fontations face.
+    fontations: read_fonts::FontRef<'static>,
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
     // NOTE: `ttf` and `rusty` reference `data`, so it's important for `data`
@@ -64,11 +66,20 @@ impl Font {
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
         let ttf = ttf_parser::Face::parse(slice, index).ok()?;
+        let fontations = read_fonts::FontRef::from_index(slice, index).ok()?;
         let rusty = rustybuzz::Face::from_slice(slice, index)?;
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner {
+            data,
+            index,
+            info,
+            metrics,
+            ttf,
+            fontations,
+            rusty,
+        })))
     }
 
     /// Parse all fonts in the given data.
@@ -139,6 +150,13 @@ impl Font {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
         &self.0.ttf
+    }
+
+    /// A reference to the underlying `fontations` face.
+    pub fn fontations(&self) -> &read_fonts::FontRef<'_> {
+        // We can't implement Deref because that would leak the
+        // internal 'static lifetime.
+        &self.0.fontations
     }
 
     /// A reference to the underlying `rustybuzz` face.

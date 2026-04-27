@@ -48,6 +48,7 @@ palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
 rayon = { workspace = true }
+read-fonts = { workspace = true }
 regex = { workspace = true }
 regex-syntax = { workspace = true }
 roxmltree = { workspace = true }

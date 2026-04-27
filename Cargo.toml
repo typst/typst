@@ -102,6 +102,7 @@ proc-macro2 = "1"
 pulldown-cmark = "0.9"
 quote = "1"
 rayon = "1.7.0"
+read-fonts = { version = "0.39", features = ["libm"] }
 regex = "1"
 regex-syntax = "0.8"
 resvg = { version = "0.45", default-features = false, features = ["raster-images"] }
