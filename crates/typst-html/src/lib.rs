@@ -67,6 +67,11 @@ pub struct HtmlElem {
     /// The element's HTML attributes.
     pub attrs: HtmlAttrs,
 
+    /// The element's CSS properties. Currently only used for generated styles.
+    #[internal]
+    #[parse(Some(css::Properties::default()))]
+    pub css: css::Properties,
+
     /// The contents of the HTML element.
     ///
     /// The body can be arbitrary Typst content.
@@ -111,15 +116,6 @@ impl HtmlElem {
         value: Option<impl Into<EcoString>>,
     ) -> Self {
         if let Some(value) = value { self.with_attr(attr, value) } else { self }
-    }
-
-    /// Adds CSS styles to an element.
-    fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
     }
 
     /// Checks whether the given element is "phrasing content" in HTML.
