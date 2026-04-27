@@ -16,7 +16,8 @@ use crate::visualize::{
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
-pub fn should_outline(font: &Font, glyph_id: GlyphId) -> bool {
+pub fn should_outline(font: &Font, id: u16) -> bool {
+    let glyph_id = GlyphId(id);
     let ttf = font.ttf();
     (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
         && !ttf

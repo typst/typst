@@ -20,7 +20,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         let x_offset = x + glyph.x_offset.at(text.size);
         let y_offset = y + glyph.y_offset.at(text.size);
 
-        if should_outline(&text.font, id) {
+        if should_outline(&text.font, id.0) {
             let state = state.pre_translate(Point::new(x_offset, -y_offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
