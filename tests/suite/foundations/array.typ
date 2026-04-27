@@ -30,12 +30,12 @@
 #(1, 1u 2)
 
 --- array-unit-spacing eval ---
-// Error: 4 expected comma
-// Hint: 4 if you meant to use a unit, try `1pt` instead
+// Error: 5-7 expected comma, but found numeric suffix
+// Hint: 5-7 if you meant to use a unit, try `1pt` instead
 #(1 pt,)
 
 --- array-unit-spacing-percent eval ---
-// Error: 5-6 the character `%` is not valid in code
+// Error: 5-6 expected comma, but found numeric suffix
 // Hint: 5-6 if you meant to use a unit, try `1%` instead
 #(1 %)
 
