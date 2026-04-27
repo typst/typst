@@ -381,7 +381,7 @@ pub struct CompileArgs {
     /// https://ui.perfetto.dev. It does not contain any sensitive information
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
-    pub timings: Option<Option<PathBuf>>,
+    pub timings: Option<PathBuf>,
 }
 
 /// Arguments for the construction of a world. Shared by compile, watch, eval, and

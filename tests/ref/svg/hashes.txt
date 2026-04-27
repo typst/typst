@@ -79,12 +79,12 @@ fa1d0044dd1e0fd0aea4ae5c02d50644 closure-capture-in-lvalue
 a6faa1a6b2b7f80c2a8885b7e77d8b1f closure-without-params-non-atomic
 cf4d26f288a7caae198f57e92891e20c code-block-basic-syntax
 0b09017973a4b3e58a0e6ca508de07a1 colbreak-weak
-eef5175f26c57e6357be83557a7457a5 color-cmyk-ops
+a6ab2a2612fd7cfa2823306a486547aa color-cmyk-ops
 5dc13a74cdf22f909778dc87aa1d3d67 color-luma
 65e7062d506d1467922a03a7146ee779 color-outside-srgb-gamut
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
-5f95151d15c449ae166391d537ea482b color-spaces
+575969816062df61becf97966c5a44d1 color-spaces
 7c3c5ac6abbb0940d64d754a13834845 columns-colbreak-after-place
 0ebfece91a658f298190631141783a17 columns-empty-second-column
 0c028ea067ea7eb779e5116443f9ea19 columns-in-auto-sized-rect
@@ -185,6 +185,7 @@ faaf35d26d560f371004dc430c9aa927 enum-numbering-full
 cd6b2f932b98dd72b23ac6b855e64da9 enum-numbering-pattern
 2731ef7b1873d4ca9302858919c4f57d enum-numbering-reversed
 dcbd9066852184b35f55ca7368de808c enum-numbering-reversed-overridden
+51a5e57c9cfc95fa5b1d4a60b516e0b8 enum-numbering-too-high
 119f74cb6d50f26d5029e3b4fb48e702 enum-par
 4dceb0a7d6b01ad950dd2ab4de474494 enum-syntax-at-start
 feaacf6adc7f48bc41901059d0d34485 enum-syntax-edge-cases
@@ -243,6 +244,7 @@ b878894a83ed11b3062efdfb369f85a8 footnote-invariant
 3f6fb1080dddf4d29edb0f0a021080a4 footnote-multiple-in-one-line
 2549a631a2e315f6f75bc3a9c5dffc22 footnote-nested
 203d3f459c514e8587207b0e2a0a118b footnote-nested-break-across-pages
+a941982fef6b93950643f8d1dcfafccd footnote-numbering-too-high
 28944233e1402f3ad61ce7a40235055c footnote-ref
 a6f9af6b6c8d6b3021731c9494b37678 footnote-ref-call
 6e31e2cb3aaecb083bed4f7a6219159d footnote-ref-forward
@@ -804,7 +806,11 @@ bd376c1c496929ec6a5dc908983db503 issue-7428-heading-numbering-errors
 2e23a826a914d869461b594a54ba8890 issue-7437-math-accent-text-presentation
 8bf45d51f32b3c60184eed5f425e333b issue-758-link-repeat
 67d6cd041d94705cdfd9bc0d0d2e7470 issue-785-cite-locate
+d11d97e6d145004c1284effc9e073c68 issue-7872-negative-scale
+366fcb9e4d729259ba5ed7a60884efb4 issue-7901-rect-negative-dimensions-radius
+edbddee086a5c94f1808229059ded6fb issue-7991-show-text-symbol-grapheme-sliced
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
+b352c430879f012d1b1d954d3761aa1f issue-8058-show-text-grapheme-sliced
 cdb9cb5e69f59e77d9640e7c9001f9d8 issue-852-mat-type
 421744506d29db117dff226731da1b04 issue-886-args-sink
 e3cda5cda8f3d5a0316e956c3f00757a issue-color-mix-luma
@@ -816,7 +822,7 @@ cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
 6b5fd25fd3e6565cc3e1d05c66489ae1 issue-flow-trailing-leading
 dfbd05f0366f20bf22b4ab5a1de13581 issue-flow-weak-spacing
 685c2458ed2b078e14fa2b58483e5343 issue-footnotes-skip-first-page
-4b5fe79d34353e2a7994c35b5446ceed issue-gradient-cmyk-encode
+51c21f89e1de5c05f0d1d5671a6999aa issue-gradient-cmyk-encode
 7c9ddd2e13fc8e1cef6d7b2b70fe9ab1 issue-grid-base-auto-row
 c9f3c8f7c9322ebea118798787ebc19d issue-grid-base-auto-row-list
 bb9b10a74dc6965e5938851f528e3290 issue-grid-double-skip
@@ -954,11 +960,13 @@ a9ea1964ea50a5f99bb43b60052d92e2 loop-break-join-in-nested-blocks
 d0870db62e7d975b7ed374c4dd5149da lorem-pars
 d67b22f989938c53a50e3005de222f43 math-accent-align
 5b53d99967ab61c16b7e708e94ac14fe math-accent-bottom
+790d288706e2cdb297ce9bb4548f5cd9 math-accent-bottom-cramped
 e0fbfe68dbe47bc60dbb37b440a241ef math-accent-bottom-high-base
 dfc8f1d12038f66e48525fc5b6f9d4f3 math-accent-bottom-sized
 21d8e0995c539510c94aaaad245329c5 math-accent-bottom-subscript
 078b5ea23f7f838fb140ad5666de4c16 math-accent-bottom-wide-base
 c3d6ec63429054cec3c3308105bd55d6 math-accent-bounds
+0d7eac4d78196b5a6f1f88a2cdfb9be9 math-accent-cramped
 cd27f396bff9e0464ad354eb37159703 math-accent-dotless
 3f04dbd3e682fca8fd00d556855d4c7a math-accent-dotless-disabled
 8f83d5554396e6c3dce7d4e1f5830c4e math-accent-dotless-greedy
@@ -1194,6 +1202,7 @@ dcad2f88070e22f99f7b8e8234775fae math-primes-show-rule
 8c78cd73c7cc245cfaff619414e11076 math-primes-with-superscript
 cec2f04c08dd9e4cab0a59396e97cc1c math-root-basic
 c7b2da5be74c454c16c24223c5bc4a27 math-root-frame-size-index
+fdf3c6a8c324038cab07d2d975a18931 math-root-index-cramped
 e5ba516922d0fe30488c8fe025198fe6 math-root-large-body
 2d0919c18b48be9486138a80567d0fa7 math-root-large-index
 12905ebf52da18181a5c18530eccaba3 math-root-line-fill-stroke
@@ -1282,6 +1291,8 @@ ecf555a6daf4a1d6f26c17dff6c41b8c measure-citation-deeply-nested
 d68afde4dda5695fbf241975279acc95 measure-counter-width
 9c4f734af378058ad8210a93b2a9d631 newline-continuation-code
 bac99e86f7dddaa30b4ebfc19b5a1475 newline-continuation-markup
+42aadfe6a38d783a8af08ecb9921cd82 numbering-illegal-zero
+b22c8a339cc9a2d9fb9e42c1d62cbae7 numbering-too-high
 1bff303498ddfcb9c055b12bacf675fc numbers
 bed674f5955292b07efed4a98d053d8d ops-add-content
 21725d744a002767f3b18d1142fcdbc5 ops-multiply-inf-with-length
@@ -1290,7 +1301,7 @@ bed674f5955292b07efed4a98d053d8d ops-add-content
 7c01d57a4a66ea66d418499f3ec8173d outline-entry-complex
 0cad1e6b384d088b7ab23b36577a27ce outline-entry-inner
 d57194339abd15da4a671897469187b9 outline-first-line-indent
-3c879beebb5b3f83ad1415daf83e1f40 outline-heading-start-of-page
+11dd03fe72b781bed5bfeeeb9ccb96d7 outline-heading-start-of-page
 2fa5e03a6776e05e81bb3dfc3d19f2cb outline-indent-auto
 cedeb3a773d2c31e816133b773338edb outline-indent-auto-mixed-prefix
 1b62fce64b4863b34bcb314b0457e6e6 outline-indent-auto-mixed-prefix-short
@@ -1338,6 +1349,7 @@ ca90650a7fc8325331d16fbfae69fc00 page-number-align-bottom-left
 bdb7fe8f06bec26228290c367da7b2ef page-number-align-top-right
 6544481f7aef499c1eea6b49851c4744 page-numbering-huge
 8e076c1cb328375e73ebb3a7b1660aca page-numbering-pdf-label
+878f2789324bf0180cc222f477b7280f page-numbering-too-high
 a1880dd82ec477cc9ce53f2c7e556635 page-set-empty
 cf065a2e9f6470a7791807d3c23fcc79 page-set-forces-break
 850ee236e2dbd8ebf16113d1d3e484d9 page-set-only-pagebreak
@@ -1562,6 +1574,7 @@ bce9e527b76d30d09dd62e855d11fe81 show-text-citation-smartquote
 61e3b763e5fac416637aab08668d5bb5 show-text-in-citation
 75c914d0d9513f4bba832695c3b57a79 show-text-in-other-show
 eda549e8ff2b0fdf23540f9c455dd1ae show-text-indirectly-cyclic
+78c20ababf87ad01879e2ecd9eec04d3 show-text-isolated-space
 fe514ec68ea2ff585adad29320fe9f0b show-text-line-wrapping
 f7b4ce9d006150174a3d7d6d3d3a18ba show-text-linebreak
 bf125910a7e03f556dc82768c65c0fa4 show-text-list

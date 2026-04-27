@@ -89,16 +89,14 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
 );
 
 /// Syntax kinds that can start a code expression.
-pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
+///
+/// Underscores can only start an arrow function (`_ => {}`) or an assignment
+/// (`_ = x`).
+pub const CODE_EXPR: SyntaxSet =
+    ATOMIC_CODE_EXPR.union(UNARY_OP).add(SyntaxKind::Underscore);
 
 /// Syntax kinds that can start an atomic code expression.
-pub const ATOMIC_CODE_EXPR: SyntaxSet = ATOMIC_CODE_PRIMARY;
-
-/// Syntax kinds that can start a code primary.
-pub const CODE_PRIMARY: SyntaxSet = ATOMIC_CODE_PRIMARY.add(SyntaxKind::Underscore);
-
-/// Syntax kinds that can start an atomic code primary.
-pub const ATOMIC_CODE_PRIMARY: SyntaxSet = syntax_set!(
+pub const ATOMIC_CODE_EXPR: SyntaxSet = syntax_set!(
     Ident,
     LeftBrace,
     LeftBracket,

@@ -185,6 +185,7 @@ eabebde9bf34dfcc1f6264c6050f0bb4 enum-numbering-full
 43a246109130985f4ab67dde72cf1ad0 enum-numbering-pattern
 c58f6dfbb08ad40841aa8c99e00cba2d enum-numbering-reversed
 232161ec45cb6ef0d6425765aa9cc3b8 enum-numbering-reversed-overridden
+79a50cae71d8fd8ff927fda80d476e3b enum-numbering-too-high
 470c89cf6b27271427eb9e21abf79cb7 enum-par
 30ec886a32b2c86b45b2f63b26a4be32 enum-syntax-at-start
 981cf1748989d09172818010d1facbf0 enum-syntax-edge-cases
@@ -243,6 +244,7 @@ f4758a6b4a3ab2e5be77920d113510d8 footnote-invariant
 6dcf385c14fe9ca49fd685034ecdefac footnote-multiple-in-one-line
 355f40476ca646e9fe98bddf553883be footnote-nested
 61085b0a61c1e1534f8d47e276a75ed2 footnote-nested-break-across-pages
+d0adb1c5505febe6c27fe604b497bd09 footnote-numbering-too-high
 e945532e1805abc154f3c82cc8f09b49 footnote-ref
 c70ee8464752742dad5ffa421b9c88d9 footnote-ref-call
 032a96a896103cff68580fc24afc6657 footnote-ref-forward
@@ -804,7 +806,11 @@ f420fcaa78fa27566a8b2fde93343cc8 issue-6539-cjk-latin-spacing-at-manual-linebrea
 fc815e90340a2724adc27ab1c38bbf78 issue-7437-math-accent-text-presentation
 05ad3f9eed0c1435183fae4a491f06f4 issue-758-link-repeat
 a975b02164c8d48dbded119de6d1b7db issue-785-cite-locate
+df0abf320f6cb053b4258361fbc478e5 issue-7872-negative-scale
+4762076e37cc612f971de182e349dd74 issue-7901-rect-negative-dimensions-radius
+6fb9a9922177dd422bc438d3eb97fa81 issue-7991-show-text-symbol-grapheme-sliced
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
+14e81f4542b39d400540e370ea8b3c2f issue-8058-show-text-grapheme-sliced
 21a423976fd0a8c6bb7eb3593b18e365 issue-852-mat-type
 40a0c2e4d119d9f2515575c488dba6d7 issue-886-args-sink
 d1a0e13958cbbcc49ef6dfadd13c4568 issue-color-mix-luma
@@ -816,7 +822,7 @@ a4fadfb8614c28d39091fd7d71834059 issue-flow-layout-index-out-of-bounds
 48f7bf73bd72250bdacb94547ffa29ab issue-flow-trailing-leading
 b5129585129e0e516772bfec8a76c0aa issue-flow-weak-spacing
 fd50890bd13946d2bf410840c56f16dd issue-footnotes-skip-first-page
-fdbcf65e84c439c639456ba985efcbd8 issue-gradient-cmyk-encode
+e5e8672a27980c99fb5e75b2b8eb1d58 issue-gradient-cmyk-encode
 d5a1860033f0f5dc5323544208fcfe18 issue-grid-base-auto-row
 74f27746ba0e37585ae0017183fdb45a issue-grid-base-auto-row-list
 cf190167b8ab615e29bfa8e05bd19865 issue-grid-double-skip
@@ -954,11 +960,13 @@ d3905bbf66c760f77c8d0749e87ea686 locate-start-of-par
 88d69634be527282f21836b3a2e89df3 lorem-pars
 84b4fbe8abf075596be51a280b97c2a4 math-accent-align
 54aa80a66fa9d3067798872bcd512fbb math-accent-bottom
+1530cc9459f2d77ecc632e1fa91135d2 math-accent-bottom-cramped
 40d82db19a66708ad12eacb956f4f7e5 math-accent-bottom-high-base
 4e205f08d144b2ab1b0246129fbd118c math-accent-bottom-sized
 1f9ff8b0b9f4f49f24e31a884579541c math-accent-bottom-subscript
 b59bbce0e360c44c8b90a0bef137c9ba math-accent-bottom-wide-base
 4c4fe4a049760a606c8555a2a35ce8d4 math-accent-bounds
+fff18ca4683afab983276db726074567 math-accent-cramped
 af3590c25c8f8deb3d18ba6fb0d7861d math-accent-dotless
 32063cbf51d1234fbbf58b96d727f15b math-accent-dotless-disabled
 c554640d59845858825d6cfaee098f02 math-accent-dotless-greedy
@@ -1194,6 +1202,7 @@ d3ef8e83ad9047588a3df051ad4c55dd math-primes-show-rule
 c8f84eec5cd086eb48f5571ea4cc2705 math-primes-with-superscript
 53f0262998eb3066a8b48d6e063c57ac math-root-basic
 91d1bfbf0ca427f01b2f6de1b1845e68 math-root-frame-size-index
+b512d81c10683f49236219b3de5a3510 math-root-index-cramped
 52b9b118cee3d7bf5d0ecc58da245911 math-root-large-body
 fd9683df169c488628ede261dcace87a math-root-large-index
 8ce15fcd78d692f484999fd936cdbafa math-root-line-fill-stroke
@@ -1282,6 +1291,8 @@ e68948494a551019df89456db7586fb8 measure-citation-in-flow
 9cfe6a06921b318f704ac6620110b52e measure-counter-width
 686af9a8e5ab98357f0295ba6f6b32d8 newline-continuation-code
 6dbf4cb3db7f8cd2845d8e13ecfbb027 newline-continuation-markup
+49853eea9eefdf580a4a08c3a3b8f755 numbering-illegal-zero
+efa8fb9912f9b82ed674c0c447666ba1 numbering-too-high
 38ef04e7d23e07f3f6cca8c862f3081f numbers
 39554fc74ed2512083d334e44d46bdea ops-add-content
 87b3891e44a2bffd193429afdd971c76 ops-multiply-inf-with-length
@@ -1290,7 +1301,7 @@ e68948494a551019df89456db7586fb8 measure-citation-in-flow
 0f03569f53987ada347a279a6f5a117f outline-entry-complex
 446f0949e6b7af300a93047d27bc30a8 outline-entry-inner
 d9895a6a90d44d6ee010ac12a9a5e182 outline-first-line-indent
-f4f14258af604034df2c26905ae7500f outline-heading-start-of-page
+b2544534bae1c492e704adddd0aba611 outline-heading-start-of-page
 549f0aa4abb5a3a6faa615f3c2e199ed outline-indent-auto
 e276bf5c83b20cb80f1db9bd235acfbb outline-indent-auto-mixed-prefix
 7f1a032c826d7b9b5c0ec0cd2f0bf96b outline-indent-auto-mixed-prefix-short
@@ -1338,6 +1349,8 @@ cad898978d31fc0335a0cf72314fbeac page-number-align-bottom-left
 00f6980ecfe95d4631ec20b43003d423 page-number-align-top-right
 ab8a10bee14d2e3521085ebcc66375ce page-numbering-huge
 b1c1a2db112d62c17ac13867becf4e0c page-numbering-pdf-label
+bbe4534df5850827c37cfd0a7ce3ef99 page-numbering-too-high
+1678f2528a539d5dc5538e360ae4c805 page-numbering-too-high-pdf
 6b20a6568da6b8e6f06c37b550a1b64e page-set-empty
 7b4a1a6154b4a3ae39860bd47c83f202 page-set-forces-break
 bd683547e19bb800bf807577270e5e60 page-set-only-pagebreak
@@ -1562,6 +1575,7 @@ f9f6165eed9c5dad31cb6d0f15d14c75 show-text-get-text-on-it
 d277fa6bebec01490ae5e0098bfb5d64 show-text-in-citation
 164e565e79e376452ca17e37f6b618d6 show-text-in-other-show
 9812a7c3f0815e388a42085b21cc323c show-text-indirectly-cyclic
+677c7eefbce4024d15430950f4593a58 show-text-isolated-space
 8d738b9cd74b9dd21dc7b4bc9e0304e1 show-text-line-wrapping
 d074c3f2fa0b2e558875613980c30bed show-text-linebreak
 d85358819d505d54c9a16b923e0a79e5 show-text-list

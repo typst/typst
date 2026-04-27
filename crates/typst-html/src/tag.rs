@@ -453,6 +453,25 @@ pub fn is_script_supporting_element(tag: HtmlTag) -> bool {
     matches!(tag, self::script | self::template)
 }
 
+// § 15.4 Replaced elements
+
+/// Whether the element is considered a "replaced element".
+///
+/// See also: https://www.w3.org/TR/css-display-3/#replaced-element
+pub fn is_replaced(tag: HtmlTag) -> bool {
+    matches!(
+        tag,
+        self::audio
+            | self::canvas
+            | self::embed
+            | self::iframe
+            | self::img
+            | self::input
+            | self::object
+            | self::video
+    )
+}
+
 // Defaults of the CSS `display` property.
 
 /// Whether nodes with the tag have the CSS property `display: block` by
