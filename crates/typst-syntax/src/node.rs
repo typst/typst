@@ -26,7 +26,7 @@ enum NodeKind {
 impl SyntaxNode {
     /// Create a new leaf node.
     pub fn leaf(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
-        Self(NodeKind::Leaf(LeafNode::new(kind, text)))
+        Self(NodeKind::Leaf(LeafNode::new(kind, text.into())))
     }
 
     /// Create a new inner node with children.
@@ -34,9 +34,36 @@ impl SyntaxNode {
         Self(NodeKind::Inner(Arc::new(InnerNode::new(kind, children))))
     }
 
-    /// Create a new error node.
-    pub fn error(error: SyntaxError, text: impl Into<EcoString>) -> Self {
-        Self(NodeKind::Error(Arc::new(ErrorNode::new(error, text))))
+    /// Create a new error node with a user-presentable message for the given
+    /// text. Note that the message is the first argument, and the text causing
+    /// the error is the second argument.
+    pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
+        Self(NodeKind::Error(Arc::new(ErrorNode::new(message.into(), text.into()))))
+    }
+
+    /// Add a user-presentable hint to an existing error. Panics if this is not
+    /// an error node.
+    #[track_caller]
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
+        match &mut self.0 {
+            NodeKind::Leaf(_) | NodeKind::Inner(_) => {
+                panic!("expected an error node")
+            }
+            NodeKind::Error(err) => Arc::make_mut(err).error.hints.push(hint.into()),
+        }
+    }
+
+    /// Add mutliple hints while building an error. Panics if this is not an
+    /// error.
+    #[track_caller]
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        match &mut self.0 {
+            NodeKind::Leaf(_) | NodeKind::Inner(_) => {
+                panic!("expected an error node")
+            }
+            NodeKind::Error(err) => Arc::make_mut(err).error.hints.extend(hints),
+        }
+        self
     }
 
     /// Create a dummy node of the given kind.
@@ -71,9 +98,9 @@ impl SyntaxNode {
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
         match &self.0 {
-            NodeKind::Leaf(leaf) => leaf.len(),
+            NodeKind::Leaf(leaf) => leaf.text.len(),
             NodeKind::Inner(inner) => inner.len,
-            NodeKind::Error(err) => err.len(),
+            NodeKind::Error(err) => err.text.len(),
         }
     }
 
@@ -151,13 +178,6 @@ impl SyntaxNode {
         vec
     }
 
-    /// Add a user-presentable hint if this is an error node.
-    pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        if let NodeKind::Error(node) = &mut self.0 {
-            Arc::make_mut(node).hint(hint);
-        }
-    }
-
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         match &mut self.0 {
@@ -196,7 +216,7 @@ impl SyntaxNode {
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         if !self.kind().is_error() {
             let text = std::mem::take(self).into_text();
-            *self = SyntaxNode::error(SyntaxError::new(message), text);
+            *self = SyntaxNode::error(message.into(), text);
         }
     }
 
@@ -354,14 +374,9 @@ struct LeafNode {
 impl LeafNode {
     /// Create a new leaf node.
     #[track_caller]
-    fn new(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
+    fn new(kind: SyntaxKind, text: EcoString) -> Self {
         debug_assert!(!kind.is_error());
-        Self { kind, text: text.into(), span: Span::detached() }
-    }
-
-    /// The byte length of the node in the source text.
-    fn len(&self) -> usize {
-        self.text.len()
+        Self { kind, text, span: Span::detached() }
     }
 
     /// Whether the two leaf nodes are the same apart from spans.
@@ -626,6 +641,18 @@ impl Debug for InnerNode {
     }
 }
 
+/// A syntactical error.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SyntaxError {
+    /// The node's span.
+    pub span: Span,
+    /// The error message.
+    pub message: EcoString,
+    /// Additional hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    pub hints: EcoVec<EcoString>,
+}
+
 /// An error node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct ErrorNode {
@@ -636,24 +663,19 @@ struct ErrorNode {
 }
 
 impl ErrorNode {
-    /// Create new error node.
-    fn new(error: SyntaxError, text: impl Into<EcoString>) -> Self {
-        Self { text: text.into(), error }
+    /// Create a new error node.
+    fn new(message: EcoString, text: EcoString) -> Self {
+        Self {
+            text,
+            error: SyntaxError { span: Span::detached(), message, hints: eco_vec![] },
+        }
     }
 
-    /// The byte length of the node in the source text.
-    fn len(&self) -> usize {
-        self.text.len()
-    }
-
-    /// Add a user-presentable hint to this error node.
-    fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.error.hints.push(hint.into());
-    }
-
-    /// Whether the two leaf nodes are the same apart from spans.
+    /// Whether the two error nodes are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
-        self.text == other.text && self.error.spanless_eq(&other.error)
+        self.text == other.text
+            && self.error.message == other.error.message
+            && self.error.hints == other.error.hints
     }
 }
 
@@ -670,34 +692,6 @@ impl Debug for ErrorNode {
             }
             out.finish()
         }
-    }
-}
-
-/// A syntactical error.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SyntaxError {
-    /// The node's span.
-    pub span: Span,
-    /// The error message.
-    pub message: EcoString,
-    /// Additional hints to the user, indicating how this error could be avoided
-    /// or worked around.
-    pub hints: EcoVec<EcoString>,
-}
-
-impl SyntaxError {
-    /// Create a new detached syntax error.
-    pub fn new(message: impl Into<EcoString>) -> Self {
-        Self {
-            span: Span::detached(),
-            message: message.into(),
-            hints: eco_vec![],
-        }
-    }
-
-    /// Whether the two errors are the same apart from spans.
-    fn spanless_eq(&self, other: &Self) -> bool {
-        self.message == other.message && self.hints == other.hints
     }
 }
 
