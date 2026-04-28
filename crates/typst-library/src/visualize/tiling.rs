@@ -8,9 +8,9 @@ use typst_utils::{LazyHash, Numeric};
 use crate::World;
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Content, Repr, Smart, StyleChain, func, scope, ty};
+use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Axes, Frame, Length, Region, Size};
+use crate::layout::{Abs, Axes, Frame, Length, Region, Rel, Size};
 use crate::visualize::RelativeTo;
 
 /// A repeating tiling fill.
@@ -19,7 +19,8 @@ use crate::visualize::RelativeTo;
 /// in a grid-like fashion, covering the entire area of an element that is
 /// filled or stroked. The pattern is defined by a tile size and a body defining
 /// the content of each cell. You can also add horizontal or vertical spacing
-/// between the cells of the tiling.
+/// between the cells of the tiling, as well as offset the starting position of
+/// the tiling using the [`offset`]($tiling.offset) parameter.
 ///
 /// # Examples
 ///
@@ -78,6 +79,36 @@ use crate::visualize::RelativeTo;
 /// )
 /// ```
 ///
+/// The [`offset`]($tiling.offset) parameter allows you to offset the starting
+/// position of the tiling. This shifts the entire tile grid without affecting
+/// the tile size or spacing. Positive x values move the pattern to the right,
+/// and positive y values move it down. Relative values are resolved against
+/// the tile size plus spacing.
+///
+/// Note that the displacement caused by the offset affects the tiles themselves,
+/// while displacement of the inner contents (e.g. by using `place(dx: ...,
+/// dy: ...)`) can cause clipping when the content moves outside the tile's
+/// bounding box.
+///
+/// ```example
+/// #let pat = tiling(size: (20pt, 20pt))[
+///   #place(circle(radius: 10pt, fill: blue))
+/// ]
+/// #let pat-offset = tiling(
+///   size: (20pt, 20pt),
+///   offset: (50%, 50%),
+/// )[
+///   #place(circle(radius: 10pt, fill: blue))
+/// ]
+///
+/// #grid(
+///   columns: 2,
+///   column-gutter: 10pt,
+///   rect(fill: pat, width: 100pt, height: 80pt, stroke: 1pt),
+///   rect(fill: pat-offset, width: 100pt, height: 80pt, stroke: 1pt),
+/// )
+/// ```
+///
 /// # Relativeness
 /// The location of the starting point of the tiling is dependent on the
 /// dimensions of a container. This container can either be the shape that it is
@@ -111,6 +142,8 @@ struct TilingInner {
     size: Size,
     /// The tiling's tile spacing.
     spacing: Size,
+    /// The tiling's tile offset.
+    offset: Size,
     /// The tiling's relative transform.
     relative: Smart<RelativeTo>,
 }
@@ -147,6 +180,10 @@ impl Tiling {
         #[named]
         #[default(Spanned::detached(Axes::splat(Length::zero())))]
         spacing: Spanned<Axes<Length>>,
+        /// The offset of the tiling.
+        #[named]
+        #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
+        offset: Spanned<Axes<Rel<Length>>>,
         /// The [relative placement](#relativeness) of the tiling.
         ///
         /// For an element placed at the root/top level of the document, the
@@ -186,6 +223,20 @@ impl Tiling {
             bail!(spacing.span, "tile spacing must be finite");
         }
 
+        // Ensure that offset is not font-relative.
+        if !offset.v.x.abs.em.is_zero() || !offset.v.y.abs.em.is_zero() {
+            bail!(offset.span, "tile offset must not be font-relative");
+        }
+
+        // Ensure that offset is finite.
+        if !offset.v.x.rel.get().is_finite()
+            || !offset.v.x.abs.is_finite()
+            || !offset.v.y.rel.get().is_finite()
+            || !offset.v.y.abs.is_finite()
+        {
+            bail!(offset.span, "tile offset must be finite");
+        }
+
         // The size of the frame
         let size = size.v.map(|l| l.map(|a| a.abs));
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
@@ -212,10 +263,18 @@ impl Tiling {
             );
         }
 
+        let size = frame.size();
+        let spacing = spacing.v.map(|l| l.abs);
+        let offset = offset
+            .v
+            .map(|l| l.resolve(styles))
+            .zip_map(size + spacing, Rel::relative_to);
+
         Ok(Self(Arc::new(TilingInner {
-            size: frame.size(),
+            size,
             frame: LazyHash::new(frame),
-            spacing: spacing.v.map(|l| l.abs),
+            spacing,
+            offset,
             relative,
         })))
     }
@@ -234,6 +293,11 @@ impl Tiling {
         }
 
         self
+    }
+
+    /// Return the offset of the tiling in absolute units.
+    pub fn offset(&self) -> Size {
+        self.0.offset
     }
 
     /// Return the frame of the tiling.
@@ -269,11 +333,19 @@ impl Repr for Tiling {
         let mut out =
             eco_format!("tiling(({}, {})", self.0.size.x.repr(), self.0.size.y.repr());
 
-        if self.0.spacing.is_zero() {
+        if !self.0.spacing.is_zero() {
             out.push_str(", spacing: (");
             out.push_str(&self.0.spacing.x.repr());
             out.push_str(", ");
             out.push_str(&self.0.spacing.y.repr());
+            out.push(')');
+        }
+
+        if !self.0.offset.is_zero() {
+            out.push_str(", offset: (");
+            out.push_str(&self.0.offset.x.repr());
+            out.push_str(", ");
+            out.push_str(&self.0.offset.y.repr());
             out.push(')');
         }
 
