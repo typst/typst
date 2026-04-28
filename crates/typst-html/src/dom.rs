@@ -5,7 +5,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+    Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
@@ -391,6 +391,21 @@ impl HtmlAttrs {
             .iter_mut()
             .find(|&&mut (k, _)| k == attr)
             .map(|(_, v)| v)
+    }
+}
+
+impl Fold for HtmlAttrs {
+    fn fold(mut self, outer: Self) -> Self {
+        // TODO: We might want to use a data structure where this is more
+        // efficient (while keeping small attribute lists efficient, too), but
+        // for now, this is okay.
+        self.0.reserve(outer.0.len());
+        for pair in outer.0 {
+            if !self.0.iter().any(|&(attr, _)| attr == pair.0) {
+                self.0.push(pair);
+            }
+        }
+        self
     }
 }
 

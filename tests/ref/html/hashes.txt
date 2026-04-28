@@ -39,6 +39,7 @@ f05d21fa2b913016803bf5476a1b6826 footnote-ref-multiple
 173d20de89ff8a56303aa8357ec2c323 heading-html-basic
 3779fea930339d8b6b37305dee2f7d1d html-deco
 eeecf9598691783d361c20acf47a8775 html-elem-alone-context
+e34ea44e32ada9e0685b72d6e82ecfd5 html-elem-attrs-fold
 2ea76ccf8bdc8f8a39f586aab6ed80c9 html-elem-custom
 52de31c777d4b7b8d356b54138b5fe14 html-elem-metadata
 0a1d1443e72ef554d74d15ae49cd076c html-escapable-raw-text-contains-closing-tag
