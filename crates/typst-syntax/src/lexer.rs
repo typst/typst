@@ -1,6 +1,6 @@
 use std::num::IntErrorKind;
 
-use ecow::{EcoString, eco_format};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_math_class::MathClass;
@@ -8,7 +8,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
+use crate::{SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// An iterator over a source code string which returns tokens.
 #[derive(Clone)]
@@ -20,8 +20,9 @@ pub(super) struct Lexer<'s> {
     mode: SyntaxMode,
     /// Whether the last token contained a newline.
     newline: bool,
-    /// An error for the last token.
-    error: Option<SyntaxError>,
+    /// An error plus hints for the current token being produced. This is always
+    /// `None` between calls to [`Lexer::next`].
+    error: Option<(EcoString, EcoVec<EcoString>)>,
 }
 
 impl<'s> Lexer<'s> {
@@ -73,14 +74,15 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some(SyntaxError::new(message));
+        debug_assert!(self.error.is_none());
+        self.error = Some((message.into(), eco_vec![]));
         SyntaxKind::Error
     }
 
     /// If the current node is an error, adds a hint.
     fn hint(&mut self, message: impl Into<EcoString>) {
-        if let Some(error) = &mut self.error {
-            error.hints.push(message.into());
+        if let Some((_message, hints)) = &mut self.error {
+            hints.push(message.into());
         }
     }
 }
@@ -122,7 +124,7 @@ impl Lexer<'_> {
 
         let text = self.s.from(start);
         let node = match self.error.take() {
-            Some(error) => SyntaxNode::error(error, text),
+            Some((message, hints)) => SyntaxNode::error(message, text).with_hints(hints),
             None => SyntaxNode::leaf(kind, text),
         };
         (kind, node)
@@ -274,8 +276,8 @@ impl Lexer<'_> {
                 Some('`') => found += 1,
                 Some(_) => found = 0,
                 None => {
-                    let msg = SyntaxError::new("unclosed raw text");
-                    let error = SyntaxNode::error(msg, self.s.from(start));
+                    let message = "unclosed raw text";
+                    let error = SyntaxNode::error(message, self.s.from(start));
                     return (SyntaxKind::Error, error);
                 }
             }
@@ -722,8 +724,8 @@ impl Lexer<'_> {
                 let node = if self.s.from(start) != "_" {
                     SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))
                 } else {
-                    let msg = SyntaxError::new("expected identifier, found underscore");
-                    SyntaxNode::error(msg, self.s.from(start))
+                    let message = "expected identifier, found underscore";
+                    SyntaxNode::error(message, self.s.from(start))
                 };
                 return Some(node);
             }

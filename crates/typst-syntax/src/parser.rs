@@ -7,7 +7,7 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
@@ -1786,8 +1786,7 @@ impl<'s> Parser<'s> {
         let from = from.0.min(to);
         let text: EcoString =
             self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
-        self.nodes
-            .insert(from, SyntaxNode::error(SyntaxError::new(message), text));
+        self.nodes.insert(from, SyntaxNode::error(message.into(), text));
     }
 
     /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
@@ -2021,8 +2020,7 @@ impl Parser<'_> {
     /// Produce an error that the given `thing` was expected at the position
     /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let error =
-            SyntaxNode::error(SyntaxError::new(eco_format!("expected {thing}")), "");
+        let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
         self.nodes.insert(m.0, error);
     }
 
