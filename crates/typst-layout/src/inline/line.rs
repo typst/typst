@@ -11,7 +11,7 @@ use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
-use crate::inline::shaping::Adjustability;
+use crate::inline::shaping::{Adjustability, ShapedGlyph};
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -499,25 +499,23 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some(text) = line.items.leading_text()
-        && let Some(glyph) = text.glyphs.first()
+    if let Some((text, glyph)) = line.items.leading_visible_glyph()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         offset -= amount;
         remaining += amount;
     }
 
     // Handle hanging punctuation to the right.
-    if let Some(text) = line.items.trailing_text()
-        && let Some(glyph) = text.glyphs.last()
+    if let Some((text, glyph)) = line.items.trailing_visible_glyph()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         remaining += amount;
     }
 
@@ -668,26 +666,42 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// How much a character should hang into the end margin.
+/// How much a glyph should hang into the end margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(c: char) -> f64 {
-    match c {
-        // Dashes.
-        '–' | '—' => 0.2,
-        '-' | '\u{ad}' => 0.55,
-
-        // Punctuation.
-        '.' | ',' => 0.8,
-        ':' | ';' => 0.3,
-
-        // Arabic
-        '\u{60C}' | '\u{6D4}' => 0.4,
-
-        _ => 0.0,
-    }
+fn overhang(glyph: &ShapedGlyph) -> Abs {
+    DEFAULT_OVERHANG_TABLE
+        .iter()
+        .copied()
+        .find_map(|(c, v)| {
+            if let Some(id) = glyph.font.ttf().glyph_index(c)
+                && id.0 == glyph.glyph_id
+            {
+                Some(v)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0.0)
+        * glyph.x_advance.at(glyph.size)
 }
+
+const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+    // Dashes.
+    ('–', 0.2),
+    ('—', 0.2),
+    ('-', 0.55),
+    ('\u{ad}', 0.55),
+    // Punctuation.
+    ('.', 0.8),
+    (',', 0.8),
+    (';', 0.3),
+    (':', 0.3),
+    // Arabic
+    ('\u{60C}', 0.4),
+    ('\u{6D4}', 0.4),
+];
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
@@ -719,14 +733,24 @@ impl<'a> Items<'a> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
-    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
-    }
-
     /// Access the first item (skipping tags) mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the first glyph with non-zero advance before any non-text item.
+    pub fn leading_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        self.iter()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Access the last item (skipping tags), if it is text.
@@ -737,6 +761,23 @@ impl<'a> Items<'a> {
     /// Access the last item (skipping tags) mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+    }
+
+    /// Access the last glyph with non-zero advance before any non-text item.
+    pub fn trailing_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
+        self.iter()
+            .rev()
+            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
+            .find_map(|item| {
+                let Item::Text(text) = item else { return None };
+                text.glyphs
+                    .iter()
+                    .rev()
+                    // Skip non-positive advance artifacts from tag splits so
+                    // overhang sees the visible punctuation.
+                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
+                    .map(|glyph| (text, glyph))
+            })
     }
 
     /// Reorder the items starting at the given index to RTL.
