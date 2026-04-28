@@ -79,6 +79,7 @@ fd1da4256fac4f0d6585d235f395ba7d par-semantic-html
 e0f41d4c8b6dc348c1153f45a86177a1 par-semantic-html-blocky
 643de0e3e92663a1cdc6e6b789f15122 par-semantic-html-fully-inline
 ece5ab4a1d0162b9e1da100cb126064f par-semantic-html-mixed
+239289b41129bae9878ed04460581ea8 par-semantic-html-mixed-tags
 ad987718b189a7a4f9de0f75c8aa9e29 par-semantic-html-parbreak
 04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level
 04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level-typed

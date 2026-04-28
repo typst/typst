@@ -863,9 +863,25 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
                     visit(s, content, styles)?;
                 }
             } else {
-                let start = s.sink.len();
-                s.sink.extend_from_slice(slice);
-                finish_grouping(s, rule, start)?;
+                // Trim and revisit leading non-trigger elements.
+                // `finish_grouping` only takes care of trimming trailing
+                // elements as usually a grouping cannot start without a trigger
+                // element.
+                let trimmed = slice.trim_start_matches(|(c, _)| {
+                    (rule.effect)(c) != GroupingEffect::Trigger
+                });
+                let split = slice.len() - trimmed.len();
+                for &(content, styles) in &slice[..split] {
+                    visit(s, content, styles)?;
+                }
+
+                // If we only had inner elements and tags, don't finish the
+                // group at all.
+                if !trimmed.is_empty() {
+                    let start = s.sink.len();
+                    s.sink.extend_from_slice(trimmed);
+                    finish_grouping(s, rule, start)?;
+                }
             }
         }
         Ok(())
