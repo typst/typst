@@ -65,6 +65,7 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
+    #[fold]
     pub attrs: HtmlAttrs,
 
     /// The element's CSS properties. Currently only used for generated styles.
