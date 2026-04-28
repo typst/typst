@@ -140,6 +140,35 @@ I'm a paragraph.
   A
 ]
 
+--- par-semantic-html-mixed-tags html ---
+#html.div({
+  html.span()
+  html.div()
+  // Inline segment starts with a tag.
+  metadata(none)
+  html.span()
+  parbreak()
+})
+
+#html.div({
+  heading[A]
+  // Inline segment ends with a tag.
+  html.span()
+  metadata(none)
+  html.div()
+  html.div()
+})
+
+#html.div({
+  parbreak()
+  html.span()
+  html.div()
+  // Segment consists only of tags.
+  metadata(none)
+  html.div()
+  html.span()
+})
+
 --- par-semantic-html-parbreak html ---
 // Test that parbreaks force inline elements into paragraphs.
 
