@@ -73,7 +73,7 @@ impl SyntaxNode {
         match &self.0 {
             NodeKind::Leaf(leaf) => leaf.len(),
             NodeKind::Inner(inner) => inner.len,
-            NodeKind::Error(node) => node.len(),
+            NodeKind::Error(err) => err.len(),
         }
     }
 
@@ -82,7 +82,7 @@ impl SyntaxNode {
         match &self.0 {
             NodeKind::Leaf(leaf) => leaf.span,
             NodeKind::Inner(inner) => inner.span,
-            NodeKind::Error(node) => node.error.span,
+            NodeKind::Error(err) => err.error.span,
         }
     }
 
@@ -94,7 +94,7 @@ impl SyntaxNode {
         match &self.0 {
             NodeKind::Leaf(leaf) => &leaf.text,
             NodeKind::Inner(_) => &EMPTY,
-            NodeKind::Error(node) => &node.text,
+            NodeKind::Error(err) => &err.text,
         }
     }
 
@@ -104,14 +104,14 @@ impl SyntaxNode {
     pub fn into_text(self) -> EcoString {
         match self.0 {
             NodeKind::Leaf(leaf) => leaf.text,
-            NodeKind::Error(node) => node.text.clone(),
+            NodeKind::Error(err) => err.text.clone(),
             NodeKind::Inner(_) => {
                 let mut text = EcoString::with_capacity(self.len());
                 self.traverse(|node| {
                     match &node.0 {
                         NodeKind::Leaf(leaf) => text.push_str(&leaf.text),
                         NodeKind::Inner(_) => {}
-                        NodeKind::Error(node) => text.push_str(&node.text),
+                        NodeKind::Error(err) => text.push_str(&err.text),
                     }
                     node.children()
                 });
@@ -143,8 +143,8 @@ impl SyntaxNode {
         self.traverse(|node| match &node.0 {
             NodeKind::Inner(inner) if inner.erroneous => inner.children.iter(),
             NodeKind::Inner(_) | NodeKind::Leaf(_) => [].iter(),
-            NodeKind::Error(node) => {
-                vec.push(node.error.clone());
+            NodeKind::Error(err) => {
+                vec.push(err.error.clone());
                 [].iter()
             }
         });
@@ -187,8 +187,8 @@ impl SyntaxNode {
             NodeKind::Inner(inner) => {
                 Arc::make_mut(inner).synthesize_with_impl(offset, f)
             }
-            NodeKind::Error(node) => {
-                Arc::make_mut(node).error.span = f(offset..offset + node.len())
+            NodeKind::Error(err) => {
+                Arc::make_mut(err).error.span = f(offset..offset + err.len())
             }
         }
     }
@@ -258,7 +258,7 @@ impl SyntaxNode {
         match &mut self.0 {
             NodeKind::Leaf(leaf) => leaf.span = mid,
             NodeKind::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            NodeKind::Error(node) => Arc::make_mut(node).error.span = mid,
+            NodeKind::Error(err) => Arc::make_mut(err).error.span = mid,
         }
 
         Ok(())
@@ -344,7 +344,7 @@ impl SyntaxNode {
         match &self.0 {
             NodeKind::Leaf(leaf) => leaf.span.number() + 1,
             NodeKind::Inner(inner) => inner.upper,
-            NodeKind::Error(node) => node.error.span.number() + 1,
+            NodeKind::Error(err) => err.error.span.number() + 1,
         }
     }
 }
@@ -354,7 +354,7 @@ impl Debug for SyntaxNode {
         match &self.0 {
             NodeKind::Leaf(leaf) => leaf.fmt(f),
             NodeKind::Inner(inner) => inner.fmt(f),
-            NodeKind::Error(node) => node.fmt(f),
+            NodeKind::Error(err) => err.fmt(f),
         }
     }
 }
