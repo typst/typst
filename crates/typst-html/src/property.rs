@@ -10,6 +10,7 @@ use crate::{HtmlTag, tag};
 /// A value for the CSS `display` property.
 ///
 /// <https://www.w3.org/TR/css-display-3/#propdef-display>
+/// <https://www.w3.org/TR/mathml-core/#new-display-math-value>
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Display {
     // <display-outside>
@@ -49,6 +50,10 @@ pub enum Display {
     InlineTable,
     InlineFlex,
     InlineGrid,
+
+    // MathML Core
+    InlineMath,
+    DisplayMath,
 }
 
 impl Display {
@@ -208,6 +213,7 @@ impl Display {
             tag::wbr => Self::Inline,
 
             // MathML Core elements.
+            tag::mathml::math => Self::InlineMath,
             tag::mathml::mtable => Self::InlineTable,
             tag::mathml::mtr => Self::TableRow,
             tag::mathml::mtd => Self::TableCell,
@@ -262,6 +268,8 @@ impl Display {
             Self::InlineTable => "inline-table",
             Self::InlineFlex => "inline-flex",
             Self::InlineGrid => "inline-grid",
+            Self::InlineMath => "inline math",
+            Self::DisplayMath => "display math",
         }
     }
 }
