@@ -109,7 +109,7 @@ impl Span {
     const RANGE_VALUE_BITS: usize = 23;
     const RANGE_VALUE_MAX: u64 = (1 << Self::RANGE_VALUE_BITS) - 1;
 
-    /// Create a span that does not point into any file.
+    /// The detached span that does not point into any file.
     pub const fn detached() -> Self {
         Self::DETACHED
     }
@@ -233,6 +233,11 @@ pub enum DiagSpanKind {
 }
 
 impl DiagSpan {
+    /// The detached diagnostic span that does not point into any file.
+    pub const fn detached() -> Self {
+        Self { span: Span::DETACHED, extra: 0 }
+    }
+
     /// Create a new diagnostic span from an external file's byte range instead
     /// of an internal span.
     ///
@@ -258,11 +263,21 @@ impl DiagSpan {
         Self { span, extra }
     }
 
+    /// Whether the diagnostic span is detached.
+    pub const fn is_detached(self) -> bool {
+        self.span.0.get() == Span::DETACHED.0.get()
+    }
+
     /// The id of the file the span points into.
     ///
     /// Returns `None` if the span is detached.
     pub fn id(self) -> Option<FileId> {
         self.span.id()
+    }
+
+    /// Return `other` if `self` is detached and `self` otherwise.
+    pub fn or(self, other: Self) -> Self {
+        if self.is_detached() { other } else { self }
     }
 
     /// Unpack the diagnostic span into the variants of a [`DiagSpanKind`] for
@@ -363,42 +378,55 @@ fn to_u32_saturated(value: usize) -> u32 {
 
 /// A value with a span locating it in the source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Spanned<T> {
+#[expect(private_bounds)]
+pub struct Spanned<T, S: Copy + SpanDetached = Span> {
     /// The spanned value.
     pub v: T,
     /// The value's location in source code.
-    pub span: Span,
+    pub span: S,
 }
 
-impl<T> Spanned<T> {
+#[expect(private_bounds)]
+impl<T, S: Copy + SpanDetached> Spanned<T, S> {
     /// Create a new instance from a value and its span.
-    pub const fn new(v: T, span: Span) -> Self {
+    pub const fn new(v: T, span: S) -> Self {
         Self { v, span }
     }
 
     /// Create a new instance with a span that does not point into any file.
     pub const fn detached(v: T) -> Self {
-        Self { v, span: Span::detached() }
+        Self { v, span: S::SPAN_DETACHED }
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
-    pub const fn as_ref(&self) -> Spanned<&T> {
+    pub const fn as_ref(&self) -> Spanned<&T, S> {
         Spanned { v: &self.v, span: self.span }
     }
 
     /// Map the value using a function.
-    pub fn map<F, U>(self, f: F) -> Spanned<U>
-    where
-        F: FnOnce(T) -> U,
-    {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U, S> {
         Spanned { v: f(self.v), span: self.span }
     }
 }
 
-impl<T: Debug> Debug for Spanned<T> {
+impl<T: Debug, S: Copy + SpanDetached> Debug for Spanned<T, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)
     }
+}
+
+/// Allows generic access to the detached span. Only used to implement
+/// [`Spanned::detached`].
+trait SpanDetached {
+    const SPAN_DETACHED: Self;
+}
+
+impl SpanDetached for Span {
+    const SPAN_DETACHED: Self = Self::detached();
+}
+
+impl SpanDetached for DiagSpan {
+    const SPAN_DETACHED: Self = Self::detached();
 }
 
 /// Remaps ranges.

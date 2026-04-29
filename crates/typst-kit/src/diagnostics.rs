@@ -9,7 +9,6 @@ use std::ops::Range;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
 use codespan_reporting::term;
-use ecow::eco_format;
 use termcolor::{Color, ColorSpec, WriteColor};
 use typst_library::World;
 use typst_library::diag::{FileError, Severity, SourceDiagnostic, Tracepoint};
@@ -63,7 +62,7 @@ pub fn emit<'a>(
                 .hints
                 .iter()
                 .filter(|s| s.span.is_detached())
-                .map(|s| (eco_format!("hint: {}", s.v)).into())
+                .map(|s| format!("hint: {}", s.v))
                 .collect(),
         )
         .with_labels(
