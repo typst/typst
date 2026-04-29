@@ -1,8 +1,10 @@
 "use strict";
 
-const closeIconSrc = "/assets/16-close.svg";
-const checkIconSrc = "/assets/16-check.svg";
-const searchIndexSrc = "/assets/search.json";
+// The following line is replaced to include the docs base path.
+const assetBase = "/assets/";
+const closeIconSrc = assetBase + "16-close.svg";
+const checkIconSrc = assetBase + "16-check.svg";
+const searchIndexSrc = assetBase + "search.json";
 
 const hasTransitionEnd = "ontransitionend" in window;
 const prefersReducedMotion = window.matchMedia(

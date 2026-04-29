@@ -27,11 +27,14 @@ use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
 use typst_utils::{LazyHash, PicoStr};
 
+use crate::Config;
 use crate::example::FRAME_RULE;
 use crate::live::RangePair;
 
 /// A world for docs compilation.
 pub struct DocWorld {
+    /// Typst's standard library, extended with docs-specific functionality.
+    library: LazyHash<Library>,
     /// The entrypoint file.
     main: FileId,
     /// Maps file ids to source files and buffers.
@@ -43,8 +46,9 @@ pub struct DocWorld {
 impl DocWorld {
     /// Creates a new world for docs compilation, with the given root directory
     /// and entrypoint file.
-    pub fn new(root: &str, entrypoint: &str) -> Self {
+    pub fn new(config: &Config, root: &str, entrypoint: &str) -> Self {
         Self {
+            library: LazyHash::new(library(config)),
             main: RootedPath::new(
                 VirtualRoot::Project,
                 VirtualPath::new(entrypoint).unwrap(),
@@ -70,7 +74,7 @@ impl DocWorld {
 
 impl World for DocWorld {
     fn library(&self) -> &LazyHash<Library> {
-        &DOCS_LIBRARY
+        &self.library
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
@@ -153,15 +157,20 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// - a `docs` module with various utilities,
 /// - a few patched show rules,
 /// - `sys.inputs` holding contributor data for the changelog
-static DOCS_LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::builder().with_features(Features::all()).build();
+fn library(config: &Config) -> Library {
+    let mut inputs = Dict::new();
+    inputs.insert("base".into(), config.base.clone().into_value());
+    let mut lib = Library::builder()
+        .with_features(Features::all())
+        .with_inputs(inputs)
+        .build();
     let scope = lib.global.scope_mut();
     scope.define("docs", docs_module());
     lib.rules.replace(Target::Html, PATCHED_LINK_RULE);
     lib.rules.replace(Target::Html, PATCHED_IMAGE_RULE);
     lib.rules.register(Target::Paged, FRAME_RULE);
-    LazyHash::new(lib)
-});
+    lib
+}
 
 /// A module with various utilities for the docs.
 fn docs_module() -> Module {
@@ -305,8 +314,17 @@ const PATCHED_IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
 
     let web_image = typst_svg::WebImage::new(&image);
     let hash = typst_utils::hash128(&web_image.data);
+
+    let global = &engine.world.library().global;
+    let base = global
+        .field("sys", ())
+        .and_then(|sys| sys.field("inputs", ()))
+        .and_then(|inputs| inputs.field("base", ()))
+        .unwrap()
+        .cast::<EcoString>()
+        .unwrap();
     let path = eco_format!(
-        "/assets/images/{}.{}",
+        "{base}assets/images/{}.{}",
         encode_hash(hash),
         web_image.format.extension()
     );

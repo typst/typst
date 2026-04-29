@@ -66,3 +66,6 @@
   let colorized = src.replace("currentColor", colors.brand.to-hex())
   image(bytes(colorized))
 }
+
+// The place to get assets from.
+#let asset-base = sys.inputs.base + "assets/"

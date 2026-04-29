@@ -3,6 +3,9 @@ This file contains styles which are already present on typst.app via its
 page-wide style sheets. Meanwhile, `docs.css` is also used by typst.app. If
 you're making style changes to the docs and not working at Typst, you'll
 probably want to edit `docs.css` instead.
+
+Note on the font face rules:
+The `url()` routes are replaced to include the docs base paths.
 */
 
 @font-face {

@@ -57,6 +57,15 @@ pub struct CompileArgs {
     /// The output format.
     #[arg(long = "format", short = 'f', default_value_t)]
     pub format: OutputFormat,
+    /// The base path for the documentation. Only applies to the website output
+    /// format.
+    ///
+    /// Should be an absolute path like `/docs/` and should start and end with a
+    /// forward slash (the slashes will be added if missing).
+    ///
+    /// The default is `/`.
+    #[arg(long, default_value = "/")]
+    pub base: String,
     /// Produces performance timings of the compilation process.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<PathBuf>,

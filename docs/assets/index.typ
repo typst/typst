@@ -1,7 +1,23 @@
+#import "../components/index.typ": asset-base
+
+#asset(
+  asset-base + "base.css",
+  read("base.css").replace(
+    "url(\"/assets/fonts",
+    "url(\"" + asset-base + "fonts",
+  )
+)
+
+#asset(
+  asset-base + "docs.js",
+  read("docs.js").replace(
+    "const assetBase = \"/assets/\"",
+    "const assetBase = \"" + asset-base + "\"",
+  )
+)
+
 #let assets = (
-  "base.css",
   "docs.css",
-  "docs.js",
   "12-tooltip.svg",
   "16-check.svg",
   "16-chevron-right.svg",
@@ -18,7 +34,7 @@
 
 #for filename in assets {
   asset(
-    "assets/" + filename,
+    asset-base + filename,
     read(filename, encoding: none),
   )
 }
@@ -46,7 +62,7 @@
 
 #for path in fonts {
   asset(
-    "assets/fonts/" + path,
+    asset-base + "fonts/" + path,
     docs.read-dev-asset(path),
   )
 }

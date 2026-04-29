@@ -11,6 +11,7 @@ use std::process::ExitCode;
 use std::sync::{Arc, LazyLock};
 
 use clap::Parser;
+use ecow::eco_format;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{SourceResult, Warned};
 use typst::foundations::Bytes;
@@ -53,8 +54,8 @@ fn main() -> ExitCode {
 /// Execute a compilation command.
 fn compile(command: &CompileCommand) -> ExitCode {
     let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
-    let mut world = DocWorld::new(ROOT, ENTRYPOINT);
     let mut config = Config::new(&command.args, false);
+    let mut world = DocWorld::new(&config, ROOT, ENTRYPOINT);
     let report = timer
         .record(&mut world, |world| compile_once(world, &mut config))
         .unwrap();
@@ -73,8 +74,8 @@ fn compile(command: &CompileCommand) -> ExitCode {
 fn watch(command: &WatchCommand) -> ! {
     let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut watcher = Watcher::new(None).unwrap();
-    let mut world = DocWorld::new(ROOT, ENTRYPOINT);
     let mut config = Config::new(&command.args, true);
+    let mut world = DocWorld::new(&config, ROOT, ENTRYPOINT);
 
     loop {
         print_watch_header(&config);
@@ -118,6 +119,8 @@ struct Config {
     server: Option<HttpServer>,
     /// Whether to open the output after compilation.
     open: bool,
+    /// The base path for the documentation.
+    base: String,
 }
 
 impl Config {
@@ -134,6 +137,16 @@ impl Config {
             server: (watching && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),
             open: args.open,
+            base: {
+                let mut base = args.base.clone();
+                if !base.starts_with('/') {
+                    base.insert(0, '/');
+                }
+                if !base.ends_with('/') {
+                    base.push('/');
+                }
+                base
+            },
         }
     }
 }
@@ -177,7 +190,7 @@ fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
 fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
     let index = crate::search::build_search_index(&bundle)?;
     Arc::make_mut(&mut bundle.files).insert(
-        VirtualPath::new("assets/search.json").unwrap(),
+        VirtualPath::new(eco_format!("{}assets/search.json", config.base)).unwrap(),
         BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
     );
 

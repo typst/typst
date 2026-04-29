@@ -49,9 +49,7 @@
       if "route" in item {
         let has-children = k < i
         let is-current = item.route == current
-        let is-expanded = (
-          has-children and item.route != "/" and current.starts-with(item.route)
-        )
+        let is-expanded = has-children and current.starts-with(item.route)
         html.li(aria-expanded: is-expanded, {
           html.a(
             href: item.route,
@@ -94,11 +92,10 @@
   aria-label: "Breadcrumbs",
   context {
     html.li(class: "root", html.a(
-      href: "/", // TODO: Root
+      href: sys.inputs.base,
       icon(16, "docs-dark", "Docs"),
     ))
     let titles = title-map()
-    let prefix = "/"
     for m in route.matches("/") {
       let parent = route.slice(0, m.end)
       let title = titles.at(parent, default: none)

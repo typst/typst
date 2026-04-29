@@ -1,6 +1,6 @@
 // Definies utilites and basic components.
 
-#import "system.typ": colors, sizes
+#import "system.typ": colors, sizes, asset-base
 
 // Defines the current section title.
 #let title-state = state("title")
@@ -125,7 +125,7 @@
     ))
   } else {
     html.img(
-      src: "/assets/" + filename,
+      src: asset-base + filename,
       width: size,
       height: size,
       alt: alt,
@@ -149,7 +149,7 @@
   {
     html.elem("title", alt)
     html.elem("use", attrs: (
-      "href": "/assets/" + str(size) + "-" + name + ".svg" + "#icon",
+      "href": asset-base + str(size) + "-" + name + ".svg" + "#icon",
     ))
   },
 )
@@ -181,7 +181,7 @@
   html.details(class: "folding-example", open: open, {
     html.summary({
       html.img(
-        src: "/assets/16-chevron-right.svg",
+        src: asset-base + "16-chevron-right.svg",
         alt: "",
         width: 16,
         height: 16,

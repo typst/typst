@@ -1,3 +1,4 @@
+#import "system.typ": asset-base
 #import "base.typ": (
   classnames, heading-offset, icon, labelled, short-or-long, title-state,
   tooltip-counter,
@@ -74,6 +75,16 @@
   description: none,
   body,
 ) = {
+  let depth = calc.max(
+    route.split("/").filter(seg => seg.len() != 0).len(),
+    1,
+  )
+
+  let route = sys.inputs.base + route.trim("/")
+  if not route.ends-with("/") {
+    route += "/"
+  }
+
   if def-target != none {
     register-def(def-target, route, title: def-title)
   }
@@ -93,14 +104,7 @@
 
     // This metadata is used for the section navigation.
     labelled(
-      metadata((
-        route: route,
-        title: title,
-        depth: calc.max(
-          route.split("/").filter(seg => not seg.len() == 0).len(),
-          1,
-        ),
-      )),
+      metadata((route: route, title: title, depth: depth)),
       <metadata-page>,
     )
 
@@ -113,9 +117,9 @@
       html.meta(name: "description", content: description)
       html.meta(name: "theme-color", content: "#239dad")
       html.meta(name: "robots", content: "noindex")
-      html.link(href: "/assets/base.css", rel: "stylesheet")
-      html.link(href: "/assets/docs.css", rel: "stylesheet")
-      html.script(type: "module", src: "/assets/docs.js")
+      html.link(href: asset-base + "base.css", rel: "stylesheet")
+      html.link(href: asset-base + "docs.css", rel: "stylesheet")
+      html.script(type: "module", src: asset-base + "docs.js")
       html.title(title + " - Typst Documentation")
       // TODO: More to come here
     })
@@ -163,7 +167,8 @@
   // headings in its body skip an extra level.
   introduction: false,
 
-  // The full URL path of the section in the web version.
+  // The URL path of the section in the web version. Will be amended to the docs
+  // base path.
   route: none,
   // The definition target for the section. See `linking.typ` for more
   // information.
@@ -192,11 +197,7 @@
   assert.eq(type(description), str, message: "description must be a string")
   assert.ne(kind, none, message: "kind is required")
   assert.eq(type(keywords), array, message: "keywords must be an array")
-
   assert(route.starts-with("/"), message: "route must start with slash")
-  if not route.ends-with("/") {
-    route += "/"
-  }
 
   if title-fmt == auto {
     title-fmt = title
