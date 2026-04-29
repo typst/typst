@@ -356,7 +356,7 @@ Paragraph B
 #block(html.li())     // display: list-item -> nothing
 #block(html.span())   // display: inline -> block
 #block(html.input())  // display: inline-block -> block
-#block(html.slot())   // display: contents -> block
+#block(html.slot())   // display: contents -> nothing
 #block(html.ruby())   // display: ruby -> wrapped in div
 
 --- block-invalid-html html ---
