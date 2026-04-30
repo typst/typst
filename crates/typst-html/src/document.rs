@@ -1,6 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::string::ToEcoString;
-use ecow::{EcoVec, eco_vec};
+use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
@@ -210,8 +209,8 @@ fn html_document_common(
         head.children.push(
             HtmlElement::new(tag::style)
                 .with_children(eco_vec![HtmlNode::Text(
-                    stylesheet.display().to_eco_string(),
-                    Span::detached()
+                    eco_format!("{}", stylesheet.display()),
+                    Span::detached(),
                 )])
                 .into(),
         );

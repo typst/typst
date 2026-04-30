@@ -12,20 +12,29 @@ const CUT_OFF: usize = 15;
 ///
 /// - When the list is a bit bigger, it's sorted in [`new`](Self::new) and then
 ///   binary-searched for containment checks.
+#[derive(Debug)]
 pub struct ListSet<S>(S);
 
 impl<T, S> ListSet<S>
 where
-    S: DerefMut<Target = [T]>,
+    S: Deref<Target = [T]>,
     T: Ord,
 {
     /// Creates a new list set.
     ///
     /// If the list is longer than the cutoff point, it is sorted.
-    pub fn new(mut list: S) -> Self {
+    pub fn new(mut list: S) -> Self
+    where
+        S: DerefMut,
+    {
         if list.len() > CUT_OFF {
             list.sort_unstable();
         }
+        Self(list)
+    }
+
+    /// Creates a new list set from an already sorted list.
+    pub fn from_sorted(list: S) -> Self {
         Self(list)
     }
 
