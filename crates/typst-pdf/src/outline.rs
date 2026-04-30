@@ -13,7 +13,7 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
 
     let flat = elems
         .iter()
-        .map(|elem| {
+        .filter_map(|elem| {
             let heading = elem.to_packed::<HeadingElem>().unwrap();
 
             let level = heading.resolve_level(StyleChain::default());
@@ -32,7 +32,7 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
             });
 
             let include = boomarked && visible;
-            (heading, level, include)
+            include.then_some((heading, level, include))
         })
         .collect::<Vec<_>>();
 
