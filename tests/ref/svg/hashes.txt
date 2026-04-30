@@ -908,10 +908,11 @@ b861c05e6d67706a4332a8356f7b702e linebreak-overflow
 6607e9f57d860894c248e3cafd50067b linebreak-thai
 c9205335507a86271bd43860e568de51 linebreak-whitespace-trimming
 b7bd072acf739f60ac807e26d1fbfaa9 link-basic
-258c78ef7cfb0ab0326af8aceffb1cc1 link-bracket-balanced
-ce0e8133520de49cf1bf42eb3a079051 link-bracket-unbalanced-closing
+64fe8433bebc8b25628b1e4f283d53c4 link-body
 0e956e54f8a6f5b2d199ecdeed1ba994 link-empty-block
 3fc6694ccbe288a2e06fa22feec53707 link-on-block
+1329db94273eaa4938037c9e328fac13 link-parenthesis-balanced
+ce0e8133520de49cf1bf42eb3a079051 link-parenthesis-unbalanced-closing
 8bf4feefd8710eb0c202be81abe54ab4 link-show
 369e3de965586a4bdf98a92a4f7a4972 link-to-label
 e1966175253dd3d55d9d96c5b61aae1d link-to-page
