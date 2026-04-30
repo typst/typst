@@ -79,6 +79,10 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
+    #[internal]
+    #[parse(Some(false))]
+    pub infootnote: bool,
+
     /// The content to put into the footnote. Can also be the label of another
     /// footnote this one should point to.
     #[required]
@@ -315,7 +319,12 @@ impl Packed<FootnoteEntry> {
         let alt = num.plain_text();
         let link = DirectLinkElem::new(dest, num, Some(alt)).pack().spanned(span);
         let sup = SuperElem::new(link).pack().spanned(span);
-        let body = self.note.body_content().unwrap().clone();
+        let body = self
+            .note
+            .body_content()
+            .unwrap()
+            .clone()
+            .styled(FootnoteElem::infootnote.set(true));
 
         Ok((sup, body))
     }

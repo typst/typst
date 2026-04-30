@@ -771,7 +771,8 @@ impl<'a> Generator<'a> {
                 subinfos,
                 span: first.span(),
                 footnote: normal
-                    && style.settings.class == citationberg::StyleClass::Note,
+                    && style.settings.class == citationberg::StyleClass::Note
+                    && !first.infootnote.unwrap_or(false),
             });
 
             driver.citation(CitationRequest::new(
