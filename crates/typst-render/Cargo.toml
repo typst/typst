@@ -25,8 +25,8 @@ image = { workspace = true }
 libm = { workspace = true }
 pixglyph = { workspace = true }
 resvg = { workspace = true }
+skrifa = { workspace = true }
 tiny-skia = { workspace = true }
-ttf-parser = { workspace = true }
 
 [lints]
 workspace = true

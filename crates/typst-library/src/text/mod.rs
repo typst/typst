@@ -34,12 +34,12 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
+use harfrust::Feature;
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
-use rustybuzz::Feature;
+use read_fonts::types::Tag;
 use smallvec::SmallVec;
-use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 use unicode_segmentation::UnicodeSegmentation;
@@ -1278,7 +1278,7 @@ cast! {
             within_padding |= b' ' == v;
         }
 
-        Self::from_bytes_lossy(v.as_bytes())
+        Self::new_checked(v.as_bytes()).unwrap()
     }
 }
 
@@ -1287,7 +1287,7 @@ cast! {
     self => self.0
         .into_iter()
         .map(|(tag, num)| {
-            let bytes = tag.to_bytes();
+            let bytes = tag.to_be_bytes();
             let key = std::str::from_utf8(&bytes).unwrap_or_default();
             (key.into(), num.into_value())
         })
@@ -1333,7 +1333,7 @@ impl Fold for FontFeatures {
 pub fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag: &[u8; 4], value: u32| {
-        tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
+        tags.push(Feature::new(Tag::new(tag), value, ..));
     };
 
     // Features that are on by default in Harfbuzz are only added if disabled.
@@ -1406,14 +1406,14 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
 }
 
 /// Process the language and region of a style chain into a
-/// rustybuzz-compatible BCP 47 language.
-pub fn language(styles: StyleChain) -> rustybuzz::Language {
+/// harfrust-compatible BCP 47 language.
+pub fn language(styles: StyleChain) -> harfrust::Language {
     let mut bcp: EcoString = styles.get(TextElem::lang).as_str().into();
     if let Some(region) = styles.get(TextElem::region) {
         bcp.push('-');
         bcp.push_str(region.as_str());
     }
-    rustybuzz::Language::from_str(&bcp).unwrap()
+    harfrust::Language::from_str(&bcp).unwrap()
 }
 
 /// A toggle that turns on and off alternatingly if folded.
@@ -1560,7 +1560,7 @@ mod tests {
                 .unwrap()
                 .into_value()
                 .cast::<Tag>()
-                .map_or(None, |v| Some(v.0.to_be_bytes()))
+                .map_or(None, |v| Some(v.to_be_bytes()))
         };
 
         // Valid tags; standard and padded forms.

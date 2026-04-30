@@ -808,6 +808,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "font-types"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b38ad915f6dadd993ced50848a8291a543bd41ca62bc10740d5e64e2ab4cfd7"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "fontconfig-parser"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -934,6 +943,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "harfrust"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9ce5e848d21ba97a324266e41c70e0eb5e2577a610c1fbd546e15096f2e8e37"
+dependencies = [
+ "bitflags 2.9.1",
+ "bytemuck",
+ "core_maths",
+ "read-fonts 0.39.2",
+ "smallvec",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -997,7 +1019,7 @@ dependencies = [
  "phf",
  "rustc-hash",
  "siphasher",
- "skrifa",
+ "skrifa 0.37.0",
  "smallvec",
  "yoke 0.8.0",
 ]
@@ -1455,7 +1477,7 @@ dependencies = [
  "rustc-hash",
  "rustybuzz",
  "siphasher",
- "skrifa",
+ "skrifa 0.37.0",
  "smallvec",
  "subsetter",
  "tiny-skia-path",
@@ -1991,10 +2013,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 [[package]]
 name = "pixglyph"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c1106193bc18a4b840eb075ff6664c8a0b0270f0531bb12a7e9c803e53b55c5"
+source = "git+https://github.com/mkorje/pixglyph?rev=c588ad4#c588ad439473709cee1402712dc1881ce8db0f59"
 dependencies = [
- "ttf-parser",
+ "skrifa 0.42.1",
 ]
 
 [[package]]
@@ -2199,7 +2220,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6717cf23b488adf64b9d711329542ba34de147df262370221940dfabc2c91358"
 dependencies = [
  "bytemuck",
- "font-types",
+ "font-types 0.10.0",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.39.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4ed38b89c2c77ff968c524145ad65fb010f38af5c7a224b53b81d47ac2daa81"
+dependencies = [
+ "bytemuck",
+ "core_maths",
+ "font-types 0.11.3",
 ]
 
 [[package]]
@@ -2541,7 +2573,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c31071dedf532758ecf3fed987cdb4bd9509f900e026ab684b4ecb81ea49841"
 dependencies = [
  "bytemuck",
- "read-fonts",
+ "read-fonts 0.35.0",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.42.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c34617370ae968efb7161bb2beb517d9084659aae19e24b89e3db25b46e4564"
+dependencies = [
+ "bytemuck",
+ "core_maths",
+ "read-fonts 0.39.2",
 ]
 
 [[package]]
@@ -2634,7 +2677,7 @@ checksum = "cb6895a12ac5599bb6057362f00e8a3cf1daab4df33f553a55690a44e4fed8d0"
 dependencies = [
  "kurbo 0.12.0",
  "rustc-hash",
- "skrifa",
+ "skrifa 0.37.0",
  "write-fonts",
 ]
 
@@ -3178,6 +3221,7 @@ dependencies = [
  "comemo",
  "ecow",
  "either",
+ "harfrust",
  "hypher",
  "icu_properties",
  "icu_provider",
@@ -3187,8 +3231,8 @@ dependencies = [
  "kurbo 0.12.0",
  "libm",
  "memchr",
+ "read-fonts 0.39.2",
  "rustc-hash",
- "rustybuzz",
  "smallvec",
  "ttf-parser",
  "typst-assets",
@@ -3220,6 +3264,7 @@ dependencies = [
  "flate2",
  "fontdb",
  "glidesort",
+ "harfrust",
  "hayagriva",
  "hayro-syntax",
  "icu_properties",
@@ -3237,12 +3282,12 @@ dependencies = [
  "phf",
  "png",
  "rayon",
+ "read-fonts 0.39.2",
  "regex",
  "regex-syntax",
  "roxmltree",
  "rust_decimal",
  "rustc-hash",
- "rustybuzz",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -3334,8 +3379,8 @@ dependencies = [
  "libm",
  "pixglyph",
  "resvg",
+ "skrifa 0.42.1",
  "tiny-skia",
- "ttf-parser",
  "typst-assets",
  "typst-layout",
  "typst-library",
@@ -3939,11 +3984,11 @@ version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "886614b5ce857341226aa091f3c285e450683894acaaa7887f366c361efef79d"
 dependencies = [
- "font-types",
+ "font-types 0.10.0",
  "indexmap",
  "kurbo 0.12.0",
  "log",
- "read-fonts",
+ "read-fonts 0.35.0",
 ]
 
 [[package]]

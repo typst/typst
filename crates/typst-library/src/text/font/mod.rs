@@ -39,12 +39,14 @@ struct FontInner {
     metrics: FontMetrics,
     /// The underlying ttf-parser face.
     ttf: ttf_parser::Face<'static>,
-    /// The underlying rustybuzz face.
-    rusty: rustybuzz::Face<'static>,
-    // NOTE: `ttf` and `rusty` reference `data`, so it's important for `data`
-    // to be dropped after them or they will be left dangling while they're
-    // dropped. Fields are dropped in declaration order, so `data` needs to be
-    // declared after `ttf` and `rusty`.
+    /// The underlying fontations face.
+    fontations: read_fonts::FontRef<'static>,
+    /// Cached shaper data for the font.
+    shaper_data: harfrust::ShaperData,
+    // NOTE: `ttf` and `fontations` reference `data`, so it's important for
+    // `data` to be dropped after them or they will be left dangling while
+    // they're dropped. Fields are dropped in declaration order, so `data`
+    // needs to be declared after `ttf` and `fontations`.
     /// The raw font data, possibly shared with other fonts from the same
     /// collection. The vector's allocation must not move, because `ttf` points
     /// into it using unsafe code.
@@ -64,11 +66,20 @@ impl Font {
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
         let ttf = ttf_parser::Face::parse(slice, index).ok()?;
-        let rusty = rustybuzz::Face::from_slice(slice, index)?;
+        let fontations = read_fonts::FontRef::from_index(slice, index).ok()?;
+        let shaper_data = harfrust::ShaperData::new(&fontations);
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner {
+            data,
+            index,
+            info,
+            metrics,
+            ttf,
+            fontations,
+            shaper_data,
+        })))
     }
 
     /// Parse all fonts in the given data.
@@ -141,11 +152,21 @@ impl Font {
         &self.0.ttf
     }
 
-    /// A reference to the underlying `rustybuzz` face.
-    pub fn rusty(&self) -> &rustybuzz::Face<'_> {
+    /// A reference to the underlying `fontations` face.
+    pub fn fontations(&self) -> &read_fonts::FontRef<'_> {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
-        &self.0.rusty
+        &self.0.fontations
+    }
+
+    /// Get a configured shaper for the font.
+    pub fn shaper(&self) -> harfrust::Shaper<'_> {
+        // RESOLVE: Should this be cached?
+
+        // TODO:
+        // - set instance for variable weight fonts stuff
+        // - set desired point size for trak
+        self.0.shaper_data.shaper(self.fontations()).build()
     }
 
     /// Resolve the top and bottom edges of text.
