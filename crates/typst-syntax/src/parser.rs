@@ -1098,8 +1098,14 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
             array_or_dict_item(p, &mut state);
             state.count += 1;
 
-            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
-                state.maybe_just_parens = false;
+            if !p.current().is_terminator() {
+                if p.expect(SyntaxKind::Comma) {
+                    state.maybe_just_parens = false;
+                } else if p.hint_percent_unit_spacing() {
+                    p.eat_if(SyntaxKind::Comma);
+                } else {
+                    p.hint_unit_spacing();
+                }
             }
         }
 
@@ -1204,8 +1210,12 @@ fn args(p: &mut Parser) {
 
                 arg(p, &mut seen);
 
-                if !p.current().is_terminator() {
-                    p.expect(SyntaxKind::Comma);
+                if !p.current().is_terminator() && !p.expect(SyntaxKind::Comma) {
+                    if p.hint_percent_unit_spacing() {
+                        p.eat_if(SyntaxKind::Comma);
+                    } else {
+                        p.hint_unit_spacing();
+                    }
                 }
             }
 
@@ -2032,6 +2042,60 @@ impl Parser<'_> {
         if let Some(error) = self.nodes.get_mut(m.0 - 1) {
             error.hint(hint);
         }
+    }
+
+    /// The `Int`/`Float` preceding `end`, skipping trivia and unwrapping last
+    /// children.
+    fn preceding_number(&self, end: usize) -> Option<&SyntaxNode> {
+        let mut i = end;
+        while i > 0 && self.nodes[i - 1].kind().is_trivia() {
+            i -= 1;
+        }
+        if i == 0 {
+            return None;
+        }
+        let mut node = &self.nodes[i - 1];
+        while !matches!(node.kind(), SyntaxKind::Int | SyntaxKind::Float) {
+            node = node.children().last()?;
+        }
+        Some(node)
+    }
+
+    /// If the current token is a unit name (e.g. `pt`) and the node before
+    /// the most recent error is a number, hint that they should be combined.
+    fn hint_unit_spacing(&mut self) {
+        if !self.at(SyntaxKind::Ident) {
+            return;
+        }
+        let unit = match self.current_text() {
+            "pt" | "mm" | "cm" | "deg" | "rad" | "em" | "fr" => self.current_text(),
+            _ => return,
+        };
+        let Marker(end) = self.before_trivia();
+        if let Some(number) = end.checked_sub(1).and_then(|i| self.preceding_number(i)) {
+            let hint = eco_format!(
+                "if you meant to use a unit, try `{}{unit}` instead",
+                number.text(),
+            );
+            self.hint(&hint);
+        }
+    }
+
+    /// If the trailing error is a stray `%` preceded by a number, hint that
+    /// they should be combined and return `true`.
+    fn hint_percent_unit_spacing(&mut self) -> bool {
+        let Marker(end) = self.before_trivia();
+        let Some(error) = end.checked_sub(1).and_then(|i| self.nodes.get(i)) else {
+            return false;
+        };
+        if !(error.kind().is_error() && error.text().as_str() == "%") {
+            return false;
+        }
+        let Some(number) = self.preceding_number(end - 1) else { return false };
+        let hint =
+            eco_format!("if you meant to use a unit, try `{}%` instead", number.text());
+        self.hint(&hint);
+        true
     }
 
     /// Consume the next token (if any) and produce an error stating that it was
