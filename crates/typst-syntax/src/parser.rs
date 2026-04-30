@@ -7,7 +7,7 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
@@ -139,8 +139,14 @@ fn strong(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Star);
         markup(p, false, true, syntax_set!(Star, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Star);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Star);
         p.wrap(m, SyntaxKind::Strong);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within stars");
+            let hint = "using multiple consecutive stars (e.g. **) has no \
+                        additional effect";
+            p[m].hint(hint);
+        }
     });
 }
 
@@ -150,8 +156,14 @@ fn emph(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Underscore);
         markup(p, false, true, syntax_set!(Underscore, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Underscore);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Underscore);
         p.wrap(m, SyntaxKind::Emph);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within underscores");
+            let hint = "using multiple consecutive underscores (e.g. __) has no \
+                        additional effect";
+            p[m].hint(hint)
+        }
     });
 }
 
@@ -1786,8 +1798,7 @@ impl<'s> Parser<'s> {
         let from = from.0.min(to);
         let text: EcoString =
             self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
-        self.nodes
-            .insert(from, SyntaxNode::error(SyntaxError::new(message), text));
+        self.nodes.insert(from, SyntaxNode::error(message.into(), text));
     }
 
     /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
@@ -1984,10 +1995,12 @@ impl Parser<'_> {
     /// Consume the given closing delimiter or produce an error for the matching
     /// opening delimiter at `open`.
     #[track_caller]
-    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
-        if !self.eat_if(kind) {
+    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) -> bool {
+        let at = self.eat_if(kind);
+        if !at {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
         }
+        at
     }
 
     /// Produce an error that the given `thing` was expected. If the parser is
@@ -2021,8 +2034,7 @@ impl Parser<'_> {
     /// Produce an error that the given `thing` was expected at the position
     /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let error =
-            SyntaxNode::error(SyntaxError::new(eco_format!("expected {thing}")), "");
+        let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
         self.nodes.insert(m.0, error);
     }
 
