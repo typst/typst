@@ -436,7 +436,8 @@ fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
             property::Display::None
             | property::Display::Block
             | property::Display::Table
-            | property::Display::ListItem,
+            | property::Display::ListItem
+            | property::Display::DisplayMath,
         ) => None,
 
         // These must be promoted to `block`.
@@ -446,6 +447,8 @@ fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
             | property::Display::InlineBlock
             | property::Display::Contents,
         ) => Some(property::Display::Block),
+
+        Some(property::Display::InlineMath) => Some(property::Display::DisplayMath),
 
         // These can't be promoted. They are instead wrapped in a `<div>`.
         _ => return Err(Unblockable),
@@ -468,6 +471,13 @@ fn to_lone_element(nodes: &mut EcoVec<HtmlNode>) -> Option<&mut HtmlNode> {
 
 /// Sets the CSS `display` property for an element or frame.
 fn set_display(node: &mut HtmlNode, display: Option<property::Display>) {
+    if let Some(property::Display::DisplayMath) = display
+        && let HtmlNode::Element(element) = node
+    {
+        element.attrs.push(attr::mathml::display, "block");
+        return;
+    }
+
     let css = match node {
         HtmlNode::Element(element) => &mut element.css,
         HtmlNode::Frame(frame) => &mut frame.css,

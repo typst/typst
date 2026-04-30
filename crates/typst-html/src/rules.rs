@@ -9,9 +9,13 @@ use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
     Target,
 };
-use typst_library::introspection::{Counter, DocumentIntrospection, QueryIntrospection};
+use typst_library::introspection::{
+    Counter, DocumentIntrospection, Locator, QueryIntrospection,
+};
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{BlockElem, HElem, OuterVAlignment, Sizing};
+use typst_library::math::EquationElem;
+use typst_library::math::ir::resolve_equation;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
@@ -20,6 +24,7 @@ use typst_library::model::{
     OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
 };
+use typst_library::routines::Arenas;
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
@@ -27,6 +32,7 @@ use typst_library::text::{
 use typst_library::visualize::{Color, ImageElem};
 use typst_syntax::Span;
 
+use crate::mathml::convert_math_to_nodes;
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
 /// Registers show rules for the [HTML target](Target::Html).
@@ -75,6 +81,9 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // Visualize.
     rules.register(Html, IMAGE_RULE);
+
+    // Math.
+    rules.register(Html, EQUATION_RULE);
 
     // For the HTML target, `html.frame` is a primitive. In the laid-out target,
     // it should be a no-op so that nested frames don't break (things like `show
@@ -804,4 +813,24 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
             .pack()
             .spanned(elem.span()),
     ))
+};
+
+const EQUATION_RULE: ShowFn<EquationElem> = |elem, engine, styles| {
+    let arenas = Arenas::default();
+    let item = resolve_equation(
+        elem,
+        engine,
+        Locator::synthesize(elem.location().unwrap()),
+        &arenas,
+        styles,
+    )?;
+
+    let block = elem.block.get(styles);
+    let body = convert_math_to_nodes(item, engine, block)?;
+    let math = HtmlElem::new(tag::mathml::math)
+        .with_body(Some(Content::sequence(body)))
+        .pack()
+        .spanned(elem.span());
+
+    Ok(if block { BlockElem::packed(math) } else { math })
 };
