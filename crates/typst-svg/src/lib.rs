@@ -11,6 +11,7 @@ use comemo::Tracked;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
+use std::collections::{HashMap, HashSet};
 use typst_library::model::{Destination, LateLinkResolver};
 
 use std::hash::Hash;
@@ -20,7 +21,9 @@ use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
+use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Gradient, Tiling};
+use write_fonts::read::TableProvider;
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
@@ -161,6 +164,8 @@ struct SVGRenderer<'a> {
     link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
+    /// Glyphs used in the text items, separated by font. Used for subsetting.
+    fonts_for_subset: HashMap<Font, HashSet<u32>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
@@ -244,6 +249,7 @@ impl<'a> SVGRenderer<'a> {
         SVGRenderer {
             link_resolver,
             glyphs: Deduplicator::new('g'),
+            fonts_for_subset: HashMap::new(),
             clip_paths: Deduplicator::new('c'),
             gradients: Deduplicator::new('f'),
             gradient_refs: Deduplicator::new('r'),
@@ -384,6 +390,7 @@ impl<'a> SVGRenderer<'a> {
         self.write_subgradients(&mut svg);
         self.write_tilings(&mut svg);
         self.write_tiling_refs(&mut svg);
+        self.write_text_metrics(&mut svg);
     }
 
     /// Build the clip path definitions.
