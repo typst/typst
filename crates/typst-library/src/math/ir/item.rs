@@ -1038,7 +1038,7 @@ impl<'a> Deref for FencedBody<'a> {
 }
 
 /// Stretch configuration for a glyph on both axes.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Stretch(Axes<Option<StretchInfo>>);
 
 impl Stretch {
@@ -1116,7 +1116,7 @@ impl Stretch {
 }
 
 /// Information about how to stretch a glyph on one axis.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StretchInfo {
     /// The target size to stretch to.
     pub target: Rel<Abs>,
