@@ -21,7 +21,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// `content` tag contains one or more paragraphs, which are represented as `p`
 /// tags.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let find-child(elem, tag) = {
 ///   elem.children

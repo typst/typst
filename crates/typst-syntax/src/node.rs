@@ -160,10 +160,32 @@ impl SyntaxNode {
 
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
+        self.synthesize_with(|_| span);
+    }
+
+    /// Set a custom span for each node gives its range.
+    ///
+    /// Should be called with `offset = 0` on the root node.
+    pub fn synthesize_with(&mut self, mut f: impl FnMut(Range<usize>) -> Span) {
+        self.synthesize_with_impl(0, &mut f);
+    }
+
+    /// Set a custom span for each node gives its range.
+    ///
+    /// Should be called with `offset = 0` on the root node.
+    fn synthesize_with_impl(
+        &mut self,
+        offset: usize,
+        f: &mut impl FnMut(Range<usize>) -> Span,
+    ) {
         match &mut self.0 {
-            NodeKind::Leaf(leaf) => leaf.span = span,
-            NodeKind::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            NodeKind::Error(node) => Arc::make_mut(node).error.span = span,
+            NodeKind::Leaf(leaf) => leaf.span = f(offset..offset + leaf.len()),
+            NodeKind::Inner(inner) => {
+                Arc::make_mut(inner).synthesize_with_impl(offset, f)
+            }
+            NodeKind::Error(node) => {
+                Arc::make_mut(node).error.span = f(offset..offset + node.len())
+            }
         }
     }
 
@@ -424,11 +446,16 @@ impl InnerNode {
     }
 
     /// Set a synthetic span for the node and all its descendants.
-    fn synthesize(&mut self, span: Span) {
-        self.span = span;
-        self.upper = span.number();
+    fn synthesize_with_impl(
+        &mut self,
+        mut offset: usize,
+        f: &mut impl FnMut(Range<usize>) -> Span,
+    ) {
+        self.span = f(offset..offset + self.len);
+        self.upper = self.span.number();
         for child in &mut self.children {
-            child.synthesize(span);
+            child.synthesize_with_impl(offset, f);
+            offset += child.len();
         }
     }
 

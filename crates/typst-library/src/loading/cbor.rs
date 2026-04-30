@@ -10,40 +10,64 @@ use crate::loading::{DataSource, Load};
 ///
 /// The file must contain a valid CBOR serialization. The CBOR values will be
 /// converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// @cbor:conversion[table below].
 ///
 /// The function returns a dictionary, an array or, depending on the CBOR file,
 /// another CBOR data type.
 ///
-/// # Conversion details { #conversion }
+/// = Conversion details <conversion>
+/// #docs-table(
+///   table.header[CBOR value][Converted into Typst],
 ///
-/// | CBOR value | Converted into Typst   |
-/// | ---------- | ---------------------- |
-/// | integer    | [`int`] (or [`float`]) |
-/// | bytes      | [`bytes`]              |
-/// | float      | [`float`]              |
-/// | text       | [`str`]                |
-/// | bool       | [`bool`]               |
-/// | null       | `{none}`               |
-/// | array      | [`array`]              |
-/// | map        | [`dictionary`]         |
+///   [integer],
+///   [@int (or @float)],
 ///
-/// | Typst value                           | Converted into CBOR          |
-/// | ------------------------------------- | ---------------------------- |
-/// | types that can be converted from CBOR | corresponding CBOR value     |
-/// | [`symbol`]                            | text                         |
-/// | [`content`]                           | a map describing the content |
-/// | other types ([`length`], etc.)        | text via [`repr`]            |
+///   [bytes],
+///   [@bytes],
 ///
-/// ## Notes
+///   [float],
+///   [@float],
 ///
-/// - Be aware that CBOR integers larger than 2<sup>63</sup>-1 or smaller than
-///   -2<sup>63</sup> will be converted to floating point numbers, which may
+///   [text],
+///   [@str],
+///
+///   [bool],
+///   [@bool],
+///
+///   [null],
+///   [`{none}`],
+///
+///   [array],
+///   [@array],
+///
+///   [map],
+///   [@dictionary],
+/// )
+///
+/// #docs-table(
+///   table.header[Typst value][Converted into CBOR],
+///
+///   [types that can be converted from CBOR],
+///   [corresponding CBOR value],
+///
+///   [@symbol],
+///   [text],
+///
+///   [@content],
+///   [a map describing the content],
+///
+///   [other types (@length, etc.)],
+///   [text via @repr],
+/// )
+///
+/// == Notes <notes>
+/// - Be aware that CBOR integers larger than 2#super[63]-1 or smaller
+///   than -2#super[63] will be converted to floating point numbers, which may
 ///   result in an approximative value.
 ///
 /// - CBOR tags are not supported, and an error will be thrown.
 ///
-/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+/// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "CBOR")]
 pub fn cbor(

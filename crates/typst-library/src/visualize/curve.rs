@@ -28,7 +28,7 @@ use super::FixedStroke;
 /// Bézier curve control points can be skipped by passing `{none}` or
 /// automatically mirrored from the preceding segment by passing `{auto}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #curve(
 ///   fill: blue.lighten(80%),
@@ -69,10 +69,10 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve.
+    /// How to @stroke[stroke] the curve.
     ///
-    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and only if no fill is given.
+    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a stroke
+    /// of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)
@@ -286,7 +286,8 @@ pub struct CurveCubic {
     ///
     /// - If `{auto}` and this element follows another `curve.cubic` element,
     ///   the last control point will be mirrored. In SVG terms, this makes
-    ///   `curve.cubic` behave like the `S` operator instead of the `C` operator.
+    ///   `curve.cubic` behave like the `S` operator instead of the `C`
+    ///   operator.
     ///
     /// - If `{none}`, the curve has no first control point, or equivalently,
     ///   the control point defaults to the curve's starting point.

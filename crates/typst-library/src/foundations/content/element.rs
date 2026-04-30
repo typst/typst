@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use ecow::EcoString;
 use smallvec::SmallVec;
-use typst_utils::Static;
+use typst_utils::{DefSite, Static};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -45,6 +45,11 @@ impl Element {
     /// Documentation for the element (as Markdown).
     pub fn docs(&self) -> &'static str {
         self.vtable().docs
+    }
+
+    /// Where the element is defined in the Rust source code.
+    pub fn def_site(&self) -> DefSite {
+        self.vtable().def_site
     }
 
     /// Search keywords for the element.
@@ -108,6 +113,7 @@ impl Element {
                 .map(|field| NativeParamInfo {
                     name: field.name,
                     docs: field.docs,
+                    def_site: Some(field.def_site),
                     input: (field.input)(),
                     default: field.default,
                     positional: field.positional,

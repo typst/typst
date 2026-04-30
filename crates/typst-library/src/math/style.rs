@@ -74,7 +74,7 @@ pub fn sans(
 /// ```
 ///
 /// This is the default calligraphic/script style for most math fonts. See
-/// [`scr`]($math.scr) for more on how to get the other style (roundhand).
+/// @math.scr[`scr`] for more on how to get the other style (roundhand).
 #[func(title = "Calligraphic", keywords = ["mathcal", "chancery"])]
 pub fn cal(
     /// The content to style.
@@ -91,23 +91,25 @@ pub fn cal(
 /// ```
 ///
 /// There are two ways that fonts can support differentiating `cal` and `scr`.
-/// The first is using Unicode variation sequences. This works out of the box
-/// in Typst, however only a few math fonts currently support this.
+/// The first is using Unicode variation sequences. This works out of the box in
+/// Typst, however only a few math fonts currently support this.
 ///
-/// The other way is using [font features]($text.features). For example, the
+/// The other way is using @text.features[font features]. For example, the
 /// roundhand style might be available in a font through the
-/// _[stylistic set]($text.stylistic-set) 1_ (`ss01`) feature. To use it in
-/// Typst, you could then define your own version of `scr` like in the example
-/// below.
+/// _@text.stylistic-set[stylistic set] 1_ (`ss01`) feature. To use it in Typst,
+/// you could then define your own version of `scr` like in the example below.
 ///
-/// ```example:"Recreation using stylistic set 1"
-/// #let scr(it) = text(
-///   stylistic-set: 1,
-///   $cal(it)$,
+/// #example(
+///   title: "Recreation using stylistic set 1",
+///   ```
+///   #let scr(it) = text(
+///     stylistic-set: 1,
+///     $cal(it)$,
+///   )
+///
+///   We establish $cal(P) != scr(P)$.
+///   ```
 /// )
-///
-/// We establish $cal(P) != scr(P)$.
-/// ```
 #[func(title = "Script Style", keywords = ["mathscr", "roundhand"])]
 pub fn scr(
     /// The content to style.
@@ -145,7 +147,7 @@ pub fn mono(
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available
-/// through [symbols]($category/symbols/sym) of the form `NN` and `RR`.
+/// through @sym[symbols] of the form `NN` and `RR`.
 ///
 /// ```example
 /// $ bb(b) $

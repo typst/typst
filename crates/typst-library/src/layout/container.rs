@@ -14,11 +14,11 @@ use crate::visualize::{Paint, Stroke};
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
-/// occur inside of a [paragraph]($par). The box function can be used to
-/// integrate such elements into a paragraph. Boxes take the size of their
-/// contents by default but can also be sized explicitly.
+/// occur inside of a @par[paragraph]. The box function can be used to integrate
+/// such elements into a paragraph. Boxes take the size of their contents by
+/// default but can also be sized explicitly.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Refer to the docs
 /// #box(
@@ -31,12 +31,12 @@ use crate::visualize::{Paint, Stroke};
 pub struct BoxElem {
     /// The width of the box.
     ///
-    /// Boxes can have [fractional]($fraction) widths, as the example below
+    /// Boxes can have @fraction[fractional] widths, as the example below
     /// demonstrates.
     ///
-    /// _Note:_ Currently, only boxes and only their widths might be fractionally
-    /// sized within paragraphs. Support for fractionally sized images, shapes,
-    /// and more might be added in the future.
+    /// _Note:_ Currently, only boxes and only their widths might be
+    /// fractionally sized within paragraphs. Support for fractionally sized
+    /// images, shapes, and more might be added in the future.
     ///
     /// ```example
     /// Line in #box(width: 1fr, line(length: 100%)) between.
@@ -53,37 +53,37 @@ pub struct BoxElem {
     /// ```
     pub baseline: Rel<Length>,
 
-    /// The box's background color. See the
-    /// [rectangle's documentation]($rect.fill) for more details.
+    /// The box's background color. See the @rect.fill[rectangle's
+    ///   documentation] for more details.
     pub fill: Option<Paint>,
 
-    /// The box's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// The box's border color. See the @rect.stroke[rectangle's documentation]
+    /// for more details.
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
-    /// How much to round the box's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// How much to round the box's corners. See the @rect.radius[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the box's content.
     ///
-    /// This can be a single length for all sides or a dictionary of lengths
-    /// for individual sides. When passing a dictionary, it can contain the
+    /// This can be a single length for all sides or a dictionary of lengths for
+    /// individual sides. When passing a dictionary, it can contain the
     /// following keys in order of precedence: `top`, `right`, `bottom`, `left`
     /// (controlling the respective cell sides), `x`, `y` (controlling vertical
     /// and horizontal insets), and `rest` (covers all insets not styled by
     /// other dictionary entries). All keys are optional; omitted keys will use
     /// their previously set value, or the default value if never set.
     ///
-    /// [Relative lengths]($relative) for this parameter are relative to the box
-    /// size excluding [outset]($box.outset). Note that relative insets and
-    /// outsets are different from relative [widths]($box.width) and
-    /// [heights]($box.height), which are relative to the container.
+    /// @relative[Relative lengths] for this parameter are relative to the box
+    /// size excluding @box.outset[outset]. Note that relative insets and
+    /// outsets are different from relative @box.width[widths] and
+    /// @box.height[heights], which are relative to the container.
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
-    /// current [text edges]($text.top-edge).
+    /// current @text.top-edge[text edges].
     ///
     /// ```example
     /// #rect(inset: 0pt)[Tight]
@@ -94,13 +94,13 @@ pub struct BoxElem {
     /// How much to expand the box's size without affecting the layout.
     ///
     /// This can be a single length for all sides or a dictionary of lengths for
-    /// individual sides. [Relative lengths]($relative) for this parameter are
+    /// individual sides. @relative[Relative lengths] for this parameter are
     /// relative to the box size excluding outset. See the documentation for
-    /// [inset]($box.inset) above for further details.
+    /// @box.inset[inset] above for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
-    /// [raw text's block parameter]($raw.block).
+    /// @raw.block[raw text's block parameter].
     ///
     /// ```example
     /// An inline
@@ -139,8 +139,8 @@ pub struct BoxElem {
 /// across lines.
 #[elem(Construct)]
 pub struct InlineElem {
-    /// A callback that is invoked with the regions to produce arbitrary
-    /// inline items.
+    /// A callback that is invoked with the regions to produce arbitrary inline
+    /// items.
     #[required]
     #[internal]
     body: callbacks::InlineCallback,
@@ -197,12 +197,13 @@ pub enum InlineItem {
 /// background or border.
 ///
 /// Blocks are also the primary way to control whether text becomes part of a
-/// paragraph or not. See [the paragraph documentation]($par/#what-becomes-a-paragraph)
-/// for more details.
+/// paragraph or not. See @par:what-becomes-a-paragraph[the paragraph
+///   documentation] for more details.
 ///
-/// # Examples
+/// = Examples <examples>
 /// With a block, you can give a background to content while still allowing it
 /// to break across multiple pages.
+///
 /// ```example
 /// #set page(height: 100pt)
 /// #block(
@@ -215,6 +216,7 @@ pub enum InlineItem {
 ///
 /// Blocks are also useful to force elements that would otherwise be inline to
 /// become block-level, especially when writing show rules.
+///
 /// ```example
 /// #show heading: it => it.body
 /// = Blockless
@@ -240,8 +242,8 @@ pub struct BlockElem {
     pub width: Smart<Rel<Length>>,
 
     /// The block's height. When the height is larger than the remaining space
-    /// on a page and [`breakable`]($block.breakable) is `{true}`, the
-    /// block will continue on the next page with the remaining height.
+    /// on a page and @block.breakable[`breakable`] is `{true}`, the block will
+    /// continue on the next page with the remaining height.
     ///
     /// ```example
     /// #set page(height: 80pt)
@@ -268,41 +270,41 @@ pub struct BlockElem {
     #[default(true)]
     pub breakable: bool,
 
-    /// The block's background color. See the
-    /// [rectangle's documentation]($rect.fill) for more details.
+    /// The block's background color. See the @rect.fill[rectangle's
+    ///   documentation] for more details.
     pub fill: Option<Paint>,
 
-    /// The block's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// The block's border color. See the @rect.stroke[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
-    /// How much to round the block's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// How much to round the block's corners. See the @rect.radius[rectangle's
+    ///   documentation] for more details.
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the block's content. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// How much to pad the block's content. See the @box.inset[box's
+    ///   documentation] for more details.
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
+    /// the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
     /// The spacing around the block. When `{auto}`, inherits the paragraph
-    /// [`spacing`]($par.spacing).
+    /// @par.spacing[`spacing`].
     ///
     /// For two adjacent blocks, the larger of the first block's `below` and the
     /// second block's `above` spacing wins. Moreover, block spacing takes
-    /// precedence over paragraph [`spacing`]($par.spacing).
+    /// precedence over paragraph @par.spacing[`spacing`].
     ///
     /// Note that this is only a shorthand to set `above` and `below` to the
     /// same value. Since the values for `above` and `below` might differ, a
-    /// [context] block only provides access to `{block.above}` and
-    /// `{block.below}`, not to `{block.spacing}` directly.
+    /// @reference:context[context] block only provides access to
+    /// `{block.above}` and `{block.below}`, not to `{block.spacing}` directly.
     ///
     /// This property can be used in combination with a show rule to adjust the
     /// spacing around arbitrary block-level elements.
@@ -332,8 +334,8 @@ pub struct BlockElem {
 
     /// Whether to clip the content inside the block.
     ///
-    /// Clipping is useful when the block's content is larger than the block itself,
-    /// as any content that exceeds the block's bounds will be hidden.
+    /// Clipping is useful when the block's content is larger than the block
+    /// itself, as any content that exceeds the block's bounds will be hidden.
     ///
     /// ```example
     /// #block(

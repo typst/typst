@@ -34,13 +34,13 @@ use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
 ///
-/// You can wrap the image in a [`figure`] to give it a number and caption.
+/// You can wrap the image in a @figure to give it a number and caption.
 ///
 /// Like most elements, images are _block-level_ by default and thus do not
 /// integrate themselves into adjacent paragraphs. To force an image to become
-/// inline, put it into a [`box`].
+/// inline, put it into a @box.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #figure(
 ///   image("molecular.jpg", width: 80%),
@@ -53,7 +53,7 @@ use crate::visualize::image::pdf::PdfDocument;
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A path to an image file or raw bytes making up an image in one of the
-    /// supported [formats]($image.format).
+    /// supported @image.format[formats].
     ///
     /// Bytes can be used to specify raw pixel data in a row-major,
     /// left-to-right, top-to-bottom format.
@@ -80,7 +80,7 @@ pub struct ImageElem {
     ///
     /// By default, the format is detected automatically. Typically, you thus
     /// only need to specify this when providing raw bytes as the
-    /// [`source`]($image.source) (even then, Typst will try to figure out the
+    /// @image.source[`source`] (even then, Typst will try to figure out the
     /// format automatically, but that's not always possible).
     ///
     /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
@@ -89,25 +89,25 @@ pub struct ImageElem {
     /// Note that several restrictions apply when using PDF files as images:
     ///
     /// - When exporting to PDF, any PDF image file used must have a version
-    ///   equal to or lower than the [export target PDF
-    ///   version]($pdf/#pdf-versions).
+    ///   equal to or lower than the @pdf:pdf-versions[export target PDF
+    ///     version].
     /// - PDF files as images are currently not supported when exporting with a
     ///   specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you
     ///   can instead use SVGs to embed vector images.
     /// - The image file must not be password-protected.
     /// - Tags in your PDF image will not be preserved. Instead, you must
-    ///   provide an [alternative description]($image.alt) to make the image
+    ///   provide an @image.alt[alternative description] to make the image
     ///   accessible.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
-    /// - `encoding` ([str]): The encoding of the pixel data. One of:
+    /// - `encoding` (@str[str]): The encoding of the pixel data. One of:
     ///   - `{"rgb8"}` (three 8-bit channels: red, green, blue)
     ///   - `{"rgba8"}` (four 8-bit channels: red, green, blue, alpha)
     ///   - `{"luma8"}` (one 8-bit channel)
     ///   - `{"lumaa8"}` (two 8-bit channels: luma and alpha)
-    /// - `width` ([int]): The pixel width of the image.
-    /// - `height` ([int]): The pixel height of the image.
+    /// - `width` (@int[int]): The pixel width of the image.
+    /// - `height` (@int[int]): The pixel height of the image.
     ///
     /// The pixel width multiplied by the height multiplied by the channel count
     /// for the specified encoding must then match the `source` data.
@@ -145,15 +145,15 @@ pub struct ImageElem {
     /// This text is used by Assistive Technology (AT) like screen readers to
     /// describe the image to users with visual impairments.
     ///
-    /// When the image is wrapped in a [`figure`]($figure), use this parameter
-    /// rather than the [figure's `alt` parameter]($figure.alt) to describe the
-    /// image. The only exception to this rule is when the image and the other
-    /// contents in the figure form a single semantic unit. In this case, use
-    /// the figure's `alt` parameter to describe the entire composition and do
-    /// not use this parameter.
+    /// When the image is wrapped in a @figure, use this parameter rather than
+    /// the @figure.alt[figure's `alt` parameter] to describe the image. The
+    /// only exception to this rule is when the image and the other contents in
+    /// the figure form a single semantic unit. In this case, use the figure's
+    /// `alt` parameter to describe the entire composition and do not use this
+    /// parameter.
     ///
     /// You can learn how to write good alternative descriptions in the
-    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
+    /// @guides:accessibility:textual-representations[Accessibility Guide].
     pub alt: Option<EcoString>,
 
     /// The page number that should be embedded as an image. This attribute only
@@ -186,8 +186,8 @@ pub struct ImageElem {
 
     /// An ICC profile for the image.
     ///
-    /// ICC profiles define how to interpret the colors in an image. When set
-    /// to `{auto}`, Typst will try to extract an ICC profile from the image.
+    /// ICC profiles define how to interpret the colors in an image. When set to
+    /// `{auto}`, Typst will try to extract an ICC profile from the image.
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
             let loaded = Spanned::new(&source, span).load(engine.world)?;

@@ -14,7 +14,7 @@ pub const MINUS_SIGN: &str = "\u{2212}";
 /// in monospace with syntax-highlighting. The exceptions are `{none}`,
 /// integers, floats, strings, content, and functions.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #none vs #repr(none) \
 /// #"hello" vs #repr("hello") \
@@ -22,16 +22,15 @@ pub const MINUS_SIGN: &str = "\u{2212}";
 /// #[*Hi*] vs #repr([*Hi*])
 /// ```
 ///
-/// # For debugging purposes only { #debugging-only }
-///
+/// = For debugging purposes only <debugging-only>
 /// This function is for debugging purposes. Its output should not be considered
 /// stable and may change at any time.
 ///
 /// To be specific, having the same `repr` does not guarantee that values are
-/// equivalent, and `repr` is not a strict inverse of [`eval`]. In the following
-/// example, for readability, the [`length`] is rounded to two significant
-/// digits and the parameter list and body of the
-/// [unnamed `function`]($function/#unnamed) are omitted.
+/// equivalent, and `repr` is not a strict inverse of @eval. In the following
+/// example, for readability, the @length is rounded to two significant digits
+/// and the parameter list and body of the @function:unnamed[unnamed `function`]
+/// are omitted.
 ///
 /// ```example
 /// #assert(2pt / 3 < 0.67pt)

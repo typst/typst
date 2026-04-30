@@ -15,7 +15,7 @@ use crate::text::TextElem;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Normal list.
 /// - Text
@@ -36,18 +36,18 @@ use crate::text::TextElem;
 /// )
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
-/// paragraphs and other block-level content. All content that is indented
-/// more than an item's marker becomes part of that item.
+/// paragraphs and other block-level content. All content that is indented more
+/// than an item's marker becomes part of that item.
 #[elem(scope, title = "Bullet List", Locatable, Tagged)]
 pub struct ListElem {
-    /// Defines the default [spacing]($list.spacing) of the list. If it is
-    /// `{false}`, the items are spaced apart with
-    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
-    /// [paragraph leading]($par.leading) instead. This makes the list more
-    /// compact, which can look better if the items are short.
+    /// Defines the default @list.spacing[spacing] of the list. If it is
+    /// `{false}`, the items are spaced apart with @par.spacing[paragraph
+    ///   spacing]. If it is `{true}`, they use @par.leading[paragraph leading]
+    /// instead. This makes the list more compact, which can look better if the
+    /// items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
@@ -104,9 +104,8 @@ pub struct ListElem {
 
     /// The spacing between the items of the list.
     ///
-    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
-    /// lists and paragraph [`spacing`]($par.spacing) for wide (non-tight)
-    /// lists.
+    /// If set to `{auto}`, uses paragraph @par.leading[`leading`] for tight
+    /// lists and paragraph @par.spacing[`spacing`] for wide (non-tight) lists.
     pub spacing: Smart<Length>,
 
     /// The bullet list's children.

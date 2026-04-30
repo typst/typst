@@ -16,6 +16,7 @@ use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHin
 use clap_complete::Shell;
 use semver::Version;
 use serde::Serialize;
+use typst_utils::display_possible_values;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -118,7 +119,7 @@ pub struct CompileCommand {
     pub args: CompileArgs,
 }
 
-/// Compiles an input file into a supported output format.
+/// Watches an input file and recompiles on changes.
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Arguments for compilation.
@@ -498,19 +499,6 @@ pub struct ServerArgs {
     /// Defaults to the first free port in the range 3000-3005.
     #[clap(long)]
     pub port: Option<u16>,
-}
-
-macro_rules! display_possible_values {
-    ($ty:ty) => {
-        impl Display for $ty {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.to_possible_value()
-                    .expect("no values are skipped")
-                    .get_name()
-                    .fmt(f)
-            }
-        }
-    };
 }
 
 /// An input that is either stdin or a real path.

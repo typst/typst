@@ -58,7 +58,7 @@ pub struct MidElem {
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to floor.
@@ -76,7 +76,7 @@ pub fn floor(
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to ceil.
@@ -94,7 +94,7 @@ pub fn ceil(
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to round.
@@ -112,7 +112,7 @@ pub fn round(
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the absolute value of.
@@ -130,7 +130,7 @@ pub fn abs(
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the norm of.
@@ -222,6 +222,7 @@ fn create_lr_func_data(left: char, right: char, bump: &'static Bump) -> NativeFu
         name: "(..) => ..",
         title,
         docs,
+        def_site: None,
         keywords: &[],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
@@ -239,6 +240,7 @@ fn create_lr_param_info() -> Vec<NativeParamInfo> {
             The size of the brackets, relative to the height of the wrapped content.\n\
             \n\
             Default: The current value of [`lr.size`]($math.lr.size).",
+            def_site: None,
             input: Rel::<Length>::input(),
             default: None,
             positional: false,
@@ -250,6 +252,7 @@ fn create_lr_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "body",
             docs: "The expression to wrap.",
+            def_site: None,
             input: Content::input(),
             default: None,
             positional: true,

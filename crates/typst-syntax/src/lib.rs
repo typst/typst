@@ -28,7 +28,7 @@ pub use self::path::{
     FileId, PathError, RootedPath, VirtualPath, VirtualRoot, VirtualizeError,
 };
 pub use self::source::Source;
-pub use self::span::{Span, Spanned};
+pub use self::span::{RangeMapper, Span, Spanned};
 
 use self::lexer::Lexer;
 use self::parser::{reparse_block, reparse_markup};
