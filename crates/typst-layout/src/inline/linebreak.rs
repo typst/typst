@@ -1,6 +1,7 @@
 use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
+use super::*;
 use az::SaturatingAs;
 use icu_properties::LineBreak;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
@@ -15,8 +16,6 @@ use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
-
-use super::*;
 
 /// The cost of a line or inline layout.
 type Cost = f64;
@@ -760,7 +759,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         // Hyphenate between the last and current breakpoint.
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
-                if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
+                if !segment.is_empty() && segment.len() > 1 {
                     hyphenations(p, &lb, last, segment, &mut f);
                 }
                 last += segment.len();
