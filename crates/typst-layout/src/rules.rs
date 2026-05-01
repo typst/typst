@@ -301,11 +301,21 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     let span = elem.span();
+    let placement = elem.placement.get(styles);
+
+    if placement.is_none() && elem.scope.get(styles) == PlacementScope::Parent {
+        bail!(
+            span,
+            "parent-scoped placement is only available for floating figures";
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
+        );
+    }
+
     let mut realized = elem.body.clone();
 
     // Build the caption, if any.
     if let Some(caption) = elem.caption.get_cloned(styles) {
-        if caption.repeat.get(styles) && elem.placement.get(styles).is_none() {
+        if caption.repeat.get(styles) && placement.is_none() {
             return Ok(BlockElem::multi_layouter(elem.clone(), layout_figure).pack());
         }
 
@@ -330,19 +340,13 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     realized = BlockElem::packed(realized).spanned(span);
 
     // Wrap in a float.
-    if let Some(align) = elem.placement.get(styles) {
+    if let Some(align) = placement {
         realized = PlaceElem::new(realized)
             .with_alignment(align.map(|align| HAlignment::Center + align))
             .with_scope(elem.scope.get(styles))
             .with_float(true)
             .pack()
             .spanned(span);
-    } else if elem.scope.get(styles) == PlacementScope::Parent {
-        bail!(
-            span,
-            "parent-scoped placement is only available for floating figures";
-            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
-        );
     }
 
     Ok(realized)
