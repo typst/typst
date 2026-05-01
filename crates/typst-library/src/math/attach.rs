@@ -119,6 +119,24 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the maximum size of the glyph and
     /// its attachments.
+    ///
+    /// Note that the resulting glyph may not have the exact desired size. A
+    /// stretched glyph may be either a pre-defined glyph, or a glyph assembled
+    /// from building blocks provided by the font. The possible sizes may not
+    /// cover the entire span. In the example below, when the `size` parameter
+    /// is increased from `{101%}` to `{200%}`, the selected glyph remains the
+    /// same, so the actual size does not change.
+    ///
+    /// ```example:"Size of ∫ growing discontinuously"
+    /// >>> #set align(center)
+    /// #for size in (
+    ///   100%, // short
+    ///   101%, 200%, // tall
+    ///   201%, 300%, 400%, 500%, 600%, // taller
+    /// ) {
+    ///   $stretch(integral, size: #size)$
+    /// }
+    /// ```
     #[default(Rel::one())]
     pub size: Rel<Length>,
 }

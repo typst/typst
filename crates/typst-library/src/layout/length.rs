@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, NumericLength};
 
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::foundations::{Context, Fold, Repr, Resolve, StyleChain, func, scope, ty};
@@ -179,6 +179,8 @@ impl Repr for Length {
         }
     }
 }
+
+impl NumericLength for Length {}
 
 impl Numeric for Length {
     fn zero() -> Self {

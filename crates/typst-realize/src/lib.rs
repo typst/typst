@@ -6,12 +6,14 @@
 
 use std::borrow::Cow;
 use std::cell::LazyCell;
+use std::slice::SliceIndex;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+use typst_html::HtmlElem;
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -118,16 +120,34 @@ struct GroupingRule {
     /// realization will transparently take care of tags and they will not
     /// be visible to `finish`.
     tags: bool,
-    /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(&Content, &State) -> bool,
-    /// Defines elements that may appear in the interior of the grouping, but
-    /// not at the edges.
-    inner: fn(&Content) -> bool,
+    /// Defines how the element relates to this kind of grouping.
+    effect: fn(&Content) -> GroupingEffect,
     /// Defines whether styles for this kind of element interrupt the grouping.
     interrupt: fn(Element) -> bool,
     /// Should convert the accumulated elements in `s.sink[start..]` into
     /// the grouped element.
     finish: fn(Grouped) -> SourceResult<()>,
+}
+
+/// Defines the effect of an element on a grouping.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum GroupingEffect {
+    /// The element will trigger this kind of grouping.
+    Trigger,
+    /// Defines elements that may appear in the interior of the grouping, but
+    /// not at the edges. In particular, those elements also don't trigger the
+    /// grouping.
+    Inner,
+    /// Defines elements that may appear intertwined with group elements without
+    /// triggering finishing of the grouping. Once finishing is otherwise
+    /// triggered, the neutral elements are segmented away and runs of other
+    /// grouping elements are finished separately.
+    ///
+    /// The purpose of neutral elements is to allow for mixed flows of inline
+    /// and blocky HTML elements (which is common in HTML).
+    Neutral,
+    /// The element will stop this kind of grouping.
+    Interrupt,
 }
 
 /// A started grouping of some elements.
@@ -138,6 +158,8 @@ struct Grouping<'a> {
     /// interrupted, but not yet finished because it may be ignored due to being
     /// fully inline.
     interrupted: bool,
+    /// Whether the group contains neutral elements.
+    contains_neutral: bool,
     /// The rule used for this grouping.
     rule: &'a GroupingRule,
 }
@@ -675,20 +697,23 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, s));
+    let matching = s
+        .rules
+        .iter()
+        .find(|&rule| (rule.effect)(content) == GroupingEffect::Trigger);
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
-    while let Some(active) = s.groupings.last() {
+    while let Some(active) = s.groupings.last_mut() {
         // Start a nested group if a rule with higher priority matches.
         if matching.is_some_and(|rule| rule.priority > active.rule.priority) {
             break;
         }
 
         // If the element can be added to the active grouping, do it.
-        if !active.interrupted
-            && ((active.rule.trigger)(content, s) || (active.rule.inner)(content))
-        {
+        let effect = (active.rule.effect)(content);
+        if !active.interrupted && effect != GroupingEffect::Interrupt {
+            active.contains_neutral |= effect == GroupingEffect::Neutral;
             s.sink.push((content, styles));
             return Ok(true);
         }
@@ -709,7 +734,12 @@ fn visit_grouping_rules<'a>(
     // Start a new grouping.
     if let Some(rule) = matching {
         let start = s.sink.len();
-        s.groupings.push(Grouping { start, rule, interrupted: false });
+        s.groupings.push(Grouping {
+            start,
+            rule,
+            interrupted: false,
+            contains_neutral: false,
+        });
         s.sink.push((content, styles));
         return Ok(true);
     }
@@ -756,9 +786,9 @@ fn visit_filter_rules<'a>(
 /// Finishes all grouping.
 fn finish(s: &mut State) -> SourceResult<()> {
     finish_grouping_while(s, |s| {
-        // If this is a fragment realization and all we've got is phrasing
-        // content, don't turn it into a paragraph.
-        if is_fully_inline(s) {
+        // If this is a fragment realization and all we've got is inline and
+        // neutral content, don't turn it into a paragraph.
+        if is_fully_inline_or_neutral(s) {
             *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
             s.groupings.pop();
             collapse_spaces(&mut s.sink, 0);
@@ -785,7 +815,7 @@ fn finish_interrupted(s: &mut State, local: &Styles) -> SourceResult<()> {
         }
         finish_grouping_while(s, |s| {
             s.groupings.iter().any(|grouping| (grouping.rule.interrupt)(elem))
-                && if is_fully_inline(s) {
+                && if is_fully_inline_or_neutral(s) {
                     s.groupings[0].interrupted = true;
                     false
                 } else {
@@ -819,11 +849,58 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
+    let Grouping { start, rule, contains_neutral, .. } = s.groupings.pop().unwrap();
+    if contains_neutral {
+        // If the grouping collected neutral elements, we segment them out and
+        // then finish the individual subgroups separately.
+        let elems = s.store_slice(&s.sink[start..]);
+        s.sink.truncate(start);
+        for (is_neutral, slice) in
+            elems.group_by_key(|(c, _)| (rule.effect)(c) == GroupingEffect::Neutral)
+        {
+            if is_neutral {
+                for &(content, styles) in slice {
+                    visit(s, content, styles)?;
+                }
+            } else {
+                // Trim and revisit leading non-trigger elements.
+                // `finish_grouping` only takes care of trimming trailing
+                // elements as usually a grouping cannot start without a trigger
+                // element.
+                let trimmed = slice.trim_start_matches(|(c, _)| {
+                    (rule.effect)(c) != GroupingEffect::Trigger
+                });
+                let split = slice.len() - trimmed.len();
+                for &(content, styles) in &slice[..split] {
+                    visit(s, content, styles)?;
+                }
 
+                // If we only had inner elements and tags, don't finish the
+                // group at all.
+                if !trimmed.is_empty() {
+                    let start = s.sink.len();
+                    s.sink.extend_from_slice(trimmed);
+                    finish_grouping(s, rule, start)?;
+                }
+            }
+        }
+        Ok(())
+    } else {
+        finish_grouping(s, rule, start)
+    }
+}
+
+/// Finishes a grouping with the given `rule` that starts at a given position in
+/// the sink.
+fn finish_grouping(
+    s: &mut State,
+    rule: &GroupingRule,
+    mut start: usize,
+) -> SourceResult<()> {
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
+    let trimmed = s.sink[start..]
+        .trim_end_matches(|(c, _)| (rule.effect)(c) != GroupingEffect::Trigger);
     let mut end = start + trimmed.len();
 
     // Tags that are opened within or at the start boundary of the grouping
@@ -946,16 +1023,22 @@ static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
 static TEXTUAL: GroupingRule = GroupingRule {
     priority: 3,
     tags: true,
-    trigger: |content, _| {
+    effect: |content| {
         let elem = content.elem();
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
         // math realization, so we don't check for it here.
-        elem == TextElem::ELEM
+        if elem == TextElem::ELEM
             || elem == LinebreakElem::ELEM
             || elem == SmartQuoteElem::ELEM
+        {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
     },
-    inner: |content| content.elem() == SpaceElem::ELEM,
     // Any kind of style interrupts this kind of grouping since regex show
     // rules cannot match over style changes anyway.
     interrupt: |_| true,
@@ -966,23 +1049,28 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |content, state| {
+    effect: |content| {
         let elem = content.elem();
-        elem == TextElem::ELEM
+        if elem == TextElem::ELEM
             || elem == HElem::ELEM
             || elem == LinebreakElem::ELEM
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
-            || match state.kind {
-                RealizationKind::HtmlDocument { is_phrasing, .. }
-                | RealizationKind::HtmlFragment { is_phrasing, .. } => {
-                    is_phrasing(content)
-                }
-                _ => false,
+        {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else if let Some(elem) = content.to_packed::<HtmlElem>() {
+            if typst_html::tag::should_group_into_pars(elem.tag) {
+                GroupingEffect::Trigger
+            } else {
+                GroupingEffect::Neutral
             }
+        } else {
+            GroupingEffect::Interrupt
+        }
     },
-    inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,
     finish: finish_par,
 };
@@ -991,8 +1079,16 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::ELEM,
-    inner: |content| content.elem() == SpaceElem::ELEM,
+    effect: |content| {
+        let elem = content.elem();
+        if elem == CiteElem::ELEM {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
+    },
     interrupt: |elem| {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
@@ -1013,10 +1109,15 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content, _| content.elem() == T::Item::ELEM,
-        inner: |content| {
+        effect: |content| {
             let elem = content.elem();
-            elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM
+            if elem == T::Item::ELEM {
+                GroupingEffect::Trigger
+            } else if elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM {
+                GroupingEffect::Inner
+            } else {
+                GroupingEffect::Interrupt
+            }
         },
         interrupt: |elem| elem == T::ELEM || elem == AlignElem::ELEM,
         finish: finish_list_like::<T>,
@@ -1053,7 +1154,12 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
     //    transparently become part of it.
     // 2. There is no group at all. In this case, we create one.
     if s.groupings.is_empty() && s.rules.iter().any(|&rule| std::ptr::eq(rule, &PAR)) {
-        s.groupings.push(Grouping { start, rule: &PAR, interrupted: false });
+        s.groupings.push(Grouping {
+            start,
+            rule: &PAR,
+            interrupted: false,
+            contains_neutral: false,
+        });
     }
 
     Ok(())
@@ -1067,17 +1173,21 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 }
 
 /// Whether there is exactly one active grouping, it is a `PAR` grouping, and it
-/// spans the whole sink (with the exception of leading tags).
-fn is_fully_inline(s: &State) -> bool {
-    s.kind.is_fragment()
+/// spans the whole sink (with the exception of leading tags and neutral
+/// elements).
+fn is_fully_inline_or_neutral(s: &State) -> bool {
+    if s.kind.is_fragment()
         && !s.saw_parbreak
-        && match s.groupings.as_slice() {
-            [grouping] => {
-                std::ptr::eq(grouping.rule, &PAR)
-                    && s.sink[..grouping.start].iter().all(|(c, _)| c.is::<TagElem>())
-            }
-            _ => false,
-        }
+        && let [grouping] = s.groupings.as_slice()
+        && std::ptr::eq(grouping.rule, &PAR)
+        && s.sink[..grouping.start].iter().all(|(c, _)| {
+            c.is::<TagElem>() || (grouping.rule.effect)(c) == GroupingEffect::Neutral
+        })
+    {
+        true
+    } else {
+        false
+    }
 }
 
 /// Builds the `ParElem` from inline-level elements.
@@ -1270,11 +1380,21 @@ fn find_regex_match_in_str<'a>(
     })
 }
 
-/// Visit a match of a regular expression.
+/// Visit a regular expression match and any surrounding textual elements.
 ///
-/// This first revisits all elements before the match, potentially slicing up
-/// a text element, then the transformed match, and then the remaining elements
-/// after the match.
+/// This will visit the following in order:
+/// - Elements that come fully before the match: `elem <match>`
+/// - Text that was interrupted by the start of the match: `te<match>`
+/// - The matched text itself, sliced off as a new element: `<match>`
+/// - Tag elements that come between parts of the match: `mat<tag>ch`
+/// - Text that was interrupted by the end of the match: `<match>xt`
+/// - Elements that come fully after the match: `<match> elem`
+///
+/// The matched text element will always be a `TextElem` or `SymbolElem` so that
+/// user code can rely on the element having a `.text` field to access the
+/// underlying string. If the regex matched only one existing text or symbol
+/// element, then the new element will be derived from that one, otherwise it
+/// will be built fresh with the span of the first matching element.
 fn visit_regex_match<'a>(
     s: &mut State<'a, '_, '_, '_>,
     elems: &[Pair<'a>],
@@ -1282,32 +1402,12 @@ fn visit_regex_match<'a>(
 ) -> SourceResult<()> {
     let match_range = m.offset..m.offset + m.text.len();
 
-    // Replace with the correct intuitive element kind: if matching against a
-    // lone symbol, return a `SymbolElem`, otherwise return a newly composed
-    // `TextElem`. We should only match against a `SymbolElem` during math
-    // realization (`RealizationKind::Math`).
-    let piece = match elems {
-        &[(lone, _)] if lone.is::<SymbolElem>() => lone.clone(),
-        _ => TextElem::packed(m.text),
-    };
-
-    let context = Context::new(None, Some(m.styles));
-    let output = m.recipe.apply(s.engine, context.track(), piece)?;
-
     let mut cursor = 0;
-    let mut output = Some(output);
-    let mut visit_unconsumed_match = |s: &mut State<'a, '_, '_, '_>| -> SourceResult<()> {
-        if let Some(output) = output.take() {
-            let revocation = Style::Revocation(m.id).into();
-            let outer = s.arenas.bump.alloc(m.styles);
-            let chained = outer.chain(s.arenas.styles.alloc(revocation));
-            visit(s, s.store(output), chained)?;
-        }
-        Ok(())
-    };
+    let mut m = Some(m);
 
     for &(content, styles) in elems {
-        // Just forward tags.
+        // Just forward tags. If a tag is between elements of the match, it will
+        // be visited immediately after the match.
         if content.is::<TagElem>() {
             visit(s, content, styles)?;
             continue;
@@ -1324,45 +1424,92 @@ fn visit_regex_match<'a>(
             1 // The rest are Ascii, so just one byte.
         };
         let elem_range = cursor..cursor + len;
-
-        // If the element starts before the start of match, visit it fully or
-        // sliced.
-        if elem_range.start < match_range.start {
-            if elem_range.end <= match_range.start {
-                visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[..match_range.start - elem_range.start].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            }
-        }
-
-        // When the match starts before this element ends, visit it.
-        if match_range.start < elem_range.end {
-            visit_unconsumed_match(s)?;
-        }
-
-        // If the element ends after the end of the match, visit if fully or
-        // sliced.
-        if elem_range.end > match_range.end {
-            if elem_range.start >= match_range.end {
-                visit(s, content, styles)?;
-            } else {
-                let mut elem = content.to_packed::<TextElem>().unwrap().clone();
-                elem.text = elem.text[match_range.end - elem_range.start..].into();
-                visit(s, s.store(elem.pack()), styles)?;
-            }
-        }
-
         cursor = elem_range.end;
+
+        if elem_range.end <= match_range.start || match_range.end <= elem_range.start {
+            // This element is entirely outside the matched range, visit it
+            // without slicing.
+            visit(s, content, styles)?;
+            continue;
+        }
+
+        if elem_range.start < match_range.start {
+            // This element's text begins before the start of the match, visit
+            // that initial part.
+            let end = match_range.start - elem_range.start;
+            visit(s, s.store(slice_textual(content, ..end)), styles)?;
+        }
+
+        // We visit the matched text itself when at the first element of the
+        // match. Note that we will effectively ignore the elements which
+        // compose the match.
+        if let Some(RegexMatch { text, styles, id, recipe, offset: _ }) = m.take() {
+            // Otherwise, we would have overlapped with a previous element.
+            debug_assert!(elem_range.start <= match_range.start);
+
+            let matched_text = if match_range.end <= elem_range.end
+                && (content.is::<TextElem>() || content.is::<SymbolElem>())
+            {
+                // If the match is fully contained within one sliceable element,
+                // we slice it to retain its element type and span/label.
+                slice_textual(
+                    content,
+                    match_range.start - elem_range.start
+                        ..match_range.end - elem_range.start,
+                )
+            } else {
+                // Otherwise we need to create a fresh text element and can only
+                // retain the span of the first matching element.
+                //
+                // Creating a text element instead of propagating the
+                // space/linebreak/smartquote ensures we always provide an
+                // element with a `.text` field, so that users can rely on that
+                // field being accessible.
+                TextElem::packed(text).spanned(content.span())
+            };
+
+            // Apply the show rule and visit the show rule's output element.
+            let context = Context::new(None, Some(styles));
+            let output = recipe.apply(s.engine, context.track(), matched_text)?;
+            let revocation = Style::Revocation(id).into();
+            let outer = s.arenas.bump.alloc(styles);
+            let chained = outer.chain(s.arenas.styles.alloc(revocation));
+            visit(s, s.store(output), chained)?;
+        }
+
+        if elem_range.end > match_range.end {
+            // This element's text finishes after the end of the match, visit
+            // that final part.
+            let start = match_range.end - elem_range.start;
+            visit(s, s.store(slice_textual(content, start..)), styles)?;
+        }
     }
 
-    // If the match wasn't consumed yet, visit it. This shouldn't really happen
-    // in practice (we'd need to have an empty match at the end), but it's an
-    // extra fail-safe.
-    visit_unconsumed_match(s)?;
-
+    debug_assert!(m.is_none());
     Ok(())
+}
+
+/// Takes a text or symbol element and returns an appropriate sliced output
+/// element.
+fn slice_textual(elem: &Content, range: impl SliceIndex<str, Output = str>) -> Content {
+    if let Some(elem) = elem.to_packed::<TextElem>() {
+        // Unfortunately, we can't apply a `TextElem::span_offset` for more
+        // precise tracking here because it creates a user-visible styled
+        // element, nesting the text element, and obscuring the `.text` field.
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
+        // Symbols are also sliced despite being a single grapheme cluster for
+        // consistency with text. We may want to more generally avoid slicing
+        // grapheme clusters in the future.
+        // See also: <https://github.com/typst/typst/issues/8058>
+        let mut elem = elem.clone();
+        elem.text = elem.text[range].into();
+        elem.pack()
+    } else {
+        panic!("can only slice text and symbols");
+    }
 }
 
 /// Finds the first non-detached span in the list.

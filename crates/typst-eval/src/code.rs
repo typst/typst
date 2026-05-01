@@ -6,6 +6,7 @@ use typst_library::foundations::{
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::singleton;
 
@@ -79,7 +80,7 @@ impl Eval for ast::Expr<'_> {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        let v = match self {
+        let value = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
@@ -101,8 +102,10 @@ impl Eval for ast::Expr<'_> {
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
+            Self::MathFieldAccess(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
+            Self::MathCall(v) => v.eval(vm),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathPrimes(v) => v.eval(vm).map(Value::Content),
@@ -142,11 +145,11 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.inspected == Some(span) {
-            vm.trace(v.clone());
-        }
+        // This satisfies the obligation to call `Vm::trace` for almost all
+        // value-producing expressions!
+        vm.trace_at(span, &value);
 
-        Ok(v)
+        Ok(value)
     }
 }
 
@@ -346,31 +349,39 @@ impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.target().eval(vm)?;
+        let target = self.target().eval(vm)?;
         let field = self.field();
-        let field_span = field.span();
-
-        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
-            Err(err) => err,
-        };
-
-        // Check whether this is a get rule field access.
-        if let Value::Func(func) = &value
-            && let Some(element) = func.to_element()
-            && let Some(id) = element.field_id(&field)
-            && let styles = vm.context.styles().at(field.span())
-            && let Ok(value) = element
-                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
-        {
-            // Only validate the context once we know that this is indeed
-            // a field from the style chain.
-            let _ = styles?;
-            return Ok(value);
-        }
-
-        Err(err)
+        access_field(vm, target, field.as_str(), field.span())
     }
+}
+
+/// Access a field on a target value.
+pub(crate) fn access_field(
+    vm: &mut Vm,
+    target: Value,
+    field: &str,
+    field_span: Span,
+) -> SourceResult<Value> {
+    let err = match target.field(field, (&mut vm.engine, field_span)).at(field_span) {
+        Ok(value) => return Ok(value),
+        Err(err) => err,
+    };
+
+    // Check whether this is a get rule field access.
+    if let Value::Func(func) = &target
+        && let Some(element) = func.to_element()
+        && let Some(id) = element.field_id(field)
+        && let styles = vm.context.styles().at(field_span)
+        && let Ok(value) =
+            element.field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+    {
+        // Only validate the contextual styles once we know that this is indeed
+        // a field from the style chain.
+        let _ = styles?;
+        return Ok(value);
+    }
+
+    Err(err)
 }
 
 impl Eval for ast::Contextual<'_> {

@@ -86,14 +86,16 @@ pub fn emit<'a>(
         term::emit(dest, &config, &files, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        let mut traced = false;
-        for point in &diagnostic.trace {
-            emit_trace(dest, &mut files, point)?;
-            traced = true;
-        }
+        if format == DiagnosticFormat::Human {
+            let mut traced = false;
+            for point in &diagnostic.trace {
+                emit_trace(dest, &mut files, point)?;
+                traced = true;
+            }
 
-        if traced {
-            writeln!(dest)?;
+            if traced {
+                writeln!(dest)?;
+            }
         }
     }
 

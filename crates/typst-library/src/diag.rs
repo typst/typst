@@ -35,7 +35,7 @@ use crate::{World, WorldExt};
 /// bail!(
 ///     span, "returning a {} error", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceResult
 /// ```
 #[macro_export]
@@ -80,7 +80,7 @@ macro_rules! __bail {
 /// error!(
 ///     span, "an error with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// ); // SourceDiagnostic
 /// ```
 #[macro_export]
@@ -103,15 +103,30 @@ macro_rules! __error {
     };
 
     // For `error!(span, ...)`
+    // Hints may include a span inside brackets: `hint[span_expr]: "msg"`.
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::error(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut err = $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: err, $hint $(, $hint_arg)*);)*
+        err
+    }};
+
+    // Internal recursive macro for adding hints with/without spans. Note that
+    // recursive macros must generate full expressions, so we can't use
+    // `.with_hint()` or `.with_spanned_hint()`.
+    (hint: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.hint($crate::diag::eco_format!($hint $(, $hint_arg)*))
+    };
+    (hint[$hint_span:expr]: $err:ident, $hint:literal $(, $hint_arg:expr)*) => {
+        $err.spanned_hint($crate::diag::eco_format!($hint $(, $hint_arg)*), $hint_span)
     };
 }
 
@@ -130,7 +145,7 @@ macro_rules! __error {
 /// warning!(
 ///     span, "warning with a {} message", "formatted";
 ///     hint: "with multiple hints";
-///     hint: "the hints can have {} too", "formatting";
+///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// );
 /// ```
 #[macro_export]
@@ -138,14 +153,18 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
         $(;)?
-    ) => {
-        $crate::diag::SourceDiagnostic::warning(
+    ) => {{
+        #[allow(unused_mut)]
+        let mut warning = $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt $(, $arg)*)
-        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
-    };
+        );
+        // We use a recursive macro for hints to allow for optional spans.
+        $($crate::diag::error!(hint$([$hint_span])?: warning, $hint $(, $hint_arg)*);)*
+        warning
+    }};
 }
 
 #[rustfmt::skip]
@@ -350,25 +369,22 @@ impl From<SyntaxError> for SourceDiagnostic {
     }
 }
 
-/// Destination for a deprecation message when accessing a deprecated value.
-pub trait DeprecationSink {
-    /// Emits the given deprecation message into this sink alongside a version
-    /// in which the deprecated item is planned to be removed.
-    fn emit(self, message: &str, until: Option<&str>);
+/// Destination for a warning message.
+pub trait WarningSink {
+    /// Emits the message as a warning.
+    fn emit(&mut self, message: HintedString);
 }
 
-impl DeprecationSink for () {
-    fn emit(self, _: &str, _: Option<&str>) {}
+impl WarningSink for () {
+    fn emit(&mut self, _: HintedString) {}
 }
 
-impl DeprecationSink for (&mut Engine<'_>, Span) {
-    /// Emits the deprecation message as a warning.
-    fn emit(self, message: &str, version: Option<&str>) {
-        self.0
-            .sink
-            .warn(SourceDiagnostic::warning(self.1, message).with_hints(
-                version.map(|v| eco_format!("it will be removed in Typst {}", v)),
-            ));
+impl WarningSink for (&mut Engine<'_>, Span) {
+    fn emit(&mut self, hinted: HintedString) {
+        self.0.sink.warn(
+            SourceDiagnostic::warning(self.1, hinted.message())
+                .with_hints(hinted.hints().iter().cloned()),
+        );
     }
 }
 

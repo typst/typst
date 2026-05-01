@@ -73,7 +73,7 @@ pub struct TagElem {
 }
 
 impl TagElem {
-    /// Create a packed tag element.
+    /// Creates a tag element and directly packs it into type-erased content.
     pub fn packed(tag: Tag) -> Content {
         let mut content = Self::new(tag).pack();
         // We can skip preparation for the `TagElem`.

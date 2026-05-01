@@ -159,7 +159,7 @@
 --- array-unknown-method-lvalue eval ---
 // Test bad lvalue.
 #let array = (1, 2, 3)
-// Error: 9-13 type array has no method `yolo`
+// Error: 3-13 type array has no method `yolo`
 #(array.yolo() = 4)
 
 --- array-negative-indices eval ---

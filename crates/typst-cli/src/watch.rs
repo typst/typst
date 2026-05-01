@@ -6,16 +6,17 @@ use ecow::eco_format;
 use typst::diag::{HintedStrResult, StrResult, bail, warning};
 use typst::syntax::Span;
 use typst::utils::format_duration;
+use typst_kit::timer::Timer;
 use typst_kit::watcher::Watcher;
 
 use crate::args::{Input, Output, WatchCommand};
 use crate::compile::{CompileConfig, compile_once, print_diagnostics};
-use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
-pub fn watch(timer: &mut Timer, command: &'static WatchCommand) -> HintedStrResult<()> {
+pub fn watch(command: &'static WatchCommand) -> HintedStrResult<()> {
+    let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut config = CompileConfig::watching(command)?;
 
     let Output::Path(output) = &config.output else {

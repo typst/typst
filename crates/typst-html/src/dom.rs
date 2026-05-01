@@ -5,7 +5,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+    Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
@@ -15,7 +15,7 @@ use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::document::HtmlOutput;
-use crate::{HtmlIntrospector, attr, charsets, css};
+use crate::{HtmlIntrospector, charsets, css};
 
 /// An HTML document.
 ///
@@ -186,6 +186,8 @@ pub struct HtmlElement {
     pub tag: HtmlTag,
     /// The element's attributes.
     pub attrs: HtmlAttrs,
+    /// The element's CSS properties. Currently only used for generated styles.
+    pub css: css::Properties,
     /// The element's children.
     pub children: EcoVec<HtmlNode>,
     /// The element's logical parent. For introspection purposes, this element
@@ -209,6 +211,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
+            css: css::Properties::default(),
             children: EcoVec::new(),
             parent: None,
             span: Span::detached(),
@@ -231,12 +234,9 @@ impl HtmlElement {
     }
 
     /// Adds CSS styles to an element.
-    pub(crate) fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
+    pub(crate) fn with_css(mut self, css: css::Properties) -> Self {
+        self.css = css;
+        self
     }
 
     /// Attach a span to the element.
@@ -383,6 +383,30 @@ impl HtmlAttrs {
     pub fn get(&self, attr: HtmlAttr) -> Option<&EcoString> {
         self.0.iter().find(|&&(k, _)| k == attr).map(|(_, v)| v)
     }
+
+    /// Finds an attribute value.
+    pub fn get_mut(&mut self, attr: HtmlAttr) -> Option<&mut EcoString> {
+        self.0
+            .make_mut()
+            .iter_mut()
+            .find(|&&mut (k, _)| k == attr)
+            .map(|(_, v)| v)
+    }
+}
+
+impl Fold for HtmlAttrs {
+    fn fold(mut self, outer: Self) -> Self {
+        // TODO: We might want to use a data structure where this is more
+        // efficient (while keeping small attribute lists efficient, too), but
+        // for now, this is okay.
+        self.0.reserve(outer.0.len());
+        for pair in outer.0 {
+            if !self.0.iter().any(|&(attr, _)| attr == pair.0) {
+                self.0.push(pair);
+            }
+        }
+        self
+    }
 }
 
 cast! {
@@ -488,6 +512,8 @@ pub struct HtmlFrame {
     pub text_size: Abs,
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
+    /// The element's CSS properties.
+    pub css: css::Properties,
     /// IDs to assign to destination jump points within the SVG.
     pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
@@ -501,6 +527,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
+            css: css::Properties::new(),
             anchors: EcoVec::new(),
             span,
         }

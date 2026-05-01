@@ -9,8 +9,8 @@ use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routi
 use typst_library::text::SmartQuoter;
 use typst_utils::Protected;
 
+use crate::HtmlNode;
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::{HtmlElem, HtmlNode};
 
 /// Produces HTML nodes from content contained in an HTML element that is
 /// block-level by default.
@@ -122,7 +122,6 @@ fn realize_fragment<'a>(
         RealizationKind::HtmlFragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,
-            is_phrasing: HtmlElem::is_phrasing,
         },
         engine,
         locator,

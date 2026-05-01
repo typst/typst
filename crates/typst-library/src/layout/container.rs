@@ -295,8 +295,8 @@ pub struct BlockElem {
     /// The spacing around the block. When `{auto}`, inherits the paragraph
     /// [`spacing`]($par.spacing).
     ///
-    /// For two adjacent blocks, the larger of the first block's `above` and the
-    /// second block's `below` spacing wins. Moreover, block spacing takes
+    /// For two adjacent blocks, the larger of the first block's `below` and the
+    /// second block's `above` spacing wins. Moreover, block spacing takes
     /// precedence over paragraph [`spacing`]($par.spacing).
     ///
     /// Note that this is only a shorthand to set `above` and `below` to the
@@ -370,6 +370,12 @@ pub struct BlockElem {
 }
 
 impl BlockElem {
+    /// Creates a new block element with a normal content body and directly
+    /// packs it into type-erased content.
+    pub fn packed(body: Content) -> Content {
+        Self::new().with_body(Some(BlockBody::Content(body))).pack()
+    }
+
     /// Create a block with a custom single-region layouter.
     ///
     /// Such a block must have `breakable: false` (which is set by this

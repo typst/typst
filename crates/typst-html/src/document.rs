@@ -13,7 +13,7 @@ use typst_syntax::Span;
 use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
+use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -159,10 +159,7 @@ fn html_document_common(
     info.populate_locale(styles);
 
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument {
-            info: &mut info,
-            is_phrasing: HtmlElem::is_phrasing,
-        },
+        RealizationKind::HtmlDocument { info: &mut info },
         &mut engine,
         &mut locator,
         &arenas,
@@ -178,13 +175,17 @@ fn html_document_common(
         Whitespace::Normal,
     )?;
 
-    let output = finalize_dom(
+    let mut output = finalize_dom(
         &mut engine,
         nodes,
         &info,
         footnote_locator,
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
+
+    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
+    // the styles must be resolved last.
+    css::resolve_inline_styles(output.root_mut());
 
     Ok(HtmlDocument::new(output, info))
 }

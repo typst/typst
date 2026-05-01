@@ -1,9 +1,8 @@
 use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, OnceLock};
+use std::sync::LazyLock;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue, Repr};
@@ -13,6 +12,7 @@ use typst::syntax::{
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
+use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
 use typst_kit::fonts::FontStore;
@@ -32,8 +32,8 @@ pub struct SystemWorld {
     files: FileStore<SystemFiles>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
-    /// Reset between compilations if not [`Now::Fixed`].
-    now: Now,
+    /// Reset between compilations if not [`Time::Fixed`].
+    now: Time,
 }
 
 impl SystemWorld {
@@ -67,8 +67,9 @@ impl SystemWorld {
         };
 
         let now = match world_args.creation_timestamp {
-            Some(time) => Now::Fixed(time),
-            None => Now::System(OnceLock::new()),
+            Some(time) => Time::fixed_timestamp(time)
+                .map_err(|_| WorldCreationError::InvalidTimestamp)?,
+            None => Time::system(),
         };
 
         Ok(Self {
@@ -101,9 +102,7 @@ impl SystemWorld {
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
         self.files.reset();
-        if let Now::System(time_lock) = &mut self.now {
-            time_lock.take();
-        }
+        self.now.reset();
     }
 
     /// Forcibly scan fonts instead of doing it lazily upon the first access.
@@ -140,40 +139,7 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        let now = match &self.now {
-            Now::Fixed(time) => time.fixed_offset(),
-            Now::System(time) => {
-                let now_utc = time.get_or_init(Utc::now);
-                if offset.is_some() {
-                    // Actual offset will be applied later.
-                    now_utc.fixed_offset()
-                } else {
-                    now_utc.with_timezone(&Local).fixed_offset()
-                }
-            }
-        };
-
-        // The time with the specified UTC offset.
-        let with_offset = match offset {
-            None => now,
-            Some(offset) => {
-                let seconds = offset.seconds().trunc();
-                // Check whether we can convert seconds from f64 to i32
-                if !seconds.is_finite()
-                    || seconds < f64::from(i32::MIN)
-                    || seconds > f64::from(i32::MAX)
-                {
-                    return None;
-                }
-                now.with_timezone(&FixedOffset::east_opt(seconds as i32)?)
-            }
-        };
-
-        Datetime::from_ymd(
-            with_offset.year(),
-            with_offset.month().try_into().ok()?,
-            with_offset.day().try_into().ok()?,
-        )
+        self.now.today(offset)
     }
 }
 
@@ -312,15 +278,6 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
     Ok(buf)
 }
 
-/// The current date and time.
-enum Now {
-    /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
-    /// Used for reproducible builds.
-    Fixed(DateTime<Utc>),
-    /// The current date and time if the time is not externally fixed.
-    System(OnceLock<DateTime<Utc>>),
-}
-
 /// An error that occurs during world construction.
 #[derive(Debug)]
 pub enum WorldCreationError {
@@ -330,6 +287,8 @@ pub enum WorldCreationError {
     InputMalformed(VirtualizeError),
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
+    /// The requested creation timestamp was invalid.
+    InvalidTimestamp,
     /// Another type of I/O error.
     Io(io::Error),
 }
@@ -354,6 +313,9 @@ impl fmt::Display for WorldCreationError {
             }
             WorldCreationError::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
+            }
+            WorldCreationError::InvalidTimestamp => {
+                write!(f, "creation timestamp out of range")
             }
             WorldCreationError::Io(err) => write!(f, "{err}"),
         }

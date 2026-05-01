@@ -21,6 +21,10 @@ pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attaches an accent to a base.
 ///
+/// In math mode, common accents are also available as named [symbols]($symbol)
+/// that can be directly called (like [functions]($function)) to attach them to
+/// some content.
+///
 /// # Example
 /// ```example
 /// $grave(a) = accent(a, `)$ \
@@ -68,8 +72,25 @@ pub struct AccentElem {
 
     /// The size of the accent, relative to the width of the base.
     ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// $dash(A, size: #150%)$
+    /// ```
+    ///
+    /// Note that the resulting accent may not have the exact desired size. For
+    /// example, an arrow may be either a pre-defined short glyph, or a long
+    /// glyph assembled from building blocks (arrowhead + line) provided by the
+    /// font. The sizes of the two possibilities may not cover the entire span.
+    /// Consequently, arrows of certain intermediate sizes cannot be constructed.
+    ///
+    /// ```example:"Size of arrow growing discontinuously"
+    /// >>> #set par(spacing: 0.3em)
+    /// #for i in range(6) {
+    ///   $ arrow(#box(
+    ///     width: 0.4em + 0.3em * i,
+    ///     fill: aqua,
+    ///     height: 0.4em,
+    ///   )) $
+    /// }
     /// ```
     #[default(Rel::one())]
     pub size: Rel<Length>,
