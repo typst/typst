@@ -1700,6 +1700,7 @@ d74f67bdc18233e336ccb023d4e69907 table-cell-show-and-override
 3846fed829d27e7c10e46d630836aca2 table-cell-show-emph
 c5837cb06c47ee202947c8ce2d7d12a6 table-cell-various-overrides
 5aa2b73a460cff317995fd09f7f63be9 table-contextual-measurement
+39cd42a9defc4cef6dd37e65f4d0f19c table-figure-caption-repeat
 a8c73d3ee3882cf3e3dfa1639d3742f5 table-fill-basic
 9ead704d35c159536bdcceff78970656 table-gutters
 d1940e85bb5d9429bb93279a219fa937 table-header-citation

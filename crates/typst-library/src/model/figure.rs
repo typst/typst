@@ -539,7 +539,8 @@ pub struct FigureCaption {
     /// The caption's body.
     ///
     /// Can be used alongside `kind`, `supplement`, `counter`, `numbering`, and
-    /// `location` to completely customize the caption.
+    /// `location` to completely customize the caption. The `continued` field
+    /// indicates whether the caption is repeated on a continuation page.
     ///
     /// ```example
     /// #show figure.caption: it => [
@@ -555,6 +556,15 @@ pub struct FigureCaption {
     /// ```
     #[required]
     pub body: Content,
+
+    /// Whether this caption should repeat on continuation pages when the
+    /// figure breaks across pages.
+    #[default(false)]
+    pub repeat: bool,
+
+    /// Whether this caption is repeated on a continuation page.
+    #[synthesized]
+    pub continued: bool,
 
     /// The figure's supplement.
     #[synthesized]

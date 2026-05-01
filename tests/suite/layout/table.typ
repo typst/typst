@@ -188,6 +188,24 @@
   table.footer(it),
 )
 
+--- table-figure-caption-repeat paged ---
+#set page(height: 90pt)
+#show figure: set block(breakable: true)
+#show figure.caption.where(continued: true): it => [Continued table #context it.counter.display(it.numbering)]
+
+#figure(
+  table(
+    columns: 2,
+    table.header([*A*], [*B*]),
+    ..range(8).map(n => ([#n], [#n])).flatten(),
+  ),
+  caption: figure.caption(
+    repeat: true,
+    position: top,
+    [Repeated caption],
+  ),
+)
+
 --- table-cell-override paged ---
 // Cell override
 #table(
