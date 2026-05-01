@@ -25,6 +25,60 @@
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
 
+--- yaml-decode-merge-keys eval ---
+// This example is copied from https://docs.rs/serde_yaml/0.9.34+deprecated/serde_yaml/enum.Value.html#method.apply_merge. (Apache-2.0 license)
+#let config = bytes(
+  ```yaml
+  tasks:
+    build: &webpack_shared
+      command: webpack
+      args: build
+      inputs:
+        - 'src/**/*'
+    start:
+      <<: *webpack_shared
+      args: start
+  ```.text,
+)
+#let value = yaml(config, merge-keys: true)
+#assert.eq(value.tasks.start.command, "webpack")
+#assert.eq(value.tasks.start.args, "start")
+
+// This example is copied from https://yaml.org/type/merge.html. (copyright free)
+#let example = bytes(
+  ```yaml
+  - &CENTER { x: 1, y: 2 }
+  - &LEFT { x: 0, y: 2 }
+  - &BIG { r: 10 }
+  - &SMALL { r: 1 }
+
+  # All the following maps are equal:
+  - # Explicit keys
+    x: 1
+    y: 2
+    r: 10
+    label: center/big
+
+  - # Merge one map
+    << : *CENTER
+    r: 10
+    label: center/big
+
+  - # Merge multiple maps
+    << : [ *CENTER, *BIG ]
+    label: center/big
+
+  - # Override
+    << : [ *BIG, *LEFT, *SMALL ]
+    x: 1
+    label: center/big
+  ```.text,
+)
+#let maps = yaml(example, merge-keys: true).slice(-4)
+#for m in maps {
+  assert.eq(m, maps.first())
+}
+
 --- yaml-decode-number eval ---
 #import "edge-case.typ": large-integer, representable-integer
 
