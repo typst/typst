@@ -9,10 +9,11 @@ use typst_library::foundations::{
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
-    FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
-    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
-    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
-    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    FixedAlignment, Fragment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem,
+    HideElem, InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem,
+    PageElem, PlaceElem, PlacementScope, Point, Region, Regions, Rel, RepeatElem,
+    RotateElem, ScaleElem, Sides, Size, Sizing, SkewElem, Spacing, StackChild, StackElem,
+    TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
@@ -300,10 +301,24 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     let span = elem.span();
+    let placement = elem.placement.get(styles);
+
+    if placement.is_none() && elem.scope.get(styles) == PlacementScope::Parent {
+        bail!(
+            span,
+            "parent-scoped placement is only available for floating figures";
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
+        );
+    }
+
     let mut realized = elem.body.clone();
 
     // Build the caption, if any.
     if let Some(caption) = elem.caption.get_cloned(styles) {
+        if caption.repeat.get(styles) && placement.is_none() {
+            return Ok(BlockElem::multi_layouter(elem.clone(), layout_figure).pack());
+        }
+
         let (first, second) = match caption.position.get(styles) {
             OuterVAlignment::Top => (caption.pack(), realized),
             OuterVAlignment::Bottom => (realized, caption.pack()),
@@ -325,23 +340,125 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     realized = BlockElem::packed(realized).spanned(span);
 
     // Wrap in a float.
-    if let Some(align) = elem.placement.get(styles) {
+    if let Some(align) = placement {
         realized = PlaceElem::new(realized)
             .with_alignment(align.map(|align| HAlignment::Center + align))
             .with_scope(elem.scope.get(styles))
             .with_float(true)
             .pack()
             .spanned(span);
-    } else if elem.scope.get(styles) == PlacementScope::Parent {
-        bail!(
-            span,
-            "parent-scoped placement is only available for floating figures";
-            hint: "you can enable floating placement with `figure(placement: auto, ..)`";
-        );
     }
 
     Ok(realized)
 };
+
+/// Layout a breakable figure with a repeated caption on continuation pages.
+fn layout_figure(
+    elem: &Packed<FigureElem>,
+    engine: &mut typst_library::engine::Engine,
+    locator: Locator,
+    styles: StyleChain,
+    mut regions: Regions,
+) -> SourceResult<Fragment> {
+    let Some(caption) = elem.caption.get_ref(styles) else {
+        return crate::layout_fragment(engine, &elem.body, locator, styles, regions);
+    };
+
+    let gap = elem.gap.resolve(styles);
+    let position = caption.position.get(styles);
+    let caption_at = |engine: &mut typst_library::engine::Engine,
+                      locator: Locator,
+                      region: Region,
+                      continued| {
+        let mut caption = caption.clone();
+        caption.continued = Some(continued);
+        crate::layout_frame(engine, &caption.pack(), locator, styles, region)
+    };
+
+    let mut locator = locator.split();
+    let mut skipped = vec![];
+    let first_caption = loop {
+        let caption = caption_at(
+            engine,
+            locator.next(&"caption"),
+            Region::new(regions.size, regions.expand),
+            false,
+        )?;
+
+        if caption.height() + gap <= regions.size.y || !regions.may_progress() {
+            break caption;
+        }
+
+        skipped.push(typst_library::layout::Frame::soft(Axes::splat(Abs::zero())));
+        regions.next();
+    };
+
+    let mut caption_heights = vec![first_caption.height()];
+    for (i, size) in regions.iter().enumerate().skip(1) {
+        if regions.last.is_some() && i > regions.backlog.len() + 1 {
+            break;
+        }
+        let caption = caption_at(
+            engine,
+            locator.next_inner(i as u128),
+            Region::new(size, regions.expand),
+            true,
+        )?;
+        caption_heights.push(caption.height());
+    }
+
+    let mut index = 0;
+    let mut body_backlog = vec![];
+    let body_regions = regions.map(&mut body_backlog, |size| {
+        let caption_height = caption_heights
+            .get(index)
+            .copied()
+            .or_else(|| caption_heights.last().copied())
+            .unwrap_or_default();
+        index += 1;
+        Size::new(size.x, size.y - caption_height - gap)
+    });
+
+    let mut body = crate::layout_fragment(
+        engine,
+        &elem.body,
+        locator.next(&"body"),
+        styles,
+        body_regions,
+    )?
+    .into_frames();
+
+    for (i, frame) in body.iter_mut().enumerate() {
+        let caption = if i == 0 {
+            first_caption.clone()
+        } else {
+            caption_at(
+                engine,
+                locator.next_inner(i as u128),
+                Region::new(regions.base(), regions.expand),
+                true,
+            )?
+        };
+
+        let caption_height = caption.height();
+        let offset = match position {
+            OuterVAlignment::Top => {
+                frame.translate(Point::with_y(caption_height + gap));
+                frame.prepend_frame(Point::zero(), caption);
+                Point::with_y(caption_height + gap)
+            }
+            OuterVAlignment::Bottom => {
+                let y = frame.height() + gap;
+                frame.push_frame(Point::with_y(y), caption);
+                Point::with_y(caption_height + gap)
+            }
+        };
+        frame.set_size(frame.size() + offset.to_size());
+    }
+
+    skipped.extend(body);
+    Ok(Fragment::frames(skipped))
+}
 
 const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> =
     |elem, engine, styles| Ok(BlockElem::packed(elem.realize(engine, styles)?));

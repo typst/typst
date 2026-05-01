@@ -1699,6 +1699,7 @@ f16ba0d5d5748869f86a71903cb4d130 table-cell-show-and-override
 9c5e7d0f3ddfdf42c619ead43fd203d8 table-cell-show-emph
 dc980f0845b044a09c4d1f8739ae59fa table-cell-various-overrides
 c84a2ea8b7d1c99c36ea38020b8370ca table-contextual-measurement
+1773fbce83cbfa147fb4e010b5e906c4 table-figure-caption-repeat
 8e8da08ff25f414e1339f70195ff7444 table-fill-basic
 f7bb29d3f9335b8a36bfee7811b47494 table-gutters
 007d97f6e07b0f608d6b2d41d5548fc8 table-header-citation
