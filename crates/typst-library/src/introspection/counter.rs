@@ -348,6 +348,13 @@ impl Counter {
         ///   - provide a [`where`]($function.where) selector:
         ///     counts a type of element with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
+        ///
+        /// The following element types can be used with a counter:
+        /// [`heading`]($heading), [`figure`]($figure), [`footnote`]($footnote),
+        /// [`enum-item`]($enum-item) (for numbered lists), and
+        /// [`math.equation`]($math.equation).
+        /// Other elements can be counted if they implement
+        /// the [`Count`]($Count) trait.
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
