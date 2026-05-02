@@ -5,7 +5,7 @@ use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
-use krilla::geom::PathBuilder;
+use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
@@ -19,7 +19,7 @@ use typst_library::diag::{
 };
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
-use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
 use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
@@ -97,11 +97,24 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         // PDF 2.0 doesn't define an explicit limit, but krilla and probably
         // some viewers won't handle pages that have zero sized pages.
         let mut settings = PageSettings::from_wh(
-            typst_page.frame.width().to_f32().max(3.0),
-            typst_page.frame.height().to_f32().max(3.0),
+            (typst_page.frame.width() + typst_page.bleed.left + typst_page.bleed.right)
+                .to_f32()
+                .max(3.0),
+            (typst_page.frame.height() + typst_page.bleed.top + typst_page.bleed.bottom)
+                .to_f32()
+                .max(3.0),
         )
         .expect_internal("invalid page size")
         .at(Span::detached())?;
+
+        if typst_page.bleed != Sides::splat(Abs::zero()) {
+            settings = settings.with_trim_box(Rect::from_ltrb(
+                typst_page.bleed.left.to_f32(),
+                typst_page.bleed.top.to_f32(),
+                (typst_page.frame.width() + typst_page.bleed.left).to_f32(),
+                (typst_page.frame.height() + typst_page.bleed.top).to_f32(),
+            ));
+        }
 
         if let Some(label) = typst_page
             .numbering
@@ -126,12 +139,16 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
         let page_idx = gc.page_index_converter.pdf_page_index(i);
-        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+        let mut fc = FrameContext::new(
+            page_idx,
+            typst_page.frame.size() + typst_page.bleed.sum_by_axis(),
+        );
 
         tags::page(gc, &mut surface, |gc, surface| {
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
+                typst_page.bleed,
                 typst_page.fill_or_transparent(),
                 surface,
                 gc,
@@ -297,6 +314,7 @@ impl<'a> GlobalContext<'a> {
 pub(crate) fn handle_frame(
     fc: &mut FrameContext,
     frame: &Frame,
+    padding: Sides<Abs>,
     fill: Option<Paint>,
     surface: &mut Surface,
     gc: &mut GlobalContext,
@@ -308,9 +326,13 @@ pub(crate) fn handle_frame(
     }
 
     if let Some(fill) = fill {
-        let shape = Geometry::Rect(frame.size()).filled(fill);
+        let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
         handle_shape(fc, &shape, surface, gc, Span::detached())?;
     }
+
+    fc.push();
+    fc.state_mut()
+        .pre_concat(Transform::translate(padding.left, padding.top));
 
     for (point, item) in frame.items() {
         fc.push();
@@ -341,6 +363,8 @@ pub(crate) fn handle_frame(
 
     fc.pop();
 
+    fc.pop();
+
     Ok(())
 }
 
@@ -368,7 +392,8 @@ pub(crate) fn handle_group(
             surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
         }
 
-        let res = handle_frame(fc, &group.frame, None, surface, gc);
+        let res =
+            handle_frame(fc, &group.frame, Sides::splat(Abs::zero()), None, surface, gc);
 
         if clip_path.is_some() {
             surface.pop();
