@@ -33,7 +33,7 @@ use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
     QueryIntrospection,
 };
-use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
+use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
@@ -1017,10 +1017,7 @@ impl ElemRenderer<'_> {
 
         match elem.display {
             Some(Display::Block) => {
-                content = BlockElem::new()
-                    .with_body(Some(BlockBody::Content(content)))
-                    .pack()
-                    .spanned(self.span);
+                content = BlockElem::packed(content).spanned(self.span);
             }
             Some(Display::Indent) => {
                 content = CslIndentElem::new(content).pack().spanned(self.span);

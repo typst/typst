@@ -9,6 +9,8 @@ use typst_library::layout::{Abs, Angle, Em, Length, Ratio, Rel};
 use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Paint, Rgb};
 use typst_utils::Numeric;
 
+use crate::property;
+
 /// A list of CSS properties with values.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Properties(EcoVec<Property>);
@@ -31,6 +33,13 @@ impl Properties {
         match res {
             Ok(idx) => self.0.make_mut()[idx] = property,
             Err(idx) => self.0.insert(idx, property),
+        }
+    }
+
+    /// Removes a property if it exists.
+    pub fn remove(&mut self, property: &'static str) {
+        if let Ok(i) = self.0.binary_search_by_key(&property, |p| p.name) {
+            self.0.remove(i);
         }
     }
 
@@ -460,6 +469,12 @@ impl ToCss for Hsl {
             .arg(to_ratio(self.saturation))
             .arg(to_ratio(self.lightness))
             .maybe_alpha_arg(self.alpha);
+    }
+}
+
+impl ToCss for property::Display {
+    fn emit(&self, w: &mut CssWriter) {
+        w.write(self.as_str());
     }
 }
 

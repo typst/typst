@@ -370,6 +370,12 @@ pub struct BlockElem {
 }
 
 impl BlockElem {
+    /// Creates a new block element with a normal content body and directly
+    /// packs it into type-erased content.
+    pub fn packed(body: Content) -> Content {
+        Self::new().with_body(Some(BlockBody::Content(body))).pack()
+    }
+
     /// Create a block with a custom single-region layouter.
     ///
     /// Such a block must have `breakable: false` (which is set by this

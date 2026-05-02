@@ -178,6 +178,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Math => None,
         SyntaxKind::MathText => None,
         SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathFieldAccess => None,
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
         SyntaxKind::MathCall => None,
@@ -332,7 +333,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     }
 
     // Are we in math?
-    if node.kind() == SyntaxKind::MathIdent {
+    if matches!(node.kind(), SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess) {
         return Some(Tag::Interpolated);
     }
 

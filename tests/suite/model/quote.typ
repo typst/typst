@@ -110,6 +110,11 @@ When you said that #quote[he surely meant that #quote[she intended to say #quote
   Compose papers faster
 ]
 
+--- quote-attribution-html html ---
+A
+#quote(block: true, attribution: [C])[B]
+D
+
 --- quote-par paged ---
 // Ensure that an inline quote is part of a paragraph, but a block quote
 // does not result in paragraphs.

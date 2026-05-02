@@ -13,7 +13,7 @@ use typst_syntax::Span;
 use typst_utils::Protected;
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, css, tag};
+use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -159,10 +159,7 @@ fn html_document_common(
     info.populate_locale(styles);
 
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument {
-            info: &mut info,
-            is_phrasing: HtmlElem::is_phrasing,
-        },
+        RealizationKind::HtmlDocument { info: &mut info },
         &mut engine,
         &mut locator,
         &arenas,

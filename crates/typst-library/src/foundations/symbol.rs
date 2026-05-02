@@ -454,7 +454,8 @@ pub struct SymbolElem {
 }
 
 impl SymbolElem {
-    /// Create a new packed symbol element.
+    /// Creates a new symbol element and directly packs it into type-erased
+    /// content.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
     }

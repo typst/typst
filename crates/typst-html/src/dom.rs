@@ -5,7 +5,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Dict, Output, Repr, Str, StyleChain, Target, cast,
+    Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
@@ -394,6 +394,21 @@ impl HtmlAttrs {
     }
 }
 
+impl Fold for HtmlAttrs {
+    fn fold(mut self, outer: Self) -> Self {
+        // TODO: We might want to use a data structure where this is more
+        // efficient (while keeping small attribute lists efficient, too), but
+        // for now, this is okay.
+        self.0.reserve(outer.0.len());
+        for pair in outer.0 {
+            if !self.0.iter().any(|&(attr, _)| attr == pair.0) {
+                self.0.push(pair);
+            }
+        }
+        self
+    }
+}
+
 cast! {
     HtmlAttrs,
     self => self.0
@@ -497,6 +512,8 @@ pub struct HtmlFrame {
     pub text_size: Abs,
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
+    /// The element's CSS properties.
+    pub css: css::Properties,
     /// IDs to assign to destination jump points within the SVG.
     pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
@@ -510,6 +527,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
+            css: css::Properties::new(),
             anchors: EcoVec::new(),
             span,
         }
