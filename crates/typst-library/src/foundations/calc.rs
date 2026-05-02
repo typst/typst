@@ -1157,7 +1157,7 @@ pub fn norm(
     }
 
     // Create an iterator over the absolute values.
-    let abs = values.into_iter().map(f64::abs);
+    let abs = values.iter().map(|elt| f64::abs(*elt));
 
     let max = abs.clone().max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0);
 
