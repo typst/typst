@@ -17,7 +17,7 @@ use std::string::FromUtf8Error;
 use az::SaturatingAs;
 use comemo::Tracked;
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
+use typst_syntax::{Lines, Span, Spanned, SyntaxDiagnostic, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -384,14 +384,15 @@ impl SourceDiagnostic {
     }
 }
 
-impl From<SyntaxError> for SourceDiagnostic {
-    fn from(error: SyntaxError) -> Self {
+impl From<SyntaxDiagnostic> for SourceDiagnostic {
+    fn from(syntax_diag: SyntaxDiagnostic) -> Self {
+        let SyntaxDiagnostic { is_error, span, message, hints } = syntax_diag;
         Self {
-            severity: Severity::Error,
-            span: error.span,
-            message: error.message,
+            severity: if is_error { Severity::Error } else { Severity::Warning },
+            span,
+            message,
             trace: eco_vec![],
-            hints: error.hints.into_iter().map(Spanned::detached).collect(),
+            hints: hints.into_iter().map(Spanned::detached).collect(),
         }
     }
 }

@@ -68,9 +68,16 @@ pub fn eval(
     let root = source.root();
     let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
-    // Check for well-formedness unless we are in trace mode.
-    let errors = root.errors();
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    // However, if we're inspecting a span, we keep going with evaluation
+    // regardless of syntax errors.
+    let (errors, warnings) = root.errors_and_warnings();
+    for warning in warnings {
+        vm.engine.sink.warn(warning.into());
+    }
     if !errors.is_empty() && vm.inspected.is_none() {
+        // We _could_ also return the warnings here with the errors, but we want
+        // to only use the sink for warnings for consistency.
         return Err(errors.into_iter().map(Into::into).collect());
     }
 
@@ -96,7 +103,7 @@ pub fn eval(
 pub fn eval_string(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
-    sink: TrackedMut<Sink>,
+    mut sink: TrackedMut<Sink>,
     introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
     string: &str,
@@ -116,9 +123,14 @@ pub fn eval_string(
         SpanMode::Mapped { id, mapper } => root.synthesize_mapped(id, mapper),
     }
 
-    // Check for well-formedness.
-    let errors = root.errors();
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    let (errors, warnings) = root.errors_and_warnings();
+    for warning in warnings {
+        sink.warn(warning.into());
+    }
     if !errors.is_empty() {
+        // We _could_ also return the warnings here with the errors, but we want
+        // to only use the sink for warnings for consistency.
         return Err(errors.into_iter().map(Into::into).collect());
     }
 
