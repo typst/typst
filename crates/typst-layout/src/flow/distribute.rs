@@ -278,7 +278,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(line.frame.height()) && self.regions.may_progress() {
+        if !self.composer.fits(self.regions, line.frame.height())
+            && self.regions.may_progress()
+        {
             return Err(Stop::Finish(false));
         }
 
@@ -286,7 +288,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // following lines grouped by widow/orphan prevention, does not fit into
         // the current region, but does fit into the next region, finish the
         // region.
-        if !self.regions.size.y.fits(line.need)
+        if !self.composer.fits(self.regions, line.need)
             && self
                 .regions
                 .iter()
@@ -318,7 +320,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
+        if !self.composer.fits(self.regions, frame.height())
+            && self.regions.may_progress()
+        {
             return Err(Stop::Finish(false));
         }
 
@@ -333,8 +337,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
+        // For column balancing, reduce the region size for layout
+        let mut pod = self.regions;
+        if let Some(lim) = self.composer.column_balancing_limit() {
+            let remaining = lim - self.composer.column_balancing.used_height;
+            pod.size.y.set_min(remaining);
+        }
+
         // Lay out the block.
-        let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        let (frame, spill) = multi.layout(self.composer.engine, pod)?;
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -366,9 +377,16 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
+        // For column balancing, reduce the region size for layout.
+        let mut pod = self.regions;
+        if let Some(lim) = self.composer.column_balancing_limit() {
+            let remaining = lim - self.composer.column_balancing.used_height;
+            pod.size.y.set_min(remaining);
+        }
+
         // Lay out the spilled remains.
         let align = spill.align();
-        let (frame, spill) = spill.layout(self.composer.engine, self.regions)?;
+        let (frame, spill) = spill.layout(self.composer.engine, pod)?;
         self.frame(frame, align, false, true)?;
 
         // If there's still more, save it into the `spill` and finish the

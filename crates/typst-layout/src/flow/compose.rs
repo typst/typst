@@ -170,6 +170,16 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             inner.next();
         }
 
+        // Column balancing with re-layout
+        if self.config.columns.balanced
+            && self.work.children.is_empty()
+            && self.column_balancing.column_height.is_none()
+        {
+            self.column_balancing.column_height =
+                Some(balancing_height / self.config.columns.count as f64);
+            return Err(Stop::Relayout(PlacementScope::Parent));
+        }
+
         Ok(output)
     }
 
@@ -249,6 +259,25 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         distribute(self, regions)
+    }
+
+    /// The height limit if column balancing is active
+    pub fn column_balancing_limit(&self) -> Option<Abs> {
+        if self.column < self.config.columns.count - 1 {
+            self.column_balancing.column_height
+        } else {
+            None
+        }
+    }
+
+    /// If the amount fits into the region, taking into account column balancing limits
+    pub fn fits(&self, regions: Regions, amount: Abs) -> bool {
+        let mut fits = regions.size.y.fits(amount);
+        if let Some(limit) = self.column_balancing_limit() {
+            // Check if the amount would exceed the balanced column height
+            fits &= limit.fits(self.column_balancing.used_height + amount)
+        }
+        fits
     }
 
     /// Lays out an item with floating placement.
@@ -652,6 +681,8 @@ struct Insertions<'a, 'b> {
 pub struct ColumnBalancing {
     // The height used by the inner contents (e.g. text) during column layouting.
     pub(crate) used_height: Abs,
+    // The balanced height of the columns
+    column_height: Option<Abs>,
 }
 
 impl<'a, 'b> Insertions<'a, 'b> {
