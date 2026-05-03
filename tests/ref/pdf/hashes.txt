@@ -101,6 +101,13 @@ bc59dcdfa945150151f451bd83d4b299 color-outside-srgb-gamut
 82c48571ad9de5290d6ec611b983c970 color-rotate-hue
 e4378b03c0c88a04b7bc5b0c3d9e23f9 color-saturation
 72bf371d532444341689298ed44c4353 color-spaces
+49417c77b77d95ffc4155a083c6f2f18 columns-balanced
+9a482603cd93d532f17b7d114eabae1d columns-balanced-blocks
+129f0dfe20d2b6bb43aee852c70b5c01 columns-balanced-figures
+afeb78c647d8b3c7f8b4b97631dbe817 columns-balanced-footnotes
+431f30b6cf72f01cb2aab1dd147b62f2 columns-balanced-lists
+ef9b28c336f647ab3ed1d5d2d9c6a4bb columns-balanced-pagebreak
+83488bf7a8bf28ee9e7aa95c1c2a173e columns-balanced-tables
 654fce76fc39360b2865c0c3f24f3f51 columns-colbreak-after-place
 73fd768e2c8e0f794893f42c43cd11ae columns-empty-second-column
 3e28bbd810096e7263a90a310d2180db columns-in-auto-sized-rect

@@ -129,3 +129,70 @@ Hallo
 A
 #colbreak(weak: true)
 B
+
+--- columns-balanced paged ---
+#set page(width: 300pt)
+#set par(justify: true)
+#rect(inset: 0pt, outset: 0pt, stroke: yellow,
+    columns(3, balanced: true, lorem(40))
+)
+
+--- columns-balanced-pagebreak paged ---
+#set page(width: 300pt, height: 90pt, margin: 5pt, columns: 3)
+#set text(hyphenate: true)
+#set par(justify: true)
+#set columns(balanced: true)
+#lorem(35)
+#pagebreak()
+#lorem(18)
+
+--- columns-balanced-figures paged ---
+#set page(width: 300pt, height: auto, margin: 5pt, columns: 3)
+#set columns(balanced: true)
+#set text(hyphenate: true)
+#set par(justify: true)
+#figure(rect(height: 30pt, width: 100%))
+#lorem(25)
+#figure(rect(height: 30pt, width: 100%), placement: bottom)
+#lorem(40)
+#figure(rect(height: 15pt, width: 80%), scope: "parent", placement: bottom)
+
+--- columns-balanced-footnotes paged ---
+#set page(width: 300pt, height: 90pt, margin: 5pt, columns: 3)
+#set text(hyphenate: true)
+#set par(justify: true)
+#set columns(balanced: true)
+#lorem(10)#footnote[Footer]
+#lorem(50)#footnote[Footer]
+#lorem(22)
+
+--- columns-balanced-blocks paged ---
+#set page(width: 100pt, height: auto, margin: 5pt, columns: 3)
+#set columns(balanced: true)
+#set block(width: 100%, fill: gray, spacing: 1pt)
+#for i in range(10){block(height: 3pt * (1+i/5))}
+#pagebreak()
+#set block(breakable: false)
+#for i in range(10){block(height: 3pt * (1+i/5))}
+
+--- columns-balanced-tables paged ---
+// Check that balancing is repeated when
+// the height changes due to the repeated header
+#set page(width: 100pt, margin: 5pt, columns: 2)
+#set columns(balanced: true)
+#table(columns: 2,
+  table.header([$x$], [$x^2$]),
+  ..for x in range(1,11){
+    ([#x], [#(x*x)])
+  }
+)
+
+--- columns-balanced-lists paged ---
+// Check that breakable blocks are balanced correctly via `multi` and `multi_spill`
+#set page(width: 350pt, columns: 4)
+#set columns(balanced: true)
+#{
+    8 * [- #lorem(5)]
+}
+
+
