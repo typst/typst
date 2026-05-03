@@ -99,6 +99,12 @@ f3235db90792c9e3a6a9fec9759f6d05 closure-without-params-non-atomic
 5e9073169dc2cf4f86951e7eea500c7a color-rotate-hue
 b77a1e96c7559389ee4cff200a5fe1cf color-saturation
 7b55e4a79f5bc0303965ac308125dc8e color-spaces
+4a2002d2a7ad0b0e107a2e26cf4bbfed columns-balanced
+888054df11134d598810251a348933fc columns-balanced-blocks
+5bc0df02860d14c7f1d5f013ef5b6865 columns-balanced-figures
+6c0aa3e12c313853eaa11d0e8fffadfc columns-balanced-footnotes
+c64f18bf9965ca582e39d393ffd21657 columns-balanced-pagebreak
+32463d453b8b3bc9ac8d02601fa0d28f columns-balanced-tables
 552dcead7dbfde11647d79b69a335b66 columns-colbreak-after-place
 a0142e23f0d78d826ddf277b6a0b8d46 columns-empty-second-column
 0f16d29d7a021a01ed427b50b57d77a0 columns-in-auto-sized-rect
