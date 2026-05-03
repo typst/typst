@@ -164,6 +164,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         self.regions.size.y -= amount;
+        self.composer.column_balancing.used_height += amount;
         self.items.push(Item::Abs(amount, weakness));
     }
 
@@ -193,6 +194,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                         && (weakness < prev_weakness || amount > prev_amount)
                     {
                         self.regions.size.y -= amount - prev_amount;
+                        self.composer.column_balancing.used_height +=
+                            amount - prev_amount;
                         *item = Item::Abs(amount, weakness);
                     }
                     return false;
@@ -245,6 +248,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             match *item {
                 Item::Abs(amount, 1..) => {
                     self.regions.size.y += amount;
+                    self.composer.column_balancing.used_height -= amount;
                     self.items.remove(i);
                     break;
                 }
@@ -427,6 +431,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
+        self.composer.column_balancing.used_height += frame.height();
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -442,6 +447,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
             self.regions.size.y += weak_spacing;
+            self.composer.column_balancing.used_height -= weak_spacing;
             self.composer.float(
                 placed,
                 &self.regions,
@@ -449,6 +455,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 true,
             )?;
             self.regions.size.y -= weak_spacing;
+            self.composer.column_balancing.used_height += weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer
