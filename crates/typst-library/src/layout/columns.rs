@@ -68,6 +68,10 @@ pub struct ColumnsElem {
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
 
+    /// Whether to equalize the height of columns by breaking columns early.
+    #[default(false)]
+    pub balanced: bool,
+
     /// The content that should be layouted into the columns.
     #[required]
     pub body: Content,
