@@ -46,6 +46,7 @@ pub fn compose(
         column: 0,
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
+        column_balancing: ColumnBalancing::default(),
         work,
         footnote_spill: None,
         footnote_queue: vec![],
@@ -69,6 +70,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
+    pub(crate) column_balancing: ColumnBalancing,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -136,11 +138,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut output = Frame::hard(size);
         let mut offset = Abs::zero();
         let mut locator = locator.split();
+        let mut balancing_height = Abs::zero();
 
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
             self.column = i;
             let frame = self.column(locator.next(&()), inner)?;
+            balancing_height += self.column_balancing.used_height;
 
             if !regions.expand.y {
                 output.size_mut().y.set_max(frame.height());
@@ -187,6 +191,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             // insertions.
             let mut pod = regions;
             pod.size.y -= self.column_insertions.height();
+
+            // For column balancing, only consider float size, not footnotes
+            self.column_balancing.used_height = self.column_insertions.float_height();
 
             match self.column_contents(pod) {
                 Ok(frame) => break frame,
@@ -638,6 +645,13 @@ struct Insertions<'a, 'b> {
     footnote_size: Abs,
     width: Abs,
     skips: Vec<Location>,
+}
+
+/// State for column balancing
+#[derive(Default)]
+pub struct ColumnBalancing {
+    // The height used by the inner contents (e.g. text) during column layouting.
+    pub(crate) used_height: Abs,
 }
 
 impl<'a, 'b> Insertions<'a, 'b> {
