@@ -71,8 +71,7 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        (NonZeroUsize::ONE, false, Rel::zero()),
     )
 }
 
@@ -99,8 +98,7 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        (elem.count.get(styles), elem.balanced.get(styles), elem.gutter.resolve(styles)),
     )
 }
 
@@ -118,8 +116,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    columns: (NonZeroUsize, bool, Rel<Abs>),
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -160,7 +157,6 @@ fn layout_fragment_impl(
         styles,
         regions,
         columns,
-        column_gutter,
         kind.into(),
     )
 }
@@ -187,19 +183,17 @@ impl From<FragmentKind> for FlowMode {
 }
 
 /// Lays out realized content into regions, potentially with columns.
-#[expect(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    columns: (NonZeroUsize, bool, Rel<Abs>),
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, columns, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -238,15 +232,15 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    columns: (NonZeroUsize, bool, Rel<Abs>),
     mode: FlowMode,
 ) -> Config<'x> {
+    let (column_count, column_balanced, column_gutter) = columns;
     Config {
         mode,
         shared,
         columns: {
-            let mut count = columns.get();
+            let mut count = column_count.get();
             if !regions.size.x.is_finite() {
                 count = 1;
             }
@@ -254,7 +248,13 @@ fn configuration<'x>(
             let gutter = column_gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+            ColumnConfig {
+                count,
+                width,
+                gutter,
+                dir,
+                balanced: column_balanced,
+            }
         },
         footnote: FootnoteConfig {
             separator: shared
@@ -391,6 +391,8 @@ struct ColumnConfig {
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,
+    /// Whether to equalize the height of columns by breaking columns early.
+    balanced: bool,
 }
 
 /// Configuration of line numbers.

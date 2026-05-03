@@ -5,14 +5,11 @@ use crate::layout::{Length, Ratio, Rel};
 
 /// Separates a region into multiple equally sized columns.
 ///
-/// The `column` function lets you separate the interior of any container into
-/// multiple columns. It will currently not balance the height of the columns.
-/// Instead, the columns will take up the height of their container or the
-/// remaining height on the page. Support for balanced columns is planned for
-/// the future.
-///
-/// When arranging content across multiple columns, use @colbreak to explicitly
-/// continue in the next column.
+/// The `column` function lets you separate the contents of any container into
+/// multiple columns. By default, columns take up the height of their container or the
+/// remaining height on the page and are filled up one after another.
+/// Use @colbreak to explicitly end a column and continue in the next one.
+/// Use @columns.balanced to automatically equalize the height of the columns.
 ///
 /// = Example <example>
 /// ```example
@@ -65,8 +62,35 @@ pub struct ColumnsElem {
     pub count: NonZeroUsize,
 
     /// The size of the gutter space between each column.
+    ///
+    /// #example(
+    ///   ```
+    ///   >>> #set page(background: place(center + horizon, dy: -1cm, rect(
+    ///   >>>   width: 1cm, height: 1cm, stroke: (x: green + 2pt), inset: 0pt,
+    ///   >>>   line(length: 1cm, stroke: green + 2pt)
+    ///   >>> )))
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   #set columns(gutter: 1cm)
+    ///   #lorem(30)
+    ///   ```
+    /// )
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
+
+    /// Whether to equalize the height of columns by breaking columns early.
+    ///
+    /// #example(
+    ///   ```
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   >>> #set columns(gutter: 1cm)
+    ///   #set columns(balanced: true)
+    ///   #lorem(30)
+    ///   ```
+    /// )
+    #[default(false)]
+    pub balanced: bool,
 
     /// The content that should be layouted into the columns.
     #[required]
