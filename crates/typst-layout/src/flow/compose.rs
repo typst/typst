@@ -636,6 +636,7 @@ struct Insertions<'a, 'b> {
     footnote_separator: Option<Frame>,
     top_size: Abs,
     bottom_size: Abs,
+    footnote_size: Abs,
     width: Abs,
     skips: Vec<Location>,
 }
@@ -665,14 +666,14 @@ impl<'a, 'b> Insertions<'a, 'b> {
     /// Add a footnote to the bottom area.
     fn push_footnote(&mut self, config: &Config, frame: Frame) {
         self.width.set_max(frame.width());
-        self.bottom_size += config.footnote.gap + frame.height();
+        self.footnote_size += config.footnote.gap + frame.height();
         self.footnotes.push(frame);
     }
 
     /// Add a footnote separator to the bottom area.
     fn push_footnote_separator(&mut self, config: &Config, frame: Frame) {
         self.width.set_max(frame.width());
-        self.bottom_size += config.footnote.clearance + frame.height();
+        self.footnote_size += config.footnote.clearance + frame.height();
         self.footnote_separator = Some(frame);
     }
 
@@ -680,6 +681,11 @@ impl<'a, 'b> Insertions<'a, 'b> {
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
     fn height(&self) -> Abs {
+        self.top_size + self.bottom_size + self.footnote_size
+    }
+
+    /// The combined height of the top and bottom area for floats (including clearances) but excluding footnotes.
+    fn float_height(&self) -> Abs {
         self.top_size + self.bottom_size
     }
 
@@ -700,7 +706,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
         let mut output = Frame::soft(size);
         let mut offset_top = Abs::zero();
-        let mut offset_bottom = size.y - self.bottom_size;
+        let mut offset_bottom = size.y - self.bottom_size - self.footnote_size;
 
         for (placed, frame) in self.top_floats {
             let x = placed.align_x.position(size.x - frame.width());
