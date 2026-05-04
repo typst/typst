@@ -16,7 +16,8 @@ use crate::visualize::{Paint, Stroke};
 /// All elements except inline math, text, and boxes are block-level and cannot
 /// occur inside of a [paragraph]($par). The box function can be used to
 /// integrate such elements into a paragraph. Boxes take the size of their
-/// contents by default but can also be sized explicitly.
+/// contents by default but can also be sized explicitly, and can clip and add
+/// backgrounds and borders to their content.
 ///
 /// # Example
 /// ```example
@@ -193,8 +194,8 @@ pub enum InlineItem {
 
 /// A block-level container.
 ///
-/// Such a container can be used to separate content, size it, and give it a
-/// background or border.
+/// Such a container can be used to separate content, size and clip it, and give
+/// it a background or a border.
 ///
 /// Blocks are also the primary way to control whether text becomes part of a
 /// paragraph or not. See [the paragraph documentation]($par/#what-becomes-a-paragraph)
