@@ -99,7 +99,7 @@ a6ab2a2612fd7cfa2823306a486547aa color-cmyk-ops
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
 575969816062df61becf97966c5a44d1 color-spaces
-76549430b538fa32d9f68e1c81d336ce columns-balanced
+b8f867dedd59b6bc581ee3b5eb22837e columns-balanced
 8163207fdb93246d57ef4a6e2259d9a9 columns-balanced-blocks
 9b0acfa711085c9ae44f28ea9a07b9dd columns-balanced-figures
 77415ef0d6a9c277a3232d91e898f48d columns-balanced-footnotes

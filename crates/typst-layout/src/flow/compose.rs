@@ -280,8 +280,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     pub fn fits(&self, regions: Regions, amount: Abs) -> bool {
         let mut fits = regions.size.y.fits(amount);
         if let Some(limit) = self.column_balancing_limit() {
-            // Check if the amount would exceed the balanced column height
-            fits &= limit.fits(self.column_balancing.used_height + amount)
+            // 50% or less over the limit is still better balanced than 50% or more ahead of it
+            fits &= limit.fits(self.column_balancing.used_height + 0.5 * amount)
         }
         fits
     }

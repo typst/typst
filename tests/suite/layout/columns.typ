@@ -134,7 +134,7 @@ B
 #set text(size: 3pt, hyphenate: true)
 #set par(justify: true)
 #rect(inset: 0pt, outset: 0pt, stroke: yellow,
-    columns(3, balanced: true, lorem(100))
+    columns(3, balanced: true, lorem(95))
 )
 
 --- columns-balanced-pagebreak paged ---
