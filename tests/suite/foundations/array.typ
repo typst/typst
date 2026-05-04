@@ -39,6 +39,15 @@
 // Hint: 5-6 if you meant to use a unit, try `1%` instead
 #(1 %)
 
+--- array-unit-spacing-percent-no-cascade eval ---
+// Error: 7-8 expected comma, but found numeric suffix
+// Hint: 7-8 if you meant to use a unit, try `100%` instead
+#(100 %, 50%)
+
+--- array-bare-unit-ident eval ---
+// Error: 8-10 unknown variable: pt
+#(100, pt,)
+
 --- array-missing-comma eval ---
 // Error: 4 expected comma
 #(1 2)
