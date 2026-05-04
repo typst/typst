@@ -103,7 +103,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
         drop(checkpoint);
 
-        Ok(self.page_insertions.finalize(self.work, self.config, output))
+        Ok(self.page_insertions.finalize(self.work, self.config, output, None))
     }
 
     /// Lay out the inner contents of a container/page.
@@ -223,7 +223,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         let insertions = std::mem::take(&mut self.column_insertions);
-        let mut output = insertions.finalize(self.work, self.config, inner);
+        let mut output = insertions.finalize(
+            self.work,
+            self.config,
+            inner,
+            self.column_balancing.column_height,
+        );
 
         // Lay out per-column line numbers.
         if let Some(line_config) = &self.config.line_numbers {
@@ -736,7 +741,13 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
     /// Produce a frame for the full region based on the `inner` frame produced
     /// by distribution or column layout.
-    fn finalize(self, work: &mut Work, config: &Config, inner: Frame) -> Frame {
+    fn finalize(
+        self,
+        work: &mut Work,
+        config: &Config,
+        inner: Frame,
+        position_bottom_floats: Option<Abs>,
+    ) -> Frame {
         work.extend_skips(&self.skips);
 
         if self.top_floats.is_empty()
@@ -747,12 +758,13 @@ impl<'a, 'b> Insertions<'a, 'b> {
             return inner;
         }
 
-        let size = inner.size() + Size::with_y(self.height());
-
+        let mut size = inner.size() + Size::with_y(self.height());
+        if let Some(position) = position_bottom_floats {
+            size.y.set_max(position + self.footnote_size);
+        }
         let mut output = Frame::soft(size);
-        let mut offset_top = Abs::zero();
-        let mut offset_bottom = size.y - self.bottom_size - self.footnote_size;
 
+        let mut offset_top = Abs::zero();
         for (placed, frame) in self.top_floats {
             let x = placed.align_x.position(size.x - frame.width());
             let y = offset_top;
@@ -780,6 +792,10 @@ impl<'a, 'b> Insertions<'a, 'b> {
         // surprised and considered this strange. In LaTeX, it can be changed
         // with `\usepackage[bottom]{footmisc}`. We could also consider adding
         // configuration in the future.
+
+        let mut offset_bottom = position_bottom_floats
+            .unwrap_or(size.y - self.footnote_size)
+            - self.bottom_size;
         for (placed, frame) in self.bottom_floats {
             offset_bottom += placed.clearance;
             let x = placed.align_x.position(size.x - frame.width());
@@ -789,13 +805,13 @@ impl<'a, 'b> Insertions<'a, 'b> {
             output.push_frame(Point::new(x, y) + delta, frame);
         }
 
+        let mut offset_bottom = size.y - self.footnote_size;
         if let Some(frame) = self.footnote_separator {
             offset_bottom += config.footnote.clearance;
             let y = offset_bottom;
             offset_bottom += frame.height();
             output.push_frame(Point::with_y(y), frame);
         }
-
         for frame in self.footnotes {
             offset_bottom += config.footnote.gap;
             let y = offset_bottom;

@@ -101,7 +101,7 @@ deeba65cb9f265841a1f94c0a472f159 color-saturation
 575969816062df61becf97966c5a44d1 color-spaces
 76549430b538fa32d9f68e1c81d336ce columns-balanced
 8163207fdb93246d57ef4a6e2259d9a9 columns-balanced-blocks
-4c9f3c4f01647e381f6581ddc188a2ba columns-balanced-figures
+9b0acfa711085c9ae44f28ea9a07b9dd columns-balanced-figures
 77415ef0d6a9c277a3232d91e898f48d columns-balanced-footnotes
 68d8edd0f30f13c95ac6803889173d30 columns-balanced-pagebreak
 4e905300e201b65e4051fa866bcff93c columns-balanced-tables
