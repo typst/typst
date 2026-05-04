@@ -14,6 +14,7 @@ use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
+use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
@@ -713,7 +714,7 @@ fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
 
 /// Print diagnostic messages to the terminal.
 pub fn print_diagnostics(
-    world: &SystemWorld,
+    world: &dyn DiagnosticWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
     format: DiagnosticFormat,
