@@ -50,7 +50,7 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
-    NativeRuleMap, Output, StyleChain, Styles, Target, TargetElem, Value,
+    NativeRuleMap, Output, Scope, StyleChain, Styles, Target, TargetElem, Value,
 };
 use typst_library::introspection::{
     EmptyIntrospector, ITER_NAMES, Introspector, MAX_ITERS,
@@ -304,6 +304,12 @@ impl LibraryExt for Library {
     }
 }
 
+fn register_globals(global: &mut Scope, features: &Features) {
+    if features.is_enabled(Feature::Html) {
+        global.define("html", typst_html::module());
+    }
+}
+
 /// Defines implementation of various Typst compiler routines as a table of
 /// function pointers.
 ///
@@ -315,11 +321,11 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
         typst_html::register(&mut rules);
         rules
     },
+    register_globals,
     eval_string: typst_eval::eval_string,
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
-    html_module: typst_html::module,
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
 });

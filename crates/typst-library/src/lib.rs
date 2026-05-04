@@ -345,9 +345,8 @@ fn global(
 
     global.define("math", math);
     global.define("pdf", self::pdf::module(features));
-    if features.is_enabled(Feature::Html) {
-        global.define("html", (routines.html_module)());
-    }
+
+    (routines.register_globals)(&mut global, features);
 
     prelude(&mut global);
 

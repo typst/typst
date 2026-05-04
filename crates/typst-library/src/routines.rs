@@ -8,14 +8,14 @@ use typst_utils::LazyHash;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
-    Styles, Value,
+    Args, Closure, Content, Context, Func, NativeRuleMap, Scope, StyleChain, Styles,
+    Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
 use crate::model::DocumentInfo;
 use crate::visualize::Color;
-use crate::{Library, World};
+use crate::{Features, Library, World};
 
 /// Defines the `Routines` struct.
 macro_rules! routines {
@@ -50,6 +50,12 @@ macro_rules! routines {
 routines! {
     /// Creates the map with the built-in show rules.
     fn rules() -> NativeRuleMap
+
+    /// Register non-core elements
+    fn register_globals(
+        global: &mut Scope,
+        features: &Features,
+    ) -> ()
 
     /// Evaluates a string as code and return the resulting value.
     fn eval_string(
@@ -96,9 +102,6 @@ routines! {
         styles: StyleChain,
         region: Region,
     ) -> SourceResult<Frame>
-
-    /// Constructs the `html` module.
-    fn html_module() -> Module
 
     /// Returns the body of a MathML `HtmlElem`, if the content is one.
     fn html_mathml_body<'a>(

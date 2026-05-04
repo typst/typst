@@ -67,7 +67,7 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                     )?;
 
                     let mut deprecation =
-                        quote! { crate::foundations::Deprecation::new() };
+                        quote! { ::typst_library::foundations::Deprecation::new() };
 
                     if let Some(message) = args.iter().find_map(|pair| {
                         pair.path.is_ident("message").then_some(&pair.value)
