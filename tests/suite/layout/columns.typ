@@ -176,9 +176,8 @@ B
 #for i in range(10){block(height: 3pt * (1+i/5))}
 
 --- columns-balanced-tables paged ---
-#set page(width: 100pt, height: 150pt, margin: 5pt, columns: 2)
+#set page(width: 100pt, height: auto, margin: 5pt, columns: 2)
 #set columns(balanced: true)
-#show table.cell: set align(right)
 #table(columns: 2,
   table.header([$x$], [$x^2$]),
   ..for x in range(1,11){
