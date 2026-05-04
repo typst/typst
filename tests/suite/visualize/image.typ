@@ -20,6 +20,12 @@
 #image("/assets/images/f2t.jpg", height: 80pt, alt: "height: 80pt")
 #image("/assets/images/f2t.jpg", height: 20% + 40pt, alt: "height: calc(20% + 40pt)")
 
+--- image-blocky-html html ---
+// Ensure that the image does not end up inline (the HTML `img` element is
+// phrasing content and `display: inline` by default).
+A paragraph followed by an image:
+#image("/assets/images/f2t.jpg")
+
 --- image-sizing paged ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -239,6 +245,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
     height: 3,
   ),
   width: 1cm,
+  height: 1cm,
   scaling: scaling,
 )
 

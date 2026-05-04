@@ -84,6 +84,7 @@ pub fn svg_in_html(
     frame: &Frame,
     text_size: Abs,
     id: Option<&str>,
+    styles: &str,
     anchors: &[(Point, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
@@ -103,6 +104,10 @@ pub fn svg_in_html(
             attr.push_str("em; height: ");
             attr.push_num(frame.height() / text_size);
             attr.push_str("em;");
+            if !styles.is_empty() {
+                attr.push_str(" ");
+                attr.push_str(styles);
+            }
         });
     });
 

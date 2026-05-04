@@ -11,7 +11,7 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{LazyHash, Static, singleton};
 
-use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
@@ -268,7 +268,7 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;

@@ -292,6 +292,8 @@ pub enum Expr<'a> {
     MathText(MathText<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
+    /// A field access in math: `arrow.r.long.double.bar`.
+    MathFieldAccess(MathFieldAccess<'a>),
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     MathShorthand(MathShorthand<'a>),
     /// An alignment point in math: `&`.
@@ -405,6 +407,9 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Math => Some(Self::Math(Math(node))),
             SyntaxKind::MathText => Some(Self::MathText(MathText(node))),
             SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
+            SyntaxKind::MathFieldAccess => {
+                Some(Self::MathFieldAccess(MathFieldAccess(node)))
+            }
             SyntaxKind::MathShorthand => Some(Self::MathShorthand(MathShorthand(node))),
             SyntaxKind::MathAlignPoint => {
                 Some(Self::MathAlignPoint(MathAlignPoint(node)))
@@ -475,6 +480,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Math(v) => v.to_untyped(),
             Self::MathText(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
+            Self::MathFieldAccess(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathCall(v) => v.to_untyped(),
@@ -947,6 +953,53 @@ impl Deref for MathIdent<'_> {
 }
 
 node! {
+    /// A field access in math: `arrow.r.long.double.bar`.
+    struct MathFieldAccess
+}
+
+impl<'a> MathFieldAccess<'a> {
+    /// The expression to access the field on.
+    pub fn target(self) -> MathAccess<'a> {
+        self.0.cast_first()
+    }
+
+    /// The name of the field.
+    pub fn field(self) -> MathIdent<'a> {
+        self.0.cast_last()
+    }
+}
+
+/// A variable or field access in math.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum MathAccess<'a> {
+    MathIdent(MathIdent<'a>),
+    MathFieldAccess(MathFieldAccess<'a>),
+}
+
+impl<'a> AstNode<'a> for MathAccess<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
+            SyntaxKind::MathFieldAccess => {
+                Some(Self::MathFieldAccess(MathFieldAccess(node)))
+            }
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            Self::MathIdent(v) => v.to_untyped(),
+            Self::MathFieldAccess(v) => v.to_untyped(),
+        }
+    }
+
+    fn placeholder() -> Self {
+        Self::MathIdent(MathIdent::placeholder())
+    }
+}
+
+node! {
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     struct MathShorthand
 }
@@ -1010,43 +1063,15 @@ node! {
 }
 
 impl<'a> MathCall<'a> {
-    /// The function to call.
-    pub fn callee(self) -> MathCallee<'a> {
+    /// The function to call. If not actually a function, will be rendered as
+    /// content next to its arguments.
+    pub fn callee(self) -> MathAccess<'a> {
         self.0.cast_first()
     }
 
     /// The arguments to the function.
     pub fn args(self) -> MathArgs<'a> {
         self.0.cast_last()
-    }
-}
-
-/// A function to call in math. If not actually a function, will be rendered
-/// as content next to its arguments.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum MathCallee<'a> {
-    MathIdent(MathIdent<'a>),
-    FieldAccess(FieldAccess<'a>),
-}
-
-impl<'a> AstNode<'a> for MathCallee<'a> {
-    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
-            SyntaxKind::FieldAccess => Some(Self::FieldAccess(FieldAccess(node))),
-            _ => Option::None,
-        }
-    }
-
-    fn to_untyped(self) -> &'a SyntaxNode {
-        match self {
-            Self::MathIdent(v) => v.to_untyped(),
-            Self::FieldAccess(v) => v.to_untyped(),
-        }
-    }
-
-    fn placeholder() -> Self {
-        Self::MathIdent(MathIdent::placeholder())
     }
 }
 

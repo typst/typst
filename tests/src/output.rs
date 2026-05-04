@@ -25,6 +25,8 @@ use crate::collect::{Test, TestOutput};
 use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
 
+pub type HashStore = [HashedRefs; HASH_OUTPUTS.len()];
+
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
 pub struct HashedRefs {
@@ -167,7 +169,8 @@ pub trait HashOutputType: OutputType {
 /// the [`HashOutputType::INDEX`].
 ///
 /// NOTE: This has to be kept in sync with the [`HashOutputType::INDEX`].
-pub const HASH_OUTPUTS: [TestOutput; 2] = [TestOutput::Pdf, TestOutput::Svg];
+pub const HASH_OUTPUTS: [TestOutput; 4] =
+    [TestOutput::Pdf, TestOutput::Pdftags, TestOutput::Svg, TestOutput::Html];
 
 pub struct Render;
 
@@ -367,14 +370,8 @@ impl OutputType for Pdftags {
     }
 }
 
-impl FileOutputType for Pdftags {
-    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
-    }
-
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
-    }
+impl HashOutputType for Pdftags {
+    const INDEX: usize = 1;
 }
 
 pub struct Svg;
@@ -411,7 +408,7 @@ impl OutputType for Svg {
 }
 
 impl HashOutputType for Svg {
-    const INDEX: usize = 1;
+    const INDEX: usize = 2;
 }
 
 pub struct Html;
@@ -458,14 +455,8 @@ impl OutputType for Html {
     }
 }
 
-impl FileOutputType for Html {
-    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
-    }
-
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
-    }
+impl HashOutputType for Html {
+    const INDEX: usize = 3;
 }
 
 pub struct Bundle;

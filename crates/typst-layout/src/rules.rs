@@ -240,11 +240,8 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
 const DIVIDER_RULE: ShowFn<DividerElem> =
     |elem, _, _| Ok(LineElem::new().pack().spanned(elem.span()));
 
-const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
-    Ok(BlockElem::new()
-        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
-        .pack())
-};
+const TITLE_RULE: ShowFn<TitleElem> =
+    |elem, _, styles| Ok(BlockElem::packed(elem.resolve_body(styles).at(elem.span())?));
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     const SPACING_TO_NUMBERING: Em = Em::new(0.3);
@@ -288,18 +285,17 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         realized = numbering + spacing + realized;
     }
 
-    let block = if indent != Abs::zero() {
+    Ok(if indent != Abs::zero() {
         let body = HElem::new((-indent).into()).pack() + realized;
         let inset = Sides::default()
             .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
         BlockElem::new()
-            .with_body(Some(BlockBody::Content(body)))
             .with_inset(inset)
+            .with_body(Some(BlockBody::Content(body)))
+            .pack()
     } else {
-        BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-    };
-
-    Ok(block.pack())
+        BlockElem::packed(realized)
+    })
 };
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
@@ -326,10 +322,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     realized += ParbreakElem::shared().clone().spanned(span);
 
     // Wrap the contents in a block.
-    realized = BlockElem::new()
-        .with_body(Some(BlockBody::Content(realized)))
-        .pack()
-        .spanned(span);
+    realized = BlockElem::packed(realized).spanned(span);
 
     // Wrap in a float.
     if let Some(align) = elem.placement.get(styles) {
@@ -350,11 +343,8 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
-    Ok(BlockElem::new()
-        .with_body(Some(BlockBody::Content(elem.realize(engine, styles)?)))
-        .pack())
-};
+const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> =
+    |elem, engine, styles| Ok(BlockElem::packed(elem.realize(engine, styles)?));
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     let span = elem.span();
@@ -372,20 +362,15 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     let attribution = elem.attribution.get_ref(styles);
 
     if block {
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(span);
+        realized = BlockElem::packed(realized).spanned(span);
 
         if let Some(attribution) = attribution.as_ref() {
             // Bring the attribution a bit closer to the quote.
             let gap = Spacing::Rel(Em::new(0.9).into());
             let v = VElem::new(gap).with_weak(true).pack();
             realized += v;
-            realized += BlockElem::new()
-                .with_body(Some(BlockBody::Content(attribution.realize(span))))
-                .pack()
-                .aligned(Alignment::END);
+            realized +=
+                BlockElem::packed(attribution.realize(span)).aligned(Alignment::END);
         }
 
         realized = PadElem::new(realized).pack();
@@ -451,10 +436,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let block = if elem.element.is::<EquationElem>() {
         // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
-        BlockElem::new()
-            .with_body(Some(BlockBody::Content(body)))
-            .pack()
-            .spanned(span)
+        BlockElem::packed(body).spanned(span)
     } else {
         elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
     };
@@ -518,13 +500,14 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 let inset = Sides::default()
                     .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
                 BlockElem::new()
-                    .with_body(Some(BlockBody::Content(body)))
                     .with_inset(inset)
+                    .with_body(Some(BlockBody::Content(body)))
+                    .pack()
             } else {
-                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
+                BlockElem::packed(realized)
             };
 
-            body.push(block.pack().spanned(span));
+            body.push(block.spanned(span));
         }
         seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
@@ -675,10 +658,7 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
     if elem.block.get(styles) {
         // Align the text before inserting it into the block.
         realized = realized.aligned(elem.align.get(styles).into());
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(elem.span());
+        realized = BlockElem::packed(realized).spanned(elem.span());
     }
 
     Ok(realized)

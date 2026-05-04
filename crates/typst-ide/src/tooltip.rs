@@ -58,7 +58,16 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     let expr = ancestor.cast::<ast::Expr>()?;
-    if !expr.hash() && !matches!(expr, ast::Expr::MathIdent(_)) {
+    // We only analyze embeddable code expressions or math expressions that
+    // access variables.
+    let analyze = expr.hash()
+        || matches!(
+            expr,
+            ast::Expr::MathIdent(_)
+                | ast::Expr::MathFieldAccess(_)
+                | ast::Expr::MathCall(_)
+        );
+    if !analyze {
         return None;
     }
 
@@ -199,15 +208,16 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
         if let Some(parent) = leaf.parent()
         && let Some(named) = parent.cast::<ast::Named>()
         && let Some(grand) = parent.parent()
-        && matches!(grand.kind(), SyntaxKind::Args)
+        && matches!(grand.kind(), SyntaxKind::Args | SyntaxKind::MathArgs)
         && let Some(grand_grand) = grand.parent()
         && let Some(expr) = grand_grand.cast::<ast::Expr>()
-        && let Some(callee) = match expr {
-            ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::SetRule(set) => Some(set.target()),
+        && let Some(callee_span) = match expr {
+            ast::Expr::FuncCall(call) => Some(call.callee().span()),
+            ast::Expr::MathCall(call) => Some(call.callee().span()),
+            ast::Expr::SetRule(set) => Some(set.target().span()),
             _ => None,
         }
-        && let Some(callee) = grand_grand.find(callee.span())
+        && let Some(callee) = grand_grand.find(callee_span)
 
         // Find metadata about the function.
         && let Some(value) = analyze_expr_with_fallback(world, &callee)
@@ -284,8 +294,11 @@ mod tests {
     type Response = Option<Tooltip>;
 
     trait ResponseExt {
+        /// Assert that there is no tooltip.
         fn must_be_none(&self) -> &Self;
+        /// Assert that the tooltip equals the given message.
         fn must_be_text(&self, text: &str) -> &Self;
+        /// Assert that the tooltip equals the given code.
         fn must_be_code(&self, code: &str) -> &Self;
     }
 
@@ -323,6 +336,139 @@ mod tests {
         test("#let x = 1 + 2", -1, Side::After).must_be_none();
         test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
+    }
+
+    /// Literal values don't get a tooltip, just idenfitifers.
+    #[test]
+    fn test_tooltip_math_literals() {
+        let world = "$x'^2 &!= \\u{3C0} \"is\" pi #true$";
+        test(world, 0 /*  $  */, Side::After).must_be_none();
+        test(world, 1 /*  x  */, Side::After).must_be_none();
+        test(world, 2 /*  '  */, Side::After).must_be_none();
+        test(world, 3 /*  ^  */, Side::After).must_be_none();
+        test(world, 4 /*  2  */, Side::After).must_be_none();
+        test(world, 5 /*     */, Side::After).must_be_none();
+        test(world, 6 /*  &  */, Side::After).must_be_none();
+        test(world, 7 /*  != */, Side::After).must_be_none();
+        test(world, 10 /* \\ */, Side::After).must_be_none();
+        test(world, 11 /* u  */, Side::After).must_be_none();
+        test(world, 12 /* {  */, Side::After).must_be_none();
+        test(world, 13 /* 3  */, Side::After).must_be_none();
+        test(world, 19 /* \" */, Side::After).must_be_none();
+        test(world, 20 /* is */, Side::After).must_be_none();
+        test(world, 24 /* pi */, Side::After)
+            .must_be_code("symbol(\"π\", (\"alt\", \"ϖ\"))");
+        test(world, 27 /* \# */, Side::After).must_be_none();
+        test(world, 28 /*true*/, Side::After).must_be_none();
+    }
+
+    #[test]
+    fn test_tooltip_math_field_access() {
+        test("$pi.alt$", 1, Side::After).must_be_code("symbol(\"π\", (\"alt\", \"ϖ\"))");
+        test("$pi.alt$", 3, Side::After).must_be_code("symbol(\"ϖ\")");
+        test("$pi.alt$", 4, Side::After).must_be_code("symbol(\"ϖ\")");
+    }
+
+    #[test]
+    fn test_tooltip_set() {
+        let box_desc = "An inline-level container that sizes content.";
+        let fill_desc = "The box's background color.";
+        let red = "rgb(\"#ff4136\")";
+        test("#set box(fill: red,)", 0 /*#*/, Side::After).must_be_none();
+        test("#set box(fill: red,)", 1 /*s*/, Side::After).must_be_none();
+        test("#set box(fill: red,)", 5 /*b*/, Side::After).must_be_text(box_desc);
+        test("#set box(fill: red,)", 8 /*(*/, Side::After).must_be_none();
+        test("#set box(fill: red,)", 9 /*f*/, Side::After).must_be_text(fill_desc);
+        test("#set box(fill: red,)", 13 /*:*/, Side::After).must_be_none();
+        test("#set box(fill: red,)", 15 /*r*/, Side::After).must_be_code(red);
+        test("#set box(fill: red,)", 18 /*,*/, Side::After).must_be_none();
+        test("#set box(fill: red,)", 19 /*)*/, Side::After).must_be_none();
+    }
+
+    #[test]
+    fn test_tooltip_function_call() {
+        let box_desc = "An inline-level container that sizes content.";
+        // Function value
+        test("#box", 0 /*#*/, Side::After).must_be_none();
+        test("#box", 1 /*b*/, Side::After).must_be_text(box_desc);
+        test("#(box)", 0 /*#*/, Side::After).must_be_none();
+        test("#(box)", 1 /*(*/, Side::After).must_be_text(box_desc);
+        test("#(box)", 2 /*b*/, Side::After).must_be_text(box_desc);
+        test("#(box)", 5 /*)*/, Side::After).must_be_text(box_desc);
+        // Basic call
+        test("#box()", 1 /*b*/, Side::After).must_be_text(box_desc);
+        test("#box()", 4 /*(*/, Side::After).must_be_code("box()");
+        test("#box()", 5 /*)*/, Side::After).must_be_code("box()");
+        // Field access call
+        test("#std.box()", 1 /*s*/, Side::After).must_be_code("<module global>");
+        test("#std.box()", 4 /*.*/, Side::After).must_be_text(box_desc);
+        test("#std.box()", 5 /*b*/, Side::After).must_be_text(box_desc);
+        test("#std.box()", 8 /*(*/, Side::After).must_be_code("box()");
+        // Positional args and trailing comma
+        test("#box([],)", 4 /*(*/, Side::After).must_be_code("box(body: [])");
+        test("#box([],)", 5 /*[*/, Side::After).must_be_code("[]");
+        test("#box([],)", 6 /*]*/, Side::After).must_be_code("[]");
+        test("#box([],)", 7 /*,*/, Side::After).must_be_code("box(body: [])");
+        test("#box([],)", 8 /*)*/, Side::After).must_be_code("box(body: [])");
+        // Content args
+        test("#box[]", 4 /*[*/, Side::After).must_be_code("[]");
+        test("#box[]", 5 /*]*/, Side::After).must_be_code("[]");
+        // Named args
+        let fill_desc = "The box's background color.";
+        let red_box = "box(fill: rgb(\"#ff4136\"))";
+        test("#box(fill:red,)", 5 /*f*/, Side::After).must_be_text(fill_desc);
+        test("#box(fill:red,)", 9 /*:*/, Side::After).must_be_code(red_box);
+        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"#ff4136\")");
+        test("#box(fill:red,)", 13 /*,*/, Side::After).must_be_code(red_box);
+        // Spread args
+        test("#box(..none,)", 5 /*.*/, Side::After).must_be_code("box()");
+        test("#box(..none,)", 7 /*(*/, Side::After).must_be_none();
+        test("#box(..none,)", 11 /*,*/, Side::After).must_be_code("box()");
+        test("#box(..([],))", 5 /*.*/, Side::After).must_be_code("box(body: [])");
+        test("#box(..([],))", 7 /*(*/, Side::After).must_be_code("([],)");
+    }
+
+    #[test]
+    fn test_tooltip_math_function_call() {
+        // Content plus parens
+        test("$f(x)$", 1 /*f*/, Side::After).must_be_none();
+        test("$f(x)$", 2 /*(*/, Side::After).must_be_none();
+        test("$f(x)$", 3 /*x*/, Side::After).must_be_none();
+        test("$sin()$", 1 /*s*/, Side::After)
+            .must_be_code("op(text: [sin], limits: false)");
+        // Actual function call + empty arg + trailing comma
+        let vec_z = "vec(children: ([ℤ], []))";
+        test("$vec(ZZ, ,)$", 1 /*v*/, Side::After).must_be_text("A column vector.");
+        test("$vec(ZZ, ,)$", 4 /*(*/, Side::After).must_be_code(vec_z);
+        test("$vec(ZZ, ,)$", 5 /*Z*/, Side::After).must_be_code("symbol(\"ℤ\")");
+        test("$vec(ZZ, ,)$", 7 /*,*/, Side::After).must_be_code(vec_z);
+        test("$vec(ZZ, ,)$", 8 /* */, Side::After).must_be_none();
+        test("$vec(ZZ, ,)$", 9 /*,*/, Side::After).must_be_code(vec_z);
+        test("$vec(ZZ, ,)$", 10 /*)*/, Side::After).must_be_code(vec_z);
+        // Named args
+        let vec_gap = "vec(gap: 0% + 1em, children: ())";
+        test("$vec(gap:#1em)$", 5 /*g*/, Side::After)
+            .must_be_text("The gap between elements.");
+        test("$vec(gap:#1em)$", 8 /*:*/, Side::After).must_be_code(vec_gap);
+        test("$vec(gap:#1em)$", 10 /*1*/, Side::After).must_be_none();
+        // 2d args and spread args
+        let mat = "mat(rows: (([1],), ([2],)))";
+        test("$mat(1; ..#([2],))$", 1 /*m*/, Side::After).must_be_text("A matrix.");
+        test("$mat(1; ..#([2],))$", 5 /*1*/, Side::After).must_be_none();
+        test("$mat(1; ..#([2],))$", 6 /*;*/, Side::After).must_be_code(mat);
+        test("$mat(1; ..#([2],))$", 8 /*.*/, Side::After).must_be_code(mat);
+        test("$mat(1; ..#([2],))$", 10 /*#*/, Side::After).must_be_code(mat);
+        test("$mat(1; ..#([2],))$", 11 /*(*/, Side::After).must_be_code("([2],)");
+        // Symbol function and named arg
+        test("$hat(i,size:#1em)$", 1, Side::After).must_be_code("symbol(\"^\")");
+        test("$hat(i,size:#1em)$", 7, Side::After)
+            .must_be_text("The size of the accent, relative to the width of the base.");
+        // Field access call
+        let box_desc = "An inline-level container that sizes content.";
+        test("$std.box()$", 1 /*s*/, Side::After).must_be_code("<module global>");
+        test("$std.box()$", 4 /*.*/, Side::After).must_be_text(box_desc);
+        test("$std.box()$", 5 /*b*/, Side::After).must_be_text(box_desc);
+        test("$std.box()$", 8 /*(*/, Side::After).must_be_code("box()");
     }
 
     #[test]
@@ -386,5 +532,15 @@ mod tests {
         test(&world, -17, Side::After).must_be_text("A useful function.");
         // Named parameter.
         test(&world, -7, Side::After).must_be_text("Tree with three slashes.");
+    }
+
+    #[test]
+    fn test_tooltip_user_function_in_math() {
+        let world = TestWorld::new("#import \"lib.typ\"\n$lib.foo(none, tree: 2)$")
+            .with_source("lib.typ", crate::tests::EXAMPLE_CLOSURE);
+        // Function itself.
+        test(&world, -18, Side::After).must_be_text("A useful function.");
+        // Named parameter.
+        test(&world, -8, Side::After).must_be_text("Tree with three slashes.");
     }
 }
