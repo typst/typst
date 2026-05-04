@@ -1,10 +1,10 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
-use crate::engine::Engine;
-use crate::foundations::{Str, Value, func, scope};
-use crate::loading::{DataSource, Load};
+use typst_library::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
+use typst_library::engine::Engine;
+use typst_library::foundations::{Str, Value, func, scope};
+use typst_library::loading::{DataSource, Load};
 
 /// Reads structured data from a JSON file.
 ///

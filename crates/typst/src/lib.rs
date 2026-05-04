@@ -305,6 +305,7 @@ impl LibraryExt for Library {
 }
 
 fn register_globals(global: &mut Scope, features: &Features) {
+    typst_loading::register(global);
     if features.is_enabled(Feature::Html) {
         global.define("html", typst_html::module());
     }

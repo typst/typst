@@ -22,7 +22,7 @@ use typst_utils::{
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin,
+    At, HintedStrResult, HintedString, LineCol, LoadError, LoadResult, LoadedWithin,
     ReportTextPos, SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Route, Sink, Traced};
@@ -36,7 +36,7 @@ use crate::introspection::{
     QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
-use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
+use crate::loading::{DataSource, Load, LoadSource, Loaded};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
     HeadingElem, LinkElem, Url,
@@ -479,6 +479,19 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
             _ => Err(format_yaml_error(haya_err)).within(loaded),
         }
     }
+}
+
+/// Format the user-facing YAML error message.
+fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
+    let pos = error
+        .location()
+        .map(|loc| {
+            let line_col = LineCol::one_based(loc.line(), loc.column());
+            let range = loc.index()..loc.index();
+            ReportTextPos::full(range, line_col)
+        })
+        .unwrap_or_default();
+    LoadError::text(pos, "failed to parse YAML", error)
 }
 
 /// Format a BibLaTeX loading error.

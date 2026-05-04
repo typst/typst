@@ -3067,6 +3067,7 @@ dependencies = [
  "typst-html",
  "typst-layout",
  "typst-library",
+ "typst-loading",
  "typst-macros",
  "typst-realize",
  "typst-syntax",
@@ -3345,10 +3346,8 @@ dependencies = [
  "az",
  "bitflags 2.11.1",
  "bumpalo",
- "ciborium",
  "codex",
  "comemo",
- "csv",
  "ecow",
  "either",
  "flate2",
@@ -3376,13 +3375,11 @@ dependencies = [
  "rustc-hash",
  "rustybuzz",
  "serde",
- "serde_json",
  "serde_yaml",
  "siphasher",
  "smallvec",
  "syntect",
  "time",
- "toml",
  "ttf-parser",
  "two-face",
  "typed-arena",
@@ -3400,6 +3397,23 @@ dependencies = [
  "utf8_iter",
  "wasmi",
  "xmlwriter",
+]
+
+[[package]]
+name = "typst-loading"
+version = "0.14.2"
+dependencies = [
+ "az",
+ "ciborium",
+ "csv",
+ "ecow",
+ "roxmltree 0.21.1",
+ "serde_json",
+ "serde_yaml",
+ "toml",
+ "typst-library",
+ "typst-syntax",
+ "typst-utils",
 ]
 
 [[package]]
