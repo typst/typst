@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use typst_library::World;
 use typst_library::diag::{StrResult, bail};
-use typst_syntax::Span;
+use typst_syntax::{Span, SpanKind};
 
 /// Allows to record timings of function executions.
 pub struct Timer {
@@ -54,14 +54,11 @@ impl Timer {
 
     /// Records all timings in `f` and writes them to disk as JSON compatible
     /// with Chrome's tracing tool.
-    pub fn record<W, T>(
+    pub fn record<W: World, T>(
         &mut self,
         world: &mut W,
         f: impl FnOnce(&mut W) -> T,
-    ) -> StrResult<T>
-    where
-        W: World,
-    {
+    ) -> StrResult<T> {
         let Some(path) = &self.path else {
             return Ok(f(world));
         };
@@ -99,21 +96,20 @@ impl Timer {
 }
 
 /// Turns a span into a (file, line) pair.
-fn resolve_span<W>(world: &W, span: Span) -> Option<(String, u32)>
-where
-    W: World,
-{
-    let id = span.id()?;
-    let line = match span.range() {
-        Some(range) => {
+fn resolve_span<W: World>(world: &W, span: Span) -> Option<(String, u32)> {
+    let (id, line) = match span.get() {
+        SpanKind::Detached => return None,
+        SpanKind::Number { id, num } => {
+            let source = world.source(id).ok()?;
+            let range = source.range(num)?;
+            let line = source.lines().byte_to_line(range.start)?;
+            (id, line)
+        }
+        SpanKind::Range { id, range } => {
             let file = world.file(id).ok()?;
             let lines = file.lines().ok()?;
-            lines.byte_to_line(range.start)?
-        }
-        None => {
-            let source = world.source(id).ok()?;
-            let range = source.range(span)?;
-            source.lines().byte_to_line(range.start)?
+            let line = lines.byte_to_line(range.start)?;
+            (id, line)
         }
     };
     Some((format!("{id:?}"), line as u32 + 1))

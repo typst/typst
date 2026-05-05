@@ -29,7 +29,7 @@ pub mod visualize;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
-use typst_syntax::{FileId, Source, Span};
+use typst_syntax::{FileId, Source, Span, SpanKind};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
@@ -145,7 +145,11 @@ pub trait WorldExt {
 
 impl<T: World + ?Sized> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
+        match span.get() {
+            SpanKind::Detached => None,
+            SpanKind::Number { id, num } => self.source(id).ok()?.range(num),
+            SpanKind::Range { id: _, range } => Some(range),
+        }
     }
 }
 

@@ -7,7 +7,7 @@ use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_utils::debug;
 
 use crate::kind::ModeAfter;
-use crate::{FileId, RangeMapper, Span, SyntaxKind, SyntaxMode};
+use crate::{FileId, RangeMapper, Span, SpanKind, SpanNumber, SyntaxKind, SyntaxMode};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -431,7 +431,8 @@ impl SyntaxNode {
         } else if let Some((inner, span)) = self.inner_and_span_mut() {
             inner.numberize(span, id, None, within)
         } else {
-            self.span = Span::from_number(id, (within.start + within.end) / 2).unwrap();
+            self.span =
+                Span::from_number(id, SpanNumber((within.start + within.end) / 2));
             Ok(())
         }
     }
@@ -608,7 +609,7 @@ impl InnerNode {
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
-            *span = Span::from_number(id, (start + end) / 2).unwrap();
+            *span = Span::from_number(id, SpanNumber((start + end) / 2));
             self.upper = within.end;
             start = end;
         }
@@ -971,16 +972,29 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Find a descendant with the given span.
-    pub fn find(&self, span: Span) -> Option<LinkedNode<'a>> {
-        if self.span() == span {
+    pub fn find(&self, span: Span) -> Option<Self> {
+        match span.get() {
+            SpanKind::Detached => None,
+            SpanKind::Number { id: _, num } => self.find_number(num),
+            SpanKind::Range { id: _, range } => self.find_range(range.start, range.end),
+        }
+    }
+
+    /// Find the descendant whose span number matches the given number.
+    ///
+    /// This relies on the ordering guarantees of numbered spans:
+    /// - The number of a parent is smaller than the numbers of all its children
+    /// - The numbers of sibling nodes always increase from left to right
+    pub(crate) fn find_number(&self, target: SpanNumber) -> Option<Self> {
+        let number = self.span().number();
+        if number == target.0 {
             return Some(self.clone());
         }
 
-        if self.is_inner() && self.span().number() < span.number() {
-            // The parent of a subtree has a smaller span number than all of its
-            // descendants. Therefore, we can bail out early if the target span's
-            // number is smaller than our number.
-
+        // The parent of a subtree has a smaller span number than all of its
+        // descendants. Therefore, we can bail out early if the target span's
+        // number is smaller than our number.
+        if self.node.is_inner() && number < target.0 {
             // Use `self.children()`, not `inner.children()` to preserve being
             // in a `LinkedNode`.
             let mut children = self.children().peekable();
@@ -988,16 +1002,28 @@ impl<'a> LinkedNode<'a> {
                 // Every node in this child's subtree has a smaller span number than
                 // the next sibling. Therefore we only need to recurse if the next
                 // sibling's span number is larger than the target span's number.
-                if children
-                    .peek()
-                    .is_none_or(|next| next.span().number() > span.number())
-                    && let Some(found) = child.find(span)
+                if children.peek().is_none_or(|next| next.span().number() > target.0)
+                    && let Some(found) = child.find_number(target)
                 {
                     return Some(found);
                 }
             }
         }
 
+        None
+    }
+
+    /// Find the descendant whose byte range matches the given range exactly.
+    pub(crate) fn find_range(&self, start: usize, end: usize) -> Option<Self> {
+        if start == self.offset && end == self.offset + self.len() {
+            return Some(self.clone());
+        }
+        for child in self.children() {
+            // Descend into the single child which fully covers the range.
+            if child.offset <= start && end <= child.offset + child.len() {
+                return child.find_range(start, end);
+            }
+        }
         None
     }
 

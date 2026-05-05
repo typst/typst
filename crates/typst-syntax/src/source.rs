@@ -9,7 +9,8 @@ use typst_utils::LazyHash;
 use crate::lines::Lines;
 use crate::reparser::reparse;
 use crate::{
-    FileId, LinkedNode, RootedPath, Span, SyntaxNode, VirtualPath, VirtualRoot, parse,
+    FileId, LinkedNode, RootedPath, Span, SpanNumber, SyntaxNode, VirtualPath,
+    VirtualRoot, parse,
 };
 
 /// A source file.
@@ -113,16 +114,18 @@ impl Source {
     ///
     /// Returns `None` if the span does not point into this source file.
     pub fn find(&self, span: Span) -> Option<LinkedNode<'_>> {
+        if span.id() != Some(self.id()) {
+            return None;
+        }
         LinkedNode::new(self.root()).find(span)
     }
 
-    /// Get the byte range for the given span in this file.
+    /// Get the byte range for a given span number in this file.
     ///
-    /// Returns `None` if the span does not point into this source file.
-    ///
-    /// Typically, it's easier to use `WorldExt::range` instead.
-    pub fn range(&self, span: Span) -> Option<Range<usize>> {
-        Some(self.find(span)?.range())
+    /// The main way to get a [`SpanNumber`] is by unpacking a span with
+    /// [`Span::get`], but it's likely easier to use `WorldExt::range` instead.
+    pub fn range(&self, num: SpanNumber) -> Option<Range<usize>> {
+        Some(LinkedNode::new(self.root()).find_number(num)?.range())
     }
 }
 
