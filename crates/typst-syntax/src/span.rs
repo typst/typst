@@ -1,37 +1,53 @@
 use std::fmt::{self, Debug, Formatter};
-use std::num::{NonZeroU16, NonZeroU64};
+use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 use std::ops::Range;
 
 use ecow::{EcoString, eco_format};
 
 use crate::FileId;
 
-/// Defines a range in a file.
+/// Defines a range of text in a Typst source file.
 ///
-/// This is used throughout the compiler to track which source section an
-/// element stems from or an error applies to.
+/// Spans are used throughout the compiler to track which source section an
+/// element stems from or an error/warning applies to. Errors and warnings use
+/// the [`DiagSpan`] type which can contain either a normal span or a range
+/// targeting a location in a non-Typst file, such as a JSON parsing error.
 ///
-/// - The [`.id()`](Self::id) function can be used to get the `FileId` for the
+/// - The [`.id()`](Self::id) method can be used to get the [`FileId`] for the
 ///   span and, by extension, its file system path.
 /// - The `WorldExt::range` function can be used to map the span to a
 ///   `Range<usize>`.
 ///
-/// This type takes up 8 bytes and is copyable and null-optimized (i.e.
-/// `Option<Span>` also takes 8 bytes).
+/// This type is stored compactly in 8 bytes, and is copyable and null-optimized
+/// (i.e. `Option<Span>` also takes 8 bytes), but can be expanded for easier
+/// usage into the [`SpanKind`] enum via [`Self::get()`].
 ///
-/// Spans come in two flavors: Numbered spans and raw range spans. The
-/// `WorldExt::range` function automatically handles both cases, yielding a
-/// `Range<usize>`.
+/// Spans internally distinguish between four kinds of values, these are
+/// accessible as the [`SpanKind`] or [`DiagSpanKind`] enums via the
+/// [`Span::get`] or [`DiagSpan::get`] methods.
+/// 1. They can be detached, originating from nowhere or from the compiler
+///    itself.
+/// 2. They can be numbered values, corresponding to a node in a Typst source
+///    file's concrete syntax tree. These are the most common span type and are
+///    explained more below.
+/// 3. They can be raw range spans, containing a range of two indices that came
+///    from parsing a text as Typst syntax. The file itself is not necessarily a
+///    Typst source file. The maximum value for the start/end of these ranges is
+///    `2^23-1`, larger values will be saturated.
+/// 4. They can be an external start index, used for diagnostics on externally
+///    loaded text files. These are only accessible as part of a [`DiagSpan`]
+///    which also contains the end index. The maximum value for the start/end of
+///    these ranges is `2^46-1`, larger values will be saturated.
 ///
 /// # Numbered spans
 /// Typst source files use _numbered spans._ Rather than using byte ranges,
-/// which shift a lot as you type, each AST node gets a unique number.
+/// which shift a lot as you type, each syntax tree node gets a unique number.
 ///
 /// During editing, the span numbers stay mostly stable, even for nodes behind
-/// an insertion. This is not true for simple ranges as they would shift. Spans
-/// can be used as inputs to memoized functions without hurting cache
-/// performance when text is inserted somewhere in the document other than the
-/// end.
+/// an insertion. This is not true for simple ranges as they would shift. This
+/// allows spans to be used as inputs to memoized functions without hurting
+/// cache performance when text is inserted somewhere in the document other than
+/// the end.
 ///
 /// Span numbers are ordered in the syntax tree to enable quickly finding the
 /// node of a known span:
@@ -43,11 +59,6 @@ use crate::FileId;
 /// the span numbers for node A and _all of A's children_ are less than node B's
 /// span number, and the numbers for node C and all of C's children are greater
 /// than B's span number.
-///
-/// # Raw range spans
-/// Non Typst-files use raw ranges instead of numbered spans. The maximum
-/// encodable value for start and end is 2^23-1. Larger values will be
-/// saturated.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
@@ -78,19 +89,23 @@ impl Span {
     /// The value reserved for the detached span.
     const DETACHED: Self = Self(NonZeroU64::new(1).unwrap());
 
-    /// Data layout:
+    /// The span's internal data is laid out with the high 16 bits as the file
+    /// id and the low 48 bits as the span number:
     /// | 16 bits file id | 48 bits number |
     ///
-    /// Number =
-    /// - 1 means detached
-    /// - 2..2^47-1 is a numbered span
-    /// - 2^47..2^48-1 is a raw range span. To retrieve it, you must subtract
-    ///   `RANGE_BASE` and then use shifting/bitmasking to extract the
-    ///   components.
+    /// Possible values for the span number are:
+    /// - always non-zero
+    /// - Detached: 1 (file id is 0, otherwise non-zero)
+    /// - Typst source file:           2 ..= 2^47-1      (one 47-bit number)
+    /// - External file start:      2^47 ..= 2^47+2^46-1 (one 46-bit number)
+    /// - Internal range span: 2^47+2^46 ..= 2^48-1      (two 23-bit numbers)
     const NUMBER_BITS: usize = 48;
+    const RANGE_BITS: usize = 46;
     const FILE_ID_SHIFT: usize = Self::NUMBER_BITS;
     const NUMBER_MASK: u64 = (1 << Self::NUMBER_BITS) - 1;
-    const RANGE_BASE: u64 = Self::FULL.end;
+    const EXTERNAL_BASE: u64 = Self::FULL.end;
+    const EXTERNAL_VALUE_MAX: u64 = (1 << Self::RANGE_BITS) - 1;
+    const RANGE_BASE: u64 = Self::EXTERNAL_BASE + (1 << Self::RANGE_BITS);
     const RANGE_VALUE_BITS: usize = 23;
     const RANGE_VALUE_MAX: u64 = (1 << Self::RANGE_VALUE_BITS) - 1;
 
@@ -110,7 +125,7 @@ impl Span {
     ///
     /// If one of the range's parts exceeds the maximum value of `2^23-1`, it is
     /// saturated.
-    pub const fn from_range(id: FileId, range: Range<usize>) -> Self {
+    pub(crate) const fn from_range(id: FileId, range: Range<usize>) -> Self {
         let start = saturate(range.start, Self::RANGE_VALUE_MAX);
         let end = saturate(range.end, Self::RANGE_VALUE_MAX);
         let number = (start << Self::RANGE_VALUE_BITS) | end;
@@ -189,10 +204,161 @@ impl Span {
     }
 }
 
+/// The span of a diagnostic message. Either from a Typst source file or from a
+/// loaded external file.
+///
+/// Typst source spans may additionally contain a sub-range targeting just part
+/// of the overall range of the span.
+///
+/// When storing an external file range, the maximum value of the start/end is
+/// `2^46-1`, larger values are saturated.
+///
+/// This type is stored compactly in 16 bytes and null-optimized, but can be
+/// expanded for easier usage as the [`DiagSpanKind`] enum via [`Self::get()`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct DiagSpan {
+    span: Span,
+    extra: u64,
+}
+
+/// The possible kinds of a diagnostic span.
+#[derive(Debug)]
+pub enum DiagSpanKind {
+    /// A span that does not point into any file.
+    Detached,
+    /// A numbered span with an optional sub-range.
+    Number { id: FileId, num: SpanNumber, sub_range: Option<SubRange> },
+    /// A raw byte range in a file.
+    Range { id: FileId, range: Range<usize> },
+}
+
+impl DiagSpan {
+    /// Create a new diagnostic span from an external file's byte range instead
+    /// of an internal span.
+    ///
+    /// If either of the range's parts exceeds the maximum value of `2^46-1`, it
+    /// will be saturated.
+    pub fn from_range(id: FileId, range: Range<usize>) -> Self {
+        let start = saturate(range.start, Span::EXTERNAL_VALUE_MAX);
+        let end = saturate(range.end, Span::EXTERNAL_VALUE_MAX);
+        Self {
+            span: Span::pack(id, Span::EXTERNAL_BASE + start),
+            extra: end,
+        }
+    }
+
+    /// Create a new diagnostic span from a source span and optional sub-range.
+    ///
+    /// The preferred interface for converting a [`Span`] into [`DiagSpan`] is
+    /// using `span.into()`, which calls this with `sub_range: None`.
+    pub fn from_span(span: Span, sub_range: Option<SubRange>) -> Self {
+        let extra = sub_range.map_or(0, |SubRange { start, end }| {
+            ((start as u64) << 32) | (end.get() as u64)
+        });
+        Self { span, extra }
+    }
+
+    /// The id of the file the span points into.
+    ///
+    /// Returns `None` if the span is detached.
+    pub fn id(self) -> Option<FileId> {
+        self.span.id()
+    }
+
+    /// Unpack the diagnostic span into the variants of a [`DiagSpanKind`] for
+    /// easier use.
+    ///
+    /// To access a range, you may want to use `WorldExt::range` instead.
+    pub fn get(self) -> DiagSpanKind {
+        let DiagSpan { span, extra } = self;
+        match span.get() {
+            SpanKind::Detached => DiagSpanKind::Detached,
+            SpanKind::Number { id, num } => {
+                if let Some(start) = num.0.checked_sub(Span::EXTERNAL_BASE) {
+                    // This `checked_sub` must come after the internal range
+                    // check from `span.get()`.
+                    let start = start as usize;
+                    let end = extra as usize;
+                    DiagSpanKind::Range { id, range: start..end }
+                } else {
+                    let sub_range = {
+                        let start = (extra >> 32) as u32;
+                        let end = NonZeroU32::new(extra as u32); // `as` truncates
+                        end.map(|end| SubRange { start, end })
+                    };
+                    DiagSpanKind::Number { id, num, sub_range }
+                }
+            }
+            SpanKind::Range { id, range } => {
+                if let Some(end) = NonZeroU32::new(extra as u32) {
+                    let start = (extra >> 32) as u32;
+                    let sub_range = SubRange { start, end };
+                    let range = sub_range.to_absolute(range.start);
+                    DiagSpanKind::Range { id, range }
+                } else {
+                    DiagSpanKind::Range { id, range }
+                }
+            }
+        }
+    }
+}
+
+impl From<Span> for DiagSpan {
+    fn from(span: Span) -> Self {
+        Self::from_span(span, None)
+    }
+}
+
 /// Saturate a value at a given maximum. Can't use `.min()` since it isn't
 /// stable in const :/
 const fn saturate(value: usize, max: u64) -> u64 {
     if value as u64 > max { max } else { value as u64 }
+}
+
+/// A non-empty range targeting a smaller part of a spanned section of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct SubRange {
+    start: u32,
+    end: NonZeroU32,
+}
+
+impl SubRange {
+    /// Create a new sub-range. The given start and end must create a non-empty
+    /// range.
+    ///
+    /// If start or end are above a `2^32-1`, they will be saturated.
+    pub fn new(start: usize, end: usize) -> Option<Self> {
+        if start < end {
+            Some(Self {
+                start: to_u32_saturated(start),
+                // (0 <= start) && (start < end) --> (end != 0)
+                end: NonZeroU32::new(to_u32_saturated(end)).unwrap(),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Convert to a normal range relative to the spanned range.
+    pub fn to_relative(self) -> Range<usize> {
+        Range {
+            start: self.start as usize,
+            end: self.end.get() as usize,
+        }
+    }
+
+    /// Convert to a normal range at an offset.
+    pub fn to_absolute(self, offset: usize) -> Range<usize> {
+        Range {
+            start: self.start as usize + offset,
+            end: self.end.get() as usize + offset,
+        }
+    }
+}
+
+// Convert a `usize` to a `u32` by saturating at `u32::MAX`.
+fn to_u32_saturated(value: usize) -> u32 {
+    value.try_into().unwrap_or(u32::MAX)
 }
 
 /// A value with a span locating it in the source code.
@@ -321,6 +487,17 @@ impl RangeMapper {
         }
     }
 
+    /// Map a relative sub-range at an offset to a new sub-range. If the
+    /// sub-range spans over multiple segments, the gap between them will be
+    /// included in the new sub-range.
+    pub(crate) fn map_sub_range(&self, offset: usize, sub_range: SubRange) -> SubRange {
+        let range = sub_range.to_absolute(offset);
+        let new_offset = self.map_start(offset);
+        let start = self.map_start(range.start);
+        let end = self.map_end(range.end); // sub-ranges have `start < end`.
+        SubRange::new(start - new_offset, end - new_offset).unwrap()
+    }
+
     /// Map a single offset, preferring the second index if at a boundary.
     fn map_start(&self, offset: usize) -> usize {
         let idx = self.vec.partition_point(|&Mapping { old, new: _ }| old <= offset);
@@ -380,6 +557,54 @@ mod tests {
         roundtrip(177..233);
         roundtrip(0..8388607);
         roundtrip(8388606..8388607); // 2^23-2 .. 2^23-1
+    }
+
+    #[test]
+    fn test_diag_span_range() {
+        let file_id = FileId::from_raw(NonZeroU16::new(u16::MAX).unwrap());
+        let roundtrip = |range: Range<usize>| {
+            let span = DiagSpan::from_range(file_id, range.clone());
+            let DiagSpanKind::Range { id, range: actual } = span.get() else {
+                panic!("bad diagspan kind")
+            };
+            assert_eq!(id, file_id);
+            assert_eq!(actual, range);
+        };
+
+        roundtrip(0..0);
+        roundtrip(177..233);
+        roundtrip(0..8388607);
+        roundtrip(8388606..8388607); // 2^23-2 .. 2^23-1
+        roundtrip(8388608..8388609); // 2^23   .. 2^23+1
+        #[cfg(target_pointer_width = "64")]
+        roundtrip(70368744177662..70368744177663); // 2^46-2 .. 2^46-1
+    }
+
+    #[test]
+    fn test_sub_range_constructor() {
+        let max = u32::MAX as usize;
+        // valid
+        assert!(SubRange::new(0, 1).is_some());
+        assert!(SubRange::new(4, 5).is_some());
+        assert!(SubRange::new(0, max).is_some());
+        assert!(SubRange::new(0, max - 1).is_some());
+        assert!(SubRange::new(max - 1, max).is_some());
+        // invalid
+        assert!(SubRange::new(0, 0).is_none());
+        assert!(SubRange::new(5, 5).is_none());
+        assert!(SubRange::new(5, 4).is_none());
+        assert!(SubRange::new(max - 1, max - 1).is_none());
+        assert!(SubRange::new(max, max).is_none());
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn test_sub_range_saturating() {
+        // Values saturate at 2^32-1
+        let max = u32::MAX as usize;
+        let maxxed = SubRange::new(max, max + 1).unwrap();
+        assert_eq!(maxxed.start, maxxed.end.get());
+        assert_eq!(SubRange::new(1 << 47, 1 << 63), Some(maxxed));
     }
 
     #[test]
@@ -443,5 +668,36 @@ mod tests {
         assert_eq!(with_empty.map(1..1), 11..11);
         assert_eq!(with_empty.map(1..2), 21..22);
         assert_eq!(with_empty.map(2..2), 22..22);
+    }
+
+    #[test]
+    fn test_sub_range_mapping() {
+        let base = "01_23__45";
+        let ranges = [(0..2), (3..5), (7..9)];
+        let mapped = ranges.iter().map(|r| &base[r.clone()]).collect::<String>();
+        assert_eq!(mapped, "012345");
+        let m = RangeMapper::new(ranges).unwrap();
+
+        let map_at = |at: usize, sr: Option<SubRange>| {
+            let sub_range = sr.unwrap();
+            m.map_sub_range(at, sub_range).to_relative()
+        };
+
+        // Ranges within each section:
+        assert_eq!(map_at(0, SubRange::new(0, 1)), 0..1); // 0
+        assert_eq!(map_at(0, SubRange::new(2, 3)), 3..4); // 2
+        assert_eq!(map_at(0, SubRange::new(2, 4)), 3..5); // 23
+        assert_eq!(map_at(0, SubRange::new(4, 5)), 7..8); // 4
+        assert_eq!(map_at(1, SubRange::new(0, 1)), 0..1); // 1
+        assert_eq!(map_at(3, SubRange::new(0, 1)), 0..1); // 3
+        assert_eq!(map_at(4, SubRange::new(0, 2)), 0..2); // 45
+        // Across boundaries:
+        assert_eq!(map_at(1, SubRange::new(0, 2)), 0..3); // 12 -> 1_2
+        assert_eq!(map_at(0, SubRange::new(1, 3)), 1..4); // 12 -> 1_2
+        assert_eq!(map_at(3, SubRange::new(0, 2)), 0..4); // 34 -> 3__4
+        assert_eq!(map_at(0, SubRange::new(3, 5)), 4..8); // 34 -> 3__4
+        assert_eq!(map_at(1, SubRange::new(0, 4)), 0..7); // 1234 -> 1_23__4
+        assert_eq!(map_at(0, SubRange::new(1, 5)), 1..8); // 1234 -> 1_23__4
+        assert_eq!(map_at(0, SubRange::new(0, 6)), 0..9); // 012345 -> 01_23__45
     }
 }

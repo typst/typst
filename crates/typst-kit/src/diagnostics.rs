@@ -13,7 +13,7 @@ use ecow::eco_format;
 use termcolor::{Color, ColorSpec, WriteColor};
 use typst_library::World;
 use typst_library::diag::{FileError, Severity, SourceDiagnostic, Tracepoint};
-use typst_syntax::{FileId, Lines, Source, Span, SpanKind, Spanned};
+use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Lines, Source, Spanned};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -155,16 +155,16 @@ struct WorldFiles<'a> {
 impl WorldFiles<'_> {
     /// Determine the byte range of a span, also remembering the source file
     /// for future line / column lookups.
-    fn range(&mut self, span: Span) -> Option<Range<usize>> {
-        match span.get() {
-            SpanKind::Detached => None,
-            SpanKind::Number { id, num } => {
+    fn range(&mut self, span: impl Into<DiagSpan>) -> Option<Range<usize>> {
+        match span.into().get() {
+            DiagSpanKind::Detached => None,
+            DiagSpanKind::Number { id, num, sub_range } => {
                 let source = self.world.source(id).ok()?;
-                let range = source.range(num);
+                let range = source.range(num, sub_range);
                 self.sources.entry(id).or_insert(source);
                 range
             }
-            SpanKind::Range { id: _, range } => Some(range),
+            DiagSpanKind::Range { id: _, range } => Some(range),
         }
     }
 

@@ -9,11 +9,12 @@ use typst_utils::LazyHash;
 use crate::lines::Lines;
 use crate::reparser::reparse;
 use crate::{
-    FileId, LinkedNode, RootedPath, Span, SpanNumber, SyntaxNode, VirtualPath,
+    FileId, LinkedNode, RootedPath, Span, SpanNumber, SubRange, SyntaxNode, VirtualPath,
     VirtualRoot, parse,
 };
 
-/// A source file.
+/// A Typst source file containing the full source text, a mapping from byte
+/// indices to lines/columns, and the parsed syntax tree.
 ///
 /// All line and column indices start at zero, just like byte indices. Only for
 /// user-facing display, you should add 1 to them.
@@ -120,12 +121,24 @@ impl Source {
         LinkedNode::new(self.root()).find(span)
     }
 
-    /// Get the byte range for a given span number in this file.
+    /// Get the byte range for the given span number (and optional sub-range) in
+    /// this file.
     ///
     /// The main way to get a [`SpanNumber`] is by unpacking a span with
     /// [`Span::get`], but it's likely easier to use `WorldExt::range` instead.
-    pub fn range(&self, num: SpanNumber) -> Option<Range<usize>> {
-        Some(LinkedNode::new(self.root()).find_number(num)?.range())
+    pub fn range(
+        &self,
+        num: SpanNumber,
+        sub_range: Option<SubRange>,
+    ) -> Option<Range<usize>> {
+        let overall = LinkedNode::new(self.root()).find_number(num)?.range();
+        if let Some(sub_range) = sub_range {
+            let range = sub_range.to_absolute(overall.start);
+            assert!(range.end <= overall.end);
+            Some(range)
+        } else {
+            Some(overall)
+        }
     }
 }
 
@@ -138,5 +151,32 @@ impl Debug for Source {
 impl AsRef<str> for Source {
     fn as_ref(&self) -> &str {
         self.text()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Source;
+    use crate::{LinkedNode, Side, Span, SubRange};
+
+    #[test]
+    fn test_source_sub_ranges() {
+        let text = "= head <label>";
+        let source = Source::detached(text);
+        let get = |span: Span, sub_range| {
+            let num = crate::SpanNumber(span.number());
+            &text[source.range(num, sub_range).unwrap()]
+        };
+        let head = LinkedNode::new(source.root()).leaf_at(2, Side::After).unwrap().span();
+        assert_eq!(get(head, None), "head");
+        assert_eq!(get(head, SubRange::new(1, 3)), "ea");
+        assert_eq!(get(head, SubRange::new(0, 1)), "h");
+        assert_eq!(get(head, SubRange::new(0, 4)), "head");
+        assert_eq!(get(head, SubRange::new(3, 4)), "d");
+        let root = source.root().span();
+        assert_eq!(get(root, None), text);
+        assert_eq!(get(root, SubRange::new(3, 10)), "ead <la");
+        assert_eq!(get(root, SubRange::new(0, 10)), "= head <la");
+        assert_eq!(get(root, SubRange::new(3, 14)), "ead <label>");
     }
 }

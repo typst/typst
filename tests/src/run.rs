@@ -779,20 +779,16 @@ impl<'a> Runner<'a> {
         self.test.body.mark_seen_or_update(emitted_diag);
 
         // Check hints.
-        for Spanned { v: hint, span } in &diag.hints {
+        for &Spanned { v: ref hint, span } in &diag.hints {
             // HACK: This hint only gets emitted in debug builds, so filter it
             // out to make the test suite also pass for release builds.
             if hint == "set `RUST_BACKTRACE` to `1` or `full` to capture a backtrace" {
                 continue;
             }
 
-            let emitted_hint = Note::emitted(
-                NoteKind::Hint,
-                stage,
-                hint,
-                span.or(diag.span),
-                &self.world,
-            );
+            let hint_span = if span.is_detached() { diag.span } else { span.into() };
+            let emitted_hint =
+                Note::emitted(NoteKind::Hint, stage, hint, hint_span, &self.world);
             self.test.body.mark_seen_or_update(emitted_hint);
         }
     }

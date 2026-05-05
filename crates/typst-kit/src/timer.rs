@@ -101,7 +101,7 @@ fn resolve_span<W: World>(world: &W, span: Span) -> Option<(String, u32)> {
         SpanKind::Detached => return None,
         SpanKind::Number { id, num } => {
             let source = world.source(id).ok()?;
-            let range = source.range(num)?;
+            let range = source.range(num, None)?;
             let line = source.lines().byte_to_line(range.start)?;
             (id, line)
         }

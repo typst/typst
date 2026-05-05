@@ -17,7 +17,7 @@ use std::string::FromUtf8Error;
 use az::SaturatingAs;
 use comemo::Tracked;
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxDiagnostic, VirtualRoot};
+use typst_syntax::{DiagSpan, Lines, Span, Spanned, SyntaxDiagnostic, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -301,8 +301,9 @@ impl<T> Warned<T> {
 pub struct SourceDiagnostic {
     /// Whether the diagnostic is an error or a warning.
     pub severity: Severity,
-    /// The span of the relevant node in the source code.
-    pub span: Span,
+    /// The span of a relevant node in a Typst source file or the relevant byte
+    /// range of an external file.
+    pub span: DiagSpan,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
@@ -328,10 +329,10 @@ pub enum Severity {
 
 impl SourceDiagnostic {
     /// Create a new, bare error.
-    pub fn error(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn error(span: impl Into<DiagSpan>, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Error,
-            span,
+            span: span.into(),
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -339,10 +340,10 @@ impl SourceDiagnostic {
     }
 
     /// Create a new, bare warning.
-    pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn warning(span: impl Into<DiagSpan>, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Warning,
-            span,
+            span: span.into(),
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
@@ -838,14 +839,14 @@ fn load_err_in_text(
     match loaded.source.v {
         LoadSource::Path(file_id) => {
             if let Some(range) = pos.range(&lines) {
-                let span = Span::from_range(file_id, range);
+                let span = DiagSpan::from_range(file_id, range);
                 return SourceDiagnostic::error(span, message);
             }
 
             // Either `ReportPos::None` was provided, or resolving the range
             // from the line/column failed. If present report the possibly
             // wrong line/column in the error message anyway.
-            let span = Span::from_range(file_id, 0..loaded.data.len());
+            let span = DiagSpan::from_range(file_id, 0..loaded.data.len());
             if let Some(pair) = pos.line_col(&lines) {
                 message.pop();
                 let (line, col) = pair.numbers();
