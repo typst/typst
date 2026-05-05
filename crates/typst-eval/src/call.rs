@@ -1,6 +1,5 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
-use typst_library::World;
 use typst_library::diag::{
     At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail, error,
 };
@@ -11,7 +10,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
-use typst_library::routines::Routines;
+use typst_library::{Library, World};
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
@@ -586,8 +585,8 @@ impl Eval for ast::Closure<'_> {
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -614,7 +613,7 @@ pub fn eval_closure(
     // Prepare the engine.
     let introspector = Protected::from_raw(introspector);
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,

@@ -1,9 +1,8 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::Span;
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
-use crate::World;
 use crate::diag::{At, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -11,7 +10,7 @@ use crate::foundations::{
     Selector, Str, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{History, Introspect, Introspector, Locatable, Location};
-use crate::routines::Routines;
+use crate::{Library, World};
 
 /// Manages stateful parts of your document.
 ///
@@ -461,8 +460,8 @@ fn sequence(
 ) -> SourceResult<EcoVec<Value>> {
     sequence_impl(
         state,
-        engine.routines,
         engine.world,
+        engine.library,
         introspector,
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -474,15 +473,15 @@ fn sequence(
 #[comemo::memoize]
 fn sequence_impl(
     state: &State,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
 ) -> SourceResult<EcoVec<Value>> {
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::from_raw(introspector),
         traced,

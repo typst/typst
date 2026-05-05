@@ -6,7 +6,6 @@ mod run;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
@@ -15,8 +14,9 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
-use typst_utils::Protected;
+use typst_library::routines::{Arenas, Pair, RealizationKind};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Protected};
 
 use self::collect::{Item, collect};
 use self::finalize::finalize;
@@ -36,8 +36,8 @@ pub fn layout_document(
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
     layout_document_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -51,8 +51,8 @@ pub fn layout_document(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_document_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -61,7 +61,7 @@ fn layout_document_impl(
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
     layout_document_common(
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -82,8 +82,8 @@ pub fn layout_document_for_bundle(
     styles: StyleChain,
 ) -> SourceResult<PagedDocument> {
     layout_document_for_bundle_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -98,8 +98,8 @@ pub fn layout_document_for_bundle(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_document_for_bundle_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -110,7 +110,7 @@ fn layout_document_for_bundle_impl(
 ) -> SourceResult<PagedDocument> {
     let link = LocatorLink::new(locator);
     layout_document_common(
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -126,7 +126,7 @@ fn layout_document_for_bundle_impl(
 /// `layout_document_for_bundle`.
 #[allow(clippy::too_many_arguments)]
 fn layout_document_common(
-    routines: &Routines,
+    library: &LazyHash<Library>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
@@ -139,7 +139,7 @@ fn layout_document_common(
     let introspector = Protected::from_raw(introspector);
     let mut locator = locator.split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -157,7 +157,7 @@ fn layout_document_common(
     info.populate(styles);
     info.populate_locale(styles);
 
-    let mut children = (engine.routines.realize)(
+    let mut children = (engine.library.routines.realize)(
         RealizationKind::LayoutDocument { info: &mut info },
         &mut engine,
         &mut locator,

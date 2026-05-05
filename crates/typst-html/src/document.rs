@@ -1,6 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
-use typst_library::World;
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
@@ -8,9 +7,10 @@ use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
 };
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
-use typst_library::routines::{Arenas, RealizationKind, Routines};
+use typst_library::routines::{Arenas, RealizationKind};
+use typst_library::{Library, World};
 use typst_syntax::Span;
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
 use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
@@ -26,8 +26,8 @@ pub fn html_document(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     html_document_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -41,8 +41,8 @@ pub fn html_document(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn html_document_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -51,8 +51,8 @@ fn html_document_impl(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     let mut document = html_document_common(
-        routines,
         world,
+        library,
         introspector,
         traced,
         sink,
@@ -80,8 +80,8 @@ pub fn html_document_for_bundle(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     html_document_for_bundle_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -96,8 +96,8 @@ pub fn html_document_for_bundle(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn html_document_for_bundle_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -108,8 +108,8 @@ fn html_document_for_bundle_impl(
 ) -> SourceResult<HtmlDocument> {
     let link = LocatorLink::new(locator);
     html_document_common(
-        routines,
         world,
+        library,
         introspector,
         traced,
         sink,
@@ -124,8 +124,8 @@ fn html_document_for_bundle_impl(
 /// `html_document_for_bundle`.
 #[allow(clippy::too_many_arguments)]
 fn html_document_common(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -137,7 +137,7 @@ fn html_document_common(
     let introspector = Protected::from_raw(introspector);
     let mut locator = locator.split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -158,7 +158,7 @@ fn html_document_common(
     info.populate(styles);
     info.populate_locale(styles);
 
-    let children = (engine.routines.realize)(
+    let children = (engine.library.routines.realize)(
         RealizationKind::HtmlDocument { info: &mut info },
         &mut engine,
         &mut locator,

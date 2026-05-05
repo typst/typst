@@ -355,7 +355,7 @@ impl Synthesize for Packed<RawElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let seq = self.highlight(engine.routines, styles);
+        let seq = self.highlight(engine.library.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }

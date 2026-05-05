@@ -140,7 +140,7 @@ fn handle(
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = converter.locator.next(&elem.span());
         let style = TargetElem::target.set(Target::Paged).wrap();
-        let frame = (converter.engine.routines.layout_frame)(
+        let frame = (converter.engine.library.routines.layout_frame)(
             converter.engine,
             &elem.body,
             locator,

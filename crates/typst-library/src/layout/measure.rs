@@ -93,7 +93,7 @@ pub fn measure(
     let locator = Locator::link(&link);
     let style = TargetElem::target.set(Target::Paged).wrap();
 
-    let frame = (engine.routines.layout_frame)(
+    let frame = (engine.library.routines.layout_frame)(
         engine,
         &content,
         locator,

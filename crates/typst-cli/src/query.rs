@@ -71,8 +71,8 @@ fn retrieve(
     introspector: &dyn Introspector,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
-        &typst::ROUTINES,
         world.track(),
+        world.library(),
         // TODO: propagate warnings
         Sink::new().track_mut(),
         EmptyIntrospector.track(),

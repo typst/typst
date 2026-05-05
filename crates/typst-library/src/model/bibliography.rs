@@ -39,7 +39,6 @@ use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
     LinkElem, Url,
 };
-use crate::routines::Routines;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
 
 /// A bibliography / reference listing.
@@ -555,7 +554,7 @@ impl Works {
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
         let bibliography = BibliographyElem::find(engine, span).at(span)?;
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, bibliography, groups).at(span)
     }
 
     /// Generate all citations and the whole bibliography, given an existing
@@ -566,18 +565,17 @@ impl Works {
     ) -> SourceResult<Arc<Works>> {
         let span = bibliography.span();
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, bibliography, groups).at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
     fn generate_impl(
-        routines: &Routines,
         world: Tracked<dyn World + '_>,
         bibliography: Packed<BibliographyElem>,
         groups: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, bibliography, groups)?;
+        let mut generator = Generator::new(world, bibliography, groups)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -635,8 +633,6 @@ impl Introspect for CiteGroupIntrospection {
 
 /// Context for generating the bibliography.
 struct Generator<'a> {
-    /// The routines that are used to evaluate mathematical material in citations.
-    routines: &'a Routines,
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
     /// The document's bibliography.
@@ -677,14 +673,12 @@ struct CiteInfo {
 impl<'a> Generator<'a> {
     /// Create a new generator.
     fn new(
-        routines: &'a Routines,
         world: Tracked<'a, dyn World + 'a>,
         bibliography: Packed<BibliographyElem>,
         groups: EcoVec<Content>,
     ) -> StrResult<Self> {
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
-            routines,
             world,
             bibliography,
             groups,
@@ -841,7 +835,6 @@ impl<'a> Generator<'a> {
             };
 
             let renderer = ElemRenderer {
-                routines: self.routines,
                 world: self.world,
                 span: info.span,
                 supplement: &supplement,
@@ -891,7 +884,6 @@ impl<'a> Generator<'a> {
         let mut output = vec![];
         for (k, item) in rendered.items.iter().enumerate() {
             let renderer = ElemRenderer {
-                routines: self.routines,
                 world: self.world,
                 span: self.bibliography.span(),
                 supplement: &|_| None,
@@ -936,8 +928,6 @@ impl<'a> Generator<'a> {
 
 /// Renders hayagriva elements into content.
 struct ElemRenderer<'a> {
-    /// The routines that is used to evaluate mathematical material in citations.
-    routines: &'a Routines,
     /// The world that is used to evaluate mathematical material.
     world: Tracked<'a, dyn World + 'a>,
     /// The span that is attached to all of the resulting content.
@@ -1050,9 +1040,10 @@ impl ElemRenderer<'_> {
 
     /// Display math.
     fn display_math(&self, math: &str) -> Content {
-        (self.routines.eval_string)(
-            self.routines,
+        let library = self.world.library();
+        (library.routines.eval_string)(
             self.world,
+            library,
             // TODO: propagate warnings
             Sink::new().track_mut(),
             EmptyIntrospector.track(),

@@ -780,8 +780,14 @@ fn measure_prefix(
 ) -> SourceResult<Abs> {
     let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
     let link = LocatorLink::measure(loc, span);
-    Ok((engine.routines.layout_frame)(engine, prefix, Locator::link(&link), styles, pod)?
-        .width())
+    Ok((engine.library.routines.layout_frame)(
+        engine,
+        prefix,
+        Locator::link(&link),
+        styles,
+        pod,
+    )?
+    .width())
 }
 
 /// Compute the base indent and hanging indent for an auto-indented outline

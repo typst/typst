@@ -5,7 +5,6 @@ use comemo::{Tracked, TrackedMut};
 use typst_syntax::{Span, SyntaxMode};
 use typst_utils::LazyHash;
 
-use crate::World;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -16,6 +15,7 @@ use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
 use crate::model::DocumentInfo;
 use crate::visualize::Color;
+use crate::{Library, World};
 
 /// Defines the `Routines` struct.
 macro_rules! routines {
@@ -52,8 +52,8 @@ macro_rules! routines {
 routines! {
     /// Evaluates a string as code and return the resulting value.
     fn eval_string(
-        routines: &Routines,
         world: Tracked<dyn World + '_>,
+        library: &LazyHash<Library>,
         sink: TrackedMut<Sink>,
         introspector: Tracked<dyn Introspector + '_>,
         context: Tracked<Context>,
@@ -67,8 +67,8 @@ routines! {
     fn eval_closure(
         func: &Func,
         closure: &LazyHash<Closure>,
-        routines: &Routines,
         world: Tracked<dyn World + '_>,
+        library: &LazyHash<Library>,
         introspector: Tracked<dyn Introspector + '_>,
         traced: Tracked<Traced>,
         sink: TrackedMut<Sink>,

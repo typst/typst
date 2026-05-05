@@ -1,13 +1,13 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use typst_library::World;
 use typst_library::diag::{At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::SmartQuoter;
-use typst_utils::Protected;
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Protected};
 
 use crate::HtmlNode;
 use crate::convert::{ConversionLevel, Whitespace};
@@ -23,8 +23,8 @@ pub fn html_block_fragment(
     whitespace: Whitespace,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     html_block_fragment_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -40,8 +40,8 @@ pub fn html_block_fragment(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn html_block_fragment_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -55,7 +55,7 @@ fn html_block_fragment_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -118,7 +118,7 @@ fn realize_fragment<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<Vec<Pair<'a>>> {
-    (engine.routines.realize)(
+    (engine.library.routines.realize)(
         RealizationKind::HtmlFragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,

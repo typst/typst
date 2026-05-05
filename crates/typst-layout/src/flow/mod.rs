@@ -14,7 +14,6 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::World;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
@@ -27,9 +26,10 @@ use typst_library::layout::{
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
-use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
-use typst_utils::{NonZeroExt, Numeric, Protected};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
@@ -61,8 +61,8 @@ pub fn layout_fragment(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     layout_fragment_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -89,8 +89,8 @@ pub fn layout_columns(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     layout_fragment_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -108,8 +108,8 @@ pub fn layout_columns(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_fragment_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -132,7 +132,7 @@ fn layout_fragment_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -144,7 +144,7 @@ fn layout_fragment_impl(
 
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
-    let children = (engine.routines.realize)(
+    let children = (engine.library.routines.realize)(
         RealizationKind::LayoutFragment { kind: &mut kind },
         &mut engine,
         &mut locator,

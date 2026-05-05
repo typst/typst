@@ -326,11 +326,11 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            FuncInner::Closure(closure) => (engine.routines.eval_closure)(
+            FuncInner::Closure(closure) => (engine.library.routines.eval_closure)(
                 self,
                 closure,
-                engine.routines,
                 engine.world,
+                engine.library,
                 engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),

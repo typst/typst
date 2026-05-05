@@ -24,22 +24,21 @@ use self::binding::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
-use typst_library::routines::Routines;
+use typst_library::{Library, World};
 use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -54,7 +53,7 @@ pub fn eval(
     // Prepare the engine.
     let introspector = EmptyIntrospector;
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::new(introspector.track()),
         traced,
@@ -64,7 +63,7 @@ pub fn eval(
 
     // Prepare VM.
     let context = Context::none();
-    let scopes = Scopes::new(Some(world.library()));
+    let scopes = Scopes::new(Some(library));
     let root = source.root();
     let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
@@ -95,8 +94,8 @@ pub fn eval(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 pub fn eval_string(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     sink: TrackedMut<Sink>,
     introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
@@ -122,7 +121,7 @@ pub fn eval_string(
     // Prepare the engine.
     let traced = Traced::default();
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::new(introspector),
         traced: traced.track(),
@@ -131,7 +130,7 @@ pub fn eval_string(
     };
 
     // Prepare VM.
-    let scopes = Scopes::new(Some(world.library()));
+    let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(engine, context, scopes, root.span());
     vm.scopes.scopes.push(scope);
 

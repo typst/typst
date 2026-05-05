@@ -21,7 +21,7 @@ where
     let traced = Traced::default();
     let mut sink = Sink::new();
     let mut engine = Engine {
-        routines: &typst::ROUTINES,
+        library: world.library(),
         world: world.upcast().track(),
         introspector: Protected::new(introspector.track()),
         traced: traced.track(),

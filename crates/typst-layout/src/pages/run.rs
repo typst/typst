@@ -1,5 +1,4 @@
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
@@ -15,10 +14,11 @@ use typst_library::layout::{
 };
 use typst_library::model::Numbering;
 use typst_library::pdf::ArtifactKind;
-use typst_library::routines::{Pair, Routines};
+use typst_library::routines::Pair;
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
-use typst_utils::{Numeric, Protected};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Numeric, Protected};
 
 use crate::flow::{FlowMode, layout_flow};
 
@@ -59,8 +59,8 @@ pub fn layout_page_run(
     initial: StyleChain,
 ) -> SourceResult<Vec<LayoutedPage>> {
     layout_page_run_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -75,8 +75,8 @@ pub fn layout_page_run(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_page_run_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -89,7 +89,7 @@ fn layout_page_run_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,

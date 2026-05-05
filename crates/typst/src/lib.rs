@@ -101,13 +101,13 @@ fn compile_impl<T: Output>(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<T> {
+    let library = world.library();
     match T::target() {
         Target::Paged => {}
-        Target::Html => warn_or_error_for_html(world, sink)?,
-        Target::Bundle => warn_or_error_for_bundle(world, sink)?,
+        Target::Html => warn_or_error_for_html(&library.features, sink)?,
+        Target::Bundle => warn_or_error_for_bundle(&library.features, sink)?,
     }
 
-    let library = world.library();
     let base = StyleChain::new(&library.styles);
     let target = TargetElem::target.set(T::target()).wrap();
     let styles = base.chain(&target);
@@ -121,8 +121,8 @@ fn compile_impl<T: Output>(
 
     // First evaluate the main source file into a module.
     let content = typst_eval::eval(
-        &ROUTINES,
         world,
+        library,
         traced,
         sink.track_mut(),
         Route::default().track(),
@@ -145,12 +145,12 @@ fn compile_impl<T: Output>(
 
         let mut subsink = Sink::new();
         let mut engine = Engine {
+            library,
             world,
             introspector: Protected::new(introspector.track_with(&constraint)),
             traced,
             sink: subsink.track_mut(),
             route: Route::default(),
-            routines: &ROUTINES,
         };
 
         document = T::create(&mut engine, &content, styles)?;
@@ -170,7 +170,6 @@ fn compile_impl<T: Output>(
 
             let warnings = typst_library::introspection::analyze(
                 world,
-                &ROUTINES,
                 introspectors,
                 subsink.introspections(),
             );
@@ -245,12 +244,9 @@ fn hint_invalid_main_file(
 }
 
 /// HTML export will warn or error depending on whether the feature flag is enabled.
-fn warn_or_error_for_html(
-    world: Tracked<dyn World + '_>,
-    sink: &mut Sink,
-) -> SourceResult<()> {
+fn warn_or_error_for_html(features: &Features, sink: &mut Sink) -> SourceResult<()> {
     const ISSUE: &str = "https://github.com/typst/typst/issues/5512";
-    if world.library().features.is_enabled(Feature::Html) {
+    if features.is_enabled(Feature::Html) {
         sink.warn(warning!(
             Span::detached(),
             "html export is under active development and incomplete";
@@ -271,11 +267,8 @@ fn warn_or_error_for_html(
 
 /// Bundle export will warn or error depending on whether the feature flag is
 /// enabled.
-fn warn_or_error_for_bundle(
-    world: Tracked<dyn World + '_>,
-    sink: &mut Sink,
-) -> SourceResult<()> {
-    if world.library().features.is_enabled(Feature::Bundle) {
+fn warn_or_error_for_bundle(features: &Features, sink: &mut Sink) -> SourceResult<()> {
+    if features.is_enabled(Feature::Bundle) {
         sink.warn(warning!(
             Span::detached(),
             "bundle export is experimental";
@@ -315,7 +308,7 @@ impl LibraryExt for Library {
 /// function pointers.
 ///
 /// This is essentially dynamic linking and done to allow for crate splitting.
-pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
+static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     rules: {
         let mut rules = NativeRuleMap::new();
         typst_layout::register(&mut rules);

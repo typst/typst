@@ -84,12 +84,13 @@ fn evaluate_expression(
     world: &dyn World,
     introspector: &dyn Introspector,
 ) -> SourceResult<Value> {
+    let library = world.library();
     eval_string(
-        &typst::ROUTINES,
         world.track(),
+        library,
         sink.track_mut(),
         introspector.track(),
-        Context::new(None, Some(StyleChain::new(&world.library().styles))).track(),
+        Context::new(None, Some(StyleChain::new(&library.styles))).track(),
         &expression,
         Span::detached(),
         SyntaxMode::Code,
