@@ -13,6 +13,8 @@ use crate::layout::Abs;
 /// Each fractionally sized element gets space based on the ratio of its
 /// fraction to the sum of all fractions.
 ///
+/// A negative fraction like `-1fr` is treated like it's actually `0fr`.
+///
 /// For more details, also see the [h] and [v] functions and the
 /// [grid function]($grid).
 ///
