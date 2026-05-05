@@ -62,7 +62,7 @@ impl SyntaxNode {
             NodeWrapper::Node(Node::Leaf(_) | Node::Inner(_)) => {
                 panic!("expected an error or warning")
             }
-            NodeWrapper::Node(Node::Error(err)) => &mut Arc::make_mut(err).error.hints,
+            NodeWrapper::Node(Node::Error(err)) => &mut Arc::make_mut(err).hints,
             NodeWrapper::Warning(warn) => &mut Arc::make_mut(warn).hints,
         }
     }
@@ -155,7 +155,7 @@ impl SyntaxNode {
         match self.node() {
             Node::Leaf(leaf) => leaf.span,
             Node::Inner(inner) => inner.span,
-            Node::Error(err) => err.error.span,
+            Node::Error(err) => err.span,
         }
     }
 
@@ -233,7 +233,7 @@ impl SyntaxNode {
             }
             NodeWrapper::Node(Node::Inner(_) | Node::Leaf(_)) => [].iter(),
             NodeWrapper::Node(Node::Error(err)) => {
-                errors.push(err.error.clone());
+                errors.push(err.diagnostic());
                 [].iter()
             }
             NodeWrapper::Warning(warn) => {
@@ -282,7 +282,7 @@ impl SyntaxNode {
                 }
             }
             Node::Error(err) => {
-                Arc::make_mut(err).error.span = f(offset..offset + err.text.len())
+                Arc::make_mut(err).span = f(offset..offset + err.text.len());
             }
         }
     }
@@ -356,7 +356,7 @@ impl SyntaxNode {
         match self.node_mut() {
             Node::Leaf(leaf) => leaf.span = mid,
             Node::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            Node::Error(err) => Arc::make_mut(err).error.span = mid,
+            Node::Error(err) => Arc::make_mut(err).span = mid,
         }
 
         Ok(())
@@ -446,7 +446,7 @@ impl SyntaxNode {
         match self.node() {
             Node::Leaf(leaf) => leaf.span.number() + 1,
             Node::Inner(inner) => inner.upper,
-            Node::Error(err) => err.error.span.number() + 1,
+            Node::Error(err) => err.span.number() + 1,
         }
     }
 }
@@ -803,8 +803,13 @@ pub struct SyntaxDiagnostic {
 struct ErrorNode {
     /// The source text of the node.
     text: EcoString,
-    /// The syntax error.
-    error: SyntaxDiagnostic,
+    /// The span targeted by the error.
+    span: Span,
+    /// The error message.
+    message: EcoString,
+    /// Additional hints to the user indicating how this error could be avoided
+    /// or worked around.
+    hints: EcoVec<EcoString>,
 }
 
 impl ErrorNode {
@@ -812,32 +817,39 @@ impl ErrorNode {
     fn new(message: EcoString, text: EcoString) -> Self {
         Self {
             text,
-            error: SyntaxDiagnostic {
-                is_error: true,
-                span: Span::detached(),
-                message,
-                hints: eco_vec![],
-            },
+            span: Span::detached(),
+            message,
+            hints: eco_vec![],
+        }
+    }
+
+    /// Produce the syntax diagnostic for an error.
+    fn diagnostic(&self) -> SyntaxDiagnostic {
+        SyntaxDiagnostic {
+            is_error: true,
+            span: self.span,
+            message: self.message.clone(),
+            hints: self.hints.clone(),
         }
     }
 
     /// Whether the two error nodes are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
         self.text == other.text
-            && self.error.message == other.error.message
-            && self.error.hints == other.error.hints
+            && self.message == other.message
+            && self.hints == other.hints
     }
 }
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.text.is_empty() && self.error.hints.is_empty() {
-            write!(f, "Error: {:?}", self.error.message)
+        if self.text.is_empty() && self.hints.is_empty() {
+            write!(f, "Error: {:?}", self.message)
         } else {
             let mut out = f.debug_struct("Error:");
             out.field("text", &self.text);
-            out.field("message", &self.error.message);
-            for hint in &self.error.hints {
+            out.field("message", &self.message);
+            for hint in &self.hints {
                 out.field("hint", hint);
             }
             out.finish()
