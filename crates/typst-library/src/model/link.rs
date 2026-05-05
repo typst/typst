@@ -41,7 +41,9 @@ use crate::text::{LocalName, TextElem};
 ///
 /// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
-/// `https://` is automatically turned into a link.
+/// `https://` is automatically turned into a link. If it is immediately
+/// followed by some content in `[brackets]`, that content becomes the link's
+/// [body]($link.body).
 ///
 /// # Hyphenation
 /// If you enable hyphenation or justification, by default, it will not apply to

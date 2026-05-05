@@ -162,6 +162,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::RawTrimmed => None,
         SyntaxKind::RawDelim => None,
         SyntaxKind::Link => Some(Tag::Link),
+        SyntaxKind::LinkMarker => None,
         SyntaxKind::Label => Some(Tag::Label),
         SyntaxKind::Ref => Some(Tag::Ref),
         SyntaxKind::RefMarker => None,
