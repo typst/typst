@@ -29,7 +29,7 @@ pub trait Output: Any {
     fn introspector(&self) -> &dyn Introspector;
 }
 
-/// A trait for accepting an arbitrary kind of output as n argument.
+/// A trait for accepting an arbitrary kind of output as an argument.
 ///
 /// Can be used to accept a reference to
 /// - any kind of sized type that implements [`Output`], or

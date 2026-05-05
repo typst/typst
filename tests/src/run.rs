@@ -189,7 +189,7 @@ impl<'a> Runner<'a> {
             if self.test.should_run(TestOutput::Pdf) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
                 if self.test.should_run(TestOutput::Pdftags) {
-                    self.run_file_test::<output::Pdftags>(pdf.as_ref());
+                    self.run_hash_test::<output::Pdftags>(pdf.as_ref());
                 }
             }
         }
@@ -197,7 +197,7 @@ impl<'a> Runner<'a> {
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
             let doc = self.compile::<HtmlDocument>(evaluated.clone());
-            self.run_file_test::<output::Html>(doc.as_ref());
+            self.run_hash_test::<output::Html>(doc.as_ref());
         }
 
         // Only compile bundle when the bundle target is specified.

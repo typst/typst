@@ -241,12 +241,28 @@ pub struct MathRunFrameBuilder {
 
 impl MathRunFrameBuilder {
     /// Consumes the builder and returns a [`Frame`].
-    pub fn build(self) -> Frame {
+    fn build(self, mut set_baseline: bool) -> Frame {
         let mut frame = Frame::soft(self.size);
         for (sub, pos) in self.frames.into_iter() {
+            if set_baseline && sub.has_baseline() {
+                frame.set_baseline(sub.baseline());
+            }
             frame.push_frame(pos, sub);
+            set_baseline = false;
         }
         frame
+    }
+
+    /// Consumes the builder and returns a [`Frame`] with the baseline of the
+    /// first item.
+    pub fn build_aligned(self) -> Frame {
+        self.build(true)
+    }
+
+    /// Consumes the builder and returns a [`Frame`] without a default
+    /// baseline, which must be manually calculated later.
+    pub fn build_unaligned(self) -> Frame {
+        self.build(false)
     }
 }
 

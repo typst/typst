@@ -12,6 +12,7 @@ readme = { workspace = true }
 
 [dependencies]
 typst-assets = { workspace = true, optional = true }
+typst-bundle = { workspace = true, optional = true }
 typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
@@ -46,6 +47,9 @@ openssl = { workspace = true, optional = true }
 [features]
 default = []
 
+# Enables functionality related to `typst-bundle`.
+bundle = ["dep:typst-bundle"]
+
 # Enables loading of embedded fonts via `fonts::embedded`.
 embedded-fonts = ["dep:typst-assets", "typst-assets/fonts"]
 
@@ -75,6 +79,9 @@ system-downloader = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl
 
 # Enables file system watching via `watcher::Watcher`.
 watcher = ["dep:notify", "dep:same-file"]
+
+# Enables performance tracing via `timer::Timer`.
+timer = []
 
 # Enables live-reloading HTTP serving via `server::HttpServer`.
 http-server = ["dep:tiny_http", "dep:infer"]

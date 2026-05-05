@@ -11,39 +11,28 @@
   ))
 )
 
-
---- gradient-linear-oklab paged ---
+--- gradient-linear-spaces paged ---
 // The tests below test whether hue rotation works correctly.
-// Here we test in Oklab space for reference.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklab)
+#set page(height: auto, margin: 0pt)
+#set block(spacing: 0pt)
+#let spaces = (
+  ("HSV", color.hsv),
+  ("HSL", color.hsl),
+  ("Oklch", color.oklch),
+  ("Oklab", color.oklab),
+  ("sRGB", color.rgb),
+  ("linear-RGB", color.linear-rgb),
+  ("CMYK", color.cmyk),
+  ("Luma", color.luma),
 )
-
---- gradient-linear-oklch paged ---
-// Test in OkLCH space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklch)
-)
-
---- gradient-linear-hsv paged ---
-// Test in HSV space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsv)
-)
-
---- gradient-linear-hsl paged ---
-// Test in HSL space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsl)
-)
+#for (name, space) in spaces {
+  block(
+    width: 100%,
+    inset: 4pt,
+    fill: gradient.linear(yellow, blue, space: space),
+    name,
+  )
+}
 
 --- gradient-linear-relative-parent paged ---
 // The image should look as if there is a single gradient that is being used for

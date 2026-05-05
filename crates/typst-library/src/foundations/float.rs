@@ -239,3 +239,8 @@ cast! {
     self => self.get().into_value(),
     v: f64 => Self::new(v),
 }
+
+cast! {
+    f32,
+    self => (self as f64).into_value(),
+}

@@ -306,7 +306,6 @@ impl HtmlElem<'_> {
 
         fn table();
         fn colgroup();
-        fn col();
         fn tr();
         fn td();
 
@@ -320,9 +319,11 @@ impl HtmlElem<'_> {
         fn meta();
         fn input();
         fn img();
+        fn col();
     }
 
     attr_methods! {
+        fn role(&str);
         fn id(impl Display);
         fn name(impl Display);
         fn class(impl Display);
@@ -333,6 +334,7 @@ impl HtmlElem<'_> {
         fn target(impl Display);
 
         fn src(impl Display);
+        fn alt(impl Display);
 
         fn value(impl Display);
         fn min(f32);
@@ -360,16 +362,12 @@ impl HtmlElem<'_> {
         self.attr(&name, value)
     }
 
-    fn aria_role(&mut self, role: &str) -> &mut Self {
-        self.attr("aria-role", role)
-    }
-
-    /// The corresponding tab of a `aria-role="tabpanel"`.
+    /// The corresponding tab of a `role="tabpanel"`.
     fn aria_labelledby(&mut self, tab_id: impl Display) -> &mut Self {
         self.attr("aria-labelledby", tab_id)
     }
 
-    /// Set for `aria-role="tab"` when the tab is selected.
+    /// Set for `role="tab"` when the tab is selected.
     fn aria_selected(&mut self, selected: bool) -> &mut Self {
         self.attr("aria-selected", selected)
     }
@@ -397,8 +395,7 @@ pub fn generate(reports: &[TestReport]) -> String {
         root.elem("body").with(|body| {
             test_reports(body, reports);
 
-            //
-            body.elem("script").type_("text/javascript").raw_text(REPORT_SCRIPT);
+            body.elem("script").raw_text(REPORT_SCRIPT);
         });
     });
 
@@ -458,7 +455,7 @@ fn tab_icon_button(
             .input()
             .id(display!("{class}-{disambiguator}-{value}"))
             .type_("radio")
-            .aria_role("tab")
+            .role("tab")
             .class(class)
             .name(display!("{class}-{disambiguator}"))
             .title(title)
@@ -506,6 +503,7 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                                 {
                                     report_file_tab_panel(
                                         div,
+                                        test_report,
                                         report_file,
                                         test_idx,
                                         file_idx,
@@ -682,7 +680,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
             });
         }
         if reports.is_empty() {
-            ul.div().class("sidebar-list-empty").text("NONE");
+            ul.li().class("sidebar-list-empty").text("NONE");
         }
     });
 }
@@ -724,7 +722,7 @@ fn test_report_header(
 
     parent
         .fieldset()
-        .aria_role("tablist")
+        .role("tablist")
         .class("report-file-tab-group control-group")
         .with(|fieldset| {
             for (file_idx, report_file) in test_report.files.iter().enumerate() {
@@ -809,7 +807,7 @@ fn file_diff_tabs(
     let n = test_idx * TestOutput::ALL.len() + file_idx;
     parent
         .fieldset()
-        .aria_role("tablist")
+        .role("tablist")
         .class("file-diff-tab-group control-group")
         .with(|fieldset| {
             for (diff_idx, diff) in report_file.diffs.iter().enumerate() {
@@ -944,25 +942,35 @@ fn is_large_text_diff(diff: &FileDiff<Lines>) -> bool {
 
 fn report_file_tab_panel(
     parent: &mut HtmlElem,
+    test_report: &TestReport,
     report_file: &ReportFile,
     test_idx: usize,
     file_idx: usize,
 ) {
     parent
         .div()
-        .aria_role("tabpanel")
+        .role("tabpanel")
         .aria_labelledby(display!("report-file-tab-{test_idx}-{}", report_file.output))
         .hidden(file_idx != 0)
         .class("report-file")
         .with(|div| {
             for (diff_idx, diff) in report_file.diffs.iter().enumerate() {
-                file_diff_tabpanel(div, report_file, diff, test_idx, file_idx, diff_idx);
+                file_diff_tabpanel(
+                    div,
+                    test_report,
+                    report_file,
+                    diff,
+                    test_idx,
+                    file_idx,
+                    diff_idx,
+                );
             }
         });
 }
 
 fn file_diff_tabpanel(
     parent: &mut HtmlElem,
+    test_report: &TestReport,
     report_file: &ReportFile,
     diff: &Diff,
     test_idx: usize,
@@ -972,13 +980,15 @@ fn file_diff_tabpanel(
     let n = test_idx * TestOutput::ALL.len() + file_idx;
     parent
         .div()
-        .aria_role("tabpanel")
+        .role("tabpanel")
         .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.mode()))
         .hidden(diff_idx != 0)
         .class("file-diff")
         .with(|div| match diff {
             Diff::Text(diff) => text_diff(div, diff),
-            Diff::Image(diff) => image_diff(div, report_file.output, diff, n),
+            Diff::Image(diff) => {
+                image_diff(div, &test_report.name, report_file.output, diff, n)
+            }
             Diff::Html(diff) => html_diff(div, diff),
         });
 }
@@ -1059,6 +1069,7 @@ fn diff_line(parent: &mut HtmlElem, kind: LineKind, line_nr: u32, spans: &[TextS
 
 fn image_diff(
     parent: &mut HtmlElem,
+    name: &str,
     output: TestOutput,
     diff: &FileDiff<Image>,
     n: usize,
@@ -1204,7 +1215,10 @@ fn image_diff(
 
         div.div().class("image-diff-wrapper").with(|div| {
             let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
-                parent.img().src(data_url);
+                parent
+                    .img()
+                    .src(data_url)
+                    .alt(display!("The {output} image of `{name}` test"));
             };
 
             div.canvas().class("image-canvas").with(|canvas| {
