@@ -137,9 +137,9 @@ fn create_source(
         }
     }
 
-    let mapper = RangeMapper::new(ranges);
+    let mapper = RangeMapper::new(ranges).at(raw.span())?;
     let mut root = typst::syntax::parse(&compile);
-    root.synthesize_mapped(file_id, &mapper);
+    root.synthesize_mapped(file_id, &mapper).at(raw.span())?;
 
     Ok(Source::with_root(file_id, compile, root))
 }

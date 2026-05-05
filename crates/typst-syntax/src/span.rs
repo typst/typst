@@ -1,7 +1,8 @@
-use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
+
+use ecow::{EcoString, eco_format};
 
 use crate::FileId;
 
@@ -213,7 +214,17 @@ impl<T: Debug> Debug for Spanned<T> {
 /// source file (for instance, Typst code in a doc comment with start-of-line
 /// slashes).
 #[derive(Hash)]
-pub struct RangeMapper(Vec<(usize, Range<usize>)>);
+pub struct RangeMapper {
+    vec: Vec<Mapping>,
+    total: usize,
+}
+
+/// A mapping from an old index to a new one, guarantees that `old <= new`.
+#[derive(Hash, Clone, Copy)]
+struct Mapping {
+    old: usize,
+    new: usize,
+}
 
 impl RangeMapper {
     /// Creates a new range mapper.
@@ -223,44 +234,85 @@ impl RangeMapper {
     ///
     /// Segments should be in order. (The start of a later range must not
     /// precede the end of an earlier range.)
-    pub fn new(segments: impl IntoIterator<Item = Range<usize>>) -> Self {
-        let mut cursor = 0;
-        Self(
-            segments
-                .into_iter()
-                .map(|segment| {
-                    let pair = (cursor, segment.clone());
-                    cursor += segment.len();
-                    pair
-                })
-                .collect(),
-        )
+    ///
+    /// Note that this representation implies that ranges can only ever increase
+    /// in their start position and length when mapped.
+    pub fn new(
+        segments: impl IntoIterator<Item = Range<usize>>,
+    ) -> Result<Self, EcoString> {
+        let mut map = Mapping { old: 0, new: 0 };
+        let vec = segments
+            .into_iter()
+            .map(|Range { start, end }| {
+                if start > end || map.new > start {
+                    return Err(eco_format!("invalid mapper segment: ({start}, {end})"));
+                }
+                map.new = start;
+                let segment_map = map;
+                map.old += end - start;
+                Ok(segment_map)
+            })
+            .collect::<Result<Vec<Mapping>, EcoString>>()?;
+
+        if vec.is_empty() {
+            Ok(Self { vec: vec![map], total: 0 })
+        } else {
+            Ok(Self { vec, total: map.old })
+        }
+    }
+
+    /// The total length of the original text.
+    pub(crate) fn total_len(&self) -> usize {
+        self.total
     }
 
     /// Maps a range in the derived text back to a range in the original text.
     /// If the range spans over multiple segments, the gap between the two
     /// segments will be included in the resulting range.
-    pub fn map(&self, range: Range<usize>) -> Option<Range<usize>> {
-        let start = self.map_offset(range.start)?;
-        let end = self.map_offset(range.end)?;
-        Some(start..end)
+    ///
+    /// Input ranges must have  `start <= end`, and the caller should have
+    /// verified that `end <= self.total`.
+    pub(crate) fn map(&self, range: Range<usize>) -> Range<usize> {
+        debug_assert!(range.start <= range.end);
+        if range.end == 0 {
+            // Handles the panic case of `map_end`.
+            let offset = self.vec[0].new;
+            offset..offset
+        } else if range.start == range.end {
+            // If start/end are at a boundary, map them to the first position,
+            // not the second.
+            let offset = self.map_end(range.start);
+            offset..offset
+        } else {
+            // We now know that `start < end`, so the values from `map_start`
+            // and `map_end` must be non-overlapping.
+            let start = self.map_start(range.start);
+            let end = self.map_end(range.end);
+            start..end
+        }
     }
 
-    fn map_offset(&self, offset: usize) -> Option<usize> {
-        let idx = self
-            .0
-            .binary_search_by(|(at, segment)| {
-                if offset < *at {
-                    Ordering::Greater
-                } else if offset <= at + segment.len() {
-                    Ordering::Equal
-                } else {
-                    Ordering::Less
-                }
-            })
-            .ok()?;
-        let (at, segment) = &self.0[idx];
-        Some(segment.start + (offset - at))
+    /// Map a single offset, preferring the second index if at a boundary.
+    fn map_start(&self, offset: usize) -> usize {
+        let idx = self.vec.partition_point(|&Mapping { old, new: _ }| old <= offset);
+        // Subtracting by 1 is valid: vec is non-empty, index 0 has `old == 0`,
+        // and `partition_point` returns the index of the first item to fail the
+        // predicate (or the length), which is not index 0, since `0 <= usize`
+        // is true for all usize.
+        let Mapping { old, new } = &self.vec[idx - 1];
+        new + (offset - old)
+    }
+
+    /// Map a single offset, preferring the first index if at a boundary.
+    ///
+    /// This will panic if `offset` is 0.
+    fn map_end(&self, offset: usize) -> usize {
+        debug_assert_ne!(offset, 0);
+        let idx = self.vec.partition_point(|&Mapping { old, new: _ }| old < offset);
+        // Unlike `map_start`, this can yield index 0 when `offset == 0`, making
+        // `idx - 1` potentially panicking.
+        let Mapping { old, new } = &self.vec[idx - 1];
+        new + (offset - old)
     }
 }
 
@@ -309,14 +361,61 @@ mod tests {
         let base = "-- Hello\n-- world\n";
         let ranges = [(3..9), (12..18)];
         let mapped = ranges.iter().map(|r| &base[r.clone()]).collect::<String>();
-        let m = RangeMapper::new(ranges);
+        let m = RangeMapper::new(ranges).unwrap();
 
         assert_eq!(mapped, "Hello\nworld\n");
-        assert_eq!(m.map(2..3), Some(5..6));
-        // FIXME: End range should prefer earlier segment.
-        // assert_eq!(m.map(4..6), Some(7..9));
-        assert_eq!(m.map(6..8), Some(12..14));
-        assert_eq!(m.map(8..11), Some(14..17));
-        assert_eq!(m.map(2..12), Some(5..18));
+        assert_eq!(m.map(2..3), 5..6); // l -> l
+        assert_eq!(m.map(4..6), (7..9)); // o\n -> o\n
+        assert_eq!(m.map(6..8), (12..14)); // wo -> wo
+        assert_eq!(m.map(8..11), (14..17)); // rld -> rld
+        assert_eq!(m.map(2..12), (5..18)); // llo\n-- world\n -> llo\n-- world\n
+
+        // Empty ranges on boundaries:
+        assert_eq!(m.map(0..0), (3..3));
+        assert_eq!(m.map(6..6), (9..9)); // maps to the left of the boundary
+        assert_eq!(m.map(12..12), (18..18));
+    }
+
+    /// Small exhaustive edge case tests for the range mapper
+    #[test]
+    fn test_range_mapper_exhaustive() {
+        let empty = RangeMapper::new([]).unwrap();
+        assert_eq!(empty.map(0..0), 0..0);
+
+        let exact = RangeMapper::new(Some(0..1)).unwrap();
+        assert_eq!(exact.map(0..0), 0..0);
+        assert_eq!(exact.map(0..1), 0..1);
+        assert_eq!(exact.map(1..1), 1..1);
+
+        let plus = RangeMapper::new(Some(10..11)).unwrap();
+        assert_eq!(plus.map(0..0), 10..10);
+        assert_eq!(plus.map(0..1), 10..11);
+        assert_eq!(plus.map(1..1), 11..11);
+
+        let disjoint = RangeMapper::new([(10..11), (21..22)]).unwrap();
+        assert_eq!(disjoint.map(0..0), 10..10);
+        assert_eq!(disjoint.map(0..1), 10..11);
+        assert_eq!(disjoint.map(0..2), 10..22);
+        assert_eq!(disjoint.map(1..1), 11..11);
+        assert_eq!(disjoint.map(1..2), 21..22);
+        assert_eq!(disjoint.map(2..2), 22..22);
+
+        // disjoint with interspersed empty ranges.
+        let with_empty = RangeMapper::new([
+            (10..10),
+            (10..11),
+            (11..11),
+            (16..16),
+            (21..21),
+            (21..22),
+            (22..22),
+        ])
+        .unwrap();
+        assert_eq!(with_empty.map(0..0), 10..10);
+        assert_eq!(with_empty.map(0..1), 10..11);
+        assert_eq!(with_empty.map(0..2), 10..22);
+        assert_eq!(with_empty.map(1..1), 11..11);
+        assert_eq!(with_empty.map(1..2), 21..22);
+        assert_eq!(with_empty.map(2..2), 22..22);
     }
 }

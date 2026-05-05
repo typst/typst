@@ -274,7 +274,7 @@ fn eval_mapped(
     /// that describes where in the `path` file a specific segment of the `text`
     /// is. The segments defined by the ranges are consecutive pieces of `text`.
     /// The sum of all `end - start` in `ranges` is the length of the `text`.
-    ranges: Vec<RangePair>,
+    ranges: Spanned<Vec<RangePair>>,
     /// The syntactical mode in which the string is parsed.
     #[named]
     #[default(SyntaxMode::Code)]
@@ -291,7 +291,12 @@ fn eval_mapped(
     }
 
     let id = path.v.resolve_if_some(path.span.id()).at(path.span)?.intern();
-    let mapper = RangeMapper::new(ranges.into_iter().map(|p| p.0));
+    let mapper = RangeMapper::new(ranges.v.into_iter().map(|p| p.0)).at(ranges.span)?;
+    let spans = SpanMode::Mapped {
+        id,
+        mapper: &mapper,
+        mapper_error_span: ranges.span,
+    };
 
     typst_eval::eval_string(
         engine.world,
@@ -300,7 +305,7 @@ fn eval_mapped(
         EmptyIntrospector.track(),
         Context::none().track(),
         &text,
-        SpanMode::Mapped { id, mapper: &mapper },
+        spans,
         mode,
         scope,
     )

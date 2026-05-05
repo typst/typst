@@ -144,6 +144,9 @@ pub enum SpanMode<'a> {
         /// the file holding the original text and the evaluated text is the
         /// derived one.
         mapper: &'a RangeMapper,
+        /// A span to associate with errors that occur due to issues with the
+        /// mapper.
+        mapper_error_span: Span,
     },
 }
 

@@ -293,33 +293,48 @@ impl SyntaxNode {
 
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
-        self.synthesize_with(0, &mut |_| span);
+        self.synthesize_with(0, &|_, _| span);
     }
 
     /// Set a raw range span for each node.
     ///
     /// The range is determined by mapping the node's ranges through the given
     /// `mapper`.
-    pub fn synthesize_mapped(&mut self, id: FileId, mapper: &RangeMapper) {
-        self.synthesize_with(0, &mut |range| match mapper.map(range) {
-            Some(mapped) => Span::from_range(id, mapped),
-            None => Span::detached(),
+    ///
+    /// Returns an error with the mapper's length if it was shorter than the
+    /// length of the source text.
+    pub fn synthesize_mapped(
+        &mut self,
+        id: FileId,
+        mapper: &RangeMapper,
+    ) -> Result<(), EcoString> {
+        if self.len() > mapper.total_len() {
+            // TODO: Should we error if not exactly equal?
+            return Err(eco_format!(
+                "text length ({}) is greater than mapper length ({})",
+                self.len(),
+                mapper.total_len(),
+            ));
+        }
+        self.synthesize_with(0, &|offset, len| {
+            Span::from_range(id, mapper.map(offset..offset + len))
         });
+        Ok(())
     }
 
-    /// Set a custom span for each node gives its range.
+    /// Set a custom span for each node given its offset and length.
     ///
     /// Should be called with `offset = 0` on the root node.
     fn synthesize_with(
         &mut self,
         mut offset: usize,
-        f: &mut impl FnMut(Range<usize>) -> Span,
+        map_span: &impl Fn(usize, usize) -> Span,
     ) {
-        self.span = f(offset..offset + self.len());
+        self.span = map_span(offset, self.len());
         if let Some((inner, span)) = self.inner_and_span_mut() {
             inner.upper = span.number();
             for child in &mut inner.children {
-                child.synthesize_with(offset, f);
+                child.synthesize_with(offset, map_span);
                 offset += child.len();
             }
         }
