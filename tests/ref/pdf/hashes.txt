@@ -147,7 +147,7 @@ fdc917d72f39c5357c4bd504fbd7c82f counter-heading
 302e02a68f83224ea2b2147e56985f89 counter-page-footer-only-update
 0ca65a4ec0e7ca0d822e854885094118 counter-page-header-before-set-page
 b793b7332011129a92699f2d510fb041 counter-page-header-only-update
-763d1e37b404ac6b34e5264daa606e4f counter-rtl
+c9c23175bdcdaa3d6d602d89e43d9691 counter-rtl
 5d20228e4f038b1982731021eecc2805 csv
 c44658ffbc2bbe996a52a360b37d6462 curve-close-intersection
 c9e577dd31dc711b89a2bbb3c8382498 curve-close-smooth
@@ -750,7 +750,7 @@ ff588f531150a420af665186c176ee34 issue-5256-multiple-footnotes-in-footnote
 7964f6545eb041df166e691f6a026cdb issue-5262-block-negative-height-implicit
 79ef86326f54fa34a465a08e48d01a25 issue-5262-block-negative-height-in-flow
 3fc455bfc10d8a00e064a1b2a3f2af3e issue-5262-text-negative-size
-f0f1c4c01917ecad3257718c4513b393 issue-5276-shaping-consecutive-ltr-with-lang
+f96055f2980ac18c89d516ac34c23333 issue-5276-shaping-consecutive-ltr-with-lang
 620cc90281d119b865cff7aa42e27252 issue-5296-block-sticky-in-block-at-top
 c365fb8d48f371c21c12c83d179835ca issue-5296-block-sticky-spaced-from-top-of-page
 c7ffe4891d4f983856401b9367874e7d issue-5296-block-sticky-weakly-spaced-from-top-of-page
@@ -761,7 +761,7 @@ c7ffe4891d4f983856401b9367874e7d issue-5296-block-sticky-weakly-spaced-from-top-
 6e7770fe124bc53a7f249b0966b2341a issue-5435-footnote-migration-in-floats
 c121bb36c1d4cea2c5d650589a48834b issue-5489-matrix-stray-linebreak
 05592d5093dc0a36acda3d2cb1882796 issue-5490-bidi-invalid-range
-168330aefa77ec2e70c63ca4b0b20780 issue-5490-bidi-invalid-range-2
+d3752031d2cf2a9de703af4ba8cb983f issue-5490-bidi-invalid-range-2
 791d3037b04b48c09255120f8aa5349a issue-5496-footnote-in-float-never-fits
 46f622b5527e32a116b27179f765b2c1 issue-5496-footnote-never-fits
 5c649e8b6252313f3a99026d15aa33d6 issue-5496-footnote-never-fits-multiple
@@ -1097,7 +1097,7 @@ e7a7cb202615449e578e4dd2e5cca207 math-equation-number-align-multiline-expand
 c7310f2f0297d2577b57a4b071b8c6fb math-font-fallback-class
 7b4c527dfb19e52e1a50ce99a3a0fd43 math-font-features
 510ecd27c788f336fc197ca5729bef3a math-font-features-switch
-6a7c9d93f3ce860bfa16d2c902660df4 math-font-switch
+daf29a4c68d9ef10754a7c97a2f0402f math-font-switch
 1379dcdeec057e8bc303219950404aa8 math-font-warning
 e6072c9a4a207c2ed86939d218617679 math-frac-associativity
 a76e7043def8cb8cb212e5ee7b4ceb63 math-frac-baseline

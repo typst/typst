@@ -10,13 +10,13 @@ pub const FRAC_PADDING: Em = Em::new(0.1);
 
 /// A mathematical fraction.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// $ 1/2 < (x+1)/2 $
 /// $ ((x+1)) / 2 = frac(a, b) $
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Use a slash to turn neighbouring
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parentheses. Such parentheses are removed
@@ -33,62 +33,77 @@ pub struct FracElem {
 
     /// How the fraction should be laid out.
     ///
-    /// ```example:"Styles"
-    /// $ frac(x, y, style: "vertical") $
-    /// $ frac(x, y, style: "skewed") $
-    /// $ frac(x, y, style: "horizontal") $
-    /// ```
+    /// #example(
+    ///   title: "Styles",
+    ///   ```
+    ///   $ frac(x, y, style: "vertical") $
+    ///   $ frac(x, y, style: "skewed") $
+    ///   $ frac(x, y, style: "horizontal") $
+    ///   ```
+    /// )
     ///
-    /// ```example:"Setting the default"
-    /// #set math.frac(style: "skewed")
-    /// $ a / b $
-    /// ```
+    /// #example(
+    ///   title: "Setting the default",
+    ///   ```
+    ///   #set math.frac(style: "skewed")
+    ///   $ a / b $
+    ///   ```
+    /// )
     ///
-    /// ```example:"Handling of grouping parentheses"
-    /// // Grouping parentheses are removed.
-    /// #set math.frac(style: "vertical")
-    /// $ (a + b) / b $
+    /// #example(
+    ///   title: "Handling of grouping parentheses",
+    ///   ```
+    ///   // Grouping parentheses are removed.
+    ///   #set math.frac(style: "vertical")
+    ///   $ (a + b) / b $
     ///
-    /// // Grouping parentheses are removed.
-    /// #set math.frac(style: "skewed")
-    /// $ (a + b) / b $
+    ///   // Grouping parentheses are removed.
+    ///   #set math.frac(style: "skewed")
+    ///   $ (a + b) / b $
     ///
-    /// // Grouping parentheses are retained.
-    /// #set math.frac(style: "horizontal")
-    /// $ (a + b) / b $
-    /// ```
+    ///   // Grouping parentheses are retained.
+    ///   #set math.frac(style: "horizontal")
+    ///   $ (a + b) / b $
+    ///   ```
+    /// )
     ///
-    /// ```example:"Different styles in inline vs block equations"
-    /// // This changes the style for inline equations only.
-    /// #show math.equation.where(block: false): set math.frac(style: "horizontal")
+    /// #example(
+    ///   title: "Different styles in inline vs block equations",
+    ///   ```
+    ///   // This changes the style for inline equations only.
+    ///   #show math.equation.where(block: false): set math.frac(style: "horizontal")
     ///
-    /// This $(x-y)/z = 3$ is inline math, and this is block math:
-    /// $ (x-y)/z = 3 $
-    /// ```
+    ///   This $(x-y)/z = 3$ is inline math, and this is block math:
+    ///   $ (x-y)/z = 3 $
+    ///   ```
+    /// )
     ///
-    /// ```example:"Use LaTeX-like convention"
-    /// // Change the default style.
-    /// #set math.frac(style: "horizontal")
-    /// // Define a shorthand with the original style.
-    /// #let frac = math.frac.with(style: "vertical")
+    /// #example(
+    ///   title: "Use LaTeX-like convention",
+    ///   ```
+    ///   // Change the default style.
+    ///   #set math.frac(style: "horizontal")
+    ///   // Define a shorthand with the original style.
+    ///   #let frac = math.frac.with(style: "vertical")
     ///
-    /// $ p/q = frac(p, q) $
+    ///   $ p/q = frac(p, q) $
     ///
-    /// // The shadowed definition can still be accessed.
-    /// #assert.eq($p/q$, $std.math.frac(p, q)$)
-    /// ```
+    ///   // The shadowed definition can still be accessed.
+    ///   #assert.eq($p/q$, $std.math.frac(p, q)$)
+    ///   ```
+    /// )
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
 
-    /// Whether the numerator was originally surrounded by parentheses
-    /// that were stripped by the parser.
+    /// Whether the numerator was originally surrounded by parentheses that were
+    /// stripped by the parser.
     #[internal]
     #[parse(None)]
     #[default(false)]
     pub num_deparenthesized: bool,
 
-    /// Whether the denominator was originally surrounded by parentheses
-    /// that were stripped by the parser.
+    /// Whether the denominator was originally surrounded by parentheses that
+    /// were stripped by the parser.
     #[internal]
     #[parse(None)]
     #[default(false)]
@@ -110,7 +125,7 @@ pub enum FracStyle {
 
 /// A binomial expression.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// $ binom(n, k) $
 /// $ binom(n, k_1, k_2, k_3, ..., k_m) $

@@ -218,6 +218,11 @@ impl Frame {
         }
     }
 
+    /// Filters out items in the frame in-place.
+    pub fn retain(&mut self, mut filter: impl FnMut(&mut FrameItem) -> bool) {
+        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| filter(item));
+    }
+
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
         // We do not inline big frames and hard frames.
@@ -318,7 +323,7 @@ impl Frame {
 
     /// Hide all content in the frame, but keep metadata.
     pub fn hide(&mut self) {
-        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| match item {
+        self.retain(|item| match item {
             FrameItem::Group(group) => {
                 group.frame.hide();
                 !group.frame.is_empty()

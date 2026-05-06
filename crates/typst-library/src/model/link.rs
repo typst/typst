@@ -24,10 +24,10 @@ use crate::text::{LocalName, TextElem};
 
 /// Links to a URL or a location in the document.
 ///
-/// By default, links do not look any different from normal text. However,
-/// you can easily apply a style of your choice with a show rule.
+/// By default, links do not look any different from normal text. However, you
+/// can easily apply a style of your choice with a show rule.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #show link: underline
 ///
@@ -39,26 +39,27 @@ use crate::text::{LocalName, TextElem};
 /// ]
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///
-/// # Hyphenation
+/// = Hyphenation <hyphenation>
 /// If you enable hyphenation or justification, by default, it will not apply to
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
 /// default via `{show link: set text(hyphenate: true)}`.
 ///
-/// # Accessibility
+/// = Accessibility <accessibility>
 /// The destination of a link should be clear from the link text itself, or at
 /// least from the text immediately surrounding it. In PDF export, Typst will
 /// automatically generate a tooltip description for links based on their
 /// destination. For links to URLs, the URL itself will be used as the tooltip.
 ///
-/// # Links in HTML export
-/// In [HTML export]($html), a link to a [label] or [location] will be turned
-/// into a fragment link to a named anchor point. To support this, targets
-/// without an existing ID will automatically receive an ID in the DOM. How this
-/// works varies by which kind of HTML node(s) the link target turned into:
+/// = Links in HTML export <links-in-html-export>
+/// In @html[HTML export], a link to a @label[label] or @location[location] will
+/// be turned into a fragment link to a named anchor point. To support this,
+/// targets without an existing ID will automatically receive an ID in the DOM.
+/// How this works varies by which kind of HTML node(s) the link target turned
+/// into:
 ///
 /// - If the link target turned into a single HTML element, that element will
 ///   receive the ID. This is, for instance, typically the case when linking to
@@ -101,12 +102,13 @@ use crate::text::{LocalName, TextElem};
 /// - Otherwise, a unique ID of the form `loc-` followed by an integer will be
 ///   generated.
 ///
-/// # Links in bundle export
-/// In [bundle export]($bundle), linking still works as usual. For instance, if
-/// you attach a label to an element in one document, links in other documents
-/// can reference that label. In addition, documents and assets are also
-/// directly linkable. To link to a full document or asset, you can attach a
-/// label to it or [query] for it and extract its [location].
+/// = Links in bundle export <links-in-bundle-export>
+/// In @reference:bundle[bundle export], linking still works as usual. For
+/// instance, if you attach a label to an element in one document, links in
+/// other documents can reference that label. In addition, documents and assets
+/// are also directly linkable. To link to a full document or asset, you can
+/// attach a label to it or @query[query] for it and extract its
+/// @location[location].
 ///
 /// ```typ
 /// #document("index.html")[
@@ -154,15 +156,14 @@ pub struct LinkElem {
     ///
     /// - To link to another part of the document, `dest` can take one of three
     ///   forms:
-    ///   - A [label] attached to an element. If you also want automatic text
-    ///     for the link based on the element, consider using a
-    ///     [reference]($ref) instead.
+    ///   - A @label[label] attached to an element. If you also want automatic
+    ///     text for the link based on the element, consider using a
+    ///     @ref[reference] instead.
     ///
-    ///   - A [`location`] (typically retrieved from [`here`], [`locate`] or
-    ///     [`query`]).
+    ///   - A @location (typically retrieved from @here, @locate or @query).
     ///
-    ///   - A dictionary with a `page` key of type [integer]($int) and `x` and
-    ///     `y` coordinates of type [length]. Pages are counted from one, and
+    ///   - A dictionary with a `page` key of type @int[integer] and `x` and `y`
+    ///     coordinates of type @length[length]. Pages are counted from one, and
     ///     the coordinates are relative to the page's top left corner.
     ///
     /// ```example
@@ -457,8 +458,7 @@ impl Construct for DirectLinkElem {
     }
 }
 
-/// An element that wraps all content that is [`Content::linked`] to a
-/// destination.
+/// An element that wraps all content that is @Content::linked to a destination.
 #[elem(Tagged, Construct)]
 pub struct LinkMarker {
     /// The content.

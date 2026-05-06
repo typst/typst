@@ -25,11 +25,11 @@ use crate::visualize::{Paint, Stroke};
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// For a hands-on explanation of all the ways you can use and customize tables
-/// in Typst, check out the [Table Guide]($guides/tables).
+/// in Typst, check out the @guides:tables[Table Guide].
 ///
 /// Because tables are just grids with different defaults for some cell
-/// properties (notably `stroke` and `inset`), refer to the [grid
-/// documentation]($grid/#track-size) for more information on how to size the
+/// properties (notably `stroke` and `inset`), refer to the
+/// @grid:track-size[grid documentation] for more information on how to size the
 /// table tracks and specify the cell appearance properties.
 ///
 /// If you are unsure whether you should be using a table or a grid, consider
@@ -43,8 +43,8 @@ use crate::visualize::{Paint, Stroke};
 /// users will be able to navigate tables two-dimensionally by cell.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
-/// table cells, you can use the [`table.cell`] element. See its documentation
-/// for more information.
+/// table cells, you can use the @table.cell element. See its documentation for
+/// more information.
 ///
 /// Although the `table` and the `grid` share most properties, set and show
 /// rules on one of them do not affect the other. Locating most of your styling
@@ -52,12 +52,12 @@ use crate::visualize::{Paint, Stroke};
 /// clean and easy to read. It also allows you to easily change the appearance
 /// of all tables in one place.
 ///
-/// To give a table a caption and make it [referenceable]($ref), put it into a
-/// [figure].
+/// To give a table a caption and make it @ref[referenceable], put it into a
+/// @figure[figure].
 ///
-/// # Example
-///
+/// = Example <example>
 /// The example below demonstrates some of the most common table options.
+///
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -79,7 +79,7 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// Much like with grids, you can use [`table.cell`] to customize the appearance
+/// Much like with grids, you can use @table.cell to customize the appearance
 /// and the position of each cell.
 ///
 /// ```example
@@ -124,35 +124,34 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// # Accessibility
+/// = Accessibility <accessibility>
 /// Tables are challenging to consume for users of Assistive Technology (AT). To
 /// make the life of AT users easier, we strongly recommend that you use
-/// [`table.header`] and [`table.footer`] to mark the header and footer sections
-/// of your table. This will allow AT to announce the column labels for each
-/// cell.
+/// @table.header and @table.footer to mark the header and footer sections of
+/// your table. This will allow AT to announce the column labels for each cell.
 ///
 /// Because navigating a table by cell is more cumbersome than reading it
 /// visually, you should consider making the core information in your table
 /// available as text as well. You can do this by wrapping your table in a
-/// [figure] and using its caption to summarize the table's content.
+/// @figure[figure] and using its caption to summarize the table's content.
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
-    /// The column sizes. See the [grid documentation]($grid/#track-size) for
-    /// more information on track sizing.
+    /// The column sizes. See the @grid:track-size[grid documentation] for more
+    /// information on track sizing.
     pub columns: TrackSizings,
 
-    /// The row sizes. See the [grid documentation]($grid/#track-size) for more
+    /// The row sizes. See the @grid:track-size[grid documentation] for more
     /// information on track sizing.
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
-    /// `column-gutter` and `row-gutter` to the same value. See the [grid
-    /// documentation]($grid.gutter) for more information on gutters.
+    /// `column-gutter` and `row-gutter` to the same value. See the
+    /// @grid.gutter[grid documentation] for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid.gutter) for more information on gutters.
+    /// @grid.gutter[grid documentation] for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -160,7 +159,7 @@ pub struct TableElem {
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid.gutter) for more information on gutters.
+    /// @grid.gutter[grid documentation] for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
@@ -168,7 +167,7 @@ pub struct TableElem {
     ///
     /// To specify the same inset for all cells, use a single length for all
     /// sides, or a dictionary of lengths for individual sides. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// @box.inset[box's documentation] for more details.
     ///
     /// To specify a varying inset for different cells, you can:
     /// - use a single, uniform inset for all cells
@@ -176,7 +175,7 @@ pub struct TableElem {
     /// - use a function that maps a cell's X/Y position (both starting from
     ///   zero) to its inset
     ///
-    /// See the [grid documentation]($grid/#styling) for more details.
+    /// See the @grid:styling[grid documentation] for more details.
     ///
     /// ```example
     /// #table(
@@ -207,7 +206,7 @@ pub struct TableElem {
     /// - use a function that maps a cell's X/Y position (both starting from
     ///   zero) to its alignment
     ///
-    /// See the [Table Guide]($guides/tables/#alignment) for details.
+    /// See the @guides:tables:alignment[Table Guide] for details.
     ///
     /// ```example
     /// #table(
@@ -227,8 +226,7 @@ pub struct TableElem {
     /// - a function that maps a cell's position to its fill
     ///
     /// Most notably, arrays and functions are useful for creating striped
-    /// tables. See the [Table Guide]($guides/tables/#fills) for more
-    /// details.
+    /// tables. See the @guides:tables:fills[Table Guide] for more details.
     ///
     /// ```example
     /// #table(
@@ -248,32 +246,32 @@ pub struct TableElem {
     /// ```
     pub fill: Celled<Option<Paint>>,
 
-    /// How to [stroke] the cells.
+    /// How to @stroke[stroke] the cells.
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the [`gutter`]($table.gutter) option, or to override the
+    /// produced by the @table.gutter[`gutter`] option, or to override the
     /// stroke between multiple specific cells, consider specifying one or more
-    /// of [`table.hline`] and [`table.vline`] alongside your table cells.
+    /// of @table.hline and @table.vline alongside your table cells.
     ///
-    /// To specify the same stroke for all cells, use a single [stroke] for all
-    /// sides, or a dictionary of [strokes]($stroke) for individual sides. See
-    /// the [rectangle's documentation]($rect.stroke) for more details.
+    /// To specify the same stroke for all cells, use a single @stroke[stroke]
+    /// for all sides, or a dictionary of @stroke[strokes] for individual sides.
+    /// See the @rect.stroke[rectangle's documentation] for more details.
     ///
     /// To specify varying strokes for different cells, you can:
     /// - use a single stroke for all cells
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
     ///
-    /// See the [Table Guide]($guides/tables/#strokes) for more details.
+    /// See the @guides:tables:strokes[Table Guide] for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// A summary of the purpose and structure of complex tables.
     ///
-    /// See the [`crate::pdf::accessibility::table_summary`] function for more
+    /// See the @crate::pdf::accessibility::table_summary function for more
     /// information.
     #[internal]
     #[parse(None)]
@@ -284,7 +282,7 @@ pub struct TableElem {
     pub grid: Arc<CellGrid>,
 
     /// The contents of the table cells, plus any extra table lines specified
-    /// with the [`table.hline`] and [`table.vline`] elements.
+    /// with the @table.hline and @table.vline elements.
     #[variadic]
     pub children: Vec<TableChild>,
 }
@@ -446,19 +444,19 @@ impl TryFrom<Content> for TableItem {
 ///
 /// You should wrap your tables' heading rows in this function even if you do
 /// not plan to wrap your table across pages because Typst uses this function to
-/// attach accessibility metadata to tables and ensure [Universal
-/// Access]($guides/accessibility/#basics) to your document.
+/// attach accessibility metadata to tables and ensure
+/// @guides:accessibility:basics[Universal Access] to your document.
 ///
 /// You can use the `repeat` parameter to control whether your table's header
 /// will be repeated across pages.
 ///
 /// Currently, this function is unsuitable for creating a header column or
 /// single header cells. Either use regular cells, or, if you are exporting a
-/// PDF, you can also use the [`pdf.header-cell`] function to mark a cell as a
-/// header cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this
+/// PDF, you can also use the @pdf.header-cell function to mark a cell as a
+/// header cell. Likewise, you can use @pdf.data-cell to mark cells in this
 /// function as data cells. Note that these functions are not final and thus
-/// only available when you enable the `a11y-extras` feature (see the [PDF
-/// module documentation]($pdf) for details).
+/// only available when you enable the `a11y-extras` feature (see the
+/// @pdf[PDF module documentation] for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)
@@ -518,9 +516,9 @@ pub struct TableHeader {
 
 /// A repeatable table footer.
 ///
-/// Just like the [`table.header`] element, the footer can repeat itself on
-/// every page of the table. This is useful for improving legibility by adding
-/// the column labels in both the header and footer of a large table, totals, or
+/// Just like the @table.header element, the footer can repeat itself on every
+/// page of the table. This is useful for improving legibility by adding the
+/// column labels in both the header and footer of a large table, totals, or
 /// other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
@@ -539,13 +537,13 @@ pub struct TableFooter {
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through the
-/// table's [`column-gutter`]($table.column-gutter) option.
+/// table's @table.column-gutter[`column-gutter`] option.
 ///
 /// Use this function instead of the table's `stroke` field if you want to
 /// manually place a horizontal line at a specific position in a single table.
-/// Consider using [table's `stroke`]($table.stroke) field or [`table.cell`'s
-/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
-/// part of all your tables' designs.
+/// Consider using @table.stroke[table's `stroke`] field or
+/// @table.cell.stroke[`table.cell`'s `stroke`] field instead if the line you
+/// want to place is part of all your tables' designs.
 ///
 /// ```example
 /// #set table.hline(stroke: .6pt)
@@ -570,10 +568,11 @@ pub struct TableFooter {
 #[elem(name = "hline", title = "Table Horizontal Line")]
 pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
-    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline.y).
+    /// Functions identically to the `y` field in @grid.hline.y[`grid.hline`].
     pub y: Smart<usize>,
 
-    /// The column at which the horizontal line starts (zero-indexed, inclusive).
+    /// The column at which the horizontal line starts (zero-indexed,
+    /// inclusive).
     pub start: usize,
 
     /// The column before which the horizontal line ends (zero-indexed,
@@ -591,30 +590,30 @@ pub struct TableHLine {
     /// The position at which the line is placed, given its row (`y`) - either
     /// `{top}` to draw above it or `{bottom}` to draw below it.
     ///
-    /// This setting is only relevant when row gutter is enabled (and
-    /// shouldn't be used otherwise - prefer just increasing the `y` field by
-    /// one instead), since then the position below a row becomes different
-    /// from the position above the next row due to the spacing between both.
+    /// This setting is only relevant when row gutter is enabled (and shouldn't
+    /// be used otherwise - prefer just increasing the `y` field by one
+    /// instead), since then the position below a row becomes different from the
+    /// position above the next row due to the spacing between both.
     #[default(OuterVAlignment::Top)]
     pub position: OuterVAlignment,
 }
 
-/// A vertical line in the table. See the docs for [`grid.vline`] for more
+/// A vertical line in the table. See the docs for @grid.vline for more
 /// information regarding how to use this element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through the
-/// table's [`row-gutter`]($table.row-gutter) option.
+/// table's @table.row-gutter[`row-gutter`] option.
 ///
-/// Similar to [`table.hline`], use this function if you want to manually place
-/// a vertical line at a specific position in a single table and use the
-/// [table's `stroke`]($table.stroke) field or [`table.cell`'s
-/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
-/// part of all your tables' designs.
+/// Similar to @table.hline, use this function if you want to manually place a
+/// vertical line at a specific position in a single table and use the
+/// @table.stroke[table's `stroke`] field or
+/// @table.cell.stroke[`table.cell`'s `stroke`] field instead if the line you
+/// want to place is part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
     /// The column before which the vertical line is placed (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.vline`].
+    /// Functions identically to the `x` field in @grid.vline.
     pub x: Smart<usize>,
 
     /// The row at which the vertical line starts (zero-indexed, inclusive).
@@ -737,12 +736,12 @@ pub struct TableCell {
     #[required]
     pub body: Content,
 
-    /// The cell's column (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.cell`].
+    /// The cell's column (zero-indexed). Functions identically to the `x` field
+    /// in @grid.cell.
     pub x: Smart<usize>,
 
-    /// The cell's row (zero-indexed).
-    /// Functions identically to the `y` field in [`grid.cell`].
+    /// The cell's row (zero-indexed). Functions identically to the `y` field in
+    /// @grid.cell.
     pub y: Smart<usize>,
 
     /// The amount of columns spanned by this cell.
@@ -753,23 +752,22 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [inset]($table.inset) override.
+    /// The cell's @table.inset[inset] override.
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
-    /// The cell's [alignment]($table.align) override.
+    /// The cell's @table.align[alignment] override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [fill]($table.fill) override.
+    /// The cell's @table.fill[fill] override.
     pub fill: Smart<Option<Paint>>,
 
-    /// The cell's [stroke]($table.stroke) override.
+    /// The cell's @table.stroke[stroke] override.
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
-    /// Whether rows spanned by this cell can be placed in different pages.
-    /// When equal to `{auto}`, a cell spanning only fixed-size rows is
-    /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
-    /// breakable.
+    /// Whether rows spanned by this cell can be placed in different pages. When
+    /// equal to `{auto}`, a cell spanning only fixed-size rows is unbreakable,
+    /// while a cell spanning at least one `{auto}`-sized row is breakable.
     pub breakable: Smart<bool>,
 
     #[internal]

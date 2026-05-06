@@ -35,16 +35,17 @@ pub use crate::__format_str as format_str;
 
 /// A sequence of Unicode codepoints.
 ///
-/// You can iterate over the grapheme clusters of the string using a [for
-/// loop]($scripting/#loops). Grapheme clusters are basically characters but
-/// keep together things that belong together, e.g. multiple codepoints that
-/// together form a flag emoji. Strings can be added with the `+` operator,
-/// [joined together]($scripting/#blocks) and multiplied with integers.
+/// You can iterate over the grapheme clusters of the string using a
+/// @reference:scripting:loops[for loop]. Grapheme clusters are basically
+/// characters but keep together things that belong together, e.g. multiple
+/// codepoints that together form a flag emoji. Strings can be added with the
+/// `+` operator, @reference:scripting:blocks[joined together] and multiplied
+/// with integers.
 ///
 /// Typst provides utility methods for string manipulation. Many of these
-/// methods (e.g., [`split`]($str.split), [`trim`]($str.trim) and
-/// [`replace`]($str.replace)) operate on _patterns:_ A pattern can be either a
-/// string or a [regular expression]($regex). This makes the methods quite
+/// methods (e.g., @str.split[`split`], @str.trim[`trim`] and
+/// @str.replace[`replace`]) operate on _patterns:_ A pattern can be either a
+/// string or a @regex[regular expression]. This makes the methods quite
 /// versatile.
 ///
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
@@ -52,7 +53,7 @@ pub use crate::__format_str as format_str;
 ///
 /// You can convert a value to a string with the `str` constructor.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #"hello world!" \
 /// #"\"hello\n  world\"!" \
@@ -62,7 +63,7 @@ pub use crate::__format_str as format_str;
 /// #(regex("\\d+") in "10 euros")
 /// ```
 ///
-/// # Escape sequences { #escapes }
+/// = #short-or-long[Escapes][Escape sequences] <escapes>
 /// Just like in markup, you can escape a few symbols in strings:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
@@ -138,7 +139,7 @@ impl Str {
     /// - Bytes are decoded as UTF-8.
     ///
     /// If you wish to convert from and to Unicode code points, see the
-    /// [`to-unicode`]($str.to-unicode) and [`from-unicode`]($str.from-unicode)
+    /// @str.to-unicode[`to-unicode`] and @str.from-unicode[`from-unicode`]
     /// functions.
     ///
     /// ```example
@@ -243,8 +244,8 @@ impl Str {
             .ok_or_else(|| no_default_and_out_of_bounds(index, len))
     }
 
-    /// Extracts a substring of the string.
-    /// Fails with an error if the start or end index is out of bounds.
+    /// Extracts a substring of the string. Fails with an error if the start or
+    /// end index is out of bounds.
     #[func]
     pub fn slice(
         &self,
@@ -257,7 +258,8 @@ impl Str {
         #[default]
         end: Option<i64>,
         /// The number of bytes to extract. This is equivalent to passing
-        /// `start + count` as the `end` position. Mutually exclusive with `end`.
+        /// `start + count` as the `end` position. Mutually exclusive with
+        /// `end`.
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
@@ -434,16 +436,22 @@ impl Str {
     ///   capturing, not the whole match! This is empty unless the `pattern` was
     ///   a regex with capturing groups.
     ///
-    /// ```example:"Shape of the returned dictionary"
-    /// #let pat = regex("not (a|an) (apple|cat)")
-    /// #"I'm a doctor, not an apple.".match(pat) \
-    /// #"I am not a cat!".match(pat)
-    /// ```
+    /// #example(
+    ///   title: "Shape of the returned dictionary",
+    ///   ```
+    ///   #let pat = regex("not (a|an) (apple|cat)")
+    ///   #"I'm a doctor, not an apple.".match(pat) \
+    ///   #"I am not a cat!".match(pat)
+    ///   ```
+    /// )
     ///
-    /// ```example:"Different kinds of patterns"
-    /// #assert.eq("Is there a".match("for this?"), none)
-    /// #"The time of my life.".match(regex("[mit]+e"))
-    /// ```
+    /// #example(
+    ///   title: "Different kinds of patterns",
+    ///   ```
+    ///   #assert.eq("Is there a".match("for this?"), none)
+    ///   #"The time of my life.".match(regex("[mit]+e"))
+    ///   ```
+    /// )
     #[func]
     pub fn match_(
         &self,
@@ -460,7 +468,7 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns an array of
     /// dictionaries with details about all matches. For details about the
-    /// returned dictionaries, see [above]($str.match).
+    /// returned dictionaries, see @str.match[above].
     ///
     /// ```example
     /// #"Day by Day.".matches("Day")
@@ -501,10 +509,10 @@ impl Str {
         /// strings.
         ///
         /// The dictionary passed to the function has the same shape as the
-        /// dictionary returned by [`match`]($str.match).
+        /// dictionary returned by @str.match[`match`].
         replacement: Replacement,
-        ///  If given, only the first `count` matches of the pattern are
-        ///  replaced.
+        /// If given, only the first `count` matches of the pattern are
+        /// replaced.
         #[named]
         count: Option<usize>,
     ) -> SourceResult<Str> {
@@ -557,8 +565,8 @@ impl Str {
         Ok(output.into())
     }
 
-    /// Removes matches of a pattern from one or both sides of the string, once or
-    /// repeatedly and returns the resulting string.
+    /// Removes matches of a pattern from one or both sides of the string, once
+    /// or repeatedly and returns the resulting string.
     #[func]
     pub fn trim(
         &self,
@@ -648,8 +656,8 @@ impl Str {
     /// When the empty string is used as a separator, it separates every
     /// character (i.e., Unicode code point) in the string, along with the
     /// beginning and end of the string. In practice, this means that the
-    /// resulting list of parts will contain the empty string at the start
-    /// and end of the list.
+    /// resulting list of parts will contain the empty string at the start and
+    /// end of the list.
     #[func]
     pub fn split(
         &self,
@@ -955,13 +963,13 @@ fn string_is_empty() -> EcoString {
 
 /// A regular expression.
 ///
-/// Can be used as a [show rule selector]($styling/#show-rules) and with
-/// [string methods]($str) like `find`, `split`, `replace`, and `match`.
+/// Can be used as a @reference:styling:show-rules[show rule selector] and with
+/// @str[string methods] like `find`, `split`, `replace`, and `match`.
 ///
-/// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
-/// of the supported syntax.
+/// #link("https://docs.rs/regex/latest/regex/#syntax")[See here] for a
+/// specification of the supported syntax.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Works with string methods.
 /// #"a,b;c".split(regex("[,;]"))
@@ -996,11 +1004,11 @@ impl Regex {
         /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
         /// entered into strings directly, but it's good practice to still
         /// escape them to avoid ambiguity (i.e., `{regex("\\b\\d")}`). See the
-        /// [list of valid string escape sequences]($str/#escapes).
+        /// @str:escapes[list of valid string escape sequences].
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// ``{regex(`\d+\.\d+\.\d+`.text)}``.
+        /// ``` {regex(`\d+\.\d+\.\d+`.text)}```.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)

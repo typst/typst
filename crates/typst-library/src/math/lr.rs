@@ -58,7 +58,7 @@ pub struct MidElem {
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to floor.
@@ -76,7 +76,7 @@ pub fn floor(
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to ceil.
@@ -94,7 +94,7 @@ pub fn ceil(
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to round.
@@ -112,7 +112,7 @@ pub fn round(
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the absolute value of.
@@ -130,7 +130,7 @@ pub fn abs(
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
-    /// Default: The current value of [`lr.size`]($math.lr.size).
+    /// Default: The current value of @math.lr.size[`lr.size`].
     #[named]
     size: Option<Rel<Length>>,
     /// The expression to take the norm of.

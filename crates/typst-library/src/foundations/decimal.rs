@@ -17,34 +17,33 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// This type should be used for precise arithmetic operations on numbers
 /// represented in base 10. A typical use case is representing currency.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Decimal: #(decimal("0.1") + decimal("0.2")) \
 /// Float: #(0.1 + 0.2)
 /// ```
 ///
-/// # Construction and casts
+/// = Construction and casts <construction-and-casts>
 /// To create a decimal number, use the `{decimal(string)}` constructor, such as
-/// in `{decimal("3.141592653")}` **(note the double quotes!)**. This
-/// constructor preserves all given fractional digits, provided they are
-/// representable as per the limits specified below (otherwise, an error is
-/// raised).
+/// in `{decimal("3.141592653")}` *(note the double quotes!)*. This constructor
+/// preserves all given fractional digits, provided they are representable as
+/// per the limits specified below (otherwise, an error is raised).
 ///
-/// You can also convert any [integer]($int) to a decimal with the
+/// You can also convert any @int[integer] to a decimal with the
 /// `{decimal(int)}` constructor, e.g. `{decimal(59)}`. However, note that
-/// constructing a decimal from a [floating-point number]($float), while
-/// supported, **is an imprecise conversion and therefore discouraged.** A
-/// warning will be raised if Typst detects that there was an accidental `float`
-/// to `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
+/// constructing a decimal from a @float[floating-point number], while
+/// supported, *is an imprecise conversion and therefore discouraged.* A warning
+/// will be raised if Typst detects that there was an accidental `float` to
+/// `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
 /// (note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise). It is recommended to use strings for
-/// constant decimal values instead (e.g. `{decimal("3.14")}`).
+/// cast and therefore imprecise). It is recommended to use strings for constant
+/// decimal values instead (e.g. `{decimal("3.14")}`).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
-/// rounding the result to 15 digits with [`calc.round`], but there are still no
+/// rounding the result to 15 digits with @calc.round, but there are still no
 /// precision guarantees for that kind of conversion.
 ///
-/// # Operations
+/// = Operations <operations>
 /// Basic arithmetic operations are supported on two decimals and on pairs of
 /// decimals and integers.
 ///
@@ -59,28 +58,28 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// the `decimal` number into a `float`, allowing for operations without
 /// precision guarantees.
 ///
-/// # Displaying decimals
+/// = Displaying decimals <displaying-decimals>
 /// To display a decimal, simply insert the value into the document. To only
-/// display a certain number of digits, [round]($calc.round) the decimal first.
+/// display a certain number of digits, @calc.round[round] the decimal first.
 /// Localized formatting of decimals and other numbers is not yet supported, but
 /// planned for the future.
 ///
-/// You can convert decimals to strings using the [`str`] constructor. This way,
+/// You can convert decimals to strings using the @str constructor. This way,
 /// you can post-process the displayed representation, e.g. to replace the
 /// period with a comma (as a stand-in for proper built-in localization to
 /// languages that use the comma).
 ///
-/// # Precision and limits
+/// = Precision and limits <precision-and-limits>
 /// A `decimal` number has a limit of 28 to 29 significant base-10 digits. This
 /// includes the sum of digits before and after the decimal point. As such,
 /// numbers with more fractional digits have a smaller range. The maximum and
 /// minimum `decimal` numbers have a value of `{79228162514264337593543950335}`
 /// and `{-79228162514264337593543950335}` respectively. In contrast with
-/// [`float`], this type does not support infinity or NaN, so overflowing or
+/// @float, this type does not support infinity or NaN, so overflowing or
 /// underflowing operations will raise an error.
 ///
 /// Typical operations between `decimal` numbers, such as addition,
-/// multiplication, and [power]($calc.pow) to an integer, will be highly precise
+/// multiplication, and @calc.pow[power] to an integer, will be highly precise
 /// due to their fixed-point representation. Note, however, that multiplication
 /// and division may not preserve all digits in some edge cases: while they are
 /// considered precise, digits past the limits specified above are rounded off
@@ -277,15 +276,15 @@ impl Decimal {
     /// Converts a value to a `decimal`.
     ///
     /// It is recommended to use a string to construct the decimal number, or an
-    /// [integer]($int) (if desired). The string must contain a number in the
+    /// @int[integer] (if desired). The string must contain a number in the
     /// format `{"3.14159"}` (or `{"-3.141519"}` for negative numbers). The
     /// fractional digits are fully preserved; if that's not possible due to the
     /// limit of significant digits (around 28 to 29) having been reached, an
     /// error is raised as the given decimal number wouldn't be representable.
     ///
-    /// While this constructor can be used with [floating-point numbers]($float)
-    /// to cast them to `decimal`, doing so is **discouraged** as **this cast is
-    /// inherently imprecise.** It is easy to accidentally perform this cast by
+    /// While this constructor can be used with @float[floating-point numbers]
+    /// to cast them to `decimal`, doing so is *discouraged* as *this cast is
+    /// inherently imprecise.* It is easy to accidentally perform this cast by
     /// writing `{decimal(1.234)}` (note the lack of double quotes), which is
     /// why Typst will emit a warning in that case. Please write
     /// `{decimal("1.234")}` instead for that particular case (initialization of

@@ -29,13 +29,29 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
     for attr in attrs {
         if let syn::Meta::NameValue(meta) = &attr.meta
             && meta.path.is_ident("doc")
-            && let syn::Expr::Lit(lit) = &meta.value
-            && let syn::Lit::Str(string) = &lit.lit
         {
-            let full = string.value();
-            let line = full.strip_prefix(' ').unwrap_or(&full);
-            doc.push_str(line);
-            doc.push('\n');
+            if let syn::Expr::Lit(lit) = &meta.value
+                && let syn::Lit::Str(string) = &lit.lit
+            {
+                let full = string.value();
+                let line = full.strip_prefix(' ').unwrap_or(&full);
+                doc.push_str(line);
+                doc.push('\n');
+            } else if let syn::Expr::Macro(expr) = &meta.value
+                // The `stringify!` macro does not expand eagerly so we have
+                // some very basic support for int and float expressions here.
+                // This is e.g. used for paper sizes.
+                && expr.mac.path.is_ident("stringify")
+                && let Ok(lit) = syn::parse2::<syn::Lit>(expr.mac.tokens.clone())
+                && let Some(value) = match &lit {
+                    syn::Lit::Int(int) => Some(int.base10_digits()),
+                    syn::Lit::Float(float) => Some(float.base10_digits()),
+                    _ => None,
+                }
+            {
+                doc.push_str(value);
+                doc.push('\n');
+            }
         }
     }
 
