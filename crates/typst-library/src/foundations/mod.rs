@@ -85,6 +85,7 @@ use typst_syntax::{RootedPath, Spanned, SyntaxMode};
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::introspection::EmptyIntrospector;
+use crate::routines::SpanMode;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -301,9 +302,9 @@ pub fn eval(
         scope.bind(key.into(), Binding::new(value, span));
     }
 
-    (engine.routines.eval_string)(
-        engine.routines,
+    (engine.library.routines.eval_string)(
         engine.world,
+        engine.library,
         TrackedMut::reborrow_mut(&mut engine.sink),
         // We create a new, detached introspector for string evaluation. Passing
         // the real introspector should not have any consequences with
@@ -314,7 +315,7 @@ pub fn eval(
         EmptyIntrospector.track(),
         Context::none().track(),
         &text,
-        span,
+        SpanMode::Uniform(span),
         mode,
         scope,
     )

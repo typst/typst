@@ -236,9 +236,10 @@ pub fn deref_target(node: LinkedNode<'_>) -> Option<DerefTarget<'_>> {
         ast::Expr::SetRule(set) => {
             DerefTarget::Callee(expr_node.find(set.target().span())?)
         }
-        ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::FieldAccess(_) => {
-            DerefTarget::VarAccess(expr_node)
-        }
+        ast::Expr::Ident(_)
+        | ast::Expr::FieldAccess(_)
+        | ast::Expr::MathIdent(_)
+        | ast::Expr::MathFieldAccess(_) => DerefTarget::VarAccess(expr_node),
         ast::Expr::Str(_) => {
             let parent = expr_node.parent()?;
             if parent.kind() == SyntaxKind::ModuleImport {

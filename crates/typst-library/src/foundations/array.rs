@@ -1244,6 +1244,12 @@ impl<T: Reflect, const N: usize> Reflect for SmallVec<[T; N]> {
     }
 }
 
+impl<T: IntoValue + Copy> IntoValue for &[T] {
+    fn into_value(self) -> Value {
+        Value::Array(self.iter().copied().map(IntoValue::into_value).collect())
+    }
+}
+
 impl<T: IntoValue> IntoValue for Vec<T> {
     fn into_value(self) -> Value {
         Value::Array(self.into_iter().map(IntoValue::into_value).collect())

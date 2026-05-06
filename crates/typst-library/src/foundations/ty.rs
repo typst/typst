@@ -6,9 +6,9 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use typst_utils::Static;
+use typst_utils::{DefSite, Static};
 
-use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::diag::{StrResult, WarningSink, bail};
 use crate::foundations::{
     AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
 };
@@ -88,6 +88,11 @@ impl Type {
         self.0.docs
     }
 
+    /// Where the function is type in the Rust source code.
+    pub fn def_site(&self) -> DefSite {
+        self.0.def_site
+    }
+
     /// Search keywords for the type.
     pub fn keywords(&self) -> &'static [&'static str] {
         self.0.keywords
@@ -111,7 +116,7 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => Ok(binding.read_checked(sink)),
@@ -206,6 +211,8 @@ pub struct NativeTypeData {
     pub title: &'static str,
     /// The documentation for this type as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],
     /// The constructor for this type.

@@ -5,7 +5,6 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Numeric};
 
-use crate::World;
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Content, Repr, Smart, StyleChain, func, scope, ty};
@@ -191,13 +190,11 @@ impl Tiling {
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
 
         // Layout the tiling.
-        let world = engine.world;
-        let library = world.library();
         let locator = Locator::root();
-        let styles = StyleChain::new(&library.styles);
+        let styles = StyleChain::new(&engine.library.styles);
         let pod = Region::new(region, Axes::splat(false));
         let mut frame =
-            (engine.routines.layout_frame)(engine, &body, locator, styles, pod)?;
+            (engine.library.routines.layout_frame)(engine, &body, locator, styles, pod)?;
 
         // Set the size of the frame if the size is enforced.
         if let Smart::Custom(size) = size {

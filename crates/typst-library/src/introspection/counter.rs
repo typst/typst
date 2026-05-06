@@ -7,9 +7,8 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, Protected};
+use typst_utils::{LazyHash, NonZeroExt, Protected};
 
-use crate::World;
 use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -24,7 +23,7 @@ use crate::introspection::{
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
-use crate::routines::Routines;
+use crate::{Library, World};
 
 /// Counts through pages, elements, and more.
 ///
@@ -897,8 +896,8 @@ fn sequence(
     sequence_impl(
         counter,
         selector,
-        engine.routines,
         engine.world,
+        engine.library,
         introspector,
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -912,15 +911,15 @@ fn sequence(
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
 ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::from_raw(introspector),
         traced,

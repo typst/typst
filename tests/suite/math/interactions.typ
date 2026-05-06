@@ -103,7 +103,7 @@ $hat(x)$, $rhat(x)$, $hat(rhat(x))$, $rhat(hat(x))$, x\u{0302}
 $grave(x)$, x\u{0300}
 
 --- math-accent-show-rule-4 paged ---
-#show "\u{0302}": box(inset: (bottom: 5pt), text(0.5em, sym.diamond.small))
+#show "\u{0302}": box(baseline: -5pt, text(0.5em, sym.diamond.small))
 $hat(X)$, $hat(x)$
 
 --- math-box-without-baseline paged ---

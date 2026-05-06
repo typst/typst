@@ -261,3 +261,24 @@ pub mod kw {
     syn::custom_keyword!(parent);
     syn::custom_keyword!(ext);
 }
+
+/// Extract the first line of documentation.
+pub fn oneliner(docs: &str) -> String {
+    let paragraph = docs.split("\n\n").next().unwrap_or_default();
+    let mut depth = 0;
+    let mut period = false;
+    let mut end = paragraph.len();
+    for (i, c) in paragraph.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            '.' if depth == 0 => period = true,
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
+                end = i;
+                break;
+            }
+            _ => period = false,
+        }
+    }
+    String::from(&docs[..end]).replace("\r\n", " ").replace("\n", " ")
+}

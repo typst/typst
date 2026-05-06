@@ -9,9 +9,9 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
 use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
-use typst_utils::{LazyHash, Static, singleton};
+use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
@@ -253,6 +253,17 @@ impl Func {
         }
     }
 
+    /// Where the function is defined in the Rust source code (only `Some(_)` if
+    /// it is native, and even then it can be `None` if the function is
+    /// generated, like the typed HTML API).
+    pub fn def_site(&self) -> Option<DefSite> {
+        match &self.inner {
+            FuncInner::Native(native) => native.def_site,
+            FuncInner::Element(elem) => Some(elem.def_site()),
+            _ => None,
+        }
+    }
+
     /// The function's associated scope of sub-definition.
     pub fn scope(&self) -> Option<&'static Scope> {
         match &self.inner {
@@ -268,7 +279,7 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
@@ -326,11 +337,11 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            FuncInner::Closure(closure) => (engine.routines.eval_closure)(
+            FuncInner::Closure(closure) => (engine.library.routines.eval_closure)(
                 self,
                 closure,
-                engine.routines,
                 engine.world,
+                engine.library,
                 engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
@@ -616,6 +627,8 @@ pub struct NativeFuncData {
     pub title: &'static str,
     /// The documentation for this function as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// A list of alternate search terms for this function.
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
@@ -662,6 +675,8 @@ pub struct NativeParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
+    /// Where the parameter is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// Describe what values this parameter accepts.
     pub input: CastInfo,
     /// Creates an instance of the parameter's default value.

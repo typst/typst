@@ -135,7 +135,7 @@ fn regen(cmd: RegenCommand) {
         // Allow a failing test suite.
         let status = Command::new("cargo")
             .args(["test", "--workspace", "--test=tests"])
-            .args(["--", "--no-report", "--stages=svg,pdf", "--exact"])
+            .args(["--", "--no-report", "--stages=pdf,pdftags,svg,html", "--exact"])
             .args(["--"])
             .args(missing_names)
             .run();

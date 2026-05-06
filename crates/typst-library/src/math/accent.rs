@@ -221,6 +221,7 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
         name: "(..) => ..",
         title,
         docs,
+        def_site: None,
         keywords: &[],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
@@ -235,6 +236,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "base",
             docs: "The base to which the accent is applied.",
+            def_site: None,
             input: Content::input(),
             default: None,
             positional: true,
@@ -246,6 +248,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "size",
             docs: "The size of the accent, relative to the width of the base.",
+            def_site: None,
             input: Rel::<Length>::input(),
             default: None,
             positional: false,
@@ -257,6 +260,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "dotless",
             docs: "Whether to remove the dot on top of lowercase i and j when adding a top accent.",
+            def_site: None,
             input: bool::input(),
             default: None,
             positional: false,
