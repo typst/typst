@@ -287,6 +287,33 @@ World
 #text(red)[- World]
 #text(green)[- What up?]
 
+--- list-multi-page paged ---
+#set page(width: auto, height: 4em)
+
+- Abc
+  def
+
+  ghi
+  jkl
+
+  mno
+  pqr
+- Other
+  other
+
+  other
+  other
+
+--- list-colbreak paged ---
+- Abc
+  def
+  #colbreak()
+  ghi
+  jkl
+  #colbreak()
+  mno
+  pqr
+
 --- list-baseline-table paged ---
 - #table(
     inset: 10pt,

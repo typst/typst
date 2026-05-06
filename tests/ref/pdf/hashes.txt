@@ -947,6 +947,7 @@ a0185046205ce1177e9b9e2fb2b53cd9 list-baseline-grid
 b890443a83abae064c60382cd6bd261d list-baseline-table
 be02a192e6b5778fcbc0da48b3d10dc8 list-baseline-text-with-math
 7f7d01c29dbd7f8f14904aaa404a49d9 list-basic
+e24d02f3a24f48d59bca3d9562f2db3b list-colbreak
 a6cebb62233b4393bd77346427975eed list-content-block
 6df3e3a0825a9da2f043495ffffc6791 list-indent-specifics
 5307dfdedba67d57eb66a2a433bbfdfb list-item-styling
@@ -961,6 +962,7 @@ d757d5e3f29223f861156084b14d6d28 list-marker-cycle
 ea9d6b96c703314c7a1def21a5a39170 list-marker-dash
 b24a35fd3a2b3a58b723b08a82fc46a1 list-mix
 337e5f340a6056c40da55f2942009ef2 list-mixed-tabs-and-spaces
+1523a5daf00b9fa783d1659354758c5d list-multi-page
 a26ff3c7d43c99911f14260835e12783 list-nested
 c2e070efc95a4f2aea89586a54ffff24 list-non-attached-followed-by-attached
 b204d3dfcdbfc3a9feba884f0c355d1c list-par

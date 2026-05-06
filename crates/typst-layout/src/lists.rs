@@ -243,7 +243,7 @@ fn layout_item(
     let mut locator = locator.split();
     // Should only be absolute (cannot use Abs due to element definition
     // restrictions).
-    assert!(elem.marker_size.em.get() == 0.0);
+    debug_assert!(elem.marker_size.em.get() == 0.0);
     let mut marker = crate::layout_frame(
         engine,
         &elem.marker,
@@ -269,11 +269,13 @@ fn layout_item(
         )?
     };
 
-    let mut skip_first = should_skip_first_frame(&fragment);
+    // First non-empty frame (ignores frames with only tags due to a forced
+    // region break).
+    let mut first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
 
     let diff = if elem.baseline_align {
         if marker.has_baseline()
-            && let Some(first) = fragment.as_slice().get(if skip_first { 1 } else { 0 })
+            && let Some(first) = fragment.as_slice().get(first_frame)
             && first.has_baseline()
         {
             first.baseline() - marker.baseline()
@@ -286,7 +288,7 @@ fn layout_item(
         // the same height as the body's first frame so it may align itself
         // vertically.
         let mut regions = regions;
-        if let Some(first) = fragment.as_slice().get(if skip_first { 1 } else { 0 }) {
+        if let Some(first) = fragment.as_slice().get(first_frame) {
             regions.size.y = first.height();
             regions.full = first.height();
         };
@@ -328,7 +330,7 @@ fn layout_item(
             styles,
             regions,
         )?;
-        skip_first = should_skip_first_frame(&fragment);
+        first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
 
         (Abs::zero(), -diff)
     };
@@ -341,21 +343,24 @@ fn layout_item(
             (marker_size.y + marker_dy).max(body_frame.height() + body_dy),
         ));
 
-        // Don't place extraneous markers after a region skip.
-        if i > 0 || !skip_first {
-            let mut marker_pos = Point::new(indent, marker_dy);
-            let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
+        let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
 
-            if elem.is_rtl {
-                // In RTL cells expand to the left, thus the position must
-                // additionally be offset by the cell's width.
-                marker_pos.x = width - (marker_pos.x + marker_size.x);
-                body_pos.x = width - (body_pos.x + body_frame.width());
-            }
-
-            frame.push_frame(marker_pos, marker.clone());
-            frame.push_frame(body_pos, body_frame);
+        if elem.is_rtl {
+            // In RTL cells expand to the left, thus the position must
+            // additionally be offset by the cell's width.
+            body_pos.x = width - (body_pos.x + body_frame.width());
         }
+
+        // Only place the marker on the first non-empty frame.
+        if i == first_frame {
+            let mut marker_pos = Point::new(indent, marker_dy);
+            if elem.is_rtl {
+                marker_pos.x = width - (marker_pos.x + marker_size.x);
+            }
+            frame.push_frame(marker_pos, marker.clone());
+        }
+
+        frame.push_frame(body_pos, body_frame);
         frames.push(frame);
     }
 
