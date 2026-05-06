@@ -268,7 +268,7 @@ impl Gradient {
     pub fn linear(
         args: &mut Args,
         span: Span,
-        /// The unnamed (positional) arguments are the color @gradient.stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -357,7 +357,7 @@ impl Gradient {
     #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
-        /// The unnamed (positional) arguments are the color @gradient.stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -474,7 +474,7 @@ impl Gradient {
     #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
-        /// The unnamed (positional) arguments are the color @gradient.stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
