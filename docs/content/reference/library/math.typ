@@ -1,4 +1,4 @@
-#import "../../../components/index.typ": docs-category
+#import "../../../components/index.typ": docs-category, example
 
 #show: docs-category.with(
   title: "Math",
