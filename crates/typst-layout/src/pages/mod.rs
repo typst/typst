@@ -158,7 +158,7 @@ fn layout_document_common(
     info.populate_locale(styles);
 
     let mut children = (engine.library.routines.realize)(
-        RealizationKind::LayoutDocument { info: &mut info },
+        RealizationKind::Document { info: &mut info },
         &mut engine,
         &mut locator,
         &arenas,

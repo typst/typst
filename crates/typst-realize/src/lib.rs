@@ -19,7 +19,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
-    Styles, SymbolElem, Synthesize, TargetElem, Transformation,
+    Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
 };
 use typst_library::introspection::{
     Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
@@ -56,16 +56,14 @@ pub fn realize<'a>(
         arenas,
         rules: match kind {
             RealizationKind::Bundle => BUNDLE_RULES,
-            RealizationKind::LayoutDocument { .. } => LAYOUT_RULES,
-            RealizationKind::LayoutFragment { .. } => LAYOUT_RULES,
-            RealizationKind::LayoutPar => LAYOUT_PAR_RULES,
-            RealizationKind::HtmlDocument { .. } => HTML_DOCUMENT_RULES,
-            RealizationKind::HtmlFragment { .. } => HTML_FRAGMENT_RULES,
+            RealizationKind::Document { .. } => FLOW_RULES,
+            RealizationKind::Fragment { .. } => FLOW_RULES,
+            RealizationKind::Par => PAR_RULES,
             RealizationKind::Math => MATH_RULES,
         },
         sink: vec![],
         groupings: ArrayVec::new(),
-        outside: kind.is_document(),
+        outside: matches!(kind, RealizationKind::Document { .. }),
         may_attach: false,
         saw_parbreak: false,
         kind,
@@ -610,7 +608,7 @@ fn visit_styled<'a>(
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
             let local = StyleChain::new(&local);
-            if let Some(info) = s.kind.as_document_mut() {
+            if let RealizationKind::Document { info } = &mut s.kind {
                 info.populate(local);
             } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
@@ -628,22 +626,27 @@ fn visit_styled<'a>(
             }
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
-            if let Some(info) = s.kind.as_document_mut() {
+            if let RealizationKind::Document { info } = &mut s.kind {
                 info.populate_locale(StyleChain::new(&local));
             }
         } else if elem == PageElem::ELEM {
             match s.kind {
                 RealizationKind::Bundle => {}
-                RealizationKind::LayoutDocument { .. } => {
-                    // When there are page styles, we "break free" from our show
-                    // rule cage.
-                    pagebreak = true;
-                    s.outside = true;
-                }
-                RealizationKind::HtmlDocument { .. } => s.engine.sink.warn(warning!(
-                    style.span(),
-                    "page set rule was ignored during HTML export"
-                )),
+                RealizationKind::Document { .. } => match outer.get(TargetElem::target) {
+                    Target::Paged => {
+                        // When there are page styles, we "break free" from our show
+                        // rule cage.
+                        pagebreak = true;
+                        s.outside = true;
+                    }
+                    Target::Html => {
+                        s.engine.sink.warn(warning!(
+                            style.span(),
+                            "page set rule was ignored during HTML export"
+                        ));
+                    }
+                    Target::Bundle => {}
+                },
                 _ => bail!(
                     style.span(),
                     "page configuration is not allowed inside of containers",
@@ -754,7 +757,7 @@ fn visit_filter_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    if matches!(s.kind, RealizationKind::LayoutPar | RealizationKind::Math) {
+    if matches!(s.kind, RealizationKind::Par | RealizationKind::Math) {
         return Ok(false);
     }
 
@@ -789,7 +792,9 @@ fn finish(s: &mut State) -> SourceResult<()> {
         // If this is a fragment realization and all we've got is inline and
         // neutral content, don't turn it into a paragraph.
         if is_fully_inline_or_neutral(s) {
-            *s.kind.as_fragment_mut().unwrap() = FragmentKind::Inline;
+            if let RealizationKind::Fragment { kind } = &mut s.kind {
+                **kind = FragmentKind::Inline;
+            }
             s.groupings.pop();
             collapse_spaces(&mut s.sink, 0);
             false
@@ -799,7 +804,7 @@ fn finish(s: &mut State) -> SourceResult<()> {
     })?;
 
     // In paragraph and math realization, spaces are top-level.
-    if matches!(s.kind, RealizationKind::LayoutPar | RealizationKind::Math) {
+    if matches!(s.kind, RealizationKind::Par | RealizationKind::Math) {
         collapse_spaces(&mut s.sink, 0);
     }
 
@@ -1002,19 +1007,11 @@ const MAX_GROUP_NESTING: usize = 3;
 /// Grouping rules used in bundle realization.
 static BUNDLE_RULES: &[&GroupingRule] = &[];
 
-/// Grouping rules used in layout realization.
-static LAYOUT_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+/// Grouping rules used in normal realization.
+static FLOW_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
 
-/// Grouping rules used in paragraph layout realization.
-static LAYOUT_PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
-
-/// Grouping rules used in HTML root realization.
-static HTML_DOCUMENT_RULES: &[&GroupingRule] =
-    &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
-
-/// Grouping rules used in HTML fragment realization.
-static HTML_FRAGMENT_RULES: &[&GroupingRule] =
-    &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+/// Grouping rules used in paragraph realization.
+static PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
 static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
@@ -1176,7 +1173,7 @@ fn in_non_par_grouping(s: &mut State) -> bool {
 /// spans the whole sink (with the exception of leading tags and neutral
 /// elements).
 fn is_fully_inline_or_neutral(s: &State) -> bool {
-    if s.kind.is_fragment()
+    if let RealizationKind::Fragment { .. } = s.kind
         && !s.saw_parbreak
         && let [grouping] = s.groupings.as_slice()
         && std::ptr::eq(grouping.rule, &PAR)

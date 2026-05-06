@@ -119,7 +119,7 @@ fn realize_fragment<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<Vec<Pair<'a>>> {
     (engine.library.routines.realize)(
-        RealizationKind::HtmlFragment {
+        RealizationKind::Fragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,
         },

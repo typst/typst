@@ -159,7 +159,7 @@ fn html_document_common(
     info.populate_locale(styles);
 
     let children = (engine.library.routines.realize)(
-        RealizationKind::HtmlDocument { info: &mut info },
+        RealizationKind::Document { info: &mut info },
         &mut engine,
         &mut locator,
         &arenas,

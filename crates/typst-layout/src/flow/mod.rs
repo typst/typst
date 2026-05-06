@@ -145,7 +145,7 @@ fn layout_fragment_impl(
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
     let children = (engine.library.routines.realize)(
-        RealizationKind::LayoutFragment { kind: &mut kind },
+        RealizationKind::Fragment { kind: &mut kind },
         &mut engine,
         &mut locator,
         &arenas,

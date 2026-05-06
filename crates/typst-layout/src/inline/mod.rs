@@ -97,7 +97,7 @@ fn layout_par_impl(
 
     let arenas = Arenas::default();
     let children = (engine.library.routines.realize)(
-        RealizationKind::LayoutPar,
+        RealizationKind::Par,
         &mut engine,
         &mut locator,
         &arenas,
