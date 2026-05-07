@@ -140,7 +140,7 @@ fn handle(
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = converter.locator.next(&elem.span());
         let style = TargetElem::target.set(Target::Paged).wrap();
-        let frame = (converter.engine.routines.layout_frame)(
+        let frame = (converter.engine.library.routines.layout_frame)(
             converter.engine,
             &elem.body,
             locator,
@@ -436,16 +436,14 @@ fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
             property::Display::None
             | property::Display::Block
             | property::Display::Table
-            | property::Display::ListItem,
+            | property::Display::ListItem
+            | property::Display::Contents,
         ) => None,
 
         // These must be promoted to `block`.
-        None
-        | Some(
-            property::Display::Inline
-            | property::Display::InlineBlock
-            | property::Display::Contents,
-        ) => Some(property::Display::Block),
+        None | Some(property::Display::Inline | property::Display::InlineBlock) => {
+            Some(property::Display::Block)
+        }
 
         // These can't be promoted. They are instead wrapped in a `<div>`.
         _ => return Err(Unblockable),

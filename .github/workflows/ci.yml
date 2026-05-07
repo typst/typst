@@ -87,7 +87,7 @@ jobs:
           compression-level: 9
 
   checks:
-    name: Check clippy, formatting, and documentation
+    name: Check clippy, formatting, and crate docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -100,6 +100,16 @@ jobs:
       - run: cargo fmt --check --all
       - run: cargo doc --workspace --no-deps
       - run: git diff --exit-code
+
+  docs:
+    name: Check documentation (website and PDF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@f941e41d00837ee686f9d4575861485df1f7a655 # Rust 1.91.0
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+      - run: cargo docit compile --format website --deny-warnings
+      - run: cargo docit compile --format pdf --deny-warnings
 
   min-version:
     name: Check minimum Rust version

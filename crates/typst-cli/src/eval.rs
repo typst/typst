@@ -2,6 +2,7 @@ use comemo::Track;
 use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
 use typst::foundations::{Context, Output, Scope, StyleChain, Value};
+use typst::routines::SpanMode;
 use typst::syntax::{Span, SyntaxMode};
 use typst::{World, engine::Sink, introspection::Introspector};
 use typst_eval::eval_string;
@@ -84,14 +85,15 @@ fn evaluate_expression(
     world: &dyn World,
     introspector: &dyn Introspector,
 ) -> SourceResult<Value> {
+    let library = world.library();
     eval_string(
-        &typst::ROUTINES,
         world.track(),
+        library,
         sink.track_mut(),
         introspector.track(),
-        Context::new(None, Some(StyleChain::new(&world.library().styles))).track(),
+        Context::new(None, Some(StyleChain::new(&library.styles))).track(),
         &expression,
-        Span::detached(),
+        SpanMode::Uniform(Span::detached()),
         SyntaxMode::Code,
         Scope::default(),
     )

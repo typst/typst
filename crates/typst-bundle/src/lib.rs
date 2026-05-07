@@ -29,10 +29,10 @@ use typst_library::introspection::{
 use typst_library::model::{
     AssetElem, Document, DocumentElem, DocumentFormat, DocumentInfo, PagedFormat,
 };
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
-use typst_library::{Feature, World};
+use typst_library::routines::{Arenas, Pair, RealizationKind};
+use typst_library::{Feature, Library, World};
 use typst_syntax::VirtualPath;
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
 /// A collection of files resulting from compilation.
 ///
@@ -124,8 +124,8 @@ pub fn bundle(
     styles: StyleChain,
 ) -> SourceResult<Bundle> {
     bundle_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -139,8 +139,8 @@ pub fn bundle(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn bundle_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -151,7 +151,7 @@ fn bundle_impl(
     let introspector = Protected::from_raw(introspector);
     let mut locator = Locator::root().split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -165,7 +165,7 @@ fn bundle_impl(
     let styles = StyleChain::new(&styles);
 
     let arenas = Arenas::default();
-    let children = (engine.routines.realize)(
+    let children = (engine.library.routines.realize)(
         RealizationKind::Bundle,
         &mut engine,
         &mut locator,
@@ -318,7 +318,7 @@ fn compile_document<'a>(
             )
         }
         DocumentFormat::Html => {
-            if !engine.world.library().features.is_enabled(Feature::Html) {
+            if !engine.library.features.is_enabled(Feature::Html) {
                 bail!(
                     document.span(),
                     "html export is only available when the `html` feature is enabled";

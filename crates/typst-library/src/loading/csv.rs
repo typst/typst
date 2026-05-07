@@ -13,7 +13,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let results = csv("example.csv")
 ///
@@ -28,8 +28,8 @@ pub fn csv(
     engine: &mut Engine,
     /// A path to a CSV file or raw CSV bytes.
     source: Spanned<DataSource>,
-    /// The delimiter that separates columns in the CSV file.
-    /// Must be a single ASCII character.
+    /// The delimiter that separates columns in the CSV file. Must be a single
+    /// ASCII character.
     #[named]
     #[default]
     delimiter: Delimiter,
@@ -103,8 +103,8 @@ impl csv {
         engine: &mut Engine,
         /// CSV data.
         data: Spanned<Readable>,
-        /// The delimiter that separates columns in the CSV file.
-        /// Must be a single ASCII character.
+        /// The delimiter that separates columns in the CSV file. Must be a
+        /// single ASCII character.
         #[named]
         #[default]
         delimiter: Delimiter,

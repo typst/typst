@@ -7,7 +7,7 @@ a845db3f6f6d466d683136b703f44cf6 basic-table
 1e0f40cc69e2d5efa0590d9c17fec0a6 bibliography-no-title
 805860e9a2d6bc7f9e466517c058eeec block-block-html
 805860e9a2d6bc7f9e466517c058eeec block-box-html
-7e781b26371016fd463430fa3aead840 block-display-html
+2771d670b32a96e330e3db46aebd5f5b block-display-html
 ffa25d90e2baac1e02b03a60cae89720 block-html-block
 3c77f2f38c8f3fa6c90b1beb10c5d722 block-html-frame
 56e9ac9cf5876bc5ebbdd43b1a640a99 block-html-inline

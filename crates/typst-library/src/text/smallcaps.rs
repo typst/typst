@@ -2,13 +2,13 @@ use crate::foundations::{Content, elem};
 
 /// Displays text in small capitals.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Hello \
 /// #smallcaps[Hello]
 /// ```
 ///
-/// # Smallcaps fonts
+/// = Smallcaps fonts <smallcaps-fonts>
 /// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
 /// Not all fonts support these features. Sometimes, smallcaps are part of a
 /// dedicated font. This is, for example, the case for the _Latin Modern_ family
@@ -22,8 +22,8 @@ use crate::foundations::{Content, elem};
 /// In the future, this function will support synthesizing smallcaps from normal
 /// letters, but this is not yet implemented.
 ///
-/// # Smallcaps headings
-/// You can use a [show rule]($styling/#show-rules) to apply smallcaps
+/// = Smallcaps headings <smallcaps-headings>
+/// You can use a @reference:styling:show-rules[show rule] to apply smallcaps
 /// formatting to all your headings. In the example below, we also center-align
 /// our headings and disable the standard bold font.
 ///

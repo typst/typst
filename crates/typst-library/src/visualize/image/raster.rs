@@ -287,11 +287,11 @@ impl TryFrom<image::ImageFormat> for ExchangeFormat {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PixelFormat {
     /// The channel encoding.
-    encoding: PixelEncoding,
+    pub encoding: PixelEncoding,
     /// The pixel width.
-    width: u32,
+    pub width: u32,
     /// The pixel height.
-    height: u32,
+    pub height: u32,
 }
 
 /// Determines the channel encoding of raw pixel data.

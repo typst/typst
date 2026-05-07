@@ -268,7 +268,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
             let link = LocatorLink::measure(location, span);
-            let size = (engine.routines.layout_frame)(
+            let size = (engine.library.routines.layout_frame)(
                 engine,
                 &numbering,
                 Locator::link(&link),

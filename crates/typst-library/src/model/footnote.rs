@@ -26,12 +26,12 @@ use crate::visualize::{LineElem, Stroke};
 /// and can break across multiple pages.
 ///
 /// To customize the appearance of the entry in the footnote listing, see
-/// [`footnote.entry`]. The footnote itself is realized as a normal superscript,
-/// so you can use a set rule on the [`super`] function to customize it. You can
-/// also apply a show rule to customize only the footnote marker (superscript
-/// number) in the running text.
+/// @footnote.entry. The footnote itself is realized as a normal superscript, so
+/// you can use a set rule on the @super function to customize it. You can also
+/// apply a show rule to customize only the footnote marker (superscript number)
+/// in the running text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Check the docs for more details.
 /// #footnote[https://typst.app/docs]
@@ -39,7 +39,7 @@ use crate::visualize::{LineElem, Stroke};
 ///
 /// The footnote automatically attaches itself to the preceding word, even if
 /// there is a space before it in the markup. To force space, you can use the
-/// string `[#" "]` or explicit [horizontal spacing]($h).
+/// string `[#" "]` or explicit @h[horizontal spacing].
 ///
 /// By giving a label to a footnote, you can have multiple references to it.
 ///
@@ -51,23 +51,23 @@ use crate::visualize::{LineElem, Stroke};
 /// ```
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
-/// apply to the footnote's content. See [here][issue] for more information.
+/// apply to the footnote's content. See
+/// #link("https://github.com/typst/typst/issues/1467#issuecomment-1588799440")[here]
+/// for more information.
 ///
-/// # Accessibility
+/// = Accessibility <accessibility>
 /// Footnotes will be read by Assistive Technology (AT) immediately after the
 /// spot in the text where they are referenced, just like how they appear in
 /// markup.
-///
-/// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(scope, Locatable, Tagged, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes. Accepts a
-    /// [numbering pattern or function]($numbering) taking a single number.
+    /// @numbering[numbering pattern or function] taking a single number.
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
-    /// [counter] in the page [header]($page.header). In the future, there might
-    /// be a simpler way to achieve this.
+    /// @counter[counter] in the page @page.header[header]. In the future, there
+    /// might be a simpler way to achieve this.
     ///
     /// ```example
     /// #set footnote(numbering: "*")
@@ -214,8 +214,8 @@ cast! {
 /// before any page content, typically at the very start of the document.
 #[elem(name = "entry", title = "Footnote Entry", Locatable, Tagged, ShowSet)]
 pub struct FootnoteEntry {
-    /// The footnote for this entry. Its location can be used to determine
-    /// the footnote counter state.
+    /// The footnote for this entry. Its location can be used to determine the
+    /// footnote counter state.
     ///
     /// ```example
     /// #show footnote.entry: it => {

@@ -3,7 +3,7 @@ use crate::text::TextElem;
 
 /// Converts a string or content to lowercase.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #lower("ABC") \
 /// #lower[*My Text*] \
@@ -19,7 +19,7 @@ pub fn lower(
 
 /// Converts a string or content to uppercase.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #upper("abc") \
 /// #upper[*my text*] \
