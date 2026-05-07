@@ -40,6 +40,7 @@ pub fn layout_list(
     // Use the user's preferred vertical alignment. Among other things, it
     // avoids '#set align' interference with the list.
     let marker_align = elem.marker_align.get(styles);
+    let baseline_align = marker_align.y().is_none();
     let marker = elem
         .marker
         .get_ref(styles)
@@ -61,7 +62,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
-            marker_align.y().is_none(),
+            baseline_align,
             is_rtl,
         );
         items.push(item);
@@ -103,6 +104,7 @@ pub fn layout_enum(
     // alignment from the context and having the number be displaced in
     // relation to the item it refers to.
     let number_align = elem.number_align.get(styles);
+    let baseline_align = number_align.y().is_none();
 
     for item in &elem.children {
         number = item.number.get(styles).unwrap_or(number);
@@ -147,7 +149,7 @@ pub fn layout_enum(
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
-            number_align.y().is_none(),
+            baseline_align,
             is_rtl,
         );
         items.push(item);
@@ -159,6 +161,14 @@ pub fn layout_enum(
 }
 
 /// Layout list items.
+///
+/// This is done in 3 steps:
+///
+/// 1. Compute marker widths for horizontal marker alignment;
+/// 2. Generate list item layouters, each of which is responsible for vertical
+/// marker alignment (baseline-aligned or not, depending on user settings);
+/// 3. Pass each list item to the stack layouter, ensuring they expand to the
+/// full available width, allowing for center alignment within the item body.
 #[typst_macros::time(span = span)]
 fn layout_items(
     items: Vec<ItemData>,
@@ -199,23 +209,25 @@ fn layout_items(
         .with_spacing(Some(gutter.into()))
         .with_dir(typst_library::layout::Dir::TTB);
 
-    // TODO: is this locator invocation right?
     layout_stack(&Packed::new(stack), engine, locator.next(&()), styles, regions)
 }
 
 /// Structure with list item information. This should never be placed in practice.
+/// This is only an element (thus imposing restrictions on the accepted field
+/// types) so we can store this data within the `stack` children used to layout
+/// the list.
 #[elem]
 struct ItemData {
     /// List indent from the text start.
     #[required]
     indent: Length,
-    /// Body indent from the marker.
+    /// Indent between the marker and the body.
     #[required]
     body_indent: Length,
-    /// The marker.
+    /// The item marker.
     #[required]
     marker: Content,
-    /// The body.
+    /// The item body.
     #[required]
     body: Content,
     /// The width to give to the marker. This is the max width of all markers,
@@ -232,38 +244,39 @@ struct ItemData {
 }
 
 /// Layout the item.
-#[typst_macros::time(span = elem.span())]
+#[typst_macros::time(span = item.span())]
 fn layout_item(
-    elem: &Packed<ItemData>,
+    item: &Packed<ItemData>,
     engine: &mut Engine,
     locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let mut locator = locator.split();
     // Should only be absolute (cannot use Abs due to element definition
     // restrictions).
-    debug_assert!(elem.marker_size.em.get() == 0.0);
+    debug_assert!(item.marker_size.em.get() == 0.0);
+
+    let mut locator = locator.split();
+    let indent = item.indent.resolve(styles);
+    let body_indent = item.body_indent.resolve(styles);
     let mut marker = crate::layout_frame(
         engine,
-        &elem.marker,
-        locator.next(&elem.marker.span()),
+        &item.marker,
+        locator.next(&item.marker.span()),
         styles,
         Region::new(
-            Axes::new(elem.marker_size.abs, regions.base().y),
+            Axes::new(item.marker_size.abs, regions.base().y),
             Axes::new(true, false),
         ),
     )?;
-    let indent = elem.indent.resolve(styles);
-    let body_indent = elem.body_indent.resolve(styles);
     let marker_size = marker.size();
     let mut fragment = {
         let mut regions = regions;
         regions.size.x -= indent + body_indent + marker_size.x;
         crate::layout_fragment(
             engine,
-            &elem.body,
-            locator.next(&elem.body.span()),
+            &item.body,
+            locator.next(&item.body.span()),
             styles,
             regions,
         )?
@@ -273,8 +286,14 @@ fn layout_item(
     // region break).
     let mut first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
 
-    let diff = if elem.baseline_align {
-        if marker.has_baseline()
+    // Difference between marker and body baselines, for alignment. A positive
+    // diff means that the marker is above and must move down, whereas a
+    // negative diff means that the marker is below, so the body must be moved
+    // down instead.
+    let diff;
+
+    if item.baseline_align {
+        diff = if marker.has_baseline()
             && let Some(first) = fragment.as_slice().get(first_frame)
             && first.has_baseline()
         {
@@ -282,11 +301,11 @@ fn layout_item(
         } else {
             // One of the frames has no natural baseline, so baseline alignment is disabled.
             Abs::zero()
-        }
+        };
     } else {
         // Explicit marker alignment was chosen, so re-layout the marker with
         // the same height as the body's first frame so it may align itself
-        // vertically.
+        // vertically with the body.
         let mut regions = regions;
         if let Some(first) = fragment.as_slice().get(first_frame) {
             regions.size.y = first.height();
@@ -295,16 +314,17 @@ fn layout_item(
 
         marker = crate::layout_frame(
             engine,
-            &elem.marker,
-            locator.next(&elem.marker.span()),
+            &item.marker,
+            locator.next(&item.marker.span()),
             styles,
             Region::new(
-                Axes::new(elem.marker_size.abs, regions.base().y),
+                Axes::new(item.marker_size.abs, regions.base().y),
                 Axes::splat(true),
             ),
         )?;
 
-        Abs::zero()
+        // No baseline alignment whatsoever.
+        diff = Abs::zero();
     };
 
     let (marker_dy, body_dy) = if diff >= Abs::zero() {
@@ -325,8 +345,8 @@ fn layout_item(
         regions.size.y += diff;
         fragment = crate::layout_fragment(
             engine,
-            &elem.body,
-            locator.next(&elem.body.span()),
+            &item.body,
+            locator.next(&item.body.span()),
             styles,
             regions,
         )?;
@@ -335,6 +355,9 @@ fn layout_item(
         (Abs::zero(), -diff)
     };
 
+    // Collect the item's frames. Here, we add the marker to the first non-empty
+    // frame, and additionally indent the whole body so it appears after the
+    // marker.
     let mut frames = vec![];
     for (i, body_frame) in fragment.into_iter().enumerate() {
         let width = indent + body_indent + marker_size.x + body_frame.width();
@@ -343,9 +366,10 @@ fn layout_item(
             (marker_size.y + marker_dy).max(body_frame.height() + body_dy),
         ));
 
+        // Indent the body after the marker.
         let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
 
-        if elem.is_rtl {
+        if item.is_rtl {
             // In RTL cells expand to the left, thus the position must
             // additionally be offset by the cell's width.
             body_pos.x = width - (body_pos.x + body_frame.width());
@@ -354,7 +378,7 @@ fn layout_item(
         // Only place the marker on the first non-empty frame.
         if i == first_frame {
             let mut marker_pos = Point::new(indent, marker_dy);
-            if elem.is_rtl {
+            if item.is_rtl {
                 marker_pos.x = width - (marker_pos.x + marker_size.x);
             }
             frame.push_frame(marker_pos, marker.clone());
@@ -367,6 +391,8 @@ fn layout_item(
     Ok(Fragment::frames(frames))
 }
 
+/// Check whether the first frame is essentially empty (only contains tags).
+/// This usually indicates a forced region break, which we should ignore.
 fn should_skip_first_frame(fragment: &Fragment) -> bool {
     fragment.len() > 1
         && is_empty_frame(&fragment.as_slice()[0])
