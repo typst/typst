@@ -284,6 +284,7 @@ Very commonly, scientific papers have a single-column title and abstract, while 
   single: true,
   ```
   >>> #set page(height: 180pt)
+  >>> #show heading.where(level: 1): set text(size: 0.9em)
   #set page(columns: 2)
   #set par(justify: true)
 
@@ -291,12 +292,10 @@ Very commonly, scientific papers have a single-column title and abstract, while 
     top + center,
     float: true,
     scope: "parent",
-    text(1.4em, weight: "bold")[
-      Impacts of Odobenidae
-    ],
+    title[Impacts of Odobenidae],
   )
 
-  == About seals in the wild
+  = About seals in the wild
   #lorem(80)
   ```
 )
