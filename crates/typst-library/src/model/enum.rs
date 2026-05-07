@@ -81,6 +81,10 @@ pub struct EnumElem {
     /// line, this is set to `{false}`. The markup-defined tightness cannot be
     /// overridden with set rules.
     ///
+    /// Items of non-tight enumerations are considered paragraphs. See
+    /// @par:what-becomes-a-paragraph[the paragraph documentation] for more
+    /// details.
+    ///
     /// ```example
     /// + If an enum has a lot of text, and
     ///   maybe other inline content, it

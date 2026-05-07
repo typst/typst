@@ -55,6 +55,10 @@ pub struct ListElem {
     /// line, this is set to `{false}`. The markup-defined tightness cannot be
     /// overridden with set rules.
     ///
+    /// Items of non-tight lists are considered paragraphs. See
+    /// @par:what-becomes-a-paragraph[the paragraph documentation] for more
+    /// details.
+    ///
     /// ```example
     /// - If a list has a lot of text, and
     ///   maybe other inline content, it
