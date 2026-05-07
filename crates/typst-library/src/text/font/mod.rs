@@ -129,9 +129,9 @@ impl Font {
             .map(|units| self.to_em(units))
     }
 
-    /// Lookup a name by id.
-    pub fn find_name(&self, id: u16) -> Option<String> {
-        find_name(&self.0.ttf, id)
+    /// Determine the font's PostScript name.
+    pub fn post_script_name(&self) -> Option<String> {
+        find_name(&self.0.ttf, name_id::POST_SCRIPT_NAME)
     }
 
     /// A reference to the underlying `ttf-parser` face.
@@ -310,10 +310,8 @@ impl FontMetrics {
             .and_then(|id| ttf.glyph_hor_advance(id).map(|units| font.to_em(units)))
             .unwrap_or(typst_library::math::THICK);
 
-        let is_cambria = || {
-            font.find_name(name_id::POST_SCRIPT_NAME)
-                .is_some_and(|name| name == "CambriaMath")
-        };
+        let is_cambria =
+            || font.post_script_name().is_some_and(|name| name == "CambriaMath");
 
         Box::new(
             ttf.tables()

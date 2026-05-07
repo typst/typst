@@ -1,0 +1,34 @@
+[package]
+name = "typst-bundle"
+description = "Bundle exporter for Typst."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+
+[dependencies]
+typst-html = { workspace = true }
+typst-layout = { workspace = true }
+typst-library = { workspace = true }
+typst-macros = { workspace = true }
+typst-syntax = { workspace = true }
+typst-timing = { workspace = true }
+typst-utils = { workspace = true }
+typst-pdf = { workspace = true }
+typst-svg = { workspace = true }
+typst-render = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true }
+either = { workspace = true }
+indexmap = { workspace = true }
+rayon = { workspace = true }
+rustc-hash = { workspace = true }
+
+[lints]
+workspace = true

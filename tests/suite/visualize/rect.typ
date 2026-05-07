@@ -70,7 +70,7 @@
   left: (cap: "round", thickness: 5pt),
   top: (cap: "square", thickness: 7pt),
 ))
---- red-stroke-bad-type paged ---
+--- red-stroke-bad-type eval ---
 // Error: 15-21 expected length, color, gradient, tiling, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
 
@@ -99,7 +99,7 @@
   ..items,
 )
 
---- rect-radius-bad-key paged ---
+--- rect-radius-bad-key eval ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #rect(radius: (left: 10pt, cake: 5pt))
 
@@ -121,6 +121,20 @@
 #align(right, rect(width: -1cm, fill: gradient.linear(red, blue))[Reverse right])
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
+
+--- issue-7901-rect-negative-dimensions-radius paged ---
+#let rects = grid(columns: (7mm, 7mm, 7mm, 7mm), gutter: 5pt,
+  rect(), rect(width: -7mm), rect(height: -1cm), rect(width: -7mm, height: -1cm)
+)
+#set rect(fill: red, width: 7mm, height: 1cm, radius: 40%)
+#set align(center + horizon)
+#rects
+#set rect(stroke: black + 3pt)
+#rects
+#set rect(stroke: (left: black + 3pt, top: blue + 3pt, right: green + 3pt, bottom: yellow + 3pt))
+#rects
+#set rect(radius: 0pt)
+#rects
 
 --- rect-size-beyond-default paged ---
 // Test that setting a rectangle's height beyond its default sizes it correctly.

@@ -33,7 +33,7 @@ https://example.com/#(((nested))) \
 #[https://example.com/] \
 https://example.com/)
 
---- link-bracket-unbalanced-opening paged ---
+--- link-bracket-unbalanced-opening eval ---
 // Verify that opening brackets without closing brackets throw an error.
 // Error: 1-22 automatic links cannot contain unbalanced brackets, use the `link` function instead
 https://exam(ple.com/
@@ -65,6 +65,31 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 // Test link to label.
 Text <hey>
 #link(<hey>)[Go to text.]
+
+--- link-to-label-missing paged ---
+// Error: 2-20 label `<hey>` does not exist in the document
+#link(<hey>)[Nope.]
+
+--- link-to-label-duplicate paged ---
+Text <hey>
+Text <hey>
+// Error: 2-20 label `<hey>` occurs multiple times in the document
+#link(<hey>)[Nope.]
+
+--- link-empty-url eval ---
+// Error: 7-9 URL must not be empty
+#link("")[Empty]
+
+--- link-empty-block paged ---
+#link("https://example.com", block(height: 10pt, width: 100%))
+
+--- issue-758-link-repeat paged ---
+#let url = "https://typst.org/"
+#let body = [Hello #box(width: 1fr, repeat[.])]
+
+Inline: #link(url, body)
+
+#link(url, block(inset: 4pt, [Block: ] + body))
 
 --- link-html-id-attach html ---
 // Tests how IDs and, if necessary, spans, are added to the DOM to support
@@ -179,27 +204,117 @@ See #metadata(none) <t8>
 #html.frame[@intro]
 = Introduction <intro>
 
---- link-to-label-missing paged ---
-// Error: 2-20 label `<hey>` does not exist in the document
-#link(<hey>)[Nope.]
+--- link-bundle-to-doc bundle ---
+// Test directly linking to a different document in the bundle.
+#document("index.html")[
+  - #link(<index>)[To self] // Should be just `#`
+  - #link(<a>)[To A]
+  - #link(<b>)[To B]
+] <index>
+#document("content/a.html")[A] <a>
+#document("content/b.pdf")[B] <b>
 
---- link-to-label-duplicate paged ---
-Text <hey>
-Text <hey>
-// Error: 2-20 label `<hey>` occurs multiple times in the document
-#link(<hey>)[Nope.]
+--- link-bundle-to-asset bundle ---
+// Test directly linking to an asset in the bundle.
+#document("content/chapter.html", link(<data>)[To data])
+#asset("data.json", "[1, 2, 3]") <data>
 
---- link-empty-url paged ---
-// Error: 7-9 URL must not be empty
-#link("")[Empty]
+--- link-bundle-relative bundle ---
+// Test relative linking between and into files in the bundle.
+#document("index.html",                   link(<b>)[Into B]) <index>
+#document("nested/one/b.pdf", [= B <b>] + link(<c>)[Into C])
+#document("nested/two/c.svg", [= C <c>] + link(<d>)[Into D])
+#document("other/d.html",     [= D <d>] + link(<e>)[Into E])
+#document("other/e.html",     [= E <e>] + link(<index>)[Back])
 
---- link-empty-block paged ---
-#link("https://example.com", block(height: 10pt, width: 100%))
+--- link-bundle-label-disambiguation bundle ---
+// Tests automatic ID generation for labelled elements in bundles.
+// In particular, we test what happens if two elements have the same label
+// - in the same document
+// - in different documents
 
---- issue-758-link-repeat paged ---
-#let url = "https://typst.org/"
-#let body = [Hello #box(width: 1fr, repeat[.])]
+// A bit more spacing so that we can better see what's linked to.
+#set page(height: auto)
+#show heading: set block(spacing: 10cm)
 
-Inline: #link(url, body)
+#document("index.html", context {
+  query(heading)
+    .map(it => list.item(link(it.location(), [To #it.body])))
+    .join()
+})
+#document("x.html")[
+  = X1 <x> // Should be `id="x"`
+]
+#document("a.html")[
+  = Open   // Should be `id="loc-1"`
+  = X2 <x> // Should be `id="x"`
+  = A1 <a> // Should be `id="a-1"`
+  = A2 <a> // Should be `id="a-2"`
+  = Close  // Should be `id="loc-2"`
+]
+#document("b.pdf")[
+  = Open   // Should be `id="loc-1"`
+  = X3 <x> // Should be named destination `x`
+  = B1 <b> // Should be named destination `b-1`
+  = B2 <b> // Should be named destination `b-2`
+  = Close  // Should be `id="loc-2"`
+]
+#document("c.svg")[
+  = X4 <x> // Should be `id="x"`
+  = C1 <c> // Should be `id="c-1"`
+  = C2 <c> // Should be `id="c-2"`
+]
 
-#link(url, block(inset: 4pt, [Block: ] + body))
+// Not testing PNG since it does not support named destinations.
+
+--- link-bundle-html-frame bundle ---
+// Test combination of bundle and frame.
+#document("index.html")[
+  = Index <index>
+  #link(<frame>)[Into frame]
+]
+
+#document("folder/a.html")[
+  #html.frame[
+    #v(10pt)
+    = Frame <frame> // Link point should be at `translate(0 10)`
+    #link(<index>)[Into index]
+  ]
+]
+
+--- link-bundle-pdf-internal bundle ---
+// During normal PDF export, intradoc links typically use XYZ destinations.
+// However, due to the way anchors are auto-assigned for cross-links in bundle
+// export, they use `loc-1` style named destinations in bundle export. They work
+// just fine, but it's a bit unusual and might be worth changing in the future.
+//
+// To fix it, during anchor assignment, we'd have to keep track of whether a
+// link is actually a cross link and omit it (but only for PDF, SVG still needs
+// it).
+#document("main.pdf")[
+  = A
+  #context link(locate(heading))[To heading]
+] <pdf>
+
+--- link-bundle-html-a-show-rule bundle ---
+// Cross-links currently always use full relative paths. This is not always
+// desirable. In the future, there'll likely be better customization for this,
+// but in the meantime, this test ensures that it's possible to hack around this
+// using an `<a>` show rule.
+#show html.elem.where(tag: "a"): it => context {
+  let trimmed = it.attrs.href.trim("/index.html", at: end, repeat: false)
+  if trimmed.len() < it.attrs.href.len() {
+    html.a(href: trimmed, it.body)
+  } else {
+    it
+  }
+}
+
+#document("index.html")[
+  = Main
+  #link(<blog>)[To blog]
+] <home>
+
+#document("blog/index.html")[
+  #link(<home>)[To home]
+] <blog>

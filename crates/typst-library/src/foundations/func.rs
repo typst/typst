@@ -1,15 +1,17 @@
 #[doc(inline)]
 pub use typst_macros::func;
+use typst_syntax::ast::AstNode;
 
 use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, eco_format};
-use typst_syntax::{Span, SyntaxNode, ast};
-use typst_utils::{LazyHash, Static, singleton};
+use either::Either;
+use typst_syntax::{Span, Spanned, SyntaxNode, ast};
+use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
@@ -20,16 +22,16 @@ use crate::foundations::{
 ///
 /// You can call a function by writing a comma-separated list of function
 /// _arguments_ enclosed in parentheses directly after the function name.
-/// Additionally, you can pass any number of trailing content block arguments
-/// to a function _after_ the normal argument list. If the normal argument list
+/// Additionally, you can pass any number of trailing content block arguments to
+/// a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
 /// arguments. The former are identified by position and type, while the latter
 /// are written as `name: value`.
 ///
 /// Within math mode, function calls have special behaviour. See the
-/// [math documentation]($category/math) for more details.
+/// @math[math documentation] for more details.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// // Call a function.
 /// #list([A], [B])
@@ -46,43 +48,44 @@ use crate::foundations::{
 /// functions for a variety of typesetting tasks. Moreover, the markup you write
 /// is backed by functions and all styling happens through functions. This
 /// reference lists all available functions and how you can use them. Please
-/// also refer to the documentation about [set]($styling/#set-rules) and
-/// [show]($styling/#show-rules) rules to learn about additional ways you can
-/// work with functions in Typst.
+/// also refer to the documentation about @reference:styling:set-rules[set] and
+/// @reference:styling:show-rules[show] rules to learn about additional ways you
+/// can work with functions in Typst.
 ///
-/// # Element functions
-/// Some functions are associated with _elements_ like [headings]($heading) or
-/// [tables]($table). When called, these create an element of their respective
-/// kind. In contrast to normal functions, they can further be used in [set
-/// rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
-/// [selectors]($selector).
+/// = Element functions <element-functions>
+/// Some functions are associated with _elements_ like @heading[headings] or
+/// @table[tables]. When called, these create an element of their respective
+/// kind. In contrast to normal functions, they can further be used in
+/// @reference:styling:set-rules[set rules],
+/// @reference:styling:show-rules[show rules], and @selector[selectors].
 ///
-/// # Function scopes
+/// = Function scopes <function-scopes>
 /// Functions can hold related definitions in their own scope, similar to a
-/// [module]($scripting/#modules). Examples of this are [`assert.eq`] or
-/// [`list.item`]. However, this feature is currently only available for
-/// built-in functions.
+/// @reference:scripting:modules[module]. Examples of this are @assert.eq or
+/// @list.item. However, this feature is currently only available for built-in
+/// functions.
 ///
-/// # Defining functions
-/// You can define your own function with a [let binding]($scripting/#bindings)
-/// that has a parameter list after the binding's name. The parameter list can
-/// contain mandatory positional parameters, named parameters with default
-/// values and [argument sinks]($arguments).
+/// = Defining functions <defining-functions>
+/// You can define your own function with a
+/// @reference:scripting:bindings[let binding] that has a parameter list after
+/// the binding's name. The parameter list can contain mandatory positional
+/// parameters, named parameters with default values and
+/// @arguments[argument sinks].
 ///
 /// The right-hand side of a function binding is the function body, which can be
 /// a block or any other expression. It defines the function's return value and
-/// can depend on the parameters. If the function body is a [code
-/// block]($scripting/#blocks), the return value is the result of joining the
-/// values of each expression in the block.
+/// can depend on the parameters. If the function body is a
+/// @reference:scripting:blocks[code block], the return value is the result of
+/// joining the values of each expression in the block.
 ///
 /// Within a function body, the `return` keyword can be used to exit early and
 /// optionally specify a return value. If no explicit return value is given, the
 /// body evaluates to the result of joining all expressions preceding the
 /// `return`.
 ///
-/// Functions that don't return any meaningful value return [`none`] instead.
-/// The return type of such functions is not explicitly specified in the
-/// documentation. (An example of this is [`array.push`]).
+/// Functions that don't return any meaningful value return @none instead. The
+/// return type of such functions is not explicitly specified in the
+/// documentation. (An example of this is @array.push).
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
@@ -105,32 +108,33 @@ use crate::foundations::{
 /// ]
 /// ```
 ///
-/// # Importing functions
-/// Functions can be imported from one file ([`module`]($scripting/#modules)) into
-/// another using `{import}`. For example, assume that we have defined the `alert`
-/// function from the previous example in a file called `foo.typ`. We can import
-/// it into another file by writing `{import "foo.typ": alert}`.
+/// = Importing functions <importing-functions>
+/// Functions can be imported from one file
+/// (@reference:scripting:modules[`module`]) into another using `{import}`. For
+/// example, assume that we have defined the `alert` function from the previous
+/// example in a file called `foo.typ`. We can import it into another file by
+/// writing `{import "foo.typ": alert}`.
 ///
-/// # Unnamed functions { #unnamed }
+/// = #short-or-long[Unnamed][Unnamed functions] <unnamed>
 /// You can also create an unnamed function without creating a binding by
 /// specifying a parameter list followed by `=>` and the function body. If your
 /// function has just one parameter, the parentheses around the parameter list
 /// are optional. Unnamed functions are mainly useful for show rules, but also
 /// for settable properties that take functions like the page function's
-/// [`footer`]($page.footer) property.
+/// @page.footer[`footer`] property.
 ///
 /// ```example
 /// #show "once?": it => [#it #it]
 /// once?
 /// ```
 ///
-/// # Note on function purity
-/// In Typst, all functions are _pure._ This means that for the same
-/// arguments, they always return the same result. They cannot "remember" things to
-/// produce another value when they are called a second time.
+/// = Note on function purity <note-on-function-purity>
+/// In Typst, all functions are _pure._ This means that for the same arguments,
+/// they always return the same result. They cannot "remember" things to produce
+/// another value when they are called a second time.
 ///
 /// The only exception are built-in methods like
-/// [`array.push(value)`]($array.push). These can modify the values they are
+/// @array.push[`array.push(value)`]. These can modify the values they are
 /// called on.
 #[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
@@ -203,19 +207,28 @@ impl Func {
     }
 
     /// Get details about this function's parameters if available.
-    pub fn params(&self) -> Option<&'static [ParamInfo]> {
+    pub fn params(&self) -> impl Iterator<Item = ParamInfo> {
         match &self.inner {
-            FuncInner::Native(native) => Some(&native.0.params),
-            FuncInner::Element(elem) => Some(elem.params()),
-            FuncInner::Closure(_) => None,
-            FuncInner::Plugin(_) => None,
+            FuncInner::Native(native) => {
+                Either::Left(native.0.params.iter().map(ParamInfo::Native))
+            }
+            FuncInner::Element(elem) => {
+                Either::Left(elem.params().iter().map(ParamInfo::Native))
+            }
+            FuncInner::Closure(closure) => {
+                Either::Right(Either::Left(closure.params().map(ParamInfo::Closure)))
+            }
+            FuncInner::Plugin(_) => {
+                Either::Right(Either::Right([ParamInfo::Plugin].into_iter()))
+            }
+            // TODO: We could take into account the known arguments.
             FuncInner::With(with) => with.0.params(),
         }
     }
 
     /// Get the parameter info for a parameter with the given name if it exist.
-    pub fn param(&self, name: &str) -> Option<&'static ParamInfo> {
-        self.params()?.iter().find(|param| param.name == name)
+    pub fn param(&self, name: &str) -> Option<ParamInfo> {
+        self.params().find(|param| param.name() == Some(name))
     }
 
     /// Get details about the function's return type.
@@ -242,6 +255,17 @@ impl Func {
         }
     }
 
+    /// Where the function is defined in the Rust source code (only `Some(_)` if
+    /// it is native, and even then it can be `None` if the function is
+    /// generated, like the typed HTML API).
+    pub fn def_site(&self) -> Option<DefSite> {
+        match &self.inner {
+            FuncInner::Native(native) => native.def_site,
+            FuncInner::Element(elem) => Some(elem.def_site()),
+            _ => None,
+        }
+    }
+
     /// The function's associated scope of sub-definition.
     pub fn scope(&self) -> Option<&'static Scope> {
         match &self.inner {
@@ -257,7 +281,7 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
@@ -315,11 +339,11 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            FuncInner::Closure(closure) => (engine.routines.eval_closure)(
+            FuncInner::Closure(closure) => (engine.library.routines.eval_closure)(
                 self,
                 closure,
-                engine.routines,
                 engine.world,
+                engine.library,
                 engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
@@ -488,6 +512,100 @@ impl From<PluginFunc> for Func {
     }
 }
 
+/// Details about a function parameter.
+#[derive(Debug, Clone)]
+pub enum ParamInfo {
+    /// Details about a parameter of a native, Rust-defined function.
+    Native(&'static NativeParamInfo),
+    /// Details about a user-defined function.
+    Closure(Spanned<ClosureParamInfo>),
+    /// A plugin's sole variadic bytes parameter.
+    Plugin,
+}
+
+impl ParamInfo {
+    /// Attempts to cast to a native parameter info.
+    pub fn to_native(&self) -> Option<&'static NativeParamInfo> {
+        match self {
+            Self::Native(native) => Some(native),
+            _ => None,
+        }
+    }
+
+    /// The parameter's name, if any.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::Native(info) => Some(info.name),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Pos { name } => name.as_deref(),
+                ClosureParamInfo::Sink { name } => name.as_deref(),
+                ClosureParamInfo::Named { name, .. } => Some(name),
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// The parameter's default value, if any.
+    pub fn default(&self) -> Option<Value> {
+        match self {
+            Self::Native(info) => info.default.map(|f| f()),
+            Self::Closure(info) => match &info.v {
+                ClosureParamInfo::Named { default, .. } => Some(default.clone()),
+                _ => None,
+            },
+            Self::Plugin => None,
+        }
+    }
+
+    /// Whether the parameter is positional (includes variadic).
+    pub fn positional(&self) -> bool {
+        match self {
+            Self::Native(info) => info.positional,
+            Self::Closure(info) => matches!(
+                &info.v,
+                ClosureParamInfo::Pos { .. } | ClosureParamInfo::Sink { .. }
+            ),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is named.
+    pub fn named(&self) -> bool {
+        match self {
+            Self::Native(info) => info.named,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Named { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is variadic.
+    pub fn variadic(&self) -> bool {
+        match self {
+            Self::Native(info) => info.variadic,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Sink { .. }),
+            Self::Plugin => true,
+        }
+    }
+
+    /// Whether the parameter is required.
+    pub fn required(&self) -> bool {
+        match self {
+            Self::Native(info) => info.required,
+            Self::Closure(info) => matches!(&info.v, ClosureParamInfo::Pos { .. }),
+            Self::Plugin => false,
+        }
+    }
+
+    /// Whether the parameter is settable.
+    pub fn settable(&self) -> bool {
+        match self {
+            Self::Native(info) => info.settable,
+            Self::Closure(_) => false,
+            Self::Plugin => false,
+        }
+    }
+}
+
 /// A Typst function that is defined by a native Rust type that shadows a
 /// native Rust function.
 pub trait NativeFunc {
@@ -511,6 +629,8 @@ pub struct NativeFuncData {
     pub title: &'static str,
     /// The documentation for this function as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// A list of alternate search terms for this function.
     pub keywords: &'static [&'static str],
     /// Whether this function makes use of context.
@@ -518,7 +638,7 @@ pub struct NativeFuncData {
     /// Definitions in the scope of the function.
     pub scope: DynLazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: DynLazyLock<Vec<ParamInfo>>,
+    pub params: DynLazyLock<Vec<NativeParamInfo>>,
     /// Information about the return value of this function.
     pub returns: DynLazyLock<CastInfo>,
 }
@@ -552,11 +672,13 @@ type DynLazyLock<T> = LazyLock<T, &'static (dyn Fn() -> T + Send + Sync)>;
 
 /// Describes a function parameter.
 #[derive(Debug, Clone)]
-pub struct ParamInfo {
+pub struct NativeParamInfo {
     /// The parameter's name.
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
+    /// Where the parameter is defined in the source code.
+    pub def_site: Option<DefSite>,
     /// Describe what values this parameter accepts.
     pub input: CastInfo,
     /// Creates an instance of the parameter's default value.
@@ -609,9 +731,57 @@ impl Closure {
             _ => None,
         }
     }
+
+    /// Returns details about this closure's parameters.
+    pub fn params(&self) -> impl Iterator<Item = Spanned<ClosureParamInfo>> {
+        let params = match self.node {
+            ClosureNode::Closure(ref node) => Some(
+                node.cast::<ast::Closure>()
+                    .expect("node to be an `ast::Closure`")
+                    .params()
+                    .children(),
+            ),
+            ClosureNode::Context(_) => None,
+        };
+
+        let mut defaults = self.defaults.iter();
+        params.into_iter().flatten().map(move |param| {
+            let info = match param {
+                ast::Param::Pos(pattern) => ClosureParamInfo::Pos {
+                    name: match pattern {
+                        ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                            Some(ident.get().clone())
+                        }
+                        _ => None,
+                    },
+                },
+                ast::Param::Spread(spread) => ClosureParamInfo::Sink {
+                    name: spread.sink_ident().map(|ident| ident.get().clone()),
+                },
+                ast::Param::Named(named) => ClosureParamInfo::Named {
+                    name: named.name().get().clone(),
+                    default: defaults.next().unwrap().clone(),
+                },
+            };
+            Spanned::new(info, param.span())
+        })
+    }
 }
 
 cast! {
     Closure,
     self => Value::Func(self.into()),
+}
+
+/// Details about a closure parameter.
+#[derive(Debug, Clone)]
+pub enum ClosureParamInfo {
+    /// A positional parameter. It might have a name, but it could also be a
+    /// pattern.
+    Pos { name: Option<EcoString> },
+    /// A sink parameter. Might have a name, but could also just be a discarding
+    /// sink.
+    Sink { name: Option<EcoString> },
+    /// A named parameter with its name and default value.
+    Named { name: EcoString, default: Value },
 }

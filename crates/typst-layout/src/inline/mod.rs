@@ -12,7 +12,6 @@ pub use self::box_::layout_box;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
@@ -22,9 +21,10 @@ use typst_library::model::{
     EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
     ParLine, ParLineMarker, TermsElem,
 };
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::text::{Costs, Lang, TextElem};
-use typst_utils::{Numeric, Protected, SliceExt};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Numeric, Protected, SliceExt};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
@@ -52,8 +52,8 @@ pub fn layout_par(
 ) -> SourceResult<Fragment> {
     layout_par_impl(
         elem,
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -71,9 +71,9 @@ pub fn layout_par(
 #[allow(clippy::too_many_arguments)]
 fn layout_par_impl(
     elem: &Packed<ParElem>,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
+    library: &LazyHash<Library>,
+    introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -87,7 +87,7 @@ fn layout_par_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -96,8 +96,8 @@ fn layout_par_impl(
     };
 
     let arenas = Arenas::default();
-    let children = (engine.routines.realize)(
-        RealizationKind::LayoutPar,
+    let children = (engine.library.routines.realize)(
+        RealizationKind::Par,
         &mut engine,
         &mut locator,
         &arenas,
@@ -195,7 +195,8 @@ fn configuration(
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
         first_line_indent: {
-            let FirstLineIndent { amount, all } = base.first_line_indent;
+            let amount = base.first_line_indent.amount();
+            let all = base.first_line_indent.all();
             if !amount.is_zero()
                 && match situation {
                     // First-line indent for the first paragraph after a list
@@ -246,7 +247,9 @@ fn configuration(
 /// inline layout that isn't a semantic paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ParSituation {
-    /// The paragraph is the first thing in the flow.
+    /// The paragraph is the first child in the flow (i.e. in the container or
+    /// page run) or right after a column break. For such paragraphs, we may
+    /// want to avoid applying first line indent (depending on configuration).
     First,
     /// The paragraph follows another paragraph.
     Consecutive,

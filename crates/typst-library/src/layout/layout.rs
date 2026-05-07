@@ -7,10 +7,10 @@ use crate::introspection::Locatable;
 /// dimensions (width and height).
 ///
 /// Accepts a function that receives a single parameter, which is a dictionary
-/// with keys `width` and `height`, both of type [`length`]. The function is
-/// provided [context], meaning you don't need to use it in combination with the
-/// `context` keyword. This is why [`measure`] can be called in the example
-/// below.
+/// with keys `width` and `height`, both of type @length. The function is
+/// provided @reference:context[context], meaning you don't need to use it in
+/// combination with the `context` keyword. This is why @measure can be called
+/// in the example below.
 ///
 /// ```example
 /// #let text = lorem(30)
@@ -25,20 +25,20 @@ use crate::introspection::Locatable;
 /// ])
 /// ```
 ///
-/// Note that the `layout` function forces its contents into a [block]-level
-/// container, so placement relative to the page or pagebreaks are not possible
-/// within it.
+/// Note that the `layout` function forces its contents into a
+/// @block[block]-level container, so placement relative to the page or
+/// pagebreaks are not possible within it.
 ///
 /// If the `layout` call is placed inside a box with a width of `{800pt}` and a
 /// height of `{400pt}`, then the specified function will be given the argument
-/// `{(width: 800pt, height: 400pt)}`. If it is placed directly into the page, it
-/// receives the page's dimensions minus its margins. This is mostly useful in
-/// combination with [measurement]($measure).
+/// `{(width: 800pt, height: 400pt)}`. If it is placed directly into the page,
+/// it receives the page's dimensions minus its margins. This is mostly useful
+/// in combination with @measure[measurement].
 ///
 /// To retrieve the _remaining_ height of the page rather than its full size,
 /// you can wrap your `layout` call in a `{block(height: 1fr)}`. This works
 /// because the block automatically grows to fill the remaining space (see the
-/// [fraction] documentation for more details).
+/// @fraction[fraction] documentation for more details).
 ///
 /// ```example
 /// #set page(height: 150pt)
@@ -50,8 +50,8 @@ use crate::introspection::Locatable;
 /// ]))
 /// ```
 ///
-/// You can also use this function to resolve a [`ratio`] to a fixed length.
-/// This might come in handy if you're building your own layout abstractions.
+/// You can also use this function to resolve a @ratio to a fixed length. This
+/// might come in handy if you're building your own layout abstractions.
 ///
 /// ```example
 /// #layout(size => {
@@ -68,8 +68,8 @@ pub fn layout(
     /// A function to call with the outer container's size. Its return value is
     /// displayed in the document.
     ///
-    /// The container's size is given as a [dictionary] with the keys `width`
-    /// and `height`, both of type [`length`].
+    /// The container's size is given as a @dictionary[dictionary] with the keys
+    /// `width` and `height`, both of type @length.
     ///
     /// This function is called once for each time the content returned by
     /// `layout` appears in the document. This makes it possible to generate

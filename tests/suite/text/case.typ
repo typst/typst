@@ -1,6 +1,6 @@
 // Test the `upper` and `lower` functions.
 
---- lower-and-upper paged ---
+--- lower-and-upper eval ---
 #let memes = "ArE mEmEs gReAt?";
 #test(lower(memes), "are memes great?")
 #test(upper(memes), "ARE MEMES GREAT?")
@@ -18,6 +18,6 @@
 #lower[MY #html.strong[Lower] #symbol("A")] \
 #upper[my #html.strong[Upper] #symbol("a")] \
 
---- upper-bad-type paged ---
+--- upper-bad-type eval ---
 // Error: 8-9 expected string or content, found integer
 #upper(1)

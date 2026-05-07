@@ -103,6 +103,44 @@ A
   (page: 2, x: 10pt, y: 10pt),
 )
 
+--- locate-html html empty ---
+#metadata(none)
+// This is not optimal, it should probably rather error.
+#context test(
+  locate(metadata).position(),
+  (page: 1, x: 0pt, y: 0pt),
+)
+
+--- locate-bundle-top-level bundle ---
+#metadata(none)
+#document("index.html")[
+  // This is not optimal, it should probably rather error.
+  #context test(
+    locate(metadata).position(),
+    (page: 1, x: 0pt, y: 0pt),
+  )
+]
+
+--- locate-bundle-in-pdf bundle ---
+#context {
+  let loc = locate(<a>)
+  test(loc.page(), 2)
+  test(loc.position(), (page: 2, x: 10pt, y: 10pt))
+}
+
+#document("main.pdf")[
+  #pagebreak()
+  = Heading <a>
+]
+
+--- locate-bundle-duplicates bundle ---
+// Ensures that elements that are queried and then placed in another document
+// are still only observed once by queries. This tests how document
+// introspectors are combined into a bundle introspector.
+#context test(query(heading).len(), 1)
+#document("a.html", context query(<b>).first())
+#document("b.html")[= B <b>]
+
 --- issue-4029-locate-after-spacing paged ---
 #set page(margin: 10pt)
 #show heading: it => v(40pt) + it

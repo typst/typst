@@ -6,13 +6,13 @@ use crate::visualize::{Color, FixedStroke, Paint, Stroke};
 
 /// Underlines text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #underline[important].
 /// ```
 #[elem(Locatable, Tagged)]
 pub struct UnderlineElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -74,13 +74,13 @@ pub struct UnderlineElem {
 
 /// Adds a line over text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #overline[A line over text.]
 /// ```
 #[elem(Locatable, Tagged)]
 pub struct OverlineElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -148,13 +148,13 @@ pub struct OverlineElem {
 
 /// Strikes through text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
 #[elem(title = "Strikethrough", Locatable, Tagged)]
 pub struct StrikeElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -207,7 +207,7 @@ pub struct StrikeElem {
 
 /// Highlights text with a background color.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #highlight[important].
 /// ```
@@ -224,7 +224,7 @@ pub struct HighlightElem {
     pub fill: Option<Paint>,
 
     /// The highlight's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// @rect.stroke[rectangle's documentation] for more details.
     ///
     /// ```example
     /// This is a #highlight(
@@ -258,8 +258,8 @@ pub struct HighlightElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
     pub bottom_edge: BottomEdge,
 
-    /// The amount by which to extend the background to the sides beyond
-    /// (or within if negative) the content.
+    /// The amount by which to extend the background to the sides beyond (or
+    /// within if negative) the content.
     ///
     /// ```example
     /// A long #highlight(extent: 4pt)[background].
@@ -267,7 +267,7 @@ pub struct HighlightElem {
     pub extent: Length,
 
     /// How much to round the highlight's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// @rect.radius[rectangle's documentation] for more details.
     ///
     /// ```example
     /// Listen #highlight(

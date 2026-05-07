@@ -40,26 +40,27 @@ pub use crate::__select_where as select_where;
 /// A filter for selecting elements within the document.
 ///
 /// To construct a selector you can:
-/// - use an [element function]($function/#element-functions)
-/// - filter for an element function with [specific fields]($function.where)
-/// - use a [string]($str) or [regular expression]($regex)
-/// - use a [`{<label>}`]($label)
-/// - use a [`location`]
-/// - call the [`selector`] constructor to convert any of the above types into a
+/// - use an @function:element-functions[element function]
+/// - filter for an element function with @function.where[specific fields]
+/// - use a @str[string] or @regex[regular expression]
+/// - use a @label[`{<label>}`]
+/// - use a @location
+/// - call the @selector constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
 ///
-/// Selectors are used to [apply styling rules]($styling/#show-rules) to
-/// elements. You can also use selectors to [query] the document for certain
-/// types of elements.
+/// Selectors are used to @reference:styling:show-rules[apply styling rules] to
+/// elements. You can also use selectors to @query[query] the document for
+/// certain types of elements.
 ///
 /// Furthermore, you can pass a selector to several of Typst's built-in
-/// functions to configure their behaviour. One such example is the [outline]
-/// where it can be used to change which elements are listed within the outline.
+/// functions to configure their behaviour. One such example is the
+/// @outline[outline] where it can be used to change which elements are listed
+/// within the outline.
 ///
 /// Multiple selectors can be combined using the methods shown below. However,
 /// not all kinds of selectors are supported in all places, at the moment.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #context query(
 ///   heading.where(level: 1)
@@ -85,6 +86,8 @@ pub enum Selector {
     /// Matches text elements through a regular expression.
     Regex(Regex),
     /// Matches elements with a specific capability.
+    ///
+    /// This is not exposed, but used internally.
     Can(TypeId),
     /// Matches if any of the subselectors match.
     Or(EcoVec<Self>),
@@ -94,6 +97,10 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
+    /// Matches all matches of `selector` that are strictly within `ancestor`.
+    ///
+    /// This is not yet exposed, but used internally.
+    Within { selector: Arc<Self>, ancestor: Arc<Self> },
 }
 
 impl Selector {
@@ -140,7 +147,10 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
+            Self::Regex(_)
+            | Self::Before { .. }
+            | Self::After { .. }
+            | Self::Within { .. } => false,
         }
     }
 }
@@ -149,14 +159,15 @@ impl Selector {
 impl Selector {
     /// Turns a value into a selector. The following values are accepted:
     /// - An element function like a `heading` or `figure`.
-    /// - A [string]($str) or [regular expression]($regex).
+    /// - A @str[string] or @regex[regular expression].
     /// - A `{<label>}`.
-    /// - A [`location`].
+    /// - A @location.
     /// - A more complex selector like `{heading.where(level: 1)}`.
     #[func(constructor)]
     pub fn construct(
-        /// Can be an element function like a `heading` or `figure`, a `{<label>}`
-        /// or a more complex selector like `{heading.where(level: 1)}`.
+        /// Can be an element function like a `heading` or `figure`, a
+        /// `{<label>}` or a more complex selector like
+        /// `{heading.where(level: 1)}`.
         target: Selector,
     ) -> Selector {
         target
@@ -211,9 +222,8 @@ impl Selector {
         self,
         /// The original selection will start at the first match of `start`.
         start: LocatableSelector,
-        ///  Whether `start` itself should match or not. This is only relevant
-        ///  if both selectors match the same type of element. Defaults to
-        ///  `{true}`.
+        /// Whether `start` itself should match or not. This is only relevant if
+        /// both selectors match the same type of element. Defaults to `{true}`.
         #[named]
         #[default(true)]
         inclusive: bool,
@@ -272,6 +282,9 @@ impl Repr for Selector {
                     split.repr(),
                     inclusive_arg
                 )
+            }
+            Self::Within { selector, ancestor } => {
+                eco_format!("{}.within({})", selector.repr(), ancestor.repr(),)
             }
         }
     }
@@ -368,6 +381,11 @@ impl FromValue for LocatableSelector {
                         validate(selector)?;
                     }
                 }
+                Selector::Within { selector, ancestor } => {
+                    for selector in [selector, ancestor] {
+                        validate(selector)?;
+                    }
+                }
             }
             Ok(())
         }
@@ -442,7 +460,8 @@ impl FromValue for ShowableSelector {
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
-                | Selector::After { .. } => {
+                | Selector::After { .. }
+                | Selector::Within { .. } => {
                     bail!("this selector cannot be used with show")
                 }
             }

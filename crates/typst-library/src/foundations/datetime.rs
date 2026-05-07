@@ -18,9 +18,9 @@ use crate::foundations::{
 /// Represents a date, a time, or a combination of both.
 ///
 /// Can be created by either specifying a custom datetime using this type's
-/// constructor function or getting the current date with [`datetime.today`].
+/// constructor function or getting the current date with @datetime.today.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let date = datetime(
 ///   year: 2020,
@@ -45,8 +45,9 @@ use crate::foundations::{
 /// )
 /// ```
 ///
-/// # Datetime and Duration
-/// You can get a [duration] by subtracting two datetime:
+/// = Datetime and Duration <datetime-and-duration>
+/// You can get a @duration[duration] by subtracting two datetime:
+///
 /// ```example
 /// #let first-of-march = datetime(day: 1, month: 3, year: 2024)
 /// #let first-of-jan = datetime(day: 1, month: 1, year: 2024)
@@ -56,6 +57,7 @@ use crate::foundations::{
 ///
 /// You can also add/subtract a datetime and a duration to retrieve a new,
 /// offset datetime:
+///
 /// ```example
 /// #let date = datetime(day: 1, month: 3, year: 2024)
 /// #let two-days = duration(days: 2)
@@ -67,11 +69,11 @@ use crate::foundations::{
 /// #two-days-later.display()
 /// ```
 ///
-/// # Format
+/// = Format <format>
 /// You can specify a customized formatting using the
-/// [`display`]($datetime.display) method. The format of a datetime is
-/// specified by providing _components_ with a specified number of _modifiers_.
-/// A component represents a certain part of the datetime that you want to
+/// @datetime.display[`display`] method. The format of a datetime is specified
+/// by providing _components_ with a specified number of _modifiers_. A
+/// component represents a certain part of the datetime that you want to
 /// display, and with the help of modifiers you can define how you want to
 /// display that component. In order to display a component, you wrap the name
 /// of the component in square brackets (e.g. `[[year]]` will display the year).
@@ -83,6 +85,8 @@ use crate::foundations::{
 /// follows:
 ///
 /// - `year`: Displays the year of the datetime.
+///   - `base`: Can be either `calendar` or `iso_week`. Specifies whether the
+///     year is based on the Gregorian calendar or the ISO week number.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     year is padded.
 ///   - `repr` Can be either `full` in which case the full year is displayed or
@@ -103,8 +107,8 @@ use crate::foundations::{
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     week number is padded.
 ///   - `repr`: Can be either `ISO`, `sunday` or `monday`. In the case of `ISO`,
-///      week numbers are between 1 and 53, while the other ones are between 0
-///      and 53.
+///     week numbers are between 1 and 53, while the other ones are between 0
+///     and 53.
 /// - `weekday`: Displays the weekday of the date.
 ///   - `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case
 ///     of `long` and `short`, the corresponding English name will be displayed
@@ -127,6 +131,9 @@ use crate::foundations::{
 /// - `second`: Displays the second of the date.
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
+///
+/// #link("https://time-rs.github.io/book/api/format-description.html#components")[See here]
+/// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
 /// create a new datetime with `{datetime(year: 2023, month: 10, day: 13)}`, it
@@ -235,17 +242,17 @@ impl Datetime {
 impl Datetime {
     /// Creates a new datetime.
     ///
-    /// You can specify the [datetime] using a year, month, day, hour, minute,
-    /// and second.
+    /// You can specify the @datetime[datetime] using a year, month, day, hour,
+    /// minute, and second.
     ///
     /// _Note_: Depending on which components of the datetime you specify, Typst
     /// will store it in one of the following three ways:
-    /// * If you specify year, month and day, Typst will store just a date.
-    /// * If you specify hour, minute and second, Typst will store just a time.
-    /// * If you specify all of year, month, day, hour, minute and second, Typst
+    /// - If you specify year, month and day, Typst will store just a date.
+    /// - If you specify hour, minute and second, Typst will store just a time.
+    /// - If you specify all of year, month, day, hour, minute and second, Typst
     ///   will store a full datetime.
     ///
-    /// Depending on how it is stored, the [`display`]($datetime.display) method
+    /// Depending on how it is stored, the @datetime.display[`display`] method
     /// will choose a different formatting by default.
     ///
     /// ```example
@@ -351,7 +358,7 @@ impl Datetime {
     ///
     /// In the CLI, this can be overridden with the `--creation-timestamp`
     /// argument or by setting the
-    /// [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/)
+    /// #link("https://reproducible-builds.org/specs/source-date-epoch/")[`SOURCE_DATE_EPOCH`]
     /// environment variable. In both cases, the value should be given as a UNIX
     /// timestamp.
     ///
@@ -364,14 +371,15 @@ impl Datetime {
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
         /// offset will be the local offset.
+        ///
+        /// When an integer offset is given, it will be treated as a duration in
+        /// hours.
         #[named]
         #[default]
-        offset: Smart<i64>,
+        offset: Smart<TodayOffset>,
     ) -> StrResult<Datetime> {
-        Ok(engine
-            .world
-            .today(offset.custom())
-            .ok_or("unable to get the current date")?)
+        let offset = offset.custom().map(|v| v.0);
+        Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
     }
 
     /// Displays the datetime in a specified format.
@@ -382,7 +390,7 @@ impl Datetime {
     /// `[[hour]:[minute]:[second]]`. In the case of a datetime, it will be
     /// `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
     ///
-    /// See the [format syntax]($datetime/#format) for more information.
+    /// See the @datetime:format[format syntax] for more information.
     #[func]
     pub fn display(
         &self,
@@ -525,7 +533,13 @@ impl Add<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime + rhs),
-            Self::Date(date) => Self::Date(date + rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) + rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time + rhs),
         }
     }
@@ -538,7 +552,13 @@ impl Sub<Duration> for Datetime {
         let rhs: time::Duration = rhs.into();
         match self {
             Self::Datetime(datetime) => Self::Datetime(datetime - rhs),
-            Self::Date(date) => Self::Date(date - rhs),
+            Self::Date(date) => {
+                use time::Time;
+                match PrimitiveDateTime::new(date, Time::MIDNIGHT) - rhs {
+                    dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
+                    dt => Self::Datetime(dt),
+                }
+            }
             Self::Time(time) => Self::Time(time - rhs),
         }
     }
@@ -619,4 +639,14 @@ fn format_time_invalid_format_description_error(
         }
         err => eco_format!("failed to parse datetime format ({err})"),
     }
+}
+
+/// A duration which automatically converts integer values into hours.
+pub struct TodayOffset(Duration);
+
+cast! {
+    TodayOffset,
+    self => self.0.into_value(),
+    v: Duration => Self(v),
+    hours: i64 => Self(time::Duration::hours(hours).into()),
 }

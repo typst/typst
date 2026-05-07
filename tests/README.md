@@ -8,7 +8,7 @@ Top level directory structure:
            following `--- {name} {attr}+ ---`.
 - `ref`: References which the output is compared with to determine whether a
          test passed or failed.
-- `store`: Store for PNG, PDF, and SVG output files produced by the tests.
+- `store`: Store for live output files produced by the tests.
 
 ## Running the tests
 Running all tests (including unit tests):
@@ -60,6 +60,7 @@ and SVGs. To make them go faster while developing, you can pass the `--stages`
 flag to only run certain targets/outputs. The available stages are the following
 ones:
 
+- `eval`: Evaluate the source code. This is (document-) target agnostic.
 - `paged`: Compile the paged target and produce `render`, `pdf`, and `svg`
   outputs.
   - `render`: Produce `render` (`png`) output.
@@ -68,10 +69,61 @@ ones:
   - `svg` Produce `svg` output.
 - `html`: Compile the `html` target and produce `html` output.
 
-You can specify multiple pages, separated by commas:
+Here's a visual representation of the stage tree:
+
+```txt
+                 ╭─> render
+      ╭─> paged ─┼─> pdf ───> pdftags
+eval ─┤          ╰─> svg
+      ╰─> html  ───> html
+```
+
+You can specify multiple stages, separated by commas:
 ```bash
 cargo testit --stages html,pdftags
 ```
+
+### Test report
+When there are failing tests, by default, a self-contained HTML test report is
+generated and written to `tests/store/report.html`. This can be disabled using
+the `--no-report` flag, and to automatically open it, the `--open-report` flag
+can be passed.
+
+## Testing strategies
+There are currently two approaches to testing output in the test suite.
+
+### File references
+File references store the expected output directly inside the `ref` directory
+and are committed to this repository. Newly produced output is compared to the
+expected reference in order to determine if a test fails or passes.
+
+### Hashed references
+Hashed references only store a hash of the expected output inside a
+`ref/{format}/hashes.txt` file, which is committed to this repository. This is
+mainly done to prevent repository bloat; each hash takes up only 32 bytes of
+storage space, no matter how large the output file. When a test is run, its
+output is hashed using the same stable hash function and compared to the
+reference hash.
+
+This would be pretty unhelpful on its own, since a mismatched hash doesn't tell
+what exactly changed about the output, only that *something* changed. In order
+to make the output file corresponding to a reference hash available, the live
+output of hashed reference tests is stored inside the `store/by-hash` directory,
+qualified with its hash: `{hash}_{name}.{extension}`. For convenience, the test
+runner creates symlinks from `store/{format}/` to the files in `store/by-hash`.
+This allows manual inspection of the newly generated live output just like
+normal file references.
+
+Since the `store` directory is not committed to the repository, old live output
+could be absent, for example, after running `cargo testit clean` or when
+checking out the repository on another machine. When tests fail, and missing old
+live output is detected, the test wrapper will ask if it should generate it.
+This is done by checking out the git revision in which the reference hash was
+committed and rerunning the test suite. It can also be done manually by running
+`cargo testit regen`.
+
+To wrap things up, a [test report](#test-report) is generated that includes text
+and image diffs of failing tests.
 
 ## Writing tests
 The syntax for an individual test is `--- {name} {attr}+ ---` followed by some
@@ -82,57 +134,91 @@ specified. For instance, `--- my-test html ---` adds the `html` target to
 `my-test`, instructing the test runner to test HTML output. The following
 attributes are currently defined:
 
-- `paged`: Tests paged output against a reference image.
+- `eval`: Runs scripting tests that don't generate any output.
+- `paged`: Tests paged output: `render`, `pdf`, `svg`
 - `html`: Tests HTML output against a reference HTML file.
+- `pdf`: Tests the PDF output specifically. The `pdf` stage is currently the
+  only fallible output, due to tagged PDF.
 - `pdftags`: Tests the output of the PDF tag tree.
 - `pdfstandard({standard})`: Sets the PDF standard used for testing PDFs and the
   PDF tag tree.
 - `large`: Permits a reference image size exceeding 20 KiB. Should be used
   sparingly.
+- `empty`: Indicates that a test shouldn't produce any non-trivial output. If it
+  does anyway, it will fail.
 
 There are, broadly speaking, three kinds of tests:
 
-- Tests that just ensure that the code runs successfully: Those typically make
-  use of `test` or `assert.eq` (both are very similar, `test` is just shorter)
-  to ensure certain properties hold when executing the Typst code. Generic
-  scripting tests that don't depend on the target should use `paged` as the test
-  target.
+1. Tests that just ensure that some code **runs successfully**:
+    ```typ
+    --- example-eval-test eval ---
+    // Test that `range` produces a normal array.
+    #test(type(range(1)), array)
+    #test(range(3), (0, 1, 2))
+    #test(range(3) + (3,), (0, 1, 2, 3))
+    ```
 
-- Tests that ensure the code emits particular diagnostic messages: Those have
-  inline annotations like `// Error: 2-7 thing was wrong`. An annotation can
-  start with either "Error", "Warning", or "Hint". The range designates the
-  code span the diagnostic message refers to in the first non-comment line
-  below. If the code span is in a line further below, you can write ranges
-  like `3:2-3:7` to indicate the 2-7 column in the 3rd non-comment line.
+    These typically call `test` or `assert.eq` (both are very similar, `test` is
+    just shorter) to ensure certain properties hold when executing Typst code.
 
-- Tests that ensure certain output is produced:
+    Most of these tests can use the `eval` attribute because they just check for
+    generic scripting behavior without depending on the compiled output itself.
+    But if a test does rely on the evaluated content being compiled beyond just
+    evaluation, for example to test code in show-rules, then it should use the
+    `paged empty` or `html empty` attributes.
 
-  - Visual output: When a test has the `paged` attribute, the compiler produces
-    paged output, renders it with the `typst-render` crate, and compares it
-    against a reference image stored in the repository. The test runner
-    automatically detects whether a test has visual output and requires a
-    reference image in this case.
 
-    To prevent bloat, it is important that the test images are kept as small as
-    possible. To that effect, the test runner enforces a maximum size of 20 KiB.
-    If you're updating a test and hit `reference output size exceeds`, see the
-    section on "Updating reference images" below. If truly necessary, the size
-    limit can be lifted by adding a `large` attribute after the test name, but
-    this should be the case very rarely.
+2. Tests that ensure the code **emits a particular diagnostic message**:
+    ```typ
+    --- example-diagnostic-test eval ---
+    // Test that parentheses without commas don't make arrays.
+    // Error: 4-19 cannot add array and integer
+    #{ (0, 1, 2) + (3) }
+    ```
 
-  - HTML output: When a test has the `html` attribute, the compiler produces
-    HTML output and compares it against a reference file stored in the
-    repository.
+    These have inline annotations like `// Error: 2-7 thing was wrong`. An
+    annotation can start with either "Error", "Warning", or "Hint". The range
+    designates the code span the diagnostic message refers to in the _first
+    non-annotation line_ below. If the code span is in a line further below, you
+    can write ranges like `3:2-3:7` to indicate the 2-7 column in the 3rd
+    non-annotation line.
 
-  - PDF tags output: When a test has the `pdftags` attribute, the compiler
-    produces a human readable tag tree formatted as a YAML document and compares
-    it against a reference file stored in the repository.
+    Similarly to 1, these tests should have either the `eval` attribute or a
+    pair like `paged empty` or `html empty`.
+
+3. Tests that ensure certain **output is produced**:
+    ```typ
+    --- example-visual-test paged ---
+    // Test how array values are displayed as content.
+    #range(3)
+    ```
+
+    - **Visual output:** When a test has the `paged` attribute, the compiler
+      produces paged output, renders it with the `typst-render` crate, and
+      compares it against a reference image stored in the repository. The test
+      runner automatically detects whether a test has visual output and requires
+      a reference image in this case.
+
+      To prevent bloat, it is important that the test images are kept as small
+      as possible. To that effect, the test runner enforces a maximum size of 20
+      KiB. If you're updating a test and hit `reference output size exceeds`,
+      see the section on "Updating reference images" below. If truly necessary,
+      the size limit can be lifted by adding a `large` attribute after the test
+      name, but this should be the case very rarely.
+
+    - **HTML output:** When a test has the `html` attribute, the compiler
+      produces HTML output and compares it against a reference file stored in
+      the repository.
+
+    - **PDF tag output:** When a test has the `pdftags` attribute, the compiler
+      produces a human readable tag tree formatted as a YAML document and
+      compares it against a reference file stored in the repository.
 
 If you have the choice between writing a test using assertions or using
 reference images, prefer assertions. This makes the test easier to understand
 in isolation and prevents bloat due to images.
 
-## Updating reference images
+## Updating references
 If you created a new test or fixed a bug in an existing test, you may need to
 update the reference output used for comparison. For this, you can use the
 `--update` flag:

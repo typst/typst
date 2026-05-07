@@ -77,6 +77,197 @@ I'm a paragraph.
   So we are paragraphs.
 ]
 
+--- par-semantic-html-fully-inline html ---
+// No paragraphs because everything contained in the divs is fully inline.
+
+#html.div(html.span[A])
+#html.div({
+  [A ]
+  html.span[B]
+})
+#html.div({
+  html.span[A]
+  [ B]
+})
+#html.div({
+  html.span[A]
+  html.mark[B]
+})
+
+#html.div({
+  html.label[Text:]
+  [ ]
+  html.input(type: "text")
+})
+
+#html.div[Hello *there*]
+
+--- par-semantic-html-mixed html ---
+// Still no paragraphs because the divs contain a mix of inline and neutral
+// elements.
+
+#html.div({
+  [A]
+  html.div[B]
+})
+#html.div({
+  html.span[A]
+  html.div[B]
+})
+
+#html.div({
+  html.div[B]
+  [C]
+})
+#html.div({
+  html.div[B]
+  html.span[C]
+})
+
+#html.div({
+  [A]
+  html.div[B]
+  [C]
+})
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+})
+
+#html.div[
+  #html.h2[Heading]
+  A
+]
+
+--- par-semantic-html-mixed-tags html ---
+#html.div({
+  html.span()
+  html.div()
+  // Inline segment starts with a tag.
+  metadata(none)
+  html.span()
+  parbreak()
+})
+
+#html.div({
+  heading[A]
+  // Inline segment ends with a tag.
+  html.span()
+  metadata(none)
+  html.div()
+  html.div()
+})
+
+#html.div({
+  parbreak()
+  html.span()
+  html.div()
+  // Segment consists only of tags.
+  metadata(none)
+  html.div()
+  html.span()
+})
+
+--- par-semantic-html-parbreak html ---
+// Test that parbreaks force inline elements into paragraphs.
+
+#html.div({
+  [Hello ]
+  html.strong[there]
+  parbreak()
+})
+
+#html.div({
+  parbreak()
+  [A]
+})
+
+#html.div[
+  Hello *there*
+
+]
+
+#html.div[
+  #html.h2[Heading]
+  A
+
+  B
+]
+
+#html.div({
+  parbreak()
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+})
+
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+  parbreak()
+})
+
+--- par-semantic-html-blocky html ---
+// Test that elements with blocky show rules force neighbour inline elements
+// into paragraphs.
+
+#html.div({
+  heading[Heading]
+  [A]
+})
+
+#html.div[
+  = Heading
+  #html.span[A]
+]
+
+#html.div[
+  A
+  #figure[B]
+]
+
+#html.div[
+  A
+  #quote(block: true)[B]
+  C
+]
+
+#html.div({
+  html.span[A]
+  html.div[B]
+  html.span[C]
+  html.div[D]
+  html.span[E]
+  block[F]
+})
+
+#html.div({
+  block[A]
+  html.span[B]
+  html.div[C]
+  html.span[D]
+  html.div[E]
+  html.span[F]
+})
+
+--- par-semantic-html-top-level html ---
+A few _top-level_ *elements*.
+
+--- par-semantic-html-top-level-typed html ---
+A few
+#html.em[top-level]
+#html.strong[elements].
+
+--- par-semantic-metadata-elements html ---
+#html.script("...")
+#html.link(rel: "stylesheet", href: "...")
+
 --- par-semantic-tag paged ---
 #show par: highlight
 #block[
@@ -125,7 +316,7 @@ But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
---- par-spacing-context paged ---
+--- par-spacing-context paged empty ---
 #set par(spacing: 10pt)
 #context test(par.spacing, 10pt)
 
@@ -155,6 +346,52 @@ starts a paragraph, also with indent.
 دع النص يمطر عليك
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
+
+--- par-first-line-indent-folding paged empty ---
+#let check(expected) = context assert.eq(par.first-line-indent, expected)
+
+// To be intuitive, values from context should never contain `none`.
+#check((amount: 0pt, all: false))
+
+#set par(first-line-indent: 2em)
+#check((amount: 2em, all: false))
+
+#set par(first-line-indent: (all: true))
+#check((amount: 2em, all: true))
+
+/// The following two ways should be the same.
+#set par(first-line-indent: 7em)
+#check((amount: 7em, all: true))
+#set par(first-line-indent: (amount: 1em))
+#check((amount: 1em, all: true))
+
+#set par(first-line-indent: (all: false))
+#check((amount: 1em, all: false))
+
+#set par(first-line-indent: (amount: 8em, all: true))
+#check((amount: 8em, all: true))
+
+--- par-first-line-indent-forbid-all-none eval ---
+// Error: 29-53 expected boolean, found none
+#set par(first-line-indent: (amount: 2em, all: none))
+
+--- par-first-line-indent-forbid-amount-none eval ---
+// Error: 29-54 expected length, found none
+#set par(first-line-indent: (amount: none, all: true))
+
+--- par-first-line-indent-columns paged ---
+#set par(first-line-indent: (amount: 1em, all: false))
+
+A \ B
+
+C \ D
+
+#colbreak()
+
+// No first line indent after column break
+E \ F
+
+G \ H
 
 --- par-first-line-indent-all paged ---
 #set par(
@@ -255,7 +492,7 @@ Welcome \ here. Does this work well?
   World
 ]
 
---- par-empty-metadata paged ---
+--- par-empty-metadata paged empty ---
 // Check that metadata still works in a zero length paragraph.
 #block(height: 0pt)[#""#metadata(false)<hi>]
 #context test(query(<hi>).first().value, false)
@@ -317,7 +554,7 @@ A
 #set par(justify: true)
 #box($k in NN_0$)
 
---- issue-4770-par-tag-at-start paged ---
+--- issue-4770-par-tag-at-start paged empty ---
 #h(0pt) #box[] <a>
 
 #context test(query(<a>).len(), 1)
@@ -336,7 +573,7 @@ A
   The par function has a constructor and justification.
 ]
 
---- show-par-set-block-hint paged ---
+--- show-par-set-block-hint paged empty ---
 // Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
 // Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
 // Hint: 2-36 write `set par(spacing: ..)` instead

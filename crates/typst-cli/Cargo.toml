@@ -19,7 +19,9 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
+typst-bundle = { workspace = true }
 typst-eval = { workspace = true }
+typst-layout = { workspace = true }
 typst-html = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
@@ -40,8 +42,6 @@ open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
-rustc-hash = { workspace = true }
-same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }
 serde = { workspace = true }
@@ -51,23 +51,23 @@ shell-escape = { workspace = true }
 sigpipe = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
-tiny_http = { workspace = true, optional = true }
 toml = { workspace = true }
-ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
 [dependencies.typst-kit]
 workspace = true
 features = [
+    "bundle",
     "embedded-fonts",
     "scan-fonts",
     "system-packages",
     "universe-packages",
+    "datetime",
     "emit-diagnostics",
     "system-downloader",
     "watcher",
-    "server",
+    "timer",
 ]
 
 [dev-dependencies]
@@ -92,7 +92,7 @@ default = ["embedded-fonts", "http-server"]
 embedded-fonts = ["typst-kit/embedded-fonts"]
 
 # Enables the built-in HTTP server for `typst watch` and HTML export.
-http-server = ["dep:tiny_http"]
+http-server = ["typst-kit/http-server"]
 
 # Permits the CLI to update itself without a package manager.
 self-update = ["dep:self-replace", "dep:xz2", "dep:zip"]

@@ -1,4 +1,4 @@
---- repr paged ---
+--- repr eval ---
 #let t(a, b) = test(repr(a), b.text)
 
 // Literal values.

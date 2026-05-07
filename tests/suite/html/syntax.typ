@@ -146,6 +146,18 @@ A#"  "B#"   C"
 #html.pre("A  B")
 // -> <pre>A  B</pre>
 
+--- html-space-protection-replaced html ---
+A #html.input(type: "text")
+
+--- html-space-protection-br html ---
+A #html.br() B
+
+--- html-space-collapsing-mixed-flow html ---
+// Test that elements that have `display: block` by default
+// don't force space protection in a mixed flow.
+#block("A" + [ ] + html.div[B])
+#block(html.div[A] + [ ] + "B")
+
 --- html-pre-starting-with-newline html ---
 #html.pre("hello")
 #html.pre("\nhello")
@@ -188,13 +200,27 @@ A#"  "B#"   C"
   ```.text,
 )
 
---- html-raw-text-contains-elem html ---
-// Error: 14-32 HTML raw text element cannot have non-text children
+--- html-style-str html ---
+#html.style("body { --name: \"Typst\"; }")
+
+--- html-style-content eval ---
+// Error: 1:12-3:2 expected string, found content
+#html.style[
+  body { --name: "Typst"; }
+]
+
+--- html-untyped-style-content html ---
+#html.elem("style")[
+  body { --name: "Typst"; }
+]
+
+--- html-raw-text-contains-elem eval ---
+// Error: 14-32 expected string, found content
 #html.script(html.strong[Hello])
 
 --- html-raw-text-contains-frame html ---
-// Error: 14-31 HTML raw text element cannot have non-text children
-#html.script(html.frame[Hello])
+// Error: 22-39 HTML raw text element cannot have non-text children
+#html.elem("script", html.frame[Hello])
 
 --- html-raw-text-contains-closing-tag html ---
 // Error: 2-32 HTML raw text element cannot contain its own closing tag
@@ -214,8 +240,8 @@ A#"  "B#"   C"
 \u{fdd0}
 
 --- html-raw-text-non-char html ---
-// Error: 24-32 the character `"\u{fdd0}"` cannot be encoded in HTML
-#html.script[const x = \u{fdd0}]
+// Error: 14-34 the character `"\u{fdd0}"` cannot be encoded in HTML
+#html.script("const x = \u{fdd0}")
 
 --- html-escapable-raw-text-non-char html ---
 // Error: 23-31 the character `"\u{fdd0}"` cannot be encoded in HTML

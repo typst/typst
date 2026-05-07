@@ -339,9 +339,11 @@ mod exceptions {
 /// This is returned by [`PicoStr::resolve`].
 ///
 /// Dereferences to a `str`.
+#[derive(Copy, Clone)]
 pub struct ResolvedPicoStr(ResolvedPicoStrInner);
 
 /// The internal representation of a [`ResolvedPicoStr`].
+#[derive(Copy, Clone)]
 enum ResolvedPicoStrInner {
     Inline([u8; 12], u8),
     Static(&'static str),

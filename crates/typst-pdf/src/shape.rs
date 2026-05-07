@@ -36,7 +36,7 @@ pub(crate) fn handle_shape(
                 false,
                 &mut surface,
                 fc.state(),
-                shape.geometry.bbox_size(),
+                Some(shape),
             )?)
         } else {
             None
@@ -53,7 +53,7 @@ pub(crate) fn handle_shape(
                 false,
                 &mut surface,
                 fc.state(),
-                shape.geometry.bbox_size(),
+                Some(shape),
             )?;
 
             Some(stroke)

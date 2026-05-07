@@ -3,13 +3,13 @@ use crate::layout::Em;
 
 /// Displays text in small capitals.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Hello \
 /// #smallcaps[Hello]
 /// ```
 ///
-/// # Smallcaps fonts
+/// = Smallcaps fonts <smallcaps-fonts>
 /// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
 /// Not all fonts support these features. Sometimes, smallcaps are part of a
 /// dedicated font. This is, for example, the case for the _Latin Modern_ family
@@ -24,8 +24,8 @@ use crate::layout::Em;
 /// set to `{true}`, Typst will synthesize them by scaling down uppercase
 /// letters. You can also force synthesis by setting `typographic` to `{false}`.
 ///
-/// # Smallcaps headings
-/// You can use a [show rule]($styling/#show-rules) to apply smallcaps
+/// = Smallcaps headings <smallcaps-headings>
+/// You can use a @reference:styling:show-rules[show rule] to apply smallcaps
 /// formatting to all your headings. In the example below, we also center-align
 /// our headings and disable the standard bold font.
 ///

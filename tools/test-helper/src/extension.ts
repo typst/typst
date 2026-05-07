@@ -42,61 +42,61 @@ class TestHelper {
     this.context.subscriptions.push(
       vscode.languages.registerCodeLensProvider(
         { pattern: "**/*.typ" },
-        { provideCodeLenses: (document) => this.lens(document) }
-      )
+        { provideCodeLenses: (document) => this.lens(document) },
+      ),
     );
 
     // Triggered when clicking "View" in the lens.
     this.registerCommand("typst-test-helper.viewFromLens", (name, attrs) =>
-      this.viewFromLens(name, attrs)
+      this.viewFromLens(name, attrs),
     );
 
     // Triggered when clicking "Run" in the lens.
     this.registerCommand("typst-test-helper.runFromLens", (name, attrs) =>
-      this.runFromLens(name, attrs)
+      this.runFromLens(name, attrs),
     );
 
     // Triggered when clicking "Save" in the lens.
     this.registerCommand("typst-test-helper.saveFromLens", (name, attrs) =>
-      this.saveFromLens(name, attrs)
+      this.saveFromLens(name, attrs),
     );
 
     // Triggered when clicking "Terminal" in the lens.
     this.registerCommand("typst-test-helper.runInTerminal", (name) =>
-      this.runInTerminal(name)
+      this.runInTerminal(name),
     );
 
     // Triggered when clicking the "Refresh" button in the WebView toolbar.
     this.registerCommand("typst-test-helper.refreshFromPreview", () =>
-      this.refreshFromPreview()
+      this.refreshFromPreview(),
     );
 
     // Triggered when clicking the "Run" button in the WebView toolbar.
     this.registerCommand("typst-test-helper.runFromPreview", () =>
-      this.runFromPreview()
+      this.runFromPreview(),
     );
 
     // Triggered when clicking the "Save" button in the WebView toolbar.
     this.registerCommand("typst-test-helper.saveFromPreview", () =>
-      this.saveFromPreview()
+      this.saveFromPreview(),
     );
 
     // Triggered when clicking the "Increase Resolution" button in the WebView
     // toolbar.
     this.registerCommand("typst-test-helper.increaseResolution", () =>
-      this.adjustResolution(2.0)
+      this.adjustResolution(2.0),
     );
 
     // Triggered when clicking the "Decrease Resolution" button in the WebView
     // toolbar.
     this.registerCommand("typst-test-helper.decreaseResolution", () =>
-      this.adjustResolution(0.5)
+      this.adjustResolution(0.5),
     );
 
     // Triggered when performing a right-click on an image in the WebView.
     this.registerCommand(
-      "typst-test-helper.copyImageFilePathFromPreviewContext",
-      (e) => this.copyImageFilePathFromPreviewContext(e.webviewSection)
+      "typst-test-helper.copyFilePathFromPreviewContext",
+      (e) => this.copyFilePathFromPreviewContext(e.uri),
     );
 
     // Set's up the status bar item that shows a spinner while running a test.
@@ -105,7 +105,7 @@ class TestHelper {
 
     // Triggered when clicking on the status item.
     this.registerCommand("typst-test-helper.showTestProgress", () =>
-      this.showTestProgress()
+      this.showTestProgress(),
     );
 
     this.setRunButtonEnabled(true);
@@ -114,7 +114,7 @@ class TestHelper {
   // Register a command with VS Code.
   private registerCommand(id: string, callback: (...args: any[]) => any) {
     this.context.subscriptions.push(
-      vscode.commands.registerCommand(id, callback)
+      vscode.commands.registerCommand(id, callback),
     );
   }
 
@@ -156,7 +156,7 @@ class TestHelper {
           tooltip: "Run the test in the integrated terminal",
           command: "typst-test-helper.runInTerminal",
           arguments: [name],
-        })
+        }),
       );
     }
     return lenses;
@@ -181,7 +181,7 @@ class TestHelper {
         "typst-test-helper.preview",
         name,
         vscode.ViewColumn.Beside,
-        { enableFindWidget: true, enableScripts: true }
+        { enableFindWidget: true, enableScripts: true },
       );
 
       panel.onDidDispose(() => (this.opened = undefined));
@@ -298,13 +298,10 @@ class TestHelper {
   }
 
   // Triggered when performing a right-click on an image in the WebView.
-  private copyImageFilePathFromPreviewContext(webviewSection: string) {
+  private copyFilePathFromPreviewContext(uri: string) {
     if (!this.opened) return;
-    const { name } = this.opened;
-    const [bucket, format] = webviewSection.split("/");
-    vscode.env.clipboard.writeText(
-      getUri(name, bucket as Bucket, format as Format).fsPath
-    );
+    const path = uri.replace("file://", "");
+    vscode.env.clipboard.writeText(path);
   }
 
   // Reloads the web view.
@@ -316,7 +313,7 @@ class TestHelper {
     if (panel) {
       console.log(
         `Refreshing WebView for ${name}` +
-          (panel.visible ? " in background" : "")
+          (panel.visible ? " in background" : ""),
       );
 
       panel.webview.html = "";
@@ -330,7 +327,7 @@ class TestHelper {
           panel,
           name,
           attrs,
-          output
+          output,
         );
       }, 50);
     }
@@ -339,11 +336,11 @@ class TestHelper {
   // Creates an item for the bottom status bar.
   private createStatusItem(): vscode.StatusBarItem {
     const item = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right
+      vscode.StatusBarAlignment.Right,
     );
     item.text = "$(loading~spin) Running";
     item.backgroundColor = new vscode.ThemeColor(
-      "statusBarItem.warningBackground"
+      "statusBarItem.warningBackground",
     );
     item.tooltip =
       "test-helper rebuilds crates if necessary, so it may take some time.";
@@ -376,7 +373,7 @@ class TestHelper {
             }
             progress.report({ message: this.statusMessage });
           }, 100);
-        })
+        }),
     );
   }
 
@@ -385,7 +382,7 @@ class TestHelper {
     vscode.commands.executeCommand(
       "setContext",
       "typst-test-helper.runButtonEnabled",
-      enabled
+      enabled,
     );
   }
 }
@@ -401,19 +398,50 @@ type Bucket = "store" | "ref";
 enum Format {
   HTML = "html",
   RENDER = "render",
+  SVG = "svg",
+  PDF = "pdf",
   PDFTAGS = "pdftags",
 }
 
 const FORMAT_TO_FILE_EXTENSION = {
   [Format.HTML]: "html",
   [Format.RENDER]: "png",
+  [Format.SVG]: "svg",
+  [Format.PDF]: "pdf",
   [Format.PDFTAGS]: "yml",
 };
 
-function getUri(name: string, bucket: Bucket, format: Format) {
+function usesHashedRefs(format: Format): boolean {
+  return ["svg", "pdf"].includes(format);
+}
+
+async function getUri(name: string, bucket: Bucket, format: Format) {
   let ext = FORMAT_TO_FILE_EXTENSION[format];
-  let path = `tests/${bucket}/${format}/${name}.${ext}`;
+  let path;
+  if (bucket == "ref" && usesHashedRefs(format)) {
+    const hashedRefs = await readHashedRefs(format);
+    console.log(hashedRefs);
+    const hash = hashedRefs.get(name);
+    path = `tests/store/by-hash/${hash}_${name}.${ext}`;
+  } else {
+    path = `tests/${bucket}/${format}/${name}.${ext}`;
+  }
   return vscode.Uri.joinPath(getWorkspaceRoot(), path);
+}
+
+async function readHashedRefs(format: Format): Promise<Map<string, string>> {
+  let hashedRefsPath = `tests/ref/${format}/hashes.txt`;
+  let hashedRefsUri = vscode.Uri.joinPath(getWorkspaceRoot(), hashedRefsPath);
+  const data = await vscode.workspace.fs.readFile(hashedRefsUri);
+  const text = new TextDecoder("utf-8").decode(data);
+
+  let hashedRefs = new Map();
+  for (const [line, _] of (await shiki).splitLines(text)) {
+    const [hash, name] = line.split(" ");
+    hashedRefs.set(name, hash);
+  }
+
+  return hashedRefs;
 }
 
 // Produces the content of the WebView.
@@ -424,20 +452,20 @@ async function getWebviewContent(
   output?: {
     stdout: string;
     stderr: string;
-  }
+  },
 ): Promise<string> {
-  const showRender = attrs.includes("paged");
+  const showPaged = attrs.includes("paged");
   const showHtml = attrs.includes("html");
   const showPdftags = attrs.includes("pdftags");
 
   const stdout = output?.stdout
     ? `<h2>Standard output</h2><pre class="output">${escape(
-        output.stdout
+        output.stdout,
       )}</pre>`
     : "";
   const stderr = output?.stderr
     ? `<h2>Standard error</h2><pre class="output">${escape(
-        output.stderr
+        output.stderr,
       )}</pre>`
     : "";
 
@@ -544,7 +572,8 @@ async function getWebviewContent(
       </script>
     </head>
     <body>
-      ${showRender ? renderSection(panel, name) : ""}
+      ${showPaged ? await imageSection(panel, name, Format.RENDER) : ""}
+      ${showPaged ? await imageSection(panel, name, Format.SVG) : ""}
       ${showHtml ? await textSection(name, Format.HTML, htmlSnippet) : ""}
       ${
         showPdftags
@@ -557,28 +586,33 @@ async function getWebviewContent(
   </html>`;
 }
 
-function renderSection(panel: vscode.WebviewPanel, name: string) {
-  const outputUri = getUri(name, "store", Format.RENDER);
-  const refUri = getUri(name, "ref", Format.RENDER);
+async function imageSection(
+  panel: vscode.WebviewPanel,
+  name: string,
+  format: Format,
+) {
+  const liveUri = await getUri(name, "store", format);
+  const refUri = await getUri(name, "ref", format);
+  // TODO: proper capitalization of titles.
   return `<div
     class="flex"
     data-vscode-context='{"preventDefaultContextMenuItems": true}'
   >
     <div>
-      ${linkedTitle("Output", outputUri)}
+      ${linkedTitle(`${format} Output`, liveUri)}
       <img
         class="output"
-        data-vscode-context='{"bucket":"store", format: "render"}'
-        src="${panel.webview.asWebviewUri(outputUri)}"
+        data-vscode-context='{"uri": "${liveUri}"}'
+        src="${panel.webview.asWebviewUri(liveUri)}"
         alt="Placeholder"
       >
     </div>
 
     <div>
-      ${linkedTitle("Reference", refUri)}
+      ${linkedTitle(`${format} Reference`, refUri)}
       <img
         class="ref"
-        data-vscode-context='{"bucket":"ref", format: "render"}'
+        data-vscode-context='{"uri": "${refUri}"}'
         src="${panel.webview.asWebviewUri(refUri)}"
         alt="Placeholder"
       >
@@ -591,10 +625,13 @@ type ColumnSuffix = "Output" | "Reference";
 async function textSection(
   name: string,
   format: Format.HTML | Format.PDFTAGS,
-  makeSnippet: (suffix: ColumnSuffix, uri: vscode.Uri) => Promise<string>
+  makeSnippet: (suffix: ColumnSuffix, uri: vscode.Uri) => Promise<string>,
 ) {
-  const store = await makeSnippet("Output", getUri(name, "store", format));
-  const ref = await makeSnippet("Reference", getUri(name, "ref", format));
+  const store = await makeSnippet(
+    "Output",
+    await getUri(name, "store", format),
+  );
+  const ref = await makeSnippet("Reference", await getUri(name, "ref", format));
   return `<div
     class="flex vertical"
     data-vscode-context='{"preventDefaultContextMenuItems": true}'
@@ -606,13 +643,13 @@ async function textSection(
 
 async function htmlSnippet(
   suffix: ColumnSuffix,
-  uri: vscode.Uri
+  uri: vscode.Uri,
 ): Promise<string> {
   const title = `HTML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
     const code = new TextDecoder("utf-8").decode(data);
-    return `<div>
+    return `<div data-vscode-context='{"uri": "${uri}"}'>
       ${linkedTitle(title, uri)}
       <div class="top-bottom">
         ${await highlight(code, "html")}
@@ -626,13 +663,13 @@ async function htmlSnippet(
 
 async function pdftagsSnippet(
   suffix: ColumnSuffix,
-  uri: vscode.Uri
+  uri: vscode.Uri,
 ): Promise<string> {
   const title = `PdfTags YAML ${suffix}`;
   try {
     const data = await vscode.workspace.fs.readFile(uri);
     const code = new TextDecoder("utf-8").decode(data);
-    return `<div>
+    return `<div data-vscode-context='{"uri": "${uri}"}'>
       ${linkedTitle(title, uri)}
       <div class="top-bottom">
         ${await highlight(code, "yml")}

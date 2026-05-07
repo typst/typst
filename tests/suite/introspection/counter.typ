@@ -15,7 +15,7 @@ Second: #context mine.display("I")
 #mine.update(n => n * 2)
 #mine.step()
 
---- counter-basic-2 paged ---
+--- counter-basic-2 paged empty ---
 // Test `counter`.
 #let c = counter("heading")
 #c.update(2)
@@ -101,6 +101,64 @@ B
 // Footer should be affected by default.
 #set page(numbering: "1 / 1", margin: (bottom: 20pt))
 #counter(page).update(5)
+
+--- counter-page-bundle bundle ---
+#set page(
+  numbering: "1/1",
+  number-align: center,
+  header: align(center, context counter(page).display("1/1", both: true)),
+)
+
+#document("a.pdf")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (5,))
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).get(), (3,))
+  = A <a>
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).final(), (5,))
+]
+
+#document("b.pdf")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (7,))
+  #pagebreak()
+  B1 <b1>
+  #counter(page).update(4)
+  B2 <b2>
+  #counter(page).step()
+  #context test(counter(page).get(), (5,))
+  #pagebreak()
+  #pagebreak()
+  #context test(counter(page).final(), (7,))
+]
+
+// We might want to forbid this, see `counter-page-html`.
+#document("c.html")[
+  #context test(counter(page).get(), (1,))
+  #context test(counter(page).final(), (1,))
+]
+
+// Can access the page counter at a location even from the top-level bundle.
+#context {
+  test(counter(page).at(<a>), (3,))
+  test(counter(page).at(<b1>), (2,))
+  test(counter(page).at(<b2>), (4,))
+}
+
+--- counter-page-html html empty ---
+// We might want to forbid using the page counter in HTML.
+#context test(counter(page).get(), (1,))
+#counter(page).step()
+#context test(counter(page).get(), (2,))
+
+--- counter-page-bundle-top-level bundle empty ---
+// We might want to forbid using the page counter at the top level.
+#context test(counter(page).get(), (1,))
+#counter(page).step()
+#context test(counter(page).get(), (2,))
 
 --- counter-display-at paged ---
 // Test displaying counter at a given location.
@@ -195,7 +253,7 @@ $ 1 + 2 $ <eq>
 #counter(figure.where(kind: image)).update(n => n + 3)
 #figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]
 
---- counter-at-no-context paged ---
+--- counter-at-no-context eval ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
 // Hint: 2-28 try wrapping this in a `context` expression
@@ -230,7 +288,7 @@ $ 1 + 2 $ <eq>
 #block(foo())
 #foo()
 
---- issue-4626-counter-depth-skip paged ---
+--- issue-4626-counter-depth-skip paged empty ---
 // When we step and skip a level, the levels should be filled with zeros, not
 // with ones.
 #let c = counter("c")
@@ -242,7 +300,7 @@ $ 1 + 2 $ <eq>
 #c.step(level: 3)
 #context test(c.get(), (1, 0, 1))
 
---- counter-huge paged ---
+--- counter-huge paged empty ---
 // Test values greater than 32-bits
 #let c = counter("c")
 #c.update(100000000001)

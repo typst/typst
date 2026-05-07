@@ -1,4 +1,4 @@
-use kurbo::ParamCurveExtrema;
+use kurbo::Shape as _;
 use typst_macros::{Cast, scope};
 use typst_utils::Numeric;
 
@@ -28,7 +28,7 @@ use super::FixedStroke;
 /// Bézier curve control points can be skipped by passing `{none}` or
 /// automatically mirrored from the preceding segment by passing `{auto}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #curve(
 ///   fill: blue.lighten(80%),
@@ -69,10 +69,10 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve.
+    /// How to @stroke[stroke] the curve.
     ///
-    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and only if no fill is given.
+    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a stroke
+    /// of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)
@@ -286,7 +286,8 @@ pub struct CurveCubic {
     ///
     /// - If `{auto}` and this element follows another `curve.cubic` element,
     ///   the last control point will be mirrored. In SVG terms, this makes
-    ///   `curve.cubic` behave like the `S` operator instead of the `C` operator.
+    ///   `curve.cubic` behave like the `S` operator instead of the `C`
+    ///   operator.
     ///
     /// - If `{none}`, the curve has no first control point, or equivalently,
     ///   the control point defaults to the curve's starting point.
@@ -475,46 +476,17 @@ impl Curve {
     }
 
     /// Computes the bounding box of this curve.
-    pub fn bbox(&self) -> Rect {
-        let mut min = Point::splat(Abs::inf());
-        let mut max = Point::splat(-Abs::inf());
+    pub fn bbox(&self, stroke: Option<&FixedStroke>) -> Rect {
+        let bbox = if let Some(stroke) = stroke {
+            self.to_kurbo_stroke(stroke).bounding_box()
+        } else {
+            kurbo::BezPath::from_vec(self.to_kurbo().collect()).bounding_box()
+        };
 
-        let mut cursor = Point::zero();
-        for item in self.0.iter() {
-            match item {
-                CurveItem::Move(to) => {
-                    cursor = *to;
-                }
-                CurveItem::Line(to) => {
-                    min = min.min(cursor).min(*to);
-                    max = max.max(cursor).max(*to);
-                    cursor = *to;
-                }
-                CurveItem::Cubic(c0, c1, end) => {
-                    let cubic = kurbo::CubicBez::new(
-                        kurbo::Point::new(cursor.x.to_pt(), cursor.y.to_pt()),
-                        kurbo::Point::new(c0.x.to_pt(), c0.y.to_pt()),
-                        kurbo::Point::new(c1.x.to_pt(), c1.y.to_pt()),
-                        kurbo::Point::new(end.x.to_pt(), end.y.to_pt()),
-                    );
-
-                    let bbox = cubic.bounding_box();
-                    min.x = min.x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
-                    min.y = min.y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
-                    max.x = max.x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
-                    max.y = max.y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
-                    cursor = *end;
-                }
-                CurveItem::Close => (),
-            }
-        }
-
-        Rect::new(min, max)
-    }
-
-    /// Computes the size of the bounding box of this curve.
-    pub fn bbox_size(&self) -> Size {
-        self.bbox().size()
+        Rect::new(
+            Point::new(Abs::raw(bbox.x0), Abs::raw(bbox.y0)),
+            Point::new(Abs::raw(bbox.x1), Abs::raw(bbox.y1)),
+        )
     }
 }
 
@@ -547,6 +519,10 @@ impl Curve {
     /// When this curve is stroked with `stroke`, would the stroke contain
     /// `point`?
     pub fn stroke_contains(&self, stroke: &FixedStroke, needle: Point) -> bool {
+        kurbo::Shape::contains(&self.to_kurbo_stroke(stroke), point_to_kurbo(needle))
+    }
+
+    fn to_kurbo_stroke(&self, stroke: &FixedStroke) -> kurbo::BezPath {
         let width = stroke.thickness.to_raw();
         let cap = match stroke.cap {
             super::LineCap::Butt => kurbo::Cap::Butt,
@@ -571,8 +547,7 @@ impl Curve {
         }
         let opts = kurbo::StrokeOpts::default();
         let tolerance = 0.01;
-        let expanded = kurbo::stroke(self.to_kurbo(), &style, &opts, tolerance);
-        kurbo::Shape::contains(&expanded, point_to_kurbo(needle))
+        kurbo::stroke(self.to_kurbo(), &style, &opts, tolerance)
     }
 }
 

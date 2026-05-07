@@ -31,6 +31,8 @@ pub enum Tag {
     MathDelimiter,
     /// An operator with special meaning in an equation.
     MathOperator,
+    /// Parentheses used for grouping in an equation.
+    MathGroupingParens,
     /// A keyword.
     Keyword,
     /// An operator in code.
@@ -66,6 +68,7 @@ impl Tag {
         Self::ListTerm,
         Self::MathDelimiter,
         Self::MathOperator,
+        Self::MathGroupingParens,
         Self::Keyword,
         Self::Operator,
         Self::Number,
@@ -88,6 +91,7 @@ impl Tag {
             Self::Raw => "markup.raw.typst",
             Self::MathDelimiter => "punctuation.definition.math.typst",
             Self::MathOperator => "keyword.operator.math.typst",
+            Self::MathGroupingParens => "punctuation.math.typst",
             Self::Heading => "markup.heading.typst",
             Self::ListMarker => "punctuation.definition.list.typst",
             Self::ListTerm => "markup.list.term.typst",
@@ -120,6 +124,7 @@ impl Tag {
             Self::ListTerm => "typ-term",
             Self::MathDelimiter => "typ-math-delim",
             Self::MathOperator => "typ-math-op",
+            Self::MathGroupingParens => "typ-math-group",
             Self::Keyword => "typ-key",
             Self::Operator => "typ-op",
             Self::Number => "typ-num",
@@ -173,8 +178,11 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Math => None,
         SyntaxKind::MathText => None,
         SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathFieldAccess => None,
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
+        SyntaxKind::MathCall => None,
+        SyntaxKind::MathArgs => None,
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
@@ -186,8 +194,14 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::RightBrace => Some(Tag::Punctuation),
         SyntaxKind::LeftBracket => Some(Tag::Punctuation),
         SyntaxKind::RightBracket => Some(Tag::Punctuation),
-        SyntaxKind::LeftParen => Some(Tag::Punctuation),
-        SyntaxKind::RightParen => Some(Tag::Punctuation),
+        SyntaxKind::LeftParen => match node.parent_kind() {
+            Some(SyntaxKind::Math) => Some(Tag::MathGroupingParens),
+            _ => Some(Tag::Punctuation),
+        },
+        SyntaxKind::RightParen => match node.parent_kind() {
+            Some(SyntaxKind::Math) => Some(Tag::MathGroupingParens),
+            _ => Some(Tag::Punctuation),
+        },
         SyntaxKind::Comma => Some(Tag::Punctuation),
         SyntaxKind::Semicolon => Some(Tag::Punctuation),
         SyntaxKind::Colon => Some(Tag::Punctuation),
@@ -302,16 +316,24 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf
         && node.range().end == next.offset()
-        && ((next.kind() == SyntaxKind::LeftParen
-            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params)))
-            || (next.kind() == SyntaxKind::LeftBracket
-                && next.parent_kind() == Some(SyntaxKind::ContentBlock)))
+        && ((
+            // Either at a paren, followed by arguments...
+            next.kind() == SyntaxKind::LeftParen
+                && matches!(
+                    next.parent_kind(),
+                    Some(SyntaxKind::Args | SyntaxKind::MathArgs | SyntaxKind::Params)
+                )
+        ) || (
+            // ...or at a bracket, followed by content
+            next.kind() == SyntaxKind::LeftBracket
+                && next.parent_kind() == Some(SyntaxKind::ContentBlock)
+        ))
     {
         return Some(Tag::Function);
     }
 
     // Are we in math?
-    if node.kind() == SyntaxKind::MathIdent {
+    if matches!(node.kind(), SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess) {
         return Some(Tag::Interpolated);
     }
 

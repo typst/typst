@@ -25,7 +25,7 @@ Hi #box(pad(left: 10pt)[A]) there
 #pad(10pt, image("/assets/images/tiger.jpg"))
 #align(right)[After]
 
---- pad-adding-to-100-percent paged ---
+--- pad-adding-to-100-percent paged empty ---
 // Test that padding adding up to 100% does not panic.
 #pad(50%)[]
 

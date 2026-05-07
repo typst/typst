@@ -25,12 +25,12 @@ let f() , ; : | + - /= == 12 "string"
 // Escaped dot.
 10\. May
 
---- escape-invalid-codepoint paged ---
+--- escape-invalid-codepoint eval ---
 // Unicode codepoint does not exist.
 // Error: 1-11 invalid Unicode codepoint: FFFFFF
 \u{FFFFFF}
 
---- escape-unclosed paged ---
+--- escape-unclosed eval ---
 // Unterminated.
 // Error: 1-6 unclosed Unicode escape sequence
 \u{41[*Bold*]

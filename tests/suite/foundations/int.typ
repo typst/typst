@@ -1,18 +1,18 @@
---- int-base-alternative paged ---
+--- int-base-alternative eval ---
 // Test numbers with alternative bases.
 #test(0x10, 16)
 #test(0b1101, 13)
 #test(0xA + 0xa, 0x14)
 
---- int-base-binary-invalid paged ---
+--- int-base-binary-invalid eval ---
 // Error: 2-7 invalid binary number: 0b123
 #0b123
 
---- int-base-hex-invalid paged ---
+--- int-base-hex-invalid eval ---
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
 
---- int-constructor paged ---
+--- int-constructor eval ---
 // Test conversion to numbers.
 #test(int(false), 0)
 #test(int(true), 1)
@@ -32,67 +32,67 @@
 #test(int(decimal("92492.193848921")), 92492)
 #test(int(decimal("-224.342211")), -224)
 
---- int-constructor-bad-type paged ---
+--- int-constructor-bad-type eval ---
 // Error: 6-10 expected integer, boolean, float, decimal, or string, found length
 #int(10pt)
 
---- int-constructor-str-empty paged ---
+--- int-constructor-str-empty eval ---
 // Error: 6-8 string must not be empty
 #int("")
 
---- int-constructor-str-empty-based paged ---
+--- int-constructor-str-empty-based eval ---
 // Error: 6-8 string must not be empty
 #int("", base: 16)
 
---- int-constructor-bad-value paged ---
+--- int-constructor-bad-value eval ---
 // Error: 6-12 string contains invalid digits
 #int("nope")
 
---- int-constructor-bad-value-based paged ---
+--- int-constructor-bad-value-based eval ---
 // Error: 6-11 string contains invalid digits for a base 3 integer
 #int("123", base: 3)
 
---- int-constructor-base-with-non-string paged ---
+--- int-constructor-base-with-non-string eval ---
 // Error: 16-18 base is only supported for strings
 #int(40, base: 16)
 
---- int-constructor-str-small-base paged ---
+--- int-constructor-str-small-base eval ---
 // Error: 17-18 base must be between 2 and 36
 #int("0", base: 1)
 
---- int-constructor-str-large-base paged ---
+--- int-constructor-str-large-base eval ---
 // Error: 17-19 base must be between 2 and 36
 #int("0", base: 42)
 
---- int-constructor-str-too-large paged ---
+--- int-constructor-str-too-large eval ---
 // Error: 6-27 integer value is too large
 // Hint: 6-27 value does not fit into a signed 64-bit integer
 // Hint: 6-27 try using a floating point number
 #int("9223372036854775808")
 
---- int-constructor-str-too-small paged ---
+--- int-constructor-str-too-small eval ---
 // Error: 6-28 integer value is too small
 // Hint: 6-28 value does not fit into a signed 64-bit integer
 // Hint: 6-28 try using a floating point number
 #int("-9223372036854775809")
 
---- int-constructor-float-too-large paged ---
+--- int-constructor-float-too-large eval ---
 // Error: 6-27 number too large
 #int(9223372036854775809.5)
 
---- int-constructor-float-too-large-min paged ---
+--- int-constructor-float-too-large-min eval ---
 // Error: 6-28 number too large
 #int(-9223372036854775809.5)
 
---- int-constructor-decimal-too-large paged ---
+--- int-constructor-decimal-too-large eval ---
 // Error: 6-38 number too large
 #int(decimal("9223372036854775809.5"))
 
---- int-constructor-decimal-too-large-min paged ---
+--- int-constructor-decimal-too-large-min eval ---
 // Error: 6-39 number too large
 #int(decimal("-9223372036854775809.5"))
 
---- int-signum paged ---
+--- int-signum eval ---
 // Test int `signum()`
 #test(int(0).signum(), 0)
 #test(int(1.0).signum(), 1)
@@ -100,7 +100,7 @@
 #test(int(10.0).signum(), 1)
 #test(int(-10.0).signum(), -1)
 
---- int-from-and-to-bytes paged ---
+--- int-from-and-to-bytes eval ---
 // Test `int.from-bytes` and `int.to-bytes`.
 #test(int.from-bytes(bytes(())), 0)
 #test(int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "little", signed: true), 1)
@@ -114,11 +114,11 @@
 #test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: true), 1000)
 #test(int.from-bytes(1000.to-bytes(endian: "little", size: 5), endian: "little", signed: false), 1000)
 
---- int-from-and-to-bytes-too-many paged ---
+--- int-from-and-to-bytes-too-many eval ---
 // Error: 2-34 too many bytes to convert to a 64 bit number
 #int.from-bytes(bytes((0,) * 16))
 
---- int-repr paged ---
+--- int-repr eval ---
 // Test the `repr` function with integers.
 #test(repr(12), "12")
 #test(repr(1234567890), "1234567890")
@@ -130,7 +130,7 @@
 #test(repr(-0987654321), "-987654321")
 #test(repr(4 - 8), "-4")
 
---- int-parse-large-literals paged ---
+--- int-parse-large-literals eval ---
 #import "../loading/edge-case.typ": large-integer, representable-integer
 
 #for (name, source) in representable-integer {
@@ -176,12 +176,12 @@
 #(-0987654321) \
 #(4 - 8)
 
---- issue-int-constructor paged ---
+--- issue-int-constructor eval ---
 // Test that integer -> integer conversion doesn't do a roundtrip through float.
 #let x = 9223372036854775800
 #test(type(x), int)
 #test(int(x), x)
 
---- number-invalid-suffix paged ---
+--- number-invalid-suffix eval ---
 // Error: 2-4 invalid number suffix: u
 #1u

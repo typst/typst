@@ -1,7 +1,7 @@
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{Content, Packed, StyleChain, elem};
+use crate::foundations::{Content, StyleChain, elem};
 use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, MathSize, Mathy};
 
@@ -13,6 +13,9 @@ use crate::math::{EquationElem, MathSize, Mathy};
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
+///
+/// If you want to add accents (hats, tildes, arrows, etc.) instead of scripts
+/// or corner attachments, use the @math.accent[`accent`] function instead.
 #[elem(Mathy)]
 pub struct AttachElem {
     /// The base to which things are attached.
@@ -45,52 +48,13 @@ pub struct AttachElem {
     pub br: Option<Content>,
 }
 
-impl Packed<AttachElem> {
-    /// If an AttachElem's base is also an AttachElem, merge attachments into the
-    /// base AttachElem where possible.
-    pub fn merge_base(&self) -> Option<Self> {
-        // Extract from an EquationElem.
-        let mut base = &self.base;
-        while let Some(equation) = base.to_packed::<EquationElem>() {
-            base = &equation.body;
-        }
-
-        // Move attachments from elem into base where possible.
-        if let Some(base) = base.to_packed::<AttachElem>() {
-            let mut elem = self.clone();
-            let mut base = base.clone();
-
-            macro_rules! merge {
-                ($content:ident) => {
-                    if !base.$content.is_set() && elem.$content.is_set() {
-                        base.$content = elem.$content.clone();
-                        elem.$content.unset();
-                    }
-                };
-            }
-
-            merge!(t);
-            merge!(b);
-            merge!(tl);
-            merge!(tr);
-            merge!(bl);
-            merge!(br);
-
-            elem.base = base.pack();
-            return Some(elem);
-        }
-
-        None
-    }
-}
-
 /// Grouped primes.
 ///
 /// ```example
 /// $ a'''_b = a^'''_b $
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function has dedicated syntax: use apostrophes instead of primes. They
 /// will automatically attach to the previous element, moving superscripts to
 /// the next level.
@@ -155,6 +119,27 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the maximum size of the glyph and
     /// its attachments.
+    ///
+    /// Note that the resulting glyph may not have the exact desired size. A
+    /// stretched glyph may be either a pre-defined glyph, or a glyph assembled
+    /// from building blocks provided by the font. The possible sizes may not
+    /// cover the entire span. In the example below, when the `size` parameter
+    /// is increased from `{101%}` to `{200%}`, the selected glyph remains the
+    /// same, so the actual size does not change.
+    ///
+    /// #example(
+    ///   title: "Size of ∫ growing discontinuously",
+    ///   ```
+    ///   >>> #set align(center)
+    ///   #for size in (
+    ///     100%, // short
+    ///     101%, 200%, // tall
+    ///     201%, 300%, 400%, 500%, 600%, // taller
+    ///   ) {
+    ///     $stretch(integral, size: #size)$
+    ///   }
+    ///   ```
+    /// )
     #[default(Rel::one())]
     pub size: Rel<Length>,
 }

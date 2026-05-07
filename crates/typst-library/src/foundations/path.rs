@@ -1,7 +1,9 @@
 use ecow::{EcoString, eco_format};
-use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualRoot};
+use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualPath, VirtualRoot};
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, error};
+use crate::diag::{
+    At, HintedStrResult, HintedString, SourceResult, StrResult, bail, error,
+};
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 
 /// A file system path.
@@ -10,8 +12,8 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 /// referencing resources such as images or bibliographies, you'll need to
 /// interact with _paths._
 ///
-/// # Path strings
-/// Commonly, paths are simply expressed as [strings]($str). Built-in functions
+/// = Path strings <path-strings>
+/// Commonly, paths are simply expressed as @str[strings]. Built-in functions
 /// that expect paths typically also accept strings. For instance, you can
 /// write:
 ///
@@ -28,18 +30,20 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 ///
 /// There are two kinds of such path strings: Relative and absolute.
 ///
-/// - A **relative path** resolves in relation to the parent directory of the
+/// - A *relative path* resolves in relation to the parent directory of the
 ///   Typst file where the function is called. While this is the default, a path
 ///   can also be explicitly specified as being relative by starting it with
 ///   `./`.
+///
 ///   ```typ
 ///   #image("images/logo.png")
 ///   #image("./images/logo.png") // This is equivalent
 ///   ```
 ///
-/// - An **absolute path** always resolves relative to the
-///   [_root_]($path/#project-root) of the project. Such a path is indicated by
-///   a leading `/`:
+/// - An *absolute path* always resolves relative to the
+///   @path:project-root[_root_] of the project. Such a path is indicated by a
+///   leading `/`:
+///
 ///   ```typ
 ///   #image("/assets/logo.png")
 ///   ```
@@ -55,7 +59,7 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 ///   `main.typ`, `utils.typ`, and `text/chapter1.typ`, then you can reference
 ///   your utility file from chapter 1 through the path `{"../utils.typ"}`.
 ///
-/// # The path type { #path-type }
+/// = #short-or-long[Path Type][The path type] <path-type>
 /// For most typical usage of paths, strings are all you need. However,
 /// sometimes you need a bit more control. For instance, you may want to resolve
 /// a path relative to the file you are currently writing in, but then pass it
@@ -77,8 +81,8 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 /// #process(data-path)
 /// ```
 ///
-/// # Roots
-/// ## The project root { #project-root }
+/// = Roots <roots>
+/// == #short-or-long[Project Root][The project root] <project-root>
 /// For security and reproducibility reasons, Typst encapsulates file access. A
 /// Typst project can only access paths within its _project root._ If you try to
 /// create or access a path outside of this root, you'll get an error:
@@ -103,7 +107,7 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 /// read all files within it, no matter which one is previewed (via the eye
 /// toggle next to each Typst file in the file panel).
 ///
-/// ## Package roots
+/// == Package roots <package-roots>
 /// Just like the project, each package you import has its own root. Within a
 /// package, absolute paths point to the package root rather than the project
 /// root. On its own, code in a package cannot construct a path that lives in
@@ -111,18 +115,18 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 ///
 /// If you need to provide a package with resources from the project (such as a
 /// logo image), you can do so by explicitly creating a path to the resource in
-/// your code with the [path constructor]($path/#constructor). You can then pass
+/// your code with the @path.constructor[path constructor]. You can then pass
 /// the resulting path to the package. An example of this is shown in the
-/// section ["The path type"]($path/#path-type) above.
+/// section @path:path-type["The path type"] above.
 ///
 /// Alternatively, you can perform the path operation in your code and pass the
-/// result to the package. This could, for example, be the result of a [`read`]
-/// call or a complete image (e.g. as a named parameter `{logo:
-/// image("mylogo.svg")}`). Note that if you pass an image to a package like
-/// this, you can still customize the image's appearance with a set rule within
-/// the package.
+/// result to the package. This could, for example, be the result of a @read
+/// call or a complete image (e.g. as a named parameter
+/// `{logo: image("mylogo.svg")}`). Note that if you pass an image to a package
+/// like this, you can still customize the image's appearance with a set rule
+/// within the package.
 ///
-/// # Further operations
+/// = Further operations <further-operations>
 /// For now, the path type's purpose is limited to correctly handling and
 /// transferring paths across files in your project and packages. In the future,
 /// it may enable additional capabilities like checking for the existence of a
@@ -148,7 +152,7 @@ impl RootedPath {
     pub fn construct(
         /// Converts a string or path to a path.
         ///
-        /// If this is a [path string]($path/#path-strings):
+        /// If this is a @path:path-strings[path string]:
         /// - If the path is absolute, it is resolved relative to the root of
         ///   the project or package in which this function is called.
         /// - If the path is relative, it is resolved relative to the file where
@@ -196,7 +200,7 @@ impl PathOrStr {
                     Some(parent) => parent.join(v),
                     None => base.join(v),
                 }
-                .map_err(|err| format_path_error(err, root, v))?;
+                .map_err(|err| format_resolve_error(err, root, v))?;
                 RootedPath::new(root.clone(), resolved)
             }
         })
@@ -219,8 +223,8 @@ cast! {
     v: Str => Self::Str(v),
 }
 
-/// Format the user-facing path error message.
-fn format_path_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedString {
+/// Format the user-facing error message for path resolving.
+fn format_resolve_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedString {
     match err {
         PathError::Escapes => {
             let kind = match root {
@@ -242,6 +246,57 @@ fn format_path_error(err: PathError, root: &VirtualRoot, path: &str) -> HintedSt
             path.replace("\\", "/").repr();
             hint: "in earlier Typst versions, backslashes indicated path separators on Windows";
             hint: "this behavior is no longer supported as it is not portable";
+        ),
+    }
+}
+
+/// A path in bundle output.
+///
+/// Unlike `PathOrStr`, a string cast through this is always an absolute path
+/// instead of being resolve relative to a file. This is not used for normal
+/// paths in Typst files, but rather for output file paths in bundle mode.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BundlePath(VirtualPath);
+
+impl BundlePath {
+    /// Wraps a virtual path, ensuring it has at least one component.
+    pub fn new(path: VirtualPath) -> StrResult<Self> {
+        if path.is_root() {
+            bail!("path must have at least one component");
+        }
+        Ok(Self(path))
+    }
+
+    /// Extracts the contained virtual path.
+    pub fn into_inner(self) -> VirtualPath {
+        self.0
+    }
+}
+
+impl AsRef<VirtualPath> for BundlePath {
+    fn as_ref(&self) -> &VirtualPath {
+        &self.0
+    }
+}
+
+cast! {
+    BundlePath,
+    self => self.0.into_with_slash().into_value(),
+    v: Str => Self::new(
+        VirtualPath::new(&v).map_err(|err| format_bundle_error(err, &v))?
+    )?
+}
+
+/// Format the user-facing error message for virtual path casts.
+fn format_bundle_error(err: PathError, path: &str) -> HintedString {
+    match err {
+        PathError::Escapes => {
+            error!("path `{}` would escape the bundle root", path.repr())
+        }
+        PathError::Backslash => error!(
+            "path must not contain a backslash";
+            hint: "use forward slashes instead: `{}`",
+            path.replace("\\", "/").repr();
         ),
     }
 }

@@ -1,6 +1,6 @@
 // Test color modification methods.
 
---- color-mix paged ---
+--- color-mix eval ---
 // Compare both ways.
 #test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
@@ -37,7 +37,7 @@
 // Error: 6-51 cannot mix more than two colors in a hue-based space
 #rgb(color.mix(red, blue, white, space: color.hsl))
 
---- color-conversion paged ---
+--- color-conversion eval ---
 // Test color conversion method kinds
 #test(rgb(rgb(10, 20, 30)).space(), rgb)
 #test(color.linear-rgb(rgb(10, 20, 30)).space(), color.linear-rgb)
@@ -114,8 +114,8 @@
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
 #test(luma(40).to-hex(), "#282828")
-#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e0dcda")
-#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)), rgb(87.84%, 86.27%, 85.49%, 100%))
+#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e1dcd9")
+#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)), rgb(88.24%, 86.27%, 85.10%, 100%))
 #test-repr(rgb(luma(40%)), rgb(40%, 40%, 40%))
 #test-repr(cmyk(luma(40)), cmyk(63.24%, 57.33%, 56.49%, 75.88%))
 #test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
@@ -145,14 +145,14 @@
 #box(square(size: 9pt, fill: color.hsl(col)))
 #box(square(size: 9pt, fill: color.hsv(col)))
 
---- color-space paged ---
+--- color-space eval ---
 // Test color kind method.
 #test(rgb(1, 2, 3, 4).space(), rgb)
 #test(cmyk(4%, 5%, 6%, 7%).space(), cmyk)
 #test(luma(40).space(), luma)
 #test(rgb(1, 2, 3, 4).space() != luma, true)
 
---- color-components paged ---
+--- color-components eval ---
 // Test color '.components()' without conversions
 
 #let test-components(col, ref, has-alpha: true) = {
@@ -185,49 +185,49 @@
 // Test gray color conversion.
 #stack(dir: ltr, rect(fill: luma(0)), rect(fill: luma(80%)))
 
---- color-rgb-out-of-range paged ---
+--- color-rgb-out-of-range eval ---
 // Error for values that are out of range.
 // Error: 11-14 number must be between 0 and 255
 #test(rgb(-30, 15, 50))
 
---- color-rgb-bad-string paged ---
+--- color-rgb-bad-string eval ---
 // Error: 6-11 color string contains non-hexadecimal letters
 #rgb("lol")
 
---- color-rgb-missing-argument-red paged ---
+--- color-rgb-missing-argument-red eval ---
 // Error: 2-7 missing argument: red component
 #rgb()
 
---- color-rgb-missing-argument-blue paged ---
+--- color-rgb-missing-argument-blue eval ---
 // Error: 2-11 missing argument: blue component
 #rgb(0, 1)
 
---- color-rgb-bad-type paged ---
+--- color-rgb-bad-type eval ---
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
---- color-luma-unexpected-argument paged ---
+--- color-luma-unexpected-argument eval ---
 // Error: 10-20 unexpected argument: key
 #luma(1, key: "val")
 
---- color-mix-bad-amount-type paged ---
+--- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string
 #color.mix((red, "yes"), (green, "no"), (green, 10%))
 
---- color-mix-bad-value paged ---
+--- color-mix-bad-value eval ---
 // Error: 12-23 expected a color or color-weight pair
 #color.mix((red, 1, 2))
 
---- color-mix-bad-space-type paged ---
+--- color-mix-bad-space-type eval ---
 // Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
 #color.mix(red, green, space: "cyber")
 
---- color-mix-bad-space-value-1 paged ---
+--- color-mix-bad-space-value-1 eval ---
 // Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: image)
 
---- color-mix-bad-space-value-2 paged ---
+--- color-mix-bad-space-value-2 eval ---
 // Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: calc.round)
 
@@ -295,13 +295,13 @@
   box(square(size: 9pt, fill: col.desaturate(x * 10%)))
 }
 
---- color-luma-ops paged ---
+--- color-luma-ops eval ---
 // Test gray color modification.
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
 #test-repr(luma(80%).negate(space: luma), luma(20%))
 
---- color-transparentize paged ---
+--- color-transparentize eval ---
 // Test alpha modification.
 #test-repr(luma(100%, 100%).transparentize(50%), luma(100%, 50%))
 #test-repr(luma(100%, 100%).transparentize(75%), luma(100%, 25%))
@@ -310,7 +310,7 @@
 #test-repr(luma(100%, 40%).transparentize(-50%), luma(100%, 70%))
 #test-repr(luma(100%, 0%).transparentize(-100%), luma(100%, 100%))
 
---- color-opacify paged ---
+--- color-opacify eval ---
 #test-repr(luma(100%, 50%).opacify(50%), luma(100%, 75%))
 #test-repr(luma(100%, 20%).opacify(100%), luma(100%, 100%))
 #test-repr(luma(100%, 100%).opacify(250%), luma(100%, 100%))

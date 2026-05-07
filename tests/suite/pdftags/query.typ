@@ -23,8 +23,8 @@
 #context query(<placed>).join()
 
 --- query-tags-ambiguous-parent-footnote-error pdftags pdfstandard(ua-1) ---
-// Error: 1:2-1:21 PDF/UA-1 error: ambiguous logical parent
-// Hint: 1:2-1:21 please report this as a bug
+// Error: 2-21 PDF/UA-1 error: ambiguous logical parent
+// Hint: 2-21 please report this as a bug
 #footnote[something] <note>
 
 #context query(<note>).join()

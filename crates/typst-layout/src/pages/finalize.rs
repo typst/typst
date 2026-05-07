@@ -1,9 +1,10 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::introspection::{ManualPageCounter, Tag};
-use typst_library::layout::{Frame, FrameItem, Page, Point};
+use typst_library::layout::{Frame, FrameItem, Point};
 
 use super::LayoutedPage;
+use crate::Page;
 
 /// Piece together the inner page frame and the marginals. We can only do this
 /// at the very end because inside/outside margins require knowledge of the

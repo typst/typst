@@ -3,6 +3,7 @@
 mod analyze;
 mod complete;
 mod definition;
+mod docs;
 mod jump;
 mod matchers;
 mod tooltip;

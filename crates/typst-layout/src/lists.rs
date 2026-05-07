@@ -46,7 +46,9 @@ pub fn layout_list(
         let body = body.set(ListElem::depth, Depth(1));
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
+        let mut label_cell = Cell::new(PdfMarkerTag::ListItemLabel(marker.clone()));
+        label_cell.breakable = false;
+        cells.push(label_cell);
         cells.push(Cell::new(Content::empty()));
         cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
     }
@@ -105,15 +107,22 @@ pub fn layout_enum(
         let context = Context::new(None, Some(styles));
         let resolved = if full {
             parents.push(number);
-            let content = numbering.apply(engine, context.track(), &parents)?.display();
+            let content = numbering
+                .apply(engine, context.track(), item.span(), &parents)?
+                .display();
             parents.pop();
             content
         } else {
             match numbering {
-                Numbering::Pattern(pattern) => {
-                    TextElem::packed(pattern.apply_kth(parents.len(), number))
-                }
-                other => other.apply(engine, context.track(), &[number])?.display(),
+                Numbering::Pattern(pattern) => TextElem::packed(pattern.apply_kth(
+                    engine,
+                    item.span(),
+                    parents.len(),
+                    number,
+                )),
+                other => other
+                    .apply(engine, context.track(), item.span(), &[number])?
+                    .display(),
             }
         };
 
@@ -130,7 +139,9 @@ pub fn layout_enum(
         let body = body.set(EnumElem::parents, smallvec![number]);
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
+        let mut label_cell = Cell::new(PdfMarkerTag::ListItemLabel(resolved));
+        label_cell.breakable = false;
+        cells.push(label_cell);
         cells.push(Cell::new(Content::empty()));
         cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
         number =

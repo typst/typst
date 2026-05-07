@@ -144,11 +144,11 @@ $ a + b = c $
 #show math.equation: set align(end)
 $ a + b = c $
 
---- math-equation-number-align-center paged ---
+--- math-equation-number-align-center eval ---
 // Error: 52-58 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center)
 
---- math-equation-number-align-center-bottom paged ---
+--- math-equation-number-align-center-bottom eval ---
 // Error: 52-67 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center + bottom)
 
@@ -262,22 +262,34 @@ $ q &= sum_k ln A \
 
 --- math-equation-tag-affects-row-height paged ---
 // Tags should not affect the row height of equations.
-#box($ - - $, fill: silver)
-#box($ #metadata(none) - - $, fill: silver) \
-#box($ a \ - - $, fill: silver)
-#box($ a \ #metadata(none) - - $, fill: silver)
-#box($ - - \ a $, fill: silver)
-#box($ #metadata(none) - - \ a $, fill: silver)
+#set stack(dir: ltr, spacing: 0.5em)
+#stack(
+  box($ - - $, fill: silver),
+  box($ #metadata(none) - - $, fill: silver),
+)
+
+#stack(
+  box($ a \ - - $, fill: silver),
+  box($ a \ #metadata(none) - - $, fill: silver),
+  box($ - - \ a $, fill: silver),
+  box($ #metadata(none) - - \ a $, fill: silver),
+)
 
 --- issue-4187-alignment-point-affects-row-height paged ---
 // In this bug, a row of "-" only should have a very small height; but
 // after adding an alignment point "&", the row gains a larger height.
 // We need to test alignment point "&" does not affect a row's height.
-#box($ - - $, fill: silver)
-#box($ - - $, fill: silver) \
-#box($ a \ - - $, fill: silver)
-#box($ &- - \ &a $, fill: silver)
-#box($ &a \ &- - $, fill: silver)
+#set stack(dir: ltr, spacing: 0.5em)
+#stack(
+  box($ - - $, fill: silver),
+  box($ - - $, fill: silver)
+)
+
+#stack(
+  box($ a \ - - $, fill: silver),
+  box($ &- - \ &a $, fill: silver),
+  box($ &a \ &- - $, fill: silver)
+)
 
 --- issue-numbering-hint paged ---
 // In this bug, the hint and error messages for an equation

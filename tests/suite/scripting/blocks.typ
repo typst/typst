@@ -20,23 +20,23 @@
   [you] + "?"
 }
 
---- code-block-empty paged ---
+--- code-block-empty eval ---
 // Nothing evaluates to none.
 #test({}, none)
 
---- code-block-let paged ---
+--- code-block-let eval ---
 // Let evaluates to none.
 #test({ let v = 0 }, none)
 
---- code-block-single-expression paged ---
+--- code-block-single-expression eval ---
 // Evaluates to single expression.
 #test({ "hello" }, "hello")
 
---- code-block-multiple-expressions-single-line paged ---
+--- code-block-multiple-expressions-single-line eval ---
 // Evaluates to string.
 #test({ let x = "m"; x + "y" }, "my")
 
---- code-block-join-let-with-expression paged ---
+--- code-block-join-let-with-expression eval ---
 // Evaluated to int.
 #test({
   let x = 1
@@ -44,14 +44,14 @@
   x + y
 }, 3)
 
---- code-block-join-expression-with-none paged ---
+--- code-block-join-expression-with-none eval ---
 // String is joined with trailing none, evaluates to string.
 #test({
   type("")
   none
 }, str)
 
---- code-block-join-int-with-content paged ---
+--- code-block-join-int-with-content eval ---
 // Some things can't be joined.
 #{
   [A]
@@ -60,14 +60,14 @@
   [B]
 }
 
---- code-block-scope-in-markup paged ---
+--- code-block-scope-in-markup eval ---
 // Block directly in markup also creates a scope.
 #{ let x = 1 }
 
 // Error: 7-8 unknown variable: x
 #test(x, 1)
 
---- code-block-scope-in-let paged ---
+--- code-block-scope-in-let eval ---
 // Block in expression does create a scope.
 #let a = {
   let b = 1
@@ -79,7 +79,7 @@
 // Error: 3-4 unknown variable: b
 #{b}
 
---- code-block-double-scope paged ---
+--- code-block-double-scope eval ---
 // Double block creates a scope.
 #{{
   import "module.typ": b
@@ -89,7 +89,7 @@
 // Error: 2-3 unknown variable: b
 #b
 
---- code-block-nested-scopes paged ---
+--- code-block-nested-scopes eval ---
 // Multiple nested scopes.
 #{
   let a = "a1"
@@ -105,17 +105,17 @@
   test(a, "a1")
 }
 
---- code-block-multiple-literals-without-semicolon paged ---
+--- code-block-multiple-literals-without-semicolon eval ---
 // Multiple unseparated expressions in one line.
 // Error: 4 expected semicolon or line break
 #{1 2}
 
---- code-block-multiple-expressions-without-semicolon paged ---
+--- code-block-multiple-expressions-without-semicolon eval ---
 // Error: 13 expected semicolon or line break
 // Error: 23 expected semicolon or line break
 #{let x = -1 let y = 3 x + y}
 
---- code-block-incomplete-expressions paged ---
+--- code-block-incomplete-expressions eval ---
 #{
   // Error: 7-10 expected pattern, found string
   for "v"
@@ -127,20 +127,20 @@
   z
 }
 
---- code-block-unclosed paged ---
+--- code-block-unclosed eval ---
 // Error: 2-3 unclosed delimiter
 #{
 
---- code-block-unopened paged ---
+--- code-block-unopened eval ---
 // Error: 2-3 unexpected closing brace
 #}
 
---- single-right-bracket paged ---
+--- single-right-bracket eval ---
 // Error: 1-2 unexpected closing bracket
 // Hint: 1-2 try using a backslash escape: \]
 ]
 
---- right-bracket-nesting paged ---
+--- right-bracket-nesting eval ---
 [
 = [ Hi ]]
 - how [
@@ -150,11 +150,11 @@
   - error][]
 [[]]
 
---- right-bracket-hash paged ---
+--- right-bracket-hash eval ---
 // Error: 2-3 unexpected closing bracket
 #]
 
---- right-bracket-in-blocks paged ---
+--- right-bracket-in-blocks eval ---
 // Error: 3-4 unclosed delimiter
 // Error: 6-7 unexpected closing bracket
 // Hint: 6-7 try using a backslash escape: \]
@@ -175,7 +175,7 @@
 // Hint: 4-5 try using a backslash escape: \]
 #{{]}}
 
---- content-block-in-markup-scope paged ---
+--- content-block-in-markup-scope eval ---
 // Content blocks also create a scope.
 #[#let x = 1]
 

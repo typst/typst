@@ -30,50 +30,64 @@ use crate::foundations::{
     Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
-    History, Introspect, Introspector, Locatable, Location, QueryIntrospection,
+    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
+    QueryIntrospection,
 };
-use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
+use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
     LinkElem, Url,
 };
-use crate::routines::Routines;
+use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
 
 /// A bibliography / reference listing.
 ///
-/// You can create a new bibliography by calling this function with a path
-/// to a bibliography file in either one of two formats:
+/// You can create a new bibliography by calling this function with a path to a
+/// bibliography file in either one of two formats:
 ///
-/// - A Hayagriva `.yaml`/`.yml` file. Hayagriva is a new bibliography
-///   file format designed for use with Typst. Visit its
-///   [documentation](https://github.com/typst/hayagriva/blob/main/docs/file-format.md)
+/// - A Hayagriva `.yaml`/`.yml` file. Hayagriva is a new bibliography file
+///   format designed for use with Typst. Visit its
+///   #link("https://github.com/typst/hayagriva/blob/main/docs/file-format.md")[documentation]
 ///   for more details.
 /// - A BibLaTeX `.bib` file.
 ///
 /// As soon as you add a bibliography somewhere in your document, you can start
 /// citing things with reference syntax (`[@key]`) or explicit calls to the
-/// [citation]($cite) function (`[#cite(<key>)]`). The bibliography will only
-/// show entries for works that were referenced in the document.
+/// @cite[citation] function (`[#cite(<key>)]`). The bibliography will only show
+/// entries for works that were referenced in the document.
 ///
-/// # Styles
+/// = Styles <styles>
 /// Typst offers a wide selection of built-in
-/// [citation and bibliography styles]($bibliography.style). Beyond those, you
-/// can add and use custom [CSL](https://citationstyles.org/) (Citation Style
+/// @bibliography.style[citation and bibliography styles]. Beyond those, you can
+/// add and use custom #link("https://citationstyles.org/")[CSL] (Citation Style
 /// Language) files. Wondering which style to use? Here are some good defaults
 /// based on what discipline you're working in:
 ///
-/// | Fields          | Typical Styles                                         |
-/// |-----------------|--------------------------------------------------------|
-/// | Engineering, IT | `{"ieee"}`                                             |
-/// | Psychology, Life Sciences | `{"apa"}`                                    |
-/// | Social sciences | `{"chicago-author-date"}`                              |
-/// | Humanities      | `{"mla"}`, `{"chicago-notes"}`, `{"harvard-cite-them-right"}` |
-/// | Economics       | `{"harvard-cite-them-right"}`                          |
-/// | Physics         | `{"american-physics-society"}`                         |
+/// #docs-table(
+///   table.header[Fields][Typical Styles],
 ///
-/// # Example
+///   [Engineering, IT],
+///   [`{"ieee"}`],
+///
+///   [Psychology, Life Sciences],
+///   [`{"apa"}`],
+///
+///   [Social sciences],
+///   [`{"chicago-author-date"}`],
+///
+///   [Humanities],
+///   [`{"mla"}`, `{"chicago-notes"}`, `{"harvard-cite-them-right"}`],
+///
+///   [Economics],
+///   [`{"harvard-cite-them-right"}`],
+///
+///   [Physics],
+///   [`{"american-physics-society"}`],
+/// )
+///
+/// = Example <example>
 /// ```example
 /// This was already noted by
 /// pirates long ago. @arrgh
@@ -89,7 +103,7 @@ pub struct BibliographyElem {
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
-    /// - A path string or [`path`] to load a bibliography file from.
+    /// - A path string or @path to load a bibliography file from.
     /// - Raw bytes from which the bibliography should be decoded.
     /// - An array where each item is one of the above.
     #[required]
@@ -102,7 +116,7 @@ pub struct BibliographyElem {
     /// The title of the bibliography.
     ///
     /// - When set to `{auto}`, an appropriate title for the
-    ///   [text language]($text.lang) will be used. This is the default.
+    ///   @text.lang[text language] will be used. This is the default.
     /// - When set to `{none}`, the bibliography will not have a title.
     /// - A custom title can be set by passing content.
     ///
@@ -115,7 +129,7 @@ pub struct BibliographyElem {
     /// those that weren't cited in the document.
     ///
     /// To selectively add individual cited works without showing them, you can
-    /// also use the `cite` function with [`form`]($cite.form) set to `{none}`.
+    /// also use the `cite` function with @cite.form[`form`] set to `{none}`.
     #[default(false)]
     pub full: bool,
 
@@ -125,7 +139,8 @@ pub struct BibliographyElem {
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
+    /// - A path string or @path to a
+    ///   #link("https://citationstyles.org/")[CSL file].
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
         Some(source) => Some(CslStyle::load(engine, source)?),
@@ -174,7 +189,9 @@ impl BibliographyElem {
     }
 
     /// Find all bibliography keys.
-    pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
+    pub fn keys(
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
         for elem in introspector.query(&Self::ELEM.select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
@@ -552,7 +569,7 @@ impl Works {
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
         let bibliography = BibliographyElem::find(engine, span).at(span)?;
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, bibliography, groups).at(span)
     }
 
     /// Generate all citations and the whole bibliography, given an existing
@@ -563,18 +580,17 @@ impl Works {
     ) -> SourceResult<Arc<Works>> {
         let span = bibliography.span();
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.routines, engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, bibliography, groups).at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
     fn generate_impl(
-        routines: &Routines,
         world: Tracked<dyn World + '_>,
         bibliography: Packed<BibliographyElem>,
         groups: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(routines, world, bibliography, groups)?;
+        let mut generator = Generator::new(world, bibliography, groups)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
@@ -616,7 +632,7 @@ impl Introspect for CiteGroupIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query(&CiteGroup::ELEM.select())
     }
@@ -632,8 +648,6 @@ impl Introspect for CiteGroupIntrospection {
 
 /// Context for generating the bibliography.
 struct Generator<'a> {
-    /// The routines that are used to evaluate mathematical material in citations.
-    routines: &'a Routines,
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
     /// The document's bibliography.
@@ -674,14 +688,12 @@ struct CiteInfo {
 impl<'a> Generator<'a> {
     /// Create a new generator.
     fn new(
-        routines: &'a Routines,
         world: Tracked<'a, dyn World + 'a>,
         bibliography: Packed<BibliographyElem>,
         groups: EcoVec<Content>,
     ) -> StrResult<Self> {
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
-            routines,
             world,
             bibliography,
             groups,
@@ -838,7 +850,6 @@ impl<'a> Generator<'a> {
             };
 
             let renderer = ElemRenderer {
-                routines: self.routines,
                 world: self.world,
                 span: info.span,
                 supplement: &supplement,
@@ -888,7 +899,6 @@ impl<'a> Generator<'a> {
         let mut output = vec![];
         for (k, item) in rendered.items.iter().enumerate() {
             let renderer = ElemRenderer {
-                routines: self.routines,
                 world: self.world,
                 span: self.bibliography.span(),
                 supplement: &|_| None,
@@ -933,8 +943,6 @@ impl<'a> Generator<'a> {
 
 /// Renders hayagriva elements into content.
 struct ElemRenderer<'a> {
-    /// The routines that is used to evaluate mathematical material in citations.
-    routines: &'a Routines,
     /// The world that is used to evaluate mathematical material.
     world: Tracked<'a, dyn World + 'a>,
     /// The span that is attached to all of the resulting content.
@@ -1014,10 +1022,7 @@ impl ElemRenderer<'_> {
 
         match elem.display {
             Some(Display::Block) => {
-                content = BlockElem::new()
-                    .with_body(Some(BlockBody::Content(content)))
-                    .pack()
-                    .spanned(self.span);
+                content = BlockElem::packed(content).spanned(self.span);
             }
             Some(Display::Indent) => {
                 content = CslIndentElem::new(content).pack().spanned(self.span);
@@ -1050,15 +1055,16 @@ impl ElemRenderer<'_> {
 
     /// Display math.
     fn display_math(&self, math: &str) -> Content {
-        (self.routines.eval_string)(
-            self.routines,
+        let library = self.world.library();
+        (library.routines.eval_string)(
             self.world,
+            library,
             // TODO: propagate warnings
             Sink::new().track_mut(),
-            Introspector::default().track(),
+            EmptyIntrospector.track(),
             Context::none().track(),
             math,
-            self.span,
+            SpanMode::Uniform(self.span),
             SyntaxMode::Math,
             Scope::new(),
         )

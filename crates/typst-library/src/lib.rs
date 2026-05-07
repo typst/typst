@@ -33,7 +33,9 @@ use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
-use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
+use crate::foundations::{
+    Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
+};
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
 use crate::text::{Font, FontBook};
@@ -88,11 +90,11 @@ pub trait World: Send + Sync {
     /// Get the current date.
     ///
     /// If no offset is specified, the local date should be chosen. Otherwise,
-    /// the UTC date should be chosen with the corresponding offset in hours.
+    /// the UTC date should be chosen with the corresponding offset.
     ///
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
-    fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
 }
 
 macro_rules! world_impl {
@@ -122,7 +124,7 @@ macro_rules! world_impl {
                 self.deref().font(index)
             }
 
-            fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+            fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
                 self.deref().today(offset)
             }
         }
@@ -154,7 +156,11 @@ impl<T: World + ?Sized> WorldExt for T {
 /// - `Library::default()` for a standard configuration
 /// - `Library::builder().build()` if you want to customize the library
 #[derive(Debug, Clone, Hash)]
+#[non_exhaustive]
 pub struct Library {
+    /// Defines implementation of various Typst compiler routines as a table of
+    /// function pointers.
+    pub routines: &'static Routines,
     /// The module that contains the definitions that are available everywhere.
     pub global: Module,
     /// The module that contains the definitions available in math mode.
@@ -162,6 +168,8 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
+    /// The built-in show rules.
+    pub rules: NativeRuleMap,
     /// The standard library as a value. Used to provide the `std` module.
     pub std: Binding,
     /// In-development features that were enabled.
@@ -209,9 +217,11 @@ impl LibraryBuilder {
         let inputs = self.inputs.unwrap_or_default();
         let global = global(self.routines, math.clone(), inputs, &self.features);
         Library {
+            routines: self.routines,
             global: global.clone(),
             math,
             styles: Styles::new(),
+            rules: (self.routines.rules)(),
             std: Binding::detached(global),
             features: self.features,
         }
@@ -225,6 +235,16 @@ impl LibraryBuilder {
 pub struct Features(SmallBitSet);
 
 impl Features {
+    /// Creates an instance where all features are enabled.
+    pub fn all() -> Self {
+        Feature::all().collect()
+    }
+
+    /// Creates an instance where no features are enabled.
+    pub fn none() -> Self {
+        Self::default()
+    }
+
     /// Check whether the given feature is enabled.
     pub fn is_enabled(&self, feature: Feature) -> bool {
         self.0.contains(feature as usize)
@@ -246,7 +266,15 @@ impl FromIterator<Feature> for Features {
 #[non_exhaustive]
 pub enum Feature {
     Html,
+    Bundle,
     A11yExtras,
+}
+
+impl Feature {
+    /// Iterates over all available features.
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Html, Self::Bundle, Self::A11yExtras].into_iter()
+    }
 }
 
 /// A group of related standard library definitions.
@@ -266,6 +294,7 @@ pub enum Category {
     Html,
     Svg,
     Png,
+    Bundle,
 }
 
 impl Category {
@@ -285,6 +314,7 @@ impl Category {
             Self::Html => "html",
             Self::Svg => "svg",
             Self::Png => "png",
+            Self::Bundle => "bundle",
         }
     }
 }
@@ -299,7 +329,7 @@ fn global(
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs, features);
-    self::model::define(&mut global);
+    self::model::define(&mut global, features);
     self::text::define(&mut global);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);

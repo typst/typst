@@ -264,14 +264,14 @@
 )
 
 --- grid-stroke-hline-position-bad paged ---
-// Error: 7:3-7:32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
-// Hint: 7:3-7:32 set the line's position to 'top' or place it at a smaller 'y' index
 #table(
   columns: 2,
   [a], [b],
   [c], [d],
   table.hline(stroke: aqua),
   table.hline(position: top),
+  // Error: 3-32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
+  // Hint: 3-32 set the line's position to 'top' or place it at a smaller 'y' index
   table.hline(position: bottom)
 )
 
@@ -315,8 +315,6 @@
 )
 
 --- grid-stroke-hline-position-bottom-out-of-bounds paged ---
-// Error: 8:3-8:32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
-// Hint: 8:3-8:32 set the line's position to 'top' or place it at a smaller 'y' index
 #table(
   columns: 2,
   gutter: 3pt,
@@ -324,117 +322,119 @@
   [c], [d], table.vline(stroke: red),
   table.hline(stroke: aqua),
   table.hline(position: top),
+  // Error: 3-32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
+  // Hint: 3-32 set the line's position to 'top' or place it at a smaller 'y' index
   table.hline(position: bottom)
 )
 
 --- grid-stroke-vline-position-bottom-out-of-bounds paged ---
-// Error: 6:3-6:28 cannot place vertical line at the 'end' position of the end border (x = 2)
-// Hint: 6:3-6:28 set the line's position to 'start' or place it at a smaller 'x' index
 #grid(
   columns: 2,
   [a], [b],
   grid.vline(stroke: aqua),
   grid.vline(position: start),
+  // Error: 3-28 cannot place vertical line at the 'end' position of the end border (x = 2)
+  // Hint: 3-28 set the line's position to 'start' or place it at a smaller 'x' index
   grid.vline(position: end)
 )
 
 --- grid-stroke-vline-position-bottom-out-of-bounds-gutter paged ---
-// Error: 7:3-7:28 cannot place vertical line at the 'end' position of the end border (x = 2)
-// Hint: 7:3-7:28 set the line's position to 'start' or place it at a smaller 'x' index
 #grid(
   columns: 2,
   gutter: 3pt,
   [a], [b],
   grid.vline(stroke: aqua),
   grid.vline(position: start),
+  // Error: 3-28 cannot place vertical line at the 'end' position of the end border (x = 2)
+  // Hint: 3-28 set the line's position to 'start' or place it at a smaller 'x' index
   grid.vline(position: end)
 )
 
 --- grid-stroke-hline-out-of-bounds paged ---
-// Error: 4:3-4:19 cannot place horizontal line at invalid row 3
 #grid(
   [a],
   [b],
+  // Error: 3-19 cannot place horizontal line at invalid row 3
   grid.hline(y: 3)
 )
 
 --- grid-stroke-hline-out-of-bounds-gutter paged ---
-// Error: 5:3-5:19 cannot place horizontal line at invalid row 3
 #grid(
   gutter: 3pt,
   [a],
   [b],
+  // Error: 3-19 cannot place horizontal line at invalid row 3
   grid.hline(y: 3)
 )
 
 --- grid-stroke-vline-out-of-bounds paged ---
-// Error: 4:3-4:20 cannot place vertical line at invalid column 3
 #table(
   columns: 2,
   [a], [b],
+  // Error: 3-20 cannot place vertical line at invalid column 3
   table.vline(x: 3)
 )
 
 --- grid-stroke-vline-out-of-bounds-gutter paged ---
-// Error: 5:3-5:20 cannot place vertical line at invalid column 3
 #table(
   columns: 2,
   gutter: 3pt,
   [a], [b],
+  // Error: 3-20 cannot place vertical line at invalid column 3
   table.vline(x: 3)
 )
 
---- table-hline-in-grid paged ---
+--- table-hline-in-grid eval ---
 // Error: 7-20 cannot use `table.hline` as a grid line
 // Hint: 7-20 use `grid.hline` instead
 #grid(table.hline())
 
---- table-vline-in-grid paged ---
+--- table-vline-in-grid eval ---
 // Error: 7-20 cannot use `table.vline` as a grid line
 // Hint: 7-20 use `grid.vline` instead
 #grid(table.vline())
 
---- grid-hline-in-table paged ---
+--- grid-hline-in-table eval ---
 // Error: 8-20 cannot use `grid.hline` as a table line
 // Hint: 8-20 use `table.hline` instead
 #table(grid.hline())
 
---- grid-vline-in-table paged ---
+--- grid-vline-in-table eval ---
 // Error: 8-20 cannot use `grid.vline` as a table line
 // Hint: 8-20 use `table.vline` instead
 #table(grid.vline())
 
 --- grid-hline-end-before-start-1 paged ---
-// Error: 3:3-3:31 line cannot end before it starts
 #grid(
   columns: 3,
+  // Error: 3-31 line cannot end before it starts
   grid.hline(start: 2, end: 1),
   [a], [b], [c],
 )
 
 --- grid-hline-end-before-start-2 paged ---
-// Error: 3:3-3:32 line cannot end before it starts
 #table(
   columns: 3,
+  // Error: 3-32 line cannot end before it starts
   table.vline(start: 2, end: 1),
   [a], [b], [c],
   [d], [e], [f],
   [g], [h], [i],
 )
 
---- grid-hline-position-horizon paged ---
+--- grid-hline-position-horizon eval ---
 // Error: 24-31 expected `top` or `bottom`, found horizon
 #table.hline(position: horizon)
 
---- grid-vline-position-center paged ---
+--- grid-vline-position-center eval ---
 // Error: 24-30 expected `start`, `left`, `right`, or `end`, found center
 #table.vline(position: center)
 
---- grid-hline-position-right paged ---
+--- grid-hline-position-right eval ---
 // Error: 24-29 expected `top` or `bottom`, found right
 #table.hline(position: right)
 
---- grid-vline-position-top paged ---
+--- grid-vline-position-top eval ---
 // Error: 24-27 expected `start`, `left`, `right`, or `end`, found top
 #table.vline(position: top)
 

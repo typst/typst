@@ -20,6 +20,11 @@ The MIT License applies to:
   based on the `TokenSet` from rust-analyzer
   (https://github.com/rust-lang/rust-analyzer/blob/master/crates/parser/src/token_set.rs)
 
+* The Lorem Ipsum generator in `crates/typst-library/src/text/lorem.rs` which
+  is based on the `lipsum` crate
+  (https://github.com/mgeisler/lipsum/blob/0.9.1/src/lib.rs)
+  Copyright (c) 2017 Martin Geisler
+
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

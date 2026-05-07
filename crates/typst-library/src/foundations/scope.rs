@@ -7,7 +7,7 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};
+use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink, bail};
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
@@ -300,9 +300,9 @@ impl Binding {
     /// As the `sink`
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
-    pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
-        if let Some(info) = &self.deprecation {
-            sink.emit(info.message, info.until);
+    pub fn read_checked(&self, mut sink: impl WarningSink) -> &Value {
+        if let Some(message) = &self.deprecation {
+            sink.emit((**message).into());
         }
         &self.value
     }
@@ -402,6 +402,16 @@ impl Default for Deprecation {
     }
 }
 
+impl From<Deprecation> for HintedString {
+    fn from(deprecation: Deprecation) -> Self {
+        HintedString::new(deprecation.message.into()).with_hints(
+            deprecation
+                .until
+                .map(|v| eco_format!("it will be removed in Typst {}", v)),
+        )
+    }
+}
+
 /// The error message when trying to mutate a variable from the standard
 /// library.
 #[cold]
@@ -438,8 +448,13 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
         ));
     } else if in_global {
         res.hint(eco_format!(
-            "`{var}` is not available directly in math, \
-             try adding a hash before it: `#{var}`",
+            "`{var}` is not available directly in math, but is in the standard library",
+        ));
+        res.hint(eco_format!(
+            "to access `{var}` in code mode you can add a hash: `#{var}`",
+        ));
+        res.hint(eco_format!(
+            "or access `{var}` in math mode by using the `std` module: `std.{var}`",
         ));
     } else {
         res.hint(eco_format!(

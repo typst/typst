@@ -87,7 +87,7 @@ There
 
 #block(spacing: 20pt)[Further down]
 
---- block-above-below-context paged ---
+--- block-above-below-context paged empty ---
 #context test(block.above, auto)
 #set block(spacing: 20pt)
 #context test(block.above, 20pt)
@@ -158,7 +158,7 @@ Paragraph
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- box-inset-ratio paged ---
+--- box-inset-ratio paged empty ---
 #let body-width = 10pt
 #context for inset in range(10).map(n => n / 10) {
   // If there's infinite available space, then:
@@ -290,12 +290,85 @@ First!
   image("/assets/images/rhino.png", width: 30pt)
 )
 
---- box-html html ---
+--- box-baseline-context paged empty ---
+#context test(box.baseline, (at: auto, shift: 0pt))
+
+--- box-html-text html ---
 Text #box[Span].
 
---- block-html html ---
+--- box-html-inline html ---
+Text #box(html.strong[A])
+
+--- box-html-multiple html ---
+Text #box({
+  html.strong[A]
+  html.mark[B]
+})
+
+--- box-html-frame html ---
+A
+#box(html.frame(rect()))
+#box(html.frame(rect()))
+B
+
+--- block-html-text html ---
 Paragraph
 #block[Div]
+
+--- block-html-block html ---
+Paragraph
+#block(html.div[A])
+
+--- block-html-inline html ---
+Paragraph
+#block(html.span[Top-level 1])
+#block(html.span[Top-level 2])
+
+--- block-html-multiple html ---
+Paragraph
+#block({
+  html.strong[A]
+  html.mark[B]
+})
+
+--- box-block-html html ---
+Text #box(block(html.strong[A]))
+
+--- block-box-html html ---
+Text #block(box(html.div[A]))
+Text #block(box(html.strong[B]))
+
+--- block-block-html html ---
+Text #block(block(html.div[A]))
+Text #block(block(html.strong[B]))
+
+--- block-html-frame html ---
+Paragraph A
+#html.frame(rect())
+#html.frame(rect())
+Paragraph B
+
+--- block-display-html html ---
+// Test how different HTML element's react to being promoted to block-level.
+#block(html.script()) // display: none -> nothing
+#block(html.div())    // display: block -> nothing
+#block(html.table())  // display: table -> nothing
+#block(html.li())     // display: list-item -> nothing
+#block(html.span())   // display: inline -> block
+#block(html.input())  // display: inline-block -> block
+#block(html.slot())   // display: contents -> nothing
+#block(html.ruby())   // display: ruby -> wrapped in div
+
+--- block-invalid-html html ---
+// These are currently wrapped in a div, but they are illegal in this context
+// and should raise an error in the future.
+#block(html.rt())
+#block(html.thead())
+
+--- box-invalid-html html ---
+// This is illegal and should raise an error in the future. We do not even
+// attempt to set a `display` property.
+A #box(html.div()) B
 
 --- container-layoutable-child paged ---
 // Test box/block sizing with directly layoutable child.

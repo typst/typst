@@ -1,4 +1,4 @@
---- eval paged ---
+--- eval eval ---
 // Test the eval function.
 #test(eval("1 + 2"), 3)
 #test(eval("1 + x", scope: (x: 3)), 4)
@@ -10,7 +10,7 @@
 #eval("_Hello" + " World!_", mode: "markup") \
 #eval("RR_1^NN", mode: "math", scope: (RR: math.NN, NN: math.RR))
 
---- eval-syntax-error-1 paged ---
+--- eval-syntax-error-1 eval ---
 // Error: 7-12 expected pattern
 #eval("let")
 
@@ -23,11 +23,11 @@ Interacting
 Blue #move(dy: -0.15em)[🌊]
 ```
 
---- eval-runtime-error paged ---
+--- eval-runtime-error eval ---
 // Error: 7-17 cannot continue outside of loop
 #eval("continue")
 
---- eval-syntax-error-2 paged ---
+--- eval-syntax-error-2 eval ---
 // Error: 7-12 expected semicolon or line break
 #eval("1 2")
 
@@ -43,7 +43,7 @@ Blue #move(dy: -0.15em)[🌊]
 _Tiger!_
 ```
 
---- eval-path-resolve-relative paged ---
+--- eval-path-resolve-relative eval ---
 // Test relative path.
 #test(eval(`"HELLO" in read("./eval.typ")`.text), true)
 
@@ -53,7 +53,7 @@ _Tiger!_
 
 $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 
---- issue-6067-eval-warnings paged ---
+--- issue-6067-eval-warnings paged empty ---
 // Test that eval shows warnings from the executed code.
 // Warning: 7-11 no text within stars
 // Hint: 7-11 using multiple consecutive stars (e.g. **) has no additional effect

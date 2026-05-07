@@ -131,10 +131,10 @@
 )
 
 --- grid-rtl-vline-out-of-bounds paged ---
-// Error: 3:8-3:34 cannot place vertical line at the 'end' position of the end border (x = 1)
-// Hint: 3:8-3:34 set the line's position to 'start' or place it at a smaller 'x' index
 #set text(dir: rtl)
 #grid(
+  // Error: 8-34 cannot place vertical line at the 'end' position of the end border (x = 1)
+  // Hint: 8-34 set the line's position to 'start' or place it at a smaller 'x' index
   [a], grid.vline(position: left)
 )
 

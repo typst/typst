@@ -327,6 +327,10 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("Latin Modern Sans 12"),
     "LMSans17-Oblique" => Exception::new()
         .family("Latin Modern Sans 17"),
+    // SimSun-ExtB is a CJK Extension B font, not an "ExtraBold" variant of
+    // SimSun. Without this exception, `typographic_family()` strips the "ExtB"
+    // suffix and merges it with SimSun, causing wrong font selection.
+    "SimSun-ExtB" => Exception::new().family("SimSun-ExtB"),
     // STKaiti is a set of Kai fonts. Their weight values need to be corrected
     // according to their PostScript names.
     "STKaitiSC-Regular" => Exception::new().weight(400),

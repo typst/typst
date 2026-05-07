@@ -1,6 +1,6 @@
 // Test break and continue in loops.
 
---- loop-break-basic paged ---
+--- loop-break-basic eval ---
 // Test break.
 
 #let var = 0
@@ -17,7 +17,7 @@
 #test(var, 21)
 #test(error, false)
 
---- loop-break-join-basic paged ---
+--- loop-break-join-basic eval ---
 // Test joining with break.
 
 #let i = 0
@@ -32,7 +32,7 @@
 
 #test(x, "12345.")
 
---- loop-continue-basic paged ---
+--- loop-continue-basic eval ---
 // Test continue.
 
 #let i = 0
@@ -49,7 +49,7 @@
 // If continue did not work, this would equal 10.
 #test(x, 12)
 
---- loop-continue-join paged ---
+--- loop-continue-join eval ---
 // Test joining with continue.
 
 #let x = for i in range(5) {
@@ -63,7 +63,7 @@
 
 #test(x, "a_a1a2a_a4")
 
---- loop-break-outside-of-loop paged ---
+--- loop-break-outside-of-loop eval ---
 // Test break outside of loop.
 #let f() = {
   // Error: 3-8 cannot break outside of loop
@@ -74,7 +74,7 @@
   f()
 }
 
---- loop-break-join-in-last-arg paged ---
+--- loop-break-join-in-last-arg eval ---
 // Test break in function call.
 #let identity(x) = x
 #let out = for i in range(5) {
@@ -88,13 +88,13 @@
 
 #test(out, "AB")
 
---- loop-continue-outside-of-loop-in-block paged ---
+--- loop-continue-outside-of-loop-in-block eval ---
 // Test continue outside of loop.
 
 // Error: 12-20 cannot continue outside of loop
 #let x = { continue }
 
---- loop-continue-outside-of-loop-in-markup paged ---
+--- loop-continue-outside-of-loop-in-markup eval ---
 // Error: 2-10 cannot continue outside of loop
 #continue
 

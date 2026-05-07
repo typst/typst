@@ -12,7 +12,7 @@
 -- _Intermission_ --
 #chap2
 
---- include-file-not-found paged ---
+--- include-file-not-found eval ---
 #{
   // Error: 19-38 file not found (searched at tests/suite/scripting/modules/chap3.typ)
   let x = include "modules/chap3.typ"
@@ -22,18 +22,18 @@
 #import "modules/chap1.typ": chap2-path
 #include chap2-path
 
---- include-path-like-str-not-found paged ---
+--- include-path-like-str-not-found eval ---
 #import "modules/chap1.typ": chap2-str
 // Error: 10-19 file not found (searched at tests/suite/scripting/chap2.typ)
 #include chap2-str
 
---- include-no-bindings paged ---
+--- include-no-bindings eval ---
 #include "modules/chap1.typ"
 
 // The variables of the file should not appear in this scope.
 // Error: 2-6 unknown variable: name
 #name
 
---- include-semicolon-or-linebreak paged ---
+--- include-semicolon-or-linebreak eval ---
 // Error: 18 expected semicolon or line break
 #include "hi.typ" Hi

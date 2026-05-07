@@ -1,15 +1,14 @@
 //! Finished documents.
 
 use std::fmt::{self, Debug, Formatter};
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{Dict, Label, Value, cast, dict};
+use crate::foundations::Label;
 use crate::introspection::{Location, Tag};
-use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
+use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
@@ -123,6 +122,13 @@ impl Frame {
         self.baseline = Some(baseline);
     }
 
+    /// Remove the frame's natural baseline. This might be needed after
+    /// applying a certain transformation that would invalidate the baseline
+    /// position, in such a way that the ideal new position is not clear.
+    pub fn clear_baseline(&mut self) {
+        self.baseline = None;
+    }
+
     /// The distance from the baseline to the top of the frame.
     ///
     /// This is the same as `baseline()`, but more in line with the terminology
@@ -210,6 +216,11 @@ impl Frame {
         } else {
             self.prepend(pos, FrameItem::Group(GroupItem::new(frame)));
         }
+    }
+
+    /// Filters out items in the frame in-place.
+    pub fn retain(&mut self, mut filter: impl FnMut(&mut FrameItem) -> bool) {
+        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| filter(item));
     }
 
     /// Whether the given frame should be inlined.
@@ -301,9 +312,18 @@ impl Frame {
         }
     }
 
+    /// Move the contents of the frame without changing the baseline.
+    pub fn translate_visual(&mut self, offset: Point) {
+        if !offset.is_zero() {
+            for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
+                *point += offset;
+            }
+        }
+    }
+
     /// Hide all content in the frame, but keep metadata.
     pub fn hide(&mut self) {
-        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| match item {
+        self.retain(|item| match item {
             FrameItem::Group(group) => {
                 group.frame.hide();
                 !group.frame.is_empty()
@@ -573,35 +593,4 @@ impl FrameParent {
 pub enum Inherit {
     Yes,
     No,
-}
-
-/// A physical position in a document.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Position {
-    /// The page, starting at 1.
-    pub page: NonZeroUsize,
-    /// The exact coordinates on the page (from the top left, as usual).
-    pub point: Point,
-}
-
-cast! {
-    Position,
-    self => Value::Dict(self.into()),
-    mut dict: Dict => {
-        let page = dict.take("page")?.cast()?;
-        let x: Length = dict.take("x")?.cast()?;
-        let y: Length = dict.take("y")?.cast()?;
-        dict.finish(&["page", "x", "y"])?;
-        Self { page, point: Point::new(x.abs, y.abs) }
-    },
-}
-
-impl From<Position> for Dict {
-    fn from(pos: Position) -> Self {
-        dict! {
-            "page" => pos.page,
-            "x" => pos.point.x,
-            "y" => pos.point.y,
-        }
-    }
 }

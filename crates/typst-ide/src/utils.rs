@@ -5,8 +5,8 @@ use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
-use typst::introspection::Introspector;
-use typst::syntax::{LinkedNode, SyntaxKind};
+use typst::introspection::EmptyIntrospector;
+use typst::syntax::{LinkedNode, SyntaxMode};
 use typst::text::{FontInfo, FontStyle};
 use typst::utils::Protected;
 
@@ -17,11 +17,11 @@ pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
 where
     F: FnOnce(&mut Engine) -> T,
 {
-    let introspector = Introspector::default();
+    let introspector = EmptyIntrospector;
     let traced = Traced::default();
     let mut sink = Sink::new();
     let mut engine = Engine {
-        routines: &typst::ROUTINES,
+        library: world.library(),
         world: world.upcast().track(),
         introspector: Protected::new(introspector.track()),
         traced: traced.track(),
@@ -30,51 +30,6 @@ where
     };
 
     f(&mut engine)
-}
-
-/// Extract the first sentence of plain text of a piece of documentation.
-///
-/// Removes Markdown formatting.
-pub fn plain_docs_sentence(docs: &str) -> EcoString {
-    let mut s = unscanny::Scanner::new(docs);
-    let mut output = EcoString::new();
-    let mut link = false;
-    while let Some(c) = s.eat() {
-        match c {
-            '`' => {
-                let mut raw = s.eat_until('`');
-                if (raw.starts_with('{') && raw.ends_with('}'))
-                    || (raw.starts_with('[') && raw.ends_with(']'))
-                {
-                    raw = &raw[1..raw.len() - 1];
-                }
-
-                s.eat();
-                output.push('`');
-                output.push_str(raw);
-                output.push('`');
-            }
-            '[' => link = true,
-            ']' if link => {
-                if s.eat_if('(') {
-                    s.eat_until(')');
-                    s.eat();
-                } else if s.eat_if('[') {
-                    s.eat_until(']');
-                    s.eat();
-                }
-                link = false
-            }
-            '*' | '_' => {}
-            '.' => {
-                output.push('.');
-                break;
-            }
-            _ => output.push(c),
-        }
-    }
-
-    output
 }
 
 /// Create a short description of a font family.
@@ -109,18 +64,12 @@ pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
 
 /// The global definitions at the given node.
 pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
-    let in_math = matches!(
-        leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-    ) && leaf
-        .prev_leaf()
-        .is_none_or(|prev| !matches!(prev.kind(), SyntaxKind::Hash));
-
     let library = world.library();
-    if in_math { library.math.scope() } else { library.global.scope() }
+    if leaf.mode_after() == Some(SyntaxMode::Math) {
+        library.math.scope()
+    } else {
+        library.global.scope()
+    }
 }
 
 /// Checks whether the given value or any of its constituent parts satisfy the

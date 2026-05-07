@@ -47,6 +47,11 @@ impl Source {
         )
     }
 
+    /// Create a new source file with an already created syntax tree.
+    pub fn with_root(id: FileId, text: String, root: SyntaxNode) -> Self {
+        Self(Arc::new(LazyHash::new(SourceInner { id, lines: Lines::new(text), root })))
+    }
+
     /// The root node of the file's untyped syntax tree.
     pub fn root(&self) -> &SyntaxNode {
         &self.0.root

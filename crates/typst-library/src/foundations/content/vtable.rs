@@ -39,6 +39,7 @@ use std::ops::Deref;
 use std::ptr::NonNull;
 
 use ecow::EcoString;
+use typst_utils::DefSite;
 
 use super::raw::RawContent;
 use crate::diag::SourceResult;
@@ -84,6 +85,8 @@ pub struct ContentVtable<T: 'static = RawContent> {
     pub(super) title: &'static str,
     /// The element's documentation (as Markdown).
     pub(super) docs: &'static str,
+    /// Whether the element is defined in the source code.
+    pub(super) def_site: DefSite,
     /// Search keywords for the documentation.
     pub(super) keywords: &'static [&'static str],
 
@@ -135,10 +138,12 @@ pub struct ContentVtable<T: 'static = RawContent> {
 
 impl ContentVtable {
     /// Creates the vtable for an element.
+    #[allow(clippy::too_many_arguments)]
     pub const fn new<E: NativeElement>(
         name: &'static str,
         title: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         fields: &'static [FieldVtable<Packed<E>>],
         field_id: fn(name: &str) -> Option<u8>,
         capability: fn(TypeId) -> Option<NonNull<()>>,
@@ -148,6 +153,7 @@ impl ContentVtable {
             name,
             title,
             docs,
+            def_site,
             keywords: &[],
             fields,
             field_id,
@@ -309,6 +315,8 @@ pub struct FieldVtable<T: 'static = RawContent> {
     pub(super) name: &'static str,
     /// The fields's documentation (as Markdown).
     pub(super) docs: &'static str,
+    /// Where the field is defined in the source code.
+    pub(super) def_site: DefSite,
 
     /// Whether the field's parameter is positional.
     pub(super) positional: bool,

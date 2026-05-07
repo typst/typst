@@ -72,8 +72,8 @@ Ein Paragraph.
 ]
 
 --- figure-tags-only-marked-content-missing-alt pdftags pdfstandard(ua-1) ---
-// Error: 2-3:2 PDF/UA-1 error: missing alt text
-// Hint: 2-3:2 make sure your images and equations have alt text
+// Error: 1:2-3:2 PDF/UA-1 error: missing alt text
+// Hint: 1:2-3:2 make sure your images and equations have alt text
 #figure[
   #rect(fill: red)
 ]

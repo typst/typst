@@ -20,6 +20,7 @@ typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 typst-svg = { workspace = true }
+az = { workspace = true }
 bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

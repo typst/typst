@@ -260,14 +260,15 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
-        // The lexer manages creating full FieldAccess nodes if needed.
-        SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
+
+        // The lexer manages creating full MathFieldAccess nodes if needed.
+        SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
             if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
-                p.wrap(m, SyntaxKind::FuncCall);
+                p.wrap(m, SyntaxKind::MathCall);
                 continuable = false;
             }
         }
@@ -466,67 +467,33 @@ fn math_args(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::LeftParen);
 
-    let mut positional = true;
-    let mut has_arrays = false;
-
-    let mut maybe_array_start = p.marker();
     let mut seen = FxHashSet::default();
     while !p.at_set(syntax_set!(End, Dollar, RightParen)) {
-        positional = math_arg(p, &mut seen);
-
+        math_arg(p, &mut seen);
         match p.current() {
-            SyntaxKind::Comma => {
-                p.eat();
-                if !positional {
-                    maybe_array_start = p.marker();
-                }
-            }
-            SyntaxKind::Semicolon => {
-                if !positional {
-                    maybe_array_start = p.marker();
-                }
-
-                // Parses an array: `a, b, c;`.
-                // The semicolon merges preceding arguments separated by commas
-                // into an array argument.
-                p.wrap(maybe_array_start, SyntaxKind::Array);
-                p.eat();
-                maybe_array_start = p.marker();
-                has_arrays = true;
-            }
             SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {}
+            SyntaxKind::Semicolon | SyntaxKind::Comma => p.eat(),
             _ => p.expected("comma or semicolon"),
         }
     }
 
-    // Check if we need to wrap the preceding arguments in an array.
-    if maybe_array_start != p.marker() && has_arrays && positional {
-        p.wrap(maybe_array_start, SyntaxKind::Array);
-    }
-
     p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.wrap(m, SyntaxKind::Args);
+    p.wrap(m, SyntaxKind::MathArgs);
 }
 
 /// Parses a single argument in a math argument list.
-///
-/// Returns whether the parsed argument was positional or not.
-fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
+fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) {
     let m = p.marker();
     let start = p.current_start();
 
     let mut arg_kind = None;
 
-    if p.at(SyntaxKind::Dot)
-        && let Some(spread) = p.lexer.maybe_math_spread_arg(start)
-    {
+    if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
         // Parses a spread argument: `..args`.
         arg_kind = Some(SyntaxKind::Spread);
         p.token.node = spread;
         p.eat();
-    } else if p.at_set(syntax_set!(MathText, MathIdent, Underscore))
-        && let Some(named) = p.lexer.maybe_math_named_arg(start)
-    {
+    } else if let Some(named) = p.lexer.maybe_math_named_arg(start) {
         // Parses a named argument: `thickness: #12pt`.
         arg_kind = Some(SyntaxKind::Named);
         p.token.node = named;
@@ -550,15 +517,6 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
         if arg_kind == Some(SyntaxKind::Named) {
             p.expected("expression");
         }
-
-        // Flush trivia so that the new empty Math node will be wrapped _inside_
-        // any `SyntaxKind::Array` elements created in `math_args`.
-        // (And if we don't follow by wrapping in an array, it has no effect.)
-        // The difference in node layout without this would look like:
-        // - Expression: `$ mat( ;) $`
-        // - Correct:    [ .., Space(" "), Array[Math[], ], Semicolon(";"), .. ]
-        // - Incorrect:  [ .., Math[], Array[], Space(" "), Semicolon(";"), .. ]
-        p.flush_trivia();
     }
 
     // Wrap math function arguments to join adjacent math content or create an
@@ -573,7 +531,6 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
     if let Some(kind) = arg_kind {
         p.wrap(m, kind);
     }
-    arg_kind != Some(SyntaxKind::Named)
 }
 
 /// Parses the contents of a code block.
@@ -616,14 +573,9 @@ fn embedded_code_expr(p: &mut Parser) {
         }
 
         let stmt = p.at_set(set::STMT);
-        let at = p.at_set(set::ATOMIC_CODE_EXPR);
         code_expr_prec(p, true, 0);
 
-        // Consume error for things like `#12p` or `#"abc\"`.#
-        if !at {
-            p.unexpected();
-        }
-
+        // Note: 2d math arguments rely on the `directly_at` check.
         let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
             && p.eat_if(SyntaxKind::Semicolon);
 
@@ -635,7 +587,7 @@ fn embedded_code_expr(p: &mut Parser) {
 
 /// Parses a single code expression.
 fn code_expr(p: &mut Parser) {
-    code_expr_prec(p, false, 0)
+    code_expr_prec(p, false, 0);
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -643,11 +595,18 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
-    if !atomic && p.at_set(set::UNARY_OP) {
-        let op = ast::UnOp::from_kind(p.current()).unwrap();
-        p.eat();
-        code_expr_prec(p, atomic, op.precedence());
-        p.wrap(m, SyntaxKind::Unary);
+    if p.at_set(set::UNARY_OP) {
+        if !atomic {
+            let op = ast::UnOp::from_kind(p.current()).unwrap();
+            p.eat();
+            code_expr_prec(p, atomic, op.precedence());
+            p.wrap(m, SyntaxKind::Unary);
+        } else {
+            p.unexpected();
+            p.hint(
+                "to use a unary operator here, wrap the entire expression in parentheses",
+            );
+        }
     } else {
         code_primary(p, atomic);
     }
@@ -708,7 +667,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     }
 }
 
-/// Parses an primary in a code expression. These are the atoms that unary and
+/// Parses a primary in a code expression. These are the atoms that unary and
 /// binary operations, functions calls, and field accesses start with / are
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
@@ -766,11 +725,15 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
 
+        // Consume erroneous tokens for things like `#12p`, `#]`, or `#"abc\"`.
+        _ if atomic => p.unexpected(),
+
         _ => p.expected("expression"),
     }
 }
 
-/// Reparses a full content or code block.
+/// Reparses a full content or code block. This only succeeds if the new block
+/// contains balanced delimiters.
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
     let mut p = Parser::new(text, range.start, SyntaxMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
@@ -2027,9 +1990,24 @@ impl Parser<'_> {
         }
     }
 
-    /// Produce an error that the given `thing` was expected.
+    /// Produce an error that the given `thing` was expected. If the parser is
+    /// at an erroneous token, this will instead eat that token and continue.
     fn expected(&mut self, thing: &str) {
-        if !self.after_error() {
+        if self.token.kind.is_error() {
+            // If we encounter an erroneous token when something was expected,
+            // we need to actually consume the token. If we don't, and we then
+            // proceed to exit our current lexing mode, future incremental
+            // reparsing could fail to lex the token in the correct mode.
+            //
+            // Example: When parsing an unclosed string in `#import "str`,
+            // we need to make sure the string is lexed as code, because if
+            // it were lexed as markup, a future insert of a closing quote
+            // would only be adjacent to markup text, and wouldn't lex as a
+            // string when reparsing, causing a difference between the full
+            // parse and the incremental parse.
+            self.trim_errors();
+            self.eat();
+        } else if !self.after_error() {
             self.expected_at(self.before_trivia(), thing);
         }
     }

@@ -2,8 +2,12 @@
 
 --- circle paged ---
 // Default circle.
-#box(circle())
-#box(circle[Hey])
+#stack(
+  dir: ltr,
+  spacing: 0.5em,
+  circle(),
+  circle[Hey]
+)
 
 --- circle-auto-sizing paged ---
 // Test auto sizing.
@@ -52,7 +56,7 @@ Expanded by height.
   1fr,
 )
 
---- circle-radius-width-and-height paged ---
+--- circle-radius-width-and-height eval ---
 // Radius wins over width and height.
 // Error: 23-34 unexpected argument: width
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
