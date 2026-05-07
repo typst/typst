@@ -72,7 +72,7 @@ pub(crate) fn call_method_access<'a>(
     let ty = value.ty();
     let temp_or_missing = || {
         Err(if ty.scope().get(method).is_some() {
-            eco_format!("cannot mutate a temporary value")
+            "cannot mutate a temporary value".into()
         } else {
             missing_method(ty, method)
         })
