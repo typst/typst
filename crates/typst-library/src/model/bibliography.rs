@@ -297,7 +297,7 @@ impl BibliographyElem {
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::ELEM.select()).iter() {
+        for elem in &introspector.query(&Self::ELEM.select()) {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
@@ -373,7 +373,7 @@ impl Bibliography {
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for d in data.iter() {
+        for d in data {
             let library = decode_library(d)?;
             for entry in library {
                 let label = Label::new(PicoStr::intern(entry.key()))

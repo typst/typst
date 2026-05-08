@@ -563,7 +563,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
 
         div.text("Diff Format");
         div.fieldset().class("control-group").with(|fieldset| {
-            for &output in TestOutput::ALL.iter() {
+            for &output in &TestOutput::ALL {
                 let enabled = (reports.iter())
                     .flat_map(|report| report.files.iter())
                     .any(|file| file.output == output);
@@ -578,7 +578,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
     parent.div().class("sidebar-setting").with(|div| {
         div.text("Diff Format");
         div.fieldset().class("control-group").with(|fieldset| {
-            for &output in TestOutput::ALL.iter() {
+            for &output in &TestOutput::ALL {
                 let id = display!("global-diff-format-{output}");
                 let (title, icon) = match output {
                     TestOutput::Render => ("Show PNG diffs", icons::RENDER),
@@ -671,7 +671,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
     parent.h2().text("Tests");
 
     parent.ul().class("sidebar-list").tabindex(-1).with(|ul| {
-        for report in reports.iter() {
+        for report in reports {
             ul.li().with(|li| {
                 li.a()
                     .href(display!("#r-{}", report.name))

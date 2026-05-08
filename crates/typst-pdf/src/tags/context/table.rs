@@ -392,7 +392,7 @@ fn resolve_cell_headers<F>(
     );
 
     if let Some(header) = cell_ids {
-        for id in header.cell_ids.iter() {
+        for id in &header.cell_ids {
             if !cell.data.headers.contains(id) {
                 cell.data.headers.push(id.clone());
             }
