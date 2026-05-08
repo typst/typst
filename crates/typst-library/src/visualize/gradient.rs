@@ -1339,7 +1339,7 @@ fn process_stops(
 
     if has_offset {
         let mut last_stop = f64::NEG_INFINITY;
-        for Spanned { v: stop, span } in stops.iter() {
+        for Spanned { v: stop, span } in stops {
             let Some(stop) = stop.offset else {
                 bail!(
                     *span, "either all stops must have an offset or none of them can";

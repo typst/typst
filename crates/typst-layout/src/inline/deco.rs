@@ -88,7 +88,7 @@ pub fn decorate(
     let mut x = pos.x;
     let mut intersections = vec![];
 
-    for glyph in text.glyphs.iter() {
+    for glyph in &text.glyphs {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
@@ -144,7 +144,7 @@ fn determine_edges(
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
-    for g in text.glyphs.iter() {
+    for g in &text.glyphs {
         let (t, b) = text.font.edges(
             top_edge,
             bottom_edge,

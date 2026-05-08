@@ -86,7 +86,7 @@ impl HashedRefs {
 
 impl Display for HashedRefs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (name, hash) in self.refs.iter() {
+        for (name, hash) in &self.refs {
             writeln!(f, "{hash} {name}")?;
         }
         Ok(())

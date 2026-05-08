@@ -197,7 +197,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
 
     // Insert logical children into the tree.
     #[expect(clippy::iter_over_hash_type)]
-    for (loc, children) in tree.logical_children.iter() {
+    for (loc, children) in &tree.logical_children {
         let located = (tree.groups.by_loc(loc))
             .expect_internal("parent group")
             .at(Span::detached())?;
@@ -214,7 +214,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             );
         }
 
-        for child in children.iter() {
+        for child in children {
             let child = tree.groups.get_mut(*child);
 
             let GroupKind::LogicalChild(inherit, logical_parent) = &mut child.kind else {
@@ -773,7 +773,7 @@ fn split_outer_group(
 
         // Update progressions to jump into the inner entry instead.
         let prev = tree.progressions[entry.prog_idx as usize];
-        for prog in tree.progressions[entry.prog_idx as usize..].iter_mut() {
+        for prog in &mut tree.progressions[entry.prog_idx as usize..] {
             if *prog == prev {
                 *prog = nested;
             }
