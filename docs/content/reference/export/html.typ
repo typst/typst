@@ -53,7 +53,7 @@ HTML files describe a document structurally. The aim of Typst's HTML export is t
 
 PDF, PNG, and SVG export, in contrast, all produce _visual_ representations of a fully-laid out document. This divergence in the formats' intents means that Typst cannot simply produce perfect HTML for your existing Typst documents. It cannot always know what the best semantic HTML representation of your content is.
 
-Instead, it gives _you_ full control: You can check the current export format through the @target function and when it is set to HTML, generate @html.elem[raw HTML elements]. The primary intended use of these elements is in templates and show rules. This way, the document's contents can be fully agnostic to the export target and content can be shared between PDF and HTML export.
+Instead, it gives _you_ full control: typst documents can @conditional-check[check the current export format] and when it is set to HTML, generate @html.elem[raw HTML elements]. The primary intended use of these elements is in templates and show rules. This way, the document's contents can be fully agnostic to the export target and content can be shared between PDF and HTML export.
 
 In the `html` export format, Typst will output a single HTML file. You can also use Typst to create a web site comprising multiple HTML documents and additional assets. Typst calls such a collection a _bundle_ and supports this use case with the dedicated @reference:bundle[`bundle` target]. Refer to its documentation to learn more. Note that both in the `html` and the `bundle` target, Typst will currently always emit a standalone HTML file. Support for emitting fragments that can be integrated into other HTML documents is planned for the future.
 
@@ -71,6 +71,12 @@ When using `typst watch`, Typst will launch a live-reloading HTTP server. You ca
 
 == Web App <web-app>
 Not currently available.
+
+= Target-conditional logic in packages and templates <conditional-check>
+
+The @target function can be used to detect the HTML function -- with the limitations that it is contextual, requires passing `--features html` (even when the HTML export is not used), and is an experimental API that may change in incompatible ways.
+
+The [bullseye](https://typst.app/universe/package/bullseye) package provides an abstraction layer to easily add conditional HTML support without impacting non-HTML users of your templates. While it is a third-party package and provides no compatibility guarantees, it is more backward-compatible than using @target directly. Template and package authors interested in experimenting with the HTML output are encouraged to use it.
 
 = HTML-specific functionality <html-specific-functionality>
 Typst exposes HTML-specific functionality in the global `html` module. See below for the definitions it contains.
