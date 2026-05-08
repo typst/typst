@@ -219,12 +219,12 @@ fn field_access_completions(
             }
         }
         Value::Dict(dict) => {
-            for (name, value) in dict.iter() {
+            for (name, value) in dict {
                 ctx.value_completion(name.clone(), value);
             }
         }
         Value::Args(args) => {
-            for (name, value) in args.to_named().iter() {
+            for (name, value) in &args.to_named() {
                 ctx.value_completion(name.clone(), value);
             }
         }

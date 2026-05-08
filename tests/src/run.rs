@@ -267,7 +267,7 @@ impl<'a> Runner<'a> {
         let mut inconsistent_stages = false;
         let mut consistent_set = TestStages::all();
 
-        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+        for Note { status, seen, kind, range, message } in &self.test.body.notes {
             // Set `needs_update` in one place for clarity.
             needs_update |= match &status {
                 NoteStatus::Annotated { .. } => seen.is_empty(),
@@ -393,7 +393,7 @@ impl<'a> Runner<'a> {
         }
 
         if let Err(errors) = output {
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, TestEval);
             }
         }
@@ -415,7 +415,7 @@ impl<'a> Runner<'a> {
         let target = TestTarget::from(D::target());
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
-        for warning in warnings.iter() {
+        for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning, target);
         }
 
@@ -427,7 +427,7 @@ impl<'a> Runner<'a> {
                     .unwrap_or(&[]);
                 let errors = eval::deduplicate_with(errors, eval_errors);
 
-                for error in errors.iter() {
+                for error in &errors {
                     self.check_diagnostic(NoteKind::Error, error, target);
                 }
 
@@ -480,7 +480,7 @@ impl<'a> Runner<'a> {
                 log!(self, "no document, but also no errors");
             }
 
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, T::OUTPUT);
             }
         }

@@ -476,7 +476,7 @@ fn format_byte_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
         write!(f, "{str:?}").ok();
     } else {
         write!(f, "0x").ok();
-        for b in bytes.iter() {
+        for b in bytes {
             write!(f, "{b:02x}").ok();
         }
     }
