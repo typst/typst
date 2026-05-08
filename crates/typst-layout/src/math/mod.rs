@@ -294,7 +294,7 @@ fn add_equation_number(
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
-        _ => unreachable!(),
+        FixedAlignment::Center => unreachable!(),
     };
     let y = {
         let align_baselines = |(_, pos, baseline): (_, Point, Abs), number: &Frame| {

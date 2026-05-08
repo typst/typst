@@ -208,7 +208,7 @@ where
                 continue;
             }
 
-            _ => {}
+            RawMathItem::Item(_) => {}
         }
 
         let mut item = item.into_item().unwrap();

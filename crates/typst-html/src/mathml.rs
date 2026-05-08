@@ -1311,7 +1311,7 @@ fn is_space_like(item: &MathItem) -> bool {
                 .all(is_space_like),
             _ => false,
         },
-        _ => false,
+        MathItem::Tag(_) => false,
     }
 }
 

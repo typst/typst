@@ -813,7 +813,7 @@ impl<'a> ItemEntry<'a> {
                 *self = Self::Box(Box::new(Item::Text(text.clone())));
                 match self {
                     Self::Box(item) => item.text_mut(),
-                    _ => unreachable!(),
+                    Self::Ref(_) => unreachable!(),
                 }
             }
             Self::Box(item) => item.text_mut(),

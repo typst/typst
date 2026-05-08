@@ -45,7 +45,7 @@ pub fn decorate(
         DecoLine::Underline { stroke, offset, evade, background } => {
             (stroke, font_metrics.underline, offset, *evade, *background)
         }
-        _ => return,
+        DecoLine::Highlight { .. } => return,
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;

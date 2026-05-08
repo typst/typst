@@ -534,7 +534,9 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependent styles"),
+            citationberg::Style::Dependent(_) => {
+                unreachable!("archive should not contain dependent styles")
+            }
         }
     }
 
