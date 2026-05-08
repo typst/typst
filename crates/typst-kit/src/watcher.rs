@@ -145,7 +145,7 @@ impl Watcher {
                 let event = event
                     .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
 
-                if !is_relevant_event_kind(&event.kind) {
+                if !is_relevant_event_kind(event.kind) {
                     continue;
                 }
 
@@ -193,7 +193,7 @@ impl Watcher {
 }
 
 /// Whether a kind of watch event is relevant for compilation.
-fn is_relevant_event_kind(kind: &notify::EventKind) -> bool {
+fn is_relevant_event_kind(kind: notify::EventKind) -> bool {
     match kind {
         notify::EventKind::Any => true,
         notify::EventKind::Access(_) => false,

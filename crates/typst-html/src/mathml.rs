@@ -234,7 +234,7 @@ enum NodePosition {
 }
 
 impl NodePosition {
-    fn get_form(&self) -> Form {
+    fn get_form(self) -> Form {
         match self {
             Self::Start => Form::Prefix,
             Self::Middle => Form::Infix,
