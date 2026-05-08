@@ -95,7 +95,7 @@ impl Styles {
             match &mut **entry {
                 Style::Property(property) => property.outside = true,
                 Style::Recipe(recipe) => recipe.outside = true,
-                _ => {}
+                Style::Revocation(_) => {}
             }
         }
         self

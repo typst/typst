@@ -516,7 +516,7 @@ fn param_completions<'a>(
             ast::Arg::Named(named) => {
                 existing_named.insert(named.name().as_str());
             }
-            _ => {}
+            ast::Arg::Spread(_) => {}
         }
     }
 
