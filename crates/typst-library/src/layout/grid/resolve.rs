@@ -744,9 +744,9 @@ impl CellGrid {
         }
 
         Self {
+            entries,
             cols,
             rows,
-            entries,
             vlines,
             hlines,
             headers,
