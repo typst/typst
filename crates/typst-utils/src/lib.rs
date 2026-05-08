@@ -433,7 +433,7 @@ pub fn defer<T, F: FnOnce(&mut T)>(
         deferred: Option<F>,
     }
 
-    impl<'a, T, F: FnOnce(&mut T)> Drop for DeferHandle<'a, T, F> {
+    impl<T, F: FnOnce(&mut T)> Drop for DeferHandle<'_, T, F> {
         fn drop(&mut self) {
             std::mem::take(&mut self.deferred).expect("deferred function")(self.thing);
         }

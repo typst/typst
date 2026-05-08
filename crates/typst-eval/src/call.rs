@@ -236,8 +236,8 @@ enum FieldCallee {
 /// - Prioritizing methods would make all new method additions breaking changes.
 /// - Prioritizing field functions would break methods for certain dictionaries,
 ///   e.g. `(at: x => ...).at(key)`.
-fn eval_field_callee<'a, 'b>(
-    vm: &'a mut Vm<'b>,
+fn eval_field_callee(
+    vm: &mut Vm,
     access: &SyntaxNode,
     field: &str,
     field_span: Span,
