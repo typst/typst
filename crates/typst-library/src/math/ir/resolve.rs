@@ -147,9 +147,9 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
 }
 
 /// Resolves a leaf element resulting from realization.
-fn resolve_realized<'a, 'v, 'e>(
+fn resolve_realized<'a>(
     elem: &'a Content,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     if let Some(elem) = elem.to_packed::<SymbolElem>() {
@@ -235,10 +235,10 @@ fn resolve_realized<'a, 'v, 'e>(
 }
 
 /// Resolves a MathML HTML element.
-fn resolve_mathml<'a, 'v, 'e>(
+fn resolve_mathml<'a>(
     elem: &'a Content,
     body: Option<&'a Content>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let body = if styles.get(TargetElem::target).is_html() {
@@ -269,9 +269,9 @@ fn resolve_h(
 }
 
 /// Resolves text content.
-fn resolve_text<'a, 'v, 'e>(
+fn resolve_text<'a>(
     elem: &Packed<TextElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let variant = styles.get(EquationElem::variant);
@@ -327,9 +327,9 @@ fn resolve_text<'a, 'v, 'e>(
 /// Resolves a symbol element into glyph items.
 ///
 /// Each grapheme cluster in the symbol becomes a separate glyph item.
-fn resolve_symbol<'a, 'v, 'e>(
+fn resolve_symbol<'a>(
     elem: &'a Packed<SymbolElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let variant = styles.get(EquationElem::variant);
@@ -360,9 +360,9 @@ fn resolve_symbol<'a, 'v, 'e>(
 /// Resolves an accent element.
 ///
 /// The base is resolved in cramped style if the accent is above.
-fn resolve_accent<'a, 'v, 'e>(
+fn resolve_accent<'a>(
     elem: &'a Packed<AccentElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let accent = elem.accent;
@@ -403,9 +403,9 @@ fn resolve_accent<'a, 'v, 'e>(
 ///
 /// Deals with primes, merges nested attachements, and decides the final
 /// positioning based on limits/scripts.
-fn resolve_attach<'a, 'v, 'e>(
+fn resolve_attach<'a>(
     elem: &'a Packed<AttachElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let outer_attachments = &mut [const { AttachmentList::End }; 6];
@@ -469,11 +469,11 @@ impl<'a> AttachmentList<'a> {
 
 /// Recursively resolve the base of an `AttachElem`, merging outer attachments
 /// inwards.
-fn resolve_inner_attach<'a, 'v, 'e>(
+fn resolve_inner_attach<'a>(
     elem: &'a Packed<AttachElem>,
     outer_attachments: &[AttachmentList; 6],
     outer_t_inside_tr: bool,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<MathItem<'a>> {
     // Lifetime-extend the super/subscript styles.
@@ -580,9 +580,9 @@ fn resolve_inner_attach<'a, 'v, 'e>(
 }
 
 /// Resolves grouped primes.
-fn resolve_primes<'a, 'v, 'e>(
+fn resolve_primes<'a>(
     elem: &'a Packed<PrimesElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     match elem.count {
@@ -609,9 +609,9 @@ fn resolve_primes<'a, 'v, 'e>(
 }
 
 /// Resolves a scripts element.
-fn resolve_scripts<'a, 'v, 'e>(
+fn resolve_scripts<'a>(
     elem: &'a Packed<ScriptsElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
@@ -621,9 +621,9 @@ fn resolve_scripts<'a, 'v, 'e>(
 }
 
 /// Resolves a limits element.
-fn resolve_limits<'a, 'v, 'e>(
+fn resolve_limits<'a>(
     elem: &'a Packed<LimitsElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
@@ -634,9 +634,9 @@ fn resolve_limits<'a, 'v, 'e>(
 }
 
 /// Resolves a stretch element.
-fn resolve_stretch<'a, 'v, 'e>(
+fn resolve_stretch<'a>(
     elem: &'a Packed<StretchElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let item = ctx.resolve_into_item(&elem.body, styles)?;
@@ -648,9 +648,9 @@ fn resolve_stretch<'a, 'v, 'e>(
 }
 
 /// Resolves a cancel element.
-fn resolve_cancel<'a, 'v, 'e>(
+fn resolve_cancel<'a>(
     elem: &'a Packed<CancelElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let body = ctx.resolve_into_item(&elem.body, styles)?;
@@ -680,9 +680,9 @@ fn resolve_cancel<'a, 'v, 'e>(
 }
 
 /// Resolves a fraction element.
-fn resolve_frac<'a, 'v, 'e>(
+fn resolve_frac<'a>(
     elem: &'a Packed<FracElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     match elem.style.get(styles) {
@@ -710,17 +710,17 @@ fn resolve_frac<'a, 'v, 'e>(
 }
 
 /// Resolves a binomial element.
-fn resolve_binom<'a, 'v, 'e>(
+fn resolve_binom<'a>(
     elem: &'a Packed<BinomElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_vertical_frac_like(ctx, styles, &elem.upper, &elem.lower, true, elem.span())
 }
 
 /// Resolve a vertical fraction or binomial.
-fn resolve_vertical_frac_like<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_vertical_frac_like<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     num: &'a Content,
     denom: &[Content],
@@ -769,8 +769,8 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
 }
 
 // Resolve a horizontal (inline) fraction.
-fn resolve_horizontal_frac<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_horizontal_frac<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     num: &'a Content,
     denom: &'a Content,
@@ -819,8 +819,8 @@ fn resolve_horizontal_frac<'a, 'v, 'e>(
 }
 
 /// Resolves a skewed (inline) fraction.
-fn resolve_skewed_frac<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_skewed_frac<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     num: &'a Content,
     denom: &'a Content,
@@ -847,9 +847,9 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
 }
 
 /// Resolves a left/right element.
-fn resolve_lr<'a, 'v, 'e>(
+fn resolve_lr<'a>(
     elem: &'a Packed<LrElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     // Extract from an EquationElem.
@@ -982,9 +982,9 @@ fn resolve_lr<'a, 'v, 'e>(
 }
 
 /// Resolves a middle element (in a left/right element).
-fn resolve_mid<'a, 'v, 'e>(
+fn resolve_mid<'a>(
     elem: &'a Packed<MidElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let start = ctx.resolve_into_items(&elem.body, styles)?;
@@ -998,9 +998,9 @@ fn resolve_mid<'a, 'v, 'e>(
 }
 
 /// Resolves a vector element.
-fn resolve_vec<'a, 'v, 'e>(
+fn resolve_vec<'a>(
     elem: &'a Packed<VecElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let span = elem.span();
@@ -1024,9 +1024,9 @@ fn resolve_vec<'a, 'v, 'e>(
 }
 
 /// Resolves a matrix element.
-fn resolve_mat<'a, 'v, 'e>(
+fn resolve_mat<'a>(
     elem: &'a Packed<MatElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let span = elem.span();
@@ -1076,9 +1076,9 @@ fn resolve_mat<'a, 'v, 'e>(
 }
 
 /// Resolves a cases element.
-fn resolve_cases<'a, 'v, 'e>(
+fn resolve_cases<'a>(
     elem: &'a Packed<CasesElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let span = elem.span();
@@ -1110,8 +1110,8 @@ fn resolve_cases<'a, 'v, 'e>(
 ///
 /// The contents of the cells are resolved in denominator style.
 #[expect(clippy::too_many_arguments)]
-fn resolve_cells<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_cells<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     rows: Vec<Vec<&'a Content>>,
     span: Span,
@@ -1160,8 +1160,8 @@ fn resolve_cells<'a, 'v, 'e>(
 }
 
 /// Resolves the delimiters around the body of a vector, matrix, or cases.
-fn resolve_delimiters<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_delimiters<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     cells: MathItem<'a>,
     left: Option<char>,
@@ -1188,9 +1188,9 @@ fn resolve_delimiters<'a, 'v, 'e>(
 }
 
 /// Resolves a class element.
-fn resolve_class<'a, 'v, 'e>(
+fn resolve_class<'a>(
     elem: &'a Packed<ClassElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
@@ -1201,9 +1201,9 @@ fn resolve_class<'a, 'v, 'e>(
 }
 
 /// Resolves an operator element.
-fn resolve_op<'a, 'v, 'e>(
+fn resolve_op<'a>(
     elem: &'a Packed<OpElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let mut item = ctx.resolve_into_item(&elem.text, styles)?;
@@ -1221,9 +1221,9 @@ fn resolve_op<'a, 'v, 'e>(
 ///
 /// The radicand is resolved in cramped style, and the index in
 /// scriptscript size and cramped style.
-fn resolve_root<'a, 'v, 'e>(
+fn resolve_root<'a>(
     elem: &'a Packed<RootElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let cramped_styles = ctx.store_chain(ctx.chain_styles(styles, style_cramped()));
@@ -1249,9 +1249,9 @@ fn resolve_root<'a, 'v, 'e>(
 }
 
 /// Resolves an under line element.
-fn resolve_underline<'a, 'v, 'e>(
+fn resolve_underline<'a>(
     elem: &'a Packed<UnderlineElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let base = ctx.resolve_into_item(&elem.body, styles)?;
@@ -1262,9 +1262,9 @@ fn resolve_underline<'a, 'v, 'e>(
 /// Resolves an over line element.
 ///
 /// The base is resolved in cramped style.
-fn resolve_overline<'a, 'v, 'e>(
+fn resolve_overline<'a>(
     elem: &'a Packed<OverlineElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let cramped_styles = ctx.chain_styles(styles, style_cramped());
@@ -1274,9 +1274,9 @@ fn resolve_overline<'a, 'v, 'e>(
 }
 
 /// Resolves an unde rbrace element.
-fn resolve_underbrace<'a, 'v, 'e>(
+fn resolve_underbrace<'a>(
     elem: &'a Packed<UnderbraceElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1291,9 +1291,9 @@ fn resolve_underbrace<'a, 'v, 'e>(
 }
 
 /// Resolves an over brace element.
-fn resolve_overbrace<'a, 'v, 'e>(
+fn resolve_overbrace<'a>(
     elem: &'a Packed<OverbraceElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1308,9 +1308,9 @@ fn resolve_overbrace<'a, 'v, 'e>(
 }
 
 /// Resolves an under bracket element.
-fn resolve_underbracket<'a, 'v, 'e>(
+fn resolve_underbracket<'a>(
     elem: &'a Packed<UnderbracketElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1325,9 +1325,9 @@ fn resolve_underbracket<'a, 'v, 'e>(
 }
 
 /// Resolves an over bracket element.
-fn resolve_overbracket<'a, 'v, 'e>(
+fn resolve_overbracket<'a>(
     elem: &'a Packed<OverbracketElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1342,9 +1342,9 @@ fn resolve_overbracket<'a, 'v, 'e>(
 }
 
 /// Resolves an under parenthesis element.
-fn resolve_underparen<'a, 'v, 'e>(
+fn resolve_underparen<'a>(
     elem: &'a Packed<UnderparenElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1359,9 +1359,9 @@ fn resolve_underparen<'a, 'v, 'e>(
 }
 
 /// Resolves an over parenthesis element.
-fn resolve_overparen<'a, 'v, 'e>(
+fn resolve_overparen<'a>(
     elem: &'a Packed<OverparenElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1376,9 +1376,9 @@ fn resolve_overparen<'a, 'v, 'e>(
 }
 
 /// Resolves an under shell element.
-fn resolve_undershell<'a, 'v, 'e>(
+fn resolve_undershell<'a>(
     elem: &'a Packed<UndershellElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1393,9 +1393,9 @@ fn resolve_undershell<'a, 'v, 'e>(
 }
 
 /// Resolves an over shell element.
-fn resolve_overshell<'a, 'v, 'e>(
+fn resolve_overshell<'a>(
     elem: &'a Packed<OvershellElem>,
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     resolve_underoverspreader(
@@ -1413,8 +1413,8 @@ fn resolve_overshell<'a, 'v, 'e>(
 ///
 /// It is resolved as an accent, nested inside a scripts item if there is an
 /// annotation.
-fn resolve_underoverspreader<'a, 'v, 'e>(
-    ctx: &mut MathResolver<'a, 'v, 'e>,
+fn resolve_underoverspreader<'a>(
+    ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     body: &'a Content,
     annotation: &'a Option<Content>,

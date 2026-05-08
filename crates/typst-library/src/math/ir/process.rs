@@ -344,7 +344,7 @@ impl<'a> Deref for MathBuffer<'a> {
     }
 }
 
-impl<'a> DerefMut for MathBuffer<'a> {
+impl DerefMut for MathBuffer<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

@@ -206,7 +206,7 @@ impl<'a> Locator<'a> {
 }
 
 #[comemo::track]
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> Locator<'a> {
     /// Resolves the locator based on its local and the outer information.
     fn resolve(&self) -> Resolved {
