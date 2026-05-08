@@ -617,7 +617,7 @@ impl Packed<RawElem> {
             }
         } else {
             seq.extend(non_highlighted_result(lines));
-        };
+        }
 
         seq
     }

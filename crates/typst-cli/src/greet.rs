@@ -32,7 +32,7 @@ pub fn greet() {
     let prev_greet = std::fs::read_to_string(&path).ok();
     if prev_greet.as_deref() == Some(version) {
         return;
-    };
+    }
 
     std::fs::write(&path, version).ok();
     print_and_exit(GREETING);

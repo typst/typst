@@ -310,7 +310,7 @@ fn spacing<'a>(
         _ if (l.is_spaced() || r.is_spaced()) => return space,
 
         _ => {}
-    };
+    }
 
     None
 }

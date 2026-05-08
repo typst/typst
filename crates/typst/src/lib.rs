@@ -233,7 +233,7 @@ fn hint_invalid_main_file(
                 diagnostic
                     .hint("a file without an extension is not usually a Typst file");
             }
-        };
+        }
 
         if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");

@@ -155,7 +155,7 @@ fn munge(s: &str) -> String {
                 slashes = 0;
             }
             _ => slashes = 0,
-        };
+        }
         res.push(c);
     }
     res

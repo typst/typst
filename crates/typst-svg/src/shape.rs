@@ -183,7 +183,7 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
         Geometry::Curve(p) => {
             return convert_curve(Point::zero(), p);
         }
-    };
+    }
     builder.finsish()
 }
 

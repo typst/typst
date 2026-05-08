@@ -319,7 +319,7 @@ impl<'a> SVGRenderer<'a> {
                 }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
-            };
+            }
         }
     }
 
