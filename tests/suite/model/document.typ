@@ -282,3 +282,19 @@ world
 #context {
   set document(author: "Changed") if "Normal" in document.author
 }
+
+--- issue-8163-document-path-state bundle ---
+// Test that it's possible to use state/context for determining a document's
+// file path.
+#let doc-name-state = state("doc-name", "unknown.html")
+
+#let make-doc(name) = {
+  doc-name-state.update(name)
+  context {
+    let filename = doc-name-state.get()
+    document(filename)[This is document #filename]
+  }
+}
+
+#make-doc("a.html")
+#make-doc("b.html")

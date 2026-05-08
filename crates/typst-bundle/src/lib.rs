@@ -174,7 +174,7 @@ fn bundle_impl(
         styles,
     )?;
 
-    let children = collect(&children, &mut locator)?;
+    let children = collect(&children, &mut engine, &mut locator);
 
     let mut items = engine
         .parallelize(children, |engine, child| -> SourceResult<_> {
@@ -235,8 +235,9 @@ enum Item {
 /// Collects all documents and assets in the bundle.
 fn collect<'a>(
     children: &'a [Pair<'a>],
+    engine: &mut Engine,
     locator: &mut SplitLocator<'a>,
-) -> SourceResult<Vec<Child<'a>>> {
+) -> Vec<Child<'a>> {
     let mut items = Vec::new();
     let mut errors = EcoVec::new();
     let mut seen = FxHashMap::default();
@@ -276,11 +277,8 @@ fn collect<'a>(
         }
     }
 
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
-    Ok(items)
+    engine.sink.delay(errors);
+    items
 }
 
 /// Compiles a single document.
