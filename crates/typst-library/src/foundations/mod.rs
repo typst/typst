@@ -81,6 +81,7 @@ pub use {
 use comemo::{Track, TrackedMut};
 use ecow::EcoString;
 use typst_syntax::{RootedPath, Spanned, SyntaxMode};
+use typst_utils::escape_user_string;
 
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -149,7 +150,7 @@ pub fn panic(
                 msg.push_str(", ");
             }
             match value {
-                Value::Str(s) => msg.push_str(s),
+                Value::Str(s) => msg.push_str(escape_user_string(s).as_ref()),
                 _ => msg.push_str(&value.repr()),
             }
         }
@@ -179,7 +180,7 @@ pub fn assert(
 ) -> StrResult<NoneValue> {
     if !condition {
         if let Some(message) = message {
-            bail!("assertion failed: {message}");
+            bail!("assertion failed: {}", escape_user_string(&message).as_ref());
         } else {
             bail!("assertion failed");
         }
@@ -210,7 +211,10 @@ impl assert {
     ) -> StrResult<NoneValue> {
         if left != right {
             if let Some(message) = message {
-                bail!("equality assertion failed: {message}");
+                bail!(
+                    "equality assertion failed: {}",
+                    escape_user_string(&message).as_ref()
+                );
             } else {
                 bail!(
                     "equality assertion failed: value {} was not equal to {}",
@@ -243,7 +247,10 @@ impl assert {
     ) -> StrResult<NoneValue> {
         if left == right {
             if let Some(message) = message {
-                bail!("inequality assertion failed: {message}");
+                bail!(
+                    "inequality assertion failed: {}",
+                    escape_user_string(&message).as_ref()
+                );
             } else {
                 bail!(
                     "inequality assertion failed: value {} was equal to {}",

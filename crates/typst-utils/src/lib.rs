@@ -472,3 +472,45 @@ macro_rules! display_possible_values {
         }
     };
 }
+
+/// Tests whether a Unicode character is a "dangerous" character that should  be
+/// escaped when printing a user-provided string.
+///
+/// The following characters are considered dangerous characters for this
+/// purpose:
+/// - C0 controls and DELETE from the [C0 Controls and Basic Latin] block
+/// - C1 controls from the [C1 Controls and Latin-1 Supplement] block
+///
+/// [C0 Controls and Basic Latin]: https://www.unicode.org/charts/PDF/U0000.pdf
+/// [C1 Controls and Latin-1 Supplement]: https://www.unicode.org/charts/PDF/U0080.pdf
+fn is_dangerous_character(c: char) -> bool {
+    matches!(c, '\u{0000}'..='\u{001F}' | '\u{007F}' | '\u{0080}'..='\u{009F}')
+}
+
+/// Escapes a user-provided string to be displayed in the terminal.
+///
+/// This replaces potentially dangerous characters with the REPLACEMENT
+/// CHARACTER.
+pub fn escape_user_string<'a>(s: &'a str) -> impl AsRef<str> + 'a {
+    enum Escaped<'a> {
+        Original(&'a str),
+        Modified(String),
+    }
+
+    impl<'a> AsRef<str> for Escaped<'a> {
+        fn as_ref(&self) -> &str {
+            match self {
+                Self::Original(s) => s,
+                Self::Modified(s) => s.as_ref(),
+            }
+        }
+    }
+
+    if !s.contains(is_dangerous_character) {
+        Escaped::Original(s)
+    } else {
+        // We replace dangerous characters with the REPLACEMENT CHARACTER.
+        // https://www.unicode.org/charts/PDF/UFFF0.pdf
+        Escaped::Modified(s.replace(is_dangerous_character, "\u{FFFD}"))
+    }
+}
