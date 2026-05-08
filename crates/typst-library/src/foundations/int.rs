@@ -82,7 +82,7 @@ impl i64 {
         Ok(match value.v {
             ToInt::Int(n) => match base.v {
                 Base::User(_) => bail!(base.span, "base is only supported for strings"),
-                _ => n,
+                Base::Default => n,
             },
             ToInt::Str(s) => {
                 let base_value = base.v.value();

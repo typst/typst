@@ -127,7 +127,7 @@ pub fn layout_enum(
                     parents.len(),
                     number,
                 )),
-                other => other
+                Numbering::Func(_) => numbering
                     .apply(engine, context.track(), item.span(), &[number])?
                     .display(),
             }
