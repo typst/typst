@@ -30,6 +30,7 @@ pub use self::version_::{TypstVersion, display_commit, version};
 #[doc(hidden)]
 pub use once_cell;
 
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
@@ -491,26 +492,12 @@ fn is_dangerous_character(c: char) -> bool {
 ///
 /// This replaces potentially dangerous characters with the REPLACEMENT
 /// CHARACTER.
-pub fn escape_user_string<'a>(s: &'a str) -> impl AsRef<str> + 'a {
-    enum Escaped<'a> {
-        Original(&'a str),
-        Modified(String),
-    }
-
-    impl<'a> AsRef<str> for Escaped<'a> {
-        fn as_ref(&self) -> &str {
-            match self {
-                Self::Original(s) => s,
-                Self::Modified(s) => s.as_ref(),
-            }
-        }
-    }
-
+pub fn escape_user_string(s: &str) -> Cow<'_, str> {
     if !s.contains(is_dangerous_character) {
-        Escaped::Original(s)
+        Cow::Borrowed(s)
     } else {
         // We replace dangerous characters with the REPLACEMENT CHARACTER.
         // https://www.unicode.org/charts/PDF/UFFF0.pdf
-        Escaped::Modified(s.replace(is_dangerous_character, "\u{FFFD}"))
+        Cow::Owned(s.replace(is_dangerous_character, "\u{FFFD}"))
     }
 }
