@@ -17,7 +17,7 @@
 
 --- panic-multiline eval ---
 // Test panic with a multiline string.
-// Error: 1:2-2:7 panicked with: oops\noops\noops
+// Error: 1:2-2:7 panicked with: oops�oops�oops
 #panic("oops\noops
 oops")
 
@@ -30,3 +30,8 @@ oops")
 --- issue-5219-panic-escaped-quotes eval ---
 // Error: 2-42 panicked with: use an identifier like "math"
 #panic("use an identifier like \"math\"")
+
+--- panic-escape-characters eval ---
+// `panic` should escape escape characters.
+// Error: 2-56 panicked with: �[2JAre they � escaped?�
+#panic("\u{001B}[2JAre they \u{009C} escaped?\u{007F}")

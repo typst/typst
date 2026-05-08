@@ -38,3 +38,18 @@
 #assert(5 > 3)
 #assert.eq(15, 15)
 #assert.ne(10, 12)
+
+--- assert-message-escaped eval ---
+// `assert` should escape escape characters.
+// Error: 2-73 assertion failed: �[2JAre they � escaped?�
+#assert(false, message: "\u{001B}[2JAre they \u{009C} escaped?\u{007F}")
+
+--- assert-eq-message-escaped eval ---
+// `assert.eq` should escape escape characters.
+// Error: 2-75 equality assertion failed: �[2JAre they � escaped?�
+#assert.eq(1, 2, message: "\u{001B}[2JAre they \u{009C} escaped?\u{007F}")
+
+--- assert-ne-message-escaped eval ---
+// `assert.ne` should escape escape characters.
+// Error: 2-75 inequality assertion failed: �[2JAre they � escaped?�
+#assert.ne(1, 1, message: "\u{001B}[2JAre they \u{009C} escaped?\u{007F}")
