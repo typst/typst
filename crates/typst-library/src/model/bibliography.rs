@@ -1412,7 +1412,7 @@ fn show_elem_child(
         hayagriva::ElemChild::Markup(markup) => show_math(ctx, markup),
         hayagriva::ElemChild::Link { text, url } => show_link(ctx, text, url)?,
         hayagriva::ElemChild::Transparent { cite_idx, format } => {
-            show_transparent(ctx, *cite_idx, format)
+            show_transparent(ctx, *cite_idx, *format)
         }
     })
 }
@@ -1499,7 +1499,7 @@ fn show_link(
 }
 
 /// Displays transparent pass-through content.
-fn show_transparent(ctx: &ShowCtx, i: usize, format: &hayagriva::Formatting) -> Content {
+fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
     let content = (ctx.supplement)(i).unwrap_or_default();
     show_with_formatting(content, format)
 }
@@ -1514,11 +1514,11 @@ fn show_formatted(
         if trim_start { formatted.text.trim_start() } else { formatted.text.as_str() };
 
     let content = TextElem::packed(formatted_text).spanned(ctx.span);
-    show_with_formatting(content, &formatted.formatting)
+    show_with_formatting(content, formatted.formatting)
 }
 
 /// Applies hayagriva formatting to content.
-fn show_with_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+fn show_with_formatting(mut content: Content, format: hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
