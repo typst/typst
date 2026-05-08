@@ -527,7 +527,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         for (_, note) in nested {
             match self.footnote(note, regions, flow_need, migratable) {
                 // This footnote was already processed or queued.
-                Ok(_) => {}
+                Ok(()) => {}
                 // Footnotes always request a relayout when processed for the
                 // first time, so we ignore a relayout request since we're
                 // about to do so afterwards. Without this check, the first
