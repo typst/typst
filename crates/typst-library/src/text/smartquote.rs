@@ -410,7 +410,7 @@ cast! {
 
         value.finish(&keys)?;
 
-        Self { single, double }
+        Self { double, single }
     },
     value: SmartQuoteSet => Self {
         double: Smart::Custom(value),
