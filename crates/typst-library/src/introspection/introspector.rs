@@ -649,7 +649,7 @@ where
         self.0.get(key).map_or(&[], |vec| vec.as_slice())
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a [V])> + use<'a, K, V> {
+    fn iter(&self) -> impl Iterator<Item = (&K, &[V])> + use<'_, K, V> {
         self.0.iter().map(|(k, v)| (k, v.as_slice()))
     }
 

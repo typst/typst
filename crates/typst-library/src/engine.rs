@@ -394,7 +394,7 @@ impl Route<'_> {
 }
 
 #[comemo::track]
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {

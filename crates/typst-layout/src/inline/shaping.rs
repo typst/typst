@@ -119,7 +119,7 @@ impl<'a> Glyphs<'a> {
     }
 }
 
-impl<'a> Deref for Glyphs<'a> {
+impl Deref for Glyphs<'_> {
     type Target = [ShapedGlyph];
 
     /// Returns only the kept (untrimmed) glyphs.

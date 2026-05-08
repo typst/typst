@@ -43,7 +43,7 @@ struct Resolver<'a> {
     errors: EcoVec<SourceDiagnostic>,
 }
 
-impl<'a> Resolver<'a> {
+impl Resolver<'_> {
     fn with_flatten<T>(&mut self, flatten: bool, f: impl FnOnce(&mut Self) -> T) -> T {
         let prev = self.flatten;
         self.flatten |= flatten;
