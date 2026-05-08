@@ -296,7 +296,7 @@ impl Plugin {
             )
             .unwrap();
 
-        let base = Arc::new(PluginBase { bytes, linker, module });
+        let base = Arc::new(PluginBase { bytes, module, linker });
         let instance = PluginInstance::new(&base, None)?;
 
         Ok(Self {
