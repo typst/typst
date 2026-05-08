@@ -483,7 +483,7 @@ fn place_explicit_lines<F>(
             pos = LinePosition::After;
         } else if line.index + 1 == block_end as usize {
             pos = LinePosition::Before;
-        };
+        }
 
         let block_idx = match pos {
             LinePosition::Before => (line.index - 1) as u32,

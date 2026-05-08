@@ -782,7 +782,7 @@ fn segmented_rect(
             curve.arc_move(c.start(), c.center(), c.end());
         } else {
             curve.move_(c.center());
-        };
+        }
 
         for corner in [Corner::TopRight, Corner::BottomRight, Corner::BottomLeft] {
             let c = corners.get_ref(corner);
