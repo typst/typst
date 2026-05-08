@@ -201,13 +201,14 @@ mod bitcode {
     }
 
     /// A failure during compile-time interning.
+    #[derive(Clone, Copy)]
     pub enum EncodingError {
         TooLong,
         BadChar,
     }
 
     impl EncodingError {
-        pub const fn message(&self) -> &'static str {
+        pub const fn message(self) -> &'static str {
             match self {
                 Self::TooLong => "the maximum auto-internible string length is 12",
                 Self::BadChar => {

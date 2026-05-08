@@ -125,23 +125,20 @@ impl i64 {
                         // Parse the digits part into u64
                         //  => abs(i64::MIN) fits into u64
                         let bigger = u64::from_str_radix(s, radix)
-                            .map_err(|e| parse_str_error(e.kind(), base))
+                            .map_err(|e| parse_str_error(*e.kind(), base))
                             .at(value.span)?;
 
                         // Number wouldn't fit into i64
                         if bigger > i64::MIN.unsigned_abs() {
-                            return Err(parse_str_error(
-                                &IntErrorKind::NegOverflow,
-                                base,
-                            ))
-                            .at(value.span);
+                            return Err(parse_str_error(IntErrorKind::NegOverflow, base))
+                                .at(value.span);
                         }
 
                         bigger.wrapping_neg() as i64
                     }
                     // Positive
                     None => i64::from_str_radix(&s, radix)
-                        .map_err(|e| parse_str_error(e.kind(), base))
+                        .map_err(|e| parse_str_error(*e.kind(), base))
                         .at(value.span)?,
                 }
             }
@@ -472,7 +469,7 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
 }
 
 #[cold]
-fn parse_str_error(kind: &IntErrorKind, base: Spanned<Base>) -> HintedString {
+fn parse_str_error(kind: IntErrorKind, base: Spanned<Base>) -> HintedString {
     let base = base.v.value();
     match kind {
         IntErrorKind::Empty => error!("string must not be empty"),

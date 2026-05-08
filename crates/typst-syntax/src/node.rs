@@ -1268,7 +1268,7 @@ impl LinkedNode<'_> {
 }
 
 /// Indicates whether the cursor is before the related byte index, or after.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Side {
     Before,
     After,
