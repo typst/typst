@@ -403,7 +403,7 @@ mod tests {
             let mut vec = iter
                 .map(|id| id.get().vpath().get_without_slash())
                 .collect::<Vec<_>>();
-            vec.sort();
+            vec.sort_unstable();
             vec
         };
         store.source(id("a.typ")).must_be(A_TEXT);
