@@ -514,7 +514,7 @@ impl PluginInstance {
                 }
             },
             _ => bail!("plugin did not respect the protocol"),
-        };
+        }
 
         Ok(Bytes::new(output))
     }

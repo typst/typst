@@ -43,7 +43,7 @@ pub fn definition(
                 (*item.name() == name).then(|| Definition::Span(item.span()))
             }) {
                 return Some(src);
-            };
+            }
 
             if let Some((value, _)) = analyze_expr(world, &node).first() {
                 let span = match value {

@@ -253,7 +253,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
                 sk::Transform::default(),
             );
             storage = mask;
-        };
+        }
 
         mask = Some(&storage);
     }

@@ -186,7 +186,7 @@ fn parse_param(
                 } else {
                     binding = Binding::Ref
                 }
-            };
+            }
 
             special.self_ = Some(Param {
                 binding,

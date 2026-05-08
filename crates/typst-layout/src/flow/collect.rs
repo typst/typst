@@ -272,7 +272,7 @@ impl<'a> Collector<'a, '_, '_> {
                 locator,
                 cell: CachedCell::new(),
             })));
-        };
+        }
 
         self.output.push(spacing(elem.below.get(styles)));
         self.par_situation = ParSituation::Other;
