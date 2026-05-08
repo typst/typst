@@ -348,7 +348,7 @@ fn format_tag_attrs(f: &mut Formatter, tag: &Dict) -> StrResult<()> {
                     Ok(*idx)
                 })
                 .collect::<StrResult<Vec<_>>>()?;
-            indices.sort();
+            indices.sort_unstable();
 
             for idx in indices {
                 let (name, fmt) = ATTRIBUTES[idx];
