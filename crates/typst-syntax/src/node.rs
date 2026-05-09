@@ -267,12 +267,20 @@ impl SyntaxNode {
     /// Should be called with `offset = 0` on the root node.
     fn synthesize_with(
         &mut self,
-        offset: usize,
+        mut offset: usize,
         f: &mut impl FnMut(Range<usize>) -> Span,
     ) {
         match self.node_mut() {
             Node::Leaf(leaf) => leaf.span = f(offset..offset + leaf.text.len()),
-            Node::Inner(inner) => Arc::make_mut(inner).synthesize_with_impl(offset, f),
+            Node::Inner(inner) => {
+                let inner = Arc::make_mut(inner);
+                inner.span = f(offset..offset + inner.len);
+                inner.upper = inner.span.number();
+                for child in &mut inner.children {
+                    child.synthesize_with(offset, f);
+                    offset += child.len();
+                }
+            }
             Node::Error(err) => {
                 Arc::make_mut(err).error.span = f(offset..offset + err.text.len())
             }
@@ -537,20 +545,6 @@ impl InnerNode {
             diagnosis,
             upper: 0,
             children,
-        }
-    }
-
-    /// Set a synthetic span for the node and all its descendants.
-    fn synthesize_with_impl(
-        &mut self,
-        mut offset: usize,
-        f: &mut impl FnMut(Range<usize>) -> Span,
-    ) {
-        self.span = f(offset..offset + self.len);
-        self.upper = self.span.number();
-        for child in &mut self.children {
-            child.synthesize_with(offset, f);
-            offset += child.len();
         }
     }
 
