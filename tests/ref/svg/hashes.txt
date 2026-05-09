@@ -950,6 +950,8 @@ ff268bb2e945cd2be548bc1f13332a90 list-baseline-text-with-math
 c2f1a053f45722da47c1de7d9a68fa38 list-basic
 3e171d57894efe35b923675b54dbb31f list-colbreak
 423d1cfedd873983bce331a7a8f265de list-content-block
+846c22b33d28e74debf2d5b0492f7939 list-expand-auto
+adbaef8b933bb70fc9ce08c8e66aff8c list-expand-block
 0a5ef45280214d02617328e9254e5b09 list-indent-specifics
 9231e9e69c70b65d621d82a29ae96937 list-item-styling
 e8047407a32bc6c56e882bcec95af100 list-items-context
@@ -964,7 +966,7 @@ cc7719497def2e083d5bb2139e6ad229 list-marker-cycle
 e1d857ac6c823707ab59f63bc960a66c list-marker-dash
 e6646f56c44096e0f3b0652d8d674881 list-mix
 b64344a8f9a9871626a2fdfc5174b56e list-mixed-tabs-and-spaces
-92d69fd1788fed265b121904ea92d8b3 list-multi-page
+7b2ca62e5b1248464fb7045b5bf4825d list-multi-page
 2fa9b401d6cb4da0431adbb732b6a411 list-nested
 eab051870a208570a0c82c36ed3b09e5 list-non-attached-followed-by-attached
 337a34aebe8c87cb0467852724d3942b list-par
@@ -973,6 +975,7 @@ bcc424aabc6baeddf7f06048b8708cc0 list-syntax-edge-cases
 b9e2234b863e53376b543eecef8f0863 list-tabs
 2d403558d7af9f1807ae78a885e1ec3c list-tight-non-attached-tight
 f81f64fd8ee0466854e2dd61da7cb8d2 list-top-level-indent
+e161f91529c47b9fecde5fac3e1fa7c8 list-vertical-alignment-in-item
 7a56f6099a80eb345f19020afe0ac530 list-wide-cannot-attach
 a9538ba25bc398741b2ca0b99acc1110 list-wide-really-cannot-attach
 a40bccc4719a7f3e530ff7e520f136b2 locate-between-pages

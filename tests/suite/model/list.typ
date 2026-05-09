@@ -313,6 +313,8 @@ World
 #text(green)[- What up?]
 
 --- list-multi-page paged ---
+// Markers should only appear on the first page of each item, and further pages
+// should be indented.
 #set page(width: auto, height: 4em)
 
 - Abc
@@ -415,6 +417,49 @@ World
 
   - World // Paragraph because it's a wide list.
 ]
+
+--- list-expand-block paged ---
+// Lists should shrink to fit their own items inside `auto`-width blocks,
+// or expand to the full width of fixed-width containers (/page).
+#block[
+  - #align(center)[a]
+  - bbbb
+  - #rect(width: 4em, height: 1em, fill: red)
+]
+
+#block(width: 6em)[
+  - #align(center)[a]
+  - bbbb
+  - #rect(width: 4em, height: 1em, fill: red)
+]
+
+- #align(center)[a]
+- bbbb
+- #rect(width: 4em, height: 1em, fill: red)
+
+--- list-expand-auto paged ---
+// Lists should shrink to fit their own contents inside auto-width pages.
+#set page(width: auto)
+- #align(center)[a]
+- #rect(width: 4em, height: 1em, fill: red)
+
+longlonglonglonglonglonglong
+
+--- list-vertical-alignment-in-item paged ---
+#set page(height: auto)
+- a
+- #align(bottom)[b]
+- c
+
+d
+
+#set page(height: 10em)
+- a
+- #align(bottom)[b]
+- c
+
+d
+
 
 --- issue-2530-list-item-panic paged ---
 // List item (pre-emptive)

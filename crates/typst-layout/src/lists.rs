@@ -62,6 +62,7 @@ pub fn layout_list(
             PdfMarkerTag::ListItemLabel(marker.clone()),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            None,
             baseline_align,
             is_rtl,
         );
@@ -149,6 +150,7 @@ pub fn layout_enum(
             PdfMarkerTag::ListItemLabel(resolved),
             PdfMarkerTag::ListItemBody(body),
             Length::zero(),
+            None,
             baseline_align,
             is_rtl,
         );
@@ -195,10 +197,33 @@ fn layout_items(
         marker_size.set_max(marker.width());
     }
 
+    let mut body_size = None;
+    if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
+        // Infinite space or `width: auto` used. Both would prevent the list
+        // from expanding to fit, breaking alignment. Therefore, restrict the
+        // list size to the size of the largest item, prompting list items to
+        // align between themselves instead of relative to the full page width.
+        let mut measured_body_size = Abs::zero();
+        for item in &items {
+            let body = crate::layout_frame(
+                engine,
+                &item.body,
+                locator.next(&item.body.span()),
+                styles,
+                Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
+            )?;
+
+            measured_body_size.set_max(body.width());
+        }
+
+        body_size = Some(Length::from(measured_body_size));
+    }
+
     let cells = items
         .into_iter()
         .map(|mut elem| {
             elem.marker_size = Length::from(marker_size);
+            elem.body_size = body_size;
             StackChild::Block(
                 BlockElem::multi_layouter(Packed::new(elem), layout_item).pack(),
             )
@@ -234,6 +259,14 @@ struct ItemData {
     /// so they may align horizontally properly.
     #[required]
     marker_size: Length,
+    /// The available width for the body. This is only available if the region
+    /// has `width: auto` (then, there would be no reference notion of `100%`
+    /// for alignment). This is otherwise `None` if the body should be laid out
+    /// with no size restrictions (instead, it will restrict itself based on the
+    /// non-infinite region width, allowing alignment to work without
+    /// intervention).
+    #[required]
+    body_size: Option<Length>,
     /// Whether baseline alignment should be enabled. When disabled, markers
     /// control their own alignment.
     #[required]
@@ -255,6 +288,7 @@ fn layout_item(
     // Should only be absolute (cannot use Abs due to element definition
     // restrictions).
     debug_assert!(item.marker_size.em.get() == 0.0);
+    debug_assert!(item.body_size.is_none_or(|s| s.em.get() == 0.0));
 
     let mut locator = locator.split();
     let indent = item.indent.resolve(styles);
@@ -272,7 +306,12 @@ fn layout_item(
     let marker_size = marker.size();
     let mut fragment = {
         let mut regions = regions;
-        regions.size.x -= indent + body_indent + marker_size.x;
+        if let Some(body_size) = item.body_size {
+            regions.size.x = body_size.abs;
+            regions.expand.x = true;
+        } else {
+            regions.size.x -= indent + body_indent + marker_size.x;
+        }
         crate::layout_fragment(
             engine,
             &item.body,
@@ -341,8 +380,13 @@ fn layout_item(
         // theoretically generate a new result that is even worse - but there is
         // only so much we can do with a finite number of iterations.
         let mut regions = regions;
-        regions.size.x -= indent + body_indent + marker_size.x;
         regions.size.y += diff;
+        if let Some(body_size) = item.body_size {
+            regions.size.x = body_size.abs;
+            regions.expand.x = true;
+        } else {
+            regions.size.x -= indent + body_indent + marker_size.x;
+        }
         fragment = crate::layout_fragment(
             engine,
             &item.body,
