@@ -247,7 +247,7 @@ impl Eval for ast::Array<'_> {
                     Value::None => {}
                     Value::Array(array) => {
                         all_dict_spreads = false;
-                        vec.extend(array.into_iter())
+                        vec.extend(array);
                     }
                     v @ Value::Dict(_)
                         if all_dict_spreads
@@ -301,7 +301,7 @@ impl Eval for ast::Dict<'_> {
                 }
                 ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Dict(dict) => map.extend(dict.into_iter()),
+                    Value::Dict(dict) => map.extend(dict),
                     v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
