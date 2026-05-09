@@ -12,7 +12,6 @@ mod table;
 mod text;
 
 use comemo::Tracked;
-use typst_library::World;
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
@@ -28,7 +27,8 @@ use typst_library::math::ir::{
 use typst_library::math::{EquationElem, families};
 use typst_library::model::ParElem;
 use typst_library::routines::Arenas;
-use typst_library::text::{Font, FontFlags, TextEdgeBounds, TextElem, variant};
+use typst_library::text::{Font, FontFlags, TextEdgeBounds, TextElem, axes, variant};
+use typst_library::{World, WorldExt};
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
@@ -598,12 +598,19 @@ fn get_font(
     span: Span,
 ) -> SourceResult<Font> {
     let variant = variant(styles);
+    // Get the text size for optical size axis
+    let size = styles.resolve(TextElem::size);
+    let optical_size = Some(size.to_pt() as f32);
+    // Get custom axes from styles
+    let custom_axes = axes(styles);
+    let custom_axes_slice =
+        if custom_axes.0.is_empty() { None } else { Some(custom_axes.0.as_slice()) };
     families(styles)
         .find_map(|family| {
             world
                 .book()
-                .select(family.as_str(), variant)
-                .and_then(|id| world.font(id))
+                .select(family.as_str(), variant, optical_size, custom_axes_slice)
+                .and_then(|key| world.font_by_key(&key))
                 .filter(|_| family.covers().is_none())
         })
         .ok_or("no font could be found")

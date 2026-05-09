@@ -13,7 +13,9 @@ use typst_library::layout::{
 };
 use typst_library::math::ir::MathProperties;
 use typst_library::math::{EquationElem, MathSize, families};
-use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language, variant};
+use typst_library::text::{
+    Font, Glyph, TextElem, TextItem, axes, features, language, variant,
+};
 use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
@@ -260,6 +262,7 @@ impl GlyphFragment {
         text: &str,
         span: Span,
     ) -> Option<GlyphFragment> {
+        let size = styles.resolve(TextElem::size);
         let (font, mut glyphs) = shape(
             world,
             variant(styles),
@@ -268,6 +271,8 @@ impl GlyphFragment {
             styles.get(TextElem::fallback),
             text,
             families(styles).collect(),
+            size,
+            axes(styles),
         )?;
 
         for glyph in &mut glyphs {
@@ -277,7 +282,7 @@ impl GlyphFragment {
         let item = TextItem {
             text: text.into(),
             font,
-            size: styles.resolve(TextElem::size),
+            size,
             fill: styles.get_ref(TextElem::fill).as_decoration(),
             stroke: styles.resolve(TextElem::stroke).map(|s| s.unwrap_or_default()),
             lang: styles.get(TextElem::lang),

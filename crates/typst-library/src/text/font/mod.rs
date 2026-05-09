@@ -6,15 +6,19 @@ mod book;
 mod exceptions;
 mod variant;
 
-pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
-pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
+pub use self::book::{Coverage, FontBook, FontFlags, FontInfo, FontKey};
+pub use self::variant::{
+    Field, FontStretch, FontStyle, FontVariant, FontVariantCoverage, FontWeight,
+    OpticalSizeAxis, SlantAxis, StaticField, VariableField,
+};
 
 use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
-use ttf_parser::{GlyphId, name_id};
+use smallvec::SmallVec;
+use ttf_parser::{GlyphId, Tag, name_id};
 
 use self::book::find_name;
 use crate::foundations::{Bytes, Cast};
@@ -37,6 +41,8 @@ struct FontInner {
     info: FontInfo,
     /// The font's metrics.
     metrics: FontMetrics,
+    /// The instantiation parameters for variable fonts.
+    instance_parameters: InstanceParameters,
     /// The underlying ttf-parser face.
     ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
@@ -52,8 +58,12 @@ struct FontInner {
 }
 
 impl Font {
-    /// Parse a font from data and collection index.
-    pub fn new(data: Bytes, index: u32) -> Option<Self> {
+    /// Parse a font from data, collection index, and optional variation parameters.
+    pub fn new(
+        data: Bytes,
+        index: u32,
+        instance_parameters: InstanceParameters,
+    ) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
@@ -63,18 +73,35 @@ impl Font {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let ttf = ttf_parser::Face::parse(slice, index).ok()?;
-        let rusty = rustybuzz::Face::from_slice(slice, index)?;
+        let mut ttf = ttf_parser::Face::parse(slice, index).ok()?;
+        let mut rusty = rustybuzz::Face::from_slice(slice, index)?;
+
+        // Apply variation coordinates to both ttf-parser and rustybuzz faces.
+        for (tag, value) in instance_parameters.coordinates() {
+            ttf.set_variation(Tag::from_bytes(tag), value);
+            rusty.set_variation(Tag::from_bytes(tag), value);
+        }
+
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner {
+            data,
+            index,
+            info,
+            metrics,
+            instance_parameters,
+            ttf,
+            rusty,
+        })))
     }
 
-    /// Parse all fonts in the given data.
+    /// Parse all fonts in the given data (without variation parameters).
     pub fn iter(data: Bytes) -> impl Iterator<Item = Self> {
         let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
-        (0..count).filter_map(move |index| Self::new(data.clone(), index))
+        (0..count).filter_map(move |index| {
+            Self::new(data.clone(), index, InstanceParameters::new())
+        })
     }
 
     /// The underlying buffer.
@@ -101,6 +128,11 @@ impl Font {
     #[inline]
     pub fn math(&self) -> &MathConstants {
         self.0.metrics.math.get_or_init(|| FontMetrics::init_math(self))
+    }
+
+    /// The instantiation parameters for variable fonts.
+    pub fn instance_parameters(&self) -> &InstanceParameters {
+        &self.0.instance_parameters
     }
 
     /// The number of font units per one em.
@@ -195,12 +227,13 @@ impl Hash for Font {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.data.hash(state);
         self.0.index.hash(state);
+        self.0.instance_parameters.hash(state);
     }
 }
 
 impl Debug for Font {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Font({}, {:?})", self.info().family, self.info().variant)
+        write!(f, "Font({}, {:?})", self.info().family, self.info().variant_coverage)
     }
 }
 
@@ -208,7 +241,9 @@ impl Eq for Font {}
 
 impl PartialEq for Font {
     fn eq(&self, other: &Self) -> bool {
-        self.0.data == other.0.data && self.0.index == other.0.index
+        self.0.data == other.0.data
+            && self.0.index == other.0.index
+            && self.0.instance_parameters == other.0.instance_parameters
     }
 }
 
@@ -622,4 +657,98 @@ pub enum TextEdgeBounds<'a> {
     Glyph(u16),
     /// Use the dimension of the given frame for the bounds.
     Frame(&'a Frame),
+}
+
+/// Parameters for instantiating a variable font at specific axis values.
+///
+/// Variable fonts have axes like weight (wght), width (wdth), slant (slnt), etc.
+/// This struct stores the axis tag and value pairs needed to instantiate the font.
+#[derive(Clone, Default, Hash, PartialEq, Eq, Debug)]
+pub struct InstanceParameters(SmallVec<[AxisValue; 2]>);
+
+/// A single axis value for a variable font.
+#[derive(Clone, Copy, PartialEq, Debug)]
+struct AxisValue {
+    /// The 4-byte axis tag (e.g., b"wght" for weight).
+    tag: [u8; 4],
+    /// The axis value.
+    value: f32,
+}
+
+impl Hash for AxisValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.tag.hash(state);
+        self.value.to_bits().hash(state);
+    }
+}
+
+impl Eq for AxisValue {}
+
+impl InstanceParameters {
+    /// Create new empty instance parameters.
+    pub fn new() -> Self {
+        Self(SmallVec::new())
+    }
+
+    /// Set the weight axis value.
+    pub fn set_weight(&mut self, weight: FontWeight) {
+        self.0
+            .push(AxisValue { tag: *b"wght", value: weight.to_number() as f32 });
+    }
+
+    /// Set the width axis value.
+    pub fn set_stretch(&mut self, stretch: FontStretch) {
+        // FontStretch stores values as permille (e.g., 1000 = 100%)
+        // CSS/OpenType wdth axis expects percentage (e.g., 100 = 100%)
+        self.0.push(AxisValue {
+            tag: *b"wdth",
+            value: stretch.to_ratio().get() as f32 * 100.0,
+        });
+    }
+
+    /// Set the slant axis value (slnt).
+    /// The value is in degrees, negative for right-leaning (italic/oblique).
+    pub fn set_slant(&mut self, degrees: f32) {
+        self.0.push(AxisValue { tag: *b"slnt", value: degrees });
+    }
+
+    /// Set the italic axis value (ital).
+    /// 0 = upright, 1 = italic.
+    pub fn set_italic(&mut self, italic: bool) {
+        self.0.push(AxisValue {
+            tag: *b"ital",
+            value: if italic { 1.0 } else { 0.0 },
+        });
+    }
+
+    /// Set the optical size axis value (opsz).
+    /// The value is typically in points (e.g., 12.0 for 12pt text).
+    pub fn set_optical_size(&mut self, size_pt: f32) {
+        self.0.push(AxisValue { tag: *b"opsz", value: size_pt });
+    }
+
+    /// Set a custom axis value.
+    pub fn set_axis(&mut self, tag: &[u8; 4], value: f32) {
+        self.0.push(AxisValue { tag: *tag, value });
+    }
+
+    /// Apply custom axes from a FontAxes struct.
+    ///
+    /// This will add the custom axes values, which may override previously set
+    /// values if they share the same tag.
+    pub fn apply_custom_axes(&mut self, custom_axes: &[(Tag, f32)]) {
+        for (tag, value) in custom_axes {
+            self.0.push(AxisValue { tag: tag.to_bytes(), value: *value });
+        }
+    }
+
+    /// Iterate over all axis coordinates.
+    pub fn coordinates(&self) -> impl Iterator<Item = (&[u8; 4], f32)> + '_ {
+        self.0.iter().map(|av| (&av.tag, av.value))
+    }
+
+    /// Check if there are any axis values set.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }

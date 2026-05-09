@@ -1,7 +1,7 @@
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration};
 use typst::syntax::{FileId, Source};
-use typst::text::{Font, FontBook};
+use typst::text::{Font, FontBook, InstanceParameters};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
 
@@ -15,7 +15,7 @@ pub struct FuzzWorld {
 impl FuzzWorld {
     pub fn new(text: &str) -> Self {
         let data = typst_assets::fonts().next().unwrap();
-        let font = Font::new(Bytes::new(data), 0).unwrap();
+        let font = Font::new(Bytes::new(data), 0, InstanceParameters::new()).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
             library: LazyHash::new(Library::default()),

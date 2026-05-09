@@ -757,6 +757,33 @@ pub struct TextElem {
     #[ghost]
     pub features: FontFeatures,
 
+    /// Raw OpenType variation axes to apply for variable fonts.
+    ///
+    /// Variable fonts have axes like weight (`wght`), width (`wdth`), slant
+    /// (`slnt`), optical size (`opsz`), and potentially custom axes. This
+    /// parameter allows you to set specific axis values directly.
+    ///
+    /// The value should be a dictionary mapping axis tags (four-character
+    /// strings) to their values (floating-point numbers). These values will
+    /// override the automatically-determined values for the specified axes.
+    ///
+    /// Common registered axes include:
+    /// - `wght`: Weight (e.g., 400 for regular, 700 for bold)
+    /// - `wdth`: Width (percentage, e.g., 100 for normal)
+    /// - `slnt`: Slant (degrees, negative for right-leaning)
+    /// - `ital`: Italic (0 for upright, 1 for italic)
+    /// - `opsz`: Optical size (in points)
+    ///
+    /// ```example
+    /// #set text(font: "Roboto Flex")
+    /// Normal \
+    /// #set text(axes: (wght: 900, wdth: 150))
+    /// Wide and Heavy
+    /// ```
+    #[fold]
+    #[ghost]
+    pub axes: FontAxes,
+
     /// Content in which all text is styled according to the other arguments.
     #[external]
     #[required]
@@ -1341,6 +1368,51 @@ impl Fold for FontFeatures {
     }
 }
 
+/// Variable font axis settings.
+///
+/// This stores axis tag to value mappings for variable fonts.
+/// Unlike font features which are integers, axis values are floating-point numbers.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct FontAxes(pub Vec<(Tag, f32)>);
+
+impl Hash for FontAxes {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (tag, value) in &self.0 {
+            tag.hash(state);
+            value.to_bits().hash(state);
+        }
+    }
+}
+
+impl Eq for FontAxes {}
+
+cast! {
+    FontAxes,
+    self => self.0
+        .into_iter()
+        .map(|(tag, num)| {
+            let bytes = tag.to_bytes();
+            let key = std::str::from_utf8(&bytes).unwrap_or_default();
+            (key.into(), (num as f64).into_value())
+        })
+        .collect::<Dict>()
+        .into_value(),
+    values: Dict => Self(values
+        .into_iter()
+        .enumerate()
+        .map(|(i, (k, v))| Ok((
+            k.clone().into_value().cast::<Tag>().hint(tag_hint_helper(i, &k))?,
+            v.cast::<f64>().hint(tag_hint_helper(i, &k))? as f32
+        )))
+        .collect::<HintedStrResult<_>>()?),
+}
+
+impl Fold for FontAxes {
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0.fold(outer.0))
+    }
+}
+
 /// Collect the OpenType features to apply.
 pub fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
@@ -1415,6 +1487,11 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     tags
+}
+
+/// Collect the custom variable font axes to apply.
+pub fn axes(styles: StyleChain) -> FontAxes {
+    styles.get_cloned(TextElem::axes)
 }
 
 /// Process the language and region of a style chain into a
@@ -1532,26 +1609,12 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        match book.select_family(family.as_str()).next() {
-            Some(index) => {
-                if book
-                    .info(index)
-                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
-                {
-                    engine.sink.warn(warning!(
-                        list.span,
-                        "variable fonts are not currently supported and may render \
-                         incorrectly";
-                        hint: "try installing a static version of \"{}\" instead",
-                            family.as_str();
-                    ))
-                }
-            }
-            None => engine.sink.warn(warning!(
+        if book.select_family(family.as_str()).next().is_none() {
+            engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            )),
+            ));
         }
     }
 }

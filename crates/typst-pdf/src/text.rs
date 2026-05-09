@@ -80,7 +80,25 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
     let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
         Arc::new(typst_font.data().clone());
 
-    match krilla::text::Font::new(font_data.into(), typst_font.index()) {
+    // Collect instance parameters for variable fonts
+    let instance_parameters: Vec<_> = typst_font
+        .instance_parameters()
+        .coordinates()
+        .map(|(tag, value)| (krilla::text::Tag::new(tag), value))
+        .collect();
+
+    // Use new_variable if we have instance parameters, otherwise use new
+    let font = if instance_parameters.is_empty() {
+        krilla::text::Font::new(font_data.into(), typst_font.index())
+    } else {
+        krilla::text::Font::new_variable(
+            font_data.into(),
+            typst_font.index(),
+            &instance_parameters,
+        )
+    };
+
+    match font {
         Some(f) => Ok(f),
         None => {
             bail!(

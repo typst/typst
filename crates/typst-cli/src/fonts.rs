@@ -14,8 +14,8 @@ pub fn fonts(command: &FontsCommand) {
         println!("{family}");
         if command.variants {
             for index in indices {
-                let Some(info) = fonts.book().info(index) else { continue };
-                let FontVariant { style, weight, stretch } = info.variant;
+                let Some(font_info) = fonts.book().info(index) else { continue };
+                let FontVariant { style, weight, stretch } = font_info.variant();
                 let path = fonts
                     .source(index)
                     .and_then(|source| (source as &dyn Any).downcast_ref::<FontPath>())

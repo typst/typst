@@ -1,10 +1,57 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::RangeInclusive;
 
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 
 use crate::foundations::{Cast, IntoValue, Repr, cast};
 use crate::layout::Ratio;
+
+/// A static (fixed) field value for non-variable fonts.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct StaticField<T>(pub T);
+
+/// A variable field with a range and default value for variable fonts.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct VariableField<T> {
+    /// The supported range of values.
+    pub range: RangeInclusive<T>,
+    /// The default value within the range.
+    pub default: T,
+}
+
+/// A field that can be either static or variable (for variable fonts).
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub enum Field<T> {
+    /// A static (fixed) value.
+    Static(StaticField<T>),
+    /// A variable value with a range.
+    Variable(VariableField<T>),
+}
+
+impl<T> Field<T> {
+    /// Get the default value for this field.
+    pub fn default_value(&self) -> &T {
+        match self {
+            Field::Static(s) => &s.0,
+            Field::Variable(v) => &v.default,
+        }
+    }
+
+    /// Check if this field is variable.
+    pub fn is_variable(&self) -> bool {
+        matches!(self, Field::Variable(_))
+    }
+}
+
+impl<T: Default> Default for Field<T> {
+    fn default() -> Self {
+        Self::Static(StaticField(T::default()))
+    }
+}
 
 /// Properties that distinguish a font from other fonts in the same family.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -16,6 +63,271 @@ pub struct FontVariant {
     pub weight: FontWeight,
     /// How condensed or expanded the font is (0.5 - 2.0).
     pub stretch: FontStretch,
+}
+
+/// Information about a variable font's slant/italic axis.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Default)]
+#[derive(Serialize, Deserialize)]
+pub enum SlantAxis {
+    /// No slant axis (static font or variable font without slnt/ital).
+    #[default]
+    None,
+    /// Has a slnt (slant) axis with the given range in degrees.
+    /// Negative values = right-leaning (italic/oblique), positive = left-leaning.
+    Slnt {
+        /// Minimum slant value (usually negative for italic).
+        min: i16,
+        /// Maximum slant value (usually 0 for upright).
+        max: i16,
+        /// Default slant value.
+        default: i16,
+    },
+    /// Has an ital (italic) axis (binary: 0 = upright, 1 = italic).
+    Ital {
+        /// Whether the font defaults to italic.
+        default_italic: bool,
+    },
+}
+
+/// Information about a variable font's optical size (opsz) axis.
+#[derive(Debug, Clone, Default)]
+#[derive(Serialize, Deserialize)]
+pub enum OpticalSizeAxis {
+    /// No optical size axis (static font or variable font without opsz).
+    #[default]
+    None,
+    /// Has an opsz (optical size) axis with the given range.
+    /// Values are typically in points (e.g., 8-144).
+    Opsz {
+        /// Minimum optical size value.
+        min: f32,
+        /// Maximum optical size value.
+        max: f32,
+        /// Default optical size value.
+        default: f32,
+    },
+}
+
+impl PartialEq for OpticalSizeAxis {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::None, Self::None) => true,
+            (
+                Self::Opsz { min: min1, max: max1, default: default1 },
+                Self::Opsz { min: min2, max: max2, default: default2 },
+            ) => {
+                min1.to_bits() == min2.to_bits()
+                    && max1.to_bits() == max2.to_bits()
+                    && default1.to_bits() == default2.to_bits()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for OpticalSizeAxis {}
+
+impl std::hash::Hash for OpticalSizeAxis {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        if let Self::Opsz { min, max, default } = self {
+            min.to_bits().hash(state);
+            max.to_bits().hash(state);
+            default.to_bits().hash(state);
+        }
+    }
+}
+
+/// Properties describing the coverage of a font variant, supporting variable fonts.
+///
+/// For static fonts, each property is a single value.
+/// For variable fonts, weight and stretch can have ranges.
+#[derive(Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct FontVariantCoverage {
+    /// The style of the font (normal / italic / oblique).
+    pub style: FontStyle,
+    /// The weight coverage: either a static value or a variable range.
+    pub weight: Field<FontWeight>,
+    /// The stretch coverage: either a static value or a variable range.
+    pub stretch: Field<FontStretch>,
+    /// Information about the slant/italic axis for variable fonts.
+    pub slant_axis: SlantAxis,
+    /// Information about the optical size axis for variable fonts.
+    pub optical_size_axis: OpticalSizeAxis,
+}
+
+impl FontVariantCoverage {
+    /// Create a new variant coverage from its components.
+    pub fn new(
+        style: FontStyle,
+        weight: Field<FontWeight>,
+        stretch: Field<FontStretch>,
+    ) -> Self {
+        Self {
+            style,
+            weight,
+            stretch,
+            slant_axis: SlantAxis::None,
+            optical_size_axis: OpticalSizeAxis::None,
+        }
+    }
+
+    /// Create a new variant coverage with slant axis information.
+    pub fn with_slant(
+        style: FontStyle,
+        weight: Field<FontWeight>,
+        stretch: Field<FontStretch>,
+        slant_axis: SlantAxis,
+    ) -> Self {
+        Self {
+            style,
+            weight,
+            stretch,
+            slant_axis,
+            optical_size_axis: OpticalSizeAxis::None,
+        }
+    }
+
+    /// Create a new variant coverage with slant and optical size axis information.
+    pub fn with_axes(
+        style: FontStyle,
+        weight: Field<FontWeight>,
+        stretch: Field<FontStretch>,
+        slant_axis: SlantAxis,
+        optical_size_axis: OpticalSizeAxis,
+    ) -> Self {
+        Self {
+            style,
+            weight,
+            stretch,
+            slant_axis,
+            optical_size_axis,
+        }
+    }
+
+    /// Check if this font has a variable slant or italic axis.
+    pub fn has_slant_axis(&self) -> bool {
+        !matches!(self.slant_axis, SlantAxis::None)
+    }
+
+    /// Check if this font supports the requested variant.
+    ///
+    /// Returns true if the style matches and the weight/stretch are within range.
+    pub fn supports(&self, variant: &FontVariant) -> bool {
+        if self.style != variant.style {
+            return false;
+        }
+
+        let weight_ok = match &self.weight {
+            Field::Static(s) => s.0 == variant.weight,
+            Field::Variable(v) => v.range.contains(&variant.weight),
+        };
+
+        let stretch_ok = match &self.stretch {
+            Field::Static(s) => s.0 == variant.stretch,
+            Field::Variable(v) => v.range.contains(&variant.stretch),
+        };
+
+        weight_ok && stretch_ok
+    }
+
+    /// Compute the distance between this coverage and a requested variant.
+    ///
+    /// For variable fonts, if the requested value is within range, the distance is 0.
+    /// Otherwise, it returns the distance to the nearest edge of the range.
+    pub fn distance(&self, variant: &FontVariant) -> (u16, Ratio, u16) {
+        // For style distance, if the font has a slant/ital axis, it can produce
+        // italic/oblique styles, so the distance should be 0 for those requests.
+        let style_dist = match &self.slant_axis {
+            SlantAxis::Slnt { min, max, .. } => {
+                // A slnt axis can produce oblique/italic if it has negative values
+                let can_produce_slant = *min < 0 || *max < 0;
+                match (self.style, variant.style) {
+                    // Same style = distance 0
+                    (a, b) if a == b => 0,
+                    // Font is normal, user wants italic/oblique, and we have slant axis
+                    (FontStyle::Normal, FontStyle::Italic | FontStyle::Oblique)
+                        if can_produce_slant =>
+                    {
+                        0
+                    }
+                    // Otherwise use the regular distance
+                    _ => self.style.distance(variant.style),
+                }
+            }
+            SlantAxis::Ital { .. } => {
+                // An ital axis can toggle between normal and italic
+                match (self.style, variant.style) {
+                    // Same style = distance 0
+                    (a, b) if a == b => 0,
+                    // Font is normal, user wants italic/oblique
+                    (FontStyle::Normal, FontStyle::Italic | FontStyle::Oblique) => 0,
+                    // Font is italic, user wants normal
+                    (FontStyle::Italic, FontStyle::Normal) => 0,
+                    // Otherwise use the regular distance
+                    _ => self.style.distance(variant.style),
+                }
+            }
+            SlantAxis::None => self.style.distance(variant.style),
+        };
+
+        let weight_dist = match &self.weight {
+            Field::Static(s) => s.0.distance(variant.weight),
+            Field::Variable(v) => {
+                if v.range.contains(&variant.weight) {
+                    0
+                } else if variant.weight < *v.range.start() {
+                    v.range.start().distance(variant.weight)
+                } else {
+                    v.range.end().distance(variant.weight)
+                }
+            }
+        };
+
+        let stretch_dist = match &self.stretch {
+            Field::Static(s) => s.0.distance(variant.stretch),
+            Field::Variable(v) => {
+                if v.range.contains(&variant.stretch) {
+                    Ratio::zero()
+                } else if variant.stretch < *v.range.start() {
+                    v.range.start().distance(variant.stretch)
+                } else {
+                    v.range.end().distance(variant.stretch)
+                }
+            }
+        };
+
+        (style_dist, stretch_dist, weight_dist)
+    }
+
+    /// Get the default variant for this coverage.
+    pub fn default_variant(&self) -> FontVariant {
+        FontVariant {
+            style: self.style,
+            weight: *self.weight.default_value(),
+            stretch: *self.stretch.default_value(),
+        }
+    }
+
+    /// Check if this font has an optical size axis.
+    pub fn has_optical_size_axis(&self) -> bool {
+        !matches!(self.optical_size_axis, OpticalSizeAxis::None)
+    }
+
+    /// Check if this is a variable font (has variable weight, stretch, slant, or optical size).
+    pub fn is_variable(&self) -> bool {
+        self.weight.is_variable()
+            || self.stretch.is_variable()
+            || self.has_slant_axis()
+            || self.has_optical_size_axis()
+    }
+}
+
+impl Debug for FontVariantCoverage {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}-{:?}-{:?}", self.style, self.weight, self.stretch)
+    }
 }
 
 impl FontVariant {

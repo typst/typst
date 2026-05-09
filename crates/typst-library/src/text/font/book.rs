@@ -1,15 +1,43 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
+use std::ops::RangeInclusive;
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{PlatformId, Tag, name_id};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::InstanceParameters;
 use super::exceptions::find_exception;
+use super::variant::{Field, OpticalSizeAxis, SlantAxis, StaticField, VariableField};
 use crate::text::{
-    Font, FontStretch, FontStyle, FontVariant, FontWeight, is_default_ignorable,
+    Font, FontStretch, FontStyle, FontVariant, FontVariantCoverage, FontWeight,
+    is_default_ignorable,
 };
+
+/// A key that identifies a specific font instance.
+///
+/// For static fonts, this is just an index. For variable fonts, this also
+/// includes the instance parameters (axis values) for the specific variant.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct FontKey {
+    /// The index of the font in the font book.
+    pub index: usize,
+    /// The instance parameters for variable fonts.
+    pub instance_params: InstanceParameters,
+}
+
+impl FontKey {
+    /// Create a new font key with no instance parameters.
+    pub fn new(index: usize) -> Self {
+        Self { index, instance_params: InstanceParameters::new() }
+    }
+
+    /// Create a new font key with instance parameters.
+    pub fn with_params(index: usize, instance_params: InstanceParameters) -> Self {
+        Self { index, instance_params }
+    }
+}
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -75,9 +103,30 @@ impl FontBook {
     /// `variant` as closely as possible.
     ///
     /// The `family` should be all lowercase.
-    pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
+    ///
+    /// For variable fonts, the returned `FontKey` includes the instance
+    /// parameters needed to instantiate the font at the requested variant.
+    ///
+    /// If `optical_size` is provided (in points), variable fonts with an `opsz`
+    /// axis will be instantiated at that optical size.
+    ///
+    /// If `custom_axes` is provided, those axes will be applied on top of the
+    /// automatically-determined values, allowing user override of axis values.
+    pub fn select(
+        &self,
+        family: &str,
+        variant: FontVariant,
+        optical_size: Option<f32>,
+        custom_axes: Option<&[(ttf_parser::Tag, f32)]>,
+    ) -> Option<FontKey> {
         let ids = self.families.get(family)?;
-        self.find_best_variant(None, variant, ids.iter().copied())
+        self.find_best_variant(
+            None,
+            variant,
+            optical_size,
+            custom_axes,
+            ids.iter().copied(),
+        )
     }
 
     /// Iterate over all variants of a family.
@@ -94,12 +143,20 @@ impl FontBook {
     /// - is as close as possible to the font `like` (if any)
     /// - is as close as possible to the given `variant`
     /// - is suitable for shaping the given `text`
+    ///
+    /// If `optical_size` is provided (in points), variable fonts with an `opsz`
+    /// axis will be instantiated at that optical size.
+    ///
+    /// If `custom_axes` is provided, those axes will be applied on top of the
+    /// automatically-determined values, allowing user override of axis values.
     pub fn select_fallback(
         &self,
         like: Option<&FontInfo>,
         variant: FontVariant,
         text: &str,
-    ) -> Option<usize> {
+        optical_size: Option<f32>,
+        custom_axes: Option<&[(ttf_parser::Tag, f32)]>,
+    ) -> Option<FontKey> {
         // Find the fonts that contain the text's first non-space and
         // non-ignorable char ...
         let c = text
@@ -114,7 +171,7 @@ impl FontBook {
             .map(|(index, _)| index);
 
         // ... and find the best variant among them.
-        self.find_best_variant(like, variant, ids)
+        self.find_best_variant(like, variant, optical_size, custom_axes, ids)
     }
 
     /// Find the font in the passed iterator that
@@ -138,17 +195,27 @@ impl FontBook {
     ///   normal.
     /// - The absolute distance to the target stretch.
     /// - The absolute distance to the target weight.
+    ///
+    /// For variable fonts, if the requested value is within the font's range,
+    /// the distance is 0, and instance parameters will be included in the key.
+    ///
+    /// If `custom_axes` is provided, those axes will be applied on top of the
+    /// automatically-determined values after the font is selected.
     fn find_best_variant(
         &self,
         like: Option<&FontInfo>,
         variant: FontVariant,
+        optical_size: Option<f32>,
+        custom_axes: Option<&[(ttf_parser::Tag, f32)]>,
         ids: impl IntoIterator<Item = usize>,
-    ) -> Option<usize> {
+    ) -> Option<FontKey> {
         let mut best = None;
         let mut best_key = None;
 
         for id in ids {
             let current = &self.infos[id];
+            let (style_dist, stretch_dist, weight_dist) =
+                current.variant_coverage.distance(&variant);
             let key = (
                 like.map(|like| {
                     (
@@ -160,9 +227,9 @@ impl FontBook {
                         current.family.len(),
                     )
                 }),
-                current.variant.style.distance(variant.style),
-                current.variant.stretch.distance(variant.stretch),
-                current.variant.weight.distance(variant.weight),
+                style_dist,
+                stretch_dist,
+                weight_dist,
             );
 
             if best_key.is_none_or(|b| key < b) {
@@ -171,7 +238,74 @@ impl FontBook {
             }
         }
 
-        best
+        // Build the FontKey with instance parameters if it's a variable font
+        best.map(|id| {
+            let info = &self.infos[id];
+            let mut instance_params = InstanceParameters::new();
+
+            // If this is a variable font, set the instance parameters
+            if info.variant_coverage.is_variable() {
+                // Set weight if the font has a variable weight axis
+                // Clamp to the font's supported range
+                if let Field::Variable(v) = &info.variant_coverage.weight {
+                    let clamped_weight = clamp_to_range(&variant.weight, &v.range);
+                    instance_params.set_weight(clamped_weight);
+                }
+
+                // Set stretch if the font has a variable stretch axis
+                // Clamp to the font's supported range
+                if let Field::Variable(v) = &info.variant_coverage.stretch {
+                    let clamped_stretch = clamp_to_range(&variant.stretch, &v.range);
+                    instance_params.set_stretch(clamped_stretch);
+                }
+
+                // Set slant/italic axis based on the requested style
+                match &info.variant_coverage.slant_axis {
+                    SlantAxis::Slnt { min, max, default } => {
+                        // For slnt axis: negative values = italic/oblique (right-leaning)
+                        // Use the minimum value for italic/oblique, default for normal
+                        let slant_value = match variant.style {
+                            FontStyle::Normal => *default as f32,
+                            FontStyle::Italic | FontStyle::Oblique => {
+                                // Use the most italic value (usually the minimum, which is negative)
+                                // Clamp to the font's range
+                                (*min).min(*max) as f32
+                            }
+                        };
+                        instance_params.set_slant(slant_value);
+                    }
+                    SlantAxis::Ital { .. } => {
+                        // For ital axis: 0 = upright, 1 = italic
+                        let is_italic = matches!(
+                            variant.style,
+                            FontStyle::Italic | FontStyle::Oblique
+                        );
+                        instance_params.set_italic(is_italic);
+                    }
+                    SlantAxis::None => {}
+                }
+
+                // Set optical size axis based on the text size (in points)
+                // This enables automatic optical sizing for variable fonts
+                if let OpticalSizeAxis::Opsz { min, max, default } =
+                    &info.variant_coverage.optical_size_axis
+                {
+                    // Use the provided optical size, or fall back to the font's default
+                    let opsz_value = optical_size.unwrap_or(*default);
+                    // Clamp to the font's supported range
+                    let clamped_opsz = opsz_value.clamp(*min, *max);
+                    instance_params.set_optical_size(clamped_opsz);
+                }
+            }
+
+            // Apply any custom axes specified by the user.
+            // These are applied last so they can override the automatically-determined values.
+            if let Some(axes) = custom_axes {
+                instance_params.apply_custom_axes(axes);
+            }
+
+            FontKey::with_params(id, instance_params)
+        })
     }
 }
 
@@ -181,12 +315,22 @@ pub struct FontInfo {
     /// The typographic font family this font is part of.
     pub family: String,
     /// Properties that distinguish this font from other fonts in the same
-    /// family.
-    pub variant: FontVariant,
+    /// family. For variable fonts, this includes axis ranges.
+    pub variant_coverage: FontVariantCoverage,
     /// Properties of the font.
     pub flags: FontFlags,
     /// The unicode coverage of the font.
     pub coverage: Coverage,
+}
+
+impl FontInfo {
+    /// Get the default variant for this font.
+    ///
+    /// For static fonts, this returns the fixed variant.
+    /// For variable fonts, this returns the default values of the axes.
+    pub fn variant(&self) -> FontVariant {
+        self.variant_coverage.default_variant()
+    }
 }
 
 bitflags::bitflags! {
@@ -240,7 +384,7 @@ impl FontInfo {
                 Some(typographic_family(&family).to_string())
             })?;
 
-        let variant = {
+        let variant_coverage = {
             let style = exception.and_then(|c| c.style).unwrap_or_else(|| {
                 let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
                 full.make_ascii_lowercase();
@@ -266,16 +410,83 @@ impl FontInfo {
                 }
             });
 
-            let weight = exception.and_then(|c| c.weight).unwrap_or_else(|| {
+            // Get weight from exception or font, then check for variable axis
+            let base_weight = exception.and_then(|c| c.weight).unwrap_or_else(|| {
                 let number = ttf.weight().to_number();
                 FontWeight::from_number(number)
             });
 
-            let stretch = exception
+            // Get stretch from exception or font, then check for variable axis
+            let base_stretch = exception
                 .and_then(|c| c.stretch)
                 .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
 
-            FontVariant { style, weight, stretch }
+            // Build weight and stretch fields, checking for variable axes
+            let mut weight = Field::Static(StaticField(base_weight));
+            let mut stretch = Field::Static(StaticField(base_stretch));
+            let mut slant_axis = SlantAxis::None;
+            let mut optical_size_axis = OpticalSizeAxis::None;
+
+            // Check for variable font axes
+            if ttf.is_variable() {
+                for axis in ttf.variation_axes() {
+                    // wght axis (weight)
+                    if axis.tag == Tag::from_bytes(b"wght") {
+                        let min = FontWeight::from_number(axis.min_value.floor() as u16);
+                        let max = FontWeight::from_number(axis.max_value.ceil() as u16);
+                        let default =
+                            FontWeight::from_number(axis.def_value.round() as u16);
+                        weight =
+                            Field::Variable(VariableField { range: min..=max, default });
+                    }
+                    // wdth axis (width/stretch)
+                    // Note: OpenType wdth is in percentage (100 = normal)
+                    // FontStretch stores as permille (1000 = normal)
+                    if axis.tag == Tag::from_bytes(b"wdth") {
+                        let min = FontStretch::from_ratio(crate::layout::Ratio::new(
+                            axis.min_value as f64 / 100.0,
+                        ));
+                        let max = FontStretch::from_ratio(crate::layout::Ratio::new(
+                            axis.max_value as f64 / 100.0,
+                        ));
+                        let default = FontStretch::from_ratio(crate::layout::Ratio::new(
+                            axis.def_value as f64 / 100.0,
+                        ));
+                        stretch =
+                            Field::Variable(VariableField { range: min..=max, default });
+                    }
+                    // slnt axis (slant) - continuous slant in degrees
+                    // Negative values are right-leaning (italic/oblique)
+                    if axis.tag == Tag::from_bytes(b"slnt") {
+                        slant_axis = SlantAxis::Slnt {
+                            min: axis.min_value.floor() as i16,
+                            max: axis.max_value.ceil() as i16,
+                            default: axis.def_value.round() as i16,
+                        };
+                    }
+                    // ital axis (italic) - binary toggle (0 = upright, 1 = italic)
+                    if axis.tag == Tag::from_bytes(b"ital") {
+                        slant_axis =
+                            SlantAxis::Ital { default_italic: axis.def_value > 0.5 };
+                    }
+                    // opsz axis (optical size) - continuous, typically in points
+                    if axis.tag == Tag::from_bytes(b"opsz") {
+                        optical_size_axis = OpticalSizeAxis::Opsz {
+                            min: axis.min_value,
+                            max: axis.max_value,
+                            default: axis.def_value,
+                        };
+                    }
+                }
+            }
+
+            FontVariantCoverage::with_axes(
+                style,
+                weight,
+                stretch,
+                slant_axis,
+                optical_size_axis,
+            )
         };
 
         // Determine the unicode coverage.
@@ -303,7 +514,7 @@ impl FontInfo {
 
         Some(FontInfo {
             family,
-            variant,
+            variant_coverage,
             flags,
             coverage: Coverage::from_vec(codepoints),
         })
@@ -423,6 +634,17 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
         .zip(right.unicode_words())
         .take_while(|(l, r)| l == r)
         .count()
+}
+
+/// Clamp a value to the range, returning the boundary value if outside.
+fn clamp_to_range<T: Ord + Copy>(value: &T, range: &RangeInclusive<T>) -> T {
+    if value < range.start() {
+        *range.start()
+    } else if value > range.end() {
+        *range.end()
+    } else {
+        *value
+    }
 }
 
 /// A compactly encoded set of codepoints.

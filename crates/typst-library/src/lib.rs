@@ -38,7 +38,7 @@ use crate::foundations::{
 };
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
-use crate::text::{Font, FontBook};
+use crate::text::{Font, FontBook, FontKey};
 use crate::visualize::Color;
 
 /// The environment in which typesetting occurs.
@@ -141,12 +141,48 @@ pub trait WorldExt {
     ///
     /// Returns `None` if the `Span` does not point into any file.
     fn range(&self, span: Span) -> Option<Range<usize>>;
+
+    /// Try to access the font with the given key.
+    ///
+    /// This method handles variable fonts by applying the instance parameters
+    /// from the font key to create an appropriately instantiated font.
+    fn font_by_key(&self, key: &FontKey) -> Option<Font>;
 }
 
 impl<T: World + ?Sized> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
         span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
     }
+
+    fn font_by_key(&self, key: &FontKey) -> Option<Font> {
+        // For static fonts (empty instance params), just use the regular font method
+        if key.instance_params.is_empty() {
+            return self.font(key.index);
+        }
+
+        // For variable fonts, we need to create a new font instance with the
+        // specified parameters. Get the base font first.
+        let base_font = self.font(key.index)?;
+
+        // Create a new font with the instance parameters (memoized)
+        create_variable_font_instance(
+            base_font.data().clone(),
+            base_font.index(),
+            key.instance_params.clone(),
+        )
+    }
+}
+
+/// Memoized function to create a variable font instance.
+/// This caches the result so that repeated requests for the same font+params
+/// don't re-parse and re-apply variations.
+#[comemo::memoize]
+fn create_variable_font_instance(
+    data: Bytes,
+    index: u32,
+    instance_params: crate::text::InstanceParameters,
+) -> Option<Font> {
+    Font::new(data, index, instance_params)
 }
 
 /// Definition of Typst's standard library.

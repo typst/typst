@@ -9,7 +9,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use typst_library::foundations::Bytes;
-use typst_library::text::{Font, FontBook, FontInfo};
+use typst_library::text::{Font, FontBook, FontInfo, InstanceParameters};
+use typst_timing::TimingScope;
 use typst_utils::LazyHash;
 
 /// Holds loaded fonts.
@@ -92,7 +93,12 @@ impl FontSlot {
     /// Get the font for this slot. This loads the font into memory on first
     /// access.
     fn get(&self) -> Option<Font> {
-        self.font.get_or_init(|| self.source.load()).clone()
+        self.font
+            .get_or_init(|| {
+                let _scope = TimingScope::new("load font");
+                self.source.load()
+            })
+            .clone()
     }
 }
 
@@ -112,7 +118,7 @@ impl FontSource for FontPath {
     fn load(&self) -> Option<Font> {
         let _scope = typst_timing::TimingScope::new("load font");
         let data = fs::read(&self.path).ok()?;
-        Font::new(Bytes::new(data), self.index)
+        Font::new(Bytes::new(data), self.index, InstanceParameters::new())
     }
 }
 

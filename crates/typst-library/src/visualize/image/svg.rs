@@ -228,8 +228,11 @@ impl FontResolver<'_> {
                 _ => None,
             })
             .chain(self.families.iter().copied())
-            .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
-            .find_map(|index| self.get_or_load(index, db))
+            // SVG fonts don't have a specific size context or custom axes, so we pass None
+            .filter_map(|named| {
+                self.book.select(&named.to_lowercase(), variant, None, None)
+            })
+            .find_map(|key| self.get_or_load(key.index, db))
     }
 
     /// Select a fallback font.
@@ -249,13 +252,19 @@ impl FontResolver<'_> {
         // `exclude_fonts` is actually never empty in practice. Still, we
         // prefer to fall back to the default variant rather than panicking
         // in case that changes in the future.
-        let variant = like.map(|info| info.variant).unwrap_or_default();
+        let variant = like.map(|info| info.variant()).unwrap_or_default();
 
-        // Select the font.
-        let index =
-            self.book.select_fallback(like, variant, c.encode_utf8(&mut [0; 4]))?;
+        // Select the font (no optical size context or custom axes in SVG fallback).
+        let key = self.book.select_fallback(
+            like,
+            variant,
+            c.encode_utf8(&mut [0; 4]),
+            None,
+            None,
+        )?;
 
-        self.get_or_load(index, db).filter(|id| !exclude_fonts.contains(id))
+        self.get_or_load(key.index, db)
+            .filter(|id| !exclude_fonts.contains(id))
     }
 
     /// Tries to retrieve the ID for the index or loads the font, allocating
@@ -280,7 +289,7 @@ impl FontResolver<'_> {
     ) -> Option<fontdb::ID> {
         let font = self.world.font(index)?;
         let info = font.info();
-        let variant = info.variant;
+        let variant = info.variant();
         let id = Arc::make_mut(db).push_face_info(fontdb::FaceInfo {
             id: fontdb::ID::dummy(),
             source: fontdb::Source::Binary(Arc::new(font.data().clone())),

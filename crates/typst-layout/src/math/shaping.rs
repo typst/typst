@@ -2,14 +2,15 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use typst_library::World;
-use typst_library::layout::Em;
-use typst_library::text::{Font, FontFamily, FontVariant, Glyph};
+use typst_library::layout::{Abs, Em};
+use typst_library::text::{Font, FontAxes, FontFamily, FontVariant, Glyph};
 use typst_syntax::Span;
 
 use crate::inline::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 /// Shape some text in math.
 #[comemo::memoize]
+#[allow(clippy::too_many_arguments)]
 pub fn shape(
     world: Tracked<dyn World + '_>,
     variant: FontVariant,
@@ -18,6 +19,8 @@ pub fn shape(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
+    size: Abs,
+    axes: FontAxes,
 ) -> Option<(Font, Vec<Glyph>)> {
     let mut ctx = ShapingContext {
         world,
@@ -28,6 +31,8 @@ pub fn shape(
         fallback,
         glyphs: vec![],
         font: None,
+        size,
+        axes,
     };
 
     shape_impl(&mut ctx, text, families.into_iter());
@@ -45,6 +50,8 @@ struct ShapingContext<'a> {
     fallback: bool,
     glyphs: Vec<Glyph>,
     font: Option<Font>,
+    size: Abs,
+    axes: FontAxes,
 }
 
 impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
@@ -66,6 +73,14 @@ impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
 
     fn fallback(&self) -> bool {
         self.fallback
+    }
+
+    fn size(&self) -> Abs {
+        self.size
+    }
+
+    fn axes(&self) -> FontAxes {
+        self.axes.clone()
     }
 }
 
