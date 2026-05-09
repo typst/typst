@@ -12,6 +12,7 @@
 
 --- eval-syntax-error-1 eval ---
 // Error: 7-12 expected pattern
+// Hint: 7-12 at index `3`
 #eval("let")
 
 --- eval-in-show-rule paged ---
@@ -29,6 +30,7 @@ Blue #move(dy: -0.15em)[🌊]
 
 --- eval-syntax-error-2 eval ---
 // Error: 7-12 expected semicolon or line break
+// Hint: 7-12 at index `1`
 #eval("1 2")
 
 --- eval-path-resolve paged ---
@@ -57,4 +59,5 @@ $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 // Test that eval shows warnings from the executed code.
 // Warning: 7-11 no text within stars
 // Hint: 7-11 using multiple consecutive stars (e.g. **) has no additional effect
+// Hint: 7-11 from index `0` to `2`
 #eval("**", mode: "markup")
