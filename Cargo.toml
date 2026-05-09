@@ -125,7 +125,7 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4.45"
 tempfile = "3.7.0"
-thin-vec = "0.2.13"
+thin-vec = "0.2.18"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
 tiny-skia = "0.11"
