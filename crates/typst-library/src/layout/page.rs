@@ -474,7 +474,7 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// Relative lengths are resolved against the page size including `bleed`,
-    /// following the same behavior as @page.background[background].
+    /// following the same behavior as @page.background[`background`].
     ///
     /// ```example
     /// #set page(foreground: text(24pt)[🤓])

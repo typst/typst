@@ -31,9 +31,9 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// #rect(width: 25% + 1cm)
 /// ```
 ///
-/// For contents in the page @page.background[background] and
+/// For contents in the page @page.background[`background`] and
 /// @page.foreground[`foreground`], relative lengths are resolved against the
-/// page size including @page.bleed[bleed]. This choice is made for
+/// page size including @page.bleed[`bleed`]. This choice is made for
 /// convenience, as creating a proper bleed-aware background inherently requires
 /// extending it into the bleed area.
 ///
@@ -43,7 +43,7 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// + Set page margins to `{0pt}` (`[#set page(margin: 0pt)]`)
 /// + Multiply the ratio by the known full page width (`{21cm * 69%}`)
 /// + Use padding which will negate the margins (`[#pad(x: -2.5cm, ...)]`)
-/// + Use the page @page.background[background] or @page.foreground[foreground]
+/// + Use the page @page.background[`background`] or @page.foreground[`foreground`]
 ///   field as those don't take margins into account (note that it will render
 ///   the content outside of the document flow, see @place[place] to control the
 ///   content position)
