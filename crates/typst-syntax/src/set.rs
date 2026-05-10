@@ -66,7 +66,7 @@ pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return)
 pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
     MathIdent,
-    FieldAccess,
+    MathFieldAccess,
     Dot,
     Comma,
     Semicolon,

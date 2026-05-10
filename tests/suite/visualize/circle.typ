@@ -2,8 +2,12 @@
 
 --- circle paged ---
 // Default circle.
-#box(circle())
-#box(circle[Hey])
+#stack(
+  dir: ltr,
+  spacing: 0.5em,
+  circle(),
+  circle[Hey]
+)
 
 --- circle-auto-sizing paged ---
 // Test auto sizing.

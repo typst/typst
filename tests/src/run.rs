@@ -824,10 +824,10 @@ mod eval {
     use comemo::{Track, Tracked};
     use ecow::EcoVec;
     use rustc_hash::FxHashSet;
+    use typst::World;
     use typst::diag::{SourceDiagnostic, SourceResult, Warned};
     use typst::engine::{Route, Sink, Traced};
     use typst::foundations::Content;
-    use typst::{ROUTINES, World};
 
     pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
         let mut sink = Sink::new();
@@ -848,8 +848,8 @@ mod eval {
 
         // First evaluate the main source file into a module.
         let content = typst_eval::eval(
-            &ROUTINES,
             world,
+            world.library(),
             traced,
             sink.track_mut(),
             Route::default().track(),

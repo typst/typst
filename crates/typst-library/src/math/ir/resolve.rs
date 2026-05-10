@@ -129,7 +129,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let pairs = (self.engine.routines.realize)(
+        let pairs = (self.engine.library.routines.realize)(
             RealizationKind::Math,
             self.engine,
             &mut self.locator,

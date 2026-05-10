@@ -139,10 +139,9 @@ pub fn layout_equation_block(
         let mut last_first_pos = Point::zero();
         let mut regions = regions;
 
-        loop {
-            // Keep track of the position of the first row in this region,
-            // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
+        // Keep track of the position of the first row in this region,
+        // so that the offset can be reverted later.
+        while let Some(&(_, first_pos)) = rows.peek() {
             last_first_pos = first_pos;
 
             let mut frames = vec![];
@@ -203,7 +202,7 @@ pub fn layout_equation_block(
     let Some(numbering) = elem.numbering.get_ref(styles) else {
         let frames = equation_builders
             .into_iter()
-            .map(MathRunFrameBuilder::build)
+            .map(MathRunFrameBuilder::build_aligned)
             .collect();
         return Ok(Fragment::frames(frames));
     };
@@ -231,7 +230,7 @@ pub fn layout_equation_block(
         .map(|builder| {
             if builder.frames.is_empty() && region_count > 1 {
                 // Don't number empty regions, but do number empty equations.
-                return builder.build();
+                return builder.build_aligned();
             }
             add_equation_number(
                 builder,
@@ -266,7 +265,7 @@ fn add_equation_number(
             |(frame, pos)| (frame.size(), *pos, frame.baseline()),
         );
     let line_count = equation_builder.frames.len();
-    let mut equation = equation_builder.build();
+    let mut equation = equation_builder.build_aligned();
 
     let width = if region_size_x.is_finite() {
         region_size_x
@@ -513,7 +512,8 @@ fn layout_realized(
         MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
         MathKind::Fenced(item) => layout_fenced(item, ctx, styles, props)?,
         MathKind::Multiline(item) => {
-            let mut frame = layout_multiline(item, ctx, styles)?.build();
+            // Don't set the baseline by default, unless the item is centered.
+            let mut frame = layout_multiline(item, ctx, styles)?.build_unaligned();
             if item.centered {
                 let axis = ctx.font().math().axis_height.resolve(styles);
                 frame.set_baseline(frame.height() / 2.0 + axis);

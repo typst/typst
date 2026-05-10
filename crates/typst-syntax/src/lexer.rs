@@ -661,16 +661,16 @@ impl Lexer<'_> {
         (kind, None)
     }
 
-    /// Parse a single `MathIdent` or an entire `FieldAccess`.
+    /// Parse a single `MathIdent` or an entire `MathFieldAccess`.
     fn math_ident_or_field(&mut self, start: usize) -> (SyntaxKind, SyntaxNode) {
         let mut kind = SyntaxKind::MathIdent;
         let mut node = SyntaxNode::leaf(kind, self.s.from(start));
         while let Some(ident) = self.maybe_dot_ident() {
-            kind = SyntaxKind::FieldAccess;
+            kind = SyntaxKind::MathFieldAccess;
             let field_children = vec![
                 node,
                 SyntaxNode::leaf(SyntaxKind::Dot, '.'),
-                SyntaxNode::leaf(SyntaxKind::Ident, ident),
+                SyntaxNode::leaf(SyntaxKind::MathIdent, ident),
             ];
             node = SyntaxNode::inner(kind, field_children);
         }

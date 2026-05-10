@@ -7,21 +7,23 @@ use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
-use crate::World;
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::foundations::{Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
-use crate::routines::Routines;
+use crate::{Library, World};
 
 /// Holds all data needed during compilation.
 pub struct Engine<'a> {
-    /// Defines implementation of various Typst compiler routines as a table of
-    /// function pointers.
-    pub routines: &'a Routines,
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,
+    /// Definition of Typst's standard library.
+    ///
+    /// Can be accessed via `world.library()`, but we fetch it once upfront
+    /// because it's accessed so frequently and we want to avoid the overhead of
+    /// the tracked call.
+    pub library: &'a LazyHash<Library>,
     /// Provides access to information about the document.
     pub introspector: Protected<Tracked<'a, dyn Introspector + 'a>>,
     /// May hold a span that is currently under inspection.
@@ -61,7 +63,7 @@ impl Engine<'_> {
         F: Fn(&mut Engine, T) -> U + Send + Sync,
     {
         let Engine {
-            world, introspector, traced, ref route, routines, ..
+            world, introspector, traced, ref route, library, ..
         } = *self;
 
         // We collect into a vector and then call `into_par_iter` instead of
@@ -79,7 +81,7 @@ impl Engine<'_> {
                     traced,
                     sink: sink.track_mut(),
                     route: route.clone(),
-                    routines,
+                    library,
                 };
                 (f(&mut engine, value), sink)
             })

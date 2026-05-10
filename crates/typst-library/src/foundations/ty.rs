@@ -6,9 +6,9 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use typst_utils::Static;
+use typst_utils::{DefSite, Static};
 
-use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::diag::{StrResult, WarningSink, bail};
 use crate::foundations::{
     AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
 };
@@ -20,13 +20,13 @@ use crate::foundations::{
 /// shapes, and more. Typst categorizes these into clearly defined _types_ and
 /// tells you where it expects which type of value.
 ///
-/// Apart from basic types for numeric values and [typical]($int)
-/// [types]($float) [known]($str) [from]($array) [programming]($dictionary)
-/// languages, Typst provides a special type for [_content._]($content) A value
-/// of this type can hold anything that you can enter into your document: Text,
-/// elements like headings and shapes, and style information.
+/// Apart from basic types for numeric values and @int[typical] @float[types]
+/// @str[known] @array[from] @dictionary[programming] languages, Typst provides
+/// a special type for @content[_content._] A value of this type can hold
+/// anything that you can enter into your document: Text, elements like headings
+/// and shapes, and style information.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let x = 10
 /// #if type(x) == int [
@@ -40,14 +40,16 @@ use crate::foundations::{
 /// ```
 ///
 /// The type of `{10}` is `int`. Now, what is the type of `int` or even `type`?
+///
 /// ```example
 /// #type(int) \
 /// #type(type)
 /// ```
 ///
-/// Unlike other types like `int`, [none] and [auto] do not have a name
-/// representing them. To test if a value is one of these, compare your value to
-/// them directly, e.g:
+/// Unlike other types like `int`, @none[none] and @auto[auto] do not have a
+/// name representing them. To test if a value is one of these, compare your
+/// value to them directly, e.g:
+///
 /// ```example
 /// #let val = none
 /// #if val == none [
@@ -55,9 +57,9 @@ use crate::foundations::{
 /// ]
 /// ```
 ///
-/// Note that `type` will return [`content`] for all document elements. To
+/// Note that `type` will return @content for all document elements. To
 /// programmatically determine which kind of content you are dealing with, see
-/// [`content.func`].
+/// @content.func.
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
@@ -88,6 +90,11 @@ impl Type {
         self.0.docs
     }
 
+    /// Where the function is type in the Rust source code.
+    pub fn def_site(&self) -> DefSite {
+        self.0.def_site
+    }
+
     /// Search keywords for the type.
     pub fn keywords(&self) -> &'static [&'static str] {
         self.0.keywords
@@ -111,7 +118,7 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        sink: impl DeprecationSink,
+        sink: impl WarningSink,
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => Ok(binding.read_checked(sink)),
@@ -206,6 +213,8 @@ pub struct NativeTypeData {
     pub title: &'static str,
     /// The documentation for this type as a string.
     pub docs: &'static str,
+    /// Where the function is defined in the source code.
+    pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],
     /// The constructor for this type.

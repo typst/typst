@@ -12,7 +12,6 @@ use crate::World;
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::introspection::Introspector;
-use crate::routines::Routines;
 
 pub const MAX_ITERS: usize = 5;
 pub const ITER_NAMES: &[&str] =
@@ -25,13 +24,12 @@ const INSTANCES: usize = MAX_ITERS + 1;
 #[typst_macros::time(name = "analyze introspections")]
 pub fn analyze(
     world: Tracked<dyn World + '_>,
-    routines: &Routines,
     introspectors: [&dyn Introspector; INSTANCES],
     introspections: &[Introspection],
 ) -> EcoVec<SourceDiagnostic> {
     let mut sink = Sink::new();
     for introspection in introspections {
-        if let Some(warning) = introspection.0.diagnose(world, routines, introspectors) {
+        if let Some(warning) = introspection.0.diagnose(world, introspectors) {
             sink.warn(warning);
         }
     }
@@ -167,7 +165,6 @@ trait Bounds: Debug + Send + Sync + Any + 'static {
     fn diagnose(
         &self,
         world: Tracked<dyn World + '_>,
-        routines: &Routines,
         introspectors: [&dyn Introspector; INSTANCES],
     ) -> Option<SourceDiagnostic>;
     fn dyn_eq(&self, other: &Introspection) -> bool;
@@ -181,13 +178,11 @@ where
     fn diagnose(
         &self,
         world: Tracked<dyn World + '_>,
-        routines: &Routines,
         introspectors: [&dyn Introspector; INSTANCES],
     ) -> Option<SourceDiagnostic> {
-        let history =
-            History::compute(world, routines, introspectors, |engine, introspector| {
-                self.introspect(engine, introspector)
-            });
+        let history = History::compute(world, introspectors, |engine, introspector| {
+            self.introspect(engine, introspector)
+        });
         (!history.converged()).then(|| self.diagnose(&history))
     }
 
@@ -221,7 +216,6 @@ impl<'a, T> History<'a, T> {
     /// Computes the value for each introspector with an ad-hoc engine.
     fn compute(
         world: Tracked<dyn World + '_>,
-        routines: &Routines,
         introspectors: [&'a dyn Introspector; INSTANCES],
         f: impl Fn(&mut Engine, Tracked<'a, dyn Introspector + '_>) -> T,
     ) -> Self {
@@ -230,12 +224,12 @@ impl<'a, T> History<'a, T> {
             let traced = Traced::default();
             let mut sink = Sink::new();
             let mut engine = Engine {
+                library: world.library(),
                 world,
                 introspector: Protected::new(tracked),
                 traced: traced.track(),
                 sink: sink.track_mut(),
                 route: Route::default(),
-                routines,
             };
             (introspector, f(&mut engine, tracked))
         }))

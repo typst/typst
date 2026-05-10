@@ -23,7 +23,6 @@ $ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
 
 --- math-font-switch paged ---
 // Test font switch.
-// Warning: 29-40 unknown font family: noto sans
 #let here = text.with(font: "Noto Sans")
 $#here[f] := #here[Hi there]$.
 
@@ -103,7 +102,7 @@ $hat(x)$, $rhat(x)$, $hat(rhat(x))$, $rhat(hat(x))$, x\u{0302}
 $grave(x)$, x\u{0300}
 
 --- math-accent-show-rule-4 paged ---
-#show "\u{0302}": box(inset: (bottom: 5pt), text(0.5em, sym.diamond.small))
+#show "\u{0302}": box(baseline: -5pt, text(0.5em, sym.diamond.small))
 $hat(X)$, $hat(x)$
 
 --- math-box-without-baseline paged ---

@@ -12,10 +12,10 @@ use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
 ///
-/// Before you starting citing, you need to add a [bibliography] somewhere in
-/// your document.
+/// Before you starting citing, you need to add a @bibliography[bibliography]
+/// somewhere in your document.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This was already noted by
 /// pirates long ago. @arrgh
@@ -38,9 +38,9 @@ use crate::text::{Lang, Region, TextElem};
 /// >>> #bibliography("works.bib")
 /// ```
 ///
-/// # Syntax
-/// This function indirectly has dedicated syntax. [References]($ref) can be
-/// used to cite works from the bibliography. The label then corresponds to the
+/// = Syntax <syntax>
+/// This function indirectly has dedicated syntax. @ref[References] can be used
+/// to cite works from the bibliography. The label then corresponds to the
 /// citation key.
 #[elem(Locatable, Synthesize)]
 pub struct CiteElem {
@@ -91,11 +91,12 @@ pub struct CiteElem {
     ///
     /// This can be:
     /// - `{auto}` to automatically use the
-    ///   [bibliography's style]($bibliography.style) for citations.
+    ///   @bibliography.style[bibliography's style] for citations.
     /// - A string with the name of one of the built-in styles (see below). Some
     ///   of the styles listed below appear twice, once with their full name and
     ///   once with a short alias.
-    /// - A path string or [`path`] to a [CSL file](https://citationstyles.org/).
+    /// - A path string or @path to a
+    ///   #link("https://citationstyles.org/")[CSL file].
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
