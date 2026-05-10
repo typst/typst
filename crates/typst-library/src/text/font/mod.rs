@@ -227,7 +227,11 @@ impl Hash for Font {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.data.hash(state);
         self.0.index.hash(state);
-        self.0.instance_parameters.hash(state);
+
+        // Preserve the previous identity for default font instances, while still distinguishing variable instances with explicit axis values.
+        if !self.0.instance_parameters.is_empty() {
+            self.0.instance_parameters.hash(state);
+        }
     }
 }
 
