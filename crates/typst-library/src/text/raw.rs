@@ -4,7 +4,7 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
-use syntect::highlighting::{self as synt};
+use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
