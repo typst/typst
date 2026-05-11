@@ -65,7 +65,7 @@ impl Display for Test {
 /// line numbers and create a clickable link in editors like VSCode.
 #[derive(Clone)]
 pub struct FilePos {
-    pub path: Arc<PathBuf>,
+    pub path: Arc<Path>,
     /// Line numbers are 1-indexed, so if this is zero we treat it as pointing
     /// to the file as a whole.
     pub line: usize,
@@ -588,7 +588,7 @@ impl Collector {
 /// Parses a single test file.
 struct Parser<'a> {
     collector: &'a mut Collector,
-    path: Arc<PathBuf>,
+    path: Arc<Path>,
     s: Scanner<'a>,
     test_start_line: usize,
     line: usize,
@@ -599,7 +599,7 @@ impl<'a> Parser<'a> {
     fn new(collector: &'a mut Collector, path: &'a Path, source: &'a str) -> Self {
         Self {
             collector,
-            path: Arc::new(path.to_owned()),
+            path: path.into(),
             s: Scanner::new(source),
             // Lines in files are 1-indexed.
             test_start_line: 1,
@@ -831,7 +831,7 @@ pub struct TestParseError {
 impl TestParseError {
     pub fn new(kind: impl Into<TestParseErrorKind>, path: &Path, line: usize) -> Self {
         Self {
-            pos: FilePos { path: Arc::new(path.to_owned()), line },
+            pos: FilePos { path: path.into(), line },
             kind: kind.into(),
         }
     }
