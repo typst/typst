@@ -1,10 +1,10 @@
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use smallvec::SmallVec;
 
 use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Array, Content, Packed, Reflect as _, Smart, Styles, cast, elem, scope,
 };
 use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};

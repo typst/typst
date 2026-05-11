@@ -16,7 +16,7 @@ use unicode_math_class::MathClass;
 
 use self::glyph::kern_at_height;
 use super::MathContext;
-use crate::modifiers::{FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify as _};
 
 #[derive(Debug, Clone)]
 pub enum MathFragment {

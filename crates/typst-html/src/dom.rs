@@ -5,7 +5,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
+    Content, Dict, Fold, Output, Repr as _, Str, StyleChain, Target, cast,
 };
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};

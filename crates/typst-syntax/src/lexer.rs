@@ -4,8 +4,8 @@ use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_math_class::MathClass;
-use unicode_script::{Script, UnicodeScript};
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_script::{Script, UnicodeScript as _};
+use unicode_segmentation::UnicodeSegmentation as _;
 use unscanny::Scanner;
 
 use crate::ast::NonDecimalBase;

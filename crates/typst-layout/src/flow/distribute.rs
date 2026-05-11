@@ -2,7 +2,7 @@ use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::{
     Child, Composer, FlowResult, LineChild, MultiChild, MultiSpill, PlacedChild,

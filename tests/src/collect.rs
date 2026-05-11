@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::io::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -13,7 +13,7 @@ use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
 use crate::notes::{TestBody, parse_test_body};
-use crate::output::{self, HashOutputType, HashStore, HashedRef, HashedRefs};
+use crate::output::{self, HashOutputType as _, HashStore, HashedRef, HashedRefs};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.

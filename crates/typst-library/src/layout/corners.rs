@@ -4,7 +4,7 @@ use typst_utils::Get;
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
-    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    AlternativeFold as _, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
     StyleChain, Value,
 };
 use crate::layout::Side;

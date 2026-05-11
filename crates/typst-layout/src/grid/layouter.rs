@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
@@ -16,7 +16,7 @@ use typst_library::layout::{
 use typst_library::text::TextElem;
 use typst_library::visualize::Geometry;
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::{
     LineSegment, Rowspan, UnbreakableRowGroup, generate_line_segments,

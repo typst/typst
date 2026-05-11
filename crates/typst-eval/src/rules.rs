@@ -1,10 +1,10 @@
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At as _, SourceResult, warning};
 use typst_library::foundations::{
     Element, Func, Recipe, Selector, ShowableSelector, StyleChain, Styles, Transformation,
 };
 use typst_library::layout::{BlockElem, PageElem};
 use typst_library::model::ParElem;
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 
 use crate::{Eval, Vm, hint_if_shadowed_std};
 

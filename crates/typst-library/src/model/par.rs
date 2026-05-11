@@ -4,9 +4,9 @@ use typst_utils::singleton;
 use crate::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    AlternativeFold, Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue,
-    IntoValue, NativeElement, Packed, Reflect, Smart, Unlabellable, Value, cast, dict,
-    elem, scope,
+    AlternativeFold as _, Args, Cast, CastInfo, Construct, Content, Dict, Fold,
+    FromValue, IntoValue, NativeElement as _, Packed, Reflect, Smart, Unlabellable,
+    Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};

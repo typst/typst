@@ -17,14 +17,14 @@ mod watch;
 mod world;
 
 use std::cell::Cell;
-use std::io::{self, Write};
+use std::io::{self, Write as _};
 use std::process::ExitCode;
 use std::sync::LazyLock;
 
-use clap::Parser;
+use clap::Parser as _;
 use clap::error::ErrorKind;
 use codespan_reporting::term;
-use codespan_reporting::term::termcolor::WriteColor;
+use codespan_reporting::term::termcolor::WriteColor as _;
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::{HintedStrResult, StrResult};

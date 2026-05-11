@@ -1,11 +1,11 @@
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Resolve, StyleChain};
+use typst_library::foundations::{Packed, Resolve as _, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, AlignElem, Axes, Frame, Point, Region, RepeatElem, Size,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 /// Layout the repeated content.
 #[typst_macros::time(span = elem.span())]

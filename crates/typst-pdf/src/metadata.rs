@@ -1,7 +1,7 @@
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
-use typst_library::model::Document;
+use typst_library::model::Document as _;
 use typst_library::text::Locale;
 
 use crate::convert::GlobalContext;

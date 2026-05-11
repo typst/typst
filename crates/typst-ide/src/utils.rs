@@ -1,7 +1,7 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
 use std::ops::ControlFlow;
 
-use comemo::Track;
+use comemo::Track as _;
 use ecow::EcoString;
 use indexmap::IndexMap;
 use typst::engine::{Engine, Route, Sink, Traced};

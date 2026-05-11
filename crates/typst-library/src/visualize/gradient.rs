@@ -7,9 +7,9 @@ use ecow::{EcoString, EcoVec};
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceResult, bail};
+use crate::diag::{At as _, SourceResult, bail};
 use crate::foundations::{
-    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
+    Args, Array, Cast, Func, IntoValue as _, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{

@@ -1,7 +1,7 @@
 //! A wrapper arond the test runner that allows rerunning an old version of the
 //! test suite when old live output is missing.
 
-use std::io::{IsTerminal, Write as _};
+use std::io::{IsTerminal as _, Write as _};
 use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};
 

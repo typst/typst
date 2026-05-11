@@ -1,9 +1,9 @@
 use std::any::{Any, TypeId};
-use std::fmt::{Debug, Write};
+use std::fmt::{Debug, Write as _};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_syntax::Span;
 use typst_utils::Protected;

@@ -8,7 +8,7 @@ use typst_utils::DefSite;
 
 use crate::foundations::{
     Container, Content, FieldVtable, Fold, FoldFn, IntoValue, NativeElement, Packed,
-    Property, Reflect, Repr, Resolve, StyleChain, Styles,
+    Property, Reflect, Repr as _, Resolve, StyleChain, Styles,
 };
 
 /// An accessor for the `I`-th field of the element `E`. Values of this type are

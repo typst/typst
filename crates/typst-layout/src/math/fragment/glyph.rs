@@ -15,11 +15,11 @@ use typst_library::math::ir::{MathProperties, Stretch};
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{FontInstance, Glyph, TextElem, TextItem, features};
 use typst_syntax::Span;
-use typst_utils::{Get, default_math_class};
+use typst_utils::{Get as _, default_math_class};
 use unicode_math_class::MathClass;
 
 use crate::math::shaping;
-use crate::modifiers::{FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify as _};
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;

@@ -13,9 +13,11 @@ mod text;
 
 use comemo::Tracked;
 use typst_library::World;
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At as _, SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
+use typst_library::foundations::{
+    NativeElement as _, Packed, Resolve as _, Style, StyleChain,
+};
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
@@ -32,7 +34,7 @@ use typst_library::text::{
     Font, FontFlags, FontInstance, TextEdgeBounds, TextElem, variant,
 };
 use typst_syntax::Span;
-use typst_utils::{LazyHash, Numeric};
+use typst_utils::{LazyHash, Numeric as _};
 
 use self::accent::layout_accent;
 use self::cancel::layout_cancel;
@@ -41,7 +43,7 @@ use self::fraction::{layout_fraction, layout_skewed_fraction};
 use self::fragment::{FrameFragment, MathFragment};
 use self::line::layout_line;
 use self::radical::layout_radical;
-use self::run::{MathFragmentsExt, MathRun, MathRunFrameBuilder, layout_multiline};
+use self::run::{MathFragmentsExt as _, MathRun, MathRunFrameBuilder, layout_multiline};
 use self::scripts::{layout_primes, layout_scripts};
 use self::table::layout_table;
 use self::text::{layout_glyph, layout_number, layout_text};

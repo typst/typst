@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 use typst_utils::{Numeric, default_math_class};
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, HintedStrResult, StrResult, bail};
+use crate::diag::{At as _, HintedStrResult, StrResult, bail};
 use crate::foundations::{
     Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
     array, cast, dict, elem,

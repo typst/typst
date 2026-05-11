@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use comemo::Track;
+use comemo::Track as _;
 use ecow::eco_format;
 use typst::Library;
 use typst::World;

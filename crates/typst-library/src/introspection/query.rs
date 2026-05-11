@@ -6,7 +6,7 @@ use super::{History, Introspect};
 use crate::diag::{HintedStrResult, SourceDiagnostic, StrResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Content, Context, Label, LocatableSelector, Repr, Selector, Value, func,
+    Array, Content, Context, Label, LocatableSelector, Repr as _, Selector, Value, func,
 };
 use crate::introspection::Introspector;
 

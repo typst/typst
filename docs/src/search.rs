@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use ecow::{EcoString, eco_format};
 use serde::Serialize;
-use typst::diag::{At, Hint, HintedStrResult, SourceResult, bail};
+use typst::diag::{At as _, Hint as _, HintedStrResult, SourceResult, bail};
 use typst::foundations::{Dict, Label, Selector, Value, cast};
 use typst::introspection::{Introspector, Location, MetadataElem, Tag};
 use typst::syntax::VirtualPath;

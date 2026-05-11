@@ -13,13 +13,13 @@ mod run;
 mod world;
 
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use clap::Parser;
+use clap::Parser as _;
 use parking_lot::{Mutex, RwLock};
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{ParallelBridge as _, ParallelIterator as _};
 use rustc_hash::FxHashMap;
 
 use crate::args::{CliArguments, Command, PdftagsCommand};

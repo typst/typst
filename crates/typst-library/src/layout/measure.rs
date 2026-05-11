@@ -1,10 +1,10 @@
 use comemo::Tracked;
 use typst_syntax::Span;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At as _, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Context, Dict, Resolve, Smart, Target, TargetElem, dict, func,
+    Content, Context, Dict, Resolve as _, Smart, Target, TargetElem, dict, func,
 };
 use crate::introspection::{Locator, LocatorLink};
 use crate::layout::{Abs, Axes, Length, Region, Size};

@@ -1,12 +1,14 @@
 use comemo::TrackedMut;
 use ecow::{EcoString, eco_format, eco_vec};
-use typst_library::World;
+use typst_library::World as _;
 use typst_library::diag::{
-    At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
+    At as _, FileError, SourceResult, Trace as _, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Content, Module, PathOrStr, Reflect, Value};
-use typst_syntax::ast::{self, AstNode, BareImportError};
+use typst_library::foundations::{
+    Binding, Content, Module, PathOrStr, Reflect as _, Value,
+};
+use typst_syntax::ast::{self, AstNode as _, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, RootedPath, Span, VirtualPath, VirtualRoot};
 

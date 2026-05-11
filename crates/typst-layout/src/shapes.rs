@@ -1,9 +1,9 @@
 use std::f64::consts::SQRT_2;
 
-use kurbo::{CubicBez, ParamCurveExtrema};
+use kurbo::{CubicBez, ParamCurveExtrema as _};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve as _, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Corner, Corners, Frame, FrameItem, Point, Ratio, Region, Rel, Sides, Size,
@@ -14,7 +14,7 @@ use typst_library::visualize::{
     SquareElem, Stroke,
 };
 use typst_syntax::Span;
-use typst_utils::{Get, Numeric};
+use typst_utils::{Get as _, Numeric as _};
 
 /// Layout the line.
 #[typst_macros::time(span = elem.span())]

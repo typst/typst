@@ -2,13 +2,13 @@ use std::cell::LazyCell;
 
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve as _, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Frame, MoveElem, Point, Ratio, Region, Rel, RotateElem,
     ScaleAmount, ScaleElem, Size, SkewElem, Transform,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 /// Layout the moved content.
 #[typst_macros::time(span = elem.span())]

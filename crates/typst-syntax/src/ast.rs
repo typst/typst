@@ -87,10 +87,10 @@ throughput at the cost of initial latency and development flexibility.
 use std::num::{IntErrorKind, NonZeroUsize};
 use std::ops::Deref;
 use std::path::Path;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use ecow::EcoString;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;

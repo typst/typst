@@ -1,4 +1,4 @@
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use comemo::Tracked;
 use rustybuzz::{
     BufferFlags, Direction, Feature, Language, Script, UnicodeBuffer, shape_with_plan,

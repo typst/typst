@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::math::ir::{AlignedRow, MathProperties, TableItem};
 use typst_library::math::{AugmentOffsets, style_for_denominator};

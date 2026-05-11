@@ -1,23 +1,23 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
-    bail, error,
+    At as _, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace as _,
+    Tracepoint, bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
     Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
+    NativeElement as _, Scope, Scopes, SequenceElem, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::{Library, World};
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
 use crate::{
-    Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
+    Access as _, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
     is_dict_mutating_method, is_mutating_method,
 };
 
@@ -186,7 +186,7 @@ fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Va
 /// evaluated value and arguments.
 ///
 /// This currently causes a number of bad errors due to limitations of the
-/// [`Access`] trait used for mutation.
+/// [`crate::Access`] trait used for mutation.
 fn maybe_resolve_mutating(
     vm: &mut Vm,
     target: ast::Expr,

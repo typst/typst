@@ -1,6 +1,6 @@
 use std::io::stdout;
 
-use clap::CommandFactory;
+use clap::CommandFactory as _;
 use clap_complete::generate;
 
 use crate::args::{CliArguments, CompletionsCommand};

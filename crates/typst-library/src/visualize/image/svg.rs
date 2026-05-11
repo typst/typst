@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use comemo::Tracked;
 use ecow::eco_format;
 use rustc_hash::FxHashMap;
-use siphasher::sip128::{Hasher128, SipHasher13};
+use siphasher::sip128::{Hasher128 as _, SipHasher13};
 use typst_syntax::FileId;
 
 use crate::World;

@@ -1,8 +1,8 @@
 use typst_syntax::Span;
 
 use crate::foundations::{
-    Content, Depth, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles,
-    cast, elem,
+    Content, Depth, Label, NativeElement as _, Packed, ShowSet, Smart, StyleChain,
+    Styles, cast, elem,
 };
 use crate::layout::{BlockElem, Em, PadElem};
 use crate::model::{CitationForm, CiteElem};

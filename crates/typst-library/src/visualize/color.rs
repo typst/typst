@@ -7,14 +7,15 @@ use ecow::{EcoString, EcoVec, eco_format};
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
 use palette::encoding::{self, Linear};
 use palette::{
-    Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
+    Alpha, Darken as _, Desaturate as _, FromColor as _, Lighten as _, OklabHue, RgbHue,
+    Saturate as _, ShiftHue as _,
 };
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{At as _, HintedStrResult, SourceResult, StrResult, bail};
 use crate::foundations::{
-    Args, Array, Func, IntoValue, Module, Repr, Scope, Smart, Str, Value, array, cast,
-    func, repr, scope, ty,
+    Args, Array, Func, IntoValue as _, Module, Repr, Scope, Smart, Str, Value, array,
+    cast, func, repr, scope, ty,
 };
 use crate::layout::{Angle, Ratio};
 

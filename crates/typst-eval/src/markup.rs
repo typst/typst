@@ -1,6 +1,6 @@
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At as _, SourceResult, warning};
 use typst_library::foundations::{
-    Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
+    Content, Label, NativeElement as _, Repr as _, Smart, Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -9,7 +9,7 @@ use typst_library::model::{
 use typst_library::text::{
     LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
 };
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_utils::PicoStr;
 
 use crate::{Eval, Vm};

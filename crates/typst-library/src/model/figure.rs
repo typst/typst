@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 use std::num::NonZeroUsize;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use ecow::EcoString;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
+    Content, Element, NativeElement as _, Packed, Selector, ShowSet, Smart, StyleChain,
     Styles, Synthesize, cast, elem, scope, select_where,
 };
 use crate::introspection::{Count, Counter, CounterKey, CounterUpdate, Location};

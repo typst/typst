@@ -1,4 +1,4 @@
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal as _, Write};
 
 use codespan_reporting::term::termcolor;
 use termcolor::{ColorChoice, WriteColor};

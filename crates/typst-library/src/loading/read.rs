@@ -1,9 +1,9 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{LoadedWithin, SourceResult};
+use crate::diag::{LoadedWithin as _, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Cast, PathOrStr, func};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load as _, Readable};
 
 /// Reads plain text or data from a file.
 ///

@@ -1,10 +1,10 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
-use typst::World;
+use typst::World as _;
 use typst::foundations::Smart;
 use typst::introspection::{Location, Tag};
 use typst::layout::{Frame, FrameItem};
-use typst::model::{Document, DocumentInfo};
+use typst::model::{Document as _, DocumentInfo};
 use typst_layout::PagedDocument;
 
 use crate::collect::Test;

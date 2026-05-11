@@ -1,8 +1,10 @@
-use comemo::Track;
+use comemo::Track as _;
 use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Context, Depth, Packed, Resolve, StyleChain};
+use typst_library::foundations::{
+    Content, Context, Depth, Packed, Resolve as _, StyleChain,
+};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,

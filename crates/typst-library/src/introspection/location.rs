@@ -4,11 +4,13 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, VirtualPath};
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
-use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
+use crate::foundations::{
+    Content, IntoValue as _, Repr, Selector, func, repr, scope, ty,
+};
 use crate::introspection::{
     DocumentPosition, History, Introspect, Introspector, PagedPosition,
 };

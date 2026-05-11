@@ -1,8 +1,8 @@
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::World;
-use crate::diag::At;
+use crate::World as _;
+use crate::diag::At as _;
 use crate::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
 
 /// A file that will be attached to the output PDF.

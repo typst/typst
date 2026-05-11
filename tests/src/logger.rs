@@ -1,11 +1,11 @@
 use std::fs;
-use std::io::{self, IsTerminal, StderrLock, Write};
+use std::io::{self, IsTerminal as _, StderrLock, Write as _};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ecow::EcoString;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use rustc_hash::FxHashMap;
 use typst_syntax::Source;
 

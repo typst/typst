@@ -26,7 +26,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
-use std::ops::{Deref, Range};
+use std::ops::{Deref as _, Range};
 
 use serde::{Deserialize, Serialize};
 use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};

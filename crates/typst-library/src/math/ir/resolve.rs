@@ -4,8 +4,8 @@ use std::sync::LazyLock;
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_syntax::{Span, split_newlines};
-use typst_utils::{LazyHash, SliceExt};
-use unicode_segmentation::UnicodeSegmentation;
+use typst_utils::{LazyHash, SliceExt as _};
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::item::*;
 use super::multiline::{AlignedRow, expand_multiline_fence};

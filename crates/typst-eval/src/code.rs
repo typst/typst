@@ -1,14 +1,16 @@
 use std::ops::Range;
 
 use ecow::{EcoVec, eco_format, eco_vec};
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
+use typst_library::diag::{
+    At as _, SourceDiagnostic, SourceResult, bail, error, warning,
+};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Value, ops,
+    NativeElement as _, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_syntax::{DiagSpan, Span, SubRange};
 use typst_utils::singleton;
 

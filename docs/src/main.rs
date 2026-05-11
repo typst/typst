@@ -5,14 +5,14 @@ mod reflect;
 mod search;
 mod world;
 
-use std::io::Write;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, LazyLock};
 
-use clap::Parser;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{At, SourceResult, Warned};
+use clap::Parser as _;
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use typst::diag::{At as _, SourceResult, Warned};
 use typst::foundations::Bytes;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleFile, BundleOptions, VirtualFs};
