@@ -175,6 +175,8 @@ manual_range_contains = "allow"
 mutable_key_type = "allow"
 wildcard_in_or_patterns = "allow"
 
+as_pointer_underscore = "warn"
+as_underscore = "warn"
 cloned_instead_of_copied = "warn"
 decimal_literal_representation = "warn"
 default_trait_access = "warn"
