@@ -462,7 +462,7 @@ fn finish(
                 bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
-                let span = gc.image_to_spans.get(&image).unwrap();
+                let span = &gc.image_to_spans[&image];
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
                     hint: "convert the image to 8 bit instead";
