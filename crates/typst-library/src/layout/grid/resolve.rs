@@ -1812,7 +1812,6 @@ impl CellGridResolver<'_, '_> {
     ///    an adjacent gutter row to be repeated alongside that header or
     ///    footer, if there is gutter;
     /// 3. Wrap headers and footers in the correct [`Repeatable`] variant.
-    #[allow(clippy::type_complexity)]
     fn finalize_headers_and_footers(
         &self,
         has_gutter: bool,

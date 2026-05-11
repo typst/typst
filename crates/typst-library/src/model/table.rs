@@ -799,7 +799,6 @@ impl Default for Packed<TableCell> {
 
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

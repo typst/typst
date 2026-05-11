@@ -1027,7 +1027,6 @@ impl LineCol {
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
-        #[allow(clippy::double_ended_iterator_last)]
         let line_start = memchr::memchr_iter(b'\n', bytes)
             .inspect(|_| line += 1)
             .last()
