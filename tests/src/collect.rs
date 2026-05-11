@@ -62,7 +62,7 @@ impl Display for Test {
 }
 
 /// A position in a file. This allows us to print errors that point to specific
-/// line numbers and create a clickable link in editors like VSCode.
+/// line numbers and create a clickable link in editors like VS Code.
 #[derive(Clone)]
 pub struct FilePos {
     pub path: Arc<Path>,

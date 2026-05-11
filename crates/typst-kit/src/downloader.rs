@@ -386,7 +386,7 @@ const SAMPLES: usize = 25;
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
 /// over a websocket and reports its progress.
 struct ProgressReader<'p> {
-    /// The reader returned by the ureq::Response.
+    /// The reader returned by the [`ureq::Response`].
     reader: Box<dyn Read>,
     /// The download state, holding download metadata for progress reporting.
     state: Progress,

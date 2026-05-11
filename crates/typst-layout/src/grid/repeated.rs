@@ -353,7 +353,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Lays out headers found for the first time during row layout.
     ///
-    /// If 'short_lived' is true, these headers are immediately followed by
+    /// If `short_lived` is true, these headers are immediately followed by
     /// a conflicting header, so it is assumed they will not be pushed to
     /// pending headers.
     ///

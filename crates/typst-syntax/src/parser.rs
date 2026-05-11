@@ -456,7 +456,7 @@ fn math_delimited(p: &mut Parser) {
 }
 
 /// Remove one set of parentheses (if any) from a previously parsed expression
-/// by converting to non-expression SyntaxKinds.
+/// by converting to non-expression [`SyntaxKind`]s.
 fn math_unparen(p: &mut Parser, m: Marker) {
     let Some(node) = p.nodes.get_mut(m.0) else { return };
     if node.kind() != SyntaxKind::MathDelimited {
@@ -1476,10 +1476,10 @@ fn pattern_leaf<'s>(
 /// 3. Produce or convert nodes into an [error node](`SyntaxNode::error`) when
 ///    something expected is missing or something unexpected is found.
 ///
-/// Overall the parser produces a nested tree of SyntaxNodes as a "_Concrete_
+/// Overall the parser produces a nested tree of `SyntaxNode`s as a "Concrete
 /// Syntax Tree." The raw Concrete Syntax Tree should contain the entire source
 /// text, and is used as-is for e.g. syntax highlighting and IDE features. In
-/// `ast.rs` the CST is interpreted as a lazy view over an "_Abstract_ Syntax
+/// `ast.rs` the CST is interpreted as a lazy view over an "Abstract Syntax
 /// Tree." The AST module skips over irrelevant tokens -- whitespace, comments,
 /// code parens, commas in function args, etc. -- as it iterates through the
 /// tree.
@@ -1635,7 +1635,7 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Consume the parser, yielding the full vector of parsed SyntaxNodes.
+    /// Consume the parser, yielding the full vector of parsed [`SyntaxNode`]s.
     fn finish(self) -> Vec<SyntaxNode> {
         self.nodes
     }

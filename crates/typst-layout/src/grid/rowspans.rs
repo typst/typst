@@ -865,8 +865,8 @@ impl GridLayouter<'_> {
     /// (consider it stabilized) and return the result.
     ///
     /// Tries up to 5 times. If two consecutive simulations stabilize, then
-    /// we subtract the predicted expansion height ('amount_to_grow') from the
-    /// total height requested by rowspans (the 'requested_rowspan_height') to
+    /// we subtract the predicted expansion height (`amount_to_grow`) from the
+    /// total height requested by rowspans (the `requested_rowspan_height`) to
     /// obtain how much height is covered by upcoming rows, according to our
     /// simulation, and the result of that operation is used to reduce or
     /// remove heights from the end of the vector of simulated sizes, such that

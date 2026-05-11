@@ -225,11 +225,13 @@ impl quote::ToTokens for foundations {
 }
 
 /// For parsing attributes of the form:
+/// ```ignore
 /// #[attr(
 ///   statement;
 ///   statement;
 ///   returned_expression
 /// )]
+/// ```
 pub struct BlockWithReturn {
     pub prefix: Vec<syn::Stmt>,
     pub expr: syn::Stmt,
