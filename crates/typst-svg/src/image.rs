@@ -18,7 +18,6 @@ use crate::{SVGRenderer, State};
 impl SVGRenderer<'_> {
     /// Render an image element.
     pub(super) fn render_image(
-        &mut self,
         svg: &mut SvgElem,
         state: &State,
         image: &Image,

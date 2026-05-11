@@ -528,6 +528,8 @@ impl<'a> GlyphPainter<'a> {
         self.svg.end_element();
     }
 
+    /// Sweep gradients are not supported
+    #[expect(clippy::unused_self, reason = "matches `usvg/src/text/colr.rs`")]
     fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {}
 }
 
