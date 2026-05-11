@@ -1101,7 +1101,7 @@ impl CellGridResolver<'_, '_> {
         let resolved_cells = self.fixup_cells::<T>(resolved_cells, columns)?;
 
         let row_amount = resolved_cells.len().div_ceil(columns);
-        let (hlines, vlines) = self.collect_lines(
+        let (hlines, vlines) = collect_lines(
             pending_hlines,
             pending_vlines,
             has_gutter,
@@ -1109,7 +1109,7 @@ impl CellGridResolver<'_, '_> {
             row_amount,
         )?;
 
-        let footer = self.finalize_headers_and_footers(
+        let footer = finalize_headers_and_footers(
             has_gutter,
             &mut headers,
             footer,
@@ -1699,248 +1699,6 @@ impl CellGridResolver<'_, '_> {
             .collect::<SourceResult<Vec<Entry>>>()
     }
 
-    /// Takes the list of pending lines and evaluates a final list of hlines
-    /// and vlines (in that order in the returned tuple), detecting invalid
-    /// line positions in the process.
-    ///
-    /// For each line type (horizontal and vertical respectively), returns a
-    /// vector containing one inner vector for every group of lines with the
-    /// same index.
-    ///
-    /// For example, an hline above the second row (y = 1) is inside the inner
-    /// vector at position 1 of the first vector (hlines) returned by this
-    /// function.
-    #[expect(clippy::type_complexity)]
-    fn collect_lines(
-        &self,
-        pending_hlines: Vec<(Span, Line, bool)>,
-        pending_vlines: Vec<(Span, Line)>,
-        has_gutter: bool,
-        columns: usize,
-        row_amount: usize,
-    ) -> SourceResult<(Vec<Vec<Line>>, Vec<Vec<Line>>)> {
-        let mut hlines: Vec<Vec<Line>> = vec![];
-        let mut vlines: Vec<Vec<Line>> = vec![];
-
-        for (line_span, line, _) in pending_hlines {
-            let y = line.index;
-            if y > row_amount {
-                bail!(line_span, "cannot place horizontal line at invalid row {y}");
-            }
-            if y == row_amount && line.position == LinePosition::After {
-                bail!(
-                    line_span,
-                    "cannot place horizontal line at the 'bottom' position of the \
-                     bottom border (y = {y})";
-                    hint: "set the line's position to 'top' or place it at a smaller \
-                           'y' index";
-                );
-            }
-            let line = if line.position == LinePosition::After
-                && (!has_gutter || y + 1 == row_amount)
-            {
-                // Just place the line on top of the next row if
-                // there's no gutter and the line should be placed
-                // after the one with given index.
-                //
-                // Note that placing after the last row is also the same as
-                // just placing on the grid's bottom border, even with
-                // gutter.
-                Line {
-                    index: y + 1,
-                    position: LinePosition::Before,
-                    ..line
-                }
-            } else {
-                line
-            };
-            let y = line.index;
-
-            if hlines.len() <= y {
-                hlines.resize_with(y + 1, Vec::new);
-            }
-            hlines[y].push(line);
-        }
-
-        for (line_span, line) in pending_vlines {
-            let x = line.index;
-            if x > columns {
-                bail!(line_span, "cannot place vertical line at invalid column {x}");
-            }
-            if x == columns && line.position == LinePosition::After {
-                bail!(
-                    line_span,
-                    "cannot place vertical line at the 'end' position of the end border \
-                     (x = {columns})";
-                    hint: "set the line's position to 'start' or place it at a smaller \
-                           'x' index";
-                );
-            }
-            let line = if line.position == LinePosition::After
-                && (!has_gutter || x + 1 == columns)
-            {
-                // Just place the line before the next column if
-                // there's no gutter and the line should be placed
-                // after the one with given index.
-                //
-                // Note that placing after the last column is also the
-                // same as just placing on the grid's end border, even
-                // with gutter.
-                Line {
-                    index: x + 1,
-                    position: LinePosition::Before,
-                    ..line
-                }
-            } else {
-                line
-            };
-            let x = line.index;
-
-            if vlines.len() <= x {
-                vlines.resize_with(x + 1, Vec::new);
-            }
-            vlines[x].push(line);
-        }
-
-        Ok((hlines, vlines))
-    }
-
-    /// Generate the final headers and footers:
-    ///
-    /// 1. Convert gutter-ignorant to gutter-aware indices if necessary;
-    /// 2. Expand the header downwards (or footer upwards) to also include
-    ///    an adjacent gutter row to be repeated alongside that header or
-    ///    footer, if there is gutter;
-    /// 3. Wrap headers and footers in the correct [`Repeatable`] variant.
-    fn finalize_headers_and_footers(
-        &self,
-        has_gutter: bool,
-        headers: &mut [Repeatable<Header>],
-        footer: Option<(usize, Span, Footer)>,
-        repeat_footer: bool,
-        row_amount: usize,
-        at_least_one_cell: bool,
-    ) -> SourceResult<Option<Repeatable<Footer>>> {
-        headers.sort_unstable_by_key(|h| h.range.start);
-
-        // Mark consecutive headers in those positions as short-lived:
-        // (a) before a header of lower level;
-        // (b) right before the end of the table or the final footer;
-        // That's because they would stop repeating immediately, so don't even
-        // attempt to.
-        //
-        // It is important to do this BEFORE we update header and footer ranges
-        // due to gutter below as 'row_amount' doesn't consider gutter.
-        //
-        // TODO(subfooters): take the last footer if it is at the end and
-        // backtrack through consecutive footers until the first one in the
-        // sequence is found. If there is no footer at the end, there are no
-        // headers to turn short-lived.
-        let mut consecutive_header_start =
-            footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
-        let mut last_consec_level = 0;
-        for header in headers.iter_mut().rev() {
-            if header.range.end == consecutive_header_start
-                && header.level.get() >= last_consec_level
-            {
-                header.short_lived = true;
-            } else {
-                last_consec_level = header.level.get();
-            }
-
-            consecutive_header_start = header.range.start;
-        }
-
-        // Repeat the gutter below a header (hence why we don't
-        // subtract 1 from the gutter case).
-        // Don't do this if there are no rows under the header.
-        if has_gutter {
-            for header in &mut *headers {
-                // Index of first y is doubled, as each row before it
-                // receives a gutter row below.
-                header.range.start *= 2;
-
-                // - 'header.end' is always 'last y + 1'. The header stops
-                // before that row.
-                // - Therefore, '2 * header.end' will be 2 * (last y + 1),
-                // which is the adjusted index of the row before which the
-                // header stops, meaning it will still stop right before it
-                // even with gutter thanks to the multiplication below.
-                // - This means that it will span all rows up to
-                // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates
-                // to the index of the gutter row right below the header,
-                // which is what we want (that gutter spacing should be
-                // repeated across pages to maintain uniformity).
-                header.range.end *= 2;
-
-                // If the header occupies the entire grid, ensure we don't
-                // include an extra gutter row when it doesn't exist, since
-                // the last row of the header is at the very bottom,
-                // therefore '2 * last y + 1' is not a valid index.
-                let row_amount = (2 * row_amount).saturating_sub(1);
-                header.range.end = header.range.end.min(row_amount);
-            }
-        }
-
-        let footer = footer
-            .map(|(footer_end, footer_span, mut footer)| {
-                if footer_end != row_amount {
-                    bail!(footer_span, "footer must end at the last row");
-                }
-
-                // TODO(subfooters): will need a global slice of headers and
-                // footers for when we have multiple footers
-                // Alternatively, never include the gutter in the footer's
-                // range and manually add it later on layout. This would allow
-                // laying out the gutter as part of both the header and footer,
-                // and, if the page only has headers, the gutter row below the
-                // header is automatically removed (as it becomes the last), so
-                // only the gutter above the footer is kept, ensuring the same
-                // gutter row isn't laid out two times in a row. When laying
-                // out the footer for real, the mechanism can be disabled.
-                let last_header_end = headers.last().map(|header| header.range.end);
-
-                if has_gutter {
-                    // Convert the footer's start index to post-gutter coordinates.
-                    footer.start *= 2;
-
-                    // Include the gutter right before the footer, unless there is
-                    // none, or the gutter is already included in the header (no
-                    // rows between the header and the footer).
-                    if last_header_end != Some(footer.start) {
-                        footer.start = footer.start.saturating_sub(1);
-                    }
-
-                    // Adapt footer end but DO NOT include the gutter below it,
-                    // if it exists. Calculation:
-                    // - Starts as 'last y + 1'.
-                    // - The result will be
-                    // 2 * (last_y + 1) - 1 = 2 * last_y + 1,
-                    // which is the new index of the last footer row plus one,
-                    // meaning we do exclude any gutter below this way.
-                    //
-                    // It also keeps us within the total amount of rows, so we
-                    // don't need to '.min()' later.
-                    footer.end = (2 * footer.end).saturating_sub(1);
-                }
-
-                Ok(footer)
-            })
-            .transpose()?
-            .map(|footer| {
-                // Don't repeat footers when the table only has headers and
-                // footers.
-                // TODO(subfooters): Switch this to marking the last N
-                // consecutive footers as short lived.
-                Repeatable {
-                    inner: footer,
-                    repeated: repeat_footer && at_least_one_cell,
-                }
-            });
-
-        Ok(footer)
-    }
-
     /// Resolves the cell's fields based on grid-wide properties.
     fn resolve_cell<T>(
         &mut self,
@@ -1987,6 +1745,246 @@ impl CellGridResolver<'_, '_> {
             kind,
         ))
     }
+}
+
+/// Takes the list of pending lines and evaluates a final list of hlines
+/// and vlines (in that order in the returned tuple), detecting invalid
+/// line positions in the process.
+///
+/// For each line type (horizontal and vertical respectively), returns a
+/// vector containing one inner vector for every group of lines with the
+/// same index.
+///
+/// For example, an hline above the second row (y = 1) is inside the inner
+/// vector at position 1 of the first vector (hlines) returned by this
+/// function.
+#[expect(clippy::type_complexity)]
+fn collect_lines(
+    pending_hlines: Vec<(Span, Line, bool)>,
+    pending_vlines: Vec<(Span, Line)>,
+    has_gutter: bool,
+    columns: usize,
+    row_amount: usize,
+) -> SourceResult<(Vec<Vec<Line>>, Vec<Vec<Line>>)> {
+    let mut hlines: Vec<Vec<Line>> = vec![];
+    let mut vlines: Vec<Vec<Line>> = vec![];
+
+    for (line_span, line, _) in pending_hlines {
+        let y = line.index;
+        if y > row_amount {
+            bail!(line_span, "cannot place horizontal line at invalid row {y}");
+        }
+        if y == row_amount && line.position == LinePosition::After {
+            bail!(
+                line_span,
+                "cannot place horizontal line at the 'bottom' position of the \
+                 bottom border (y = {y})";
+                hint: "set the line's position to 'top' or place it at a smaller \
+                       'y' index";
+            );
+        }
+        let line = if line.position == LinePosition::After
+            && (!has_gutter || y + 1 == row_amount)
+        {
+            // Just place the line on top of the next row if
+            // there's no gutter and the line should be placed
+            // after the one with given index.
+            //
+            // Note that placing after the last row is also the same as
+            // just placing on the grid's bottom border, even with
+            // gutter.
+            Line {
+                index: y + 1,
+                position: LinePosition::Before,
+                ..line
+            }
+        } else {
+            line
+        };
+        let y = line.index;
+
+        if hlines.len() <= y {
+            hlines.resize_with(y + 1, Vec::new);
+        }
+        hlines[y].push(line);
+    }
+
+    for (line_span, line) in pending_vlines {
+        let x = line.index;
+        if x > columns {
+            bail!(line_span, "cannot place vertical line at invalid column {x}");
+        }
+        if x == columns && line.position == LinePosition::After {
+            bail!(
+                line_span,
+                "cannot place vertical line at the 'end' position of the end border \
+                 (x = {columns})";
+                hint: "set the line's position to 'start' or place it at a smaller \
+                       'x' index";
+            );
+        }
+        let line = if line.position == LinePosition::After
+            && (!has_gutter || x + 1 == columns)
+        {
+            // Just place the line before the next column if
+            // there's no gutter and the line should be placed
+            // after the one with given index.
+            //
+            // Note that placing after the last column is also the
+            // same as just placing on the grid's end border, even
+            // with gutter.
+            Line {
+                index: x + 1,
+                position: LinePosition::Before,
+                ..line
+            }
+        } else {
+            line
+        };
+        let x = line.index;
+
+        if vlines.len() <= x {
+            vlines.resize_with(x + 1, Vec::new);
+        }
+        vlines[x].push(line);
+    }
+
+    Ok((hlines, vlines))
+}
+
+/// Generate the final headers and footers:
+///
+/// 1. Convert gutter-ignorant to gutter-aware indices if necessary;
+/// 2. Expand the header downwards (or footer upwards) to also include
+///    an adjacent gutter row to be repeated alongside that header or
+///    footer, if there is gutter;
+/// 3. Wrap headers and footers in the correct [`Repeatable`] variant.
+fn finalize_headers_and_footers(
+    has_gutter: bool,
+    headers: &mut [Repeatable<Header>],
+    footer: Option<(usize, Span, Footer)>,
+    repeat_footer: bool,
+    row_amount: usize,
+    at_least_one_cell: bool,
+) -> SourceResult<Option<Repeatable<Footer>>> {
+    headers.sort_unstable_by_key(|h| h.range.start);
+
+    // Mark consecutive headers in those positions as short-lived:
+    // (a) before a header of lower level;
+    // (b) right before the end of the table or the final footer;
+    // That's because they would stop repeating immediately, so don't even
+    // attempt to.
+    //
+    // It is important to do this BEFORE we update header and footer ranges
+    // due to gutter below as 'row_amount' doesn't consider gutter.
+    //
+    // TODO(subfooters): take the last footer if it is at the end and
+    // backtrack through consecutive footers until the first one in the
+    // sequence is found. If there is no footer at the end, there are no
+    // headers to turn short-lived.
+    let mut consecutive_header_start =
+        footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
+    let mut last_consec_level = 0;
+    for header in headers.iter_mut().rev() {
+        if header.range.end == consecutive_header_start
+            && header.level.get() >= last_consec_level
+        {
+            header.short_lived = true;
+        } else {
+            last_consec_level = header.level.get();
+        }
+
+        consecutive_header_start = header.range.start;
+    }
+
+    // Repeat the gutter below a header (hence why we don't
+    // subtract 1 from the gutter case).
+    // Don't do this if there are no rows under the header.
+    if has_gutter {
+        for header in &mut *headers {
+            // Index of first y is doubled, as each row before it
+            // receives a gutter row below.
+            header.range.start *= 2;
+
+            // - 'header.end' is always 'last y + 1'. The header stops
+            // before that row.
+            // - Therefore, '2 * header.end' will be 2 * (last y + 1),
+            // which is the adjusted index of the row before which the
+            // header stops, meaning it will still stop right before it
+            // even with gutter thanks to the multiplication below.
+            // - This means that it will span all rows up to
+            // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates
+            // to the index of the gutter row right below the header,
+            // which is what we want (that gutter spacing should be
+            // repeated across pages to maintain uniformity).
+            header.range.end *= 2;
+
+            // If the header occupies the entire grid, ensure we don't
+            // include an extra gutter row when it doesn't exist, since
+            // the last row of the header is at the very bottom,
+            // therefore '2 * last y + 1' is not a valid index.
+            let row_amount = (2 * row_amount).saturating_sub(1);
+            header.range.end = header.range.end.min(row_amount);
+        }
+    }
+
+    let footer = footer
+        .map(|(footer_end, footer_span, mut footer)| {
+            if footer_end != row_amount {
+                bail!(footer_span, "footer must end at the last row");
+            }
+
+            // TODO(subfooters): will need a global slice of headers and
+            // footers for when we have multiple footers
+            // Alternatively, never include the gutter in the footer's
+            // range and manually add it later on layout. This would allow
+            // laying out the gutter as part of both the header and footer,
+            // and, if the page only has headers, the gutter row below the
+            // header is automatically removed (as it becomes the last), so
+            // only the gutter above the footer is kept, ensuring the same
+            // gutter row isn't laid out two times in a row. When laying
+            // out the footer for real, the mechanism can be disabled.
+            let last_header_end = headers.last().map(|header| header.range.end);
+
+            if has_gutter {
+                // Convert the footer's start index to post-gutter coordinates.
+                footer.start *= 2;
+
+                // Include the gutter right before the footer, unless there is
+                // none, or the gutter is already included in the header (no
+                // rows between the header and the footer).
+                if last_header_end != Some(footer.start) {
+                    footer.start = footer.start.saturating_sub(1);
+                }
+
+                // Adapt footer end but DO NOT include the gutter below it,
+                // if it exists. Calculation:
+                // - Starts as 'last y + 1'.
+                // - The result will be
+                // 2 * (last_y + 1) - 1 = 2 * last_y + 1,
+                // which is the new index of the last footer row plus one,
+                // meaning we do exclude any gutter below this way.
+                //
+                // It also keeps us within the total amount of rows, so we
+                // don't need to '.min()' later.
+                footer.end = (2 * footer.end).saturating_sub(1);
+            }
+
+            Ok(footer)
+        })
+        .transpose()?
+        .map(|footer| {
+            // Don't repeat footers when the table only has headers and
+            // footers.
+            // TODO(subfooters): Switch this to marking the last N
+            // consecutive footers as short lived.
+            Repeatable {
+                inner: footer,
+                repeated: repeat_footer && at_least_one_cell,
+            }
+        });
+
+    Ok(footer)
 }
 
 /// Given the existing range of a row group (header or footer), tries to expand
