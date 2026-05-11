@@ -1497,10 +1497,9 @@ p + .symbol-grid {
   gap: 16px;
 }
 
-.symbol-flyout .info .accent {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.symbol-flyout .info .accent > img {
+  top: 0.15em;
+  position: relative;
 }
 
 .symbol-flyout button + .remark {

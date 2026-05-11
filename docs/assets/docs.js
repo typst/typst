@@ -482,8 +482,6 @@ function setUpSymbolFlyout(symbolGrid) {
   const foCodepoint = flyout.querySelector(".info .codepoint .value");
   /** @type {HTMLElement | null} */
   const foAccent = flyout.querySelector(".info .accent");
-  /** @type {HTMLImageElement | null} */
-  const foAccentIcon = flyout.querySelector(".info .accent img");
   /** @type {HTMLElement | null} */
   const foVariantsBox = flyout.querySelector(".variants-box");
   /** @type {HTMLElement | null} */
@@ -568,9 +566,7 @@ function setUpSymbolFlyout(symbolGrid) {
     foName.textContent = name;
     foUnicName.textContent = unicName ?? "";
     foCodepoint.textContent = codepointText;
-    foAccent.style.display = accent ? "block" : "none";
-    foAccentIcon.src = accent ? checkIconSrc : closeIconSrc;
-    foAccentIcon.setAttribute("alt", accent ? "Yes" : "No");
+    foAccent.style.display = accent ? null : "none";
     foShorthand.style.display =
       shorthand && shorthand.length > 0 ? "block" : "none";
     foShorthandCode.textContent = shorthand ?? "";

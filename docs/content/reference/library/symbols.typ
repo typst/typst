@@ -92,7 +92,7 @@
         })
         html.p(class: "accent", {
           [Accent: ]
-          icon(16, "close", "")
+          icon(16, "check", "Yes")
         })
         html.p(class: "math-class", {
           [Math Class: ]
