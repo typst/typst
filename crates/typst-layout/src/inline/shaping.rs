@@ -1183,7 +1183,7 @@ fn determine_shift(
                     let Some(i) = font.rusty().glyph_index(c) else { return false };
                     lookups
                         .into_iter()
-                        .flat_map(|i| gsub.lookups.get(i))
+                        .filter_map(|i| gsub.lookups.get(i))
                         .flat_map(|lookup| {
                             lookup.subtables.into_iter::<SubstitutionSubtable>()
                         })

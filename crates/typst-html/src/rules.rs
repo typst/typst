@@ -582,7 +582,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
     let tr = |tag, row: &[Entry]| {
         let row = row
             .iter()
-            .flat_map(|entry| entry.as_cell())
+            .filter_map(|entry| entry.as_cell())
             .map(|cell| show_cell(tag, cell, styles));
         elem(tag::tr, Content::sequence(row))
     };
