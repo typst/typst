@@ -175,6 +175,7 @@ mutable_key_type = "allow"
 wildcard_in_or_patterns = "allow"
 
 cloned_instead_of_copied = "warn"
+deref_by_slicing = "warn"
 disallowed_methods = "warn"
 iter_over_hash_type = "warn"
 range_plus_one = "warn"
