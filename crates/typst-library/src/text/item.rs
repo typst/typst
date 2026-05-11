@@ -125,7 +125,7 @@ pub struct TextItemView<'a> {
 }
 
 impl<'a> TextItemView<'a> {
-    /// Build a TextItemView for the whole contents of a TextItem.
+    /// Build a [`TextItemView`] for the whole contents of a [`TextItem`].
     pub fn full(text: &'a TextItem) -> Self {
         Self::from_glyph_range(text, 0..text.glyphs.len())
     }

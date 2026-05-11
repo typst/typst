@@ -64,13 +64,14 @@ pub struct LineSegment {
 /// in which case a new segment should be drawn after the merged cell(s), even
 /// if it would have the same stroke as the previous one.
 ///
-/// Regarding priority, the function should return a priority of ExplicitLine
+/// Regarding priority, the function should return a priority of `ExplicitLine`
 /// when the user-defined line's stroke at the current position isn't None
 /// (note that it is passed by parameter to the function). When it is None, the
-/// function should return a priority of CellStroke if the stroke returned was
+/// function should return a priority of `CellStroke` if the stroke returned was
 /// given or affected by a per-cell override of the grid's global stroke.
 /// When that isn't the case, the returned stroke was entirely provided by the
-/// grid's global stroke, and thus a priority of GridStroke should be returned.
+/// grid's global stroke, and thus a priority of `GridStroke` should be
+/// returned.
 ///
 /// Note that we assume that the tracks are sorted according to ascending
 /// number, and they must be iterable over pairs of (number, size). For

@@ -37,7 +37,7 @@ impl Watcher {
     /// watching.
     const BATCH_TIMEOUT: Duration = Duration::from_millis(100);
 
-    /// The maximum time we spend batching events before quitting wait().
+    /// The maximum time we spend batching events before quitting `wait()`.
     const STARVE_TIMEOUT: Duration = Duration::from_millis(500);
 
     /// The interval in which we poll when falling back to poll watching

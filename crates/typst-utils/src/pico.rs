@@ -8,7 +8,7 @@ use std::sync::{LazyLock, RwLock};
 
 use rustc_hash::FxHashMap;
 
-/// Marks a number as a bitcode encoded `PicoStr``.
+/// Marks a number as a bitcode encoded [`PicoStr`].
 const MARKER: u64 = 1 << 63;
 
 /// The global runtime string interner.
