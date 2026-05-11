@@ -191,6 +191,7 @@ eac46c66efb620d5ef22d333b7ab7654 emph-and-strong-call-in-word
 8471640a1edfefbc2d55e358a09b26a0 enum-number-align-specified
 0eda52aba3d012cca65a515bcbe512f3 enum-number-align-unaffected
 eda3d4b138c8038abc5fb62040ba12ff enum-number-align-unfolded
+d5a011411c4df519070e92c02b93d19e enum-number-align-unfolded-mixed
 784b33f6e95df8c925db20a0c0ce5047 enum-number-override
 d708c4a29619b3ea56de2540080c2e21 enum-number-override-nested
 eee8c5906f66d92588dc0439dced1530 enum-numbering-closure
@@ -955,7 +956,8 @@ a6cebb62233b4393bd77346427975eed list-content-block
 75a96c064a381c45501b8aa963bff99f list-marker-align-horizontal
 cd9f4009dad376735214dd1c88f8ef99 list-marker-align-unaffected
 55fb871d2864cadb1dc921f98f38721f list-marker-align-unfolded
-56f62f6be1cc73fd5672d193c1aedca9 list-marker-align-vertical
+79bea61313aaf13a6af43155d77ea2ce list-marker-align-unfolded-mixed
+3c8ce46718655875b4e656163c1fb6c6 list-marker-align-vertical
 7511ae5fb631b5d98b30153e9508093e list-marker-bare-hyphen
 0ed964b248a5b8d17f3a76478e3e4a2e list-marker-closure
 d757d5e3f29223f861156084b14d6d28 list-marker-cycle

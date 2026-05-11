@@ -195,6 +195,19 @@ a + 0.
    32. g
    64. h
 
+--- enum-number-align-unfolded-mixed paged ---
+// Verify whether overriding vertical alignment causes horizontal alignment to
+// be inherited from the context.
+#set align(center)
+#set enum(
+  number-align: top,
+  numbering: n => "1" * n,
+)
+
++ abc
++ abc
++ abc
+
 --- enum-number-align-values paged empty ---
 // Test valid number align values (horizontal and vertical)
 #set enum(number-align: start)

@@ -193,10 +193,16 @@ Not in list
 - Item
 
 --- list-marker-align-vertical paged ---
+- #box(fill: teal, inset: 10pt)[a]
+
+#set list(marker-align: top)
+- #box(fill: teal, inset: 10pt)[b]
+
 #set list(marker-align: horizon)
-- #box(fill: teal, inset: 10pt )[a]
-- #box(fill: teal, inset: 10pt )[b]
-- #box(fill: teal,inset: 10pt )[c]
+- #box(fill: teal, inset: 10pt)[c]
+
+#set list(marker-align: bottom)
+- #box(fill: teal, inset: 10pt)[d]
 
 --- list-marker-align-unfolded paged ---
 // Marker align option should not be affected by the context.
@@ -211,6 +217,25 @@ Not in list
   #set align(horizon)
   - #box(fill: teal, inset: 10pt)[]
 ]
+
+--- list-marker-align-unfolded-mixed paged ---
+// Verify whether overriding vertical alignment causes horizontal alignment to
+// be inherited from the context.
+#set align(center)
+#set list(
+  marker-align: top,
+  marker: {
+    // Artificially cause markers to have a different width.
+    counter("b").step()
+    context {
+      "1" * counter("b").get().first()
+    }
+  }
+)
+
+- abc
+- abc
+- abc
 
 --- list-marker-align-values paged empty ---
 // Test valid marker align values (horizontal and vertical)
