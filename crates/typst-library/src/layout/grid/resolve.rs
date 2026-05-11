@@ -1080,7 +1080,7 @@ impl CellGridResolver<'_, '_> {
         //
         // TODO(subfooters): how to add a footer here while avoiding
         // unnecessary allocations?
-        let mut header_rows: SmallBitSet = SmallBitSet::new();
+        let mut header_rows = SmallBitSet::new();
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
         for child in children {
             self.resolve_grid_child(
