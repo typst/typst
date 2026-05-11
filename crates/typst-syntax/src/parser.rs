@@ -1630,7 +1630,7 @@ impl<'s> Parser<'s> {
             token,
             balanced: true,
             nodes,
-            memo: Default::default(),
+            memo: MemoArena::default(),
             depth: 0,
         }
     }

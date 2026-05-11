@@ -737,7 +737,7 @@ impl Debug for SequenceElem {
 #[expect(clippy::derivable_impls)]
 impl Default for SequenceElem {
     fn default() -> Self {
-        Self { children: Default::default() }
+        Self { children: Vec::default() }
     }
 }
 
