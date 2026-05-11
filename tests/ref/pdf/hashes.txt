@@ -124,6 +124,7 @@ ba490b13138bbf60faefb851ca5c8937 columns-one
 ed9f4f3b2a74c65980014e7d792af8a5 columns-page-height-auto
 63c82d8a3e66a99a9266440464c6ffef columns-page-width-auto
 13252b5a572a88d4968edd1d55d4ce60 columns-rtl
+00664b4f2cab295812740bb7e759dbca columns-separator
 2ff393d978236989585e55de03a42f64 columns-set-page
 f020e6f8ad269e224e5f89ea55c85d85 columns-set-page-colbreak-pagebreak
 0f30d5885f06659cc40196050421818b coma

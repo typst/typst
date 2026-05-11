@@ -91,6 +91,15 @@ pub struct ColumnsElem {
     pub balanced: bool,
 
     /// The stroke of the separator line between each column.
+    ///
+    /// #example(
+    /// ```
+    /// #set page(columns: 2, height: 5cm)
+    /// #set par(justify: true)
+    /// #set columns(separator: 1pt + red)
+    /// #lorem(35)
+    /// ```
+    /// )
     #[fold]
     #[default(None)]
     pub separator: Option<Stroke>,
