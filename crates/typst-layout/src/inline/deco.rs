@@ -130,9 +130,8 @@ pub fn decorate(
         // If we are too close, don't draw the segment
         if r - l < gap_padding {
             continue;
-        } else {
-            push_segment(l + gap_padding, r - gap_padding, background);
         }
+        push_segment(l + gap_padding, r - gap_padding, background);
     }
 }
 

@@ -274,7 +274,7 @@ fn walk_raw_text(
 ) -> SourceResult<()> {
     for c in &element.children {
         match c {
-            HtmlNode::Tag(_) => continue,
+            HtmlNode::Tag(_) => {}
             HtmlNode::Text(text, span) => f(text, *span)?,
             HtmlNode::Element(HtmlElement { span, .. })
             | HtmlNode::Frame(HtmlFrame { span, .. }) => {
