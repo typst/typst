@@ -1,4 +1,4 @@
-use comemo::Track;
+use comemo::Track as _;
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;

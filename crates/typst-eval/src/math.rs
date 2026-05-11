@@ -1,11 +1,13 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::diag::{At as _, SourceResult};
+use typst_library::foundations::{
+    Content, NativeElement as _, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
-use typst_syntax::ast::{self, AstNode, MathTextKind};
+use typst_syntax::ast::{self, AstNode as _, MathTextKind};
 
 use crate::{Eval, Vm};
 

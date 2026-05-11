@@ -4,7 +4,7 @@ use proc_macro2::Span;
 use std::ops::Range;
 use syn::spanned::Spanned as _;
 use typst::diag::bail;
-use typst::foundations::{Array, Dict, IntoValue, Str, array, cast, func};
+use typst::foundations::{Array, Dict, IntoValue as _, Str, array, cast, func};
 
 /// Takes a string of Rust source code and provides all doc comments in it that
 /// belong to native definitions, keyed by the definitions def site key. Also

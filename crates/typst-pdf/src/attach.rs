@@ -3,8 +3,8 @@ use std::sync::Arc;
 use krilla::Document;
 use krilla::embed::{AssociationKind, EmbeddedFile, MimeType};
 use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{NativeElement, Smart, StyleChain};
-use typst_library::introspection::Introspector;
+use typst_library::foundations::{NativeElement as _, Smart, StyleChain};
+use typst_library::introspection::Introspector as _;
 use typst_library::pdf::{AttachElem, AttachedFileRelationship};
 
 use crate::convert::GlobalContext;

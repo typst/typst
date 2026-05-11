@@ -2,7 +2,7 @@ use ecow::EcoString;
 use typst_library::layout::{Abs, Angle, Point, Ratio, Size};
 use typst_utils::defer;
 
-use crate::write::{SvgFormatter, SvgWrite};
+use crate::write::{SvgFormatter, SvgWrite as _};
 
 /// A builder for SVG path using relative coordinates.
 pub struct SvgPathBuilder {

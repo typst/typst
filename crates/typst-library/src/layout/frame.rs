@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use typst_syntax::Span;
-use typst_utils::{LazyHash, Numeric};
+use typst_utils::{LazyHash, Numeric as _};
 
 use crate::foundations::Label;
 use crate::introspection::{Location, Tag};

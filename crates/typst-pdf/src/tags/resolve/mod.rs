@@ -4,7 +4,7 @@ use ecow::EcoVec;
 use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
+use typst_library::diag::{At as _, SourceDiagnostic, SourceResult, error};
 use typst_library::text::Locale;
 use typst_syntax::Span;
 
@@ -14,9 +14,9 @@ use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
-use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
+use crate::tags::util::{self, IdVec, PropertyOptRef as _, PropertyValCopied as _};
 use crate::tags::{AnnotationId, disabled};
-use crate::util::ValidatorsExt;
+use crate::util::ValidatorsExt as _;
 
 mod accumulator;
 

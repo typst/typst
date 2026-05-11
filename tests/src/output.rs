@@ -11,7 +11,7 @@ use hayro_svg::{RenderCache, SvgRenderSettings};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::diag::{At, SourceResult, StrResult, bail};
+use typst::diag::{At as _, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;

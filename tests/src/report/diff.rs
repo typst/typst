@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::time::Duration;
 
-use base64::Engine;
+use base64::Engine as _;
 use ecow::EcoString;
 use similar::{ChangeTag, InlineChange, TextDiff};
 use smallvec::SmallVec;

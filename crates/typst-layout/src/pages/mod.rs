@@ -4,7 +4,7 @@ mod collect;
 mod finalize;
 mod run;
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};

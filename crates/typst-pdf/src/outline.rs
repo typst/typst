@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
 use krilla::outline::{Outline as KrillaOutline, OutlineNode as KrillaOutlineNode};
-use typst_library::foundations::{NativeElement, Packed, StyleChain};
-use typst_library::introspection::{Introspector, PagedPosition};
+use typst_library::foundations::{NativeElement as _, Packed, StyleChain};
+use typst_library::introspection::{Introspector as _, PagedPosition};
 use typst_library::model::{HeadingElem, OutlineNode};
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::convert::GlobalContext;
 

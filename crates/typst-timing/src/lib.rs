@@ -5,8 +5,8 @@ use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::Mutex;
-use serde::ser::SerializeSeq;
-use serde::{Serialize, Serializer};
+use serde::ser::SerializeSeq as _;
+use serde::{Serialize, Serializer as _};
 
 /// Creates a timing scope around an expression.
 ///

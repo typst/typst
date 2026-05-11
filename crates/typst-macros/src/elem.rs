@@ -1,4 +1,4 @@
-use heck::ToKebabCase;
+use heck::ToKebabCase as _;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};

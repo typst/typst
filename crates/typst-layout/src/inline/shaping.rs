@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use comemo::Tracked;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
@@ -18,12 +18,12 @@ use typst_library::text::{
     ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
     is_default_ignorable, language, variant,
 };
-use typst_utils::SliceExt;
+use typst_utils::SliceExt as _;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
-use unicode_script::{Script, UnicodeScript};
+use unicode_script::{Script, UnicodeScript as _};
 
 use super::{Item, Range, SpanMapper, decorate};
-use crate::modifiers::FrameModifyText;
+use crate::modifiers::FrameModifyText as _;
 
 const SHY: char = '\u{ad}';
 const SHY_STR: &str = "\u{ad}";

@@ -1,8 +1,8 @@
-use typst_library::diag::{At, HintedStrResult, SourceResult};
-use typst_library::foundations::{IntoValue, Value, ops};
-use typst_syntax::ast::{self, AstNode};
+use typst_library::diag::{At as _, HintedStrResult, SourceResult};
+use typst_library::foundations::{IntoValue as _, Value, ops};
+use typst_syntax::ast::{self, AstNode as _};
 
-use crate::{Access, Eval, Vm, access_dict};
+use crate::{Access as _, Eval, Vm, access_dict};
 
 impl Eval for ast::Unary<'_> {
     type Output = Value;

@@ -390,7 +390,7 @@ fn ref_count_overflow(ptr: NonNull<Header>, elem: Element, span: Span) -> ! {
 
 #[cfg(test)]
 mod tests {
-    use crate::foundations::{NativeElement, Repr, StyleChain, Value};
+    use crate::foundations::{NativeElement as _, Repr as _, StyleChain, Value};
     use crate::introspection::Location;
     use crate::model::HeadingElem;
     use crate::text::TextElem;

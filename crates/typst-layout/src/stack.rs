@@ -1,13 +1,13 @@
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain, StyledElem};
+use typst_library::foundations::{Content, Packed, Resolve as _, StyleChain, StyledElem};
 use typst_library::introspection::{Locator, SplitLocator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, HElem, Point,
     Regions, Size, Spacing, StackChild, StackElem, VElem,
 };
 use typst_syntax::Span;
-use typst_utils::{Get, Numeric};
+use typst_utils::{Get as _, Numeric as _};
 
 /// Layout the stack.
 #[typst_macros::time(span = elem.span())]

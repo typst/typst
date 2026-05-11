@@ -1,10 +1,10 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
-use typst::foundations::{Content, Output, Repr};
-use typst::model::Document;
+use typst::foundations::{Content, Output, Repr as _};
+use typst::model::Document as _;
 use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
@@ -818,7 +818,7 @@ pub fn read_ref_data(ref_path: &Path) -> Option<Vec<u8>> {
 /// A bunch of copy pasted code from the `typst` crate, so we don't have to
 /// change the public API.
 mod eval {
-    use comemo::{Track, Tracked};
+    use comemo::{Track as _, Tracked};
     use ecow::EcoVec;
     use rustc_hash::FxHashSet;
     use typst::World;

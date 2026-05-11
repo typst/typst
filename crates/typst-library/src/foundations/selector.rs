@@ -6,7 +6,7 @@ use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 use typst_syntax::Span;
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{At as _, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,

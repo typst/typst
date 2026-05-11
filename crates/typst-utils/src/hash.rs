@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::atomic::Ordering;
 
 use portable_atomic::AtomicU128;
-use siphasher::sip128::{Hasher128, SipHasher13};
+use siphasher::sip128::{Hasher128 as _, SipHasher13};
 
 /// Calculate a 128-bit siphash of a value.
 ///

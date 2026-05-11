@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use comemo::Tracked;
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{
@@ -24,7 +24,7 @@ use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
-use crate::{World, WorldExt};
+use crate::{World, WorldExt as _};
 
 /// Early-return with an error for common result types used in Typst. If you
 /// need to interact with the produced errors more, consider using `error!` or

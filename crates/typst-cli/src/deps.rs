@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::{self, Write as _};
 use std::path::PathBuf;
 
 use serde::Serialize;

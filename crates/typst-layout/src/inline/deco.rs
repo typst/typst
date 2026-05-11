@@ -1,4 +1,4 @@
-use kurbo::{BezPath, Line, ParamCurve};
+use kurbo::{BezPath, Line, ParamCurve as _};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{

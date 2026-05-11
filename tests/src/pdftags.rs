@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::sync::{Arc, LazyLock};
 
 use ecow::eco_format;

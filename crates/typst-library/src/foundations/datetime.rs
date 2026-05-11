@@ -8,7 +8,7 @@ use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{Month, PrimitiveDateTime, format_description};
 
-use crate::World;
+use crate::World as _;
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{

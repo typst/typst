@@ -21,8 +21,8 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{
-    At, ExpectInternal, SourceDiagnostic, SourceResult, assert_internal, bail, error,
-    panic_internal,
+    At as _, ExpectInternal as _, SourceDiagnostic, SourceResult, assert_internal, bail,
+    error, panic_internal,
 };
 use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
@@ -32,9 +32,9 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Document as _, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
+    FootnoteEntry, HeadingElem, LinkMarker, ListElem, Outlinable as _, OutlineEntry,
+    ParElem, QuoteElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
@@ -50,8 +50,8 @@ use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCt
 use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
-use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
-use crate::util::ValidatorsExt;
+use crate::tags::util::{ArtifactKindExt as _, PropertyValCopied as _};
+use crate::util::ValidatorsExt as _;
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions,

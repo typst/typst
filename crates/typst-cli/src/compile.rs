@@ -1,13 +1,13 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Datelike as _, Timelike as _, Utc};
 use ecow::eco_format;
 use parking_lot::RwLock;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use typst::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, Warned,
-    bail,
+    At as _, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult,
+    Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;

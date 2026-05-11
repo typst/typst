@@ -301,7 +301,7 @@ mod tests {
     use typst_layout::PagedDocument;
     use typst_library::layout::PageRanges;
     use typst_library::model::DocumentInfo;
-    use typst_utils::NonZeroExt;
+    use typst_utils::NonZeroExt as _;
 
     use crate::tags;
 

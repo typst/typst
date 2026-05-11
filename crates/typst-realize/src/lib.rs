@@ -10,14 +10,14 @@ use std::slice::SliceIndex;
 
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
-use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
-use comemo::Track;
+use bumpalo::collections::{CollectIn as _, String as BumpString, Vec as BumpVec};
+use comemo::Track as _;
 use ecow::EcoString;
 use typst_html::HtmlElem;
-use typst_library::diag::{At, SourceResult, bail, warning};
+use typst_library::diag::{At as _, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
+    Content, Context, ContextElem, Element, NativeElement as _, NativeShowRule, Packed,
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
     Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
 };
@@ -29,13 +29,13 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
+    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike as _, ListLike,
     ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
-use typst_utils::{ListSet, SliceExt, SmallBitSet};
+use typst_utils::{ListSet, SliceExt as _, SmallBitSet};
 
 mod spaces;
 use spaces::{SpaceState, collapse_spaces, collapse_state_textual};

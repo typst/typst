@@ -1,10 +1,10 @@
 use ecow::eco_format;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
+use typst_library::diag::{At as _, SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{Array, Dict, Value};
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 
-use crate::{Access, Eval, Vm};
+use crate::{Access as _, Eval, Vm};
 
 impl Eval for ast::LetBinding<'_> {
     type Output = Value;

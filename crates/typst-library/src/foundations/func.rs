@@ -1,6 +1,6 @@
 #[doc(inline)]
 pub use typst_macros::func;
-use typst_syntax::ast::AstNode;
+use typst_syntax::ast::AstNode as _;
 
 use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
@@ -11,7 +11,7 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
+use crate::diag::{At as _, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,

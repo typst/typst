@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io::{self, Read as _};
 
 /// This is shown to users who just type `typst` the first time.
 #[rustfmt::skip]

@@ -5,11 +5,11 @@ use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
-    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
+    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement as _, NoneValue, Output,
+    ParamInfo, Repr as _, StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
-use typst::syntax::ast::AstNode;
+use typst::syntax::ast::AstNode as _;
 use typst::syntax::{
     FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
     is_id_start, is_ident,
@@ -1497,7 +1497,7 @@ impl BracketMode {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
     use std::collections::BTreeSet;
 
     use typst::foundations::AsOutput;

@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use std::ops::Range;
 use std::sync::Arc;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use krilla::tagging as kt;
 use krilla::tagging::{NaiveRgbColor, Tag, TagKind};
 use rustc_hash::FxHashMap;
@@ -16,11 +16,13 @@ use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_library::visualize::{FixedStroke, Stroke};
 
 use crate::tags::GroupId;
-use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt};
+use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt as _};
 use crate::tags::context::{TableId, TagId};
 use crate::tags::tree::Tree;
-use crate::tags::util::{self, PropertyOptRef, PropertyValCopied, TableHeaderScopeExt};
-use crate::util::{AbsExt, SidesExt};
+use crate::tags::util::{
+    self, PropertyOptRef as _, PropertyValCopied as _, TableHeaderScopeExt as _,
+};
+use crate::util::{AbsExt as _, SidesExt as _};
 
 #[derive(Debug)]
 pub struct TableCtx {

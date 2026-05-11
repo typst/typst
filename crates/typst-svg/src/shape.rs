@@ -1,12 +1,12 @@
 use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
+use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite as _};
 use crate::{SVGRenderer, State};
 use ecow::EcoString;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 impl SVGRenderer<'_> {
     /// Render a shape element.

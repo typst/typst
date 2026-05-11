@@ -1,7 +1,7 @@
-use std::io::Write;
+use std::io::Write as _;
 use std::path::Path;
 
-use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
+use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor as _};
 use ecow::eco_format;
 use fs_extra::dir::CopyOptions;
 use typst::diag::{FileError, StrResult, bail};

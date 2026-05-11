@@ -13,7 +13,7 @@ use typst_library::introspection::{
 use typst_library::layout::{Frame, FrameItem, Point, Transform};
 use typst_library::model::{Destination, Numbering};
 use typst_syntax::VirtualPath;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::Page;
 

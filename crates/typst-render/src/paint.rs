@@ -6,7 +6,7 @@ use typst_library::visualize::{
     Geometry, Gradient, Paint, ProcessColor, RelativeTo, Shape, Tiling,
 };
 
-use crate::{AbsExt, State};
+use crate::{AbsExt as _, State};
 
 /// Trait for sampling of a paint, used as a generic
 /// abstraction over solid colors and gradients.

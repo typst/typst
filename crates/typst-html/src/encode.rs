@@ -1,9 +1,9 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, eco_format};
-use typst_library::diag::{At, SourceResult, StrResult, bail};
-use typst_library::foundations::Repr;
+use typst_library::diag::{At as _, SourceResult, StrResult, bail};
+use typst_library::foundations::Repr as _;
 use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 

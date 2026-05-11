@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use ecow::EcoString;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;

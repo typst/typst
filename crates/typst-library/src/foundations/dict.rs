@@ -10,7 +10,7 @@ use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
 
-use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{At as _, Hint as _, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Func, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,

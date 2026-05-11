@@ -4,14 +4,14 @@ use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::sync::RwLock;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_syntax::VirtualPath;
 
 use crate::diag::{StrResult, bail};
-use crate::foundations::{Content, Label, Repr, Selector};
+use crate::foundations::{Content, Label, Repr as _, Selector};
 use crate::introspection::{DocumentPosition, Location, Tag};
 use crate::model::Numbering;
 

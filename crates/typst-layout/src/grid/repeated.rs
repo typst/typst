@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::Deref as _;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;

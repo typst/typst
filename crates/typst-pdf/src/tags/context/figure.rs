@@ -8,7 +8,7 @@ use crate::tags::context::FigureId;
 use crate::tags::groups::{Group, GroupId, GroupKind, Groups};
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::Tree;
-use crate::tags::util::PropertyOptRef;
+use crate::tags::util::PropertyOptRef as _;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FigureCtx {

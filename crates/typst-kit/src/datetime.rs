@@ -7,7 +7,7 @@
 
 use std::sync::OnceLock;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Utc};
+use chrono::{DateTime, Datelike as _, FixedOffset, Local, NaiveTime, Utc};
 use chrono::{NaiveDate, NaiveDateTime};
 
 use typst_library::diag::{StrResult, bail};

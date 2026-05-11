@@ -11,12 +11,12 @@ use std::num::NonZeroUsize;
 use std::rc::Rc;
 
 use bumpalo::Bump;
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{At as _, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve as _, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
@@ -29,7 +29,7 @@ use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
 use typst_library::{Library, World};
-use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
+use typst_utils::{LazyHash, NonZeroExt as _, Numeric as _, Protected};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{

@@ -1,6 +1,6 @@
-use comemo::Track;
+use comemo::Track as _;
 
-use crate::diag::{Hint, HintedStrResult, SourceResult, bail};
+use crate::diag::{Hint as _, HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Construct, Content, Func, ShowFn, StyleChain, Value, elem,

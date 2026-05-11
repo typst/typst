@@ -3,7 +3,7 @@
 //! Note that as of Feb 2025, there are only around 1400 annotations total in
 //! the test suite, so optimizations here should be for developer comfort, not
 //! size/speed.
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Display, Formatter, Write as _};
 use std::ops::Range;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -12,7 +12,7 @@ use ecow::EcoString;
 use regex::{Captures, Regex};
 use typst::diag::{StrResult, bail};
 use typst::foundations::Bytes;
-use typst::{World, WorldExt as _};
+use typst::{World as _, WorldExt as _};
 use typst_kit::files::FileLoader as _;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{

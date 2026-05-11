@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, error};
+use crate::diag::{At as _, SourceDiagnostic, SourceResult, StrResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Dict, FromValue, Func, IntoValue, Repr, Str, Value, cast, func, repr,

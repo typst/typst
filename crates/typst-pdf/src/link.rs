@@ -2,7 +2,7 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
-use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
+use typst_library::diag::{At as _, ExpectInternal as _, SourceResult, bail};
 use typst_library::introspection::PagedPosition;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::{Destination, ResolvedLink};
@@ -10,7 +10,7 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
 use crate::tags::{self, AnnotationId, GroupId};
-use crate::util::PointExt;
+use crate::util::PointExt as _;
 
 pub(crate) struct LinkAnnotation {
     pub kind: LinkAnnotationKind,

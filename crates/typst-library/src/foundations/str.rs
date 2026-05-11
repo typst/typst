@@ -7,13 +7,13 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::Spanned;
-use unicode_normalization::UnicodeNormalization;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_normalization::UnicodeNormalization as _;
+use unicode_segmentation::UnicodeSegmentation as _;
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At as _, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Bytes, Cast, Context, Decimal, Dict, Func, IntoValue, Label, Repr, Type,
+    Array, Bytes, Cast, Context, Decimal, Dict, Func, IntoValue as _, Label, Repr, Type,
     Value, Version, cast, dict, func, repr, scope, ty,
 };
 use crate::layout::Alignment;

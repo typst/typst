@@ -4,7 +4,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _,
+};
 use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};

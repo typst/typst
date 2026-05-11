@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use ecow::EcoString;
 use typst_syntax::Span;
-use typst_utils::{Get, default_math_class};
+use typst_utils::{Get as _, default_math_class};
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::multiline::AlignedRow;
 use crate::diag::SourceResult;

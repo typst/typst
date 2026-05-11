@@ -1,12 +1,12 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
-use comemo::Track;
+use comemo::Track as _;
 use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail, warning};
 use typst::engine::Sink;
 use typst::foundations::{
-    Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
+    Content, Context, IntoValue as _, LocatableSelector, Output, Repr as _, Scope,
 };
 use typst::introspection::{EmptyIntrospector, Introspector};
 use typst::routines::SpanMode;

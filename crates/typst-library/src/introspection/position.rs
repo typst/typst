@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoVec;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::foundations::{Dict, Value, cast, dict};
 use crate::layout::{Length, Point};

@@ -1,12 +1,12 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Protected};
 
-use crate::diag::{At, SourceDiagnostic, SourceResult, bail, warning};
+use crate::diag::{At as _, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement as _, Repr,
     Selector, Str, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{History, Introspect, Introspector, Locatable, Location};

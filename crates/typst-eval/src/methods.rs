@@ -1,7 +1,7 @@
 //! Handles special built-in methods on values.
 
 use ecow::{EcoString, eco_format};
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::{At as _, SourceResult};
 use typst_library::foundations::{Args, Str, Type, Value};
 use typst_syntax::Span;
 
