@@ -134,7 +134,7 @@ B
 #set page(width: 300pt)
 #set par(justify: true)
 #rect(inset: 0pt, outset: 0pt, stroke: yellow,
-  columns(3, balanced: true, lorem(40))
+  columns(3, balanced: true, separator: 1pt, lorem(40))
 )
 
 --- columns-balanced-leftover-2-3 paged ---
@@ -145,7 +145,7 @@ B
 #for (n, mm) in ((2, (31, 37)), (3, (29, 32, 37))) {
   for m in mm {
     rect(inset: 0pt, outset: 0pt, stroke: gray,
-      columns(n, balanced: true, lorem(m))
+      columns(n, balanced: true, separator: 1pt, lorem(m))
     )
   }
 }
@@ -158,7 +158,7 @@ B
 #for (n, mm) in ((4, (26, 29, 32, 35)),) {
   for m in mm {
     rect(inset: 0pt, outset: 0pt, stroke: gray,
-      columns(n, balanced: true, lorem(m))
+      columns(n, balanced: true, separator: 1pt, lorem(m))
     )
   }
 }
@@ -171,7 +171,7 @@ B
 #for (n, mm) in ((5, (21, 25, 27, 29, 31)),) {
   for m in mm {
     rect(inset: 0pt, outset: 0pt, stroke: gray,
-      columns(n, balanced: true, lorem(m))
+      columns(n, balanced: true, separator: 1pt, lorem(m))
     )
   }
 }
@@ -184,7 +184,7 @@ B
 #for (n, mm) in ((6, (29, 31, 33, 35, 37, 39)),) {
   for m in mm {
     rect(inset: 0pt, outset: 0pt, stroke: gray,
-      columns(n, balanced: true, lorem(m))
+      columns(n, balanced: true, separator: 1pt, lorem(m))
     )
   }
 }
@@ -198,7 +198,7 @@ B
 #for (n, mm) in ((7, (28, 30, 31, 32, 34, 36, 38)),) {
   for m in mm {
     rect(inset: 0pt, outset: 0pt, stroke: gray,
-      columns(n, balanced: true, lorem(m))
+      columns(n, balanced: true, separator: 1pt, lorem(m))
     )
   }
 }
@@ -207,21 +207,21 @@ B
 #set page(width: 300pt, height: 100pt, columns: 6)
 #set text(size: 7pt)
 #set par(justify: true)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #lorem(68) // just enough text to trigger a widow if not balanced correctly
 
 --- columns-balanced-pagebreak paged ---
 #set page(width: 300pt, height: 90pt, margin: 5pt, columns: 3)
 #set text(hyphenate: true)
 #set par(justify: true)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #lorem(35)
 #pagebreak()
 #lorem(18)
 
 --- columns-balanced-figures paged ---
 #set page(width: 300pt, height: 190pt, margin: 5pt, columns: 3)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #set text(hyphenate: true)
 #set par(justify: true)
 #figure(rect(height: 30pt, width: 100%))
@@ -234,21 +234,21 @@ B
 #set page(width: 300pt, height: 90pt, margin: 5pt, columns: 3)
 #set text(hyphenate: true)
 #set par(justify: true)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #lorem(10)#footnote[Footer]
 #lorem(50)#footnote[Footer]
 #lorem(22)
 
 --- columns-balanced-footnote-overflow paged ---
 #set page(width: 300pt, height: 150pt, columns: 2)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #lorem(10)
 #footnote(lorem(30))
 #lorem(45)
 
 --- columns-balanced-blocks paged ---
 #set page(width: 100pt, height: auto, margin: 5pt, columns: 3)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #set block(width: 100%, fill: gray, spacing: 1pt)
 #for i in range(10){block(height: 3pt * (1+i/5))}
 #pagebreak()
@@ -259,7 +259,7 @@ B
 // Check that balancing is repeated when
 // the height changes due to the repeated header
 #set page(width: 100pt, margin: 5pt, columns: 2)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #table(columns: 2,
   table.header([$x$], [$x^2$]),
   ..for x in range(1,11){
@@ -270,7 +270,7 @@ B
 --- columns-balanced-lists paged ---
 // Check that breakable blocks are balanced correctly via `multi` and `multi_spill`
 #set page(width: 350pt, columns: 4)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 1pt)
 #{
   8 * [- #lorem(5)]
 }
