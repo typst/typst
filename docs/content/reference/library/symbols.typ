@@ -74,7 +74,6 @@
         html.p(class: "sym-name", {
           [Name: ]
           html.code()
-          [ ]
           copy-button()
         })
         html.p(class: "codepoint", {
@@ -83,13 +82,11 @@
             class: "typ-escape",
             "\\u{" + html.span(class: "value") + "}",
           )
-          [ ]
           copy-button()
         })
         html.p(class: "shorthand", {
           [Shorthand: ]
           html.code(class: "typ-escape")
-          [ ]
           copy-button()
           html.span(class: "remark")
         })

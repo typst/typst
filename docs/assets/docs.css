@@ -1476,18 +1476,20 @@ p + .symbol-grid {
 }
 
 .symbol-flyout button.copy {
-  top: 1px;
-  margin-inline-start: 2px;
-}
-
-.symbol-flyout button.copy {
-  padding: 2px;
+  top: 0.2em;
+  margin-inline-start: 0.15em;
+  padding: 0px;
   background: none;
   border: 0px;
   width: unset;
   box-shadow: none;
   display: inline-block;
   position: relative;
+  cursor: pointer;
+}
+
+.symbol-flyout button.copy > img {
+  display: block;
 }
 
 .symbol-flyout .info {
