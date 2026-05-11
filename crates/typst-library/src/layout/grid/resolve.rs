@@ -567,7 +567,7 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
     Cell(T),
 }
 
-/// Represents a cell in CellGrid, to be laid out by GridLayouter.
+/// Represents a cell in [`CellGrid`], to be laid out by `GridLayouter`.
 #[derive(Debug, PartialEq, Hash)]
 pub struct Cell {
     /// The cell's body.
@@ -664,11 +664,11 @@ pub struct CellGrid {
     pub rows: Vec<Sizing>,
     /// The vertical lines before each column, or on the end border.
     /// Gutter columns are not included.
-    /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
+    /// Contains up to `cols_without_gutter.len() + 1` vectors of lines.
     pub vlines: Vec<Vec<Line>>,
     /// The horizontal lines on top of each row, or on the bottom border.
     /// Gutter rows are not included.
-    /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
+    /// Contains up to `rows_without_gutter.len() + 1` vectors of lines.
     pub hlines: Vec<Vec<Line>>,
     /// The repeatable headers of this grid.
     pub headers: Vec<Repeatable<Header>>,

@@ -251,7 +251,7 @@ where
 pub trait MaybeReverseIter {
     type RevIfIter;
 
-    /// Reverse this iterator (apply .rev()) based on some condition.
+    /// Reverse this iterator (apply `.rev()`) based on some condition.
     fn rev_if(self, condition: bool) -> Self::RevIfIter
     where
         Self: Sized;

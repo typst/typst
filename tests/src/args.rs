@@ -66,7 +66,7 @@ pub struct CliArguments {
     pub base_revision: Option<String>,
     /// Print errors in a format that github actions can pick up to generate
     /// annotations that will be displayed on PR files:
-    /// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message
+    /// <https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message>
     #[arg(long, env = "USE_GITHUB_ANNOTATIONS")]
     pub use_github_annotations: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
@@ -121,7 +121,7 @@ impl CliArguments {
         self.stages().with_implied()
     }
 
-    /// [Self::implied_stages] and the ones that are required.
+    /// [`Self::implied_stages`] and the ones that are required.
     pub fn required_stages(&self) -> TestStages {
         // Must be in this order, otherwise any paged output target
         // would enable all others.

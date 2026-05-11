@@ -563,7 +563,7 @@ fn ratio_and_cost(
 
 /// Determine the stretch ratio for a line given raw metrics.
 ///
-/// - A ratio < min_ratio indicates an overfull line.
+/// - A ratio less than [`CostMetrics::min_ratio`] indicates an overfull line.
 /// - A negative ratio indicates a line that needs shrinking.
 /// - A ratio of zero indicates a perfect line.
 /// - A positive ratio indicates a line that needs stretching.

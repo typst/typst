@@ -613,7 +613,7 @@ fn resolve_cell_border_and_background(
 ///
 /// Using an already present value has the benefit of saving storage space in
 /// the resulting PDF, if all sides have the same value, because then a
-/// [kt::Sides::uniform] value can be written instead of an 4-element array.
+/// [`kt::Sides::uniform`] value can be written instead of a 4-element array.
 fn resolve_sides<F, T>(
     sides: &Sides<Option<FixedStroke>>,
     parent: Option<T>,

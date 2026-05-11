@@ -387,7 +387,7 @@ pub struct CompileArgs {
     /// Produces performance timings of the compilation process. (experimental)
     ///
     /// The resulting JSON file can be loaded into a tracing tool such as
-    /// https://ui.perfetto.dev. It does not contain any sensitive information
+    /// <https://ui.perfetto.dev>. It does not contain any sensitive information
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<PathBuf>,
@@ -726,7 +726,7 @@ display_possible_values!(SerializationFormat);
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a
 /// value parser, in order to generate better errors.
 ///
-/// See also: https://github.com/clap-rs/clap/issues/5065
+/// See also: <https://github.com/clap-rs/clap/issues/5065>
 #[derive(Debug, Clone)]
 pub struct Pages(pub RangeInclusive<Option<NonZeroUsize>>);
 

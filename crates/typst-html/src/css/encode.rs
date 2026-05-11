@@ -324,8 +324,8 @@ impl ToCss for str {
 
 /// Displays a number with four significant digits.
 ///
-/// For a number between 0 and 1, four significant digits give us a
-/// precision of 1/10_000, which is more than 12 bits (see `is_very_close`).
+/// For a number between 0 and 1, four significant digits give us a precision of
+/// `1/10_000`, which is more than 12 bits (see [`is_very_close`]).
 struct Number<T: Into<f64>>(T);
 
 impl<T: Into<f64> + Copy> ToCss for Number<T> {

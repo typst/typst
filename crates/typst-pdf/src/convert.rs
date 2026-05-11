@@ -219,7 +219,7 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     /// The logical page index. This might be `None` if the page isn't exported,
-    /// of if the FrameContext has been built to convert a pattern.
+    /// of if the [`FrameContext`] has been built to convert a pattern.
     pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
