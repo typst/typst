@@ -14,6 +14,7 @@ use typst_library::layout::{
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
+use typst_library::visualize::Geometry;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -139,6 +140,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut offset = Abs::zero();
         let mut locator = locator.split();
         let mut balancing_height = Abs::zero();
+        let mut sep_height = Abs::zero();
 
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
@@ -165,6 +167,25 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             if i == 0 && frame.has_baseline() {
                 output.set_baseline(frame.baseline());
             }
+
+            // Column separators
+            if self.config.columns.separator.is_some()
+                && !self.column_height_tracker.separator_height.min(sep_height).is_zero()
+            {
+                let mut xsep = x - 0.5 * self.config.columns.gutter;
+                if self.config.columns.dir == Dir::RTL {
+                    xsep += width + self.config.columns.gutter
+                }
+                let ysep = self.column_height_tracker.separator_height.max(sep_height);
+                let stroke = self.config.columns.separator.clone().unwrap();
+                let line = Geometry::Line(Point::with_y(ysep)).stroked(stroke);
+                output.prepend(
+                    // prepend so it's behind both adjacent columns
+                    Point::with_x(xsep),
+                    FrameItem::Shape(line, Span::detached()),
+                );
+            }
+            sep_height = self.column_height_tracker.separator_height;
 
             output.push_frame(Point::with_x(x), frame);
             inner.next();
@@ -220,6 +241,15 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             }
         };
         drop(checkpoint);
+
+        self.column_height_tracker.separator_height =
+            if self.column_insertions.bottom_floats.is_empty() {
+                self.column_height_tracker.used_height
+            } else {
+                self.column_height_tracker
+                    .column_height
+                    .unwrap_or(inner.height() + self.column_insertions.float_height())
+            };
 
         self.work.footnotes.extend(self.footnote_queue.drain(..));
         if let Some(spill) = self.footnote_spill.take() {
@@ -693,6 +723,8 @@ pub struct ColumnHeightTracker {
     pub(crate) used_height: Abs,
     // The balanced height of the columns
     column_height: Option<Abs>,
+    // The height an adjacent column separator should have
+    separator_height: Abs,
 }
 
 impl<'a, 'b> Insertions<'a, 'b> {
