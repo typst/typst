@@ -274,7 +274,7 @@ impl Hash for PdfStandards {
 ///
 /// Support for more standards is planned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 #[non_exhaustive]
 pub enum PdfStandard {
     /// PDF 1.4.

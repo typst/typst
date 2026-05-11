@@ -195,7 +195,7 @@ pub enum Gradient {
 }
 
 #[scope]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 impl Gradient {
     /// Creates a new linear gradient, in which colors transition along a
     /// straight line.

@@ -59,7 +59,7 @@ fn print_and_exit(message: &'static str) -> ! {
 }
 
 /// Waits for the user.
-#[allow(clippy::unused_io_amount)]
+#[expect(clippy::unused_io_amount)]
 fn pause() {
     eprintln!();
     eprintln!("Press enter to continue...");

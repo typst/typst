@@ -1573,10 +1573,10 @@ enum AtNewline {
 impl AtNewline {
     /// Whether to stop at a newline or continue based on the current context.
     fn stop_at(self, Newline { column, parbreak }: Newline, kind: SyntaxKind) -> bool {
-        #[allow(clippy::match_like_matches_macro)]
         match self {
             AtNewline::Continue => false,
             AtNewline::Stop => true,
+            #[expect(clippy::match_like_matches_macro)]
             AtNewline::ContextualContinue => match kind {
                 SyntaxKind::Else | SyntaxKind::Dot => false,
                 _ => true,

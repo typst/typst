@@ -185,7 +185,7 @@ pub fn layout_skew(
 }
 
 /// Applies a transformation to a frame, reflowing the layout if necessary.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn measure_and_layout(
     engine: &mut Engine,
     locator: Locator,
