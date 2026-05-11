@@ -579,10 +579,7 @@ impl BaselinePos {
 
 impl Default for BaselinePos {
     fn default() -> Self {
-        Self {
-            at: Some(Default::default()),
-            shift: Some(Default::default()),
-        }
+        Self { at: Some(Smart::Auto), shift: Some(Rel::default()) }
     }
 }
 

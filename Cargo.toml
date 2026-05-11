@@ -176,6 +176,7 @@ wildcard_in_or_patterns = "allow"
 
 cloned_instead_of_copied = "warn"
 decimal_literal_representation = "warn"
+default_trait_access = "warn"
 deref_by_slicing = "warn"
 disallowed_methods = "warn"
 flat_map_option = "warn"

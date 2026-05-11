@@ -112,7 +112,7 @@ pub struct Scope {
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Create a new scope with duplication prevention.
