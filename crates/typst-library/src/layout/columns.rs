@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 
 use crate::foundations::{Content, elem};
 use crate::layout::{Length, Ratio, Rel};
+use crate::visualize::Stroke;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -91,6 +92,11 @@ pub struct ColumnsElem {
     /// )
     #[default(false)]
     pub balanced: bool,
+
+    /// The stroke of the separator line between each column.
+    #[fold]
+    #[default(None)]
+    pub separator: Option<Stroke>,
 
     /// The content that should be layouted into the columns.
     #[required]

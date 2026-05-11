@@ -16,7 +16,7 @@ use typst_library::model::Numbering;
 use typst_library::pdf::ArtifactKind;
 use typst_library::routines::Pair;
 use typst_library::text::{LocalName, TextElem};
-use typst_library::visualize::Paint;
+use typst_library::visualize::{Paint, Stroke};
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Numeric, Protected};
 
@@ -187,6 +187,10 @@ fn layout_page_run_impl(
             count: styles.get(PageElem::columns),
             balanced: styles.get(ColumnsElem::balanced),
             gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+            separator: styles
+                .get_cloned(ColumnsElem::separator)
+                .resolve(styles)
+                .map(Stroke::unwrap_or_default),
         },
         FlowMode::Root,
     )?;
