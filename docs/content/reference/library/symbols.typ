@@ -246,6 +246,9 @@
 }
 
 // A list / grid of symbols.
+//
+// Any page containing this should also contain a single `flyout-template()` in
+// website export.
 #let symbol-list(mod, shorthands: none, emoji: false) = {
   let entries = symbol-list-entries(mod, none, shorthands)
   context if target() == "paged" {
@@ -255,7 +258,6 @@
       class: classnames("symbol-grid", emoji: emoji),
       entries.join(),
     )
-    flyout-template()
   }
 }
 
@@ -278,6 +280,10 @@
 
   == Within Math Mode <within-math-mode>
   #symbol-list(sym, shorthands: stdx.shorthands.math)
+
+  #context if target() == "html" {
+    flyout-template()
+  }
 ]
 
 #let symbols-section(..args, mod: none, emoji: false, body) = docs-section(
@@ -292,6 +298,9 @@
       })
     }
     symbol-list(mod, emoji: emoji)
+    context if target() == "html" {
+      flyout-template()
+    }
   },
 )
 
