@@ -48,11 +48,12 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
-                self.base.and_then(|base| match base.global.scope().get(var) {
+                let base = self.base?;
+                match base.global.scope().get(var) {
                     Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
-                })
+                }
             })
             .ok_or_else(|| unknown_variable(var))
     }
@@ -77,11 +78,12 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
-                self.base.and_then(|base| match base.math.scope().get(var) {
+                let base = self.base?;
+                match base.math.scope().get(var) {
                     Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
-                })
+                }
             })
             .ok_or_else(|| {
                 unknown_variable_math(
