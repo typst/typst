@@ -122,15 +122,20 @@
 #let symbol-entry(
   name,
   info,
+  prefix,
   variant,
   value,
   deprecation,
   title: auto,
 ) = {
-  let complete(variant) = if variant == "" {
+  let complete(variant) = {
+    if prefix != none {
+      prefix + "."
+    }
     name
-  } else {
-    name + "." + variant
+    if variant != "" {
+      "." + variant
+    }
   }
 
   let full = complete(variant)
@@ -195,13 +200,19 @@
   }
 }
 
-// A list / grid of symbols.
-#let symbol-list(mod, shorthands: none, emoji: false) = {
+// Computes the entries to display in a symbol list / grid.
+#let symbol-list-entries(mod, prefix, shorthands) = {
   let entries = ()
   for (name, s) in dictionary(mod) {
-    // TODO: Submodules are not yet handled
-    // (they weren't in the non-Typst docs either).
-    if type(s) == module { continue }
+    if type(s) == module {
+      let nested-prefix = if prefix == none {
+        name
+      } else {
+        prefix + "." + name
+      }
+      entries += symbol-list-entries(s, nested-prefix, shorthands)
+      continue
+    }
 
     let info = stdx.describe(s)
     let binding = stdx.binding(mod, name)
@@ -223,6 +234,7 @@
       entries.push(symbol-entry(
         name,
         info,
+        prefix,
         variant,
         value,
         deprecation,
@@ -230,7 +242,12 @@
       ))
     }
   }
+  entries
+}
 
+// A list / grid of symbols.
+#let symbol-list(mod, shorthands: none, emoji: false) = {
+  let entries = symbol-list-entries(mod, none, shorthands)
   context if target() == "paged" {
     columns(2, list(..entries, marker: none))
   } else {
