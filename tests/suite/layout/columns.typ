@@ -134,21 +134,21 @@ B
 #set text(size: 3pt, hyphenate: true)
 #set par(justify: true)
 #rect(inset: 0pt, outset: 0pt, stroke: yellow,
-    columns(3, balanced: true, lorem(95))
+    columns(3, balanced: true, separator: 0.1mm, lorem(95))
 )
 
 --- columns-balanced-pagebreak paged ---
 #set page(width: 100pt, height: 40pt, margin: 5pt, columns: 3)
 #set text(size: 3pt, hyphenate: true)
 #set par(justify: true)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 0.1mm)
 #lorem(35)
 #pagebreak()
 #lorem(18)
 
 --- columns-balanced-figures paged ---
 #set page(width: 100pt, height: 90pt, margin: 5pt, columns: 3)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 0.1mm)
 #set text(size: 3pt, hyphenate: true)
 #set par(justify: true)
 #figure(rect(height: 10pt))
@@ -161,14 +161,14 @@ B
 #set page(width: 100pt, height: 40pt, margin: 5pt, columns: 3)
 #set text(size: 3pt, hyphenate: true)
 #set par(justify: true)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 0.1mm)
 #lorem(15)#footnote[Footer]
 #lorem(60)#footnote[Footer]
 #lorem(30)
 
 --- columns-balanced-blocks paged ---
 #set page(width: 100pt, height: auto, margin: 5pt, columns: 3)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 0.1mm)
 #set block(width: 100%, fill: gray, spacing: 1pt)
 #for i in range(10){block(height: 3pt * (1+i/5))}
 #pagebreak()
@@ -177,7 +177,7 @@ B
 
 --- columns-balanced-tables paged ---
 #set page(width: 100pt, height: auto, margin: 5pt, columns: 2)
-#set columns(balanced: true)
+#set columns(balanced: true, separator: 0.1mm)
 #table(columns: 2,
   table.header([$x$], [$x^2$]),
   ..for x in range(1,11){
