@@ -479,7 +479,7 @@ macro_rules! signed_int {
                     // Some numbers (i128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| "number too large")?,
@@ -499,7 +499,7 @@ macro_rules! unsigned_int {
                     // Some numbers (u64, u128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| {
@@ -518,7 +518,7 @@ unsigned_int! { u8 u16 u32 u64 u128 usize }
 
 cast! {
     NonZeroI64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get()),
     v: i64 => v.try_into()
         .map_err(|_| if v == 0 {
             "number must not be zero"
@@ -529,7 +529,7 @@ cast! {
 
 cast! {
     NonZeroIsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: isize| v.try_into())
@@ -542,7 +542,7 @@ cast! {
 
 cast! {
     NonZeroU64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u64| v.try_into())
@@ -555,7 +555,7 @@ cast! {
 
 cast! {
     NonZeroUsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: usize| v.try_into())
@@ -568,7 +568,7 @@ cast! {
 
 cast! {
     NonZeroU32,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u32| v.try_into())
