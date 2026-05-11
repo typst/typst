@@ -410,7 +410,7 @@ impl SingleChild<'_> {
 
 /// The cached, internal implementation of [`SingleChild::layout`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_single_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -510,7 +510,7 @@ impl<'a> MultiChild<'a> {
 
 /// The cached, internal implementation of [`MultiChild::layout_full`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_multi_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

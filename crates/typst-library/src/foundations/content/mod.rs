@@ -734,7 +734,7 @@ impl Debug for SequenceElem {
 }
 
 // Derive is currently incompatible with `elem` macro.
-#[allow(clippy::derivable_impls)]
+#[expect(clippy::derivable_impls)]
 impl Default for SequenceElem {
     fn default() -> Self {
         Self { children: Default::default() }

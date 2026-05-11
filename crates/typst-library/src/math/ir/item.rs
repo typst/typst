@@ -1,4 +1,4 @@
-#![allow(clippy::too_many_arguments)]
+#![expect(clippy::too_many_arguments)]
 use std::cell::Cell;
 use std::ops::{Deref, MulAssign};
 use std::rc::Rc;

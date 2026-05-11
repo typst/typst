@@ -906,7 +906,7 @@ fn sequence(
 
 /// Memoized implementation of `sequence`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,

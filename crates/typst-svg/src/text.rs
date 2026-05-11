@@ -111,7 +111,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Render a pre-scaled path glyph defined by an outline.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn render_path_glyph(
         &mut self,
         svg: &mut SvgElem,
