@@ -51,9 +51,9 @@ pub enum Diff {
 impl Diff {
     pub fn missing_old(&self) -> Option<HashedRef> {
         match self {
-            Diff::Text(diff) => diff.left().and_then(|old| old.missing()),
-            Diff::Image(diff) => diff.left().and_then(|old| old.missing()),
-            Diff::Html(diff) => diff.left().and_then(|old| old.missing()),
+            Diff::Text(diff) => diff.left()?.missing(),
+            Diff::Image(diff) => diff.left()?.missing(),
+            Diff::Html(diff) => diff.left()?.missing(),
         }
     }
 
