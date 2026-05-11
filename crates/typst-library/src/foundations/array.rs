@@ -10,7 +10,8 @@ use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, bail,
+    At as _, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult,
+    bail,
 };
 use crate::engine::Engine;
 use crate::foundations::{

@@ -1,8 +1,8 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
+use typst_library::foundations::{Content, NativeElement as _, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
 };

@@ -1,11 +1,11 @@
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::EcoString;
 use indexmap::IndexMap;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use rustc_hash::FxBuildHasher;
 use typst_html::{HtmlElement, HtmlOptions};
 use typst_layout::PagedDocument;
-use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
+use typst_library::diag::{At as _, ParallelCollectCombinedResult as _, SourceResult};
 use typst_library::foundations::Bytes;
 use typst_library::introspection::Location;
 use typst_library::model::{LateLinkResolver, PagedFormat};

@@ -8,12 +8,12 @@ use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::Lang;
 use crate::World;
 use crate::diag::{
-    LineCol, LoadError, LoadResult, LoadedWithin, ReportTextPos, SourceResult,
+    LineCol, LoadError, LoadResult, LoadedWithin as _, ReportTextPos, SourceResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -21,7 +21,7 @@ use crate::foundations::{
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
 use crate::layout::{Em, HAlignment};
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load as _};
 use crate::model::{Figurable, ParElem};
 use crate::routines::Routines;
 use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};

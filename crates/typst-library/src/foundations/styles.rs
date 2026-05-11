@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
 
-use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::diag::{SourceResult, Trace as _, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,

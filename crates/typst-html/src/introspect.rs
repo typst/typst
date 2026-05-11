@@ -13,7 +13,7 @@ use typst_library::layout::{Frame, FrameItem, Point, Transform};
 use typst_library::model::{Destination, LinkElem, Numbering};
 use typst_syntax::VirtualPath;
 
-use crate::{HtmlNode, HtmlSliceExt, tag};
+use crate::{HtmlNode, HtmlSliceExt as _, tag};
 
 /// An introspector implementation for HTML documents.
 #[derive(Clone)]

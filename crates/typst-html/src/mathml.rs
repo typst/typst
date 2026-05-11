@@ -5,7 +5,7 @@ use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::mathml::*;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, StyleChain, StyledElem};
+use typst_library::foundations::{Content, NativeElement as _, StyleChain, StyledElem};
 use typst_library::introspection::TagElem;
 use typst_library::layout::{Axis, Em, FixedAlignment};
 use typst_library::math::ir::{
@@ -16,13 +16,13 @@ use typst_library::math::ir::{
 use typst_library::math::{FRAC_PADDING, LeftRightAlternator, MathSize};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 use unicode_math_class::MathClass;
 
 use crate::HtmlElem;
 use crate::attr::mathml as attr;
 use crate::css;
-use crate::css::ToCss;
+use crate::css::ToCss as _;
 use crate::tag::mathml as tag;
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].

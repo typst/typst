@@ -2,7 +2,7 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::{FileId, PathError, RootedPath, Spanned, VirtualPath, VirtualRoot};
 
 use crate::diag::{
-    At, HintedStrResult, HintedString, SourceResult, StrResult, bail, error,
+    At as _, HintedStrResult, HintedString, SourceResult, StrResult, bail, error,
 };
 use crate::foundations::{Repr, Str, cast, func, scope, ty};
 

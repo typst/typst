@@ -13,7 +13,7 @@ use typst_syntax::{Span, ast};
 use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
 use crate::foundations::{
     Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
-    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
+    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement as _, NativeType,
     NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol, SymbolElem, Type,
     Version, fields, ops, repr,
 };

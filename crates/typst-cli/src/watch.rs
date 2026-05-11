@@ -1,6 +1,6 @@
-use std::io::{self, Write};
+use std::io::{self, Write as _};
 
-use codespan_reporting::term::termcolor::WriteColor;
+use codespan_reporting::term::termcolor::WriteColor as _;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use typst::diag::{HintedStrResult, StrResult, bail, warning};

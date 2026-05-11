@@ -1,19 +1,21 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::num::NonZeroUsize;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
-use typst_utils::{LazyHash, NonZeroExt, Protected};
+use typst_utils::{LazyHash, NonZeroExt as _, Protected};
 
-use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
+use crate::diag::{
+    At as _, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning,
+};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
-    LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
+    LocatableSelector, NativeElement as _, Packed, Repr, Selector, ShowFn, Smart, Str,
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{

@@ -4,12 +4,14 @@ use std::sync::LazyLock;
 
 use comemo::Tracked;
 use either::Either;
-use typst::diag::{At, FileError, FileResult, SourceResult, Trace, Tracepoint, bail};
+use typst::diag::{
+    At as _, FileError, FileResult, SourceResult, Trace as _, Tracepoint, bail,
+};
 use typst::engine::Engine;
 use typst::foundations::{
     Args, Array, Bytes, Construct, Content, Context, Datetime, Derived, Duration,
-    NativeElement, Packed, Resolve, ShowFn, Smart, StyleChain, Target, TargetElem, array,
-    cast, elem, func,
+    NativeElement as _, Packed, Resolve as _, ShowFn, Smart, StyleChain, Target,
+    TargetElem, array, cast, elem, func,
 };
 use typst::layout::{
     Abs, BlockElem, Frame, FrameItem, Margin, PageElem, Point, Ratio, Rel, Size,
@@ -21,7 +23,7 @@ use typst::text::{Font, FontBook, RawContent, RawElem};
 use typst::visualize::{
     Curve, ImageElem, ImageFormat, PixelEncoding, PixelFormat, RasterFormat,
 };
-use typst::{Features, Library, LibraryExt, World, WorldExt};
+use typst::{Features, Library, LibraryExt as _, World, WorldExt as _};
 use typst_layout::{Page, PagedDocument};
 use typst_render::RenderOptions;
 use typst_utils::{LazyHash, Scalar};

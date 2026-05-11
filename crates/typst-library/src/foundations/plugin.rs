@@ -6,10 +6,10 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::Spanned;
 use wasmi::Memory;
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At as _, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Binding, Bytes, Func, Module, Scope, Value, cast, func, scope};
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load as _};
 
 /// Loads a WebAssembly module.
 ///

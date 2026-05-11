@@ -11,7 +11,7 @@ use typst_syntax::Span;
 use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::util::{AbsExt, TransformExt, display_font};
+use crate::util::{AbsExt as _, TransformExt as _, display_font};
 use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]

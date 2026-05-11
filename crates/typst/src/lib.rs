@@ -42,7 +42,7 @@ pub use typst_utils as utils;
 use std::sync::LazyLock;
 
 use arrayvec::ArrayVec;
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_library::diag::{

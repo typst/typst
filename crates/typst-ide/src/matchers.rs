@@ -1,6 +1,6 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
-use typst::syntax::ast::AstNode;
+use typst::syntax::ast::AstNode as _;
 use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
 use crate::{IdeWorld, analyze_import};
@@ -282,7 +282,7 @@ pub enum DerefTarget<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
 
     use ecow::EcoString;
     use typst::foundations::Value;

@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{Content, NativeElement, Scope, SymbolElem, elem};
+use crate::foundations::{Content, NativeElement as _, Scope, SymbolElem, elem};
 use crate::layout::HElem;
 use crate::math::{ClassElem, Mathy, THIN, upright};
 use crate::text::TextElem;

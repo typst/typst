@@ -12,7 +12,7 @@ use crate::tags::groups::GroupKind;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec};
-use crate::util::AbsExt;
+use crate::util::AbsExt as _;
 
 pub use crate::tags::context::figure::FigureCtx;
 pub use crate::tags::context::grid::GridCtx;

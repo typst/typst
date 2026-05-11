@@ -1,4 +1,4 @@
-use comemo::Track;
+use comemo::Track as _;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
 use typst::foundations::{AsOutput, Label, Styles, Value};

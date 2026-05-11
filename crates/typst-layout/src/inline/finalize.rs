@@ -1,5 +1,5 @@
 use typst_library::introspection::SplitLocator;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::*;
 

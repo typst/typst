@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use icu_properties::CodePointMapDataBorrowed;
 use icu_properties::props::LineBreak;
 use icu_provider_blob::BlobDataProvider;
@@ -13,7 +13,7 @@ use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::*;
 

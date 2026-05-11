@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::Resolve as _;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 

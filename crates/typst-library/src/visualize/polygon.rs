@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use typst_syntax::Span;
 
-use crate::foundations::{Content, NativeElement, Smart, elem, func, scope};
+use crate::foundations::{Content, NativeElement as _, Smart, elem, func, scope};
 use crate::layout::{Angle, Axes, Em, Length, Ratio, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 

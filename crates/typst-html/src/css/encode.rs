@@ -1,6 +1,6 @@
 //! Conversion from Typst data types into CSS data types.
 
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
 use std::ops::Deref;
 
 use ecow::{EcoString, EcoVec, eco_format};

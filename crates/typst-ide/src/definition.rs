@@ -87,11 +87,11 @@ pub fn definition(
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
     use std::ops::Range;
 
-    use typst::WorldExt;
-    use typst::foundations::{IntoValue, NativeElement};
+    use typst::WorldExt as _;
+    use typst::foundations::{IntoValue, NativeElement as _};
     use typst::syntax::Side;
     use typst_layout::PagedDocument;
 

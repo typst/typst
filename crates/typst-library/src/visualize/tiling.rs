@@ -3,11 +3,13 @@ use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, Spanned};
-use typst_utils::{LazyHash, Numeric};
+use typst_utils::{LazyHash, Numeric as _};
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
+use crate::foundations::{
+    Content, Repr, Resolve as _, Smart, StyleChain, func, scope, ty,
+};
 use crate::introspection::Locator;
 use crate::layout::{Abs, Axes, Frame, Length, Region, Rel, Size};
 use crate::visualize::RelativeTo;

@@ -4,10 +4,10 @@ use std::hash::Hash;
 
 use bumpalo::Bump;
 use bumpalo::boxed::Box as BumpBox;
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Packed, Resolve as _, Smart, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag, TagElem,
 };
@@ -20,7 +20,7 @@ use typst_library::model::ParElem;
 use typst_library::routines::Pair;
 use typst_library::text::TextElem;
 use typst_library::{Library, World};
-use typst_utils::{LazyHash, Protected, SliceExt};
+use typst_utils::{LazyHash, Protected, SliceExt as _};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;

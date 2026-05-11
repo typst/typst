@@ -1,6 +1,7 @@
 use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Array, Content, NativeElement as _, Packed, Reflect as _, Smart, Styles, cast, elem,
+    scope,
 };
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};

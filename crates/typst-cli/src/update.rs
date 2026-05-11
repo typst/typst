@@ -1,4 +1,4 @@
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, Cursor, Read as _, Write as _};
 use std::path::PathBuf;
 use std::{env, fs};
 

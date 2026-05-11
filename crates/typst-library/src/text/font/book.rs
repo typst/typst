@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use crate::text::{
     Font, FontFlags, FontInfo, FontStretch, FontStyle, FontVariant, FontWeight,

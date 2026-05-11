@@ -4,11 +4,11 @@ use std::ops::Neg;
 use std::str::FromStr;
 
 use ecow::{EcoString, eco_format};
-use rust_decimal::MathematicalOps;
+use rust_decimal::MathematicalOps as _;
 use typst_syntax::{Span, Spanned, ast};
 
-use crate::World;
-use crate::diag::{At, SourceResult, warning};
+use crate::World as _;
+use crate::diag::{At as _, SourceResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 
@@ -450,7 +450,7 @@ cast! {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::str::FromStr as _;
 
     use typst_utils::hash128;
 

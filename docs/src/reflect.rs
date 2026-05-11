@@ -6,17 +6,17 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
-use heck::ToTitleCase;
+use heck::ToTitleCase as _;
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
-    Array, CastInfo, Dict, Func, IntoValue, Module, NativeParamInfo, Repr, Str, Symbol,
-    Type, Value, cast, dict, func,
+    Array, CastInfo, Dict, Func, IntoValue as _, Module, NativeParamInfo, Repr as _, Str,
+    Symbol, Type, Value, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;

@@ -8,8 +8,9 @@ use icu_properties::props::CanonicalCombiningClass;
 
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, NativeParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
+    Args, CastInfo, Content, Context, Func, IntoValue as _, NativeElement as _,
+    NativeFuncData, NativeFuncPtr, NativeParamInfo, Reflect as _, Scope, Str, SymbolElem,
+    Type, cast, elem,
 };
 use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;

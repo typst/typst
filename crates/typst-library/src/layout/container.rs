@@ -1,8 +1,8 @@
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Construct, Content, Dict, Fold, FromValue, IntoValue, NativeElement,
-    Packed, Smart, StyleChain, Value, cast, elem,
+    Args, AutoValue, Construct, Content, Dict, Fold, FromValue, IntoValue as _,
+    NativeElement, Packed, Smart, StyleChain, Value, cast, elem,
 };
 use crate::introspection::Locator;
 use crate::layout::{

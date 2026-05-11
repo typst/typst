@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -17,25 +17,25 @@ use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{
-    LazyHash, ManuallyHash, NonZeroExt, PicoStr, Protected, ResolvedPicoStr,
+    LazyHash, ManuallyHash, NonZeroExt as _, PicoStr, Protected, ResolvedPicoStr,
 };
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin,
+    At as _, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin as _,
     ReportTextPos, SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    LocatableSelector, NativeElement, OneOrMultiple, Packed, Reflect, Repr, Scope,
-    Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
+    LocatableSelector, NativeElement as _, OneOrMultiple, Packed, Reflect, Repr as _,
+    Scope, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Location, QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
-use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
+use crate::loading::{DataSource, Load as _, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
     HeadingElem, LinkElem, Url,

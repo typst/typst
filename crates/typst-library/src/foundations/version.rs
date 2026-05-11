@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Display, Formatter, Write as _};
 use std::hash::Hash;
 use std::iter::repeat;
 

@@ -5,7 +5,7 @@ use typst_utils::{Get, Numeric};
 
 use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{
-    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    AlternativeFold as _, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
     StyleChain, Value, cast,
 };
 use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Corners, Rel, Size};

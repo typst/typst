@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::layout::{Abs, Axis, Frame, FrameItem, Point, Size};
 use typst_library::math::MathSize;
 use typst_library::math::ir::{FractionItem, MathProperties, SkewedFractionItem};

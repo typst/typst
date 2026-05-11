@@ -18,7 +18,9 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
-use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
+use typst_library::diag::{
+    At as _, CollectCombinedResult as _, SourceResult, bail, error,
+};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
     Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,

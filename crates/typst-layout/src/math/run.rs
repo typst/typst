@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::layout::{
     Abs, AlignElem, Em, FixedAlignment, Frame, InlineItem, Point, Size,
 };

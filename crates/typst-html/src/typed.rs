@@ -3,7 +3,7 @@
 //! The typed API is backed by generated data derived from the HTML
 //! specification.
 
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::num::{NonZeroI64, NonZeroU64};
 use std::sync::LazyLock;
 
@@ -11,12 +11,12 @@ use bumpalo::Bump;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::html as data;
-use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
+use typst_library::diag::{At as _, Hint as _, HintedStrResult, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
-    FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NativeParamInfo, NoneValue,
-    PositiveF64, Reflect, Scope, Str, Type, Value,
+    FromValue, IntoValue as _, NativeFuncData, NativeFuncPtr, NativeParamInfo, NoneValue,
+    PositiveF64, Reflect as _, Scope, Str, Type, Value,
 };
 use typst_library::layout::{Axes, Axis, Dir, Length};
 use typst_library::text::TextElem;
@@ -24,7 +24,7 @@ use typst_library::visualize::Color;
 use typst_macros::cast;
 use typst_syntax::Spanned;
 
-use crate::css::ToCss;
+use crate::css::ToCss as _;
 use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, tag};
 
 /// Hook up all typed HTML definitions.
@@ -211,7 +211,7 @@ impl AttrType {
         Self::Native(NativeType::of::<T>())
     }
 
-    /// See [`Reflect::input`].
+    /// See [`typst_library::foundations::Reflect::input`].
     fn input(&self) -> CastInfo {
         match self {
             Self::Presence => bool::input(),
@@ -222,7 +222,7 @@ impl AttrType {
         }
     }
 
-    /// See [`Reflect::castable`].
+    /// See [`typst_library::foundations::Reflect::castable`].
     fn castable(&self, value: &Value) -> bool {
         match self {
             Self::Presence => bool::castable(value),
@@ -599,7 +599,7 @@ impl IntoAttr for Datetime {
 }
 
 mod datetime {
-    use std::fmt::{self, Formatter, Write};
+    use std::fmt::{self, Formatter, Write as _};
 
     pub fn datetime(f: &mut Formatter, datetime: time::PrimitiveDateTime) -> fmt::Result {
         // https://html.spec.whatwg.org/#valid-global-date-and-time-string

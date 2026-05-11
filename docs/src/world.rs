@@ -1,14 +1,15 @@
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use az::SaturatingAs;
-use comemo::{Track, TrackedMut};
+use az::SaturatingAs as _;
+use comemo::{Track as _, TrackedMut};
 use ecow::{EcoString, eco_format};
-use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
+use typst::diag::{At as _, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Binding, Bytes, Context, Datetime, Dict, Duration, IntoValue, Label, Module,
-    NativeElement, PathOrStr, Repr, Scope, ShowFn, Str, Target, Value, array, elem, func,
+    Binding, Bytes, Context, Datetime, Dict, Duration, IntoValue as _, Label, Module,
+    NativeElement as _, PathOrStr, Repr as _, Scope, ShowFn, Str, Target, Value, array,
+    elem, func,
 };
 use typst::introspection::{EmptyIntrospector, MetadataElem};
 use typst::model::{Destination, EarlyLinkResolver, LinkElem, ResolvedLink};
@@ -20,7 +21,7 @@ use typst::syntax::{
 };
 use typst::text::{Font, FontBook};
 use typst::visualize::ImageElem;
-use typst::{Features, Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt as _, World};
 use typst_html::{HtmlAttrs, HtmlElem, attr, tag};
 use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
@@ -372,7 +373,7 @@ const PATCHED_LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
 /// real asset. The paths are auto-generated based on hashes of the images.
 const PATCHED_IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     fn encode_hash(hash: u128) -> String {
-        use base64::Engine;
+        use base64::Engine as _;
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
         URL_SAFE_NO_PAD.encode(hash.to_be_bytes())
     }

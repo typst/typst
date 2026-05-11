@@ -124,7 +124,7 @@ impl PdfStandards {
             Accessibility, Archival, ConfigurationBuilder, ConfigurationError, PdfVersion,
         };
 
-        use crate::util::ValidatorsExt;
+        use crate::util::ValidatorsExt as _;
 
         let mut version: Option<PdfVersion> = None;
         let mut set_version = |v: PdfVersion| -> StrResult<()> {

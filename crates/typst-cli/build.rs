@@ -2,7 +2,7 @@ use std::env;
 use std::fs::{File, create_dir_all};
 use std::path::Path;
 
-use clap::{CommandFactory, ValueEnum};
+use clap::{CommandFactory as _, ValueEnum as _};
 use clap_complete::{Shell, generate_to};
 use clap_mangen::Man;
 

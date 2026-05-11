@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use crate::diag::bail;
-use crate::foundations::{Repr, Str, cast};
+use crate::foundations::{Repr as _, Str, cast};
 
 /// A 4-byte OpenType tag.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

@@ -1,6 +1,6 @@
 use ecow::EcoString;
 use typst_syntax::is_newline;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{

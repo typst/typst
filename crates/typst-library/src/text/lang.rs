@@ -3,7 +3,7 @@ use std::str::FromStr;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 
-use crate::diag::Hint;
+use crate::diag::Hint as _;
 use crate::foundations::{StyleChain, cast};
 use crate::layout::Dir;
 use crate::text::TextElem;

@@ -5,10 +5,11 @@ use std::sync::Arc;
 use ecow::eco_format;
 use typst_library::Dir;
 use typst_library::diag::{
-    At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail,
+    At as _, Hint as _, HintedStrResult, HintedString, SourceResult, Trace as _,
+    Tracepoint, bail,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Fold, Packed, Smart, StyleChain};
+use typst_library::foundations::{Content, Fold as _, Packed, Smart, StyleChain};
 use typst_library::layout::{
     Abs, Alignment, Axes, Celled, GridCell, GridChild, GridElem, GridItem, Length,
     OuterHAlignment, OuterVAlignment, Rel, ResolvedCelled, Sides, Sizing,
@@ -18,7 +19,7 @@ use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
 
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, SmallBitSet};
+use typst_utils::{NonZeroExt as _, SmallBitSet};
 
 use crate::pdf::{TableCellKind, TableHeaderScope};
 

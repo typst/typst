@@ -1,6 +1,6 @@
 use kurbo::Shape as _;
 use typst_macros::{Cast, scope};
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::diag::{HintedStrResult, HintedString, bail};
 use crate::foundations::{Content, Packed, Smart, cast, elem};

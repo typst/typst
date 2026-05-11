@@ -1,6 +1,6 @@
 use std::f64::consts::TAU;
 
-use typst_library::foundations::Repr;
+use typst_library::foundations::Repr as _;
 use typst_library::layout::{
     Abs, Angle, Axes, Frame, Point, Quadrant, Ratio, Size, Transform,
 };

@@ -1,18 +1,18 @@
 use std::error;
 use std::fmt;
-use std::io::{self, Read};
+use std::io::{self, Read as _};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue, Repr};
+use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue as _, Repr as _};
 use typst::syntax::{
     FileId, PathError, RootedPath, Source, VirtualPath, VirtualRoot, VirtualizeError,
 };
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, LibraryExt, World};
+use typst::{Library, LibraryExt as _, World};
 use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
