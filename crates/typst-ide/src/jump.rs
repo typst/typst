@@ -772,7 +772,7 @@ mod tests {
     #[test]
     fn test_jump_from_cursor_transform() {
         test_cursor(
-            r#"#rotate(90deg, origin: bottom + left, [hello world])"#,
+            "#rotate(90deg, origin: bottom + left, [hello world])",
             -5,
             pos(1, 10.0, 16.58),
         );

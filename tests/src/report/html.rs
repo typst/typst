@@ -64,7 +64,7 @@ impl Html {
     fn write_bool_attr(&mut self, name: &str) {
         assert!(self.in_attribute_list);
 
-        write!(self.buf, r" {name}").ok();
+        write!(self.buf, " {name}").ok();
     }
 
     fn write_text(&mut self, text: impl Display) {
