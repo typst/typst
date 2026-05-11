@@ -625,7 +625,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            header_range(grid.headers.get(first_mid_table_header - 1).unwrap()).end;
+            header_range(&grid.headers[first_mid_table_header - 1]).end;
         let rows = rows.drain(..removed_header_rows);
 
         (
