@@ -444,10 +444,10 @@ impl From<&Gradient> for GradientKind {
 impl SvgDisplay for Color {
     fn fmt(&self, f: &mut impl SvgWrite) {
         match self.to_process() {
-            c @ ProcessColor::Rgb(_)
-            | c @ ProcessColor::Luma(_)
-            | c @ ProcessColor::Cmyk(_)
-            | c @ ProcessColor::Hsv(_) => {
+            c @ (ProcessColor::Rgb(_)
+            | ProcessColor::Luma(_)
+            | ProcessColor::Cmyk(_)
+            | ProcessColor::Hsv(_)) => {
                 f.push_str(&c.to_hex());
             }
             ProcessColor::LinearRgb(rgb) => {
