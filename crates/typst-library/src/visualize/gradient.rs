@@ -786,7 +786,7 @@ impl Gradient {
         /// The position at which to sample the gradient.
         t: RatioOrAngle,
     ) -> Color {
-        let value: f64 = t.to_ratio().get();
+        let value = t.to_ratio().get();
 
         match self {
             Self::Linear(linear) => {
