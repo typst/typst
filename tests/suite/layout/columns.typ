@@ -184,3 +184,10 @@ B
     ([#x], [#(x*x)])
   }
 )
+
+--- columns-separator paged ---
+#set page(width: 200pt, height: 100pt, columns: 2)
+#set text(hyphenate: true)
+#set par(justify: true)
+#set columns(separator: red + 1pt)
+#lorem(30)
