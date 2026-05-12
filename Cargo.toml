@@ -168,7 +168,6 @@ strip = true
 
 [workspace.lints.clippy]
 blocks_in_conditions = "allow"
-comparison_chain = "allow"
 iter_over_hash_type = "warn"
 manual_is_multiple_of = "allow"
 manual_range_contains = "allow"
