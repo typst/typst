@@ -121,8 +121,8 @@ fn resolve_node(
 fn resolve_group_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
-    mut parent_bbox: &mut Option<BBoxCtx>,
-    mut accum: &mut Accumulator,
+    parent_bbox: &mut Option<BBoxCtx>,
+    accum: &mut Accumulator,
     id: GroupId,
 ) {
     let group = rs.groups.get(id);
@@ -138,7 +138,7 @@ fn resolve_group_node(
         let nesting = element_kind(tag);
         nested_children.insert(accum.nest(nesting))
     } else {
-        &mut accum
+        &mut *accum
     };
 
     // If a tag has an alternative description specified, flatten the children
@@ -148,7 +148,7 @@ fn resolve_group_node(
     let flatten = tag.as_ref().is_some_and(|t| t.alt_text().is_some());
     rs.with_flatten(flatten, |rs| {
         let lang = lang.as_mut().unwrap_or(parent_lang);
-        let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
+        let bbox = if bbox.is_some() { &mut bbox } else { &mut *parent_bbox };
 
         // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
         // this might become an `Artifact` tag.
@@ -249,7 +249,7 @@ fn resolve_text(
 /// Currently only done to resolve bounding boxes.
 fn resolve_artifact_node(
     rs: &mut Resolver,
-    mut parent_bbox: &mut Option<BBoxCtx>,
+    parent_bbox: &mut Option<BBoxCtx>,
     node: &TagNode,
 ) {
     match &node {
@@ -258,7 +258,7 @@ fn resolve_artifact_node(
             let mut bbox = rs.ctx.bbox(&group.kind).cloned();
 
             {
-                let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
+                let bbox = if bbox.is_some() { &mut bbox } else { &mut *parent_bbox };
                 for child in group.nodes() {
                     resolve_artifact_node(rs, bbox, child);
                 }
