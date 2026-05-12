@@ -33,6 +33,10 @@
   "⇒": ("implies",),
   "⟹": ("implies",),
   "⇔": ("iff",),
+  "⅋": ("par",),
+  "א": ("alef",),
+  "ב": ("bet",),
+  "ד": ("dalet",),
 )
 
 // Human-facing names of the math classes.
