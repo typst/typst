@@ -45,12 +45,12 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
+use crate::tags::{Group, GroupId};
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
@@ -79,7 +79,7 @@ impl<'a> TreeBuilder<'a> {
         let doc_lang = document.info().locale.custom();
         let mut groups = Groups::new();
         let doc = groups.new_virtual(
-            GroupId::INVALID,
+            Group::INVALID,
             Span::detached(),
             GroupKind::Root(doc_lang),
         );
@@ -229,7 +229,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
 
     #[cfg(debug_assertions)]
     for group in tree.groups.list.iter().skip(1) {
-        assert_ne!(group.parent, GroupId::INVALID);
+        assert_ne!(group.parent, Group::INVALID);
     }
 
     Ok(tree.finish())
@@ -291,11 +291,11 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
 fn push_logical_child(tree: &mut TreeBuilder, parent: FrameParent) -> GroupId {
     let id = tree.groups.new_virtual(
         match parent.inherit {
-            Inherit::Yes => GroupId::INVALID,
+            Inherit::Yes => Group::INVALID,
             Inherit::No => tree.current(),
         },
         Span::detached(),
-        GroupKind::LogicalChild(parent.inherit, GroupId::INVALID),
+        GroupKind::LogicalChild(parent.inherit, Group::INVALID),
     );
 
     tree.logical_children.entry(parent.location).or_default().push(id);

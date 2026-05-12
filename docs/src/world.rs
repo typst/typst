@@ -377,7 +377,7 @@ const PATCHED_IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     let web_image = typst_svg::WebImage::new(&image);
     let hash = typst_utils::hash128(&web_image.data);
 
-    let base = styles.get_ref(ConfigElem::asset_base).as_ref();
+    let base = styles.get_ref(ConfigElem::asset_base);
     let path = eco_format!(
         "{base}images/{}.{}",
         encode_hash(hash),

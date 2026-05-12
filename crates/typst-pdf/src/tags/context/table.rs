@@ -15,11 +15,11 @@ use typst_library::model::{TableCell, TableElem};
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_library::visualize::{FixedStroke, Stroke};
 
-use crate::tags::GroupId;
 use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt};
 use crate::tags::context::{TableId, TagId};
 use crate::tags::tree::Tree;
 use crate::tags::util::{self, PropertyOptRef, PropertyValCopied, TableHeaderScopeExt};
+use crate::tags::{Group, GroupId};
 use crate::util::{AbsExt, SidesExt};
 
 #[derive(Debug)]
@@ -287,11 +287,11 @@ pub fn build_table(tree: &mut Tree, table_id: TableId) {
         try_resolve_table_stroke(&table_ctx.cells);
 
     let mut chunk_kind = table_ctx.row_kinds[0];
-    let mut chunk_id = GroupId::INVALID;
+    let mut chunk_id = Group::INVALID;
     for (row, y) in table_ctx.cells.rows_mut().zip(0..) {
         let parent = if gen_row_groups {
             let row_kind = table_ctx.row_kinds[y as usize];
-            let is_first = chunk_id == GroupId::INVALID;
+            let is_first = chunk_id == Group::INVALID;
             if is_first || !should_group_rows(chunk_kind, row_kind) {
                 let tag: TagKind = match row_kind {
                     // Only one `THead` group at the start of the table is permitted.
@@ -453,7 +453,7 @@ where
 fn table_cell_id(table_id: TableId, x: u32, y: u32) -> kt::TagId {
     // 32 bytes is the maximum length the ID string can have.
     let mut buf = SmallVec::<[u8; 32]>::new();
-    _ = write!(&mut buf, "{}x{x}y{y}", table_id.get() + 1);
+    _ = write!(&mut buf, "{}x{x}y{y}", table_id.idx() + 1);
     kt::TagId::from(buf)
 }
 
