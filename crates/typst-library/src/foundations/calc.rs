@@ -490,7 +490,7 @@ pub fn atanh(
 
 /// Calculates the logarithm of a number.
 ///
-/// If the base is not specified, the logarithm is calculated in base 10.
+/// If the base is not specified, the logarithm is calculated in base ten.
 ///
 /// ```example
 /// #calc.log(100)
