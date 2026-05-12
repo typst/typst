@@ -32,5 +32,5 @@
 }
 
 --- cbor-load-error eval ---
-// Error: 7-30 failed to parse CBOR (Io(Error { kind: UnexpectedEof, message: "failed to fill whole buffer" }))
+// Error: 7-30 failed to parse CBOR (IO error: failed to fill whole buffer in assets/data/bad.cbor)
 #cbor("/assets/data/bad.cbor")
