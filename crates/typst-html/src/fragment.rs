@@ -110,6 +110,42 @@ pub fn html_inline_fragment(
     result
 }
 
+/// Produces HTML nodes from content contained in a MathML element.
+///
+/// Uses math realization so that paragraph grouping doesn't occur.
+#[typst_macros::time(name = "html math fragment")]
+pub fn html_math_fragment(
+    engine: &mut Engine,
+    content: &Content,
+    locator: &mut SplitLocator,
+    quoter: &mut SmartQuoter,
+    styles: StyleChain,
+    whitespace: Whitespace,
+) -> SourceResult<EcoVec<HtmlNode>> {
+    engine.route.increase();
+    engine.route.check_html_depth().at(content.span())?;
+
+    let arenas = Arenas::default();
+    let children = (engine.library.routines.realize)(
+        RealizationKind::Math,
+        engine,
+        locator,
+        &arenas,
+        content,
+        styles,
+    )?;
+    let result = crate::convert::convert_to_nodes(
+        engine,
+        locator,
+        children.iter().copied(),
+        ConversionLevel::Inline(quoter),
+        whitespace,
+    );
+
+    engine.route.decrease();
+    result
+}
+
 /// Realizes the body of an HTML fragment.
 fn realize_fragment<'a>(
     engine: &mut Engine,

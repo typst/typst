@@ -614,7 +614,6 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("cite"), "style") => &["csl"],
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
-        (Some("embed"), "path") => &[],
         (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
         (None, "path") => &[],
         _ => return None,

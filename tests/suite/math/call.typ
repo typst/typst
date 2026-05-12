@@ -5,13 +5,13 @@
 // Tests for method calls in math are in `../scripting/methods.typ` as
 // `math-field-call-*`.
 
---- math-call-non-func paged ---
+--- math-call-non-func paged html ---
 // Using call syntax with a non-function in math renders the callee next to
 // parens by "unparsing" the arguments into content.
 $ phi(x) $
 $ phi(x, y, 1/2) $
 
---- math-call-non-func-empty-args paged ---
+--- math-call-non-func-empty-args paged html ---
 // Trailing commas and empty args introduce blank content in math
 $ sin(,x,y,,,) $
 // with whitespace/trivia:
@@ -29,10 +29,10 @@ $ phi(x, alpha: y) $
 // Hint: 10-17 to render the dots as text, add a space: `.. alpha`
 $ phi(x, ..alpha) $
 
---- math-call-non-func-2d paged ---
+--- math-call-non-func-2d paged html ---
 $ pi(a;b) quad gamma(;) quad eta(#"a";;, ; upright(b),) $
 
---- math-call-non-func-spacing paged ---
+--- math-call-non-func-spacing paged html ---
 // Test that we keep the same spacing when unparsing.
 #show regex("[,;]"): math.class.with("fence")
 $ phi(| , | ; |) \
@@ -195,7 +195,7 @@ $
   vec(../)  vec(..^)  vec(.._)
 $
 
---- math-call-spread-shorthand-clash paged ---
+--- math-call-spread-shorthand-clash paged html ---
 #let func(body) = body
 $func(...)$
 
@@ -303,7 +303,7 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(..nums; ..dict)$, "arguments(one: 1, two: 2, ((0, 1), (2, 3)))")
 #check($args(..dict; ..nums)$, "arguments(one: 1, two: 2, (), ((0, 1), (2, 3)))")
 
---- issue-3774-math-call-empty-2d-args paged ---
+--- issue-3774-math-call-empty-2d-args paged html ---
 $ mat(;,) $
 // Add some whitespace/trivia:
 $ mat(; ,) $
@@ -335,7 +335,7 @@ $ vec(#1) $
 // Hint: 7-10 or access `rgb` in math mode by using the `std` module: `std.rgb`
 $text(rgb(0, 0, 0), "foo")$
 
---- math-call-shadowed-builtin paged ---
+--- math-call-shadowed-builtin paged html ---
 // We don't error if we try to call a shadowed standard library function.
 #let box = "box"
 $ box() $

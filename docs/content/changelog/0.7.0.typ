@@ -60,7 +60,7 @@
 - Added `mode` and `scope` arguments to @eval function
 - Added @bytes type for holding large byte buffers
   - Added @read.encoding[`encoding`] argument to read function to read a file as bytes instead of a string
-  - Added @image.decode function for decoding an image directly from a string or bytes
+  - Added `image.decode` function for decoding an image directly from a string or bytes
   - Added @bytes function for converting a string or an array of integers to bytes
   - Added @array function for converting bytes to an array of integers
   - Added support for converting bytes to a string with the @str function

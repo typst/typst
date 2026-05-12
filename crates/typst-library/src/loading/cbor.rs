@@ -83,20 +83,6 @@ pub fn cbor(
 
 #[scope]
 impl cbor {
-    /// Reads structured data from CBOR bytes.
-    #[func(title = "Decode CBOR")]
-    #[deprecated(
-        message = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// CBOR data.
-        data: Spanned<Bytes>,
-    ) -> SourceResult<Value> {
-        cbor(engine, data.map(DataSource::Bytes))
-    }
-
     /// Encode structured data into CBOR bytes.
     #[func(title = "Encode CBOR")]
     pub fn encode(

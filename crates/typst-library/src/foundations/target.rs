@@ -92,21 +92,18 @@ pub struct TargetElem {
 
 /// Returns the current export target.
 ///
-/// This function returns either
-/// - `{"paged"}` (for PDF, PNG, and SVG export), or
-/// - `{"html"}` (for HTML export).
-///
-/// The design of this function is not yet finalized and for this reason it is
-/// guarded behind the `html` and `bundle` features (enabling either one makes
-/// the function available). Visit the @html[HTML documentation page] for more
-/// details.
+/// This function returns
+/// - `{"paged"}` in @pdf[PDF], @reference:png[PNG], and
+///   @reference:svg[SVG] export, or within an @html.frame[HTML frame]
+/// - `{"html"}` in @html[HTML] export
+/// - `{"bundle"}` in @reference:bundle[Bundle] export
 ///
 /// = When to use it <when-to-use-it>
-/// This function allows you to format your document properly across both HTML
-/// and paged export targets. It should primarily be used in templates and show
-/// rules, rather than directly in content. This way, the document's contents
-/// can be fully agnostic to the export target and content can be shared between
-/// PDF and HTML export.
+/// This function allows you to format your document properly across the paged,
+/// HTML, and multi file export targets. It should primarily be used in
+/// templates and show rules, rather than directly in content. This way, the
+/// document's contents can be fully agnostic to the export target and content
+/// can be shared between different export targets.
 ///
 /// = Varying targets <varying-targets>
 /// This function is @reference:context[contextual] as the target can vary

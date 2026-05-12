@@ -9,7 +9,7 @@ use typst_syntax::Span;
 
 use super::MathContext;
 use super::fragment::{FrameFragment, GlyphFragment};
-use super::run::{MathRun, RowLayout, measure_row, stack_rows};
+use super::run::{MathRun, RowLayout, layout_aligned_row, measure_row, stack_rows};
 
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
@@ -198,10 +198,7 @@ fn layout_cell(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<CellLayout> {
-    let sub_columns: Vec<_> = cell
-        .iter()
-        .map(|item| ctx.layout_into_fragments(item, styles))
-        .collect::<SourceResult<_>>()?;
+    let sub_columns = layout_aligned_row(cell, ctx, styles)?;
     let height = measure_row(&sub_columns);
     Ok(CellLayout { sub_columns, height })
 }
