@@ -1,6 +1,6 @@
 #import "../../../components/index.typ": (
   classnames, colors, docs-category, docs-section, fonts, icon,
-  paged-heading-offset, search-box, ty-pill, use-icon,
+  paged-heading-offset, prose-styling, search-box, ty-pill, use-icon,
 )
 
 // Symbols that are not rendered as themselves because they would be invisible.
@@ -287,7 +287,7 @@
   ..args,
   kind: "Symbols",
   {
-    body
+    prose-styling(body)
     context if target() == "html" {
       html.div(class: "symbol-hint", {
         par[Click on a #ty-pill(symbol) to copy it to the clipboard.]
