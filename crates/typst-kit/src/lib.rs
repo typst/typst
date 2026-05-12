@@ -24,6 +24,8 @@
 //!   [`diagnostics::emit`].
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
+//! - `font-downloader`: Enables automatic font downloading via
+//!   [`font_downloader::FontDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
 //! - `timer`: Enables performance tracing via [`timer::Timer`].
 //! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`].
@@ -42,6 +44,7 @@
         feature = "emit-diagnostics",
         feature = "datetime",
         feature = "system-downloader",
+        feature = "font-downloader",
         feature = "watcher",
         feature = "timer",
         feature = "http-server",
@@ -53,6 +56,7 @@ pub mod datetime;
 pub mod diagnostics;
 pub mod downloader;
 pub mod files;
+pub mod font_downloader;
 pub mod fonts;
 pub mod packages;
 pub mod server;

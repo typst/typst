@@ -25,7 +25,8 @@ pub fn downloader() -> impl Downloader {
         } else if let Some(&s @ "release") = key.downcast_ref::<&str>() {
             Some(s.into())
         } else {
-            None
+            key.downcast_ref::<String>()
+                .map(|name| eco_format!("font \"{name}\""))
         };
         PrintProgress(name)
     })

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, OnceLock};
 
 use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
@@ -18,7 +18,7 @@ use typst_kit::files::{FileLoader, FileStore, FsRoot};
 use typst_kit::fonts::FontStore;
 use typst_kit::packages::SystemPackages;
 
-use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -26,8 +26,10 @@ pub struct SystemWorld {
     workdir: Option<PathBuf>,
     /// Typst's standard library.
     library: LazyHash<Library>,
-    /// Metadata about discovered fonts and lazily loaded fonts.
-    fonts: LazyLock<FontStore, Box<dyn Fn() -> FontStore + Send + Sync>>,
+    /// Lazily initialised font store. Separating the args from the cell
+    /// lets us reborrow both fields independently in `fonts()`.
+    fonts: OnceLock<FontStore>,
+    font_args: FontArgs,
     /// Maps file ids to source files and buffers.
     files: FileStore<SystemFiles>,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -75,9 +77,8 @@ impl SystemWorld {
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             library: LazyHash::new(library),
-            fonts: LazyLock::new(Box::new(|| {
-                crate::fonts::discover_fonts(&world_args.font)
-            })),
+            fonts: OnceLock::new(),
+            font_args: world_args.font.clone(),
             files: FileStore::new(SystemFiles::new(input, world_args)?),
             now,
         })
@@ -105,11 +106,26 @@ impl SystemWorld {
         self.now.reset();
     }
 
+    /// Returns a reference to the font store, initialising it on first call.
+    fn fonts(&self) -> &FontStore {
+        // Explicit field borrows avoid a self-referential borrow when the
+        // closure captures both `self.fonts` and `self.font_args`.
+        let args = &self.font_args;
+        self.fonts.get_or_init(|| crate::fonts::discover_fonts(args))
+    }
+
     /// Forcibly scan fonts instead of doing it lazily upon the first access.
     ///
     /// Does nothing if the fonts were already scanned.
     pub fn scan_fonts(&mut self) {
-        LazyLock::force(&self.fonts);
+        let _ = self.fonts();
+    }
+
+    /// Rebuilds the font store after new fonts have been downloaded.
+    pub fn rebuild_font_store(&mut self) {
+        let _ = self.fonts.take();
+        let store = crate::fonts::discover_fonts(&self.font_args);
+        self.fonts.set(store).ok();
     }
 }
 
@@ -119,7 +135,7 @@ impl World for SystemWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        self.fonts.book()
+        self.fonts().book()
     }
 
     fn main(&self) -> FileId {
@@ -135,7 +151,7 @@ impl World for SystemWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        self.fonts.font(index)
+        self.fonts().font(index)
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {

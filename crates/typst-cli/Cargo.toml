@@ -66,6 +66,7 @@ features = [
     "datetime",
     "emit-diagnostics",
     "system-downloader",
+    "font-downloader",
     "watcher",
     "timer",
 ]

@@ -2,6 +2,7 @@ use std::any::Any;
 use std::path::Path;
 
 use typst::text::FontVariant;
+use typst_kit::font_downloader::FontDownloader;
 use typst_kit::fonts::{self, FontPath, FontStore};
 
 use crate::args::{FontArgs, FontsCommand};
@@ -38,6 +39,9 @@ pub fn discover_fonts(args: &FontArgs) -> FontStore {
 
     if !args.ignore_system_fonts {
         fonts.extend(fonts::system());
+        if let Some(cache) = FontDownloader::default_cache_dir().filter(|p| p.exists()) {
+            fonts.extend(fonts::scan(&cache));
+        }
     }
 
     #[cfg(feature = "embedded-fonts")]

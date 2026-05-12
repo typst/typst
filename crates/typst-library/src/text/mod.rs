@@ -845,7 +845,7 @@ impl PlainText for Packed<TextElem> {
     }
 }
 
-/// A lowercased font family like "arial".
+/// A font family like `"Arial"`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontFamily {
     // The name of the font family
@@ -862,10 +862,10 @@ impl FontFamily {
 
     /// Create a font family by name and optional Unicode coverage.
     pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
-        Self { name: string.to_lowercase().into(), covers }
+        Self { name: string.into(), covers }
     }
 
-    /// The lowercased family name.
+    /// The family name.
     pub fn as_str(&self) -> &str {
         &self.name
     }

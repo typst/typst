@@ -55,7 +55,7 @@ impl FontBook {
 
     /// Returns true if the book contains a font family with the given name.
     pub fn contains_family(&self, family: &str) -> bool {
-        self.families.contains_key(family)
+        self.families.contains_key(&family.to_lowercase())
     }
 
     /// An ordered iterator over all font families this book knows and the
@@ -72,18 +72,16 @@ impl FontBook {
     }
 
     /// Try to find a font from the given `family` that matches the given
-    /// `variant` as closely as possible.
-    ///
-    /// The `family` should be all lowercase.
+    /// `variant` as closely as possible. The lookup is case-insensitive.
     pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
-        let ids = self.families.get(family)?;
+        let ids = self.families.get(&family.to_lowercase())?;
         self.find_best_variant(None, variant, ids.iter().copied())
     }
 
     /// Iterate over all variants of a family.
     pub fn select_family(&self, family: &str) -> impl Iterator<Item = usize> + '_ {
         self.families
-            .get(family)
+            .get(&family.to_lowercase())
             .map(|vec| vec.as_slice())
             .unwrap_or_default()
             .iter()

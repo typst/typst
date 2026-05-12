@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use ecow::eco_format;
+use ecow::{EcoString, eco_format};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{
@@ -77,6 +77,8 @@ pub struct CompileConfig {
     /// The export cache for images, used for caching output files in `typst
     /// watch` sessions with images.
     pub export_cache: ExportCache,
+    /// Whether to automatically download missing fonts.
+    pub auto_download_fonts: bool,
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
     pub server: Option<HttpServer>,
@@ -236,6 +238,7 @@ impl CompileConfig {
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
             export_cache: ExportCache::new(),
+            auto_download_fonts: args.world.font.auto_download_fonts,
             deps,
             deps_format,
             #[cfg(feature = "http-server")]
@@ -257,7 +260,13 @@ pub fn compile_once(
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, mut warnings } = compile_and_export(world, config);
+    let first = compile_and_export(world, config);
+
+    // Two-pass font auto-download: if the first pass reported missing font
+    // families and --auto-download-fonts is set, download them then recompile
+    // once so that the output uses the real fonts.
+    let Warned { output, mut warnings } =
+        maybe_download_fonts_and_recompile(world, config, first);
 
     // Add static warnings (for deprecated CLI flags and such).
     for warning in config.warnings.iter() {
@@ -304,6 +313,73 @@ pub fn compile_once(
     }
 
     Ok(())
+}
+
+/// If the first-pass result contains "unknown font family" warnings and
+/// `--auto-download-fonts` is set, attempts to download the missing families
+/// and recompile. Returns the second-pass result if any fonts were newly
+/// downloaded, otherwise returns the original first-pass result unchanged.
+fn maybe_download_fonts_and_recompile(
+    world: &mut SystemWorld,
+    config: &mut CompileConfig,
+    result: Warned<SourceResult<Vec<Output>>>,
+) -> Warned<SourceResult<Vec<Output>>> {
+    if !config.auto_download_fonts {
+        return result;
+    }
+
+    let missing: Vec<String> = result
+        .warnings
+        .iter()
+        .filter_map(extract_missing_font_family)
+        .collect();
+
+    if missing.is_empty() {
+        return result;
+    }
+
+    let (any_downloaded, font_warnings) = download_fonts(&missing);
+    let mut result = if any_downloaded {
+        world.rebuild_font_store();
+        compile_and_export(world, config)
+    } else {
+        result
+    };
+    for msg in font_warnings {
+        result.warnings.push(SourceDiagnostic::warning(Span::detached(), msg));
+    }
+    result
+}
+
+/// Extracts the font family name from an "unknown font family: X" diagnostic.
+fn extract_missing_font_family(diag: &SourceDiagnostic) -> Option<String> {
+    diag.message
+        .as_str()
+        .strip_prefix("unknown font family: ")
+        .map(str::to_owned)
+}
+
+/// Downloads all found font `families` into the platform cache directory.
+/// Returns whether any family was newly downloaded and a list of warning
+/// messages for families that failed to download.
+fn download_fonts(families: &[String]) -> (bool, Vec<EcoString>) {
+    use typst_kit::font_downloader::{FontDownloadError, FontDownloader};
+
+    let downloader = FontDownloader::new(crate::download::downloader());
+
+    let mut any_downloaded = false;
+    let mut warnings = Vec::new();
+    for family in families {
+        match downloader.download_family(family) {
+            Ok(_) => any_downloaded = true,
+            Err(FontDownloadError::NoVariantsFound(_)) => {}
+            Err(e) => {
+                warnings.push(eco_format!("could not download font \"{family}\": {e}"))
+            }
+        }
+    }
+
+    (any_downloaded, warnings)
 }
 
 /// Compile and then export the document.

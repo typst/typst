@@ -228,7 +228,7 @@ impl FontResolver<'_> {
                 _ => None,
             })
             .chain(self.families.iter().copied())
-            .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
+            .filter_map(|named| self.book.select(named, variant))
             .find_map(|index| self.get_or_load(index, db))
     }
 

@@ -86,6 +86,9 @@ timer = []
 # Enables live-reloading HTTP serving via `server::HttpServer`.
 http-server = ["dep:tiny_http", "dep:infer"]
 
+# Enables automatic font downloading.
+font-downloader = ["dep:dirs", "system-downloader"]
+
 # Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
 # Windows and macOS build.
 vendor-openssl = ["openssl/vendored"]

@@ -479,6 +479,10 @@ pub struct FontArgs {
     #[cfg(feature = "embedded-fonts")]
     #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
     pub ignore_embedded_fonts: bool,
+
+    /// Automatically download missing fonts during compilation
+    #[arg(long, env = "TYPST_AUTO_DOWNLOAD_FONTS")]
+    pub auto_download_fonts: bool,
 }
 
 /// Arguments for the HTTP server.

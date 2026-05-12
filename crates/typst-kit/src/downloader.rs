@@ -176,6 +176,9 @@ impl Downloader for SystemDownloader {
         builder = builder.tls_connector(Arc::new(connector));
 
         let response = builder.build().get(url).call().map_err(|err| match err {
+            ureq::Error::Status(400, _) => {
+                io::Error::new(io::ErrorKind::InvalidInput, err)
+            }
             ureq::Error::Status(404, _) => io::Error::new(io::ErrorKind::NotFound, err),
             err => io::Error::other(err),
         })?;
