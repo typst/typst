@@ -231,6 +231,13 @@ fn test_tracepoints() {
         .must_contain("*Slightly unusual…*");
 }
 
+#[test]
+fn test_target_available() {
+    let project = tempfs();
+    let main = project.write("main.typ", "#context target()");
+    exec().arg("compile").arg(&main).must_succeed();
+}
+
 /// Executes a command with the Typst CLI.
 fn exec() -> Command {
     Command::new(env!("CARGO_BIN_EXE_typst"))

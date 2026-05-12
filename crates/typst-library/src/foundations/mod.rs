@@ -86,10 +86,9 @@ use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::introspection::EmptyIntrospector;
 use crate::routines::SpanMode;
-use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
+pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.start_category(crate::Category::Foundations);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -117,9 +116,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_func::<assert>();
     global.define_func::<eval>();
     global.define_func::<plugin>();
-    if features.is_enabled(Feature::Html) || features.is_enabled(Feature::Bundle) {
-        global.define_func::<target>();
-    }
+    global.define_func::<target>();
     global.define("calc", calc::module());
     global.define("sys", sys::module(inputs));
     global.reset_category();
