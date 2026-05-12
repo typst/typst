@@ -565,7 +565,7 @@ pub fn ln(
 /// ```example
 /// #calc.erf(0.2)
 /// ```
-#[func(title = "Error function")]
+#[func(title = "Error Function")]
 pub fn erf(
     /// The number at which to calculate the error function.
     value: f64,
