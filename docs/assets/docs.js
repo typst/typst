@@ -724,7 +724,13 @@ async function setUpGlobalSearch() {
     const items = matches.map((hit) => {
       const item = index.items[hit];
       let url = item.route;
-      if (item.kind == "Symbols") {
+      if (
+        item.kind == "Symbols" &&
+        !"symbols".startsWith(query.toLowerCase()) &&
+        !"emojis".startsWith(query.toLowerCase())
+      ) {
+        // Prefill the symbol list search box unless the user searched for
+        // something like "symbols", "sym", or "emoji".
         url += "?query=" + query;
       }
       const li = document.createElement("li");
