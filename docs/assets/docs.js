@@ -467,7 +467,9 @@ function setUpSymbolFlyout(symbolGrid) {
     ".info .sym-deprecation .text",
   );
   /** @type {HTMLElement | null} */
-  const foName = flyout.querySelector(".sym-name code");
+  const foName = flyout.querySelector(".info .sym-name");
+  /** @type {HTMLElement | null} */
+  const foNameCode = flyout.querySelector(".info .sym-name code");
   /** @type {HTMLElement | null} */
   const foUnicName = flyout.querySelector(".info .unic-name");
   /** @type {HTMLElement | null} */
@@ -533,8 +535,8 @@ function setUpSymbolFlyout(symbolGrid) {
     item.ariaHasPopup = "true";
     flyoutOpenId = item.id;
     flyout.style.display = "block";
-    const name = item.id.replace(/^symbol-/, "");
     const deprecation = item.dataset.deprecation;
+    const codexName = item.dataset.codexName;
     const unicName = item.dataset.unicName;
     const latexName = item.dataset.latexName;
     const codepoint = item.dataset.value?.charCodeAt(0) ?? 0;
@@ -563,7 +565,12 @@ function setUpSymbolFlyout(symbolGrid) {
       foDeprecationText.textContent = deprecation.replaceAll("`", "");
     }
 
-    foName.textContent = name;
+    if (codexName) {
+      foName.style.display = "block";
+      foNameCode.textContent = codexName;
+    } else {
+      foName.style.display = "none";
+    }
     foUnicName.textContent = unicName ?? "";
     foCodepoint.textContent = codepointText;
     foAccent.style.display = accent ? null : "none";
@@ -585,7 +592,7 @@ function setUpSymbolFlyout(symbolGrid) {
       foMathClass.style.display = "none";
     }
 
-    const nameListener = () => copyText(name);
+    const nameListener = () => copyText(codexName);
     foCopySymNameBtn.addEventListener("click", nameListener);
     listeners.push({ target: foCopySymNameBtn, listener: nameListener });
 
@@ -988,7 +995,7 @@ function searchSymbols(symbols, query) {
   for (const element of symbols) {
     let hit = false;
     for (const s of [
-      element.id.replace(/^symbol-/, ""),
+      element.dataset.codexName,
       element.dataset.unicName,
       element.dataset.latexName,
       element.dataset.value,
