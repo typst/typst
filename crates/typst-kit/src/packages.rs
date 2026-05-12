@@ -275,7 +275,7 @@ impl FsPackages {
     }
 }
 
-/// A temporary directory that is a automatically cleaned up.
+/// A temporary directory that is automatically cleaned up.
 #[cfg(feature = "universe-packages")]
 struct Tempdir(PathBuf);
 
@@ -308,7 +308,7 @@ impl AsRef<Path> for Tempdir {
 /// with the official Typst Universe package registry.
 #[cfg(feature = "universe-packages")]
 pub struct UniversePackages {
-    /// The url of the registry.
+    /// The URL of the registry.
     url: String,
     /// A downloader with which we can download from the registry.
     downloader: Box<dyn Downloader>,
