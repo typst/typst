@@ -344,6 +344,9 @@ pub fn atan(
 
 /// Calculates the four-quadrant arctangent of a coordinate.
 ///
+/// The four-quadrant arctangent of $(x, y)$ is defined as the argument of the
+/// complex number $x + i y$.
+///
 /// Note that contrary to the usual convention, this function accepts $(x, y)$
 /// instead of $(y, x)$.
 ///
@@ -363,6 +366,11 @@ pub fn atan2(
 
 /// Calculates the hyperbolic sine of a hyperbolic angle.
 ///
+/// The hyperbolic sine of $x$ is defined as follows:
+/// $
+///   (e^x - e^(-x)) / 2
+/// $
+///
 /// ```example
 /// #calc.sinh(0) \
 /// #calc.sinh(1.5)
@@ -376,6 +384,11 @@ pub fn sinh(
 }
 
 /// Calculates the hyperbolic cosine of a hyperbolic angle.
+///
+/// The hyperbolic cosine of $x$ is defined as follows:
+/// $
+///   (e^x + e^(-x)) / 2
+/// $
 ///
 /// ```example
 /// #calc.cosh(0) \
@@ -391,6 +404,11 @@ pub fn cosh(
 
 /// Calculates the hyperbolic tangent of a hyperbolic angle.
 ///
+/// The hyperbolic tangent of $x$ is defined as follows:
+/// $
+///   (e^x - e^(-x)) / (e^x + e^(-x))
+/// $
+///
 /// ```example
 /// #calc.tanh(0) \
 /// #calc.tanh(1.5)
@@ -405,6 +423,11 @@ pub fn tanh(
 
 /// Calculates the inverse hyperbolic sine of a number.
 ///
+/// The inverse hyperbolic sine of $x$ is defined as follows:
+/// $
+///   ln(x + sqrt(x^2 + 1))
+/// $
+///
 /// ```example
 /// #calc.asinh(0) \
 /// #calc.asinh(1)
@@ -418,6 +441,11 @@ pub fn asinh(
 }
 
 /// Calculates the inverse hyperbolic cosine of a number.
+///
+/// The inverse hyperbolic cosine of $x$ is defined as follows:
+/// $
+///   ln(x + sqrt(x^2 - 1))
+/// $
 ///
 /// ```example
 /// #calc.acosh(1) \
@@ -437,6 +465,11 @@ pub fn acosh(
 }
 
 /// Calculates the inverse hyperbolic tangent of a number.
+///
+/// The inverse hyperbolic tangent of $x$ is defined as follows:
+/// $
+///   1/2 ln((1 + x) / (1 - x))
+/// $
 ///
 /// ```example
 /// #calc.atanh(0) \
@@ -524,12 +557,17 @@ pub fn ln(
 
 /// Applies the error function to a number.
 ///
+/// The value of the error function at $x$ is defined as follows:
+/// $
+///   2 / sqrt(pi) integral_0^x e^(-t^2) dif t
+/// $
+///
 /// ```example
 /// #calc.erf(0.2)
 /// ```
 #[func(title = "Error function")]
 pub fn erf(
-    /// The number whose error function to calculate.
+    /// The number at which to calculate the error function.
     value: f64,
 ) -> f64 {
     libm::erf(value)
@@ -550,18 +588,23 @@ pub fn fact(
 
 /// Calculates a permutation.
 ///
-/// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
-/// items from a set of `n` with regard to order.
+/// Returns the $k$-permutation of $n$, or the number of ways to choose $k$
+/// items from a set of $n$ with regard to order, defined as follows:
+/// $
+///   cases(
+///     0 quad &"if" k > n,
+///     (n!) / ((n - k)!) quad &"if" k <= n,
+///   )
+/// $
 ///
 /// ```example
-/// $ "perm"(n, k) &= n!/((n - k)!) \
-///   "perm"(5, 3) &= #calc.perm(5, 3) $
+/// #calc.perm(5, 3)
 /// ```
 #[func(title = "Permutation")]
 pub fn perm(
-    /// The base number. Must be non-negative.
+    /// The value of $n$. Must be non-negative.
     base: u64,
-    /// The number of permutations. Must be non-negative.
+    /// The value of $k$. Must be non-negative.
     numbers: u64,
 ) -> StrResult<i64> {
     // By convention.
@@ -591,17 +634,23 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 
 /// Calculates a binomial coefficient.
 ///
-/// Returns the `k`-combination of `n`, or the number of ways to choose `k`
-/// items from a set of `n` without regard to order.
+/// Returns the $k$-combination of $n$, or the number of ways to choose $k$
+/// items from a set of $n$ without regard to order, defined as follows:
+/// $
+///   cases(
+///     (n!) / (k! (n - k)!) quad &"if" 0 <= k <= n,
+///     0 quad &"otherwise",
+///   )
+/// $
 ///
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
 #[func(title = "Binomial")]
 pub fn binom(
-    /// The upper coefficient. Must be non-negative.
+    /// The value of $n$. Must be non-negative.
     n: u64,
-    /// The lower coefficient. Must be non-negative.
+    /// The value of $k$. Must be non-negative.
     k: u64,
 ) -> StrResult<i64> {
     Ok(binom_impl(n, k).ok_or_else(too_large)?)
@@ -1135,6 +1184,15 @@ pub fn quo(
 
 /// Calculates the $p$-norm of a sequence of values.
 ///
+/// The $p$-norm of $x_1, ..., x_n$ is defined as follows:
+/// $
+///   cases(
+///     (sum_(i=1)^n abs(x_i)^p)^frac(style: "horizontal", 1, p)
+///       quad &"if" 0 < p < +oo,
+///     max_(i=1)^n abs(x_i) quad &"if" p = +oo,
+///   )
+/// $
+///
 /// ```example
 /// #calc.norm(1, 2, -3, 0.5) \
 /// #calc.norm(p: 3, 1, 2)
@@ -1142,6 +1200,11 @@ pub fn quo(
 #[func(title = "𝑝-Norm")]
 pub fn norm(
     /// The value of $p$. Must be greater than zero.
+    ///
+    /// The default value of `{2.0}` corresponds to the Euclidean norm:
+    /// $
+    ///   sqrt(sum_(i=1)^n x_i^2)
+    /// $
     #[named]
     #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
