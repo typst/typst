@@ -30,3 +30,7 @@
     cbor.encode(repr(value)),
   )
 }
+
+--- cbor-load-error eval ---
+// Error: 7-30 failed to parse CBOR (Io(Error { kind: UnexpectedEof, message: "failed to fill whole buffer" }))
+#cbor("/assets/data/bad.cbor")
