@@ -4,7 +4,7 @@ use typst_syntax::Spanned;
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Str, Value, func, scope};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a YAML file.
 ///
@@ -106,20 +106,6 @@ pub fn yaml(
 
 #[scope]
 impl yaml {
-    /// Reads structured data from a YAML string/bytes.
-    #[func(title = "Decode YAML")]
-    #[deprecated(
-        message = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// YAML data.
-        data: Spanned<Readable>,
-    ) -> SourceResult<Value> {
-        yaml(engine, data.map(Readable::into_source))
-    }
-
     /// Encode structured data into a YAML string.
     #[func(title = "Encode YAML")]
     pub fn encode(
