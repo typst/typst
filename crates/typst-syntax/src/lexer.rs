@@ -183,71 +183,8 @@ impl Lexer<'_> {
     }
 }
 
-/// Markup.
+/// Raw.
 impl Lexer<'_> {
-    fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
-        match c {
-            '\\' => self.backslash(),
-            'h' if self.s.eat_if("ttp://") => self.link(),
-            'h' if self.s.eat_if("ttps://") => self.link(),
-            '<' if self.s.at(is_id_continue) => self.label(),
-            '@' if self.s.at(is_id_continue) => self.ref_marker(),
-
-            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
-            '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
-            '-' if self.s.eat_if('-') => SyntaxKind::Shorthand,
-            '-' if self.s.eat_if('?') => SyntaxKind::Shorthand,
-            '-' if self.s.at(char::is_numeric) => SyntaxKind::Shorthand,
-            '*' if !self.in_word() => SyntaxKind::Star,
-            '_' if !self.in_word() => SyntaxKind::Underscore,
-
-            '#' => SyntaxKind::Hash,
-            '[' => SyntaxKind::LeftBracket,
-            ']' => SyntaxKind::RightBracket,
-            '\'' => SyntaxKind::SmartQuote,
-            '"' => SyntaxKind::SmartQuote,
-            '$' => SyntaxKind::Dollar,
-            '~' => SyntaxKind::Shorthand,
-            ':' => SyntaxKind::Colon,
-            '=' => {
-                self.s.eat_while('=');
-                if self.space_or_end() { SyntaxKind::HeadingMarker } else { self.text() }
-            }
-            '-' if self.space_or_end() => SyntaxKind::ListMarker,
-            '+' if self.space_or_end() => SyntaxKind::EnumMarker,
-            '/' if self.space_or_end() => SyntaxKind::TermMarker,
-            '0'..='9' => self.numbering(start),
-
-            _ => self.text(),
-        }
-    }
-
-    fn backslash(&mut self) -> SyntaxKind {
-        if self.s.eat_if("u{") {
-            let hex = self.s.eat_while(char::is_ascii_alphanumeric);
-            if !self.s.eat_if('}') {
-                return self.error("unclosed Unicode escape sequence");
-            }
-
-            if u32::from_str_radix(hex, 16)
-                .ok()
-                .and_then(std::char::from_u32)
-                .is_none()
-            {
-                return self.error(eco_format!("invalid Unicode codepoint: {hex}"));
-            }
-
-            return SyntaxKind::Escape;
-        }
-
-        if self.s.done() || self.s.at(char::is_whitespace) {
-            SyntaxKind::Linebreak
-        } else {
-            self.s.eat();
-            SyntaxKind::Escape
-        }
-    }
-
     /// We parse entire raw segments in the lexer as a convenience to avoid
     /// going to and from the parser for each raw section. See comments in
     /// [`Self::blocky_raw`] and [`Self::inline_raw`] for specific details.
@@ -450,6 +387,72 @@ impl Lexer<'_> {
             self.s.eat();
         }
         push_raw(SyntaxKind::Text, &self.s);
+    }
+}
+
+/// Markup.
+impl Lexer<'_> {
+    fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
+        match c {
+            '\\' => self.backslash(),
+            'h' if self.s.eat_if("ttp://") => self.link(),
+            'h' if self.s.eat_if("ttps://") => self.link(),
+            '<' if self.s.at(is_id_continue) => self.label(),
+            '@' if self.s.at(is_id_continue) => self.ref_marker(),
+
+            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('-') => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('?') => SyntaxKind::Shorthand,
+            '-' if self.s.at(char::is_numeric) => SyntaxKind::Shorthand,
+            '*' if !self.in_word() => SyntaxKind::Star,
+            '_' if !self.in_word() => SyntaxKind::Underscore,
+
+            '#' => SyntaxKind::Hash,
+            '[' => SyntaxKind::LeftBracket,
+            ']' => SyntaxKind::RightBracket,
+            '\'' => SyntaxKind::SmartQuote,
+            '"' => SyntaxKind::SmartQuote,
+            '$' => SyntaxKind::Dollar,
+            '~' => SyntaxKind::Shorthand,
+            ':' => SyntaxKind::Colon,
+            '=' => {
+                self.s.eat_while('=');
+                if self.space_or_end() { SyntaxKind::HeadingMarker } else { self.text() }
+            }
+            '-' if self.space_or_end() => SyntaxKind::ListMarker,
+            '+' if self.space_or_end() => SyntaxKind::EnumMarker,
+            '/' if self.space_or_end() => SyntaxKind::TermMarker,
+            '0'..='9' => self.numbering(start),
+
+            _ => self.text(),
+        }
+    }
+
+    fn backslash(&mut self) -> SyntaxKind {
+        if self.s.eat_if("u{") {
+            let hex = self.s.eat_while(char::is_ascii_alphanumeric);
+            if !self.s.eat_if('}') {
+                return self.error("unclosed Unicode escape sequence");
+            }
+
+            if u32::from_str_radix(hex, 16)
+                .ok()
+                .and_then(std::char::from_u32)
+                .is_none()
+            {
+                return self.error(eco_format!("invalid Unicode codepoint: {hex}"));
+            }
+
+            return SyntaxKind::Escape;
+        }
+
+        if self.s.done() || self.s.at(char::is_whitespace) {
+            SyntaxKind::Linebreak
+        } else {
+            self.s.eat();
+            SyntaxKind::Escape
+        }
     }
 
     fn link(&mut self) -> SyntaxKind {
