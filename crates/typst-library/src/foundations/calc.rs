@@ -155,7 +155,7 @@ pub fn pow(
     }
 }
 
-/// Raises a value to some exponent of e.
+/// Raises a value to some exponent of $e$.
 ///
 /// ```example
 /// #calc.exp(1)
@@ -201,9 +201,9 @@ pub fn sqrt(
     Ok(value.v.float().sqrt())
 }
 
-/// Calculates the real nth root of a number.
+/// Calculates the real $n$#super[th] root of a number.
 ///
-/// If the number is negative, then n must be odd.
+/// If the number is negative, then $n$ must be odd.
 ///
 /// ```example
 /// #calc.root(16.0, 4) \
@@ -213,7 +213,7 @@ pub fn sqrt(
 pub fn root(
     /// The expression to take the root of.
     radicand: f64,
-    /// Which root of the radicand to take.
+    /// The value of $n$.
     index: Spanned<i64>,
 ) -> SourceResult<f64> {
     if index.v == 0 {
@@ -300,7 +300,7 @@ pub fn tan(
 /// ```
 #[func(title = "Arcsine")]
 pub fn asin(
-    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    /// The number whose arcsine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -318,7 +318,7 @@ pub fn asin(
 /// ```
 #[func(title = "Arccosine")]
 pub fn acos(
-    /// The number whose arccosine to calculate. Must be between -1 and 1.
+    /// The number whose arccosine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -344,7 +344,8 @@ pub fn atan(
 
 /// Calculates the four-quadrant arctangent of a coordinate.
 ///
-/// The arguments are `(x, y)`, not `(y, x)`.
+/// Note that contrary to the usual convention, this function accepts $(x, y)$
+/// instead of $(y, x)$.
 ///
 /// ```example
 /// #calc.atan2(1, 1) \
@@ -352,9 +353,9 @@ pub fn atan(
 /// ```
 #[func(title = "Four-quadrant Arctangent")]
 pub fn atan2(
-    /// The X coordinate.
+    /// The $x$ coordinate.
     x: Num,
-    /// The Y coordinate.
+    /// The $y$ coordinate.
     y: Num,
 ) -> Angle {
     Angle::atan2(y.float(), x.float())
@@ -425,7 +426,7 @@ pub fn asinh(
 #[func(title = "Inverse Hyperbolic Cosine")]
 pub fn acosh(
     /// The number whose inverse hyperbolic cosine to calculate. Must be greater
-    /// than or equal to 1.
+    /// than or equal to $1$.
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
@@ -444,7 +445,7 @@ pub fn acosh(
 #[func(title = "Inverse Hyperbolic Tangent")]
 pub fn atanh(
     /// The number whose inverse hyperbolic tangent to calculate. Must be
-    /// between -1 and 1 (exclusive).
+    /// between $-1$ and $1$ (exclusive).
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
@@ -1132,7 +1133,7 @@ pub fn quo(
     floor(divided).at(span)
 }
 
-/// Calculates the p-norm of a sequence of values.
+/// Calculates the $p$-norm of a sequence of values.
 ///
 /// ```example
 /// #calc.norm(1, 2, -3, 0.5) \
@@ -1140,11 +1141,11 @@ pub fn quo(
 /// ```
 #[func(title = "𝑝-Norm")]
 pub fn norm(
-    /// The p value to calculate the p-norm of.
+    /// The value of $p$. Must be greater than zero.
     #[named]
     #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
-    /// The sequence of values from which to calculate the p-norm. Returns `0.0`
+    /// The sequence of values to calculate the $p$-norm of. Returns `{0.0}`
     /// if empty.
     #[variadic]
     values: Vec<f64>,
