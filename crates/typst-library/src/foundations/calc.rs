@@ -603,9 +603,10 @@ pub fn fact(
 /// ```
 #[func(title = "Permutation")]
 pub fn perm(
-    /// The value of $n$. Must be non-negative.
+    /// The value of $n$: The number of items to choose from. Must be
+    /// non-negative.
     base: u64,
-    /// The value of $k$. Must be non-negative.
+    /// The value of $k$: The number of items to choose. Must be non-negative.
     numbers: u64,
 ) -> StrResult<i64> {
     // By convention.
@@ -649,9 +650,10 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 /// ```
 #[func(title = "Binomial")]
 pub fn binom(
-    /// The value of $n$. Must be non-negative.
+    /// The value of $n$: The numbers of items to choose from. Must be
+    /// non-negative.
     n: u64,
-    /// The value of $k$. Must be non-negative.
+    /// The value of $k$: The number of items to choose. Must be non-negative.
     k: u64,
 ) -> StrResult<i64> {
     Ok(binom_impl(n, k).ok_or_else(too_large)?)
