@@ -349,8 +349,7 @@ pub fn atan(
 ///
 /// Returns an @angle between `{-180deg}` and `{180deg}`.
 ///
-/// Note that contrary to the usual convention, this function accepts $(x, y)$
-/// instead of $(y, x)$.
+/// Note that this function accepts $(x, y)$, not $(y, x)$.
 ///
 /// ```example
 /// #calc.atan2(1, 1) \
