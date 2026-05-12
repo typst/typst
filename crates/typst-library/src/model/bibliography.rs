@@ -20,7 +20,7 @@ use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportTextPos,
     SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
@@ -382,8 +382,8 @@ fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
     // TODO: return multiple errors?
     let Some(error) = errors.into_iter().next() else {
         // TODO: can this even happen, should we just unwrap?
-        return LoadError::new(
-            ReportPos::None,
+        return LoadError::text(
+            ReportTextPos::None,
             "failed to parse BibLaTeX",
             "something went wrong",
         );
@@ -394,7 +394,7 @@ fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
         BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
 
-    LoadError::new(range, "failed to parse BibLaTeX", msg)
+    LoadError::text(range, "failed to parse BibLaTeX", msg)
 }
 
 /// A loaded CSL style.
@@ -447,7 +447,7 @@ impl CslStyle {
                 )))
             })
             .map_err(|err| {
-                LoadError::new(ReportPos::None, "failed to load CSL style", err)
+                LoadError::text(ReportTextPos::None, "failed to load CSL style", err)
             })
     }
 
