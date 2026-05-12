@@ -131,19 +131,14 @@
 #let nav-on-this-page(scope) = context {
   let items = ()
 
-  let titles = query(stdx.selector-within(
-    selector.and(title, <summary>),
-    scope,
-  ))
+  let titles = query(selector.and(title, <summary>).within(scope))
   if titles.len() > 0 {
     let dest = titles.first().location()
     items.push((dest: dest, level: 1, body: [Summary]))
   }
 
-  items += query(stdx.selector-within(
-    heading.where(outlined: true),
-    scope,
-  )).map(m => (dest: m.location(), level: m.level, body: m.body))
+  items += query(heading.where(outlined: true).within(scope))
+    .map(m => (dest: m.location(), level: m.level, body: m.body))
 
   if items.len() == 0 { return }
 

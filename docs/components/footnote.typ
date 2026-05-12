@@ -6,7 +6,7 @@
 // Creates a listing of all footnotes that are descendants of the element
 // with the location `scope`.
 #let footnote-container(scope) = context {
-  let notes = query(stdx.selector-within(footnote, scope))
+  let notes = query(selector(footnote).within(scope))
   if notes.len() == 0 { return }
   html.elem("section", attrs: (role: "doc-endnotes"), {
     for note in notes {
