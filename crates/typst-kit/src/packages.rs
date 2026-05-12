@@ -1,5 +1,6 @@
 //! Package loading.
 
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
@@ -30,6 +31,7 @@ use {
 /// With default configuration, this loads packages from the same sources as the
 /// CLI.
 #[cfg(feature = "system-packages")]
+#[derive(Debug)]
 pub struct SystemPackages {
     data: Option<FsPackages>,
     cache: Option<FsPackages>,
@@ -146,6 +148,7 @@ impl SystemPackages {
 /// - Top-level directories denote namespaces
 /// - Second-level directories denote packages
 /// - Third-level directories denote package versions
+#[derive(Debug)]
 pub struct FsPackages(PathBuf);
 
 impl FsPackages {
@@ -277,6 +280,7 @@ impl FsPackages {
 
 /// A temporary directory that is automatically cleaned up.
 #[cfg(feature = "universe-packages")]
+#[derive(Debug)]
 struct Tempdir(PathBuf);
 
 #[cfg(feature = "universe-packages")]
@@ -431,6 +435,15 @@ impl UniversePackages {
                 }
             })
             .map(AsRef::as_ref)
+    }
+}
+
+#[cfg(feature = "universe-packages")]
+impl Debug for UniversePackages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Downloader")
+            .field("url", &self.url)
+            .finish_non_exhaustive()
     }
 }
 
