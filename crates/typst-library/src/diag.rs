@@ -788,9 +788,11 @@ fn load_err_in_text(
     // This also does UTF-8 validation. Only report an error in an external
     // file if it is human readable (valid UTF-8), otherwise fall back to
     // `load_err_in_invalid_text`.
-    let lines = loaded.data.lines();
-    match (loaded.source.v, lines) {
-        (LoadSource::Path(file_id), Ok(lines)) => {
+    let Ok(lines) = loaded.data.lines() else {
+        return load_err_in_invalid_text(loaded, pos, message);
+    };
+    match loaded.source.v {
+        LoadSource::Path(file_id) => {
             if let Some(range) = pos.range(&lines) {
                 let span = Span::from_range(file_id, range);
                 return SourceDiagnostic::error(span, message);
@@ -807,7 +809,7 @@ fn load_err_in_text(
             }
             SourceDiagnostic::error(span, message)
         }
-        (LoadSource::Bytes, Ok(lines)) => {
+        LoadSource::Bytes => {
             if let Some(pair) = pos.line_col(&lines) {
                 message.pop();
                 let (line, col) = pair.numbers();
@@ -815,7 +817,6 @@ fn load_err_in_text(
             }
             SourceDiagnostic::error(loaded.source.span, message)
         }
-        _ => load_err_in_invalid_text(loaded, pos, message),
     }
 }
 
@@ -826,8 +827,8 @@ fn load_err_in_invalid_text(
     mut message: EcoString,
 ) -> SourceDiagnostic {
     let line_col = pos.into().try_line_col(&loaded.data).map(|p| p.numbers());
-    match (loaded.source.v, line_col) {
-        (LoadSource::Path(file), _) => {
+    match loaded.source.v {
+        LoadSource::Path(file) => {
             message.pop();
             match file.root() {
                 VirtualRoot::Project => {
@@ -847,11 +848,12 @@ fn load_err_in_invalid_text(
             }
             message.push(')');
         }
-        (LoadSource::Bytes, Some((line, col))) => {
-            message.pop();
-            write!(&mut message, " at {line}:{col})").ok();
+        LoadSource::Bytes => {
+            if let Some((line, col)) = line_col {
+                message.pop();
+                write!(&mut message, " at {line}:{col})").ok();
+            }
         }
-        (LoadSource::Bytes, None) => (),
     }
     SourceDiagnostic::error(loaded.source.span, message)
 }
