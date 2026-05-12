@@ -347,6 +347,8 @@ pub fn atan(
 /// The four-quadrant arctangent of $(x, y)$ is defined as the argument of the
 /// complex number $x + i y$.
 ///
+/// Returns an @angle between `{-180deg}` and `{180deg}`.
+///
 /// Note that contrary to the usual convention, this function accepts $(x, y)$
 /// instead of $(y, x)$.
 ///
