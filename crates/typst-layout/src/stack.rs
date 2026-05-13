@@ -18,22 +18,78 @@ pub fn layout_stack(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let mut layouter =
-        StackLayouter::new(elem.span(), elem.dir.get(styles), locator, styles, regions);
+    layout_stack_internal::<fn(&mut Engine, StyleChain, Regions) -> SourceResult<Fragment>>(
+        elem.children.iter().map(From::from),
+        elem.span(),
+        elem.spacing.get(styles),
+        elem.dir.get(styles),
+        engine,
+        locator,
+        styles,
+        regions,
+    )
+}
 
+/// Similar to a [`StackChild`], but with an additional variant that allows
+/// specifying a custom layouter for a child. Useful when using stack layout to
+/// create other layouters, such as that of lists.
+pub enum StackLayoutChild<'a, F>
+where
+    F: Fn(&mut Engine, StyleChain, Regions) -> SourceResult<Fragment>,
+{
+    /// A stack child with content or spacing.
+    StackChild(&'a StackChild),
+    /// A child with a custom layouter, producing its own frames.
+    CustomLayouter(F),
+}
+
+impl<'a, F> From<&'a StackChild> for StackLayoutChild<'a, F>
+where
+    F: Fn(&mut Engine, StyleChain, Regions) -> SourceResult<Fragment>,
+{
+    fn from(value: &'a StackChild) -> Self {
+        Self::StackChild(value)
+    }
+}
+
+/// Layout multiple cells like a stack. Requires only the spacing to insert
+/// between blocks, the stack growth direction, its children, as well as
+/// relevant layout information.
+///
+/// In particular, this doesn't require creating a stack element explicitly, as
+/// it requires `Content`, which has restrictions as to which values it can
+/// hold. In particular, elements, even if internal, cannot contain
+/// borrows/lifetime generics, even though they can have custom layout
+/// procedures. Therefore, calling this function allows customizing stack layout
+/// more deeply, such as for lists, which need a custom layout function that
+/// might borrow data from the environment for each list item (a stack child).
+/// Each child receives relevant layout data from the stack as well.
+#[allow(clippy::too_many_arguments)]
+#[typst_macros::time(span = span)]
+pub fn layout_stack_internal<'a, F>(
+    children: impl IntoIterator<Item = StackLayoutChild<'a, F>>,
+    span: Span,
+    spacing: Option<Spacing>,
+    dir: Dir,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment>
+where
+    F: Fn(&mut Engine, StyleChain, Regions) -> SourceResult<Fragment>,
+{
+    let mut layouter = StackLayouter::new(span, dir, locator, styles, regions);
     let axis = layouter.dir.axis();
-
-    // Spacing to insert before the next block.
-    let spacing = elem.spacing.get(styles);
     let mut deferred = None;
 
-    for child in &elem.children {
+    for child in children {
         match child {
-            StackChild::Spacing(kind) => {
+            StackLayoutChild::StackChild(StackChild::Spacing(kind)) => {
                 layouter.layout_spacing(*kind);
                 deferred = None;
             }
-            StackChild::Block(block) => {
+            StackLayoutChild::StackChild(StackChild::Block(block)) => {
                 // Transparently handle `h`.
                 if let (Axis::X, Some(h)) = (axis, block.to_packed::<HElem>()) {
                     layouter.layout_spacing(h.amount);
@@ -53,6 +109,14 @@ pub fn layout_stack(
                 }
 
                 layouter.layout_block(engine, block, styles)?;
+                deferred = spacing;
+            }
+            StackLayoutChild::CustomLayouter(custom_layouter) => {
+                if let Some(kind) = deferred {
+                    layouter.layout_spacing(kind);
+                }
+
+                layouter.layout_custom_layouter(engine, custom_layouter, styles)?;
                 deferred = spacing;
             }
         }
@@ -183,6 +247,33 @@ impl<'a> StackLayouter<'a> {
             self.regions,
         )?;
 
+        self.layout_fragment(align, fragment)
+    }
+
+    /// Layout a child with a custom layouter procedure.
+    fn layout_custom_layouter(
+        &mut self,
+        engine: &mut Engine,
+        layouter: impl Fn(&mut Engine, StyleChain, Regions) -> SourceResult<Fragment>,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        if self.regions.is_full() {
+            self.finish_region()?;
+        }
+
+        let align = styles.get(AlignElem::alignment).resolve(styles);
+
+        let fragment = layouter(engine, styles, self.regions)?;
+
+        self.layout_fragment(align, fragment)
+    }
+
+    /// Store laid out content, coming from either a block or a custom layouter.
+    fn layout_fragment(
+        &mut self,
+        align: Axes<FixedAlignment>,
+        fragment: Fragment,
+    ) -> SourceResult<()> {
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

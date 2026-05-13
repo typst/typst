@@ -2,21 +2,17 @@ use comemo::Track;
 use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{
-    Content, Context, Depth, NativeElement, Packed, Resolve, StyleChain,
-};
+use typst_library::foundations::{Content, Context, Depth, Packed, Resolve, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, BlockElem, Dir, Fragment, Frame, FrameItem, Length, Point, Region,
-    Regions, Size, StackChild, StackElem,
+    Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
-use typst_macros::elem;
 use typst_syntax::Span;
 
-use crate::stack::layout_stack;
+use crate::stack::{StackLayoutChild, layout_stack_internal};
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
@@ -56,16 +52,15 @@ pub fn layout_list(
         }
         let body = body.set(ListElem::depth, Depth(1));
 
-        let item = ItemData::new(
+        let item = ItemData {
             indent,
             body_indent,
-            PdfMarkerTag::ListItemLabel(marker.clone()),
-            PdfMarkerTag::ListItemBody(body),
-            Length::zero(),
-            None,
+            marker: PdfMarkerTag::ListItemLabel(marker.clone()),
+            body: PdfMarkerTag::ListItemBody(body),
             baseline_align,
             is_rtl,
-        );
+        };
+
         items.push(item);
     }
 
@@ -144,16 +139,15 @@ pub fn layout_enum(
 
         let body = body.set(EnumElem::parents, smallvec![number]);
 
-        let item = ItemData::new(
+        let item = ItemData {
             indent,
             body_indent,
-            PdfMarkerTag::ListItemLabel(resolved),
-            PdfMarkerTag::ListItemBody(body),
-            Length::zero(),
-            None,
+            marker: PdfMarkerTag::ListItemLabel(resolved),
+            body: PdfMarkerTag::ListItemBody(body),
             baseline_align,
             is_rtl,
-        );
+        };
+
         items.push(item);
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
@@ -167,10 +161,13 @@ pub fn layout_enum(
 /// This is done in 3 steps:
 ///
 /// 1. Compute marker widths for horizontal marker alignment;
-/// 2. Generate list item layouters, each of which is responsible for vertical
+/// 2. If necessary (when within a `width: auto` block or page), compute body
+/// widths for horizontal body alignment to work;
+/// 3. Generate list item layouters, each of which is responsible for vertical
 /// marker alignment (baseline-aligned or not, depending on user settings);
-/// 3. Pass each list item to the stack layouter, ensuring they expand to the
-/// full available width, allowing for center alignment within the item body.
+/// 4. Pass each list item to the stack layouter, making it possible for them to
+/// expand to the full available width, allowing for center alignment within the
+/// item body.
 #[typst_macros::time(span = span)]
 fn layout_items(
     items: Vec<ItemData>,
@@ -181,133 +178,137 @@ fn layout_items(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let mut locator = locator.split();
+
     // Measure markers, so we can align them horizontally relative to the
     // largest width.
-    let mut locator = locator.split();
-    let mut marker_size = Abs::zero();
+    let mut marker_width = Abs::zero();
+
+    // Store locators used during measuring to ensure the same locators will be
+    // used later when laying out. This is needed to make introspection work
+    // properly.
+    let mut locators = Vec::with_capacity(items.len());
     for item in &items {
+        let marker_locator = locator.next(&item.marker.span());
+        let body_locator = locator.next(&item.body.span());
         let marker = crate::layout_frame(
             engine,
             &item.marker,
-            locator.next(&item.marker.span()),
+            marker_locator.relayout(),
             styles,
             Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
         )?;
 
-        marker_size.set_max(marker.width());
+        locators.push((marker_locator, body_locator));
+        marker_width.set_max(marker.width());
     }
 
-    let mut body_size = None;
+    let mut body_width = None;
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
         // Infinite space or `width: auto` used. Both would prevent the list
         // from expanding to fit, breaking alignment. Therefore, restrict the
         // list size to the size of the largest item, prompting list items to
         // align between themselves instead of relative to the full page width.
-        let mut measured_body_size = Abs::zero();
-        for item in &items {
+        let mut measured_body_width = Abs::zero();
+        for (item, (_, body_locator)) in items.iter().zip(&locators) {
             let body = crate::layout_frame(
                 engine,
                 &item.body,
-                locator.next(&item.body.span()),
+                body_locator.relayout(),
                 styles,
                 Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
             )?;
 
-            measured_body_size.set_max(body.width());
+            measured_body_width.set_max(body.width());
         }
 
-        body_size = Some(Length::from(measured_body_size));
+        body_width = Some(measured_body_width);
     }
 
-    let cells = items
-        .into_iter()
-        .map(|mut elem| {
-            elem.marker_size = Length::from(marker_size);
-            elem.body_size = body_size;
-            StackChild::Block(
-                BlockElem::multi_layouter(Packed::new(elem), layout_item).pack(),
-            )
-        })
-        .collect();
+    let cells =
+        items
+            .iter()
+            .zip(&locators)
+            .map(|(item, (marker_locator, body_locator))| {
+                StackLayoutChild::CustomLayouter(|engine, styles, regions| {
+                    layout_item(
+                        item,
+                        engine,
+                        marker_locator,
+                        body_locator,
+                        marker_width,
+                        body_width,
+                        styles,
+                        regions,
+                    )
+                })
+            });
 
-    let stack = StackElem::new(cells)
-        .with_spacing(Some(gutter.into()))
-        .with_dir(typst_library::layout::Dir::TTB);
-
-    layout_stack(&Packed::new(stack), engine, locator.next(&()), styles, regions)
+    layout_stack_internal(
+        cells,
+        span,
+        Some(gutter.into()),
+        Dir::TTB,
+        engine,
+        // This locator should not be used by cells.
+        locator.next(&()),
+        styles,
+        regions,
+    )
 }
 
 /// Structure with list item information. This should never be placed in practice.
 /// This is only an element (thus imposing restrictions on the accepted field
 /// types) so we can store this data within the `stack` children used to layout
 /// the list.
-#[elem]
 struct ItemData {
     /// List indent from the text start.
-    #[required]
     indent: Length,
     /// Indent between the marker and the body.
-    #[required]
     body_indent: Length,
     /// The item marker.
-    #[required]
     marker: Content,
     /// The item body.
-    #[required]
     body: Content,
-    /// The width to give to the marker. This is the max width of all markers,
-    /// so they may align horizontally properly.
-    #[required]
-    marker_size: Length,
-    /// The available width for the body. This is only available if the region
-    /// has `width: auto` (then, there would be no reference notion of `100%`
-    /// for alignment). This is otherwise `None` if the body should be laid out
-    /// with no size restrictions (instead, it will restrict itself based on the
-    /// non-infinite region width, allowing alignment to work without
-    /// intervention).
-    #[required]
-    body_size: Option<Length>,
     /// Whether baseline alignment should be enabled. When disabled, markers
     /// control their own alignment.
-    #[required]
     baseline_align: bool,
     /// Whether RTL was the chosen text direction.
-    #[required]
     is_rtl: bool,
 }
 
 /// Layout the item.
-#[typst_macros::time(span = item.span())]
+///
+/// Marker and body width should be determined relative to other items, being
+/// equivalent to the largest width, relative to which the marker and body
+/// should horizontally align. Note that body width is `None` when the region
+/// has a fixed width, as then the list will expand to fill it.
+#[allow(clippy::too_many_arguments)]
+#[typst_macros::time(span = item.body.span())]
 fn layout_item(
-    item: &Packed<ItemData>,
+    item: &ItemData,
     engine: &mut Engine,
-    locator: Locator,
+    marker_locator: &Locator,
+    body_locator: &Locator,
+    marker_width: Abs,
+    body_width: Option<Abs>,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    // Should only be absolute (cannot use Abs due to element definition
-    // restrictions).
-    debug_assert!(item.marker_size.em.get() == 0.0);
-    debug_assert!(item.body_size.is_none_or(|s| s.em.get() == 0.0));
-
-    let mut locator = locator.split();
     let indent = item.indent.resolve(styles);
     let body_indent = item.body_indent.resolve(styles);
     let mut marker = crate::layout_frame(
         engine,
         &item.marker,
-        locator.next(&item.marker.span()),
+        marker_locator.relayout(),
         styles,
-        Region::new(
-            Axes::new(item.marker_size.abs, regions.base().y),
-            Axes::new(true, false),
-        ),
+        Region::new(Axes::new(marker_width, regions.base().y), Axes::new(true, false)),
     )?;
     let marker_size = marker.size();
     let mut fragment = {
         let mut regions = regions;
-        if let Some(body_size) = item.body_size {
-            regions.size.x = body_size.abs;
+        if let Some(body_width) = body_width {
+            regions.size.x = body_width;
             regions.expand.x = true;
         } else {
             regions.size.x -= indent + body_indent + marker_size.x;
@@ -315,7 +316,7 @@ fn layout_item(
         crate::layout_fragment(
             engine,
             &item.body,
-            locator.next(&item.body.span()),
+            body_locator.relayout(),
             styles,
             regions,
         )?
@@ -354,12 +355,9 @@ fn layout_item(
         marker = crate::layout_frame(
             engine,
             &item.marker,
-            locator.next(&item.marker.span()),
+            marker_locator.relayout(),
             styles,
-            Region::new(
-                Axes::new(item.marker_size.abs, regions.base().y),
-                Axes::splat(true),
-            ),
+            Region::new(Axes::new(marker_width, regions.base().y), Axes::splat(true)),
         )?;
 
         // No baseline alignment whatsoever.
@@ -381,8 +379,8 @@ fn layout_item(
         // only so much we can do with a finite number of iterations.
         let mut regions = regions;
         regions.size.y += diff;
-        if let Some(body_size) = item.body_size {
-            regions.size.x = body_size.abs;
+        if let Some(body_width) = body_width {
+            regions.size.x = body_width;
             regions.expand.x = true;
         } else {
             regions.size.x -= indent + body_indent + marker_size.x;
@@ -390,7 +388,7 @@ fn layout_item(
         fragment = crate::layout_fragment(
             engine,
             &item.body,
-            locator.next(&item.body.span()),
+            body_locator.relayout(),
             styles,
             regions,
         )?;
