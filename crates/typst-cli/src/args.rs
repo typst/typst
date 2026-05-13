@@ -412,7 +412,7 @@ pub struct WorldArgs {
 
     /// The document's creation date formatted as a UNIX timestamp.
     ///
-    /// For more information, see <https://reproducible-builds.org/specs/source-date-epoch/>.
+    /// For more information, see <https://reproducible-builds.org/docs/source-date-epoch/>.
     #[clap(
         long = "creation-timestamp",
         env = "SOURCE_DATE_EPOCH",

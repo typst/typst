@@ -358,7 +358,7 @@ impl Datetime {
     ///
     /// In the CLI, this can be overridden with the `--creation-timestamp`
     /// argument or by setting the
-    /// #link("https://reproducible-builds.org/specs/source-date-epoch/")[`SOURCE_DATE_EPOCH`]
+    /// #link("https://reproducible-builds.org/docs/source-date-epoch/")[`SOURCE_DATE_EPOCH`]
     /// environment variable. In both cases, the value should be given as a UNIX
     /// timestamp.
     ///
