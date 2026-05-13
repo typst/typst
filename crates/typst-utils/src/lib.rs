@@ -35,7 +35,6 @@ use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
 use unicode_math_class::MathClass;
 
@@ -89,22 +88,6 @@ impl NonZeroExt for NonZeroUsize {
 
 impl NonZeroExt for NonZeroU32 {
     const ONE: Self = Self::new(1).unwrap();
-}
-
-/// Extra methods for [`Arc`].
-pub trait ArcExt<T> {
-    /// Takes the inner value if there is exactly one strong reference and
-    /// clones it otherwise.
-    fn take(self) -> T;
-}
-
-impl<T: Clone> ArcExt<T> for Arc<T> {
-    fn take(self) -> T {
-        match Arc::try_unwrap(self) {
-            Ok(v) => v,
-            Err(rc) => (*rc).clone(),
-        }
-    }
 }
 
 /// Extra methods for [`Option`].
