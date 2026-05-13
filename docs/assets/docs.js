@@ -4,6 +4,7 @@
 const assetBase = "/assets/";
 const closeIconSrc = assetBase + "icons/16-close.svg";
 const checkIconSrc = assetBase + "icons/16-check.svg";
+const copyIconSrc = assetBase + "icons/16-copy.svg";
 const searchIndexSrc = assetBase + "search.json";
 
 const hasTransitionEnd = "ontransitionend" in window;
@@ -29,6 +30,7 @@ function main() {
     setUpOnThisPage();
     setUpTooltips();
     setUpPreviewSplits();
+    setUpPreviewCopy();
     setUpSymbolFlyouts();
     setUpGlobalSearch();
     setUpSymbolSearch();
@@ -419,6 +421,25 @@ function setUpPreviewSplits() {
     if (example.clientWidth < example.scrollWidth) {
       example.classList.add("big");
     }
+  }
+}
+
+/**
+ * Sets up the Copy button on example codes.
+ */
+function setUpPreviewCopy() {
+  for (const pre of document.querySelectorAll(".previewed-code > pre")) {
+    const code = pre.innerText;
+    const button = document.createElement("button");
+    button.classList.add("copy");
+    const img = document.createElement("img");
+    img.src = copyIconSrc;
+    img.alt = "Copy";
+    button.appendChild(img);
+    button.addEventListener("click", () => {
+      copyText(code);
+    });
+    pre.prepend(button);
   }
 }
 

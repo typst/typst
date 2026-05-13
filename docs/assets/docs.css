@@ -301,6 +301,17 @@ sup[role="doc-noteref"] {
 
 /* Code example components */
 
+pre > button.copy {
+  top: -8px;
+  right: -8px;
+  padding: 2px;
+  background: none;
+  border: 0px;
+  position: relative;
+  float: right;
+  cursor: pointer;
+}
+
 .code-definition + h4,
 .previewed-code + h4 {
   margin-block-start: 28px;
