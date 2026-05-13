@@ -557,11 +557,29 @@ impl IntoValue for CslSource {
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: FxHashMap<Location, SourceResult<Content>>,
+    /// The document's rendered bibliography.
+    pub bibliography: SourceResult<RenderedBibliography>,
+}
+
+/// The rendered parts for the bibliography.
+pub struct RenderedBibliography {
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: SourceResult<Vec<(Option<Content>, Content, Location)>>,
+    pub entries: Vec<RenderedEntry>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
+}
+
+/// The rendered parts for a bibliography entry.
+pub struct RenderedEntry {
+    /// An optional prefix. This is exposed separately because this will go into
+    /// its own column for grid-based styles.
+    pub prefix: Option<Content>,
+    /// The main content of the rendered bibliography entry.
+    pub body: Content,
+    /// A location that should be attached to the rendered entry in some way.
+    /// Citations will link there.
+    pub backlink: Location,
 }
 
 impl Works {
@@ -800,10 +818,32 @@ impl<'a> Generator<'a> {
     /// Displays hayagriva's output as content for the citations and references.
     fn display(&mut self, rendered: &hayagriva::Rendered) -> Works {
         let citations = self.display_citations(rendered);
-        let references = self.display_references(rendered).at(self.bibliography.span());
-        let hanging_indent =
-            rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Works { citations, references, hanging_indent }
+        let bibliography = rendered
+            .bibliography
+            .as_ref()
+            .ok_or_else(|| {
+                match self.bibliography.style.get_ref(StyleChain::default()).source {
+                    CslSource::Named(style, _) => eco_format!(
+                        "CSL style \"{}\" is not suitable for bibliographies",
+                        style.display_name()
+                    ),
+                    CslSource::Normal(..) => {
+                        "CSL style is not suitable for bibliographies".into()
+                    }
+                }
+            })
+            .and_then(|rendered| self.display_bibliography(rendered))
+            .at(self.bibliography.span());
+        Works { citations, bibliography }
+    }
+
+    /// Displays hayagriva's bibliography output.
+    fn display_bibliography(
+        &mut self,
+        rendered: &hayagriva::RenderedBibliography,
+    ) -> StrResult<RenderedBibliography> {
+        let entries = self.display_entries(rendered)?;
+        Ok(RenderedBibliography { entries, hanging_indent: rendered.hanging_indent })
     }
 
     /// Display the citation groups.
@@ -857,22 +897,10 @@ impl<'a> Generator<'a> {
 
     /// Display the bibliography references.
     #[allow(clippy::type_complexity)]
-    fn display_references(
+    fn display_entries(
         &self,
-        rendered: &hayagriva::Rendered,
-    ) -> StrResult<Vec<(Option<Content>, Content, Location)>> {
-        let rendered = rendered.bibliography.as_ref().ok_or_else(|| {
-            match self.bibliography.style.get_ref(StyleChain::default()).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            }
-        })?;
-
+        rendered: &hayagriva::RenderedBibliography,
+    ) -> StrResult<Vec<RenderedEntry>> {
         // Determine for each citation key where it first occurred, so that we
         // can link there.
         let mut first_occurrences = FxHashMap::default();
@@ -908,7 +936,7 @@ impl<'a> Generator<'a> {
                 .transpose()?;
 
             // Render the main reference content.
-            let reference = renderer.display_elem_children(
+            let body = renderer.display_elem_children(
                 &item.content,
                 Some(&mut prefix),
                 false,
@@ -924,7 +952,7 @@ impl<'a> Generator<'a> {
                 }
             });
 
-            output.push((prefix, reference, backlink));
+            output.push(RenderedEntry { prefix, body, backlink });
         }
 
         Ok(output)
