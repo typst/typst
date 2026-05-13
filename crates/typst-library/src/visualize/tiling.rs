@@ -19,7 +19,7 @@ use crate::visualize::RelativeTo;
 /// filled or stroked. The pattern is defined by a tile size and a body defining
 /// the content of each cell. You can also add horizontal or vertical spacing
 /// between the cells of the tiling, as well as offset the starting position of
-/// the tiling using the [`offset`]($tiling.offset) parameter.
+/// the tiling using the @tiling.constructor.offset[offset] parameter.
 ///
 /// = Examples <examples>
 /// ```example
