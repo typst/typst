@@ -459,7 +459,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     seq.extend(elem.realize_title(styles));
 
     let works = Works::with_bibliography(engine, elem.clone())?;
-    let bibliography = works.bibliography.as_ref().map_err(Clone::clone)?;
+    let bibliography = works.bibliography()?;
 
     if bibliography.entries.iter().any(|entry| entry.prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);

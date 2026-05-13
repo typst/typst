@@ -1,6 +1,6 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{At, HintedString, SourceResult, error};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
@@ -161,23 +161,8 @@ pub struct CiteGroup {
 
 impl Packed<CiteGroup> {
     pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
-        let location = self.location().unwrap();
+        let loc = self.location().unwrap();
         let span = self.span();
-        Works::generate(engine, span)?
-            .citations
-            .get(&location)
-            .cloned()
-            .ok_or_else(failed_to_format_citation)
-            .at(span)?
+        Works::generate(engine, span)?.citation(loc, span)
     }
-}
-
-/// The error message when a citation wasn't found in the pre-formatted list.
-#[cold]
-fn failed_to_format_citation() -> HintedString {
-    error!(
-        "cannot format citation in isolation";
-        hint: "check whether this citation is measured \
-               without being inserted into the document";
-    )
 }

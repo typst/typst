@@ -503,7 +503,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
     let works = Works::with_bibliography(engine, elem.clone())?;
-    let bibliography = works.bibliography.as_ref().map_err(Clone::clone)?;
+    let bibliography = works.bibliography()?;
 
     let items = bibliography.entries.iter().map(|entry| {
         let mut realized = entry.body.clone();
