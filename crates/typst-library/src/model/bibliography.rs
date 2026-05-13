@@ -559,7 +559,7 @@ pub struct Works {
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content, Location)>>,
+    pub references: SourceResult<Vec<(Option<Content>, Content, Location)>>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -592,29 +592,8 @@ impl Works {
     ) -> StrResult<Arc<Works>> {
         let mut generator = Generator::new(world, bibliography, groups)?;
         let rendered = generator.drive();
-        let works = generator.display(&rendered)?;
+        let works = generator.display(&rendered);
         Ok(Arc::new(works))
-    }
-
-    /// Extracts the generated references, failing with an error if none have
-    /// been generated.
-    pub fn references<'a>(
-        &'a self,
-        elem: &Packed<BibliographyElem>,
-        styles: StyleChain,
-    ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
-        self.references
-            .as_deref()
-            .ok_or_else(|| match elem.style.get_ref(styles).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            })
-            .at(elem.span())
     }
 }
 
@@ -819,19 +798,19 @@ impl<'a> Generator<'a> {
     }
 
     /// Displays hayagriva's output as content for the citations and references.
-    fn display(&mut self, rendered: &hayagriva::Rendered) -> StrResult<Works> {
-        let citations = self.display_citations(rendered)?;
-        let references = self.display_references(rendered)?;
+    fn display(&mut self, rendered: &hayagriva::Rendered) -> Works {
+        let citations = self.display_citations(rendered);
+        let references = self.display_references(rendered).at(self.bibliography.span());
         let hanging_indent =
             rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Ok(Works { citations, references, hanging_indent })
+        Works { citations, references, hanging_indent }
     }
 
     /// Display the citation groups.
     fn display_citations(
         &mut self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
+    ) -> FxHashMap<Location, SourceResult<Content>> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
         let mut links = FxHashMap::default();
@@ -856,23 +835,24 @@ impl<'a> Generator<'a> {
                 link: &link,
             };
 
-            let content = if info.subinfos.iter().all(|sub| sub.hidden) {
-                Content::empty()
+            let result = if info.subinfos.iter().all(|sub| sub.hidden) {
+                Ok(Content::empty())
             } else {
-                let mut content =
-                    renderer.display_elem_children(&citation.citation, None, true)?;
+                let mut result = renderer
+                    .display_elem_children(&citation.citation, None, true)
+                    .at(info.span);
 
                 if info.footnote {
-                    content = FootnoteElem::with_content(content).pack();
+                    result = result.map(|c| FootnoteElem::with_content(c).pack());
                 }
 
-                content
+                result
             };
 
-            output.insert(info.location, Ok(content));
+            output.insert(info.location, result);
         }
 
-        Ok(output)
+        output
     }
 
     /// Display the bibliography references.
@@ -880,8 +860,18 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
-        let Some(rendered) = &rendered.bibliography else { return Ok(None) };
+    ) -> StrResult<Vec<(Option<Content>, Content, Location)>> {
+        let rendered = rendered.bibliography.as_ref().ok_or_else(|| {
+            match self.bibliography.style.get_ref(StyleChain::default()).source {
+                CslSource::Named(style, _) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            }
+        })?;
 
         // Determine for each citation key where it first occurred, so that we
         // can link there.
@@ -937,7 +927,7 @@ impl<'a> Generator<'a> {
             output.push((prefix, reference, backlink));
         }
 
-        Ok(Some(output))
+        Ok(output)
     }
 }
 
