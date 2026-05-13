@@ -27,7 +27,7 @@ use crate::foundations::{
 ///
 /// You can convert a value to an integer with this type's constructor.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #(1 + 2) \
 /// #(2 - 5) \
@@ -43,11 +43,12 @@ type i64;
 #[scope(ext)]
 impl i64 {
     /// Converts a value to an integer. Raises an error if there is an attempt
-    /// to parse an invalid string or produce an integer that doesn't fit
-    /// into a 64-bit signed integer.
+    /// to parse an invalid string or produce an integer that doesn't fit into a
+    /// 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats and decimals are rounded to the next 64-bit integer towards zero.
+    /// - Floats and decimals are rounded to the next 64-bit integer towards
+    ///   zero.
     /// - Strings are parsed in base 10 by default.
     ///
     /// ```example
@@ -208,9 +209,9 @@ impl i64 {
         Ok(self.checked_shl(shift).ok_or("the result is too large")?)
     }
 
-    /// Shifts the operand's bits to the right by the specified amount.
-    /// Performs an arithmetic shift by default (extends the sign bit to the left,
-    /// such that negative numbers stay negative), but that can be changed by the
+    /// Shifts the operand's bits to the right by the specified amount. Performs
+    /// an arithmetic shift by default (extends the sign bit to the left, such
+    /// that negative numbers stay negative), but that can be changed by the
     /// `logical` parameter.
     ///
     /// For the purposes of this function, the operand is treated as a signed
@@ -234,10 +235,10 @@ impl i64 {
         /// times. Therefore, the shift will always succeed.
         shift: u32,
         /// Toggles whether a logical (unsigned) right shift should be performed
-        /// instead of arithmetic right shift.
-        /// If this is `{true}`, negative operands will not preserve their sign
-        /// bit, and bits which appear to the left after the shift will be
-        /// `{0}`. This parameter has no effect on non-negative operands.
+        /// instead of arithmetic right shift. If this is `{true}`, negative
+        /// operands will not preserve their sign bit, and bits which appear to
+        /// the left after the shift will be `{0}`. This parameter has no effect
+        /// on non-negative operands.
         #[named]
         #[default(false)]
         logical: bool,

@@ -13,9 +13,9 @@ use crate::text::{Lang, Region, TextElem};
 /// A language-aware quote that reacts to its context.
 ///
 /// Automatically turns into an appropriate opening or closing quote based on
-/// the active [text language]($text.lang).
+/// the active @text.lang[text language].
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// "This is in quotes."
 ///
@@ -26,9 +26,9 @@ use crate::text::{Lang, Region, TextElem};
 /// "C'est entre guillemets."
 /// ```
 ///
-/// # Syntax
-/// This function also has dedicated syntax: The normal quote characters
-/// (`'` and `"`). Typst automatically makes your quotes smart.
+/// = Syntax <syntax>
+/// This function also has dedicated syntax: The normal quote characters (`'`
+/// and `"`). Typst automatically makes your quotes smart.
 #[elem(name = "smartquote", PlainText)]
 pub struct SmartQuoteElem {
     /// Whether this should be a double quote.
@@ -65,14 +65,16 @@ pub struct SmartQuoteElem {
     /// The quotes to use.
     ///
     /// - When set to `{auto}`, the appropriate single quotes for the
-    ///   [text language]($text.lang) will be used. This is the default.
-    /// - Custom quotes can be passed as a string, array, or dictionary of either
-    ///   - [string]($str): a string consisting of two characters containing the
+    ///   @text.lang[text language] will be used. This is the default.
+    /// - Custom quotes can be passed as a string, array, or dictionary of
+    ///   either
+    ///   - @str[string]: a string consisting of two characters containing the
     ///     opening and closing double quotes (characters here refer to Unicode
     ///     grapheme clusters)
-    ///   - [array]: an array containing the opening and closing double quotes
-    ///   - [dictionary]: a dictionary containing the double and single quotes, each
-    ///     specified as either `{auto}`, string, or array
+    ///   - @array[array]: an array containing the opening and closing double
+    ///     quotes
+    ///   - @dictionary[dictionary]: a dictionary containing the double and
+    ///     single quotes, each specified as either `{auto}`, string, or array
     ///
     /// ```example
     /// #set text(lang: "de")

@@ -21,16 +21,16 @@ use crate::visualize::Paint;
 /// Layouts its child onto one or multiple pages.
 ///
 /// Although this function is primarily used in set rules to affect page
-/// properties, it can also be used to explicitly render its argument onto
-/// a set of pages of its own.
+/// properties, it can also be used to explicitly render its argument onto a set
+/// of pages of its own.
 ///
 /// Pages can be set to use `{auto}` as their width or height. In this case, the
 /// pages will grow to fit their content on the respective axis.
 ///
-/// The [Guide for Page Setup]($guides/page-setup) explains how to use
-/// this and related functions to set up a document with many examples.
+/// The @guides:page-setup[Guide for Page Setup] explains how to use this and
+/// related functions to set up a document with many examples.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// >>> #set page(margin: auto)
 /// #set page("us-letter")
@@ -38,17 +38,17 @@ use crate::visualize::Paint;
 /// There you go, US friends!
 /// ```
 ///
-/// # Accessibility
+/// = Accessibility <accessibility>
 /// The contents of the page's header, footer, foreground, and background are
 /// invisible to Assistive Technology (AT) like screen readers. Only the body of
 /// the page is read by AT. Do not include vital information not included
 /// elsewhere in the document in these areas.
 ///
-/// # Styling
-/// Note that the [`page`] element cannot be targeted by show rules; writing
+/// = Styling <styling>
+/// Note that the @page element cannot be targeted by show rules; writing
 /// `{show page: ..}` has no effect. To repeat content on every page, you can
-/// instead configure the [`header`]($page.header), [`footer`]($page.footer),
-/// [`background`]($page.background), and [`foreground`]($page.foreground)
+/// instead configure the @page.header[`header`], @page.footer[`footer`],
+/// @page.background[`background`], and @page.foreground[`foreground`]
 /// properties with a set rule.
 #[elem(Construct)]
 pub struct PageElem {
@@ -84,7 +84,7 @@ pub struct PageElem {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break]($pagebreak) or by adding another non-empty
+    /// by inserting a @pagebreak[page break] or by adding another non-empty
     /// page set rule. Most examples throughout this documentation use `{auto}`
     /// for the height of the page to dynamically grow and shrink to fit their
     /// content.
@@ -120,8 +120,9 @@ pub struct PageElem {
 
     /// The page's margins.
     ///
-    /// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
-    ///   dimension of the page. This results in 2.5 cm margins for an A4 page.
+    /// - `{auto}`: The margins are set automatically to 2.5/21 times the
+    ///   smaller dimension of the page. This results in 2.5 cm margins for an
+    ///   A4 page.
     /// - A single length: The same margin on all sides.
     /// - A dictionary: With a dictionary, the margins can be set individually.
     ///   The dictionary can contain the following keys in order of precedence:
@@ -130,9 +131,9 @@ pub struct PageElem {
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
     ///   - `inside`: The margin at the inner side of the page (where the
-    ///     [binding]($page.binding) is).
+    ///     @page.binding[binding] is).
     ///   - `outside`: The margin at the outer side of the page (opposite to the
-    ///     [binding]($page.binding)).
+    ///     @page.binding[binding]).
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
@@ -162,8 +163,8 @@ pub struct PageElem {
 
     /// On which side the pages will be bound.
     ///
-    /// - `{auto}`: Equivalent to `left` if the [text direction]($text.dir)
-    ///   is left-to-right and `right` if it is right-to-left.
+    /// - `{auto}`: Equivalent to `left` if the @text.dir[text direction] is
+    ///   left-to-right and `right` if it is right-to-left.
     /// - `left`: Bound on the left side.
     /// - `right`: Bound on the right side.
     ///
@@ -175,20 +176,23 @@ pub struct PageElem {
     /// How many columns the page has.
     ///
     /// If you need to insert columns into a page or other container, you can
-    /// also use the [`columns` function]($columns).
+    /// also use the @columns[`columns` function].
     ///
-    /// ```example:single
-    /// #set page(columns: 2, height: 4.8cm)
-    /// Climate change is one of the most
-    /// pressing issues of our time, with
-    /// the potential to devastate
-    /// communities, ecosystems, and
-    /// economies around the world. It's
-    /// clear that we need to take urgent
-    /// action to reduce our carbon
-    /// emissions and mitigate the impacts
-    /// of a rapidly changing climate.
-    /// ```
+    /// #example(
+    ///   single: true,
+    ///   ```
+    ///   #set page(columns: 2, height: 4.8cm)
+    ///   Climate change is one of the most
+    ///   pressing issues of our time, with
+    ///   the potential to devastate
+    ///   communities, ecosystems, and
+    ///   economies around the world. It's
+    ///   clear that we need to take urgent
+    ///   action to reduce our carbon
+    ///   emissions and mitigate the impacts
+    ///   of a rapidly changing climate.
+    ///   ```
+    /// )
     #[default(NonZeroUsize::ONE)]
     #[ghost]
     pub columns: NonZeroUsize,
@@ -217,24 +221,24 @@ pub struct PageElem {
     pub fill: Smart<Option<Paint>>,
 
     /// How to number the pages. You can refer to the Page Setup Guide for
-    /// [customizing page numbers]($guides/page-setup/#page-numbers).
+    /// @guides:page-setup:page-numbers[customizing page numbers].
     ///
-    /// Accepts a [numbering pattern or function]($numbering) taking one or two
+    /// Accepts a @numbering[numbering pattern or function] taking one or two
     /// numbers:
-    /// 1. The first number is the current page number.
-    /// 2. The second number is the total number of pages. In a numbering
-    ///    pattern, the second number can be omitted. If a function is passed,
-    ///    it will receive one argument in the context of links or references,
-    ///    and two arguments when producing the visible page numbers.
+    /// + The first number is the current page number.
+    /// + The second number is the total number of pages. In a numbering
+    ///   pattern, the second number can be omitted. If a function is passed, it
+    ///   will receive one argument in the context of links or references, and
+    ///   two arguments when producing the visible page numbers.
     ///
     /// These are logical numbers controlled by the page counter, and may thus
     /// not match the physical numbers. Specifically, they are the
-    /// [current]($counter.get) and the [final]($counter.final) value of
-    /// `{counter(page)}`. See the [`counter`]($counter/#page-counter)
+    /// @counter.get[current] and the @counter.final[final] value of
+    /// `{counter(page)}`. See the @counter:page-counter[`counter`]
     /// documentation for more details.
     ///
-    /// If an explicit [`footer`]($page.footer) (or [`header`]($page.header) for
-    /// [top-aligned]($page.number-align) numbering) is given, the numbering is
+    /// If an explicit @page.footer[`footer`] (or @page.header[`header`] for
+    /// @page.number-align[top-aligned] numbering) is given, the numbering is
     /// ignored.
     ///
     /// ```example
@@ -285,8 +289,8 @@ pub struct PageElem {
     /// The page's header. Fills the top margin of each page.
     ///
     /// - Content: Shows the content as the header.
-    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
-    ///   set and [`number-align`]($page.number-align) is `top`.
+    /// - `{auto}`: Shows the page number if a @page.numbering[`numbering`] is
+    ///   set and @page.number-align[`number-align`] is `top`.
     /// - `{none}`: Suppresses the header.
     ///
     /// ```example
@@ -314,13 +318,13 @@ pub struct PageElem {
     /// The page's footer. Fills the bottom margin of each page.
     ///
     /// - Content: Shows the content as the footer.
-    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
-    ///   set and [`number-align`]($page.number-align) is `bottom`.
+    /// - `{auto}`: Shows the page number if a @page.numbering[`numbering`] is
+    ///   set and @page.number-align[`number-align`] is `bottom`.
     /// - `{none}`: Suppresses the footer.
     ///
     /// For just a page number, the `numbering` property typically suffices. If
     /// you want to create a custom footer but still display the page number,
-    /// you can directly access the [page counter]($counter).
+    /// you can directly access the @counter[page counter].
     ///
     /// ```example
     /// #set par(justify: true)
@@ -390,8 +394,8 @@ pub struct PageElem {
 
     /// Content in the page's background.
     ///
-    /// This content will be placed behind the page's body. It can be
-    /// used to place a background image or a watermark.
+    /// This content will be placed behind the page's body. It can be used to
+    /// place a background image or a watermark.
     ///
     /// ```example
     /// #set page(background: rotate(24deg,
@@ -424,8 +428,8 @@ pub struct PageElem {
     /// The contents of the page(s).
     ///
     /// Multiple pages will be created if the content does not fit on a single
-    /// page. A new page with the page properties prior to the function invocation
-    /// will be created after the body has been typeset.
+    /// page. A new page with the page properties prior to the function
+    /// invocation will be created after the body has been typeset.
     #[external]
     #[required]
     pub body: Content,
@@ -461,7 +465,7 @@ impl LocalName for PageElem {
 ///
 /// Must not be used inside any containers.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// The next page contains
 /// more details on compound theory.
@@ -472,13 +476,13 @@ impl LocalName for PageElem {
 /// ```
 ///
 /// Even without manual page breaks, content will be automatically paginated
-/// based on the configured page size. You can set [the page height]($page.height)
+/// based on the configured page size. You can set @page.height[the page height]
 /// to `{auto}` to let the page grow dynamically until a manual page break
 /// occurs.
 ///
 /// Pagination tries to avoid single lines of text at the top or bottom of a
 /// page (these are called _widows_ and _orphans_). You can adjust the
-/// [`text.costs`] parameter to disable this behavior.
+/// @text.costs parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
@@ -776,7 +780,11 @@ macro_rules! papers {
             Paper,
             self => self.name.into_value(),
             $(
-                /// Produces a paper of the respective size.
+                /// A paper that is
+                #[doc = stringify!($width)]
+                /// ×
+                #[doc = stringify!($height)]
+                /// millimeters in size.
                 $name => Self::$var,
             )*
         }

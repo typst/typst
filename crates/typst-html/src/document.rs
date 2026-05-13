@@ -1,19 +1,21 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
-use typst_library::World;
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
 };
+use typst_library::math::EquationElem;
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
-use typst_library::routines::{Arenas, RealizationKind, Routines};
+use typst_library::routines::{Arenas, RealizationKind};
+use typst_library::{Library, World};
 use typst_syntax::Span;
-use typst_utils::Protected;
+use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
+use crate::mathml::EQUATION_CSS_STYLES;
+use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -26,8 +28,8 @@ pub fn html_document(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     html_document_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -41,8 +43,8 @@ pub fn html_document(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn html_document_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -51,8 +53,8 @@ fn html_document_impl(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     let mut document = html_document_common(
-        routines,
         world,
+        library,
         introspector,
         traced,
         sink,
@@ -80,8 +82,8 @@ pub fn html_document_for_bundle(
     styles: StyleChain,
 ) -> SourceResult<HtmlDocument> {
     html_document_for_bundle_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -96,8 +98,8 @@ pub fn html_document_for_bundle(
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn html_document_for_bundle_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -108,8 +110,8 @@ fn html_document_for_bundle_impl(
 ) -> SourceResult<HtmlDocument> {
     let link = LocatorLink::new(locator);
     html_document_common(
-        routines,
         world,
+        library,
         introspector,
         traced,
         sink,
@@ -124,8 +126,8 @@ fn html_document_for_bundle_impl(
 /// `html_document_for_bundle`.
 #[allow(clippy::too_many_arguments)]
 fn html_document_common(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -137,7 +139,7 @@ fn html_document_common(
     let introspector = Protected::from_raw(introspector);
     let mut locator = locator.split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -158,11 +160,8 @@ fn html_document_common(
     info.populate(styles);
     info.populate_locale(styles);
 
-    let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument {
-            info: &mut info,
-            is_phrasing: HtmlElem::is_phrasing,
-        },
+    let children = (engine.library.routines.realize)(
+        RealizationKind::Document { info: &mut info },
         &mut engine,
         &mut locator,
         &arenas,
@@ -178,13 +177,17 @@ fn html_document_common(
         Whitespace::Normal,
     )?;
 
-    let output = finalize_dom(
+    let mut output = finalize_dom(
         &mut engine,
         nodes,
         &info,
         footnote_locator,
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
+
+    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
+    // the styles must be resolved last.
+    css::resolve_inline_styles(output.root_mut());
 
     Ok(HtmlDocument::new(output, info))
 }
@@ -237,6 +240,10 @@ fn finalize_dom(
 ) -> SourceResult<HtmlOutput> {
     let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
+    let has_equations = !engine
+        .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
+        .is_empty();
+
     let mut needs_body = true;
     for (idx, node) in nodes.iter().enumerate() {
         let HtmlNode::Element(elem) = node else { continue };
@@ -276,14 +283,14 @@ fn finalize_dom(
 
     let mut html = HtmlElement::new(tag::html)
         .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
-    let head = head_element(info);
+    let head = head_element(info, has_equations);
     html.children.push(head.into());
     html.children.extend(body);
     Ok(HtmlOutput { nodes: eco_vec![html.into()], root_index: 0 })
 }
 
 /// Generate a `<head>` element.
-fn head_element(info: &DocumentInfo) -> HtmlElement {
+fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
     let mut children = EcoVec::new();
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
@@ -326,6 +333,17 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
             HtmlElement::new(tag::meta)
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
+                .into(),
+        )
+    }
+
+    if has_equations {
+        children.push(
+            HtmlElement::new(tag::style)
+                .with_children(eco_vec![HtmlNode::Text(
+                    EQUATION_CSS_STYLES.clone(),
+                    Span::detached(),
+                )])
                 .into(),
         )
     }

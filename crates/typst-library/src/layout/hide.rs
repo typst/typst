@@ -7,13 +7,13 @@ use crate::introspection::Tagged;
 /// it. This is useful for creating blank space that is exactly as large as some
 /// content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
 ///
-/// # Redaction
+/// = Redaction <redaction>
 /// This function may also be useful for redacting content as its arguments are
 /// neither present visually nor accessible to Assistive Technology. That said,
 /// there can be _some_ traces of the hidden content (such as a bookmarked

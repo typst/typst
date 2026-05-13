@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use std::sync::OnceLock;
 
 use ecow::{EcoString, eco_format};
+use typst_utils::DefSite;
 
 use crate::foundations::{
     Container, Content, FieldVtable, Fold, FoldFn, IntoValue, NativeElement, Packed,
@@ -59,6 +60,7 @@ pub trait RequiredField<const I: u8>: NativeElement {
 pub struct RequiredFieldData<E: RequiredField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     get: fn(&E) -> &E::Type,
 }
 
@@ -67,9 +69,10 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         get: fn(&E) -> &E::Type,
     ) -> Self {
-        Self { name, docs, get }
+        Self { name, docs, def_site, get }
     }
 
     /// Creates the vtable for a `#[required]` field.
@@ -81,6 +84,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: true,
             required: true,
             variadic: false,
@@ -107,6 +111,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: true,
             required: true,
             variadic: true,
@@ -136,6 +141,7 @@ pub trait SynthesizedField<const I: u8>: NativeElement {
 pub struct SynthesizedFieldData<E: SynthesizedField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     get: fn(&E) -> &Option<E::Type>,
 }
 
@@ -144,9 +150,10 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         get: fn(&E) -> &Option<E::Type>,
     ) -> Self {
-        Self { name, docs, get }
+        Self { name, docs, def_site, get }
     }
 
     /// Creates type-erased metadata and routines for a `#[synthesized]` field.
@@ -158,6 +165,7 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: false,
             required: false,
             variadic: false,
@@ -189,6 +197,7 @@ pub trait ExternalField<const I: u8>: NativeElement {
 pub struct ExternalFieldData<E: ExternalField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     default: fn() -> E::Type,
 }
 
@@ -197,9 +206,10 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         default: fn() -> E::Type,
     ) -> Self {
-        Self { name, docs, default }
+        Self { name, docs, def_site, default }
     }
 
     /// Creates type-erased metadata and routines for an `#[external]` field.
@@ -211,6 +221,7 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: false,
             required: false,
             variadic: false,
@@ -245,9 +256,11 @@ pub struct SettableFieldData<E: SettableField<I>, const I: u8> {
 
 impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
     /// Creates the data from its parts. This is called in the `#[elem]` macro.
+    #[allow(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         positional: bool,
         get: fn(&E) -> &Settable<E, I>,
         get_mut: fn(&mut E) -> &mut Settable<E, I>,
@@ -257,7 +270,9 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
         Self {
             get,
             get_mut,
-            property: SettablePropertyData::new(name, docs, positional, default, slot),
+            property: SettablePropertyData::new(
+                name, docs, def_site, positional, default, slot,
+            ),
         }
     }
 
@@ -280,6 +295,7 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.property.name,
             docs: E::FIELD.property.docs,
+            def_site: E::FIELD.property.def_site,
             positional: E::FIELD.property.positional,
             required: false,
             variadic: false,
@@ -348,6 +364,7 @@ where
 pub struct SettablePropertyData<E: SettableProperty<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     positional: bool,
     default: fn() -> E::Type,
     slot: fn() -> &'static OnceLock<E::Type>,
@@ -359,11 +376,20 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         positional: bool,
         default: fn() -> E::Type,
         slot: fn() -> &'static OnceLock<E::Type>,
     ) -> Self {
-        Self { name, docs, positional, default, slot, fold: None }
+        Self {
+            name,
+            docs,
+            def_site,
+            positional,
+            default,
+            slot,
+            fold: None,
+        }
     }
 
     /// Ensures that the property is folded on every access. See the
@@ -384,6 +410,7 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: E::FIELD.positional,
             required: false,
             variadic: false,

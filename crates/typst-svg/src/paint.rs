@@ -242,7 +242,7 @@ impl SVGRenderer<'_> {
 
                 svg.elem("stop")
                     .attr("offset", start_t.repr())
-                    .attr("stop-color", start_c.to_hex());
+                    .attr("stop-color", start_c.to_space(gradient.space()).to_hex());
 
                 // Generate intermediate stops between the two stops.
                 // This is a workaround for a bug in many readers:
@@ -253,6 +253,7 @@ impl SVGRenderer<'_> {
                     gradient
                         .generate_intermediate_stops_for_rgb_interpolation(start, end)
                         .for_each(|(c, t)| {
+                            let c = c.to_space(gradient.space());
                             svg.elem("stop")
                                 .attr("offset", t.repr())
                                 .attr("stop-color", c.to_hex());
@@ -263,7 +264,7 @@ impl SVGRenderer<'_> {
             if let Some((last_c, last_t)) = gradient.stops_ref().last() {
                 svg.elem("stop")
                     .attr("offset", last_t.repr())
-                    .attr("stop-color", last_c.to_hex());
+                    .attr("stop-color", last_c.to_space(gradient.space()).to_hex());
             }
         }
     }

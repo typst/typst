@@ -33,7 +33,10 @@ pub fn analyze_expr(
             }
 
             if let Some(parent) = node.parent()
-                && parent.kind() == SyntaxKind::FieldAccess
+                && matches!(
+                    parent.kind(),
+                    SyntaxKind::FieldAccess | SyntaxKind::MathFieldAccess
+                )
                 && node.index() > 0
             {
                 return analyze_expr(world, parent);

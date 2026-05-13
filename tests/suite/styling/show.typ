@@ -262,10 +262,10 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 #show heading.where(level: 1).or("more"): set text(red)
 
 --- show-delayed-error paged ---
-// Error: 21-34 panicked with: "hey1"
+// Error: 21-34 panicked with: hey1
 #show heading: _ => panic("hey1")
 
-// Error: 20-33 panicked with: "hey2"
+// Error: 20-33 panicked with: hey2
 #show strong: _ => panic("hey2")
 
 = Hello

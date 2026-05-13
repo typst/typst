@@ -3,7 +3,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
-use crate::HtmlTag;
+use crate::{HtmlTag, property};
 
 pub const a: HtmlTag = HtmlTag::constant("a");
 pub const abbr: HtmlTag = HtmlTag::constant("abbr");
@@ -151,6 +151,19 @@ pub fn is_escapable_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::textarea | self::title)
 }
 
+/// Whether this is a foreign tag whose associated element is from another
+/// namespace.
+///
+/// Currently includes MathML tags, but could be extended to SVG.
+pub fn is_foreign(tag: HtmlTag) -> bool {
+    self::mathml::is_mathml(tag)
+}
+
+/// Whether this is a foreign element whose tag is self-closing.
+pub fn is_foreign_self_closing(tag: HtmlTag) -> bool {
+    matches!(tag, self::mathml::mprescripts | self::mathml::mspace)
+}
+
 // HTML spec § 3.2.5.2 Kinds of content
 
 /// Whether an element is considered metadata content.
@@ -222,6 +235,7 @@ pub fn is_flow_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meta
             | self::meter
@@ -305,6 +319,7 @@ pub fn is_phrasing_content(tag: HtmlTag) -> bool {
             | self::link
             | self::map
             | self::mark
+            | self::mathml::math
             | self::meta
             | self::meter
             | self::noscript
@@ -343,6 +358,7 @@ pub fn is_embedded_content(tag: HtmlTag) -> bool {
             | self::embed
             | self::iframe
             | self::img
+            | self::mathml::math
             | self::object
             | self::picture
             | self::video
@@ -416,6 +432,7 @@ pub fn is_palpable_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meter
             | self::nav
@@ -457,7 +474,9 @@ pub fn is_script_supporting_element(tag: HtmlTag) -> bool {
 
 /// Whether the element is considered a "replaced element".
 ///
-/// See also: https://www.w3.org/TR/css-display-3/#replaced-element
+/// See:
+/// - § 15.4 Replaced elements
+/// - <https://www.w3.org/TR/css-display-3/#replaced-element>
 pub fn is_replaced(tag: HtmlTag) -> bool {
     matches!(
         tag,
@@ -472,66 +491,139 @@ pub fn is_replaced(tag: HtmlTag) -> bool {
     )
 }
 
-// Defaults of the CSS `display` property.
+// Non-standard sets.
 
-/// Whether nodes with the tag have the CSS property `display: block` by
-/// default.
-pub fn is_block_by_default(tag: HtmlTag) -> bool {
-    matches!(
-        tag,
-        self::html
-            | self::head
-            | self::body
-            | self::article
-            | self::aside
-            | self::h1
-            | self::h2
-            | self::h3
-            | self::h4
-            | self::h5
-            | self::h6
-            | self::hgroup
-            | self::nav
-            | self::section
-            | self::dd
-            | self::dl
-            | self::dt
-            | self::menu
-            | self::ol
-            | self::ul
-            | self::address
-            | self::blockquote
-            | self::dialog
-            | self::div
-            | self::fieldset
-            | self::figure
-            | self::figcaption
-            | self::footer
-            | self::form
-            | self::header
-            | self::hr
-            | self::legend
-            | self::main
-            | self::p
-            | self::pre
-            | self::search
-    )
+/// Whether HTML whitespace next to an element with this tag will be collapsed
+/// (assuming normal user agent styles).
+pub fn is_whitespace_collapsing(tag: HtmlTag) -> bool {
+    // TODO: Reconsider this check. What about e.g. tables?
+    property::Display::default_for(tag) == Some(property::Display::Block)
+        || tag == self::br
 }
 
-/// Whether nodes with the tag have the CSS property `display: table(-.*)?`
-/// by default.
-pub fn is_tabular_by_default(tag: HtmlTag) -> bool {
-    matches!(
-        tag,
-        self::table
-            | self::thead
-            | self::tbody
-            | self::tfoot
-            | self::tr
-            | self::th
-            | self::td
-            | self::caption
-            | self::col
-            | self::colgroup
-    )
+/// Whether we group this kind of HTML element into paragraphs _if_ paragraphs
+/// are forced in some way (either through being top-level or due to being in
+/// the same flow as a Typst-native `block` element or `parbreak`). When using
+/// solely the low-level HTML API, no paragraphs are ever forced.
+///
+/// The maximal set of tags we can choose here is HTML "phrasing content" as
+/// that is the content model of `<p>`. Most elements that are phrasing content
+/// are also reasonable to group into paragraphs. However, it's a bit more
+/// subtle:
+///
+/// - A few elements that are phrasing content are `display: none` through the
+///   user agent style sheet, e.g. `<script>`. These are called hidden content.
+///   It does not make sense to group them into paragraphs as they are not
+///   visible and also not really used in prose. We exclude those.
+///
+/// - A few elements that are phrasing content are actually kind of "generic".
+///   They can be used in paragraphs and may then also only contain phrasing
+///   content or they may be used directly in the block flow and then they may
+///   also include arbitrary flow content. This includes the `<a>`, `<ins>`,
+///   `<del>`, `<noscript>`, and `<map>` elements, which have a "transparent"
+///   content model.
+///
+///   It would make sense for these elements to group into paragraphs only if
+///   their contents themselves are fully groupable. This would require
+///   realizing their bodies to check what they contain, in a way that is not
+///   unlike measurement in layouting. We currently unconditionally group these
+///   elements, but we might want to do the smarter thing in the future.
+///
+///   There are a few more elements that have a "transparent" content model, but
+///   their contents are only used as fallback content. This includes `<video>`,
+///   `<audio>`, `<canvas>`, `<object>`, and `<slot>`. Sacrificing consistency
+///   of the multi-media elements with `<img>` to make their grouping behavior
+///   depend on their _fallback_ body seems not so useful.
+///
+/// Finally, note that we don't impose Typst's ideas about blockiness here. For
+/// example, `<img>` is included here even though Typst's `image` function is
+/// block-level by default. Instead the built-in `image` show rule wraps the
+/// produced `<img>` in a Typst `block`. With `box` and `block`, it's always
+/// possible to override the default defined by this function.
+pub fn should_group_into_pars(tag: HtmlTag) -> bool {
+    is_phrasing_content(tag)
+        && property::Display::default_for(tag) != Some(property::Display::None)
+}
+
+/// Elements in the MathML namespace.
+///
+/// Only the MathML Core elements at the moment.
+pub mod mathml {
+    use super::HtmlTag;
+
+    pub const annotation: HtmlTag = HtmlTag::constant("annotation");
+    pub const annotation_xml: HtmlTag = HtmlTag::constant("annotation-xml");
+    pub const maction: HtmlTag = HtmlTag::constant("maction");
+    pub const math: HtmlTag = HtmlTag::constant("math");
+    pub const merror: HtmlTag = HtmlTag::constant("merror");
+    pub const mfrac: HtmlTag = HtmlTag::constant("mfrac");
+    pub const mi: HtmlTag = HtmlTag::constant("mi");
+    pub const mmultiscripts: HtmlTag = HtmlTag::constant("mmultiscripts");
+    pub const mn: HtmlTag = HtmlTag::constant("mn");
+    pub const mo: HtmlTag = HtmlTag::constant("mo");
+    pub const mover: HtmlTag = HtmlTag::constant("mover");
+    pub const mpadded: HtmlTag = HtmlTag::constant("mpadded");
+    pub const mphantom: HtmlTag = HtmlTag::constant("mphantom");
+    pub const mprescripts: HtmlTag = HtmlTag::constant("mprescripts");
+    pub const mroot: HtmlTag = HtmlTag::constant("mroot");
+    pub const mrow: HtmlTag = HtmlTag::constant("mrow");
+    pub const ms: HtmlTag = HtmlTag::constant("ms");
+    pub const mspace: HtmlTag = HtmlTag::constant("mspace");
+    pub const msqrt: HtmlTag = HtmlTag::constant("msqrt");
+    pub const mstyle: HtmlTag = HtmlTag::constant("mstyle");
+    pub const msub: HtmlTag = HtmlTag::constant("msub");
+    pub const msubsup: HtmlTag = HtmlTag::constant("msubsup");
+    pub const msup: HtmlTag = HtmlTag::constant("msup");
+    pub const mtable: HtmlTag = HtmlTag::constant("mtable");
+    pub const mtd: HtmlTag = HtmlTag::constant("mtd");
+    pub const mtext: HtmlTag = HtmlTag::constant("mtext");
+    pub const mtr: HtmlTag = HtmlTag::constant("mtr");
+    pub const munder: HtmlTag = HtmlTag::constant("munder");
+    pub const munderover: HtmlTag = HtmlTag::constant("munderover");
+    pub const semantics: HtmlTag = HtmlTag::constant("semantics");
+
+    /// Whether this is a MathML token element.
+    pub fn is_token(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::mtext | self::mi | self::mn | self::mo | self::mspace | self::ms
+        )
+    }
+
+    /// Whether this tag is an element in the MathML namespace.
+    pub fn is_mathml(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::annotation
+                | self::annotation_xml
+                | self::maction
+                | self::math
+                | self::merror
+                | self::mfrac
+                | self::mi
+                | self::mmultiscripts
+                | self::mn
+                | self::mo
+                | self::mover
+                | self::mpadded
+                | self::mphantom
+                | self::mprescripts
+                | self::mroot
+                | self::mrow
+                | self::ms
+                | self::mspace
+                | self::msqrt
+                | self::mstyle
+                | self::msub
+                | self::msubsup
+                | self::msup
+                | self::mtable
+                | self::mtd
+                | self::mtext
+                | self::mtr
+                | self::munder
+                | self::munderover
+                | self::semantics
+        )
+    }
 }

@@ -1,6 +1,9 @@
 //! Typst's HTML exporter.
 
-mod attr;
+pub mod attr;
+pub mod property;
+pub mod tag;
+
 mod charsets;
 mod convert;
 mod css;
@@ -10,8 +13,8 @@ mod encode;
 mod fragment;
 mod introspect;
 mod link;
+mod mathml;
 mod rules;
-mod tag;
 mod typed;
 
 pub use self::document::{html_document, html_document_for_bundle};
@@ -19,7 +22,7 @@ pub use self::dom::*;
 pub use self::encode::{html, html_in_bundle};
 pub use self::introspect::HtmlIntrospector;
 pub use self::link::create_link_anchors;
-pub use self::rules::{html_span_filled, register};
+pub use self::rules::{html_mathml_body, html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
@@ -65,7 +68,13 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
+    #[fold]
     pub attrs: HtmlAttrs,
+
+    /// The element's CSS properties. Currently only used for generated styles.
+    #[internal]
+    #[parse(Some(css::Properties::default()))]
+    pub css: css::Properties,
 
     /// The contents of the HTML element.
     ///
@@ -87,8 +96,8 @@ pub struct HtmlElem {
     /// This is ignored for `<p>` elements as it otherwise tends to
     /// unintentionally attach to paragraphs resulting from grouping of a single
     /// element instead of attaching to that element. This is a bit of a hack,
-    /// but good enough for now as the `role` property is purely internal and
-    /// we control what it is used for.
+    /// but good enough for now as the `role` property is purely internal and we
+    /// control what it is used for.
     #[internal]
     #[ghost]
     pub role: Option<EcoString>,
@@ -111,21 +120,6 @@ impl HtmlElem {
         value: Option<impl Into<EcoString>>,
     ) -> Self {
         if let Some(value) = value { self.with_attr(attr, value) } else { self }
-    }
-
-    /// Adds CSS styles to an element.
-    fn with_styles(self, properties: css::Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
-    }
-
-    /// Checks whether the given element is "phrasing content" in HTML.
-    fn is_phrasing(elem: &Content) -> bool {
-        elem.to_packed::<HtmlElem>()
-            .is_some_and(|elem| tag::is_phrasing_content(elem.tag))
     }
 }
 

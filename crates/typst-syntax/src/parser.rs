@@ -260,8 +260,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
-        // The lexer manages creating full FieldAccess nodes if needed.
-        SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
+
+        // The lexer manages creating full MathFieldAccess nodes if needed.
+        SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.

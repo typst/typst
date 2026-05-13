@@ -8,7 +8,7 @@ mod text;
 mod write;
 
 use comemo::Tracked;
-pub use image::{convert_image_scaling, convert_image_to_base64_url};
+pub use image::{WebImage, convert_image_scaling};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use typst_library::model::{Destination, LateLinkResolver};
@@ -84,6 +84,7 @@ pub fn svg_in_html(
     frame: &Frame,
     text_size: Abs,
     id: Option<&str>,
+    styles: &str,
     anchors: &[(Point, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
@@ -103,6 +104,10 @@ pub fn svg_in_html(
             attr.push_str("em; height: ");
             attr.push_num(frame.height() / text_size);
             attr.push_str("em;");
+            if !styles.is_empty() {
+                attr.push_str(" ");
+                attr.push_str(styles);
+            }
         });
     });
 
@@ -348,8 +353,8 @@ impl<'a> SVGRenderer<'a> {
                 // outside of HTML.
                 if let Some(resolver) = self.link_resolver
                     && let Some(link) = resolver.resolve(*loc)
+                    && let Ok(uri) = link.into_relative_uri()
                 {
-                    let uri = link.into_uri();
                     a.attr("href", &uri);
                     a.attr("xlink:href", &uri);
                 }

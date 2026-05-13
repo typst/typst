@@ -29,13 +29,29 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
     for attr in attrs {
         if let syn::Meta::NameValue(meta) = &attr.meta
             && meta.path.is_ident("doc")
-            && let syn::Expr::Lit(lit) = &meta.value
-            && let syn::Lit::Str(string) = &lit.lit
         {
-            let full = string.value();
-            let line = full.strip_prefix(' ').unwrap_or(&full);
-            doc.push_str(line);
-            doc.push('\n');
+            if let syn::Expr::Lit(lit) = &meta.value
+                && let syn::Lit::Str(string) = &lit.lit
+            {
+                let full = string.value();
+                let line = full.strip_prefix(' ').unwrap_or(&full);
+                doc.push_str(line);
+                doc.push('\n');
+            } else if let syn::Expr::Macro(expr) = &meta.value
+                // The `stringify!` macro does not expand eagerly so we have
+                // some very basic support for int and float expressions here.
+                // This is e.g. used for paper sizes.
+                && expr.mac.path.is_ident("stringify")
+                && let Ok(lit) = syn::parse2::<syn::Lit>(expr.mac.tokens.clone())
+                && let Some(value) = match &lit {
+                    syn::Lit::Int(int) => Some(int.base10_digits()),
+                    syn::Lit::Float(float) => Some(float.base10_digits()),
+                    _ => None,
+                }
+            {
+                doc.push_str(value);
+                doc.push('\n');
+            }
         }
     }
 
@@ -260,4 +276,25 @@ pub mod kw {
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);
     syn::custom_keyword!(ext);
+}
+
+/// Extract the first line of documentation.
+pub fn oneliner(docs: &str) -> String {
+    let paragraph = docs.split("\n\n").next().unwrap_or_default();
+    let mut depth = 0;
+    let mut period = false;
+    let mut end = paragraph.len();
+    for (i, c) in paragraph.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            '.' if depth == 0 => period = true,
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
+                end = i;
+                break;
+            }
+            _ => period = false,
+        }
+    }
+    String::from(&docs[..end]).replace("\r\n", " ").replace("\n", " ")
 }

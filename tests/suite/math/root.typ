@@ -1,10 +1,10 @@
 // Test roots.
 
---- math-root-basic paged ---
+--- math-root-basic paged html ---
 // Test root with more than one character.
 $A = sqrt(x + y) = c$
 
---- math-root-radical-attachment paged ---
+--- math-root-radical-attachment paged html ---
 // Test root size with radicals containing attachments.
 $ sqrt(a) quad
   sqrt(f) quad
@@ -15,7 +15,7 @@ $ sqrt(a) quad
   sqrt(b^2) quad
   sqrt(q_1^2) $
 
---- math-root-precomposed paged ---
+--- math-root-precomposed paged html ---
 // Test precomposed vs constructed roots.
 // 3 and 4 are precomposed.
 $sqrt(x)$
@@ -24,7 +24,7 @@ $root(3, x)$
 $root(4, x)$
 $root(5, x)$
 
---- math-root-large-body paged ---
+--- math-root-large-body paged html ---
 // Test large bodies
 $ sqrt([|x|]^2 + [|y|]^2) < [|z|] $
 $ v = sqrt((1/2) / (4/5))
@@ -32,35 +32,35 @@ $ v = sqrt((1/2) / (4/5))
    = root(4, ((1/2) / (3/4)) / ((1/2) / (3/4))) $
 $ v = sqrt(a +\ b) $
 
---- math-root-large-index paged ---
+--- math-root-large-index paged html ---
 // Test large index.
 $ root(2, x) quad
   root(3/(2/1), x) quad
   root(1/11, x) quad
   root(1/2/3, 1) $
 
---- math-root-syntax paged ---
+--- math-root-syntax paged html ---
 // Test shorthand.
 $ √2^3 = sqrt(2^3) $
 $ √(x+y) quad ∛x quad ∜x $
 $ (√2+3) = (sqrt(2)+3) $
 
---- math-root-syntax-prec paged ---
+--- math-root-syntax-prec paged html ---
 // Precedence of root syntax with other math operators.
 $ √a/b ∛a_b ∜f' √n! \
   √a b^c  √a (b)^c  √a(b)^c $
 
---- math-root-frame-size-index paged ---
+--- math-root-frame-size-index paged html ---
 // Test size of final frame when there is an index.
 $ a root(, 3)         & a root(., 3) \
   a sqrt(3)           & a root(2, 3) \
   a root(#h(-1em), 3) & a root(123, 3) $
 
---- math-root-line-fill-stroke paged ---
+--- math-root-line-fill-stroke paged html ---
 // Test that the horizontal stroke is also decorated like text glyphs
 #text(size: 20pt, fill: yellow, stroke: red + .5pt)[$sqrt(Delta)$]
 #text(size: 25pt, stroke: red)[$root(3, Delta)$]
 
---- math-root-index-cramped paged ---
+--- math-root-index-cramped paged html ---
 // Test whether the index has cramped styles.
 $ root(x^2^2, 1) $

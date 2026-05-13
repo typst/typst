@@ -1,60 +1,66 @@
 // Test delimiter matching and scaling.
 
---- math-lr-matching paged ---
+--- math-lr-matching paged html ---
 // Test automatic matching.
-#set page(width:122pt)
+#show: it => context {
+  set page(width: 122pt) if target() == "paged"
+  it
+}
 $ (a) + {b/2} + abs(a)/2 + (b) $
 $f(x/2) < zeta(c^2 + abs(a + b/2))$
 
---- math-lr-unmatched paged ---
+--- math-lr-unmatched paged html ---
 // Test unmatched.
 $[1,2[ = [1,2) != zeta\(x/2\) $
 
---- math-lr-call paged ---
+--- math-lr-call paged html ---
 // Test manual matching.
 $ [|a/b|] != lr(|]a/b|]) != [a/b) $
 $ lr(| ]1,2\[ + 1/2|) $
 
---- math-lr-fences paged ---
+--- math-lr-fences paged html ---
 // Test fence confusion.
 $ |x + |y| + z/a| \
   lr(|x + |y| + z/a|) $
 
---- math-lr-symbol-unmatched paged ---
+--- math-lr-symbol-unmatched paged html ---
 // Test that symbols aren't matched automatically.
 $ bracket.l a/b bracket.r
   = lr(bracket.l a/b bracket.r) $
 
---- math-lr-half paged ---
+--- math-lr-half paged html ---
 // Test half LRs.
 $ lr(a/b\]) = a = lr(\{a/b) $
 
---- math-lr-size paged ---
+--- math-lr-size paged html ---
 // Test manual scaling.
 $ lr(]sum_(x=1)^n x], size: #70%)
   < lr((1, 2), size: #220%) $
 
---- math-lr-shorthands paged ---
+--- math-lr-shorthands paged html ---
 // Test predefined delimiter pairings.
 $floor(x/2), ceil(x/2), abs(x), norm(x)$
 
---- math-lr-color paged ---
+--- math-lr-color paged html ---
 // Test colored delimiters
 $ lr(
     text(\(, fill: #green) a/b
     text(\), fill: #blue)
   ) $
 
---- math-lr-mid paged ---
+--- math-lr-mid paged html ---
 // Test middle functions
 $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
   { integral |dot|
       mid(bar.v.double)
     floor(hat(I) mid(slash) { dot mid(|) dot } mid(|) I/n) } $
 
---- math-lr-mid-size paged ---
+--- math-lr-mid-size paged html ---
 // Test mid when lr size is set.
-#set page(width: auto)
+#show: it => context {
+  set page(width: auto) if target() == "paged"
+  it
+}
 
 $ lr({ A mid(|) integral }) quad
   lr(size: #1em, { A mid(|) integral }) quad
@@ -68,16 +74,19 @@ $ lr({ A mid(|) integral }) quad
   lr(size: #1em, ( A mid(|) integral ]) quad
   lr(size: #(1em+20%), ( A mid(|) integral ]) $
 
---- math-lr-mid-size-nested-equation paged ---
+--- math-lr-mid-size-nested-equation paged html ---
 // Test mid size when lr size is set, when nested in an equation.
-#set page(width: auto)
+#show: it => context {
+  set page(width: auto) if target() == "paged"
+  it
+}
 
 #let body = ${ A mid(|) integral }$
 $ lr(body) quad
   lr(size: #1em, body) quad
   lr(size: #(1em+20%), body) $
 
---- math-lr-mid-class paged ---
+--- math-lr-mid-class paged html ---
 // Test that `mid` creates a Relation, but that can be overridden.
 $ (a | b) $
 $ (a mid(|) b) $
@@ -85,19 +94,19 @@ $ (a class("unary", |) b) $
 $ (a class("unary", mid(|)) b) $
 $ (a mid(class("unary", |)) b) $
 
---- math-lr-unbalanced paged ---
+--- math-lr-unbalanced paged html ---
 // Test unbalanced delimiters.
 $ 1/(2 (x) $
 $ 1_(2 y (x) () $
 $ 1/(2 y (x) (2(3)) $
 
---- math-lr-weak-spacing paged ---
+--- math-lr-weak-spacing paged html ---
 // Test ignoring weak spacing immediately after the opening
 // and immediately before the closing.
 $ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $
 $ lr(\[#h(1em, weak: true)lr(A dif x, f(x) dif x\))sum#h(1em, weak:true)a) $
 
---- math-lr-nested paged ---
+--- math-lr-nested paged html ---
 // Test nested lr calls.
 // As there is no body, relative lengths are relative to 0.
 #let body1 = math.lr($|$, size: 4em)
@@ -108,11 +117,11 @@ $lr(lr(|, size: #4em), size: #50%)$
 $lr(body1, size: #50%)$
 $lr(body2, size: #50%)$
 
---- math-lr-nested-mid paged ---
+--- math-lr-nested-mid paged html ---
 // Test nested lr calls with mid.
 $ lr(lr({ integral_0^1 x mid(|) 1/e }, size: #3em), size: #50%) $
 
---- math-lr-ignore-ignorant paged ---
+--- math-lr-ignore-ignorant paged html ---
 // Test ignoring leading and trailing ignorant fragments.
 #box($ (1 / 2) $)
 #box({
@@ -129,17 +138,17 @@ $ lr(lr({ integral_0^1 x mid(|) 1/e }, size: #3em), size: #50%) $
   $ (1 / 2) $
 })
 
---- math-lr-scripts paged ---
+--- math-lr-scripts paged html ---
 // Test interactions with script attachments.
 $ lr(size: #3em, |)_a^b lr(size: #3em, zws|)_a^b
   lr(size: #3em, [x])_0^1 [x]_0^1
   lr(size: #1em, lr(size: #10em, [x]))_0^1 $
 
---- issue-4188-lr-corner-brackets paged ---
+--- issue-4188-lr-corner-brackets paged html ---
 // Test positioning of U+231C to U+231F
 $⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$
 
---- math-lr-unparen paged ---
+--- math-lr-unparen paged html ---
 // Test that unparen with brackets stays as an LrElem.
 #let item = $limits(sum)_i$
 $
@@ -147,7 +156,7 @@ $
   1 /  [item]
 $
 
---- math-lr-sym-call paged ---
+--- math-lr-sym-call paged html ---
 $
   ceil.l(x) \
   floor.l(x) \
@@ -192,7 +201,7 @@ $
   fence.dotted(x) \
 $
 
---- math-lr-sym-call-size paged ---
+--- math-lr-sym-call-size paged html ---
 $ bracket.l(x, size: #400%) $
 
 --- math-lr-sym-call-extra-arg eval ---
@@ -204,13 +213,13 @@ $ bracket.l(x, nope: "nope") $
 // function...
 #test(repr(outline(indent: sym.chevron.l.curly).indent), "(..) => ..")
 
---- math-lr-multiline-trailing paged ---
+--- math-lr-multiline-trailing paged html ---
 $ (a \ ) $
 
---- math-lr-multiline paged ---
+--- math-lr-multiline paged html ---
 $ 1 + (a/b + b \ = c) + 2 $
 $ abs(x + y & 1 & 2 & a + b \ 3 &&& 4, size: #200%) $
 
---- math-lr-multiline-align paged ---
+--- math-lr-multiline-align paged html ---
 $ (a & b \ c) $
 $ (a \ b & c) $

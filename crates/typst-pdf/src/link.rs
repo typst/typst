@@ -46,13 +46,14 @@ pub(crate) fn handle_link(
         Destination::Location(loc) => {
             if let Some(resolver) = gc.link_resolver
                 && let Some(kind @ ResolvedLink::Cross { .. }) = resolver.resolve(*loc)
+                && let Ok(uri) = kind.into_relative_uri()
             {
                 // Cross-links could potentially also be emitted as Go-To Remote
                 // actions (for PDFs) or Launch actions for other files.
                 // However, this is not yet supported in krilla. Viewer support
                 // is not great either way: Link actions are good for browsers
                 // while the others work better in Acrobat.
-                Target::Action(Action::Link(LinkAction::new(kind.into_uri().into())))
+                Target::Action(Action::Link(LinkAction::new(uri.into())))
             } else if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
