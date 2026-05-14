@@ -641,7 +641,7 @@ e19b958a7016a279a2db83ab11fcaf0e int-display
 db6d5a76ae0ebde94e23c88c26212ce5 issue-1050-terms-indent
 7a0c27832e14db14925b135142d05b55 issue-1052-math-number-spacing
 d762dbf5a51041d45b424c142ff676b0 issue-1204-enum-baseline-alignment
-5715c72f2e32b2207d1eed96a551cdce issue-1204-list-baseline-alignment
+2eac26cc2ede89e140424b286e975a1d issue-1204-list-baseline-alignment
 10aacf371687bf4ee50756fd1d36dbcb issue-1216-clamp-panic
 b8e40dc0f50c27e6e9d62fb0ddbd02d4 issue-1240-stack-h-fr
 b64cc1773a30caac6ccd8b8b27701250 issue-1240-stack-v-fr
@@ -945,8 +945,10 @@ e2f8a1a6a145690ebba39824d0ad701d list-baseline-curve
 01ed36f0acaab5f6ae4dd0582e612277 list-baseline-grid
 d57882f2a11ee3bb63a3fa3610b6c4c9 list-baseline-math-fraction
 bf720b620e7a0ca145f740201025d5b9 list-baseline-multiline-math
+ddbdd449617c61919897b955088c4d45 list-baseline-pars
 c131d2d34f1542b35fdeb6acaa4c58b1 list-baseline-table
 ff268bb2e945cd2be548bc1f13332a90 list-baseline-text-with-math
+fe34ef2c66dfb721bd0fce156aeefb59 list-baseline-transform
 c2f1a053f45722da47c1de7d9a68fa38 list-basic
 3e171d57894efe35b923675b54dbb31f list-colbreak
 423d1cfedd873983bce331a7a8f265de list-content-block

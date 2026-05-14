@@ -247,7 +247,9 @@ Not in list
 #set enum(number-align: top)
 #set enum(number-align: horizon)
 #set enum(number-align: bottom)
-
+#set enum(number-align: start + top)
+#set enum(number-align: left + horizon)
+#set enum(number-align: center + bottom)
 
 --- list-attached paged ---
 // Test basic attached list.
@@ -375,6 +377,24 @@ World
     curve.close()
   )
 
+--- list-baseline-pars paged ---
+
+- #lorem(8)
+
+  #lorem(8)
+
+--- list-baseline-transform paged ---
+#set rotate(reflow: true)
+#set scale(reflow: true)
+#set skew(reflow: true)
+
+- Abc
+- #rotate(90deg)[Abc]
+- #rotate(180deg)[Abc]
+- #scale(30%)[Abc]
+- #skew(ax: 30deg)[Abc]
+- #skew(ay: 30deg)[Abc]
+
 --- list-baseline-text-with-math paged ---
 #set page(width: auto, height: auto)
 - Text
@@ -460,7 +480,6 @@ d
 
 d
 
-
 --- issue-2530-list-item-panic paged ---
 // List item (pre-emptive)
 #list.item[Hello]
@@ -520,3 +539,6 @@ d
 - $ sum_(i = 1)^n overbrace(x^6, y) $
 - #box(baseline: 1cm)[C]
 - #v(1cm) D
+- #text(48pt)[E]
+- #block(inset: 10pt, stroke: red)[Hello world!]
+- #rect[Hello world!]
