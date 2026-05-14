@@ -336,9 +336,9 @@ fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
         engine.sink.warn(warning!(
             span,
             "creating a decimal using imprecise float literal";
-            hint: "use a string in the decimal constructor to avoid loss \
-                   of precision: `decimal({})`",
-            node.text().repr();
+            hint: "use a decimal literal to avoid loss \
+                   of precision: `{}d`",
+            node.text();
         ));
     }
     Some(())
