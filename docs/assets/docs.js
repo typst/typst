@@ -428,18 +428,13 @@ function setUpPreviewSplits() {
  * Sets up the Copy button on example codes.
  */
 function setUpPreviewCopy() {
-  for (const pre of document.querySelectorAll(".previewed-code > pre")) {
+  for (const button of document.querySelectorAll("pre > button.copy")) {
+    const pre = button.parentElement;
     const code = pre.innerText;
-    const button = document.createElement("button");
-    button.classList.add("copy");
-    const img = document.createElement("img");
-    img.src = copyIconSrc;
-    img.alt = "Copy";
-    button.appendChild(img);
     button.addEventListener("click", () => {
       copyText(code);
     });
-    pre.prepend(button);
+    button.disabled = false;
   }
 }
 

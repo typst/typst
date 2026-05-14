@@ -301,15 +301,45 @@ sup[role="doc-noteref"] {
 
 /* Code example components */
 
-pre > button.copy {
-  top: -8px;
-  right: -8px;
-  padding: 2px;
-  background: none;
-  border: 0px;
+pre {
   position: relative;
+}
+
+pre > button.copy {
+  top: 8px;
+  right: 8px;
+  padding: 8px;
+  background: #fdfdfd;
+  border: 1px solid var(--border-secondary);
+  color: #565565; /* Should be var(--text-secondary) */
+  position: absolute;
   float: right;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+pre:hover > button.copy,
+pre > button.copy:active,
+pre > button.copy:focus-visible {
+  opacity: 1;
+}
+
+pre > button.copy:hover {
+  background: var(--action-secondary-hover);
+}
+
+pre > button.copy:focus-visible {
+  background: #fdfdfd;
+  transition: opacity 0s;
+}
+
+pre > button.copy:disabled {
+  color: rgba(25, 24, 31, 0.5) /* Should be var(--text-disabled) */
+}
+
+pre > button.copy > svg {
+  display: block;
 }
 
 .code-definition + h4,
