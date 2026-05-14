@@ -94,6 +94,7 @@ oxipng = { version = "10", default-features = false, features = ["filetime", "pa
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
+percent-encoding = "2.3.2"
 phf = { version = "0.13", features = ["macros"] }
 pixglyph = "0.6"
 png = "0.17"
