@@ -319,7 +319,6 @@ pre > button.copy {
   transition: opacity 0.2s;
 }
 
-pre:hover > button.copy,
 pre > button.copy:active,
 pre > button.copy:focus-visible {
   opacity: 1;
@@ -336,6 +335,18 @@ pre > button.copy:focus-visible {
 
 pre > button.copy:disabled {
   color: rgba(25, 24, 31, 0.5) /* Should be var(--text-disabled) */
+}
+
+@media (hover: hover) {
+  pre:hover > button.copy {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  pre.tapped > button.copy {
+    opacity: 1;
+  }
 }
 
 pre > button.copy > svg {

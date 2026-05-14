@@ -431,6 +431,14 @@ function setUpPreviewCopy() {
   for (const button of document.querySelectorAll("pre > button.copy")) {
     const pre = button.parentElement;
     const code = pre.innerText;
+    // Display the Copy button for 30s when the `<pre>` is tapped on touch
+    // screens.
+    let timeoutId;
+    pre.addEventListener("click", () => {
+      pre.classList.add("tapped");
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => pre.classList.remove("tapped"), 30_000);
+    });
     button.addEventListener("click", () => {
       copyText(code);
     });
