@@ -1014,9 +1014,17 @@ impl Lexer<'_> {
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
+        enum SuffixKind {
+            Numeric,
+            Decimal,
+        }
+
         let mut suffix_result = match suffix {
             "" => Ok(None),
-            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Ok(Some(())),
+            "d" => Ok(Some(SuffixKind::Decimal)),
+            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => {
+                Ok(Some(SuffixKind::Numeric))
+            }
             _ => Err(eco_format!("invalid number suffix: `{suffix}`")),
         };
 
@@ -1066,7 +1074,8 @@ impl Lexer<'_> {
             // Valid numbers :D
             (Ok(()), Ok(None)) if is_float => SyntaxKind::Float,
             (Ok(()), Ok(None)) => SyntaxKind::Int,
-            (Ok(()), Ok(Some(()))) => SyntaxKind::Numeric,
+            (Ok(()), Ok(Some(SuffixKind::Numeric))) => SyntaxKind::Numeric,
+            (Ok(()), Ok(Some(SuffixKind::Decimal))) => SyntaxKind::Decimal,
             // Invalid numbers :(
             (Err(number_err), Err(suffix_err)) => {
                 let error = self.error(number_err);

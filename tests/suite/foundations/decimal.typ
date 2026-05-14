@@ -8,6 +8,11 @@
 #test(decimal(true), decimal("1.0"))
 #test(type(decimal(10)), decimal)
 
+--- decimal-literal eval ---
+#test(decimal(10), 10.0d)
+#test(decimal("-7654.321"), -7654.321d)
+#test(decimal({ 3.141592653 }), 3.141592653000000012752934707d)
+
 --- decimal-constructor-bad-type eval ---
 // Error: 10-17 expected decimal, integer, boolean, float, or string, found type
 #decimal(decimal)

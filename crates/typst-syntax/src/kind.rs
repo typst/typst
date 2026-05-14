@@ -252,6 +252,8 @@ pub enum SyntaxKind {
     Int,
     /// A floating-point number: `1.2`, `10e-4`.
     Float,
+    /// A decimal number: `1.23456789d`
+    Decimal,
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
     Numeric,
     /// A quoted string: `"..."`.
@@ -530,6 +532,7 @@ impl SyntaxKind {
             Self::Bool => "boolean",
             Self::Int => "integer",
             Self::Float => "float",
+            Self::Decimal => "decimal",
             Self::Numeric => "numeric value",
             Self::Str => "string",
             Self::CodeBlock => "code block",
@@ -734,6 +737,7 @@ impl SyntaxKind {
             Self::Bool => Known(Code),
             Self::Int => Known(Code),
             Self::Float => Known(Code),
+            Self::Decimal => Known(Code),
             Self::Numeric => Known(Code),
             Self::Str => Embeddable, // code/math: expr
             Self::CodeBlock => Known(Code),
