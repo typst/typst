@@ -117,6 +117,7 @@ impl Eval for ast::Expr<'_> {
             Self::Bool(v) => v.eval(vm),
             Self::Int(v) => v.eval(vm),
             Self::Float(v) => v.eval(vm),
+            Self::Decimal(v) => v.eval(vm),
             Self::Numeric(v) => v.eval(vm),
             Self::Str(v) => v.eval(vm),
             Self::CodeBlock(v) => v.eval(vm),
@@ -204,6 +205,14 @@ impl Eval for ast::Float<'_> {
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Float(self.get()))
+    }
+}
+
+impl Eval for ast::Decimal<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Decimal(self.get().into()))
     }
 }
 

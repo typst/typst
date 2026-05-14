@@ -3389,6 +3389,7 @@ name = "typst-syntax"
 version = "0.14.2"
 dependencies = [
  "ecow",
+ "rust_decimal",
  "rustc-hash",
  "serde",
  "toml",

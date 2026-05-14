@@ -321,6 +321,12 @@ impl Decimal {
     }
 }
 
+impl From<rust_decimal::Decimal> for Decimal {
+    fn from(value: rust_decimal::Decimal) -> Self {
+        Self(value)
+    }
+}
+
 /// Emits a warning when a decimal is constructed from a float literal.
 fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
     let id = span.id()?;

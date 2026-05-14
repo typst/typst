@@ -267,6 +267,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Bool => Some(Tag::Keyword),
         SyntaxKind::Int => Some(Tag::Number),
         SyntaxKind::Float => Some(Tag::Number),
+        SyntaxKind::Decimal => Some(Tag::Number),
         SyntaxKind::Numeric => Some(Tag::Number),
         SyntaxKind::Str => Some(Tag::String),
         SyntaxKind::CodeBlock => None,

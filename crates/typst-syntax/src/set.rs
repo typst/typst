@@ -118,6 +118,7 @@ pub const ATOMIC_CODE_EXPR: SyntaxSet = syntax_set!(
     Auto,
     Int,
     Float,
+    Decimal,
     Bool,
     Numeric,
     Str,
