@@ -23,7 +23,7 @@
 
 --- decimal-constructor-float-literal eval ---
 // Warning: 18-25 creating a decimal using imprecise float literal
-// Hint: 18-25 use a string in the decimal constructor to avoid loss of precision: `decimal("1.32523")`
+// Hint: 18-25 use a decimal literal to avoid loss of precision: `1.32523d`
 #let _ = decimal(1.32523)
 
 --- decimal-constructor-float-inf eval ---
