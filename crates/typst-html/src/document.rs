@@ -194,17 +194,8 @@ fn html_document_common(
             _ => None,
         });
 
-        let head = match head {
-            Some(head) => head,
-            None => {
-                root.children.push(HtmlElement::new(tag::head).into());
-                let node = root.children.make_mut().last_mut().unwrap();
-                match node {
-                    HtmlNode::Element(head) => head,
-                    _ => unreachable!(),
-                }
-            }
-        };
+        // TODO: this becomes an error when html fragments are supported
+        let head = head.expect("head to be present in document output");
 
         head.children.push(
             HtmlElement::new(tag::style)
@@ -273,8 +264,6 @@ fn finalize_dom(
         let tag = elem.tag;
         match (tag, count) {
             (tag::html, 1) => {
-                // TODO: Stylesheet isn't included in the final output. Either
-                // warn or add some other mechanism to retrieve/insert it.
                 footnotes_unsupported_with_custom_dom(engine)?;
                 return Ok(HtmlOutput { nodes, root_index: idx });
             }
