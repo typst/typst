@@ -29,7 +29,7 @@ Click the quick download button at the top right to export a PDF with default se
 = PDF standards <pdf-standards>
 The International Standards Organization (ISO) has published the base PDF standard and various standards that extend it to make PDFs more suitable for specific use-cases. By default, Typst exports PDF 1.7 files. Adobe Acrobat 8 and later as well as all other commonly used PDF viewers are compatible with this PDF version.
 
-Some features of Typst may not be available depending on the PDF standard you choose. You currently cannot choose both PDF/A and PDF/UA at the same time.
+Some features of Typst may not be available depending on the PDF standard you choose. You can combine compatible PDF/A and PDF/UA standards. Notably, PDF/UA-1 and PDF/A-4 are mutually incompatible since the former requires PDF 1.7 or earlier and the latter requires PDF 2.0.
 
 == PDF versions <pdf-versions>
 Typst supports five different PDF versions: 1.4, 1.5, 1.6, 1.7 (default), and 2.0. You can choose each of these versions for your document export. However, based on the features you used there may be a minimum version. Likewise, the standards you target can limit which versions you can choose (see below for more).
