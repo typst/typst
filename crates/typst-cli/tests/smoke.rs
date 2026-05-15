@@ -45,6 +45,21 @@ fn test_compile_pdf_version() {
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);
+
+    let output = exec()
+        .arg("eval")
+        .arg("--format=raw")
+        .arg("bytes((1,2,3,0xff))")
+        .must_succeed();
+    assert_eq!(output.stdout.0, b"\x01\x02\x03\xff");
+
+    // trailing newline
+    let output = exec().arg("eval").arg("str(42)").must_succeed();
+    assert_eq!(output.stdout.0, b"\"42\"\n");
+
+    // no trailing newline
+    let output = exec().arg("eval").arg("--format=raw").arg("str(42)").must_succeed();
+    assert_eq!(output.stdout.0, b"42");
 }
 
 #[test]
