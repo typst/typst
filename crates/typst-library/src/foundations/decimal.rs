@@ -268,6 +268,12 @@ impl Decimal {
     pub fn checked_powi(self, other: i64) -> Option<Self> {
         self.0.checked_powi(other).map(Self)
     }
+
+    pub fn from_spanned_str(src: Spanned<EcoString>) -> SourceResult<Self> {
+        Self::from_str(&src.v.replace(repr::MINUS_SIGN, "-"))
+            .map_err(|_| eco_format!("invalid decimal: {}", src.v))
+            .at(src.span)
+    }
 }
 
 #[scope]
@@ -300,9 +306,9 @@ impl Decimal {
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
-            ToDecimal::Str(str) => Self::from_str(&str.replace(repr::MINUS_SIGN, "-"))
-                .map_err(|_| eco_format!("invalid decimal: {str}"))
-                .at(value.span),
+            ToDecimal::Str(str) => {
+                Self::from_spanned_str(Spanned { v: str, span: value.span })
+            }
             ToDecimal::Int(int) => Ok(Self::from(int)),
             ToDecimal::Float(float) => {
                 warn_on_float_literal(engine, value.span);
@@ -317,12 +323,6 @@ impl Decimal {
             }
             ToDecimal::Decimal(decimal) => Ok(decimal),
         }
-    }
-}
-
-impl From<rust_decimal::Decimal> for Decimal {
-    fn from(value: rust_decimal::Decimal) -> Self {
-        Self(value)
     }
 }
 

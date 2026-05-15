@@ -1378,11 +1378,9 @@ node! {
     /// A decimal number: `1.23456789d`
     struct Decimal
 }
-
-impl Decimal<'_> {
-    pub fn get(self) -> rust_decimal::Decimal {
-        let text = self.0.text();
-        rust_decimal::Decimal::from_str_exact(&text[..text.len() - 1]).unwrap_or_default()
+impl<'a> Decimal<'a> {
+    pub fn text(self) -> &'a str {
+        self.0.text()
     }
 }
 

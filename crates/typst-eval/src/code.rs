@@ -212,7 +212,12 @@ impl Eval for ast::Decimal<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Decimal(self.get().into()))
+        let text = self.text();
+        typst_library::foundations::Decimal::from_spanned_str(typst_syntax::Spanned {
+            v: text[..text.len() - 1].into(),
+            span: self.span(),
+        })
+        .map(Value::Decimal)
     }
 }
 
