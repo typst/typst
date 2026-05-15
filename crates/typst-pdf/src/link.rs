@@ -10,7 +10,7 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
 use crate::tags::{self, AnnotationId, GroupId};
-use crate::util::PointExt;
+use crate::util::{PointExt, ValidatorsExt};
 
 pub(crate) struct LinkAnnotation {
     pub kind: LinkAnnotationKind,
@@ -78,7 +78,7 @@ pub(crate) fn handle_link(
 
     if tags::disabled(gc) {
         if gc.tags.in_tiling && gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator().as_str();
+            let validator = gc.options.standards.config.validators().to_comma_list();
             bail!(
                 Span::detached(),
                 "{validator} error: PDF artifacts may not contain links";
@@ -108,7 +108,7 @@ pub(crate) fn handle_link(
 
     if gc.tags.tree.parent_artifact().is_some() {
         if gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator().as_str();
+            let validator = gc.options.standards.config.validators().to_comma_list();
             bail!(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";

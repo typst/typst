@@ -1,10 +1,11 @@
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
-use krilla::configure::{Configuration, ValidationError, Validator};
+use krilla::configure::validate::VersionedFeature;
+use krilla::configure::{Configuration, PdfVersion, ValidationError, Validators};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
-use krilla::error::KrillaError;
+use krilla::error::{KrillaError, LimitError};
 use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
@@ -35,7 +36,7 @@ use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
-use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::util::{AbsExt, TransformExt, ValidatorsExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -53,6 +54,7 @@ pub fn convert(
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
+        pretty: false,
     };
 
     let mut document = Document::new_with(settings);
@@ -413,8 +415,6 @@ fn finish(
     gc: GlobalContext,
     configuration: Configuration,
 ) -> SourceResult<Vec<u8>> {
-    let validator = configuration.validator();
-
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -430,7 +430,9 @@ fn finish(
             KrillaError::Validation(ve) => {
                 let errors = ve
                     .iter()
-                    .map(|e| convert_error(&gc, validator, e))
+                    .map(|(e, validators)| {
+                        convert_error(&gc, *validators, e, configuration.version())
+                    })
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
@@ -482,6 +484,29 @@ fn finish(
                     hint: "please report this as a bug";
                 );
             }
+            KrillaError::DuplicateNamedDestination(_) => {
+                bail!(Span::detached(),
+                    "duplicate named destination";
+                    hint: "please report this as a bug";
+                );
+            }
+            KrillaError::Limit(LimitError::TooLongArray) => bail!(
+                Span::detached(),
+                "a PDF array is longer than 8191 elements";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "this can happen if you have a very long text in a single line";
+            ),
+            KrillaError::Limit(LimitError::TooLongDictionary) => bail!(
+                Span::detached(),
+                "a PDF dictionary has more than 4095 entries";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "alternatively, try reducing the complexity of your document";
+            ),
+            KrillaError::Limit(LimitError::TooLargeFloat) => bail!(
+                Span::detached(),
+                "a PDF floating point number is larger than the allowed limit";
+                hint: "set the PDF version to PDF 1.5 or later";
+            ),
         },
     }
 }
@@ -489,10 +514,11 @@ fn finish(
 /// Converts a krilla error into a Typst error.
 fn convert_error(
     gc: &GlobalContext,
-    validator: Validator,
+    failing_validators: Validators,
     error: &ValidationError,
+    pdf_version: PdfVersion,
 ) -> SourceDiagnostic {
-    let prefix = eco_format!("{} error:", validator.as_str());
+    let prefix = eco_format!("{} error:", failing_validators.to_comma_list());
     match error {
         ValidationError::TooLongString => error!(
             Span::detached(),
@@ -594,7 +620,7 @@ fn convert_error(
                    metadata";
             hint: "restrictive font licenses are prohibited by {} because they limit \
                    the suitability for archival",
-            validator.as_str();
+            failing_validators.to_and_list();
         ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
@@ -717,6 +743,34 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        ValidationError::RequiresNewerPdfVersion(feature, loc) => {
+            let span = to_span(*loc);
+            let message = match feature {
+                VersionedFeature::StructureOrderTabbing => {
+                    eco_format!(
+                        "{prefix} links and other annotations cannot be navigated accessibly in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::HeaderFooterArtifactSubtypes => {
+                    eco_format!(
+                        "{prefix} headers and footers cannot be made accessible in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::TableHeaderScope => {
+                    eco_format!(
+                        "{prefix} table header cell cannot be accessibly tagged in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+            };
+
+            SourceDiagnostic::error(span, message).with_hint(eco_format!(
+                "set the PDF version to {}",
+                feature.minimum_pdf_version().as_str(),
+            ))
+        }
     }
 }
 
@@ -756,7 +810,10 @@ fn collect_named_destinations(
             .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
             let named = NamedDestination::new(name, dest);
-            document.register_named_destination(named.clone());
+            // The option is `None` if the destination is a duplicate which
+            // should not happen because we filtered them on a set insert above,
+            // hence the unwrap.
+            document.register_named_destination(named.clone()).unwrap();
             locs_to_names.insert(loc, named);
         }
     }

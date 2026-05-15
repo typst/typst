@@ -51,6 +51,7 @@ use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
+use crate::util::ValidatorsExt;
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
@@ -202,7 +203,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             .at(Span::detached())?;
 
         if options.is_pdf_ua() && located.multiple_parents {
-            let validator = options.standards.config.validator().as_str();
+            let validator = options.standards.config.validators().to_comma_list();
             let group = tree.groups.get(located.id);
             bail!(
                 group.span,
@@ -459,7 +460,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
                 }
                 ControlFlow::Continue(())
             });
-            let validator = tree.options.standards.config.validator().as_str();
+            let validator = tree.options.standards.config.validators().to_comma_list();
             tree.errors.push(if contains_context.is_break() {
                 error!(
                     heading.span(),
@@ -645,7 +646,8 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                 || matches!(outer_break_opportunity, BreakOpportunity::NoPdfUa(_));
 
             if non_breakable_in_pdf_ua {
-                let validator = tree.options.standards.config.validator().as_str();
+                let validator =
+                    tree.options.standards.config.validators().to_comma_list();
                 bail!(
                     non_breakable_span,
                     "{validator} error: invalid document structure, \

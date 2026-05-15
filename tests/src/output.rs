@@ -5,7 +5,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
-use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
+use hayro::hayro_interpret::InterpreterSettings;
+use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+use hayro_svg::{RenderCache, SvgRenderSettings};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
@@ -243,13 +245,12 @@ impl OutputType for Pdf {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
         // If another standard is specified in the test, run that as well.
-        let default_pdf = generate_pdf(doc, None);
-        let ua1_pdf = generate_pdf(doc, Some(PdfStandard::Ua_1));
-        match test.attrs.pdf_standard {
-            Some(PdfStandard::Ua_1) => ua1_pdf,
-            Some(other) => generate_pdf(doc, Some(other)),
-            None => default_pdf,
+        let standards = &test.attrs.pdf_standard;
+        let _ = generate_pdf(doc, &[]);
+        if !standards.contains(&PdfStandard::Ua_1) {
+            let _ = generate_pdf(doc, &[PdfStandard::Ua_1]);
         }
+        generate_pdf(doc, standards)
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -309,10 +310,18 @@ fn pdf_to_svg(bytes: &[u8]) -> String {
             FontQuery::Standard(s) => select_standard_font(*s),
             FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
+        cmap_resolver: Arc::new(|_| None),
         warning_sink: Arc::new(|_| {}),
+        render_annotations: false,
     };
 
-    let mut svg = hayro_svg::convert(&pdf.pages()[0], &interpreter_settings);
+    let cache = RenderCache::new();
+    let mut svg = hayro_svg::convert(
+        &pdf.pages()[0],
+        &cache,
+        &interpreter_settings,
+        &SvgRenderSettings::default(),
+    );
 
     // Insert a white background, since PDFs don't set a background by default.
     let pos = svg.find(">").expect("end of opening `<svg>` tag");
@@ -328,11 +337,8 @@ impl HashOutputType for Pdf {
     const INDEX: usize = 0;
 }
 
-fn generate_pdf(
-    doc: &PagedDocument,
-    standard: Option<PdfStandard>,
-) -> SourceResult<Vec<u8>> {
-    let standards = PdfStandards::new(standard.as_slice()).unwrap();
+fn generate_pdf(doc: &PagedDocument, standards: &[PdfStandard]) -> SourceResult<Vec<u8>> {
+    let standards = PdfStandards::new(standards).at(Span::detached())?;
     let options = PdfOptions { standards, ..Default::default() };
     typst_pdf::pdf(doc, &options)
 }
@@ -472,7 +478,8 @@ impl OutputType for Bundle {
     }
 
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
+        let standards =
+            PdfStandards::new(test.attrs.pdf_standard.as_slice()).at(Span::detached())?;
         let options = BundleOptions {
             pixel_per_pt: 1.0,
             pdf: PdfOptions { standards, ..Default::default() },

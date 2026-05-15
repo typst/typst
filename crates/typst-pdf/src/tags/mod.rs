@@ -1,8 +1,7 @@
-use krilla::configure::Validator;
 use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
-use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
+use krilla::tagging::{Artifact, ArtifactType, ContentTag, SpanTag};
 use typst_layout::PagedDocument;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::layout::{FrameParent, Point, Rect, Size};
@@ -109,7 +108,8 @@ pub fn tiling<T>(
     gc.tags.in_tiling = true;
     let mark_artifact = gc.tags.tree.parent_artifact().is_none();
     if mark_artifact {
-        surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
+        surface
+            .start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
     }
 
     let res = f(gc, surface);
@@ -248,7 +248,7 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
+    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
 
     TagHandle { surface, started: true }
 }
@@ -259,7 +259,7 @@ fn update_bbox(
     compute_bbox: impl FnOnce() -> Rect,
 ) {
     if let Some(bbox) = gc.tags.tree.parent_bbox()
-        && gc.options.standards.config.validator() == Validator::UA1
+        && gc.options.standards.config.validators().accessibility().is_some()
     {
         bbox.expand_frame(fc, compute_bbox);
     }

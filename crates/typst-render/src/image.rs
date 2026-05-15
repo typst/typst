@@ -1,4 +1,9 @@
-use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
+use hayro::RenderCache;
+use hayro::RenderSettings;
+use hayro::hayro_interpret::InterpreterSettings;
+use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+use hayro::vello_cpu::color::PremulRgba8;
+use hayro::vello_cpu::color::palette::css::TRANSPARENT;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use std::sync::Arc;
@@ -135,7 +140,9 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
             FontQuery::Standard(s) => select_standard_font(*s),
             FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
+        cmap_resolver: Arc::new(|_| None),
         warning_sink: Arc::new(|_| {}),
+        render_annotations: false,
     };
 
     let render_settings = RenderSettings {
@@ -143,9 +150,17 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
         y_scale: h as f32 / pdf.height(),
         width: Some(w as u16),
         height: Some(h as u16),
+        bg_color: TRANSPARENT,
     };
 
-    let hayro_pix = hayro::render(pdf.page(), &interpreter_settings, &render_settings);
+    let cache = RenderCache::new();
+    let hayro_pix =
+        hayro::render(pdf.page(), &cache, &interpreter_settings, &render_settings);
 
-    sk::Pixmap::from_vec(hayro_pix.take_u8(), IntSize::from_wh(w, h)?)
+    let bytes: Vec<u8> = hayro_pix
+        .take()
+        .into_iter()
+        .flat_map(PremulRgba8::to_u8_array)
+        .collect();
+    sk::Pixmap::from_vec(bytes, IntSize::from_wh(w, h)?)
 }

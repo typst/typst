@@ -5,7 +5,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.14.2"
-rust-version = "1.92" # also change in ci.yml
+rust-version = "1.92"                         # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2024"
 homepage = "https://typst.app"
@@ -38,7 +38,7 @@ typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "3
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
-bitflags = { version = "2", features = ["serde"] }
+bitflags = { version = "2.10", features = ["serde"] }
 bumpalo = { version = "3.15.4", features = ["boxed", "collections"] }
 bytemuck = "1"
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
@@ -62,9 +62,9 @@ fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 glidesort = "0.1.2"
 hayagriva = { git = "https://github.com/typst/hayagriva", rev = "292b880" }
-hayro = { version = "0.4.0", default-features = false }
-hayro-svg = { version = "0.2.0", default-features = false }
-hayro-syntax = "0.4.0"
+hayro = { git = "https://github.com/LaurenzV/hayro", rev = "8488d9ba076274ef5f6de433249a2314d4fbee0d", default-features = false }
+hayro-svg = { git = "https://github.com/LaurenzV/hayro", rev = "8488d9ba076274ef5f6de433249a2314d4fbee0d", default-features = false }
+hayro-syntax = { git = "https://github.com/LaurenzV/hayro", rev = "8488d9ba076274ef5f6de433249a2314d4fbee0d" }
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
@@ -77,8 +77,8 @@ indexmap = { version = "2", features = ["serde", "rayon"] }
 infer = { version = "0.19.0", default-features = false }
 itoa = "1"
 kamadak-exif = "0.6"
-krilla = { git = "https://github.com/LaurenzV/krilla", rev = "88483e2", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "88483e2" }
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "a1e40af", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "a1e40af" }
 kurbo = "0.12"
 libfuzzer-sys = "0.4"
 libm = "0.2.11"
@@ -97,15 +97,15 @@ pathdiff = "0.2"
 percent-encoding = "2.3.2"
 phf = { version = "0.13", features = ["macros"] }
 pixglyph = "0.6"
-png = "0.17"
+png = "0.18"
 portable-atomic = "1.6"
 proc-macro2 = "1"
 quote = "1"
 rayon = "1.7.0"
 regex = "1"
 regex-syntax = "0.8"
-resvg = { version = "0.45", default-features = false, features = ["raster-images"] }
-roxmltree = "0.20"
+resvg = { version = "0.47", default-features = false, features = ["raster-images"] }
+roxmltree = "0.21"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustc-hash = "2.1"
 rustybuzz = "0.20"
@@ -129,7 +129,7 @@ tempfile = "3.7.0"
 thin-vec = "0.2.18"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
-tiny-skia = "0.11"
+tiny-skia = "0.12"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
 ttf-parser = "0.25.0"
 two-face = { version = "0.4.3", default-features = false, features = ["syntect-fancy"] }
@@ -144,7 +144,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 url = "2.5"
-usvg = { version = "0.45", default-features = false, features = ["text"] }
+usvg = { version = "0.47", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = { version = "1.0.9", default-features = false, features = ["simd"] }
