@@ -1,9 +1,10 @@
+use std::io::{Write, stdout};
 use std::sync::LazyLock;
 
 use comemo::Track;
 use ecow::eco_format;
 use typst::Library;
-use typst::diag::{FileResult, HintedStrResult, SourceResult, Warned};
+use typst::diag::{FileResult, HintedStrResult, SourceResult, Warned, bail};
 use typst::foundations::{
     Bytes, Context, Datetime, Duration, Output, Scope, StyleChain, Value,
 };
@@ -20,10 +21,41 @@ use typst_kit::diagnostics::DiagnosticWorld;
 use typst_layout::PagedDocument;
 use typst_utils::LazyHash;
 
-use crate::args::{EvalCommand, Target};
+use crate::args::{EvalCommand, EvalSerializationFormat, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
+
+fn print_eval_result(
+    value: &Value,
+    format: EvalSerializationFormat,
+    pretty: bool,
+) -> HintedStrResult<()> {
+    match format {
+        EvalSerializationFormat::Json => {
+            println!("{}", crate::serialize(&value, SerializationFormat::Json, pretty)?);
+        }
+        EvalSerializationFormat::Yaml => {
+            println!("{}", crate::serialize(&value, SerializationFormat::Yaml, pretty)?);
+        }
+        EvalSerializationFormat::Raw => match value {
+            Value::Str(s) => {
+                println!("{s}");
+            }
+            Value::Bytes(bytes) => {
+                stdout().lock().write_all(bytes).map_err(|err| {
+                    eco_format!("failed to write eval result to stdout ({err})")
+                })?;
+            }
+            _ => bail!(
+                "invalid eval result type: {}", &value.ty();
+                hint: "--format=raw allows only string and bytes as result types"
+            ),
+        },
+    };
+
+    Ok(())
+}
 
 /// Evaluate an input expression, potentially as a query over an existing
 /// document.
@@ -63,9 +95,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             let errors = match &eval_result {
                 Err(errors) => errors.as_slice(),
                 Ok(value) => {
-                    let serialized =
-                        crate::serialize(value, command.format, command.pretty)?;
-                    println!("{serialized}");
+                    print_eval_result(value, command.format, command.pretty)?;
                     &[]
                 }
             };
@@ -84,6 +114,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
         // The target failed, print its diagnostics.
         Err(errors) => {
             set_failed();
+
             print_diagnostics(
                 &world,
                 &errors,
