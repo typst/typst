@@ -18,6 +18,17 @@
   ```.text
 ), alt: "Geʽez letter")
 
+--- pdf-validation-incompatible-standards pdf pdfstandard(ua-1, a-4) ---
+// Error: PDF/A-4 and PDF/UA-1 are mutually incompatible because they do not have any overlapping PDF versions
+// Hint: PDF/A-4 requires version PDF 2.0
+// Hint: PDF/UA-1 requires a version between PDF 1.4 and PDF 1.7
+Hello
+
+--- pdf-validation-version-required-feature pdf pdfstandard(1.4, ua-1) ---
+// Error: PDF/UA-1 error: links and other annotations cannot be navigated accessibly in PDF 1.4 files
+// Hint: set the PDF version to PDF 1.5
+#link("https://typst.app")[typst]
+
 --- pdf-validation-bundle bundle pdfstandard(ua-1) ---
 #document(
   "hi.pdf",
