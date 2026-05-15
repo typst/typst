@@ -316,11 +316,11 @@ pre > button.copy {
   float: right;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease-in-out;
 }
 
 pre > button.copy:active,
-pre > button.copy:focus-visible {
+pre > button.copy:focus {
   opacity: 1;
 }
 
