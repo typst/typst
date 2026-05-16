@@ -1,4 +1,4 @@
-// Definies utilites and basic components.
+// Defines utilities and basic components.
 
 #import "system.typ": colors, sizes
 
@@ -96,7 +96,7 @@
   is-short-state.update(false)
 }
 
-// Contraints content to a maximum width and/or height.
+// Constrains content to a maximum width and/or height.
 #let constrain(width: none, height: none, body) = layout(size => block(
   ..if width != none { (width: calc.min(size.width, width)) },
   ..if height != none { (height: calc.min(size.height, height)) },

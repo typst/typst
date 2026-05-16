@@ -152,7 +152,7 @@
 
   {
     show heading: it => {
-      // The expression `figure.caption` is ambigious. It's both an element and
+      // The expression `figure.caption` is ambiguous. It's both an element and
       // a contextual parameter access. This is really a language-level problem
       // but reflects in linking ambiguity in the docs. To avoid a linking
       // error, we simply prefer the element always.
