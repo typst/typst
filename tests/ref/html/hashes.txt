@@ -75,6 +75,9 @@ fdde8074550e23eff177cea9ce755db4 issue-3973-math-equation-align
 face69dde4cd0d0120d810a44d6b3d84 issue-6170-equation-stroke
 42a1c3b72e19d6cc05ccab9baec7bfa1 issue-7437-math-accent-text-presentation
 3277fec377f92a3ca4d6d78ad5bccfcc issue-7751-table-cell-show-rules
+ef55e17d17783c365d409ef4feb3364e issue-8261-string-as-ellipsis
+165dbba7c24026f5a533c63c841bd0f4 issue-8261-string-as-empty
+eb4c8598ee606901a6d0e4a739af17f9 issue-8261-string-as-non-numeric
 8bc65297b60117bab4bb740c617fe402 issue-math-realize-scripting
 44fbc75996ca7154896d82a2cc32da32 link-basic
 abc979b6657cc4e5f369014267106c5a link-html-frame
@@ -259,8 +262,8 @@ eac298bdb7486abcdfca719bc5c3d96c math-mat-spread-1d
 2c47bd840b07774cc829c89236337906 math-mat-vec-cases-unity
 7c3825537c05379cb363b764602e416f math-multiline-multiple-trailing-linebreaks
 377d0aab6cf72e258cfd3ebc8d316b72 math-multiline-no-trailing-linebreak
-46d8f2ef6cdf732c09c633f0d54aa68a math-multiline-string
-e298f2133f56617d7f328db00b391d7c math-multiline-string-alignment
+fc8ee720079e1cbd1bd5f77fedfeb8f0 math-multiline-string
+02e91c0e72f0bc4da22b63e45123df22 math-multiline-string-alignment
 1af31f45c97c630e1a949985a698e180 math-multiline-trailing-linebreak
 9cf3e25a8a432e8581f866eb9473dfc4 math-op-call
 fd37a863d6d0a26e6b3cba5b54998d42 math-op-custom
