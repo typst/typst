@@ -241,6 +241,9 @@ pub struct TextElem {
     /// property instead.
     ///
     /// ```example
+    /// // The default font does not have a
+    /// // condensed variant.
+    /// #set text(font: "IBM Plex Sans")
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
