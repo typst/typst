@@ -8,13 +8,11 @@
 )[
   This reference documentation is a comprehensive guide to all of Typst's syntax, concepts, types, and functions. If you are completely new to Typst, we recommend starting with the @tutorial[tutorial] and then coming back to the reference to learn more about Typst's features as you need them.
 
-  = Language <language>
-  The reference starts with a language part that gives an overview over @reference:syntax[Typst's syntax] and contains information about concepts involved in @reference:styling[styling documents,] using @reference:scripting[Typst's scripting capabilities.]
+  This is where you will find official documentation for the Typst programming language (its @reference:syntax[syntax], @reference:styling[styling capabilities], @reference:scripting[scripting tools], and @reference:context[dynamic features]), its standard library, and its export-specific features.
 
-  = Functions <functions>
-  The second part includes chapters on all functions used to insert, style, transform, and layout content in Typst documents. Each function is documented with a description of its purpose, a list of its parameters, and examples of how to use it.
+  = Version <version>
 
-  The final part of the reference explains all functions that are used within Typst's code mode to manipulate and transform data. Just as in the previous part, each function is documented with a description of its purpose, a list of its parameters, and examples of how to use it.
+  This reference is specific to Typst #sys.version. In the CLI, you can check your Typst version with `typst --version` and update to the most recent version with `typst update`. On the web app, the Typst version used for a specific project can be selected in the Settings panel. The Typst version is sometimes refered to as the "compiler version."
 ]
 
 #show: paged-heading-offset.with(1)
