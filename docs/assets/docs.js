@@ -999,6 +999,7 @@ function searchSymbols(symbols, query) {
       element.dataset.unicName,
       element.dataset.latexName,
       element.dataset.value,
+      element.dataset.keywords,
       element.dataset.shorthand,
       element.dataset.mathShorthand,
     ]) {

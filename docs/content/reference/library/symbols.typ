@@ -27,6 +27,14 @@
   "\u{200F}": "rlm",
 )
 
+// Additional keywords for some symbols. Used to improve symbol search.
+#let symbol-keywords = (
+  "ħ": ("hbar",),
+  "⇒": ("implies",),
+  "⟹": ("implies",),
+  "⇔": ("iff",),
+)
+
 // Human-facing names of the math classes.
 #let math-class-names = (
   "normal": "Normal",
@@ -130,6 +138,7 @@
     data-codex-name: if not shorthand { name },
     data-unic-name: stdx.unicode-name(value),
     data-latex-name: stdx.latex-name(value),
+    data-keywords: symbol-keywords.at(value, default: ()).join(" ", default: ""),
     data-value: value,
     data-accent: if stdx.is-accent(value) { "true" },
     data-alternates: alternates.join(" ", default: none),
