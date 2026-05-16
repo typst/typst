@@ -139,6 +139,15 @@ h3 small svg {
   }
 }
 
+a.sources-link {
+  margin-inline-start: auto;
+}
+
+a.sources-link > svg {
+  display: block;
+  color: var(--text-primary);
+}
+
 li p + ul,
 li p + ol {
   margin-block-start: -0.5rem;

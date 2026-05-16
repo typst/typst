@@ -224,6 +224,7 @@ fn stdx_module() -> Module {
     scope.define_func::<crate::reflect::unicode_name>();
     scope.define_func::<crate::reflect::latex_name>();
     scope.define_func::<crate::reflect::is_global_html_attr>();
+    scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
     Module::new("stdx", scope)
 }
