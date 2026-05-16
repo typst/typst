@@ -471,7 +471,7 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set text(
-    ///   font: "Libertinus Serif",
+    ///   font: "IBM Plex Sans",
     ///   size: 20pt,
     /// )
     ///
