@@ -1,5 +1,6 @@
 //! Virtual, cross-platform reproducible path handling.
 
+use std::error;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU16;
 use std::ops::Deref;
@@ -564,6 +565,17 @@ pub enum PathError {
     Backslash,
 }
 
+impl fmt::Display for PathError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Escapes => write!(f, "path escapes project root"),
+            Self::Backslash => write!(f, "path contains backslash"),
+        }
+    }
+}
+
+impl error::Error for PathError {}
+
 /// An error that can occur in [`VirtualPath::virtualize`].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum VirtualizeError {
@@ -576,6 +588,25 @@ pub enum VirtualizeError {
     /// The file path contains non-UTF-8 encodable bytes.
     Utf8,
 }
+
+impl fmt::Display for VirtualizeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "could not virtualize path, ")?;
+
+        match self {
+            Self::Path(inner) => fmt::Display::fmt(inner, f),
+            Self::Invalid(component) => {
+                write!(f, "path contains invalid component {component:?}")
+            }
+            Self::Utf8 => write!(f, "path contains non-UTF-8 bytes"),
+        }
+    }
+}
+
+// NOTE: Because we opt to inline the formatting of the PathError we cannot
+// also return it as the error source, else it will be displayed twice in error
+// backtraces.
+impl error::Error for VirtualizeError {}
 
 impl From<PathError> for VirtualizeError {
     fn from(err: PathError) -> Self {
