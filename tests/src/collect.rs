@@ -719,7 +719,9 @@ impl<'a> Parser<'a> {
                         .filter_map(|s| {
                             serde_yaml::from_str(s)
                                 .inspect_err(|e| {
-                                    self.error(format!("unknown pdf standard `{s}`: {e}"))
+                                    self.error(format!(
+                                        "unknown pdf standard `{s}`: {e}"
+                                    ));
                                 })
                                 .ok()
                         })

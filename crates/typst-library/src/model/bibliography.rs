@@ -300,7 +300,7 @@ impl BibliographyElem {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
-                vec.push((key, detail))
+                vec.push((key, detail));
             }
         }
         vec
@@ -1575,7 +1575,7 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     value.push_str(lang.as_str());
     if let Some(region) = region {
         value.push('-');
-        value.push_str(region.as_str())
+        value.push_str(region.as_str());
     }
     citationberg::LocaleCode(value)
 }

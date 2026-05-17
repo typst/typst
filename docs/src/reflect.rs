@@ -83,7 +83,7 @@ fn describe_param(param: &NativeParamInfo) -> Dict {
     // indicate the absence of a default with absence from the dictionary rather
     // than `none`.
     if let Some(f) = param.default {
-        dict.insert("default".into(), f())
+        dict.insert("default".into(), f());
     }
     dict
 }

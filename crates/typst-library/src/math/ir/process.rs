@@ -246,7 +246,7 @@ where
         && item.rclass() == MathClass::Punctuation
         && item.size().is_none_or(|s| s > MathSize::Script)
     {
-        item.set_rspace(Some(THIN))
+        item.set_rspace(Some(THIN));
     } else if let Some(idx) = resolved.last_index()
         && let RawMathItem::Item(MathItem::Spacing(_, _, true)) = resolved.0[idx]
     {

@@ -625,7 +625,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         };
 
         if let Some(inner) = &mut inner_break_priority {
-            *inner = (*inner).min(priority)
+            *inner = (*inner).min(priority);
         }
     }
 

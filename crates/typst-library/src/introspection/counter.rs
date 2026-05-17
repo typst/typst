@@ -606,7 +606,7 @@ impl CounterState {
                 *self = func
                     .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
-                    .at(func.span())?
+                    .at(func.span())?;
             }
         }
         Ok(())

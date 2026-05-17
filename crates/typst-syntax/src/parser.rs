@@ -260,7 +260,7 @@ fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
 /// Parses a single math expression: This includes math elements like
 /// attachment, fractions, roots, and embedded code expressions.
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, syntax_set!())
+    math_expr_prec(p, 0, syntax_set!());
 }
 
 /// Parses a math expression with at least the given precedence, possibly
@@ -1187,7 +1187,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
         if state.kind == Some(SyntaxKind::Dict) {
             p[m].expected("named or keyed pair");
         } else {
-            state.kind = Some(SyntaxKind::Array)
+            state.kind = Some(SyntaxKind::Array);
         }
     }
 }

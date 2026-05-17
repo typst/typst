@@ -501,7 +501,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // the flow, restore the saved checkpoint to move the sticky
             // suffix to the next region.
             if let Some(snapshot) = self.sticky.take() {
-                self.restore(snapshot)
+                self.restore(snapshot);
             }
         }
 

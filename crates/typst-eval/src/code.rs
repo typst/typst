@@ -241,7 +241,7 @@ impl Eval for ast::Array<'_> {
             match item {
                 ast::ArrayItem::Pos(expr) => {
                     all_dict_spreads = false;
-                    vec.push(expr.eval(vm)?)
+                    vec.push(expr.eval(vm)?);
                 }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}

@@ -424,7 +424,7 @@ impl FromValue for LocatableSelector {
             match selector {
                 Selector::Elem(elem, _) => {
                     if !elem.is_locatable() || elem.is_unqueriable() {
-                        Err(eco_format!("{} is not locatable", elem.name()))?
+                        Err(eco_format!("{} is not locatable", elem.name()))?;
                     }
                 }
                 Selector::Location(_) => {}

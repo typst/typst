@@ -274,7 +274,7 @@ where
     // Call `f` for each run.
     for run in runs {
         let rtl = levels[run.start].is_rtl();
-        f(run, rtl)
+        f(run, rtl);
     }
 }
 
@@ -744,7 +744,7 @@ impl<'a> Items<'a> {
 
     /// Reorder the items starting at the given index to RTL.
     pub fn reorder(&mut self, from: usize) {
-        self.0[from..].reverse()
+        self.0[from..].reverse();
     }
 }
 

@@ -385,13 +385,13 @@ impl i64 {
                 // the end of the buffer.
                 let buf_start = size.saturating_sub(8);
                 let array_start = 8_usize.saturating_sub(size);
-                buf[buf_start..].copy_from_slice(&array[array_start..])
+                buf[buf_start..].copy_from_slice(&array[array_start..]);
             }
             Endianness::Little => {
                 // Copy the bytes from the array to the buffer, starting from
                 // the beginning of the buffer.
                 let end = size.min(8);
-                buf[..end].copy_from_slice(&array[..end])
+                buf[..end].copy_from_slice(&array[..end]);
             }
         }
 

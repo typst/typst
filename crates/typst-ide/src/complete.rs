@@ -1351,7 +1351,7 @@ impl<'a> CompletionContext<'a> {
             }
             CastInfo::Type(ty) => {
                 if *ty == Type::of::<NoneValue>() {
-                    self.snippet_completion("none", "none", "Nothing.")
+                    self.snippet_completion("none", "none", "Nothing.");
                 } else if *ty == Type::of::<AutoValue>() {
                     self.snippet_completion("auto", "auto", "A smart default.");
                 } else if *ty == Type::of::<bool>() {
@@ -1400,7 +1400,7 @@ impl<'a> CompletionContext<'a> {
                     );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Label>() {
-                    self.label_completions()
+                    self.label_completions();
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
                         "function",

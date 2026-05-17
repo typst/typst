@@ -447,7 +447,7 @@ impl<'a> Runner<'a> {
             let live_data = self.save_live::<T>(output);
             if self.test.should_check(T::OUTPUT) {
                 let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
-                self.check_file_ref::<T>(output)
+                self.check_file_ref::<T>(output);
             }
         }
         live
