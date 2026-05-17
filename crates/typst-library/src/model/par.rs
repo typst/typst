@@ -214,12 +214,13 @@ pub struct ParElem {
     ///
     /// Just like leading, this defines the spacing between the bottom edge of a
     /// paragraph's last line and the top edge of the next paragraph's first
-    /// line.
+    /// line. Spacing acts both above and below, collapsing to the greater of
+    /// the amounts defined by adjacent paragraphs.
     ///
-    /// When a paragraph is adjacent to a @block that is not a paragraph, that
-    /// block's @block.above[`above`] or @block.below[`below`] property takes
-    /// precedence over the paragraph spacing. Headings, for instance, reduce
-    /// the spacing below them by default for a better look.
+    /// When a paragraph is adjacent to a @block, that block's
+    /// @block.above[`above`] or @block.below[`below`] property takes precedence
+    /// over the paragraph spacing. Headings, for instance, reduce the spacing
+    /// below them by default for a better look.
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
