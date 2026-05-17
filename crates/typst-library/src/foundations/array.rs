@@ -342,6 +342,13 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
+        ///
+        /// ```example
+        /// #let arr = (1, 7, 4, 6, 9)
+        /// #arr.position(x => calc.even(x)) \
+        /// // Or equivalently:
+        /// #arr.position(calc.even) \
+        /// ```
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
