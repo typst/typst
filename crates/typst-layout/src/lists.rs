@@ -60,18 +60,14 @@ pub fn layout_list(
         items.push(item);
     }
 
-    let layouter = ItemsLayouter {
+    let layouter = ListLayouter::new(
         gutter,
-        span: elem.span(),
+        elem.span(),
         indent,
         body_indent,
         baseline_align,
         is_rtl,
-
-        // These will be calculated later.
-        marker_width: Abs::zero(),
-        body_width: None,
-    };
+    );
 
     layout_items(layouter, items, engine, locator, styles, regions)
 }
@@ -158,18 +154,14 @@ pub fn layout_enum(
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
 
-    let layouter = ItemsLayouter {
+    let layouter = ListLayouter::new(
         gutter,
-        span: elem.span(),
+        elem.span(),
         indent,
         body_indent,
         baseline_align,
         is_rtl,
-
-        // These will be calculated later.
-        marker_width: Abs::zero(),
-        body_width: None,
-    };
+    );
 
     layout_items(layouter, items, engine, locator, styles, regions)
 }
@@ -183,7 +175,7 @@ struct ItemContent {
 }
 
 /// Layout data shared across all list items.
-struct ItemsLayouter {
+struct ListLayouter {
     /// Gutter spacing between items.
     gutter: Length,
     /// Span of the list/enum element.
@@ -206,29 +198,47 @@ struct ItemsLayouter {
     body_width: Option<Abs>,
 }
 
-// /// Layout data for a specific item.
-// struct ItemLayouter {
-//     /// Resolved indent.
-//     indent: Abs,
-//     /// Resolved body indent.
-//     body_indent: Abs,
-// }
+impl ListLayouter {
+    /// Create a new list layouter with defaults for values that will be
+    /// calculated later.
+    fn new(
+        gutter: Length,
+        span: Span,
+        indent: Length,
+        body_indent: Length,
+        baseline_align: bool,
+        is_rtl: bool,
+    ) -> Self {
+        Self {
+            gutter,
+            span,
+            indent,
+            body_indent,
+            baseline_align,
+            is_rtl,
+
+            // These will be calculated later.
+            marker_width: Abs::zero(),
+            body_width: None,
+        }
+    }
+}
 
 /// Layout list items.
 ///
-/// This is done in 3 steps:
+/// This is done in 4 steps:
 ///
 /// 1. Compute marker widths for horizontal marker alignment;
 /// 2. If necessary (when within a `width: auto` block or page), compute body
-/// widths for horizontal body alignment to work;
+/// widths as well for horizontal body alignment to work;
 /// 3. Generate list item layouters, each of which is responsible for vertical
 /// marker alignment (baseline-aligned or not, depending on user settings);
-/// 4. Pass each list item to the stack layouter, making it possible for them to
-/// expand to the full available width, allowing for center alignment within the
-/// item body.
+/// 4. Pass each list item to the stack layouter. The stack layouter makes it
+/// possible for them to expand to the full available width, allowing for center
+/// or right alignment to work within the item body.
 #[typst_macros::time(span = layouter.span)]
 fn layout_items(
-    mut layouter: ItemsLayouter,
+    mut layouter: ListLayouter,
     items: Vec<ItemContent>,
     engine: &mut Engine,
     locator: Locator,
@@ -317,176 +327,252 @@ fn layout_items(
     )
 }
 
-/// Layout the item.
-///
-/// Marker and body width should be determined relative to other items, being
-/// equivalent to the largest width, relative to which the marker and body
-/// should horizontally align. Note that body width is `None` when the region
-/// has a fixed width, as then the list will expand to fill it.
+/// Layout the item, with support for vertical marker alignment.
 #[typst_macros::time(span = item.body.span())]
 fn layout_item(
     item: &ItemContent,
-    layouter: &ItemsLayouter,
+    list: &ListLayouter,
     engine: &mut Engine,
     marker_locator: &Locator,
     body_locator: &Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let indent = layouter.indent.resolve(styles);
-    let body_indent = layouter.body_indent.resolve(styles);
-    let mut marker = crate::layout_frame(
-        engine,
-        &item.marker,
-        marker_locator.relayout(),
-        styles,
+    let mut layouter =
+        ItemLayouter::new(item, list, marker_locator, body_locator, styles, regions);
+
+    let mut marker = layouter.layout_marker(
         Region::new(
-            Axes::new(layouter.marker_width, regions.base().y),
+            Axes::new(list.marker_width, regions.base().y),
             Axes::new(true, false),
         ),
+        engine,
     )?;
-    // How much to offset the body from the start of the page.
-    let total_body_indent = indent + layouter.marker_width + body_indent;
-    let body_regions = {
-        let mut regions = regions;
-        if let Some(body_width) = layouter.body_width {
-            regions.size.x = body_width;
-            regions.expand.x = true;
+
+    let mut body = layouter.layout_body(layouter.body_regions, engine)?;
+
+    if layouter.list.baseline_align {
+        layouter.baseline_align(&marker, &mut body, engine)?;
+    } else {
+        layouter.vertical_align(&mut marker, &body, engine)?;
+    };
+
+    layouter.finish(marker, body)
+}
+
+/// Layout data for a specific item.
+///
+/// Its methods assume only `layout_marker` and `layout_body` are used to layout
+/// the item's contents.
+struct ItemLayouter<'a> {
+    /// Item content to layout.
+    item: &'a ItemContent,
+    /// List-wide layout data.
+    list: &'a ListLayouter,
+    /// Locator used to measure and layout the marker (must be the same to avoid
+    /// introspection bugs).
+    marker_locator: &'a Locator<'a>,
+    /// Locator used to measure and layout the body (must be the same to avoid
+    /// introspection bugs).
+    body_locator: &'a Locator<'a>,
+    /// Stylechain at this item's location.
+    styles: StyleChain<'a>,
+    /// Regions at this item's location.
+    regions: Regions<'a>,
+    /// The first body's non-empty frame.
+    first_frame: usize,
+    /// The item's regions, but adapted for the body's expected width.
+    body_regions: Regions<'a>,
+    /// Total body indent from the left of the region, as well as its offset from the top of the region.
+    ///
+    /// Vertical offset is always zero without baseline alignment.
+    body_offset: Point,
+    /// Resolved marker indent from the left of the region, as well as its offset from the top of the region.
+    ///
+    /// Vertical offset is always zero without baseline alignment.
+    marker_offset: Point,
+}
+
+impl<'a> ItemLayouter<'a> {
+    /// Begin item layout by resolving default values of attributes.
+    fn new(
+        item: &'a ItemContent,
+        list: &'a ListLayouter,
+        marker_locator: &'a Locator<'a>,
+        body_locator: &'a Locator<'a>,
+        styles: StyleChain<'a>,
+        regions: Regions<'a>,
+    ) -> Self {
+        let indent = list.indent.resolve(styles);
+        let body_indent = list.body_indent.resolve(styles);
+
+        let total_body_indent = indent + list.marker_width + body_indent;
+
+        // Restrict the body to the available space.
+        let mut body_regions = regions;
+        if let Some(body_width) = list.body_width {
+            body_regions.size.x = body_width;
+            body_regions.expand.x = true;
         } else {
-            regions.size.x -= total_body_indent;
+            body_regions.size.x -= total_body_indent;
         }
-        regions
-    };
 
-    let mut fragment = {
-        crate::layout_fragment(
-            engine,
-            &item.body,
-            body_locator.relayout(),
+        Self {
+            item,
+            list,
+            marker_locator,
+            body_locator,
             styles,
+            regions,
+            first_frame: 0,
             body_regions,
-        )?
-    };
+            body_offset: Point::with_x(total_body_indent),
+            marker_offset: Point::with_x(indent),
+        }
+    }
 
-    // First non-empty frame (ignores frames with only tags due to a forced
-    // region break).
-    let mut first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
+    /// Layout the list marker with the given region data.
+    fn layout_marker(&self, region: Region, engine: &mut Engine) -> SourceResult<Frame> {
+        crate::layout_frame(
+            engine,
+            &self.item.marker,
+            self.marker_locator.relayout(),
+            self.styles,
+            region,
+        )
+    }
 
-    // Difference between marker and body baselines, for alignment. A positive
-    // diff means that the marker is above and must move down, whereas a
-    // negative diff means that the marker is below, so the body must be moved
-    // down instead.
-    let diff;
+    /// Layout the list body with the given region data.
+    fn layout_body(
+        &mut self,
+        regions: Regions,
+        engine: &mut Engine,
+    ) -> SourceResult<Fragment> {
+        let fragment = crate::layout_fragment(
+            engine,
+            &self.item.body,
+            self.body_locator.relayout(),
+            self.styles,
+            regions,
+        )?;
 
-    if layouter.baseline_align {
-        diff = if marker.has_baseline()
-            && let Some(first) = fragment.as_slice().get(first_frame)
+        // First non-empty frame (ignores frames with only tags due to a forced
+        // region break).
+        self.first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
+
+        Ok(fragment)
+    }
+
+    /// Ensure baselines are aligned by either increasing the marker's offset,
+    /// if the marker is above the body and should thus be moved down, or by both
+    /// increasing the body's offset and relayouting it with less space, if the
+    /// body is above the marker.
+    fn baseline_align(
+        &mut self,
+        marker: &Frame,
+        body_fragment: &mut Fragment,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        // Difference between marker and body baselines, for alignment. A
+        // positive 'diff' means that the marker is above and must move down,
+        // whereas a negative 'diff' means that the marker is below, so the body
+        // must be moved down instead.
+        let diff = if marker.has_baseline()
+            && let Some(first) = body_fragment.as_slice().get(self.first_frame)
             && first.has_baseline()
         {
             first.baseline() - marker.baseline()
         } else {
-            // One of the frames has no natural baseline, so baseline alignment is disabled.
+            // One of the frames has no natural baseline, so baseline alignment
+            // is disabled.
             Abs::zero()
         };
-    } else {
+
+        if diff >= Abs::zero() {
+            // Marker's baseline is above the body's baseline, so we can align
+            // them by moving the baseline downwards, without moving the body.
+            self.marker_offset.y = diff;
+        } else {
+            // Marker's baseline is below the body's baseline, so move the body
+            // down to avoid overflowing the marker into something above the
+            // list (item).
+            //
+            // To do this, we layout the body again but with '-diff' less space,
+            // and then move the result '-diff' units downwards. Of course, this
+            // could theoretically generate a new result that is even worse -
+            // but there is only so much we can do with a finite number of
+            // iterations.
+            let mut regions = self.body_regions;
+            regions.size.y += diff;
+            *body_fragment = self.layout_body(regions, engine)?;
+
+            self.body_offset.y = -diff;
+        };
+
+        Ok(())
+    }
+
+    fn vertical_align(
+        &mut self,
+        marker: &mut Frame,
+        body: &Fragment,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
         // Explicit marker alignment was chosen, so re-layout the marker with
         // the same height as the body's first frame so it may align itself
         // vertically with the body.
-        let mut regions = regions;
-        if let Some(first) = fragment.as_slice().get(first_frame) {
+        let mut regions = self.regions;
+        if let Some(first) = body.as_slice().get(self.first_frame) {
             regions.size.y = first.height();
             regions.full = first.height();
         };
 
-        marker = crate::layout_frame(
-            engine,
-            &item.marker,
-            marker_locator.relayout(),
-            styles,
-            Region::new(
-                Axes::new(layouter.marker_width, regions.base().y),
-                Axes::splat(true),
-            ),
-        )?;
+        let region = Region::new(
+            Axes::new(self.list.marker_width, regions.base().y),
+            Axes::splat(true),
+        );
 
-        // No baseline alignment whatsoever.
-        diff = Abs::zero();
-    };
-
-    let (marker_dy, body_dy) = if diff >= Abs::zero() {
-        // Marker's baseline is above the body's baseline, so we can align them
-        // by moving the baseline downwards.
-        (diff, Abs::zero())
-    } else {
-        // Marker's baseline is below the body's baseline, so move the body
-        // down to avoid overflowing the marker into something above the list
-        // (item).
-        //
-        // To do this, we layout the body again but with '-diff' less space, and
-        // then move the result '-diff' units downwards. Of course, this could
-        // theoretically generate a new result that is even worse - but there is
-        // only so much we can do with a finite number of iterations.
-        let mut regions = body_regions;
-        regions.size.y += diff;
-        fragment = crate::layout_fragment(
-            engine,
-            &item.body,
-            body_locator.relayout(),
-            styles,
-            regions,
-        )?;
-        first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
-
-        (Abs::zero(), -diff)
-    };
-
-    // Indicate where the marker and body should be to prevent overlap.
-    let marker_offset = Point::new(indent, marker_dy);
-    let body_offset = Point::new(total_body_indent, body_dy);
-
-    finish_item(layouter, first_frame, marker_offset, body_offset, marker, fragment)
-}
-
-fn finish_item(
-    layouter: &ItemsLayouter,
-    first_frame: usize,
-    marker_offset: Point,
-    body_offset: Point,
-    marker: Frame,
-    body_fragment: Fragment,
-) -> SourceResult<Fragment> {
-    // Collect the item's frames. Here, we add the marker to the first non-empty
-    // frame, and additionally indent the whole body so it appears after the
-    // marker.
-    let mut frames = vec![];
-    for (i, body_frame) in body_fragment.into_iter().enumerate() {
-        let width = body_offset.x + body_frame.width();
-        let mut frame = Frame::soft(Size::new(
-            width,
-            (marker.size().y + marker_offset.y).max(body_frame.height() + body_offset.y),
-        ));
-
-        let mut body_pos = body_offset;
-        if layouter.is_rtl {
-            // In RTL cells expand to the left, thus the position must
-            // additionally be offset by the cell's width.
-            body_pos.x = width - (body_pos.x + body_frame.width());
-        }
-
-        // Only place the marker on the first non-empty frame.
-        if i == first_frame {
-            let mut marker_pos = marker_offset;
-            if layouter.is_rtl {
-                marker_pos.x = width - (marker_pos.x + layouter.marker_width);
-            }
-            frame.push_frame(marker_pos, marker.clone());
-        }
-
-        frame.push_frame(body_pos, body_frame);
-        frames.push(frame);
+        *marker = self.layout_marker(region, engine)?;
+        Ok(())
     }
 
-    Ok(Fragment::frames(frames))
+    /// Finish list item layout by indenting the body's frames and add the
+    /// marker to the first non-empty frame.
+    fn finish(&self, marker: Frame, body_fragment: Fragment) -> SourceResult<Fragment> {
+        // Collect the item's frames. Here, we add the marker to the first
+        // non-empty frame, and additionally indent the whole body so it appears
+        // after the marker.
+        let mut frames = vec![];
+        for (i, body_frame) in body_fragment.into_iter().enumerate() {
+            let width = self.body_offset.x + body_frame.width();
+            let mut frame = Frame::soft(Size::new(
+                width,
+                (marker.size().y + self.marker_offset.y)
+                    .max(body_frame.height() + self.body_offset.y),
+            ));
+
+            let mut body_pos = self.body_offset;
+            if self.list.is_rtl {
+                // In RTL cells expand to the left, thus the position must
+                // additionally be offset by the cell's width.
+                body_pos.x = width - (body_pos.x + body_frame.width());
+            }
+
+            // Only place the marker on the first non-empty frame.
+            if i == self.first_frame {
+                let mut marker_pos = self.marker_offset;
+                if self.list.is_rtl {
+                    marker_pos.x = width - (marker_pos.x + self.list.marker_width);
+                }
+                frame.push_frame(marker_pos, marker.clone());
+            }
+
+            frame.push_frame(body_pos, body_frame);
+            frames.push(frame);
+        }
+
+        Ok(Fragment::frames(frames))
+    }
 }
 
 /// Check whether the first frame is essentially empty (only contains tags).

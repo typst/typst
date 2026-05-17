@@ -65,7 +65,6 @@ where
 /// might borrow data from the environment for each list item (a stack child).
 /// Each child receives relevant layout data from the stack as well.
 #[allow(clippy::too_many_arguments)]
-#[typst_macros::time(span = span)]
 pub fn layout_stack_internal<'a, F>(
     children: impl IntoIterator<Item = StackLayoutChild<'a, F>>,
     span: Span,
