@@ -244,7 +244,7 @@ impl SyntaxNode {
     /// The text of the node if it is a leaf or error node.
     ///
     /// Returns the empty string if this is an inner node.
-    pub fn text(&self) -> &EcoString {
+    pub fn leaf_text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match self.node_ref() {
             NodeRef::Leaf(text) => text,
@@ -253,14 +253,11 @@ impl SyntaxNode {
         }
     }
 
-    /// Extract the text from the node.
-    ///
-    /// Builds the string if this is an inner node.
-    pub fn into_text(self) -> EcoString {
-        // This isn't fully efficient for warnings, but the efficient
-        // version is more complicated to read/write due to partial moves.
-        match self.data {
-            Node::Leaf(text, _) => text,
+    /// Clone the full text from the node. If this is an inner node, it will
+    /// traverse the tree to build the text which may be expensive.
+    pub fn full_text(&self) -> EcoString {
+        match &self.data {
+            Node::Leaf(leaf, _) => leaf.clone(),
             Node::Error(err, _) => err.text.clone(),
             Node::Inner(_, _) | Node::Warning(_, _) => {
                 let mut buffer = EcoString::with_capacity(self.len());
@@ -471,7 +468,7 @@ impl SyntaxNode {
     /// Convert the child to an error, if it isn't already one.
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         if !self.kind().is_error() {
-            let text = std::mem::take(self).into_text();
+            let text = std::mem::take(self).full_text();
             *self = SyntaxNode::error(message.into(), text);
         }
     }
@@ -484,7 +481,7 @@ impl SyntaxNode {
         if kind.is_keyword() && matches!(expected, "identifier" | "pattern") {
             self.hint(eco_format!(
                 "keyword `{text}` is not allowed as an identifier; try `{text}_` instead",
-                text = self.text(),
+                text = self.leaf_text(),
             ));
         }
     }
@@ -993,7 +990,7 @@ impl Debug for WarningWrapper {
         let full_text = LazyCell::new(|| {
             let data = self.child.clone();
             let temp_node = SyntaxNode { data, span: Span::detached() };
-            temp_node.into_text()
+            temp_node.full_text()
         });
         let debug_field = |field, message, sub_range: Option<SubRange>| {
             // Inner closure has `move`, so need to explicitly capture by ref.
@@ -1583,17 +1580,17 @@ Markup: 9 [
         // Find "text" with Before.
         let node = LinkedNode::new(source.root()).leaf_at(7, Side::Before).unwrap();
         assert_eq!(node.offset(), 5);
-        assert_eq!(node.text(), "text");
+        assert_eq!(node.leaf_text(), "text");
 
         // Find "text" with After.
         let node = LinkedNode::new(source.root()).leaf_at(7, Side::After).unwrap();
         assert_eq!(node.offset(), 5);
-        assert_eq!(node.text(), "text");
+        assert_eq!(node.leaf_text(), "text");
 
         // Go back to "#set". Skips the space.
         let prev = node.prev_sibling().unwrap();
         assert_eq!(prev.offset(), 1);
-        assert_eq!(prev.text(), "set");
+        assert_eq!(prev.leaf_text(), "set");
     }
 
     #[test]
@@ -1601,24 +1598,24 @@ Markup: 9 [
         let source = Source::detached("#set fun(12pt, red)");
         let leaf = LinkedNode::new(source.root()).leaf_at(6, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
-        assert_eq!(leaf.text(), "fun");
-        assert_eq!(prev.text(), "set");
+        assert_eq!(leaf.leaf_text(), "fun");
+        assert_eq!(prev.leaf_text(), "set");
 
         // Check position 9 with Before.
         let source = Source::detached("#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
-        assert_eq!(prev.text(), "=");
-        assert_eq!(leaf.text(), " ");
-        assert_eq!(next.text(), "10");
+        assert_eq!(prev.leaf_text(), "=");
+        assert_eq!(leaf.leaf_text(), " ");
+        assert_eq!(next.leaf_text(), "10");
 
         // Check position 9 with After.
         let source = Source::detached("#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert!(leaf.next_leaf().is_none());
-        assert_eq!(prev.text(), "=");
-        assert_eq!(leaf.text(), "10");
+        assert_eq!(prev.leaf_text(), "=");
+        assert_eq!(leaf.leaf_text(), "10");
     }
 }

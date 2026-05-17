@@ -332,7 +332,7 @@ fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
             "creating a decimal using imprecise float literal";
             hint: "use a string in the decimal constructor to avoid loss \
                    of precision: `decimal({})`",
-            node.text().repr();
+            node.leaf_text().repr();
         ));
     }
     Some(())

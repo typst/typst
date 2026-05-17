@@ -464,8 +464,8 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     }
 
     if let [first, .., last] = node.children_mut()
-        && first.text() == "("
-        && last.text() == ")"
+        && first.leaf_text() == "("
+        && last.leaf_text() == ")"
     {
         first.convert_to_kind(SyntaxKind::LeftParen);
         last.convert_to_kind(SyntaxKind::RightParen);

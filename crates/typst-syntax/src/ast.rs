@@ -203,7 +203,7 @@ node! {
 impl<'a> LineComment<'a> {
     /// The contents of the line comment.
     pub fn text(&self) -> &'a str {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         text.strip_prefix("//").unwrap_or(text)
     }
 }
@@ -216,7 +216,7 @@ node! {
 impl<'a> BlockComment<'a> {
     /// The contents of the block comment.
     pub fn text(&self) -> &'a str {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         text.strip_prefix("/*")
             .and_then(|text| text.strip_suffix("*/"))
             .unwrap_or(text)
@@ -586,7 +586,7 @@ node! {
 impl<'a> Text<'a> {
     /// Get the text.
     pub fn get(self) -> &'a EcoString {
-        self.0.text()
+        self.0.leaf_text()
     }
 }
 
@@ -614,7 +614,7 @@ node! {
 impl Escape<'_> {
     /// Get the escaped character.
     pub fn get(self) -> char {
-        let mut s = Scanner::new(self.0.text());
+        let mut s = Scanner::new(self.0.leaf_text());
         s.expect('\\');
         if s.eat_if("u{") {
             let hex = s.eat_while(char::is_ascii_hexdigit);
@@ -647,7 +647,7 @@ impl Shorthand<'_> {
 
     /// Get the shorthanded character.
     pub fn get(self) -> char {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         Self::LIST
             .iter()
             .find(|&&(s, _)| s == text)
@@ -663,7 +663,7 @@ node! {
 impl SmartQuote<'_> {
     /// Whether this is a double quote.
     pub fn double(self) -> bool {
-        self.0.text() == "\""
+        self.0.leaf_text() == "\""
     }
 }
 
@@ -719,7 +719,8 @@ impl<'a> Raw<'a> {
             .try_cast_first()
             .is_some_and(|delim: RawDelim| delim.0.len() >= 3)
             && self.0.children().any(|e| {
-                e.kind() == SyntaxKind::RawTrimmed && e.text().chars().any(is_newline)
+                e.kind() == SyntaxKind::RawTrimmed
+                    && e.leaf_text().chars().any(is_newline)
             })
     }
 }
@@ -732,7 +733,7 @@ node! {
 impl<'a> RawLang<'a> {
     /// Get the language tag.
     pub fn get(self) -> &'a EcoString {
-        self.0.text()
+        self.0.leaf_text()
     }
 }
 
@@ -749,7 +750,7 @@ node! {
 impl<'a> Link<'a> {
     /// Get the URL.
     pub fn get(self) -> &'a EcoString {
-        self.0.text()
+        self.0.leaf_text()
     }
 }
 
@@ -761,7 +762,7 @@ node! {
 impl<'a> Label<'a> {
     /// Get the label's text.
     pub fn get(self) -> &'a str {
-        self.0.text().trim_start_matches('<').trim_end_matches('>')
+        self.0.leaf_text().trim_start_matches('<').trim_end_matches('>')
     }
 }
 
@@ -778,7 +779,7 @@ impl<'a> Ref<'a> {
         self.0
             .children()
             .find(|node| node.kind() == SyntaxKind::RefMarker)
-            .map(|node| node.text().trim_start_matches('@'))
+            .map(|node| node.leaf_text().trim_start_matches('@'))
             .unwrap_or_default()
     }
 
@@ -830,7 +831,7 @@ impl<'a> EnumItem<'a> {
     /// The explicit numbering, if any: `23.`.
     pub fn number(self) -> Option<u64> {
         self.0.children().find_map(|node| match node.kind() {
-            SyntaxKind::EnumMarker => node.text().trim_end_matches('.').parse().ok(),
+            SyntaxKind::EnumMarker => node.leaf_text().trim_end_matches('.').parse().ok(),
             _ => Option::None,
         })
     }
@@ -914,7 +915,7 @@ pub enum MathTextKind<'a> {
 impl<'a> MathText<'a> {
     /// Return the underlying text.
     pub fn get(self) -> MathTextKind<'a> {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         if text.chars().next().unwrap_or_default().is_numeric() {
             // Numbers are potentially grouped as multiple characters. This is
             // done in `Lexer::math_text()`.
@@ -933,7 +934,7 @@ node! {
 impl<'a> MathIdent<'a> {
     /// Get the identifier.
     pub fn get(self) -> &'a EcoString {
-        self.0.text()
+        self.0.leaf_text()
     }
 
     /// Get the identifier as a string slice.
@@ -1049,7 +1050,7 @@ impl MathShorthand<'_> {
 
     /// Get the shorthanded character.
     pub fn get(self) -> char {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         Self::LIST
             .iter()
             .find(|&&(s, _)| s == text)
@@ -1244,7 +1245,7 @@ impl MathPrimes<'_> {
     /// The number of grouped primes.
     pub fn count(self) -> usize {
         // We can use byte length since single quotes are one byte.
-        self.0.text().len()
+        self.0.leaf_text().len()
     }
 }
 
@@ -1273,7 +1274,7 @@ node! {
 impl<'a> MathRoot<'a> {
     /// The index of the root.
     pub fn index(self) -> Option<u8> {
-        match self.0.children().next().map(|node| node.text().as_str()) {
+        match self.0.children().next().map(|node| node.leaf_text().as_str()) {
             Some("∜") => Some(4),
             Some("∛") => Some(3),
             Some("√") => Option::None,
@@ -1295,7 +1296,7 @@ node! {
 impl<'a> Ident<'a> {
     /// Get the identifier.
     pub fn get(self) -> &'a EcoString {
-        self.0.text()
+        self.0.leaf_text()
     }
 
     /// Get the identifier as a string slice.
@@ -1332,7 +1333,7 @@ node! {
 impl Bool<'_> {
     /// Get the boolean value.
     pub fn get(self) -> bool {
-        self.0.text() == "true"
+        self.0.leaf_text() == "true"
     }
 }
 
@@ -1344,7 +1345,7 @@ node! {
 impl Int<'_> {
     /// Get the integer value.
     pub fn get(self) -> i64 {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         if let Some(rest) = text.strip_prefix("0x") {
             i64::from_str_radix(rest, 16)
         } else if let Some(rest) = text.strip_prefix("0o") {
@@ -1366,7 +1367,7 @@ node! {
 impl Float<'_> {
     /// Get the floating-point value.
     pub fn get(self) -> f64 {
-        self.0.text().parse().unwrap_or_default()
+        self.0.leaf_text().parse().unwrap_or_default()
     }
 }
 
@@ -1378,7 +1379,7 @@ node! {
 impl Numeric<'_> {
     /// Get the numeric value and unit.
     pub fn get(self) -> (f64, Unit) {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         let count = text
             .chars()
             .rev()
@@ -1435,7 +1436,7 @@ node! {
 impl Str<'_> {
     /// Get the string value with resolved escape sequences.
     pub fn get(self) -> EcoString {
-        let text = self.0.text();
+        let text = self.0.leaf_text();
         let unquoted = &text[1..text.len() - 1];
         if !unquoted.contains('\\') {
             return unquoted.into();
