@@ -630,7 +630,7 @@ fn handle_realized(
                 .with_optional_attr(attr::displaystyle, displaystyle)
                 .with_css(properties)
         });
-        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node })
+        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node });
     }
 
     // Push explicit rspace if it won't be added to the attributes of an `mo`.

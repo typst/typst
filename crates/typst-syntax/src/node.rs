@@ -577,7 +577,7 @@ impl SyntaxNode {
         new_descendants: usize,
     ) {
         if let Some((inner, _)) = self.inner_and_span_mut() {
-            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants)
+            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants);
         }
     }
 

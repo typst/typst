@@ -135,7 +135,7 @@ mod tests {
         fn must_be_value(&self, expected: impl IntoValue) -> &Self {
             match &self.1 {
                 Some(Definition::Std(value)) => {
-                    assert_eq!(*value, expected.into_value())
+                    assert_eq!(*value, expected.into_value());
                 }
                 _ => panic!("expected std definition"),
             }

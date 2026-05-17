@@ -650,7 +650,7 @@ pub fn clip_rect(
                 corner.start_inner(),
                 corner.center_inner(),
                 corner.end_inner(),
-            )
+            );
         } else {
             curve.line(corner.center_inner());
         }

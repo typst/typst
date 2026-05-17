@@ -81,7 +81,7 @@ pub fn layout_primes(
         frame.push_frame(
             Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
             prime.clone(),
-        )
+        );
     }
 
     ctx.push(FrameFragment::new(props, styles, frame).with_text_like(true));

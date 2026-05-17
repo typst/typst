@@ -90,7 +90,7 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
     match tz {
         Some(Timezone::UTC) => kd = kd.utc_offset_hour(0).utc_offset_minute(0),
         Some(Timezone::Local { hour_offset, minute_offset }) => {
-            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset)
+            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset);
         }
         None => {}
     }

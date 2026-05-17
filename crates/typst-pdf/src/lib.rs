@@ -182,15 +182,15 @@ impl PdfStandards {
         let mut builder = ConfigurationBuilder::new();
 
         if let Some(version) = version {
-            builder = builder.with_version(version)
+            builder = builder.with_version(version);
         }
 
         if let Some(archival_validator) = archival_validator {
-            builder = builder.with_archival_validator(archival_validator)
+            builder = builder.with_archival_validator(archival_validator);
         }
 
         if let Some(accessibility_validator) = accessibility_validator {
-            builder = builder.with_accessibility_validator(accessibility_validator)
+            builder = builder.with_accessibility_validator(accessibility_validator);
         }
 
         let config = builder.finish().map_err(|e| {

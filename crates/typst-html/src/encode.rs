@@ -374,7 +374,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         '"' => w.buf.push_str("&quot;"),
         '\'' => w.buf.push_str("&apos;"),
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
-            write!(w.buf, "&#x{:x};", c as u32).unwrap()
+            write!(w.buf, "&#x{:x};", c as u32).unwrap();
         }
         _ => return Err(unencodable(c)),
     }

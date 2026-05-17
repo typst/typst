@@ -318,7 +318,7 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Text(text) => self.render_text(svg, &state, text),
                 FrameItem::Shape(shape, _) => self.render_shape(svg, &state, shape),
                 FrameItem::Image(image, size, _) => {
-                    self.render_image(svg, &state, image, size)
+                    self.render_image(svg, &state, image, size);
                 }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
@@ -457,7 +457,7 @@ fn svg_header_with_custom_attrs(
     write_custom_attrs(&mut svg);
 
     svg.attr_with("viewBox", |attr| {
-        attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])
+        attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
     });
     svg.attr_with("width", |attr| {
         attr.push_num(size.x.to_pt());

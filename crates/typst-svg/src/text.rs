@@ -73,7 +73,9 @@ impl SVGRenderer<'_> {
             });
 
             if path.is_some() {
-                self.render_path_glyph(svg, state, text, glyph_id, x_offset, y_offset, id)
+                self.render_path_glyph(
+                    svg, state, text, glyph_id, x_offset, y_offset, id,
+                );
             }
         } else {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and

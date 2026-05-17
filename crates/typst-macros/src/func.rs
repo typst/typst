@@ -182,9 +182,9 @@ fn parse_param(
             let mut binding = Binding::Owned;
             if recv.reference.is_some() {
                 if recv.mutability.is_some() {
-                    binding = Binding::RefMut
+                    binding = Binding::RefMut;
                 } else {
-                    binding = Binding::Ref
+                    binding = Binding::Ref;
                 }
             }
 
