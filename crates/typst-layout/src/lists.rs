@@ -52,19 +52,28 @@ pub fn layout_list(
         }
         let body = body.set(ListElem::depth, Depth(1));
 
-        let item = ItemData {
-            indent,
-            body_indent,
+        let item = ItemContent {
             marker: PdfMarkerTag::ListItemLabel(marker.clone()),
             body: PdfMarkerTag::ListItemBody(body),
-            baseline_align,
-            is_rtl,
         };
 
         items.push(item);
     }
 
-    layout_items(items, gutter, elem.span(), engine, locator, styles, regions)
+    let layouter = ItemsLayouter {
+        gutter,
+        span: elem.span(),
+        indent,
+        body_indent,
+        baseline_align,
+        is_rtl,
+
+        // These will be calculated later.
+        marker_width: Abs::zero(),
+        body_width: None,
+    };
+
+    layout_items(layouter, items, engine, locator, styles, regions)
 }
 
 /// Layout the enumeration.
@@ -139,13 +148,9 @@ pub fn layout_enum(
 
         let body = body.set(EnumElem::parents, smallvec![number]);
 
-        let item = ItemData {
-            indent,
-            body_indent,
+        let item = ItemContent {
             marker: PdfMarkerTag::ListItemLabel(resolved),
             body: PdfMarkerTag::ListItemBody(body),
-            baseline_align,
-            is_rtl,
         };
 
         items.push(item);
@@ -153,7 +158,52 @@ pub fn layout_enum(
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
 
-    layout_items(items, gutter, elem.span(), engine, locator, styles, regions)
+    let layouter = ItemsLayouter {
+        gutter,
+        span: elem.span(),
+        indent,
+        body_indent,
+        baseline_align,
+        is_rtl,
+
+        // These will be calculated later.
+        marker_width: Abs::zero(),
+        body_width: None,
+    };
+
+    layout_items(layouter, items, engine, locator, styles, regions)
+}
+
+/// Structure with the content for each list item.
+struct ItemContent {
+    /// The item marker.
+    marker: Content,
+    /// The item body.
+    body: Content,
+}
+
+/// Layout data shared across all list items.
+struct ItemsLayouter {
+    /// Gutter spacing between items.
+    gutter: Length,
+    /// Span of the list/enum element.
+    span: Span,
+    /// List indent from the text start.
+    indent: Length,
+    /// Indent between the marker and the body.
+    body_indent: Length,
+    /// Whether baseline alignment should be enabled. When disabled, markers
+    /// control their own alignment.
+    baseline_align: bool,
+    /// Whether RTL was the chosen text direction.
+    is_rtl: bool,
+    /// Maximum measured width of a marker, so they may align horizontally
+    /// relative to each other.
+    marker_width: Abs,
+    /// If the list may not expand to fill the whole region (e.g. if `width:
+    /// auto` was used), then this holds the measured width of an item body, so
+    /// they may align horizontally relative to each other.
+    body_width: Option<Abs>,
 }
 
 /// Layout list items.
@@ -168,11 +218,10 @@ pub fn layout_enum(
 /// 4. Pass each list item to the stack layouter, making it possible for them to
 /// expand to the full available width, allowing for center alignment within the
 /// item body.
-#[typst_macros::time(span = span)]
+#[typst_macros::time(span = layouter.span)]
 fn layout_items(
-    items: Vec<ItemData>,
-    gutter: Length,
-    span: Span,
+    mut layouter: ItemsLayouter,
+    items: Vec<ItemContent>,
     engine: &mut Engine,
     locator: Locator,
     styles: StyleChain,
@@ -203,7 +252,8 @@ fn layout_items(
         marker_width.set_max(marker.width());
     }
 
-    let mut body_width = None;
+    layouter.marker_width = marker_width;
+
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
         // Infinite space or `width: auto` used. Both would prevent the list
         // from expanding to fit, breaking alignment. Therefore, restrict the
@@ -222,7 +272,10 @@ fn layout_items(
             measured_body_width.set_max(body.width());
         }
 
-        body_width = Some(measured_body_width);
+        layouter.body_width = Some(measured_body_width);
+    } else {
+        // Let the list body expand to the full width of the environment.
+        layouter.body_width = None;
     }
 
     let cells =
@@ -233,11 +286,10 @@ fn layout_items(
                 StackLayoutChild::CustomLayouter(|engine, styles, regions| {
                     layout_item(
                         item,
+                        &layouter,
                         engine,
                         marker_locator,
                         body_locator,
-                        marker_width,
-                        body_width,
                         styles,
                         regions,
                     )
@@ -246,8 +298,8 @@ fn layout_items(
 
     layout_stack_internal(
         cells,
-        span,
-        Some(gutter.into()),
+        layouter.span,
+        Some(layouter.gutter.into()),
         Dir::TTB,
         engine,
         // This locator should not be used by cells.
@@ -257,57 +309,38 @@ fn layout_items(
     )
 }
 
-/// Structure with list item information. This should never be placed in practice.
-/// This is only an element (thus imposing restrictions on the accepted field
-/// types) so we can store this data within the `stack` children used to layout
-/// the list.
-struct ItemData {
-    /// List indent from the text start.
-    indent: Length,
-    /// Indent between the marker and the body.
-    body_indent: Length,
-    /// The item marker.
-    marker: Content,
-    /// The item body.
-    body: Content,
-    /// Whether baseline alignment should be enabled. When disabled, markers
-    /// control their own alignment.
-    baseline_align: bool,
-    /// Whether RTL was the chosen text direction.
-    is_rtl: bool,
-}
-
 /// Layout the item.
 ///
 /// Marker and body width should be determined relative to other items, being
 /// equivalent to the largest width, relative to which the marker and body
 /// should horizontally align. Note that body width is `None` when the region
 /// has a fixed width, as then the list will expand to fill it.
-#[allow(clippy::too_many_arguments)]
 #[typst_macros::time(span = item.body.span())]
 fn layout_item(
-    item: &ItemData,
+    item: &ItemContent,
+    layouter: &ItemsLayouter,
     engine: &mut Engine,
     marker_locator: &Locator,
     body_locator: &Locator,
-    marker_width: Abs,
-    body_width: Option<Abs>,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let indent = item.indent.resolve(styles);
-    let body_indent = item.body_indent.resolve(styles);
+    let indent = layouter.indent.resolve(styles);
+    let body_indent = layouter.body_indent.resolve(styles);
     let mut marker = crate::layout_frame(
         engine,
         &item.marker,
         marker_locator.relayout(),
         styles,
-        Region::new(Axes::new(marker_width, regions.base().y), Axes::new(true, false)),
+        Region::new(
+            Axes::new(layouter.marker_width, regions.base().y),
+            Axes::new(true, false),
+        ),
     )?;
     let marker_size = marker.size();
     let mut fragment = {
         let mut regions = regions;
-        if let Some(body_width) = body_width {
+        if let Some(body_width) = layouter.body_width {
             regions.size.x = body_width;
             regions.expand.x = true;
         } else {
@@ -332,7 +365,7 @@ fn layout_item(
     // down instead.
     let diff;
 
-    if item.baseline_align {
+    if layouter.baseline_align {
         diff = if marker.has_baseline()
             && let Some(first) = fragment.as_slice().get(first_frame)
             && first.has_baseline()
@@ -357,7 +390,10 @@ fn layout_item(
             &item.marker,
             marker_locator.relayout(),
             styles,
-            Region::new(Axes::new(marker_width, regions.base().y), Axes::splat(true)),
+            Region::new(
+                Axes::new(layouter.marker_width, regions.base().y),
+                Axes::splat(true),
+            ),
         )?;
 
         // No baseline alignment whatsoever.
@@ -379,7 +415,7 @@ fn layout_item(
         // only so much we can do with a finite number of iterations.
         let mut regions = regions;
         regions.size.y += diff;
-        if let Some(body_width) = body_width {
+        if let Some(body_width) = layouter.body_width {
             regions.size.x = body_width;
             regions.expand.x = true;
         } else {
@@ -411,7 +447,7 @@ fn layout_item(
         // Indent the body after the marker.
         let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
 
-        if item.is_rtl {
+        if layouter.is_rtl {
             // In RTL cells expand to the left, thus the position must
             // additionally be offset by the cell's width.
             body_pos.x = width - (body_pos.x + body_frame.width());
@@ -420,7 +456,7 @@ fn layout_item(
         // Only place the marker on the first non-empty frame.
         if i == first_frame {
             let mut marker_pos = Point::new(indent, marker_dy);
-            if item.is_rtl {
+            if layouter.is_rtl {
                 marker_pos.x = width - (marker_pos.x + marker_size.x);
             }
             frame.push_frame(marker_pos, marker.clone());
