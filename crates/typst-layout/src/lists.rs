@@ -206,6 +206,14 @@ struct ItemsLayouter {
     body_width: Option<Abs>,
 }
 
+// /// Layout data for a specific item.
+// struct ItemLayouter {
+//     /// Resolved indent.
+//     indent: Abs,
+//     /// Resolved body indent.
+//     body_indent: Abs,
+// }
+
 /// Layout list items.
 ///
 /// This is done in 3 steps:
@@ -337,21 +345,26 @@ fn layout_item(
             Axes::new(true, false),
         ),
     )?;
-    let marker_size = marker.size();
-    let mut fragment = {
+    // How much to offset the body from the start of the page.
+    let total_body_indent = indent + layouter.marker_width + body_indent;
+    let body_regions = {
         let mut regions = regions;
         if let Some(body_width) = layouter.body_width {
             regions.size.x = body_width;
             regions.expand.x = true;
         } else {
-            regions.size.x -= indent + body_indent + marker_size.x;
+            regions.size.x -= total_body_indent;
         }
+        regions
+    };
+
+    let mut fragment = {
         crate::layout_fragment(
             engine,
             &item.body,
             body_locator.relayout(),
             styles,
-            regions,
+            body_regions,
         )?
     };
 
@@ -413,14 +426,8 @@ fn layout_item(
         // then move the result '-diff' units downwards. Of course, this could
         // theoretically generate a new result that is even worse - but there is
         // only so much we can do with a finite number of iterations.
-        let mut regions = regions;
+        let mut regions = body_regions;
         regions.size.y += diff;
-        if let Some(body_width) = layouter.body_width {
-            regions.size.x = body_width;
-            regions.expand.x = true;
-        } else {
-            regions.size.x -= indent + body_indent + marker_size.x;
-        }
         fragment = crate::layout_fragment(
             engine,
             &item.body,
@@ -433,20 +440,33 @@ fn layout_item(
         (Abs::zero(), -diff)
     };
 
+    // Indicate where the marker and body should be to prevent overlap.
+    let marker_offset = Point::new(indent, marker_dy);
+    let body_offset = Point::new(total_body_indent, body_dy);
+
+    finish_item(layouter, first_frame, marker_offset, body_offset, marker, fragment)
+}
+
+fn finish_item(
+    layouter: &ItemsLayouter,
+    first_frame: usize,
+    marker_offset: Point,
+    body_offset: Point,
+    marker: Frame,
+    body_fragment: Fragment,
+) -> SourceResult<Fragment> {
     // Collect the item's frames. Here, we add the marker to the first non-empty
     // frame, and additionally indent the whole body so it appears after the
     // marker.
     let mut frames = vec![];
-    for (i, body_frame) in fragment.into_iter().enumerate() {
-        let width = indent + body_indent + marker_size.x + body_frame.width();
+    for (i, body_frame) in body_fragment.into_iter().enumerate() {
+        let width = body_offset.x + body_frame.width();
         let mut frame = Frame::soft(Size::new(
             width,
-            (marker_size.y + marker_dy).max(body_frame.height() + body_dy),
+            (marker.size().y + marker_offset.y).max(body_frame.height() + body_offset.y),
         ));
 
-        // Indent the body after the marker.
-        let mut body_pos = Point::new(indent + marker_size.x + body_indent, body_dy);
-
+        let mut body_pos = body_offset;
         if layouter.is_rtl {
             // In RTL cells expand to the left, thus the position must
             // additionally be offset by the cell's width.
@@ -455,9 +475,9 @@ fn layout_item(
 
         // Only place the marker on the first non-empty frame.
         if i == first_frame {
-            let mut marker_pos = Point::new(indent, marker_dy);
+            let mut marker_pos = marker_offset;
             if layouter.is_rtl {
-                marker_pos.x = width - (marker_pos.x + marker_size.x);
+                marker_pos.x = width - (marker_pos.x + layouter.marker_width);
             }
             frame.push_frame(marker_pos, marker.clone());
         }
