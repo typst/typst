@@ -941,6 +941,7 @@ e8ce4c2d6f46df62b27a523bfe594e4a link-trailing-period
 b64b5ab32bc9702a85b1ff65a28004e8 link-transformed
 9eab9ae459199a1802e9df49f13655b2 list-attached
 91c169b219d4f57d439fca37cebbee6d list-attached-above-spacing
+6475943760cb456a7018116d1d7615e7 list-baseline-big-marker
 90bbd3a7231919c5d0b24f28ee0ca63b list-baseline-curve
 a0185046205ce1177e9b9e2fb2b53cd9 list-baseline-grid
 69a401b918f1e41cc8df10fef1dc2e82 list-baseline-math-fraction
@@ -957,6 +958,7 @@ a6cebb62233b4393bd77346427975eed list-content-block
 6df3e3a0825a9da2f043495ffffc6791 list-indent-specifics
 5307dfdedba67d57eb66a2a433bbfdfb list-item-styling
 5ec6fc9f5de5b369aac90767780ba9c2 list-items-context
+131a753260555860f81d640a6746c980 list-marker-align-big-marker
 75a96c064a381c45501b8aa963bff99f list-marker-align-horizontal
 cd9f4009dad376735214dd1c88f8ef99 list-marker-align-unaffected
 55fb871d2864cadb1dc921f98f38721f list-marker-align-unfolded

@@ -237,6 +237,19 @@ Not in list
 - abc
 - abc
 
+--- list-marker-align-big-marker paged ---
+#set list(
+  marker: rect(fill: red, width: 10pt, height: 4em),
+  marker-align: bottom,
+)
+
+
+#list[]
+
+- abc
+
+- A\ B\ C\ D\ E\ F
+
 --- list-marker-align-values paged empty ---
 // Test valid marker align values (horizontal and vertical)
 #set enum(number-align: start)
@@ -410,6 +423,19 @@ World
     y_1 + y_2 &= 10 \
     (a b c)/x^2 &= 5
   $
+
+
+--- list-baseline-big-marker paged ---
+#set list(
+  marker: rect(fill: red, width: 10pt, height: 4em),
+)
+
+
+#list[]
+
+- abc
+
+- A\ B\ C\ D\ E\ F
 
 --- list-par paged html ---
 // Check whether the contents of list items become paragraphs.

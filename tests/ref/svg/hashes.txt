@@ -941,6 +941,7 @@ e1966175253dd3d55d9d96c5b61aae1d link-to-page
 4e8b15e856ef5156f55354238f2b7be8 link-transformed
 39f4e3dea7bccbc9173b23d94b933a6d list-attached
 70000556e355634a1cb80e613bfc015b list-attached-above-spacing
+32218df55bfbeae191f21df09e37e8e2 list-baseline-big-marker
 e2f8a1a6a145690ebba39824d0ad701d list-baseline-curve
 01ed36f0acaab5f6ae4dd0582e612277 list-baseline-grid
 d57882f2a11ee3bb63a3fa3610b6c4c9 list-baseline-math-fraction
@@ -957,6 +958,7 @@ adbaef8b933bb70fc9ce08c8e66aff8c list-expand-block
 0a5ef45280214d02617328e9254e5b09 list-indent-specifics
 9231e9e69c70b65d621d82a29ae96937 list-item-styling
 e8047407a32bc6c56e882bcec95af100 list-items-context
+ef5ed2fb1e342c42835b88f419fad3b0 list-marker-align-big-marker
 1aacd6590a31cad4964023c4ab0ba966 list-marker-align-horizontal
 ed7cfc6086faddcf21a80252a275480f list-marker-align-unaffected
 201c847bb504e2d3dfd4d18ac8133826 list-marker-align-unfolded

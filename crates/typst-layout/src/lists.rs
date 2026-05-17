@@ -377,8 +377,6 @@ struct ItemLayouter<'a> {
     body_locator: &'a Locator<'a>,
     /// Stylechain at this item's location.
     styles: StyleChain<'a>,
-    /// Regions at this item's location.
-    regions: Regions<'a>,
     /// The first body's non-empty frame.
     first_frame: usize,
     /// The item's regions, but adapted for the body's expected width.
@@ -423,7 +421,6 @@ impl<'a> ItemLayouter<'a> {
             marker_locator,
             body_locator,
             styles,
-            regions,
             first_frame: 0,
             body_regions,
             body_offset: Point::with_x(total_body_indent),
@@ -497,10 +494,11 @@ impl<'a> ItemLayouter<'a> {
             // down to avoid overflowing the marker into something above the
             // list (item).
             //
-            // To do this, we layout the body again but with '-diff' less space,
-            // and then move the result '-diff' units downwards. Of course, this
-            // could theoretically generate a new result that is even worse -
-            // but there is only so much we can do with a finite number of
+            // To do this, we layout the body again but with '-diff' less space
+            // (that is, '+diff' more space, as it is negative), and then move
+            // the result '-diff' units downwards. Of course, this could
+            // theoretically generate a new result that is even worse - but
+            // there is only so much we can do with a finite number of
             // iterations.
             let mut regions = self.body_regions;
             regions.size.y += diff;
@@ -512,25 +510,26 @@ impl<'a> ItemLayouter<'a> {
         Ok(())
     }
 
+    /// Called when explicit marker alignment was specified. Re-layout the
+    /// marker with the same height as the body's first frame so it may align
+    /// itself vertically with the body.
     fn vertical_align(
         &mut self,
         marker: &mut Frame,
         body: &Fragment,
         engine: &mut Engine,
     ) -> SourceResult<()> {
-        // Explicit marker alignment was chosen, so re-layout the marker with
-        // the same height as the body's first frame so it may align itself
-        // vertically with the body.
-        let mut regions = self.regions;
-        if let Some(first) = body.as_slice().get(self.first_frame) {
-            regions.size.y = first.height();
-            regions.full = first.height();
+        // 'Measuring' the height of an 'auto row'.
+        let height = if let Some(body_first) = body.as_slice().get(self.first_frame) {
+            // Don't align if the body is too short.
+            body_first.height().max(marker.height())
+        } else {
+            // Body appears to be fully empty, so the marker should not align.
+            marker.height()
         };
 
-        let region = Region::new(
-            Axes::new(self.list.marker_width, regions.base().y),
-            Axes::splat(true),
-        );
+        let region =
+            Region::new(Axes::new(self.list.marker_width, height), Axes::splat(true));
 
         *marker = self.layout_marker(region, engine)?;
         Ok(())
