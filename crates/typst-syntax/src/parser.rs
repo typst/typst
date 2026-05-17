@@ -1796,8 +1796,10 @@ impl<'s> Parser<'s> {
     fn wrap_error(&mut self, from: Marker, message: impl Into<EcoString>) {
         let to = self.before_trivia().0;
         let from = from.0.min(to);
-        let text: EcoString =
-            self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
+        let len: usize = self.nodes.drain(from..to).map(|node| node.len()).sum();
+        let end = self.token.prev_end;
+        let start = end - len;
+        let text = &self.text[start..end];
         self.nodes.insert(from, SyntaxNode::error(message.into(), text));
     }
 
