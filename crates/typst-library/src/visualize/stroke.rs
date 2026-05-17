@@ -501,9 +501,9 @@ impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
         let mut r = EcoString::from("(array: (");
         for (i, elem) in self.array.iter().enumerate() {
             if i != 0 {
-                r.push_str(", ")
+                r.push_str(", ");
             }
-            r.push_str(&elem.repr())
+            r.push_str(&elem.repr());
         }
         r.push_str("), phase: ");
         r.push_str(&self.phase.repr());

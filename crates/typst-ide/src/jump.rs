@@ -162,7 +162,7 @@ mod jump_from_document_sealed {
                                 text_node_offset += 1;
                             }
 
-                            child = text_node_part
+                            child = text_node_part;
                         }
 
                         current_node = child;

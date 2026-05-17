@@ -346,7 +346,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::name, "authors")
                 .with_attr(attr::content, info.author.join(", "))
                 .into(),
-        )
+        );
     }
 
     if !info.keywords.is_empty() {
@@ -355,7 +355,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
                 .into(),
-        )
+        );
     }
 
     HtmlElement::new(tag::head).with_children(children)

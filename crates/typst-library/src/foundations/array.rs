@@ -459,7 +459,7 @@ impl Array {
                 .cast::<bool>()
                 .at(test.span())?
             {
-                kept.push(item.clone())
+                kept.push(item.clone());
             }
         }
         Ok(kept.into())

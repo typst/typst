@@ -441,7 +441,7 @@ fn validate_children(rs: &mut Resolver, tag: &TagKind, children: &[Node]) {
         TagKind::THead(_) | TagKind::TBody(_) | TagKind::TFoot(_) => {
             validate_children_groups(rs, tag, children, |child| {
                 matches!(child, TagKind::TR(_))
-            })
+            });
         }
         TagKind::TR(_) => validate_children_groups(rs, tag, children, |child| {
             matches!(child, TagKind::TD(_) | TagKind::TH(_))

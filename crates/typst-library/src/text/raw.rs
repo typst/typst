@@ -931,7 +931,7 @@ impl<'a> ThemedHighlighter<'a> {
         for child in self.node.children() {
             let mut scopes = self.scopes.clone();
             if let Some(tag) = typst_syntax::highlight(&child) {
-                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap());
             }
 
             std::mem::swap(&mut scopes, &mut self.scopes);

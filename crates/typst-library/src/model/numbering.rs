@@ -239,7 +239,7 @@ impl NumberingPattern {
         {
             let represented_number =
                 apply_system_with_fallback(engine, span, *system, number);
-            write!(fmt, "{represented_number}").unwrap()
+            write!(fmt, "{represented_number}").unwrap();
         }
         fmt.push_str(&self.suffix);
         fmt

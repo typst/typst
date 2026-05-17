@@ -1462,7 +1462,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag.into(), value, ..))
+        tags.push(Feature::new(tag.into(), value, ..));
     }
 
     tags

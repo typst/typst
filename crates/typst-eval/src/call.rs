@@ -690,7 +690,7 @@ pub fn eval_closure(
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                    vm.define(ident, args.expect::<Value>(&ident)?)
+                    vm.define(ident, args.expect::<Value>(&ident)?);
                 }
                 pattern => {
                     crate::destructure(
@@ -775,7 +775,7 @@ impl<'a> CapturesVisitor<'a> {
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math);
             }
 
             // Code and content blocks create a scope.
