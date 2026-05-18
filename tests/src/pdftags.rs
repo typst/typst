@@ -479,7 +479,8 @@ fn format_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     let bytes: &[u8] = val.as_ref();
 
     if let Some(data) = bytes.strip_prefix(&UTF_16_BE_BOM) {
-        let code_units = data.chunks(2).map(|c| u16::from_be_bytes([c[0], c[1]]));
+        let (chunks, []) = data.as_chunks::<2>() else { return Err(()) };
+        let code_units = chunks.iter().copied().map(u16::from_be_bytes);
         let str = std::char::decode_utf16(code_units)
             .collect::<Result<String, _>>()
             .unwrap();
