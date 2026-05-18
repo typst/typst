@@ -3,6 +3,10 @@ a845db3f6f6d466d683136b703f44cf6 basic-table
 7c963ec939cdb49eb712fb761554ecbd bibliography-basic
 3f625e61698549ccccf65b72a66b72e7 bibliography-csl-display
 74b33b507da27e15d265f3217c858ac6 bibliography-custom-title
+b7db257520089ca4fabc7de0ce145d4f bibliography-group-auto
+0b7c6366e0660d06550c9081512d5bb9 bibliography-group-none
+5fab6af8d6370f60818ea4e1eec8095a bibliography-group-out-of-order
+17da3cafc27f03d422dd8863d4bf9707 bibliography-group-str
 376934db510f9e65eee13bd8a679ddc3 bibliography-multiple-files
 1e0f40cc69e2d5efa0590d9c17fec0a6 bibliography-no-title
 805860e9a2d6bc7f9e466517c058eeec block-block-html
@@ -21,6 +25,10 @@ ffa25d90e2baac1e02b03a60cae89720 block-html-block
 9c97626487e554505316c09c201e2672 box-html-text
 70108e658925ad830eb52315ae468ef2 box-invalid-html
 2aed0e9d684405e21767d60dd095416d cases-content-html
+98dedb048606424f38be96c08c885d5b cite-assignment-auto
+7ff41d13a261fd9d9880af433772692b cite-assignment-by-chapter
+6f9bcc678f7d826be4de22b3137fee1b cite-assignment-mixed-group
+7ae64640fd751161f5897e1506c73bc3 cite-assignment-target
 661ff95a98d1254954d821d2146617ce cite-form
 252cb984e3a921ac9d717570371f4fa6 cite-group
 e87734ba4dba7fed32967be69484478c col-gutter-table

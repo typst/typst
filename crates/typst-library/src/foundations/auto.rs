@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 
 use ecow::EcoString;
 
@@ -95,6 +96,17 @@ impl<T> Smart<T> {
 
     /// Returns a `Smart<&T>` borrowing the inner `T`.
     pub fn as_ref(&self) -> Smart<&T> {
+        match self {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(v) => Smart::Custom(v),
+        }
+    }
+
+    /// Returns a `Smart<&T::Target>`, derefercing the inner `T`.
+    pub fn as_deref(&self) -> Smart<&T::Target>
+    where
+        T: Deref,
+    {
         match self {
             Smart::Auto => Smart::Auto,
             Smart::Custom(v) => Smart::Custom(v),

@@ -1210,11 +1210,7 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let elems = grouped.get();
     let span = select_span(elems);
     let trunk = elems[0].1;
-    let children = elems
-        .iter()
-        .filter_map(|(c, _)| c.to_packed::<CiteElem>())
-        .cloned()
-        .collect();
+    let children = elems.iter().map(|(c, _)| (**c).clone()).collect();
 
     // Create and visit the citation group.
     let s = grouped.end();

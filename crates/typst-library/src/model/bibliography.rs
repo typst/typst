@@ -4,8 +4,8 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format};
+use comemo::{Track, Tracked, TrackedMut};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
@@ -14,19 +14,22 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
+use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr, ResolvedPicoStr};
+use typst_utils::{
+    LazyHash, ManuallyHash, NonZeroExt, PicoStr, Protected, ResolvedPicoStr,
+};
 
 use crate::World;
 use crate::diag::{
     At, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin,
     ReportTextPos, SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
-use crate::engine::{Engine, Sink};
+use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    NativeElement, OneOrMultiple, Packed, Reflect, Repr, Scope, ShowSet, Smart,
-    StyleChain, Styles, Synthesize, Value, elem,
+    LocatableSelector, NativeElement, OneOrMultiple, Packed, Reflect, Repr, Scope,
+    Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
@@ -57,6 +60,17 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 /// @cite[citation] function (`[#cite(<key>)]`). The bibliography will only show
 /// entries for works that were referenced in the document.
 ///
+/// = Example <example>
+/// ```example
+/// This was already noted by
+/// pirates long ago. @arrgh
+///
+/// Multiple sources say ...
+/// @arrgh @netwok.
+///
+/// #bibliography("works.bib")
+/// ```
+///
 /// = Styles <styles>
 /// Typst offers a wide selection of built-in
 /// @bibliography.style[citation and bibliography styles]. Beyond those, you can
@@ -86,16 +100,14 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///   [`{"american-physics-society"}`],
 /// )
 ///
-/// = Example <example>
-/// ```example
-/// This was already noted by
-/// pirates long ago. @arrgh
-///
-/// Multiple sources say ...
-/// @arrgh @netwok.
-///
-/// #bibliography("works.bib")
-/// ```
+/// = Multiple bibliographies <multiple-bibliographies>
+/// When a Typst document contains multiple bibliographies, each citation is
+/// assigned to one of them. By default, Typst will automatically pick a
+/// suitable bibliography (typically, the closest following one that contains
+/// the referenced citation key). This covers common cases like by-chapter or
+/// thematic bibliographies. For more fine-grained control, citations can be
+/// explicitly targeted by a bibliography through a
+/// @bibliography.target[`target`] selector.
 #[elem(Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
@@ -151,6 +163,115 @@ pub struct BibliographyElem {
     })]
     pub style: Derived<CslSource, CslStyle>,
 
+    /// Defines which citations to include in the bibliography.
+    ///
+    /// Typst will automatically assign each citation in the document to a
+    /// bibliography. Concretely, a citation will be assigned to (in order of
+    /// precedence)
+    /// + the first bibliography that includes it in its `target` selector; or
+    ///   if no such bibliography exists
+    /// + the closest _following_ bibliography with `{target: auto}` that
+    ///   contains its key; or if no such bibliography follows
+    /// + the closest _preceding_ bibliography with `{target: auto}` that
+    ///   contains its key.
+    ///
+    /// #example(
+    ///   title: [Local bibliography],
+    ///   ```
+    ///   #let info(body) = block(
+    ///     stroke: (left: 1.5pt + blue),
+    ///     fill: aqua.lighten(50%),
+    ///     inset: 1em,
+    ///     context {
+    ///       body
+    ///       show divider: set block(spacing: 1.2em)
+    ///       divider()
+    ///       bibliography(
+    ///         "works.bib",
+    ///         title: none,
+    ///         target: selector(cite).within(here()),
+    ///         style: "mla",
+    ///       )
+    ///     }
+    ///   )
+    ///
+    ///   = On the matter of dumplings
+    ///   In recent years, we can observe an uptick in
+    ///   dumpling consumption across the board. @netwok
+    ///
+    ///   #info[
+    ///     Dumplings are particularly enjoyed
+    ///     among pirates. @arrgh
+    ///   ]
+    ///
+    ///   #bibliography("works.bib")
+    ///   ```
+    /// )
+    pub target: Smart<LocatableSelector>,
+
+    /// Conceptually groups this bibliography with other bibliographies for
+    /// numbering purposes. Bibliographies in the same group will assign
+    /// consecutive citation numbers.
+    ///
+    /// This can be:
+    /// - `{none}`: The bibliography will be numbered in isolation.
+    /// - `{auto}`: The bibliography will be consecutively numbered with all
+    ///   other bibliographies in the `{auto}` group.
+    /// - A @str[string]: The bibliography will be consecutively numbered with
+    ///   all other bibliographies with the same `group` value.
+    ///
+    /// The `{auto}` group works just like any string group, but it is the
+    /// canonical default group.
+    ///
+    /// #example(
+    ///   title: [Consecutive citation numbers],
+    ///   ```
+    ///   #show bibliography: set heading(
+    ///     offset: 1,
+    ///   )
+    ///
+    ///   = First part
+    ///   Starts at one: @netwok @arrgh
+    ///   #bibliography(
+    ///     "works.bib",
+    ///     style: "ieee",
+    ///   )
+    ///
+    ///   = Second part
+    ///   Continues with three: @distress
+    ///   #bibliography(
+    ///     "works.bib",
+    ///     style: "nlm-citation-sequence",
+    ///   )
+    ///   ```
+    /// )
+    ///
+    /// #example(
+    ///   title: [Separate citation numbers],
+    ///   ```
+    ///   #show bibliography: set heading(
+    ///     offset: 1,
+    ///   )
+    ///   #set bibliography(group: none)
+    ///
+    ///   = First part
+    ///   Starts at one: @netwok @arrgh
+    ///   #bibliography(
+    ///     "works.bib",
+    ///     style: "ieee",
+    ///   )
+    ///
+    ///   = Second part
+    ///   Resets to one: @distress
+    ///   #bibliography(
+    ///     "works.bib",
+    ///     style: "nlm-citation-sequence",
+    ///   )
+    ///   ```
+    /// )
+    #[default(Some(Smart::Auto))]
+    pub group: Option<Smart<EcoString>>,
+
     /// The language setting where the bibliography is.
     #[internal]
     #[synthesized]
@@ -163,23 +284,7 @@ pub struct BibliographyElem {
 }
 
 impl BibliographyElem {
-    /// Find the document's bibliography.
-    pub fn find(engine: &mut Engine, span: Span) -> StrResult<Packed<Self>> {
-        let elems = engine.introspect(QueryIntrospection(Self::ELEM.select(), span));
-
-        let mut iter = elems.iter();
-        let Some(elem) = iter.next() else {
-            bail!("the document does not contain a bibliography");
-        };
-
-        if iter.next().is_some() {
-            bail!("multiple bibliographies are not yet supported");
-        }
-
-        Ok(elem.to_packed::<Self>().unwrap().clone())
-    }
-
-    /// Whether the bibliography contains the given key.
+    /// Whether any bibliography contains the given key.
     pub fn has(engine: &mut Engine, key: Label, span: Span) -> bool {
         engine
             .introspect(QueryIntrospection(Self::ELEM.select(), span))
@@ -568,9 +673,14 @@ fn replacement(style: &str) -> Option<&'static str> {
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
+/// Fully formatted citation groups and bibliographies, generated once (through
+/// memoization) for the whole document.
+///
+/// This setup is necessary because citation formatting is inherently stateful
+/// and we need access to all citations to do it.
 pub struct Works {
-    /// The document's rendered [`BibliographyElem`].
-    bibliography: SourceResult<RenderedBibliography>,
+    /// The document's rendered [`BibliographyElem`]s, keyed by their locations.
+    bibliographies: FxHashMap<Location, SourceResult<RenderedBibliography>>,
     /// The document's rendered [`CiteGroup`]s, keyed by their locations.
     groups: FxHashMap<Location, SourceResult<Content>>,
 }
@@ -596,65 +706,53 @@ pub struct RenderedEntry {
 }
 
 impl Works {
-    /// Generates and formats the bibliography and citations.
+    /// Generates and formats all bibliographies and citations.
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
-        let bibliography = BibliographyElem::find(engine, span).at(span)?;
-        let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.world, &bibliography, &groups).at(span)
-    }
-
-    /// Same as [`Works::generate`], but reuses an existing
-    /// bibliography (no need to query it).
-    pub fn with_bibliography(
-        engine: &mut Engine,
-        bibliography: Packed<BibliographyElem>,
-    ) -> SourceResult<Arc<Works>> {
-        let span = bibliography.span();
-        let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.world, &bibliography, &groups).at(span)
+        let bibs_and_groups = engine.introspect(BibliographyIntrospection(span));
+        Self::generate_impl(
+            engine.world,
+            engine.library,
+            engine.introspector.into_raw(),
+            engine.traced,
+            TrackedMut::reborrow_mut(&mut engine.sink),
+            engine.route.track(),
+            &bibs_and_groups,
+        )
+        .at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
     fn generate_impl(
         world: Tracked<dyn World + '_>,
-        bibliography: &Packed<BibliographyElem>,
-        groups: &[Content],
+        library: &LazyHash<crate::Library>,
+        introspector: Tracked<dyn Introspector + '_>,
+        traced: Tracked<Traced>,
+        sink: TrackedMut<Sink>,
+        route: Tracked<Route>,
+        bibs_and_groups: &[Content],
     ) -> StrResult<Arc<Works>> {
-        let mut shown_groups =
-            FxHashMap::with_capacity_and_hasher(groups.len(), FxBuildHasher);
-
-        // Render the bibliography and citations with hayagriva. Already inserts
-        // errors into `citations` for citation key that don't resolve.
-        let (rendered, successes) = render(bibliography, groups, &mut shown_groups);
-
-        // Show the citations.
-        let to_entries = match &rendered.bibliography {
-            Some(rendered) => links_to_entries(bibliography, rendered),
-            None => FxHashMap::default(),
+        let mut engine = Engine {
+            world,
+            library,
+            introspector: Protected::from_raw(introspector),
+            traced,
+            sink,
+            route: Route::extend(route),
         };
-        for (rendered, group) in rendered.citations.iter().zip(successes) {
-            let loc = group.location().unwrap();
-            let result =
-                show_cite_group(world, bibliography, group, rendered, &to_entries);
-            shown_groups.insert(loc, result);
-        }
 
-        // Show the bibliography.
-        let shown_bibliography = rendered
-            .bibliography
-            .as_ref()
-            .ok_or_else(|| {
-                style_unsuitable(
-                    &bibliography.style.get_ref(StyleChain::default()).source,
-                )
-            })
-            .and_then(|rendered| show_bibliography(world, bibliography, groups, rendered))
-            .at(bibliography.span());
+        // Prepare bibliographies and citation groups for rendering with
+        // hayagriva.
+        let p = prepare(&mut engine, bibs_and_groups);
+
+        // Render the bibliography and citations with hayagriva.
+        let mut offsets = FxHashMap::default();
+        let rendered =
+            p.bibs.iter().map(|bib| render(bib, &mut offsets)).collect::<Vec<_>>();
 
         Ok(Arc::new(Works {
-            groups: shown_groups,
-            bibliography: shown_bibliography,
+            bibliographies: show_bibliographies(world, &p, &rendered),
+            groups: show_cite_groups(world, p, &rendered),
         }))
     }
 
@@ -663,72 +761,319 @@ impl Works {
         self.groups
             .get(&loc)
             .cloned()
-            .ok_or_else(failed_to_format_citation)
+            .ok_or_else(citation_could_not_be_located)
             .at(span)?
     }
 
     /// Returns the shown content for a bibliography.
-    pub fn bibliography(&self) -> SourceResult<&RenderedBibliography> {
-        self.bibliography.as_ref().map_err(Clone::clone)
+    pub fn bibliography(
+        &self,
+        loc: Location,
+        span: Span,
+    ) -> SourceResult<&RenderedBibliography> {
+        self.bibliographies
+            .get(&loc)
+            .ok_or_else(bibliography_could_not_be_located)
+            .at(span)?
+            .as_ref()
+            .map_err(Clone::clone)
     }
+}
+
+/// Preprocessed information for all bibliographies and citation groups in the
+/// document, ready for rendering with hayagriva.
+struct Preparation<'a> {
+    /// Preprocessed information for all bibliographies in the document, in
+    /// document order.
+    bibs: Vec<PreparedBibliography<'a>>,
+    /// Preprocessed information for all [`CiteGroup`] elements in the document,
+    /// keyed by their [`Location`].
+    groups: FxHashMap<Location, SourceResult<PreparedCiteGroup<'a>>>,
+}
+
+/// Preprocessed information for a bibliography and the citations assigned to
+/// it, ready for processing by hayagriva.
+struct PreparedBibliography<'a> {
+    /// The underlying bibliography element.
+    elem: &'a Packed<BibliographyElem>,
+    /// Information about citation subgroups assigned to this bibliography, in
+    /// document order. Each subgroup turns into one citation sent to hayagriva,
+    /// A single [`CiteGroup`] can comprise multiple subgroups assigned to
+    /// different bibliographies.
+    subgroups: Vec<Subgroup<'a>>,
+}
+
+/// Holds consecutive citations from a `CiteGroup` that were assigned to the
+/// same bibliography.
+///
+/// See [`CiteGroup`] for more details on citation grouping.
+struct Subgroup<'a> {
+    /// The underlying citation group.
+    elem: &'a Packed<CiteGroup>,
+    /// The citations in this subgroup.
+    citations: SmallVec<[&'a Packed<CiteElem>; 1]>,
+    /// The style picked for this subgroup. Citations are not segmented by style
+    /// (at least currently); we simply pick the style of the first citation.
+    style: &'a CslStyle,
+}
+
+/// Preprocessed information for a [`CiteGroup`]. Can be used to show the group
+/// as [`Content`] after bibliographies are processed with hayagriva.
+struct PreparedCiteGroup<'a>(SmallVec<[GroupPart<'a>; 1]>);
+
+/// A segment in a preprocessed [`CiteGroup`].
+enum GroupPart<'a> {
+    /// This content should be displayed verbatim. In practice, this is only
+    /// ever a [`SpaceElem`](crate::text::SpaceElem) between subgroups.
+    Content(&'a Content),
+    /// Points to a subgroup in one of the bibliographies in the document and
+    /// should be substituted by the content produced for the citation.
+    Subgroup(BibIndex, SubgroupIndex),
+}
+
+/// The index of a bibliography among all bibliographies in `p.bibs` where
+/// `p: Preparation`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct BibIndex(usize);
+
+/// The index of a subgroup in `bib.subgroups` where `bib: PreparedBibliography`
+/// among those assigned to the same bibliography.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct SubgroupIndex(usize);
+
+/// Prepares the document's bibliographies and citation groups for rendering
+/// with hayagriva.
+///
+/// Primarily, this involves
+/// - assigning citations to bibliographies (and while doing so splitting
+///   [`CiteGroup`]s into subgroups assigned to the same bibliography).
+/// - retaining data structures that can be used to show the hayagriva output as
+///   [`Content`] for bibliography and citation group elements.
+fn prepare<'a>(engine: &mut Engine, bibs_and_groups: &'a [Content]) -> Preparation<'a> {
+    // Maps from citations to bibliography indices for citations that were
+    // explicitly selected via a bibliography with a `target`.
+    let mut selected = FxHashMap::<Location, BibIndex>::default();
+
+    // First, we process bibliographies. This involves:
+    // - Creating a slot in `bibs` for each
+    // - Creating a mapping from citations to bibliography index for all
+    //   citations specifically targetted by a bibliography.
+    let mut bibs = Vec::<PreparedBibliography>::new();
+    for elem in bibs_and_groups {
+        let Some(bib) = elem.to_packed::<BibliographyElem>() else { continue };
+        let idx = BibIndex(bibs.len());
+        bibs.push(PreparedBibliography { elem: bib, subgroups: vec![] });
+
+        if let Smart::Custom(LocatableSelector(selector)) =
+            bib.target.get_cloned(StyleChain::default())
+        {
+            for citation in engine.introspect(QueryIntrospection(selector, bib.span())) {
+                selected.entry(citation.location().unwrap()).or_insert(idx);
+            }
+        }
+    }
+
+    // Then, we process citations groups. See the doc comment of
+    // `prepare_cite_group` for more information on which steps this involves.
+    let mut groups = FxHashMap::default();
+    let mut bib_cursor = 0;
+    for elem in bibs_and_groups {
+        let Some(group) = elem.to_packed::<CiteGroup>() else {
+            debug_assert!(elem.is::<BibliographyElem>());
+            bib_cursor += 1;
+            continue;
+        };
+
+        let loc = group.location().unwrap();
+        let result = prepare_cite_group(&mut bibs, bib_cursor, group, &selected);
+        groups.insert(loc, result);
+    }
+
+    Preparation { bibs, groups }
+}
+
+/// Prepares a [`CiteGroup`] by
+/// - splitting it into subgroups assigned to the same bibliography
+/// - storing a [`Subgroup`] for each of these in the approprate slot in `bibs`
+/// - creating a [`PreparedCiteGroup`] which can be used to stitch the shown
+///   content for the subgroups together after it was rendered with hayagriva.
+fn prepare_cite_group<'a>(
+    bibs: &mut [PreparedBibliography<'a>],
+    bib_cursor: usize,
+    group: &'a Packed<CiteGroup>,
+    selected: &FxHashMap<Location, BibIndex>,
+) -> SourceResult<PreparedCiteGroup<'a>> {
+    // Holds the collected segments of the citation group.
+    let mut parts = SmallVec::new();
+    // Citations that make up the current subgroup.
+    let mut subgroup = SmallVec::new();
+    // The bibliography index for the current subgroup. If `Some(_)`, then
+    // `subgroup` is not empty.
+    let mut subgroup_bib = None;
+    // The elements in `group.children[tail..i]` are interior spaces.
+    let mut tail = 0;
+    // Holds errors for any uncovered citation. We collect them instead of
+    // bailing early so that we can give multiple errors at once.
+    let mut errors = EcoVec::new();
+
+    for (i, child) in group.children.iter().enumerate() {
+        // The children are either citations or spaces. We skip interior spaces
+        // without updating `tail`, so that at any point we can produce a slice
+        // with the trailing spaces.
+        //
+        // Note that exterior spaces are not supported, but they also will never
+        // appear in groups in practice.
+        let Some(citation) = child.to_packed::<CiteElem>() else { continue };
+        let spaces = &group.children[tail..i];
+        tail = i + 1;
+
+        // Determine the pre-selected bibliography or assign an auto
+        // bibliography.
+        let bib_idx = if let Some(&idx) = selected.get(&citation.location().unwrap()) {
+            // Ensure that the bibliography contains the key.
+            let bib = &bibs[idx.0];
+            if !bib.elem.sources.derived.has(citation.key) {
+                errors.push(key_does_not_exist(citation, bib));
+                continue;
+            }
+            idx
+        } else if let Some(idx) = select_auto_bib(citation, bibs, bib_cursor) {
+            idx
+        } else {
+            errors.push(uncovered_citation(citation, bibs));
+            continue;
+        };
+
+        // If the assigned bibliography changes, flush the previous subgroup and
+        // the spaces between it and the current `child`.
+        if let Some(subgroup_bib) = subgroup_bib
+            && subgroup_bib != bib_idx
+        {
+            parts.push(save_subgroup(
+                bibs,
+                subgroup_bib,
+                group,
+                std::mem::take(&mut subgroup),
+            ));
+            parts.extend(spaces.iter().map(GroupPart::Content));
+        }
+
+        subgroup_bib = Some(bib_idx);
+        subgroup.push(citation);
+    }
+
+    // Flush the final subgroup if any.
+    if let Some(subgroup_bib) = subgroup_bib {
+        parts.push(save_subgroup(bibs, subgroup_bib, group, subgroup));
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(PreparedCiteGroup(parts))
+}
+
+/// Builds a [`Subgroup`] and stores it in the selected bibliography. Returns a
+/// [`GroupPart`] to remember that this subgroup belongs to the [`CiteGroup`]
+/// that's currently being prepared.
+fn save_subgroup<'a>(
+    bibs: &mut [PreparedBibliography<'a>],
+    bib_idx: BibIndex,
+    elem: &'a Packed<CiteGroup>,
+    citations: SmallVec<[&'a Packed<CiteElem>; 1]>,
+) -> GroupPart<'a> {
+    let bib = &mut bibs[bib_idx.0];
+    let style = if let Some(first) = citations.first()
+        && let Smart::Custom(style) = first.style.get_ref(StyleChain::default())
+    {
+        &style.derived
+    } else {
+        &bib.elem.style.get_ref(StyleChain::default()).derived
+    };
+
+    let sub_idx = SubgroupIndex(bib.subgroups.len());
+    bib.subgroups.push(Subgroup { elem, citations, style });
+
+    GroupPart::Subgroup(bib_idx, sub_idx)
+}
+
+/// Selects the appropriate bibliography for a citation that was not explicitly
+/// targeted by a bibliography.
+///
+/// The priority is:
+/// 1. First following auto bibliography containing the citation key
+/// 2. First preceding auto bibliography containing the citation key
+///
+/// Returns `None` if no auto bibliography contains the key.
+fn select_auto_bib(
+    citation: &Packed<CiteElem>,
+    bibs: &[PreparedBibliography],
+    bib_cursor: usize,
+) -> Option<BibIndex> {
+    let bibs = bibs.iter().enumerate();
+    let before = bibs.clone().take(bib_cursor);
+    let after = bibs.skip(bib_cursor);
+    after
+        .chain(before.rev())
+        .find(|(_, bib)| {
+            bib.elem.target.get_ref(StyleChain::default()).is_auto()
+                && bib.elem.sources.derived.has(citation.key)
+        })
+        .map(|(idx, _)| BibIndex(idx))
 }
 
 /// Renders the bibliography and citation groups with hayagriva.
 fn render<'a>(
-    bibliography: &Packed<BibliographyElem>,
-    groups: &'a [Content],
-    failures: &mut FxHashMap<Location, SourceResult<Content>>,
-) -> (hayagriva::Rendered, Vec<&'a Packed<CiteGroup>>) {
+    bib: &PreparedBibliography<'a>,
+    offsets: &mut FxHashMap<Smart<&'a str>, usize>,
+) -> hayagriva::Rendered {
     static LOCALES: LazyLock<Vec<citationberg::Locale>> =
         LazyLock::new(hayagriva::archive::locales);
 
-    let database = &bibliography.sources.derived;
+    let database = &bib.elem.sources.derived;
 
-    // Process all citation groups.
     let mut driver = BibliographyDriver::new();
-    let mut successes = Vec::new();
+    let mut offset = bib
+        .elem
+        .group
+        .get_ref(StyleChain::default())
+        .as_ref()
+        .map(|group| offsets.entry(group.as_deref()).or_insert(0));
 
-    for elem in groups {
-        let group = elem.to_packed::<CiteGroup>().unwrap();
-        let location = elem.location().unwrap();
-
-        // Groups should never be empty.
-        let Some(first) = group.children.first() else { continue };
-
-        let mut items = Vec::with_capacity(group.children.len());
-        let mut errors = EcoVec::new();
-
-        // Create infos and items for each child in the group.
-        for child in &group.children {
-            match database.get(child.key) {
-                Some(entry) => items.push(citation_item(entry, child)),
-                _ => errors.push(error!(
-                    child.span(),
-                    "key `{}` does not exist in the bibliography",
-                    child.key.resolve(),
-                )),
-            }
-        }
-
-        if !errors.is_empty() {
-            failures.insert(location, Err(errors));
-            continue;
-        }
-
-        let style = resolve_style(group, bibliography).get();
-        let locale = locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten());
-
-        driver.citation(CitationRequest::new(items, style, Some(locale), &LOCALES, None));
-        successes.push(group);
+    if let Some(offset) = &mut offset {
+        driver = driver.with_citation_number_offset(**offset);
     }
 
-    let bib_style = &bibliography.style.get_ref(StyleChain::default()).derived;
+    for group in &bib.subgroups {
+        let items = group
+            .citations
+            .iter()
+            .map(|child| {
+                let entry = database.get(child.key).expect("entry to be present");
+                citation_item(entry, child)
+            })
+            .collect::<Vec<_>>();
+
+        let first = &group.citations[0];
+        let locale = locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten());
+
+        driver.citation(CitationRequest::new(
+            items,
+            group.style.get(),
+            Some(locale),
+            &LOCALES,
+            None,
+        ));
+    }
+
+    let bib_style = &bib.elem.style.get_ref(StyleChain::default()).derived;
     let locale =
-        locale(bibliography.lang.unwrap_or(Lang::ENGLISH), bibliography.region.flatten());
+        locale(bib.elem.lang.unwrap_or(Lang::ENGLISH), bib.elem.region.flatten());
 
     // Add hidden items for everything if we should print the whole
     // bibliography.
-    if bibliography.full.get(StyleChain::default()) {
+    if bib.elem.full.get(StyleChain::default()) {
         for (_, entry) in database.iter() {
             driver.citation(CitationRequest::new(
                 vec![CitationItem::new(entry, None, None, true, None)],
@@ -746,7 +1091,20 @@ fn render<'a>(
         locale_files: &LOCALES,
     });
 
-    (rendered, successes)
+    if let Some(offset) = offset
+        && let Some(bib) = &rendered.bibliography
+        // Check whether the style uses numbering.
+        && rendered.citations.iter().any(|rendered| {
+            rendered
+                .citation
+                .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                .is_some()
+        })
+    {
+        *offset += bib.items.len();
+    }
+
+    rendered
 }
 
 /// Creates a hayagriva citation item for a citation element.
@@ -778,21 +1136,48 @@ fn citation_item<'a>(
     CitationItem::new(entry, locator, None, hidden, special_form)
 }
 
+/// Produces the structured content for all [`BibliographyElem`]s in the
+/// document. The output of this is directly stored in the [`Works`] and
+/// consumed by the target-specific bibliography show rules.
+fn show_bibliographies(
+    world: Tracked<dyn World + '_>,
+    p: &Preparation,
+    rendered: &[hayagriva::Rendered],
+) -> FxHashMap<Location, SourceResult<RenderedBibliography>> {
+    p.bibs
+        .iter()
+        .zip(rendered)
+        .map(|(bib, rendered)| {
+            let loc = bib.elem.location().unwrap();
+            let result = rendered
+                .bibliography
+                .as_ref()
+                .ok_or_else(|| {
+                    style_unsuitable(
+                        &bib.elem.style.get_ref(StyleChain::default()).source,
+                    )
+                })
+                .and_then(|rendered| show_bibliography(world, bib, rendered))
+                .at(bib.elem.span());
+            (loc, result)
+        })
+        .collect()
+}
+
 /// Turns a bibliography rendered with hayagriva into a final
 /// [`RenderedBibliography`].
 fn show_bibliography(
     world: Tracked<dyn World + '_>,
-    bibliography: &Packed<BibliographyElem>,
-    groups: &[Content],
+    bib: &PreparedBibliography,
     rendered: &hayagriva::RenderedBibliography,
 ) -> StrResult<RenderedBibliography> {
-    let to_citations = links_to_citations(groups);
+    let to_citations = links_to_citations(&bib.subgroups);
 
-    let mut entries = vec![];
+    let mut entries = Vec::with_capacity(rendered.items.len());
     for (k, item) in rendered.items.iter().enumerate() {
         let ctx = ShowCtx {
             world,
-            span: bibliography.span(),
+            span: bib.elem.span(),
             supplement: &|_| None,
             link: &|_| None,
         };
@@ -818,50 +1203,84 @@ fn show_bibliography(
             }
         });
 
-        entries.push(RenderedEntry {
-            prefix,
-            body,
-            backlink: entry_location(bibliography, k),
-        });
+        entries.push(RenderedEntry { prefix, body, backlink: entry_location(bib, k) });
     }
 
     Ok(RenderedBibliography { entries, hanging_indent: rendered.hanging_indent })
 }
 
-/// Produces the content for a [`CiteGroup`].
+/// Produces the content for all [`CiteGroup`]s in the document. The output of
+/// this is directly stored in the [`Works`] and consumed by [`CiteGroup`] show
+/// rule.
+fn show_cite_groups(
+    world: Tracked<dyn World + '_>,
+    p: Preparation,
+    rendered: &[hayagriva::Rendered],
+) -> FxHashMap<Location, SourceResult<Content>> {
+    let to_entries = links_to_entries(&p, rendered);
+    p.groups
+        .into_iter()
+        .map(|(loc, group)| {
+            let result = group.and_then(|group| {
+                show_cite_group(world, &group, &p.bibs, rendered, |idx, key| {
+                    to_entries.get(&(idx, key)).copied()
+                })
+            });
+            (loc, result)
+        })
+        .collect()
+}
+
+/// Produces the content for a [`CiteGroup`] by stitching together the hayagriva
+/// output for each subgroup and interspersing potential space elements that
+/// were retained between subgroups.
 fn show_cite_group(
     world: Tracked<dyn World + '_>,
-    bibliography: &Packed<BibliographyElem>,
-    group: &Packed<CiteGroup>,
+    group: &PreparedCiteGroup,
+    prepared: &[PreparedBibliography],
+    rendered: &[hayagriva::Rendered],
+    to_entry: impl Fn(BibIndex, &str) -> Option<Location>,
+) -> SourceResult<Content> {
+    let mut seq = vec![];
+    for part in &group.0 {
+        seq.push(match part {
+            GroupPart::Content(c) => (**c).clone(),
+            GroupPart::Subgroup(bib_idx, sub_idx) => {
+                let subgroup = &prepared[bib_idx.0].subgroups[sub_idx.0];
+                let item = &rendered[bib_idx.0].citations[sub_idx.0];
+                show_subgroup(world, subgroup, item, |key| to_entry(*bib_idx, key))?
+            }
+        });
+    }
+    Ok(Content::sequence(seq))
+}
+
+/// Displays a single citation subgroup.
+fn show_subgroup(
+    world: Tracked<dyn World + '_>,
+    group: &Subgroup,
     citation: &hayagriva::RenderedCitation,
-    to_entries: &FxHashMap<&str, Location>,
+    to_entry: impl Fn(&str) -> Option<Location>,
 ) -> SourceResult<Content> {
     if group
-        .children
+        .citations
         .iter()
         .all(|sub| sub.form.get(StyleChain::default()).is_none())
     {
         return Ok(Content::empty());
     }
 
+    let span = Span::find(group.citations.iter().map(|elem| elem.span()));
     let supplement =
-        |i: usize| group.children.get(i)?.supplement.get_cloned(StyleChain::default());
-    let link =
-        |i: usize| to_entries.get(group.children.get(i)?.key.resolve().as_str()).copied();
-
-    let ctx = ShowCtx {
-        world,
-        span: group.span(),
-        supplement: &supplement,
-        link: &link,
-    };
+        |i: usize| group.citations.get(i)?.supplement.get_cloned(StyleChain::default());
+    let link = |i: usize| to_entry(group.citations.get(i)?.key.resolve().as_str());
+    let ctx = ShowCtx { world, span, supplement: &supplement, link: &link };
 
     let mut realized =
-        show_elem_children(&ctx, &citation.citation, None, true).at(group.span())?;
+        show_elem_children(&ctx, &citation.citation, None, true).at(span)?;
 
-    if resolve_style(group, bibliography).get().settings.class
-        == citationberg::StyleClass::Note
-        && group.children.iter().all(|sub| {
+    if group.style.get().settings.class == citationberg::StyleClass::Note
+        && group.citations.iter().all(|sub| {
             matches!(
                 sub.form.get(StyleChain::default()),
                 None | Some(CitationForm::Normal)
@@ -874,47 +1293,37 @@ fn show_cite_group(
     Ok(realized)
 }
 
-/// Determines the CSL style to use for a citation group.
-fn resolve_style<'a>(
-    group: &'a Packed<CiteGroup>,
-    bibliography: &'a Packed<BibliographyElem>,
-) -> &'a CslStyle {
-    if let Some(first) = group.children.first()
-        && let Smart::Custom(style) = first.style.get_ref(StyleChain::default())
-    {
-        &style.derived
-    } else {
-        &bibliography.style.get_ref(StyleChain::default()).derived
-    }
-}
-
-/// Creates a map that links from citation keys to the first citation group
-/// that contains the key.
+/// Creates a map from citation keys to the citation group containing the first
+/// citation assigned to a particular bibliography that references the key.
 ///
 /// This is used by bibliography entries to link back to the first citation that
 /// references them.
-fn links_to_citations(groups: &[Content]) -> FxHashMap<ResolvedPicoStr, Location> {
+fn links_to_citations(groups: &[Subgroup]) -> FxHashMap<ResolvedPicoStr, Location> {
     let mut map = FxHashMap::default();
     for group in groups {
-        let group = group.to_packed::<CiteGroup>().unwrap();
-        let loc = group.location().unwrap();
-        for child in &group.children {
+        for child in &group.citations {
             let key = child.key.resolve();
-            map.entry(key).or_insert(loc);
+            map.entry(key).or_insert(group.elem.location().unwrap());
         }
     }
     map
 }
 
-/// Creates a map that links from citation keys to the corresponding entry in
-/// the bibliography.
+/// Creates a map from a bibliography index + citation key to the corresponding
+/// entry in the bibliography.
+///
+/// This is used by citations to link forward to the bibliography entry they
+/// reference.
 fn links_to_entries<'a>(
-    bibliography: &Packed<BibliographyElem>,
-    rendered: &'a hayagriva::RenderedBibliography,
-) -> FxHashMap<&'a str, Location> {
+    p: &Preparation,
+    rendered: &'a [hayagriva::Rendered],
+) -> FxHashMap<(BibIndex, &'a str), Location> {
     let mut links = FxHashMap::default();
-    for (k, item) in rendered.items.iter().enumerate() {
-        links.insert(item.key.as_str(), entry_location(bibliography, k));
+    for (i, (bib, rendered)) in p.bibs.iter().zip(rendered).enumerate() {
+        let Some(rendered) = &rendered.bibliography else { continue };
+        for (k, item) in rendered.items.iter().enumerate() {
+            links.insert((BibIndex(i), item.key.as_str()), entry_location(bib, k));
+        }
     }
     links
 }
@@ -923,8 +1332,8 @@ fn links_to_entries<'a>(
 /// derived from the bibliography's location. This way, citations can link to
 /// them without having to query for them (which would incur an extra layout
 /// iteration).
-fn entry_location(bibliography: &Packed<BibliographyElem>, k: usize) -> Location {
-    bibliography.location().unwrap().variant(k + 1)
+fn entry_location(bib: &PreparedBibliography, k: usize) -> Location {
+    bib.elem.location().unwrap().variant(k + 1)
 }
 
 /// Additional data needed to show hayagriva elements as content.
@@ -1174,15 +1583,15 @@ pub struct CslIndentElem {
     pub body: Content,
 }
 
-/// Retrieves all citation groups in the document.
+/// Retrieves all bibliographies and citation groups in the document.
 ///
 /// This is separate from `QueryIntrospection` so that we can customize the
 /// diagnostic as the `CiteGroup` is internal. The default query message is also
 /// not that helpful in this case.
 #[derive(Debug, Clone, PartialEq, Hash)]
-struct CiteGroupIntrospection(Span);
+struct BibliographyIntrospection(Span);
 
-impl Introspect for CiteGroupIntrospection {
+impl Introspect for BibliographyIntrospection {
     type Output = EcoVec<Content>;
 
     fn introspect(
@@ -1190,24 +1599,74 @@ impl Introspect for CiteGroupIntrospection {
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.query(&CiteGroup::ELEM.select())
+        introspector.query(&Selector::Or(eco_vec![
+            BibliographyElem::ELEM.select(),
+            CiteGroup::ELEM.select(),
+        ]))
     }
 
     fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
-        warning!(
-            self.0, "citation grouping did not stabilize";
-            hint: "this can happen if the citations and bibliographies in the \
-                   document did not stabilize by the end of the third layout iteration";
-        )
+        warning!(self.0, "citations and bibliographies did not stabilize")
     }
 }
 
 /// The diagnostic when a citation wasn't found in the pre-formatted list.
-fn failed_to_format_citation() -> HintedString {
+fn citation_could_not_be_located() -> HintedString {
     error!(
-        "cannot format citation in isolation";
-        hint: "check whether this citation is measured \
-               without being inserted into the document";
+        "citation could not be located";
+        hint: "this citation is not stably present in the document";
+        hint: "this can be caused by measurement or introspection";
+    )
+}
+
+/// The diagnostic when a bibliography wasn't found in the pre-formatted list.
+fn bibliography_could_not_be_located() -> HintedString {
+    error!(
+        "bibliography could not be located";
+        hint: "this bibliography is not stably present in the document";
+        hint: "this can be caused by measurement or introspection";
+    )
+}
+
+/// The diagnostic when a citation is not picked up by any bibliography.
+fn uncovered_citation(
+    citation: &Packed<CiteElem>,
+    bibs: &[PreparedBibliography],
+) -> SourceDiagnostic {
+    let span = citation.span();
+    let key = citation.key.resolve();
+    if bibs.is_empty() {
+        error!(span, "the document does not contain a bibliography")
+    } else if let Some(bib) =
+        bibs.iter().find(|bib| bib.elem.sources.derived.has(citation.key))
+    {
+        error!(
+            span,
+            "citation is not covered by any bibliography";
+            hint[bib.elem.span()]:
+            "a bibliography containing the key `{key}` exists, \
+             but its `target` excludes this citation";
+        )
+    } else {
+        error!(
+            span,
+            "citation key `{key}` is not present in {} bibliography",
+            if bibs.len() == 1 { "the" } else { "any" },
+        )
+    }
+}
+
+/// The diagnostic when a citation is explicitly targeted by a bibliography,
+/// but its key does not exist in said bibliography.
+fn key_does_not_exist(
+    citation: &Packed<CiteElem>,
+    bib: &PreparedBibliography,
+) -> SourceDiagnostic {
+    error!(
+        citation.span(),
+        "key `{}` does not exist in the bibliography",
+        citation.key.resolve();
+        hint[bib.elem.span()]: "the citation was assigned to this bibliography";
     )
 }
 

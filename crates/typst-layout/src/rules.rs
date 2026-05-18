@@ -453,13 +453,14 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);
     const INDENT: Em = Em::new(1.5);
 
+    let loc = elem.location().unwrap();
     let span = elem.span();
 
     let mut seq = vec![];
     seq.extend(elem.realize_title(styles));
 
-    let works = Works::with_bibliography(engine, elem.clone())?;
-    let bibliography = works.bibliography()?;
+    let works = Works::generate(engine, elem.span())?;
+    let bibliography = works.bibliography(loc, span)?;
 
     if bibliography.entries.iter().any(|entry| entry.prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
