@@ -720,6 +720,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Auto
         | SyntaxKind::Int
         | SyntaxKind::Float
+        | SyntaxKind::Decimal
         | SyntaxKind::Bool
         | SyntaxKind::Numeric
         | SyntaxKind::Str

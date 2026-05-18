@@ -19,25 +19,24 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 ///
 /// = Example <example>
 /// ```example
-/// Decimal: #(decimal("0.1") + decimal("0.2")) \
+/// Decimal: #(0.1d + 0.2d) \
 /// Float: #(0.1 + 0.2)
 /// ```
 ///
 /// = Construction and casts <construction-and-casts>
-/// To create a decimal number, use the `{decimal(string)}` constructor, such as
-/// in `{decimal("3.141592653")}` *(note the double quotes!)*. This constructor
+/// To create a decimal number, use the `d` suffix, such as in `{3.141592653d}`. This
 /// preserves all given fractional digits, provided they are representable as
 /// per the limits specified below (otherwise, an error is raised).
 ///
-/// You can also convert any @int[integer] to a decimal with the
-/// `{decimal(int)}` constructor, e.g. `{decimal(59)}`. However, note that
+/// You can also convert any @int[integer] or @str[string] to a decimal with the
+/// `{decimal(int)}` or `{decimal(str)}` constructor, e.g. `{decimal(59)}`. However, note that
 /// constructing a decimal from a @float[floating-point number], while
 /// supported, *is an imprecise conversion and therefore discouraged.* A warning
 /// will be raised if Typst detects that there was an accidental `float` to
 /// `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
 /// (note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise). It is recommended to use strings for constant
-/// decimal values instead (e.g. `{decimal("3.14")}`).
+/// cast and therefore imprecise). It is recommended to use literals for constant
+/// decimal values instead (e.g. `{3.14d}`).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
 /// rounding the result to 15 digits with @calc.round, but there are still no
@@ -269,6 +268,12 @@ impl Decimal {
     pub fn checked_powi(self, other: i64) -> Option<Self> {
         self.0.checked_powi(other).map(Self)
     }
+
+    pub fn from_spanned_str(src: Spanned<EcoString>) -> SourceResult<Self> {
+        Self::from_str(&src.v.replace(repr::MINUS_SIGN, "-"))
+            .map_err(|_| eco_format!("invalid decimal: {}", src.v))
+            .at(src.span)
+    }
 }
 
 #[scope]
@@ -301,9 +306,9 @@ impl Decimal {
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
-            ToDecimal::Str(str) => Self::from_str(&str.replace(repr::MINUS_SIGN, "-"))
-                .map_err(|_| eco_format!("invalid decimal: {str}"))
-                .at(value.span),
+            ToDecimal::Str(str) => {
+                Self::from_spanned_str(Spanned { v: str, span: value.span })
+            }
             ToDecimal::Int(int) => Ok(Self::from(int)),
             ToDecimal::Float(float) => {
                 warn_on_float_literal(engine, value.span);
@@ -330,9 +335,9 @@ fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
         engine.sink.warn(warning!(
             span,
             "creating a decimal using imprecise float literal";
-            hint: "use a string in the decimal constructor to avoid loss \
-                   of precision: `decimal({})`",
-            node.text().repr();
+            hint: "use a decimal literal to avoid loss \
+                   of precision: `{}d`",
+            node.text();
         ));
     }
     Some(())

@@ -322,6 +322,8 @@ pub enum Expr<'a> {
     Int(Int<'a>),
     /// A floating-point number: `1.2`, `10e-4`.
     Float(Float<'a>),
+    /// A decimal number: `1.23456789d`
+    Decimal(Decimal<'a>),
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
     Numeric(Numeric<'a>),
     /// A quoted string: `"..."`.
@@ -426,6 +428,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Bool => Some(Self::Bool(Bool(node))),
             SyntaxKind::Int => Some(Self::Int(Int(node))),
             SyntaxKind::Float => Some(Self::Float(Float(node))),
+            SyntaxKind::Decimal => Some(Self::Decimal(Decimal(node))),
             SyntaxKind::Numeric => Some(Self::Numeric(Numeric(node))),
             SyntaxKind::Str => Some(Self::Str(Str(node))),
             SyntaxKind::CodeBlock => Some(Self::CodeBlock(CodeBlock(node))),
@@ -495,6 +498,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Bool(v) => v.to_untyped(),
             Self::Int(v) => v.to_untyped(),
             Self::Float(v) => v.to_untyped(),
+            Self::Decimal(v) => v.to_untyped(),
             Self::Numeric(v) => v.to_untyped(),
             Self::Str(v) => v.to_untyped(),
             Self::CodeBlock(v) => v.to_untyped(),
@@ -1367,6 +1371,16 @@ impl Float<'_> {
     /// Get the floating-point value.
     pub fn get(self) -> f64 {
         self.0.text().parse().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A decimal number: `1.23456789d`
+    struct Decimal
+}
+impl<'a> Decimal<'a> {
+    pub fn text(self) -> &'a str {
+        self.0.text()
     }
 }
 

@@ -8,6 +8,11 @@
 #test(decimal(true), decimal("1.0"))
 #test(type(decimal(10)), decimal)
 
+--- decimal-literal eval ---
+#test(decimal(10), 10.0d)
+#test(decimal("-7654.321"), -7654.321d)
+#test(decimal({ 3.141592653 }), 3.141592653000000012752934707d)
+
 --- decimal-constructor-bad-type eval ---
 // Error: 10-17 expected decimal, integer, boolean, float, or string, found type
 #decimal(decimal)
@@ -18,7 +23,7 @@
 
 --- decimal-constructor-float-literal eval ---
 // Warning: 18-25 creating a decimal using imprecise float literal
-// Hint: 18-25 use a string in the decimal constructor to avoid loss of precision: `decimal("1.32523")`
+// Hint: 18-25 use a decimal literal to avoid loss of precision: `1.32523d`
 #let _ = decimal(1.32523)
 
 --- decimal-constructor-float-inf eval ---
