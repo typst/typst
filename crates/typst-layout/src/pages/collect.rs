@@ -125,24 +125,33 @@ pub fn collect<'a>(
 /// yet, to be after the pagebreak. A typical case where this happens is `show
 /// heading: it => pagebreak() + it`.
 fn migrate_unterminated_tags(children: &mut [Pair], mid: usize) -> usize {
-    // Compute the range from before the first trailing tag to after the last
-    // following pagebreak.
     let (before, after) = children.split_at(mid);
     let start = mid - before.iter().rev().take_while(|&(c, _)| c.is::<TagElem>()).count();
     let end = mid + after.iter().take_while(|&(c, _)| c.is::<PagebreakElem>()).count();
 
-    // Determine the set of tag locations which we won't migrate (because they
-    // are terminated).
-    let excluded: FxHashSet<_> = children[start..mid]
-        .iter()
-        .filter_map(|(c, _)| match c.to_packed::<TagElem>()?.tag {
-            Tag::Start(..) => None,
-            Tag::End(loc, ..) => Some(loc),
-        })
-        .collect();
+    // Rileviamo i tag posizionati prima del punto di interruzione
+    let mut excluded = rustc_hash::FxHashSet::default();
+    let mut saw_unterminated = false;
 
-    // A key function that partitions the area of interest into three groups:
-    // Excluded tags (-1) | Pagebreaks (0) | Migrated tags (1).
+    for (c, _) in children[start..mid].iter() {
+        if let Some(elem) = c.to_packed::<TagElem>() {
+            match elem.tag {
+                Tag::Start(..) => {
+                    // Trovato un tag di apertura: da qui in poi i tag conclusi
+                    // successivi non devono essere esclusi dalla migrazione
+                    saw_unterminated = true;
+                }
+                Tag::End(loc, ..) => {
+                    // Se non abbiamo incontrato tag aperti prima, questo tag finale
+                    // fa parte di una coppia già chiusa e non va migrato
+                    if !saw_unterminated {
+                        excluded.insert(loc);
+                    }
+                }
+            }
+        }
+    }
+
     let key = |(c, _): &Pair| match c.to_packed::<TagElem>() {
         Some(elem) => {
             if excluded.contains(&elem.tag.location()) {
@@ -154,11 +163,6 @@ fn migrate_unterminated_tags(children: &mut [Pair], mid: usize) -> usize {
         None => 0,
     };
 
-    // Partition the children using a *stable* sort. While it would be possible
-    // to write a more efficient direct algorithm for this, the sort version is
-    // less likely to have bugs and this is absolutely not on a hot path.
     children[start..end].sort_by_key(key);
-
-    // Compute the new end index, right before the pagebreaks.
     start + children[start..end].iter().take_while(|pair| key(pair) == -1).count()
 }
