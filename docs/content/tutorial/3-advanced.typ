@@ -552,15 +552,29 @@ We provide the rule with a function that takes the heading as a parameter. This 
 
 This looks great! We wrote show rules that selectively apply to the first and second level headings. We used a `where` selector to filter the headings by their level. We then rendered the subsection headings as run-ins. We also automatically add a period to the end of the subsection headings.
 
-Let's review the conference's style guide:
-- The font should be an 11pt serif font ✓
-- The title should be in 17pt and bold ✓
-- The paper contains a single-column abstract and two-column main text ✓
-- The abstract should be centered ✓
-- The main text should be justified ✓
-- First level section headings should be centered, rendered in small caps and in 13pt ✓
-- Second level headings are run-ins, italicized and have the same size as the body text ✓
-- Finally, the pages should be US letter sized, numbered in the center and the top right corner of each page should contain the title of the paper ✓
+#context [
+  #let is-paged = target() == "paged"
+  #let check = "✓"
+  #set list(marker: check) if is-paged
+  #show list.item: it => {
+    if not is-paged and it.body.func() == text and not it.body.fields().text.contains(check) {
+      list.item(it.body + [ ] + check)
+    } else {
+      it
+    }
+  }
+
+
+  Let's review the conference's style guide:
+  - The font should be an 11pt serif font
+  - The title should be in 17pt and bold
+  - The paper contains a single-column abstract and two-column main text
+  - The abstract should be centered
+  - The main text should be justified
+  - First level section headings should be centered, rendered in small caps and in 13pt
+  - Second level headings are run-ins, italicized and have the same size as the body text
+  - Finally, the pages should be US letter sized, numbered in the center and the top right corner of each page should contain the title of the paper
+]
 
 We are now in compliance with all of these styles and can submit the paper to the conference! The finished paper looks like this:
 
