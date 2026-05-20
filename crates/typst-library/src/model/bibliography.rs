@@ -25,7 +25,7 @@ use crate::diag::{
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
+    Bytes, Cast, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
     NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
     Styles, Synthesize, Value, elem,
 };
@@ -52,6 +52,10 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///   #link("https://github.com/typst/hayagriva/blob/main/docs/file-format.md")[documentation]
 ///   for more details.
 /// - A BibLaTeX `.bib` file.
+///
+/// By default, Typst processes citations with its built-in `{hayagriva}`
+/// engine. The optional `engine` parameter is reserved as an extension point
+/// for other citation engines. Currently, only `{hayagriva}` is supported.
 ///
 /// As soon as you add a bibliography somewhere in your document, you can start
 /// citing things with reference syntax (`[@key]`) or explicit calls to the
@@ -108,10 +112,20 @@ pub struct BibliographyElem {
     /// - An array where each item is one of the above.
     #[required]
     #[parse(
+        let citation_engine = args.named("engine")?.unwrap_or_default();
         let sources = args.expect("sources")?;
-        Bibliography::load(engine.world, sources)?
+        Bibliography::load(engine.world, sources, citation_engine)?
     )]
     pub sources: Derived<OneOrMultiple<DataSource>, Bibliography>,
+
+    /// The citation engine to use.
+    ///
+    /// The default engine is `{hayagriva}`, which is Typst's built-in citation
+    /// processor. The `{citum}` engine name is reserved for future support, but
+    /// is not available yet.
+    #[external]
+    #[default(CitationEngine::Hayagriva)]
+    pub engine: CitationEngine,
 
     /// The title of the bibliography.
     ///
@@ -161,6 +175,16 @@ pub struct BibliographyElem {
     #[internal]
     #[synthesized]
     pub region: Option<Region>,
+}
+
+/// The citation engine used for processing citations and bibliographies.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum CitationEngine {
+    /// Typst's built-in citation engine.
+    #[default]
+    Hayagriva,
+    /// Reserved for future Citum integration.
+    Citum,
 }
 
 impl BibliographyElem {
@@ -244,27 +268,77 @@ impl LocalName for Packed<BibliographyElem> {
     const KEY: &'static str = "bibliography";
 }
 
-/// A loaded bibliography.
+/// A loaded bibliography for one of Typst's citation engines.
 #[derive(Clone, PartialEq, Hash)]
-pub struct Bibliography(
-    Arc<ManuallyHash<IndexMap<Label, hayagriva::Entry, FxBuildHasher>>>,
-);
+pub enum Bibliography {
+    /// Bibliography data decoded for the built-in Hayagriva engine.
+    Hayagriva(HayagrivaBibliography),
+}
 
 impl Bibliography {
     /// Load a bibliography from data sources.
     fn load(
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
+        engine: CitationEngine,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Self>> {
-        let loaded = sources.load(world)?;
-        let bibliography = Self::decode(&loaded)?;
+        let bibliography = match engine {
+            CitationEngine::Hayagriva => {
+                let loaded = sources.load(world)?;
+                Self::Hayagriva(HayagrivaBibliography::decode(&loaded)?)
+            }
+            CitationEngine::Citum => {
+                bail!(
+                    sources.span,
+                    "citation engine \"citum\" is reserved but not yet available"
+                )
+            }
+        };
         Ok(Derived::new(sources.v, bibliography))
     }
 
+    fn engine(&self) -> CitationEngine {
+        match self {
+            Self::Hayagriva(..) => CitationEngine::Hayagriva,
+        }
+    }
+
+    fn as_hayagriva(&self) -> &HayagrivaBibliography {
+        match self {
+            Self::Hayagriva(bibliography) => bibliography,
+        }
+    }
+
+    fn has(&self, key: Label) -> bool {
+        self.as_hayagriva().has(key)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (Label, &hayagriva::Entry)> {
+        self.as_hayagriva().iter()
+    }
+}
+
+impl Debug for Bibliography {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Hayagriva(bibliography) => {
+                f.debug_tuple("Hayagriva").field(bibliography).finish()
+            }
+        }
+    }
+}
+
+/// Bibliography data decoded for Hayagriva.
+#[derive(Clone, PartialEq, Hash)]
+pub struct HayagrivaBibliography(
+    Arc<ManuallyHash<IndexMap<Label, hayagriva::Entry, FxBuildHasher>>>,
+);
+
+impl HayagrivaBibliography {
     /// Decode a bibliography from loaded data sources.
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
-    fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
+    fn decode(data: &[Loaded]) -> SourceResult<HayagrivaBibliography> {
         let mut map = IndexMap::default();
         let mut duplicates = Vec::<EcoString>::new();
 
@@ -295,7 +369,10 @@ impl Bibliography {
             bail!(span, "duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
-        Ok(Bibliography(Arc::new(ManuallyHash::new(map, typst_utils::hash128(data)))))
+        Ok(HayagrivaBibliography(Arc::new(ManuallyHash::new(
+            map,
+            typst_utils::hash128(data),
+        ))))
     }
 
     fn has(&self, key: Label) -> bool {
@@ -311,7 +388,7 @@ impl Bibliography {
     }
 }
 
-impl Debug for Bibliography {
+impl Debug for HayagrivaBibliography {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_set().entries(self.0.keys()).finish()
     }
@@ -590,10 +667,14 @@ impl Works {
         bibliography: Packed<BibliographyElem>,
         groups: EcoVec<Content>,
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(world, bibliography, groups)?;
-        let rendered = generator.drive();
-        let works = generator.display(&rendered)?;
-        Ok(Arc::new(works))
+        match bibliography.sources.derived.engine() {
+            CitationEngine::Hayagriva => {
+                HayagrivaBackend::generate(world, bibliography, groups)
+            }
+            CitationEngine::Citum => {
+                bail!("citation engine \"citum\" is reserved but not yet available")
+            }
+        }
     }
 
     /// Extracts the generated references, failing with an error if none have
@@ -646,8 +727,34 @@ impl Introspect for CiteGroupIntrospection {
     }
 }
 
-/// Context for generating the bibliography.
-struct Generator<'a> {
+/// Backend interface for citation engines.
+trait CitationEngineBackend {
+    /// Generate all citations and bibliography entries for the backend.
+    fn generate(
+        world: Tracked<dyn World + '_>,
+        bibliography: Packed<BibliographyElem>,
+        groups: EcoVec<Content>,
+    ) -> StrResult<Arc<Works>>;
+}
+
+/// Hayagriva citation engine backend.
+struct HayagrivaBackend;
+
+impl CitationEngineBackend for HayagrivaBackend {
+    fn generate(
+        world: Tracked<dyn World + '_>,
+        bibliography: Packed<BibliographyElem>,
+        groups: EcoVec<Content>,
+    ) -> StrResult<Arc<Works>> {
+        let mut generator = HayagrivaGenerator::new(world, bibliography, groups)?;
+        let rendered = generator.drive();
+        let works = generator.display(&rendered)?;
+        Ok(Arc::new(works))
+    }
+}
+
+/// Context for generating the bibliography with Hayagriva.
+struct HayagrivaGenerator<'a> {
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
     /// The document's bibliography.
@@ -685,7 +792,7 @@ struct CiteInfo {
     hidden: bool,
 }
 
-impl<'a> Generator<'a> {
+impl<'a> HayagrivaGenerator<'a> {
     /// Create a new generator.
     fn new(
         world: Tracked<'a, dyn World + 'a>,
@@ -707,7 +814,7 @@ impl<'a> Generator<'a> {
         static LOCALES: LazyLock<Vec<citationberg::Locale>> =
             LazyLock::new(hayagriva::archive::locales);
 
-        let database = &self.bibliography.sources.derived;
+        let database = self.bibliography.sources.derived.as_hayagriva();
         let bibliography_style =
             &self.bibliography.style.get_ref(StyleChain::default()).derived;
 

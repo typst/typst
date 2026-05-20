@@ -57,6 +57,19 @@ hi:
   bytes(src.text)
 ))
 
+--- bibliography-engine-hayagriva paged empty ---
+// Test that the explicit engine setting accepts the current built-in engine.
+#show bibliography: none
+#bibliography("/assets/bib/works.bib", engine: "hayagriva")
+
+--- bibliography-engine-unknown eval ---
+// Error: 48-58 expected "hayagriva" or "citum"
+#bibliography("/assets/bib/works.bib", engine: "not-real")
+
+--- bibliography-engine-citum-unsupported eval ---
+// Error: 15-38 citation engine "citum" is reserved but not yet available
+#bibliography("/assets/bib/works.bib", engine: "citum")
+
 --- bibliography-duplicate-key eval ---
 // Error: 15-65 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
 #bibliography(("/assets/bib/works.bib", "/assets/bib/works.bib"))
