@@ -456,12 +456,12 @@ impl PluginInstance {
         // Check function signature. Do this lazily only when a function is called
         // because there might be exported functions like `_initialize` that don't
         // match the schema.
-        if ty.params().iter().any(|&v| v != wasmi::core::ValType::I32) {
+        if ty.params().iter().any(|&v| v != wasmi::ValType::I32) {
             bail!(
                 "plugin function `{func}` has a parameter that is not a 32-bit integer",
             );
         }
-        if ty.results() != [wasmi::core::ValType::I32] {
+        if ty.results() != [wasmi::ValType::I32] {
             bail!("plugin function `{func}` does not return exactly one 32-bit integer");
         }
 

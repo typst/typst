@@ -251,21 +251,34 @@ pub fn sscript(
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
+///
+/// In MathML Core the attributes `displaystyle` and `scriptlevel` correspond
+/// to the CSS properties `math-style` and `math-depth`.
+/// - `displaystyle="true"` is equivalent to `math-style: normal`
+/// - `displaystyle="false"` is equivalent to `math-style: compact`
+/// - `scriptlevel="n"` is equivalent to `math-depth: n`
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Cast)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
+    ///
+    /// This is equivalent (in MathML Core) to `displaystyle` and `scriptlevel`
+    /// as `false` and `2`.
     ScriptScript,
     /// Sub- and superscripts.
+    ///
+    /// This is equivalent (in MathML Core) to `displaystyle` and `scriptlevel`
+    /// as `false` and `1`.
     Script,
     /// Math in text.
+    ///
+    /// This is equivalent (in MathML Core) to `displaystyle` and `scriptlevel`
+    /// as `false` and `0`.
     Text,
     /// Math on its own line.
+    ///
+    /// This is equivalent (in MathML Core) to `displaystyle` and `scriptlevel`
+    /// as `true` and `0`.
     Display,
-}
-
-/// Styles something as cramped.
-pub fn style_cramped() -> LazyHash<Style> {
-    EquationElem::cramped.set(true).wrap()
 }
 
 /// Sets flac OpenType feature.
@@ -282,12 +295,23 @@ pub fn style_dtls() -> LazyHash<Style> {
         .wrap()
 }
 
-/// The style for subscripts in the current style.
-pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_superscript(styles), EquationElem::cramped.set(true).wrap()]
+/// Styles something as cramped.
+///
+/// This is equivalent (in MathML Core) to the following CSS:
+/// ```css
+/// math-shift: compact;
+/// ```
+pub fn style_cramped() -> LazyHash<Style> {
+    EquationElem::cramped.set(true).wrap()
 }
 
 /// The style for superscripts in the current style.
+///
+/// This is equivalent (in MathML Core) to the following CSS:
+/// ```css
+/// math-style: compact;
+/// math-depth: add(1);
+/// ```
 pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
     EquationElem::size
         .set(match styles.get(EquationElem::size) {
@@ -297,7 +321,25 @@ pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
         .wrap()
 }
 
+/// The style for subscripts in the current style.
+///
+/// This is equivalent (in MathML Core) to the following CSS:
+/// ```css
+/// math-style: compact;
+/// math-depth: add(1);
+/// math-shift: compact;
+/// ```
+pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
+    [style_for_superscript(styles), style_cramped()]
+}
+
 /// The style for numerators in the current style.
+///
+/// This is equivalent (in MathML Core) to the following CSS:
+/// ```css
+/// math-style: compact;
+/// math-depth: auto-add;
+/// ```
 pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
     EquationElem::size
         .set(match styles.get(EquationElem::size) {
@@ -309,6 +351,13 @@ pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
 }
 
 /// The style for denominators in the current style.
+///
+/// This is equivalent (in MathML Core) to the following CSS:
+/// ```css
+/// math-style: compact;
+/// math-depth: auto-add;
+/// math-shift: compact;
+/// ```
 pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
+    [style_for_numerator(styles), style_cramped()]
 }

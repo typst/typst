@@ -100,6 +100,12 @@ routines! {
     /// Constructs the `html` module.
     fn html_module() -> Module
 
+    /// Returns the body of a MathML `HtmlElem`, if the content is one.
+    fn html_mathml_body<'a>(
+        content: &'a Content,
+        styles: StyleChain<'a>,
+    ) -> Option<Option<&'a Content>>
+
     /// Wraps content in a span with a color.
     ///
     /// This is a temporary workaround until `TextElem::fill` is supported in

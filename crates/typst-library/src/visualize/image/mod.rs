@@ -16,18 +16,17 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
-use typst_syntax::{Span, Spanned, VirtualPath};
+use typst_syntax::{Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, Synthesize,
-    cast, elem, func, scope,
+    Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
+use crate::loading::{DataSource, Load, Loaded};
 use crate::model::Figurable;
 use crate::text::{LocalName, Locale, families};
 use crate::visualize::image::pdf::PdfDocument;
@@ -50,7 +49,7 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   ],
 /// )
 /// ```
-#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
+#[elem(Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A path to an image file or raw bytes making up an image in one of the
     /// supported @image.format[formats].
@@ -208,65 +207,6 @@ impl Synthesize for Packed<ImageElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.locale = Some(Locale::get_in(styles));
         Ok(())
-    }
-}
-
-#[scope]
-#[allow(clippy::too_many_arguments)]
-impl ImageElem {
-    /// Decode a raster or vector graphic from bytes or a string.
-    #[func(title = "Decode Image")]
-    #[deprecated(
-        message = "`image.decode` is deprecated, directly pass bytes to `image` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        span: Span,
-        /// The data to decode as an image. Can be a string for SVGs.
-        data: Spanned<Readable>,
-        /// The image's format. Detected automatically by default.
-        #[named]
-        format: Option<Smart<ImageFormat>>,
-        /// The width of the image.
-        #[named]
-        width: Option<Smart<Rel<Length>>>,
-        /// The height of the image.
-        #[named]
-        height: Option<Sizing>,
-        /// A text describing the image.
-        #[named]
-        alt: Option<Option<EcoString>>,
-        /// How the image should adjust itself to a given area.
-        #[named]
-        fit: Option<ImageFit>,
-        /// A hint to viewers how they should scale the image.
-        #[named]
-        scaling: Option<Smart<ImageScaling>>,
-    ) -> StrResult<Content> {
-        let bytes = data.v.into_bytes();
-        let loaded =
-            Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
-        let source = Derived::new(DataSource::Bytes(bytes), loaded);
-        let mut elem = ImageElem::new(source);
-        if let Some(format) = format {
-            elem.format.set(format);
-        }
-        if let Some(width) = width {
-            elem.width.set(width);
-        }
-        if let Some(height) = height {
-            elem.height.set(height);
-        }
-        if let Some(alt) = alt {
-            elem.alt.set(alt);
-        }
-        if let Some(fit) = fit {
-            elem.fit.set(fit);
-        }
-        if let Some(scaling) = scaling {
-            elem.scaling.set(scaling);
-        }
-        Ok(elem.pack().spanned(span))
     }
 }
 

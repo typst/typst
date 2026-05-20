@@ -328,7 +328,7 @@ fn global(
 ) -> Module {
     let mut global = Scope::deduplicating();
 
-    self::foundations::define(&mut global, inputs, features);
+    self::foundations::define(&mut global, inputs);
     self::model::define(&mut global, features);
     self::text::define(&mut global);
     self::layout::define(&mut global);

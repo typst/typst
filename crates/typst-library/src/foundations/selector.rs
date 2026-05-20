@@ -197,6 +197,9 @@ impl Selector {
 
     /// Returns a modified selector that will only match elements that occur
     /// before the first match of `end`.
+    ///
+    /// _Note:_ This selector is currently only supported with introspection
+    /// functions, not in show rules.
     #[func]
     pub fn before(
         self,
@@ -217,6 +220,9 @@ impl Selector {
 
     /// Returns a modified selector that will only match elements that occur
     /// after the first match of `start`.
+    ///
+    /// _Note:_ This selector is currently only supported with introspection
+    /// functions, not in show rules.
     #[func]
     pub fn after(
         self,
@@ -232,6 +238,61 @@ impl Selector {
             selector: Arc::new(self),
             start: Arc::new(start.0),
             inclusive,
+        }
+    }
+
+    /// Returns a modified selector that will only match elements that are
+    /// contained within any elements matching the `ancestor` selector.
+    ///
+    /// #example(
+    ///   title: "Finding strong elements in lists",
+    ///   ```
+    ///   *Strong emphasis* that does not count.
+    ///
+    ///   - An *important* word
+    ///   - Another *key* word
+    ///
+    ///   Strong elements in lists:
+    ///   #context {
+    ///     query(selector(strong).within(list))
+    ///       .map(it => it.body)
+    ///       .join[, ]
+    ///   }
+    ///   ```
+    /// )
+    ///
+    /// This can also be used in combination with @here to find all matches of a
+    /// selector within a @reference:context[context] expression. This can be
+    /// quite useful to have an introspection return results local to some
+    /// component you are building.
+    ///
+    /// #example(
+    ///   title: "Counting elements locally in a context block",
+    ///   ```
+    ///   #let count(sel, body) = context {
+    ///     let n = query(selector(sel).within(here())).len()
+    ///     [#body (#n matches)]
+    ///   }
+    ///
+    ///   - #count(emph)[Has _two_ matching _elements_]
+    ///   - #count(strong)[Has *one* matching element]
+    ///   ```
+    /// )
+    ///
+    /// _Note:_ This selector is currently only supported with introspection
+    /// functions, not in show rules.
+    #[func]
+    pub fn within(
+        self,
+        /// Only matches of `self` that are descendants of any element matching
+        /// this selector will be included in the output.
+        ///
+        /// An element is not considered its own ancestor.
+        ancestor: LocatableSelector,
+    ) -> Selector {
+        Selector::Within {
+            selector: Arc::new(self),
+            ancestor: Arc::new(ancestor.0),
         }
     }
 }
@@ -460,9 +521,14 @@ impl FromValue for ShowableSelector {
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
-                | Selector::After { .. }
-                | Selector::Within { .. } => {
+                | Selector::After { .. } => {
                     bail!("this selector cannot be used with show")
+                }
+                Selector::Within { .. } => {
+                    bail!(
+                        "this selector cannot currently be used with show";
+                        hint: "support for this is planned for the future";
+                    )
                 }
             }
             Ok(())

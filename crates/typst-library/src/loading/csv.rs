@@ -3,8 +3,8 @@ use typst_syntax::Spanned;
 
 use crate::diag::{LineCol, LoadError, LoadedWithin, ReportPos, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func, scope};
-use crate::loading::{DataSource, Load, Readable};
+use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CSV file.
 ///
@@ -23,7 +23,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///   ..results.flatten(),
 /// )
 /// ```
-#[func(scope, title = "CSV")]
+#[func(title = "CSV")]
 pub fn csv(
     engine: &mut Engine,
     /// A path to a CSV file or raw CSV bytes.
@@ -89,38 +89,6 @@ pub fn csv(
     }
 
     Ok(array)
-}
-
-#[scope]
-impl csv {
-    /// Reads structured data from a CSV string/bytes.
-    #[func(title = "Decode CSV")]
-    #[deprecated(
-        message = "`csv.decode` is deprecated, directly pass bytes to `csv` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// CSV data.
-        data: Spanned<Readable>,
-        /// The delimiter that separates columns in the CSV file. Must be a
-        /// single ASCII character.
-        #[named]
-        #[default]
-        delimiter: Delimiter,
-        /// How to represent the file's rows.
-        ///
-        /// - If set to `array`, each row is represented as a plain array of
-        ///   strings.
-        /// - If set to `dictionary`, each row is represented as a dictionary
-        ///   mapping from header keys to strings. This option only makes sense
-        ///   when a header row is present in the CSV file.
-        #[named]
-        #[default(RowType::Array)]
-        row_type: RowType,
-    ) -> SourceResult<Array> {
-        csv(engine, data.map(Readable::into_source), delimiter, row_type)
-    }
 }
 
 /// The delimiter to use when parsing CSV files.

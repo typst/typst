@@ -1,22 +1,22 @@
 // Test fractions.
 
---- math-frac-baseline paged ---
+--- math-frac-baseline paged html ---
 // Test that denominator baseline matches in the common case.
 $ x = 1/2 = a/(a h) = a/a = a/(1/2) $
 
---- math-frac-paren-removal paged ---
+--- math-frac-paren-removal paged html ---
 // Test parenthesis removal.
 $ (|x| + |y|)/2 < [1+2]/3 $
 
---- math-frac-large paged ---
+--- math-frac-large paged html ---
 // Test large fraction.
 $ x = (-b plus.minus sqrt(b^2 - 4a c))/(2a) $
 
---- math-binom paged ---
+--- math-binom paged html ---
 // Test binomial.
 $ binom(circle, square) $
 
---- math-binom-multiple paged ---
+--- math-binom-multiple paged html ---
 // Test multinomial coefficients.
 $ binom(n, k_1, k_2, k_3) $
 
@@ -24,21 +24,21 @@ $ binom(n, k_1, k_2, k_3) $
 // Error: 3-13 missing argument: lower
 $ binom(x^2) $
 
---- math-dif paged ---
+--- math-dif paged html ---
 // Test dif.
 $ (dif y)/(dif x), dif/x, x/dif, dif/dif \
   frac(dif y, dif x), frac(dif, x), frac(x, dif), frac(dif, dif) $
 
---- math-frac-associativity paged ---
+--- math-frac-associativity paged html ---
 // Test associativity.
 $ 1/2/3 = (1/2)/3 = 1/(2/3) $
 
---- math-frac-tan-sin-cos paged ---
+--- math-frac-tan-sin-cos paged html ---
 // A nice simple example of a simple trig property.
 $ tan(x) = sin(x) / cos(x) \
   tan x = (sin x) / (cos x) $
 
---- math-frac-precedence paged ---
+--- math-frac-precedence paged html ---
 // Test precedence.
 $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
   1.2/3.7, 2.3^3.4 \
@@ -47,7 +47,7 @@ $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
   (a)b/2, b(a)[b]/2 \
   n!/2, 5!/2, n !/2, 1/n!, 1/5! $
 
---- math-frac-implicit-func paged ---
+--- math-frac-implicit-func paged html ---
 // Test other precedence interactions with implicit function calls.
 $
   f'(x) / f_pi{x} \
@@ -57,11 +57,11 @@ $
   (x)'(x)'(x)' / (x)'(x)'(x)' \
 $
 
---- math-frac-gap paged ---
+--- math-frac-gap paged html ---
 // Test that the gap above and below the fraction rule is correct.
 $ sqrt(n^(2/3)) $
 
---- math-frac-horizontal paged ---
+--- math-frac-horizontal paged html ---
 // Test that horizontal fractions look identical to inline math with `slash`
 #set math.frac(style: "horizontal")
 $ (a / b) / (c / (d / e)) $
@@ -77,12 +77,12 @@ $ (#v(2em)) / n $
 #set math.frac(style: "skewed")
 $ a / b,  a / (b / c) $
 
---- math-frac-horizontal-explicit paged ---
+--- math-frac-horizontal-explicit paged html ---
 // Test that explicit fractions don't change parentheses
 #set math.frac(style: "horizontal")
 $ frac(a, (b + c)), frac(a, b + c) $
 
---- math-frac-horizontal-nonparen-brackets paged ---
+--- math-frac-horizontal-nonparen-brackets paged html ---
 // Test that non-parentheses left-right pairs remain untouched
 #set math.frac(style: "horizontal")
 $ [x+y] / {z} $
@@ -92,7 +92,7 @@ $ [x+y] / {z} $
 #set math.frac(style: "horizontal")
 $a/(b+c), frac(a, b+c, style: "skewed"), frac(a, b+c, style: "vertical")$
 
---- math-frac-line-fill-stroke paged ---
+--- math-frac-line-fill-stroke paged html ---
 // Test that the horizontal stroke is also decorated like text glyphs
 #text(size: 20pt, fill: yellow, stroke: red + .5pt)[$1/Delta$]
 #text(size: 25pt, stroke: red)[$1/Delta$]

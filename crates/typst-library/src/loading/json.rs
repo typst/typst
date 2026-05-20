@@ -4,7 +4,7 @@ use typst_syntax::Spanned;
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Str, Value, func, scope};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a JSON file.
 ///
@@ -129,20 +129,6 @@ pub fn json(
 
 #[scope]
 impl json {
-    /// Reads structured data from a JSON string/bytes.
-    #[func(title = "Decode JSON")]
-    #[deprecated(
-        message = "`json.decode` is deprecated, directly pass bytes to `json` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// JSON data.
-        data: Spanned<Readable>,
-    ) -> SourceResult<Value> {
-        json(engine, data.map(Readable::into_source))
-    }
-
     /// Encodes structured data into a JSON string.
     #[func(title = "Encode JSON")]
     pub fn encode(

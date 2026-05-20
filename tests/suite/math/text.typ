@@ -1,14 +1,14 @@
 // Test that setting font features in math.equation has an effect.
 
---- math-font-fallback paged ---
+--- math-font-fallback paged html ---
 // Test font fallback.
 $ よ and 🏳️‍🌈 $
 
---- math-text-color paged ---
+--- math-text-color paged html ---
 // Test text properties.
 $text(#red, "time"^2) + sqrt("place")$
 
---- math-text-single-grapheme-cluster paged ---
+--- math-text-single-grapheme-cluster paged html ---
 // Test that single graph clusters are considered a single character in math.
 $ 𝒟 𝒟︀ 𝒟︁ $
 #show math.equation: set text(font: "Noto Sans Math")
@@ -27,13 +27,13 @@ $bird "or" 🐦‍⬛$
 // Hint: 1-16 rendering may be poor
 $bird "or" 🐦‍⬛$
 
---- math-text-styled-num paged ---
+--- math-text-styled-num paged html ---
 // Test that styled numbers are treated the same as unstyled ones.
 $ a"123.4"b quad a "123.4" b $
 #show text: math.bold
 $ a"123.4"b quad a "123.4" b $
 
---- math-font-features paged ---
+--- math-font-features paged html ---
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
@@ -42,12 +42,12 @@ $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
---- math-font-features-switch paged ---
+--- math-font-features-switch paged html ---
 #let scr(it) = text(stylistic-set: 1, $cal(it)$)
 $cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
 $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 
---- math-font-covers paged ---
+--- math-font-covers paged html ---
 #show math.equation: set text(
   font: (
     // Ignore that this regex actually misses some of the script glyphs...
@@ -70,13 +70,13 @@ $ x + y = z $
 // Error: 1-39 no font could be found
 $ brace.stroked.l -1 brace.stroked.r $
 
---- math-font-fallback-class paged ---
+--- math-font-fallback-class paged html ---
 // Test that math class is preserved even when the result is a tofu.
 #show math.equation: set text(font: "Garamond-Math", fallback: false)
 $ brace.stroked.l -1 brace.stroked.r $
 $ lr(brace.stroked.l -1 brace.stroked.r) $
 
---- math-optical-size-nested-scripts paged ---
+--- math-optical-size-nested-scripts paged html ---
 // Test transition from script to scriptscript.
 #[
 #set text(size:20pt)
@@ -84,7 +84,7 @@ $  e^(e^(e^(e))) $
 ]
 A large number: $e^(e^(e^(e)))$.
 
---- math-optical-size-primes paged ---
+--- math-optical-size-primes paged html ---
 //  Test prime/double prime via scriptsize
 #let prime = [ \u{2032} ]
 #let dprime = [ \u{2033} ]
@@ -93,12 +93,12 @@ $ y^dprime-2y^prime + y = 0 $
 $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
 
---- math-optical-size-prime-large-operator paged ---
+--- math-optical-size-prime-large-operator paged html ---
 // Test prime superscript on large symbol
 $ scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 
---- math-optical-size-frac-script-script paged ---
+--- math-optical-size-frac-script-script paged html ---
 // Test script-script in a fraction.
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
@@ -108,7 +108,7 @@ $ 1/(x^A) $
 #show par: highlight
 $ a + "bc" + #[c] + #box[d] + #block[e] $
 
---- issue-6090-math-overhang paged ---
+--- issue-6090-math-overhang paged html ---
 $ f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise"

@@ -15,7 +15,7 @@
 - Added support for @reference:scripting:modules[`import`] renaming with `as`
 - Added a @duration type
 - Added support for @cbor[CBOR] encoding and decoding
-- Added encoding and decoding functions from and to bytes for data formats: @json.decode, @json.encode, and similar functions for other formats
+- Added encoding and decoding functions from and to bytes for data formats: `json.decode`, @json.encode, and similar functions for other formats
 - Added @array.intersperse function
 - Added @str.rev function
 - Added `calc.tau` constant

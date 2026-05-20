@@ -151,6 +151,19 @@ pub fn is_escapable_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::textarea | self::title)
 }
 
+/// Whether this is a foreign tag whose associated element is from another
+/// namespace.
+///
+/// Currently includes MathML tags, but could be extended to SVG.
+pub fn is_foreign(tag: HtmlTag) -> bool {
+    self::mathml::is_mathml(tag)
+}
+
+/// Whether this is a foreign element whose tag is self-closing.
+pub fn is_foreign_self_closing(tag: HtmlTag) -> bool {
+    matches!(tag, self::mathml::mprescripts | self::mathml::mspace)
+}
+
 // HTML spec § 3.2.5.2 Kinds of content
 
 /// Whether an element is considered metadata content.
@@ -222,6 +235,7 @@ pub fn is_flow_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meta
             | self::meter
@@ -305,6 +319,7 @@ pub fn is_phrasing_content(tag: HtmlTag) -> bool {
             | self::link
             | self::map
             | self::mark
+            | self::mathml::math
             | self::meta
             | self::meter
             | self::noscript
@@ -343,6 +358,7 @@ pub fn is_embedded_content(tag: HtmlTag) -> bool {
             | self::embed
             | self::iframe
             | self::img
+            | self::mathml::math
             | self::object
             | self::picture
             | self::video
@@ -416,6 +432,7 @@ pub fn is_palpable_content(tag: HtmlTag) -> bool {
             | self::main
             | self::map
             | self::mark
+            | self::mathml::math
             | self::menu
             | self::meter
             | self::nav
@@ -526,4 +543,87 @@ pub fn is_whitespace_collapsing(tag: HtmlTag) -> bool {
 pub fn should_group_into_pars(tag: HtmlTag) -> bool {
     is_phrasing_content(tag)
         && property::Display::default_for(tag) != Some(property::Display::None)
+}
+
+/// Elements in the MathML namespace.
+///
+/// Only the MathML Core elements at the moment.
+pub mod mathml {
+    use super::HtmlTag;
+
+    pub const annotation: HtmlTag = HtmlTag::constant("annotation");
+    pub const annotation_xml: HtmlTag = HtmlTag::constant("annotation-xml");
+    pub const maction: HtmlTag = HtmlTag::constant("maction");
+    pub const math: HtmlTag = HtmlTag::constant("math");
+    pub const merror: HtmlTag = HtmlTag::constant("merror");
+    pub const mfrac: HtmlTag = HtmlTag::constant("mfrac");
+    pub const mi: HtmlTag = HtmlTag::constant("mi");
+    pub const mmultiscripts: HtmlTag = HtmlTag::constant("mmultiscripts");
+    pub const mn: HtmlTag = HtmlTag::constant("mn");
+    pub const mo: HtmlTag = HtmlTag::constant("mo");
+    pub const mover: HtmlTag = HtmlTag::constant("mover");
+    pub const mpadded: HtmlTag = HtmlTag::constant("mpadded");
+    pub const mphantom: HtmlTag = HtmlTag::constant("mphantom");
+    pub const mprescripts: HtmlTag = HtmlTag::constant("mprescripts");
+    pub const mroot: HtmlTag = HtmlTag::constant("mroot");
+    pub const mrow: HtmlTag = HtmlTag::constant("mrow");
+    pub const ms: HtmlTag = HtmlTag::constant("ms");
+    pub const mspace: HtmlTag = HtmlTag::constant("mspace");
+    pub const msqrt: HtmlTag = HtmlTag::constant("msqrt");
+    pub const mstyle: HtmlTag = HtmlTag::constant("mstyle");
+    pub const msub: HtmlTag = HtmlTag::constant("msub");
+    pub const msubsup: HtmlTag = HtmlTag::constant("msubsup");
+    pub const msup: HtmlTag = HtmlTag::constant("msup");
+    pub const mtable: HtmlTag = HtmlTag::constant("mtable");
+    pub const mtd: HtmlTag = HtmlTag::constant("mtd");
+    pub const mtext: HtmlTag = HtmlTag::constant("mtext");
+    pub const mtr: HtmlTag = HtmlTag::constant("mtr");
+    pub const munder: HtmlTag = HtmlTag::constant("munder");
+    pub const munderover: HtmlTag = HtmlTag::constant("munderover");
+    pub const semantics: HtmlTag = HtmlTag::constant("semantics");
+
+    /// Whether this is a MathML token element.
+    pub fn is_token(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::mtext | self::mi | self::mn | self::mo | self::mspace | self::ms
+        )
+    }
+
+    /// Whether this tag is an element in the MathML namespace.
+    pub fn is_mathml(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::annotation
+                | self::annotation_xml
+                | self::maction
+                | self::math
+                | self::merror
+                | self::mfrac
+                | self::mi
+                | self::mmultiscripts
+                | self::mn
+                | self::mo
+                | self::mover
+                | self::mpadded
+                | self::mphantom
+                | self::mprescripts
+                | self::mroot
+                | self::mrow
+                | self::ms
+                | self::mspace
+                | self::msqrt
+                | self::mstyle
+                | self::msub
+                | self::msubsup
+                | self::msup
+                | self::mtable
+                | self::mtd
+                | self::mtext
+                | self::mtr
+                | self::munder
+                | self::munderover
+                | self::semantics
+        )
+    }
 }

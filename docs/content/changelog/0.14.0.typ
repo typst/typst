@@ -77,7 +77,7 @@ PDF export was fully rewritten to use the new #link("https://github.com/LaurenzV
 - Reduced amount of `<g>` grouping elements that are generated #pr(6247)
 
 = PNG export <png-export>
-- Fixed crash when @text.size[text size] is negative #pr(5940)
+- Fixed crash when @text.size[text size] is negative #pr(7004)
 
 = Visualize <visualize>
 - Added support for using PDFs as @image[images] using the new #link("https://github.com/LaurenzV/hayro")[`hayro`] library. PDFs will be embedded directly in PDF export, rasterized in PNG export, and turned into SVGs in SVG and HTML export. _(Thanks to #gh("LaurenzV") for creating hayro!)_ #pr(6623)
