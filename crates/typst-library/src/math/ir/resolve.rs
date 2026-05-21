@@ -284,7 +284,9 @@ fn resolve_text<'a, 'v, 'e>(
     let mut create_item = |text: &str| {
         let mut decimal_count = 0;
         let num = text.chars().all(|c| {
-            decimal_count += if c == '.' { 1 } else { 0 };
+            if c == '.' {
+                decimal_count += 1;
+            }
             c.is_ascii_digit() || c == '.'
         }) && decimal_count != text.len()
             && decimal_count <= 1;
