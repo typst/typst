@@ -25,7 +25,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 ///
 /// = Construction and casts <construction-and-casts>
 /// To create a decimal number, use the `{decimal(string)}` constructor, such as
-/// in `{decimal("3.141592653")}` *(note the double quotes!)*. This constructor
+/// in `{decimal("3.141592653")}` _(note the double quotes)._ This constructor
 /// preserves all given fractional digits, provided they are representable as
 /// per the limits specified below (otherwise, an error is raised).
 ///
