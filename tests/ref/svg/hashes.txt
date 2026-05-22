@@ -823,6 +823,9 @@ d11d97e6d145004c1284effc9e073c68 issue-7872-negative-scale
 fc99a82dd6da1a8d034eeb38a9bb51e5 issue-7991-show-text-symbol-grapheme-sliced
 1135e13fc7762c6126522235f802ff72 issue-80-emoji-linebreak
 f57029c7791073a22484fe234d545003 issue-8058-show-text-grapheme-sliced
+463f42d34340be209ac9b0d227e7a1f7 issue-8261-string-as-ellipsis
+5e076d36931fe54b76edb4ac596f3109 issue-8261-string-as-empty
+fc6123db466996ea1edac82e2f897237 issue-8261-string-as-non-numeric
 28014fbe4f077df656a1c52f86ee0ac0 issue-852-mat-type
 421744506d29db117dff226731da1b04 issue-886-args-sink
 1843a005641ddbf80c22a045bdea0f06 issue-color-mix-luma

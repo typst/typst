@@ -282,7 +282,14 @@ fn resolve_text<'a, 'v, 'e>(
     // Create item with correct styles and properties.
     let local_styles = ctx.store_chain(styles).chain(&*TEXT_BASE_LOCAL_STYLES);
     let mut create_item = |text: &str| {
-        let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
+        let mut decimal_count = 0;
+        let num = text.chars().all(|c| {
+            if c == '.' {
+                decimal_count += 1;
+            }
+            c.is_ascii_digit() || c == '.'
+        }) && decimal_count != text.len() // at least one digit
+            && decimal_count <= 1; // at most one dot
         let styled_text: EcoString = text
             .chars()
             .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
