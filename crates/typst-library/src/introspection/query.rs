@@ -272,7 +272,8 @@ impl Introspect for QueryLabelIntrospection {
     }
 }
 
-/// The warning when an introspection on a [`super::Location`] did not converge.
+/// The warning when an introspection on a [`Location`](super::Location) did not
+/// converge.
 fn format_convergence_warning(
     span: Span,
     lengths: &History<usize>,

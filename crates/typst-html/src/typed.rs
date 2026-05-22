@@ -1,7 +1,7 @@
 //! The typed HTML element API (e.g. `html.div`).
 //!
 //! The typed API is backed by generated data derived from the HTML
-//! specification. See `typst_assets_codegen::html::codegen` and `typst_assets::html`.
+//! specification.
 
 use std::fmt::Write;
 use std::num::{NonZeroI64, NonZeroU64};
