@@ -9,7 +9,6 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
-use typst_utils::ArcExt;
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -444,7 +443,7 @@ impl IntoIterator for Dict {
     type IntoIter = indexmap::map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Arc::take(self.0).into_iter()
+        Arc::unwrap_or_clone(self.0).into_iter()
     }
 }
 

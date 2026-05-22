@@ -48,7 +48,7 @@ impl Watcher {
     ///
     /// All writes to the `output` path will be ignored.
     pub fn new(output: Option<PathBuf>) -> StrResult<Self> {
-        // Setup file watching.
+        // Set up file watching.
         let (tx, rx) = std::sync::mpsc::channel();
 
         // Set the poll interval to something more eager than the default. That

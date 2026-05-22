@@ -14,13 +14,12 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
-use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt, PicoStr, ResolvedPicoStr};
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    At, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin, ReportPos,
     SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
@@ -36,8 +35,8 @@ use crate::introspection::{
 use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
-    LinkElem, Url,
+    CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
+    HeadingElem, LinkElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -555,24 +554,41 @@ impl IntoValue for CslSource {
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
 pub struct Works {
-    /// Maps from the location of a citation group to its rendered content.
-    pub citations: FxHashMap<Location, SourceResult<Content>>,
-    /// Lists all references in the bibliography, with optional prefix, or
-    /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content, Location)>>,
-    /// Whether the bibliography should have hanging indent.
+    /// The document's rendered [`BibliographyElem`].
+    bibliography: SourceResult<RenderedBibliography>,
+    /// The document's rendered [`CiteGroup`]s, keyed by their locations.
+    groups: FxHashMap<Location, SourceResult<Content>>,
+}
+
+/// The rendered parts for a bibliography.
+pub struct RenderedBibliography {
+    /// Lists all entries in the bibliography, with optional prefix.
+    pub entries: Vec<RenderedEntry>,
+    /// Whether the bibliography should have hanging indent applied.
     pub hanging_indent: bool,
 }
 
+/// The rendered parts for a bibliography entry.
+pub struct RenderedEntry {
+    /// An optional prefix. This is exposed separately because this will go into
+    /// its own column for grid-based styles.
+    pub prefix: Option<Content>,
+    /// The main content of the rendered bibliography entry.
+    pub body: Content,
+    /// A location that should be attached to the rendered entry in some way.
+    /// Citations will link there.
+    pub backlink: Location,
+}
+
 impl Works {
-    /// Generate all citations and the whole bibliography.
+    /// Generates and formats the bibliography and citations.
     pub fn generate(engine: &mut Engine, span: Span) -> SourceResult<Arc<Works>> {
         let bibliography = BibliographyElem::find(engine, span).at(span)?;
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, &bibliography, &groups).at(span)
     }
 
-    /// Generate all citations and the whole bibliography, given an existing
+    /// Same as [`Works::generate`], but reuses an existing
     /// bibliography (no need to query it).
     pub fn with_bibliography(
         engine: &mut Engine,
@@ -580,369 +596,324 @@ impl Works {
     ) -> SourceResult<Arc<Works>> {
         let span = bibliography.span();
         let groups = engine.introspect(CiteGroupIntrospection(span));
-        Self::generate_impl(engine.world, bibliography, groups).at(span)
+        Self::generate_impl(engine.world, &bibliography, &groups).at(span)
     }
 
     /// The internal implementation of [`Works::generate`].
     #[comemo::memoize]
     fn generate_impl(
         world: Tracked<dyn World + '_>,
-        bibliography: Packed<BibliographyElem>,
-        groups: EcoVec<Content>,
+        bibliography: &Packed<BibliographyElem>,
+        groups: &[Content],
     ) -> StrResult<Arc<Works>> {
-        let mut generator = Generator::new(world, bibliography, groups)?;
-        let rendered = generator.drive();
-        let works = generator.display(&rendered)?;
-        Ok(Arc::new(works))
-    }
+        let mut shown_groups =
+            FxHashMap::with_capacity_and_hasher(groups.len(), FxBuildHasher);
 
-    /// Extracts the generated references, failing with an error if none have
-    /// been generated.
-    pub fn references<'a>(
-        &'a self,
-        elem: &Packed<BibliographyElem>,
-        styles: StyleChain,
-    ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
-        self.references
-            .as_deref()
-            .ok_or_else(|| match elem.style.get_ref(styles).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
+        // Render the bibliography and citations with hayagriva. Already inserts
+        // errors into `citations` for citation key that don't resolve.
+        let (rendered, successes) = render(bibliography, groups, &mut shown_groups);
+
+        // Show the citations.
+        let to_entries = match &rendered.bibliography {
+            Some(rendered) => links_to_entries(bibliography, rendered),
+            None => FxHashMap::default(),
+        };
+        for (rendered, group) in rendered.citations.iter().zip(successes) {
+            let loc = group.location().unwrap();
+            let result =
+                show_cite_group(world, bibliography, group, rendered, &to_entries);
+            shown_groups.insert(loc, result);
+        }
+
+        // Show the bibliography.
+        let shown_bibliography = rendered
+            .bibliography
+            .as_ref()
+            .ok_or_else(|| {
+                style_unsuitable(
+                    &bibliography.style.get_ref(StyleChain::default()).source,
+                )
             })
-            .at(elem.span())
+            .and_then(|rendered| show_bibliography(world, bibliography, groups, rendered))
+            .at(bibliography.span());
+
+        Ok(Arc::new(Works {
+            groups: shown_groups,
+            bibliography: shown_bibliography,
+        }))
+    }
+
+    /// Returns the shown content for a citation.
+    pub fn citation(&self, loc: Location, span: Span) -> SourceResult<Content> {
+        self.groups
+            .get(&loc)
+            .cloned()
+            .ok_or_else(failed_to_format_citation)
+            .at(span)?
+    }
+
+    /// Returns the shown content for a bibliography.
+    pub fn bibliography(&self) -> SourceResult<&RenderedBibliography> {
+        self.bibliography.as_ref().map_err(Clone::clone)
     }
 }
 
-/// Retrieves all citation groups in the document.
-///
-/// This is separate from `QueryIntrospection` so that we can customize the
-/// diagnostic as the `CiteGroup` is internal. The default query message is also
-/// not that helpful in this case.
-#[derive(Debug, Clone, PartialEq, Hash)]
-struct CiteGroupIntrospection(Span);
+/// Renders the bibliography and citation groups with hayagriva.
+fn render<'a>(
+    bibliography: &Packed<BibliographyElem>,
+    groups: &'a [Content],
+    failures: &mut FxHashMap<Location, SourceResult<Content>>,
+) -> (hayagriva::Rendered, Vec<&'a Packed<CiteGroup>>) {
+    static LOCALES: LazyLock<Vec<citationberg::Locale>> =
+        LazyLock::new(hayagriva::archive::locales);
 
-impl Introspect for CiteGroupIntrospection {
-    type Output = EcoVec<Content>;
+    let database = &bibliography.sources.derived;
 
-    fn introspect(
-        &self,
-        _: &mut Engine,
-        introspector: Tracked<dyn Introspector + '_>,
-    ) -> Self::Output {
-        introspector.query(&CiteGroup::ELEM.select())
-    }
+    // Process all citation groups.
+    let mut driver = BibliographyDriver::new();
+    let mut successes = Vec::new();
 
-    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
-        warning!(
-            self.0, "citation grouping did not stabilize";
-            hint: "this can happen if the citations and bibliographies in the \
-                   document did not stabilize by the end of the third layout iteration";
-        )
-    }
-}
+    for elem in groups {
+        let group = elem.to_packed::<CiteGroup>().unwrap();
+        let location = elem.location().unwrap();
 
-/// Context for generating the bibliography.
-struct Generator<'a> {
-    /// The world that is used to evaluate mathematical material in citations.
-    world: Tracked<'a, dyn World + 'a>,
-    /// The document's bibliography.
-    bibliography: Packed<BibliographyElem>,
-    /// The document's citation groups.
-    groups: EcoVec<Content>,
-    /// Details about each group that are accumulated while driving hayagriva's
-    /// bibliography driver and needed when processing hayagriva's output.
-    infos: Vec<GroupInfo>,
-    /// Citations with unresolved keys.
-    failures: FxHashMap<Location, SourceResult<Content>>,
-}
+        // Groups should never be empty.
+        let Some(first) = group.children.first() else { continue };
 
-/// Details about a group of merged citations. All citations are put into groups
-/// of adjacent ones (e.g., `@foo @bar` will merge into a group of length two).
-/// Even single citations will be put into groups of length one.
-struct GroupInfo {
-    /// The group's location.
-    location: Location,
-    /// The group's span.
-    span: Span,
-    /// Whether the group should be displayed in a footnote.
-    footnote: bool,
-    /// Details about the groups citations.
-    subinfos: SmallVec<[CiteInfo; 1]>,
-}
+        let mut items = Vec::with_capacity(group.children.len());
+        let mut errors = EcoVec::new();
 
-/// Details about a citation item in a request.
-struct CiteInfo {
-    /// The citation's key.
-    key: Label,
-    /// The citation's supplement.
-    supplement: Option<Content>,
-    /// Whether this citation was hidden.
-    hidden: bool,
-}
-
-impl<'a> Generator<'a> {
-    /// Create a new generator.
-    fn new(
-        world: Tracked<'a, dyn World + 'a>,
-        bibliography: Packed<BibliographyElem>,
-        groups: EcoVec<Content>,
-    ) -> StrResult<Self> {
-        let infos = Vec::with_capacity(groups.len());
-        Ok(Self {
-            world,
-            bibliography,
-            groups,
-            infos,
-            failures: FxHashMap::default(),
-        })
-    }
-
-    /// Drives hayagriva's citation driver.
-    fn drive(&mut self) -> hayagriva::Rendered {
-        static LOCALES: LazyLock<Vec<citationberg::Locale>> =
-            LazyLock::new(hayagriva::archive::locales);
-
-        let database = &self.bibliography.sources.derived;
-        let bibliography_style =
-            &self.bibliography.style.get_ref(StyleChain::default()).derived;
-
-        // Process all citation groups.
-        let mut driver = BibliographyDriver::new();
-        for elem in &self.groups {
-            let group = elem.to_packed::<CiteGroup>().unwrap();
-            let location = elem.location().unwrap();
-            let children = &group.children;
-
-            // Groups should never be empty.
-            let Some(first) = children.first() else { continue };
-
-            let mut subinfos = SmallVec::with_capacity(children.len());
-            let mut items = Vec::with_capacity(children.len());
-            let mut errors = EcoVec::new();
-            let mut normal = true;
-
-            // Create infos and items for each child in the group.
-            for child in children {
-                let Some(entry) = database.get(child.key) else {
-                    errors.push(error!(
-                        child.span(),
-                        "key `{}` does not exist in the bibliography",
-                        child.key.resolve(),
-                    ));
-                    continue;
-                };
-
-                let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|c| {
-                    SpecificLocator(
-                        citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
-                            c.clone(),
-                        )),
-                    )
-                });
-
-                let mut hidden = false;
-                let special_form = match child.form.get(StyleChain::default()) {
-                    None => {
-                        hidden = true;
-                        None
-                    }
-                    Some(CitationForm::Normal) => None,
-                    Some(CitationForm::Prose) => Some(hayagriva::CitePurpose::Prose),
-                    Some(CitationForm::Full) => Some(hayagriva::CitePurpose::Full),
-                    Some(CitationForm::Author) => Some(hayagriva::CitePurpose::Author),
-                    Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
-                };
-
-                normal &= special_form.is_none();
-                subinfos.push(CiteInfo { key: child.key, supplement, hidden });
-                items.push(CitationItem::new(entry, locator, None, hidden, special_form));
+        // Create infos and items for each child in the group.
+        for child in &group.children {
+            match database.get(child.key) {
+                Some(entry) => items.push(citation_item(entry, child)),
+                _ => errors.push(error!(
+                    child.span(),
+                    "key `{}` does not exist in the bibliography",
+                    child.key.resolve(),
+                )),
             }
+        }
 
-            if !errors.is_empty() {
-                self.failures.insert(location, Err(errors));
-                continue;
-            }
+        if !errors.is_empty() {
+            failures.insert(location, Err(errors));
+            continue;
+        }
 
-            let style = match first.style.get_ref(StyleChain::default()) {
-                Smart::Auto => bibliography_style.get(),
-                Smart::Custom(style) => style.derived.get(),
-            };
+        let style = resolve_style(group, bibliography).get();
+        let locale = locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten());
 
-            self.infos.push(GroupInfo {
-                location,
-                subinfos,
-                span: first.span(),
-                footnote: normal
-                    && style.settings.class == citationberg::StyleClass::Note,
-            });
+        driver.citation(CitationRequest::new(items, style, Some(locale), &LOCALES, None));
+        successes.push(group);
+    }
 
+    let bib_style = &bibliography.style.get_ref(StyleChain::default()).derived;
+    let locale =
+        locale(bibliography.lang.unwrap_or(Lang::ENGLISH), bibliography.region.flatten());
+
+    // Add hidden items for everything if we should print the whole
+    // bibliography.
+    if bibliography.full.get(StyleChain::default()) {
+        for (_, entry) in database.iter() {
             driver.citation(CitationRequest::new(
-                items,
-                style,
-                Some(locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten())),
+                vec![CitationItem::new(entry, None, None, true, None)],
+                bib_style.get(),
+                Some(locale.clone()),
                 &LOCALES,
                 None,
             ));
         }
-
-        let locale = locale(
-            self.bibliography.lang.unwrap_or(Lang::ENGLISH),
-            self.bibliography.region.flatten(),
-        );
-
-        // Add hidden items for everything if we should print the whole
-        // bibliography.
-        if self.bibliography.full.get(StyleChain::default()) {
-            for (_, entry) in database.iter() {
-                driver.citation(CitationRequest::new(
-                    vec![CitationItem::new(entry, None, None, true, None)],
-                    bibliography_style.get(),
-                    Some(locale.clone()),
-                    &LOCALES,
-                    None,
-                ));
-            }
-        }
-
-        driver.finish(BibliographyRequest {
-            style: bibliography_style.get(),
-            locale: Some(locale),
-            locale_files: &LOCALES,
-        })
     }
 
-    /// Displays hayagriva's output as content for the citations and references.
-    fn display(&mut self, rendered: &hayagriva::Rendered) -> StrResult<Works> {
-        let citations = self.display_citations(rendered)?;
-        let references = self.display_references(rendered)?;
-        let hanging_indent =
-            rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Ok(Works { citations, references, hanging_indent })
-    }
+    let rendered = driver.finish(BibliographyRequest {
+        style: bib_style.get(),
+        locale: Some(locale),
+        locale_files: &LOCALES,
+    });
 
-    /// Display the citation groups.
-    fn display_citations(
-        &mut self,
-        rendered: &hayagriva::Rendered,
-    ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
-        // Determine for each citation key where in the bibliography it is,
-        // so that we can link there.
-        let mut links = FxHashMap::default();
-        if let Some(bibliography) = &rendered.bibliography {
-            let location = self.bibliography.location().unwrap();
-            for (k, item) in bibliography.items.iter().enumerate() {
-                links.insert(item.key.as_str(), location.variant(k + 1));
-            }
+    (rendered, successes)
+}
+
+/// Creates a hayagriva citation item for a citation element.
+fn citation_item<'a>(
+    entry: &'a hayagriva::Entry,
+    child: &'a Packed<CiteElem>,
+) -> CitationItem<'a, hayagriva::Entry> {
+    let supplement = child.supplement.get_cloned(StyleChain::default());
+    let locator = supplement.as_ref().map(|c| {
+        SpecificLocator(
+            citationberg::taxonomy::Locator::Custom,
+            hayagriva::LocatorPayload::Transparent(TransparentLocator::new(c.clone())),
+        )
+    });
+
+    let mut hidden = false;
+    let special_form = match child.form.get(StyleChain::default()) {
+        None => {
+            hidden = true;
+            None
         }
+        Some(CitationForm::Normal) => None,
+        Some(CitationForm::Prose) => Some(hayagriva::CitePurpose::Prose),
+        Some(CitationForm::Full) => Some(hayagriva::CitePurpose::Full),
+        Some(CitationForm::Author) => Some(hayagriva::CitePurpose::Author),
+        Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
+    };
 
-        let mut output = std::mem::take(&mut self.failures);
-        for (info, citation) in self.infos.iter().zip(&rendered.citations) {
-            let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link = |i: usize| {
-                links.get(info.subinfos.get(i)?.key.resolve().as_str()).copied()
-            };
+    CitationItem::new(entry, locator, None, hidden, special_form)
+}
 
-            let renderer = ElemRenderer {
-                world: self.world,
-                span: info.span,
-                supplement: &supplement,
-                link: &link,
-            };
+/// Turns a bibliography rendered with hayagriva into a final
+/// [`RenderedBibliography`].
+fn show_bibliography(
+    world: Tracked<dyn World + '_>,
+    bibliography: &Packed<BibliographyElem>,
+    groups: &[Content],
+    rendered: &hayagriva::RenderedBibliography,
+) -> StrResult<RenderedBibliography> {
+    let to_citations = links_to_citations(groups);
 
-            let content = if info.subinfos.iter().all(|sub| sub.hidden) {
-                Content::empty()
+    let mut entries = vec![];
+    for (k, item) in rendered.items.iter().enumerate() {
+        let ctx = ShowCtx {
+            world,
+            span: bibliography.span(),
+            supplement: &|_| None,
+            link: &|_| None,
+        };
+
+        // Render the first field.
+        let mut prefix = item
+            .first_field
+            .as_ref()
+            .map(|elem| show_elem_child(&ctx, elem, None, false))
+            .transpose()?;
+
+        // Render the main reference content.
+        let body = show_elem_children(&ctx, &item.content, Some(&mut prefix), false)?;
+
+        // Attach link to citation to the prefix.
+        let prefix = prefix.map(|content| {
+            if let Some(location) = to_citations.get(item.key.as_str()) {
+                let alt = content.plain_text();
+                let body = content.spanned(ctx.span);
+                DirectLinkElem::new(*location, body, Some(alt)).pack()
             } else {
-                let mut content =
-                    renderer.display_elem_children(&citation.citation, None, true)?;
-
-                if info.footnote {
-                    content = FootnoteElem::with_content(content).pack();
-                }
-
                 content
-            };
+            }
+        });
 
-            output.insert(info.location, Ok(content));
-        }
-
-        Ok(output)
+        entries.push(RenderedEntry {
+            prefix,
+            body,
+            backlink: entry_location(bibliography, k),
+        });
     }
 
-    /// Display the bibliography references.
-    #[allow(clippy::type_complexity)]
-    fn display_references(
-        &self,
-        rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
-        let Some(rendered) = &rendered.bibliography else { return Ok(None) };
+    Ok(RenderedBibliography { entries, hanging_indent: rendered.hanging_indent })
+}
 
-        // Determine for each citation key where it first occurred, so that we
-        // can link there.
-        let mut first_occurrences = FxHashMap::default();
-        for info in &self.infos {
-            for subinfo in &info.subinfos {
-                let key = subinfo.key.resolve();
-                first_occurrences.entry(key).or_insert(info.location);
-            }
-        }
+/// Produces the content for a [`CiteGroup`].
+fn show_cite_group(
+    world: Tracked<dyn World + '_>,
+    bibliography: &Packed<BibliographyElem>,
+    group: &Packed<CiteGroup>,
+    citation: &hayagriva::RenderedCitation,
+    to_entries: &FxHashMap<&str, Location>,
+) -> SourceResult<Content> {
+    if group
+        .children
+        .iter()
+        .all(|sub| sub.form.get(StyleChain::default()).is_none())
+    {
+        return Ok(Content::empty());
+    }
 
-        // The location of the bibliography.
-        let location = self.bibliography.location().unwrap();
+    let supplement =
+        |i: usize| group.children.get(i)?.supplement.get_cloned(StyleChain::default());
+    let link =
+        |i: usize| to_entries.get(group.children.get(i)?.key.resolve().as_str()).copied();
 
-        let mut output = vec![];
-        for (k, item) in rendered.items.iter().enumerate() {
-            let renderer = ElemRenderer {
-                world: self.world,
-                span: self.bibliography.span(),
-                supplement: &|_| None,
-                link: &|_| None,
-            };
+    let ctx = ShowCtx {
+        world,
+        span: group.span(),
+        supplement: &supplement,
+        link: &link,
+    };
 
-            // Each reference is assigned a manually created well-known location
-            // that is derived from the bibliography's location. This way,
-            // citations can link to them.
-            let backlink = location.variant(k + 1);
+    let mut realized =
+        show_elem_children(&ctx, &citation.citation, None, true).at(group.span())?;
 
-            // Render the first field.
-            let mut prefix = item
-                .first_field
-                .as_ref()
-                .map(|elem| renderer.display_elem_child(elem, None, false))
-                .transpose()?;
+    if resolve_style(group, bibliography).get().settings.class
+        == citationberg::StyleClass::Note
+        && group.children.iter().all(|sub| {
+            matches!(
+                sub.form.get(StyleChain::default()),
+                None | Some(CitationForm::Normal)
+            )
+        })
+    {
+        realized = FootnoteElem::with_content(realized).pack();
+    }
 
-            // Render the main reference content.
-            let reference = renderer.display_elem_children(
-                &item.content,
-                Some(&mut prefix),
-                false,
-            )?;
+    Ok(realized)
+}
 
-            let prefix = prefix.map(|content| {
-                if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                    let alt = content.plain_text();
-                    let body = content.spanned(self.bibliography.span());
-                    DirectLinkElem::new(*location, body, Some(alt)).pack()
-                } else {
-                    content
-                }
-            });
-
-            output.push((prefix, reference, backlink));
-        }
-
-        Ok(Some(output))
+/// Determines the CSL style to use for a citation group.
+fn resolve_style<'a>(
+    group: &'a Packed<CiteGroup>,
+    bibliography: &'a Packed<BibliographyElem>,
+) -> &'a CslStyle {
+    if let Some(first) = group.children.first()
+        && let Smart::Custom(style) = first.style.get_ref(StyleChain::default())
+    {
+        &style.derived
+    } else {
+        &bibliography.style.get_ref(StyleChain::default()).derived
     }
 }
 
-/// Renders hayagriva elements into content.
-struct ElemRenderer<'a> {
+/// Creates a map that links from citation keys to the first citation group
+/// that contains the key.
+///
+/// This is used by bibliography entries to link back to the first citation that
+/// references them.
+fn links_to_citations(groups: &[Content]) -> FxHashMap<ResolvedPicoStr, Location> {
+    let mut map = FxHashMap::default();
+    for group in groups {
+        let group = group.to_packed::<CiteGroup>().unwrap();
+        let loc = group.location().unwrap();
+        for child in &group.children {
+            let key = child.key.resolve();
+            map.entry(key).or_insert(loc);
+        }
+    }
+    map
+}
+
+/// Creates a map that links from citation keys to the corresponding entry in
+/// the bibliography.
+fn links_to_entries<'a>(
+    bibliography: &Packed<BibliographyElem>,
+    rendered: &'a hayagriva::RenderedBibliography,
+) -> FxHashMap<&'a str, Location> {
+    let mut links = FxHashMap::default();
+    for (k, item) in rendered.items.iter().enumerate() {
+        links.insert(item.key.as_str(), entry_location(bibliography, k));
+    }
+    links
+}
+
+/// Each reference is assigned a manually created well-known location that is
+/// derived from the bibliography's location. This way, citations can link to
+/// them without having to query for them (which would incur an extra layout
+/// iteration).
+fn entry_location(bibliography: &Packed<BibliographyElem>, k: usize) -> Location {
+    bibliography.location().unwrap().variant(k + 1)
+}
+
+/// Additional data needed to show hayagriva elements as content.
+struct ShowCtx<'a> {
     /// The world that is used to evaluate mathematical material.
     world: Tracked<'a, dyn World + 'a>,
     /// The span that is attached to all of the resulting content.
@@ -953,158 +924,154 @@ struct ElemRenderer<'a> {
     link: &'a dyn Fn(usize) -> Option<Location>,
 }
 
-impl ElemRenderer<'_> {
-    /// Display rendered hayagriva elements.
-    ///
-    /// The `prefix` can be a separate content storage where `left-margin`
-    /// elements will be accumulated into.
-    ///
-    /// `is_citation` dictates whether whitespace at the start of the citation
-    /// will be eliminated. Some CSL styles yield whitespace at the start of
-    /// their citations, which should instead be handled by Typst.
-    fn display_elem_children(
-        &self,
-        elems: &hayagriva::ElemChildren,
-        mut prefix: Option<&mut Option<Content>>,
-        is_citation: bool,
-    ) -> StrResult<Content> {
-        Ok(Content::sequence(
-            elems
-                .0
-                .iter()
-                .enumerate()
-                .map(|(i, elem)| {
-                    self.display_elem_child(
-                        elem,
-                        prefix.as_deref_mut(),
-                        is_citation && i == 0,
-                    )
-                })
-                .collect::<StrResult<Vec<_>>>()?,
-        ))
-    }
-
-    /// Display a rendered hayagriva element.
-    fn display_elem_child(
-        &self,
-        elem: &hayagriva::ElemChild,
-        prefix: Option<&mut Option<Content>>,
-        trim_start: bool,
-    ) -> StrResult<Content> {
-        Ok(match elem {
-            hayagriva::ElemChild::Text(formatted) => {
-                self.display_formatted(formatted, trim_start)
-            }
-            hayagriva::ElemChild::Elem(elem) => self.display_elem(elem, prefix)?,
-            hayagriva::ElemChild::Markup(markup) => self.display_math(markup),
-            hayagriva::ElemChild::Link { text, url } => self.display_link(text, url)?,
-            hayagriva::ElemChild::Transparent { cite_idx, format } => {
-                self.display_transparent(*cite_idx, format)
-            }
-        })
-    }
-
-    /// Display a block-level element.
-    fn display_elem(
-        &self,
-        elem: &hayagriva::Elem,
-        mut prefix: Option<&mut Option<Content>>,
-    ) -> StrResult<Content> {
-        use citationberg::Display;
-
-        let block_level = matches!(elem.display, Some(Display::Block | Display::Indent));
-
-        let mut content = self.display_elem_children(
-            &elem.children,
-            if block_level { None } else { prefix.as_deref_mut() },
-            false,
-        )?;
-
-        match elem.display {
-            Some(Display::Block) => {
-                content = BlockElem::packed(content).spanned(self.span);
-            }
-            Some(Display::Indent) => {
-                content = CslIndentElem::new(content).pack().spanned(self.span);
-            }
-            Some(Display::LeftMargin) => {
-                // The `display="left-margin"` attribute is only supported at
-                // the top-level (when prefix is `Some(_)`). Within a
-                // block-level container, it is ignored. The CSL spec is not
-                // specific about this, but it is in line with citeproc.js's
-                // behaviour.
-                if let Some(prefix) = prefix {
-                    *prefix.get_or_insert_with(Default::default) += content;
-                    return Ok(Content::empty());
-                }
-            }
-            _ => {}
-        }
-
-        content = content.spanned(self.span);
-
-        if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
-            && let Some(location) = (self.link)(i)
-        {
-            let alt = content.plain_text();
-            content = DirectLinkElem::new(location, content, Some(alt)).pack();
-        }
-
-        Ok(content)
-    }
-
-    /// Display math.
-    fn display_math(&self, math: &str) -> Content {
-        let library = self.world.library();
-        (library.routines.eval_string)(
-            self.world,
-            library,
-            // TODO: propagate warnings
-            Sink::new().track_mut(),
-            EmptyIntrospector.track(),
-            Context::none().track(),
-            math,
-            SpanMode::Uniform(self.span),
-            SyntaxMode::Math,
-            Scope::new(),
-        )
-        .map(Value::display)
-        .unwrap_or_else(|_| TextElem::packed(math).spanned(self.span))
-    }
-
-    /// Display a link.
-    fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> StrResult<Content> {
-        let dest = Destination::Url(Url::new(url)?);
-        Ok(LinkElem::new(dest.into(), self.display_formatted(text, false))
-            .pack()
-            .spanned(self.span))
-    }
-
-    /// Display transparent pass-through content.
-    fn display_transparent(&self, i: usize, format: &hayagriva::Formatting) -> Content {
-        let content = (self.supplement)(i).unwrap_or_default();
-        apply_formatting(content, format)
-    }
-
-    /// Display formatted hayagriva text as content.
-    fn display_formatted(
-        &self,
-        formatted: &hayagriva::Formatted,
-        trim_start: bool,
-    ) -> Content {
-        let formatted_text = if trim_start {
-            formatted.text.trim_start()
-        } else {
-            formatted.text.as_str()
-        };
-
-        let content = TextElem::packed(formatted_text).spanned(self.span);
-        apply_formatting(content, &formatted.formatting)
-    }
+/// Displays rendered hayagriva elements.
+///
+/// The `prefix` can be a separate content storage where `left-margin`
+/// elements will be accumulated into.
+///
+/// `is_citation` dictates whether whitespace at the start of the citation
+/// will be eliminated. Some CSL styles yield whitespace at the start of
+/// their citations, which should instead be handled by Typst.
+fn show_elem_children(
+    ctx: &ShowCtx,
+    elems: &hayagriva::ElemChildren,
+    mut prefix: Option<&mut Option<Content>>,
+    is_citation: bool,
+) -> StrResult<Content> {
+    Ok(Content::sequence(
+        elems
+            .0
+            .iter()
+            .enumerate()
+            .map(|(i, elem)| {
+                show_elem_child(ctx, elem, prefix.as_deref_mut(), is_citation && i == 0)
+            })
+            .collect::<StrResult<Vec<_>>>()?,
+    ))
 }
 
-/// Applies formatting to content.
-fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+/// Displays a rendered hayagriva element.
+fn show_elem_child(
+    ctx: &ShowCtx,
+    elem: &hayagriva::ElemChild,
+    prefix: Option<&mut Option<Content>>,
+    trim_start: bool,
+) -> StrResult<Content> {
+    Ok(match elem {
+        hayagriva::ElemChild::Text(formatted) => {
+            show_formatted(ctx, formatted, trim_start)
+        }
+        hayagriva::ElemChild::Elem(elem) => show_elem(ctx, elem, prefix)?,
+        hayagriva::ElemChild::Markup(markup) => show_math(ctx, markup),
+        hayagriva::ElemChild::Link { text, url } => show_link(ctx, text, url)?,
+        hayagriva::ElemChild::Transparent { cite_idx, format } => {
+            show_transparent(ctx, *cite_idx, format)
+        }
+    })
+}
+
+/// Displays a block-level element.
+fn show_elem(
+    ctx: &ShowCtx,
+    elem: &hayagriva::Elem,
+    mut prefix: Option<&mut Option<Content>>,
+) -> StrResult<Content> {
+    use citationberg::Display;
+
+    let block_level = matches!(elem.display, Some(Display::Block | Display::Indent));
+
+    let mut content = show_elem_children(
+        ctx,
+        &elem.children,
+        if block_level { None } else { prefix.as_deref_mut() },
+        false,
+    )?;
+
+    match elem.display {
+        Some(Display::Block) => {
+            content = BlockElem::packed(content).spanned(ctx.span);
+        }
+        Some(Display::Indent) => {
+            content = CslIndentElem::new(content).pack().spanned(ctx.span);
+        }
+        Some(Display::LeftMargin) => {
+            // The `display="left-margin"` attribute is only supported at
+            // the top-level (when prefix is `Some(_)`). Within a
+            // block-level container, it is ignored. The CSL spec is not
+            // specific about this, but it is in line with citeproc.js's
+            // behaviour.
+            if let Some(prefix) = prefix {
+                *prefix.get_or_insert_with(Default::default) += content;
+                return Ok(Content::empty());
+            }
+        }
+        _ => {}
+    }
+
+    content = content.spanned(ctx.span);
+
+    if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
+        && let Some(location) = (ctx.link)(i)
+    {
+        let alt = content.plain_text();
+        content = DirectLinkElem::new(location, content, Some(alt)).pack();
+    }
+
+    Ok(content)
+}
+
+/// Displays math.
+fn show_math(ctx: &ShowCtx, math: &str) -> Content {
+    let library = ctx.world.library();
+    (library.routines.eval_string)(
+        ctx.world,
+        library,
+        // TODO: propagate warnings
+        Sink::new().track_mut(),
+        EmptyIntrospector.track(),
+        Context::none().track(),
+        math,
+        SpanMode::Uniform(ctx.span),
+        SyntaxMode::Math,
+        Scope::new(),
+    )
+    .map(Value::display)
+    .unwrap_or_else(|_| TextElem::packed(math).spanned(ctx.span))
+}
+
+/// Displays a link.
+fn show_link(
+    ctx: &ShowCtx,
+    text: &hayagriva::Formatted,
+    url: &str,
+) -> StrResult<Content> {
+    let dest = Destination::Url(Url::new(url)?);
+    Ok(LinkElem::new(dest.into(), show_formatted(ctx, text, false))
+        .pack()
+        .spanned(ctx.span))
+}
+
+/// Displays transparent pass-through content.
+fn show_transparent(ctx: &ShowCtx, i: usize, format: &hayagriva::Formatting) -> Content {
+    let content = (ctx.supplement)(i).unwrap_or_default();
+    show_with_formatting(content, format)
+}
+
+/// Displays formatted hayagriva text as content.
+fn show_formatted(
+    ctx: &ShowCtx,
+    formatted: &hayagriva::Formatted,
+    trim_start: bool,
+) -> Content {
+    let formatted_text =
+        if trim_start { formatted.text.trim_start() } else { formatted.text.as_str() };
+
+    let content = TextElem::packed(formatted_text).spanned(ctx.span);
+    show_with_formatting(content, &formatted.formatting)
+}
+
+/// Applies hayagriva formatting to content.
+fn show_with_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
@@ -1156,7 +1123,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     content
 }
 
-/// Create a locale code from language and optionally region.
+/// Creates a locale code from language and optionally region.
 fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     let mut value = String::with_capacity(5);
     value.push_str(lang.as_str());
@@ -1190,6 +1157,55 @@ pub struct CslLightElem {
 pub struct CslIndentElem {
     #[required]
     pub body: Content,
+}
+
+/// Retrieves all citation groups in the document.
+///
+/// This is separate from `QueryIntrospection` so that we can customize the
+/// diagnostic as the `CiteGroup` is internal. The default query message is also
+/// not that helpful in this case.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct CiteGroupIntrospection(Span);
+
+impl Introspect for CiteGroupIntrospection {
+    type Output = EcoVec<Content>;
+
+    fn introspect(
+        &self,
+        _: &mut Engine,
+        introspector: Tracked<dyn Introspector + '_>,
+    ) -> Self::Output {
+        introspector.query(&CiteGroup::ELEM.select())
+    }
+
+    fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
+        warning!(
+            self.0, "citation grouping did not stabilize";
+            hint: "this can happen if the citations and bibliographies in the \
+                   document did not stabilize by the end of the third layout iteration";
+        )
+    }
+}
+
+/// The diagnostic when a citation wasn't found in the pre-formatted list.
+fn failed_to_format_citation() -> HintedString {
+    error!(
+        "cannot format citation in isolation";
+        hint: "check whether this citation is measured \
+               without being inserted into the document";
+    )
+}
+
+/// The error message when a CSL style cannot be used for bibliographies.
+#[cold]
+fn style_unsuitable(source: &CslSource) -> EcoString {
+    match source {
+        CslSource::Named(style, _) => eco_format!(
+            "CSL style \"{}\" is not suitable for bibliographies",
+            style.display_name()
+        ),
+        CslSource::Normal(..) => "CSL style is not suitable for bibliographies".into(),
+    }
 }
 
 #[cfg(test)]

@@ -342,6 +342,13 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
+        ///
+        /// ```example
+        /// #let values = (1, 7, 4, 6, 9)
+        /// #values.position(x => calc.even(x)) \
+        /// // Or equivalently:
+        /// #values.position(calc.even)
+        /// ```
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
@@ -932,7 +939,9 @@ impl Array {
                     // Because we use booleans for the comparison function, in
                     // order to keep the sort stable, we need to compare in the
                     // right order.
-                    if i < j {
+                    if i == j {
+                        Ordering::Equal
+                    } else if i < j {
                         // If `x` and `y` appear in this order in the original
                         // array, then we should change their order (i.e.,
                         // return `Ordering::Greater`) iff `y` is strictly less

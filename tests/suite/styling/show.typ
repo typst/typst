@@ -261,6 +261,11 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 // Error: 7-41 this selector cannot be used with show
 #show heading.where(level: 1).or("more"): set text(red)
 
+--- show-selector-within eval ---
+// Error: 7-33 this selector cannot currently be used with show
+// Hint: 7-33 support for this is planned for the future
+#show selector(emph).within(par): set text(red)
+
 --- show-delayed-error paged ---
 // Error: 21-34 panicked with: hey1
 #show heading: _ => panic("hey1")
