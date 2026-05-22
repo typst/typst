@@ -282,6 +282,8 @@ fn resolve_text<'a, 'v, 'e>(
     // Create item with correct styles and properties.
     let local_styles = ctx.store_chain(styles).chain(&*TEXT_BASE_LOCAL_STYLES);
     let mut create_item = |text: &str| {
+        // We consider the text a number if it consists of digits and at most
+        // one dot.
         let mut decimal_count = 0;
         let num = text.chars().all(|c| {
             if c == '.' {
