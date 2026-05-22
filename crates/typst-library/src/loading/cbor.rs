@@ -82,8 +82,9 @@ pub fn cbor(
         .within(&loaded)
 }
 
-/// Format a user-facing error encountered while parsing a CBOR file ([`ciborium::de::Error`]'s
-/// [`Display`](std::fmt::Display) implementation just forwards to [`Debug`]).
+/// Format a user-facing error encountered while parsing a CBOR file
+/// ([`ciborium::de::Error`]'s [`Display`](std::fmt::Display) implementation
+/// just forwards to [`Debug`]).
 fn format_cbor_error(error: Error<std::io::Error>) -> LoadError {
     LoadError::binary(
         "failed to parse CBOR",

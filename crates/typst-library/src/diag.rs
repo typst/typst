@@ -710,16 +710,16 @@ pub type LoadResult<T> = Result<T, LoadError>;
 /// [`FileId`]: typst_syntax::FileId
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LoadError {
-    /// The position in the file at which the error occurred, or `None` for binary sources.
+    /// The position in the file at which the error occurred, or `None` for
+    /// binary sources.
     text_pos: Option<ReportTextPos>,
     /// Must contain a message formatted like this: `"failed to do thing (cause)"`.
     message: EcoString,
 }
 
 impl LoadError {
-    /// Creates a new error from a position in a text file, a base message
-    /// (e.g. `failed to parse JSON`) and a concrete error (e.g. `invalid
-    /// number`)
+    /// Creates a new error from a position in a text file, a base message (e.g.
+    /// `failed to parse JSON`) and a concrete error (e.g. `invalid number`)
     pub fn text(
         pos: impl Into<ReportTextPos>,
         message: impl std::fmt::Display,
@@ -731,9 +731,9 @@ impl LoadError {
         }
     }
 
-    /// Creates a new error from a base message (e.g. `failed to parse PDF`) and a concrete error
-    /// (e.g. `invalid number`). For use with binary sources, which do not have useful position
-    /// information.
+    /// Creates a new error from a base message (e.g. `failed to parse PDF`) and
+    /// a concrete error (e.g. `invalid number`). For use with binary sources,
+    /// which do not have useful position information.
     pub fn binary(
         message: impl std::fmt::Display,
         error: impl std::fmt::Display,
