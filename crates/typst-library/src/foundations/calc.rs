@@ -1153,9 +1153,7 @@ pub fn norm(
         bail!(p.span, "p must be greater than zero");
     }
 
-    // Create an iterator over the absolute values.
     let abs = values.iter().map(|v| f64::abs(*v));
-
     let max = abs.clone().max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0);
 
     Ok(if p.v.is_infinite() {
@@ -1166,8 +1164,9 @@ pub fn norm(
         // This is a special case to avoid division by zero in the trick below.
         0.0
     } else {
-        // Compute `max * (sum_i (x_i / max)^p)^(1 / p)` instead of raising `x_i^p` directly, to avoid overflowing.
-        // This is described further in https://timvieira.github.io/blog/numerically-stable-p-norms/
+        // Compute `max * (sum_i (x_i / max)^p)^(1 / p)` instead of raising
+        // `x_i^p` directly, to avoid overflowing. This is described further in
+        // <https://timvieira.github.io/blog/numerically-stable-p-norms/>.
         max * libm::pow(abs.map(|v| libm::pow(v / max, p.v)).sum::<f64>(), 1.0 / p.v)
     })
 }
