@@ -410,8 +410,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/images/base14-fonts.pdf")
 
 --- image-pdf-invalid-page paged ---
-// Error: 2-49 page 2 does not exist
-// Hint: 2-49 the document only has 1 page
+// Error: 8-39 failed to load PDF (page 2 does not exist in assets/images/matplotlib.pdf)
+// Hint: 8-39 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
 
 --- issue-6869-image-zero-sized paged ---
