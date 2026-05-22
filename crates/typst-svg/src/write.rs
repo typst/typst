@@ -204,7 +204,7 @@ impl SvgDisplay for f64 {
 /// Displays as an SVG transform. The exact representation is chosen based on
 /// the specific transform. Either `matrix`, `scale`, or `translate` is used.
 ///
-/// See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
+/// See <https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform>
 pub struct SvgTransform(pub Transform);
 
 impl SvgDisplay for SvgTransform {

@@ -1,4 +1,4 @@
-//! Layout of content into a [`Document`].
+//! Layout of content into a [`PagedDocument`].
 
 mod collect;
 mod finalize;
